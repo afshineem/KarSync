@@ -9,7 +9,8 @@ import {
   formatFullDateWithWeekday, 
   toDecimalHours, 
   fromDecimalHours, 
-  formatHoursAndMinutes 
+  formatHoursAndMinutes,
+  roundIQD
 } from '../utils/formatters';
 import { 
   X, 
@@ -67,13 +68,13 @@ export function EditRecordModal({ log, isOpen, onClose }) {
 
   if (type === 'hourly') {
     calculatedDailyWage = 0;
-    calculatedOvertimeWage = Math.round(decimalHours * hourlyRate);
+    calculatedOvertimeWage = roundIQD(decimalHours * hourlyRate);
   } else {
     const baseFactor = type === 'half' ? 0.5 : 1.0;
-    calculatedDailyWage = Math.round((worker?.dailyRate || 0) * baseFactor);
-    calculatedOvertimeWage = Math.round(decimalHours * (worker?.overtimeHourlyRate || 0));
+    calculatedDailyWage = roundIQD((worker?.dailyRate || 0) * baseFactor);
+    calculatedOvertimeWage = roundIQD(decimalHours * (worker?.overtimeHourlyRate || 0));
   }
-  const totalDayPay = calculatedDailyWage + calculatedOvertimeWage;
+  const totalDayPay = roundIQD(calculatedDailyWage + calculatedOvertimeWage);
 
   // Stepper handlers
   const handleHoursChange = (val) => {

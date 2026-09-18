@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { pushPaymentsLive, recordPendingPaymentDeletion } from '../services/realtimeSync';
-import { formatAmount } from '../utils/formatters';
+import { formatAmount, roundIQD } from '../utils/formatters';
 import { 
   Receipt, 
   X, 
@@ -38,15 +38,15 @@ export function PaymentHistoryModal({
   displayedPayments.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   // Calculate totals
-  const totalAdvances = displayedPayments
+  const totalAdvances = roundIQD(displayedPayments
     .filter((p) => p.type === 'advance')
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-  const totalSettlements = displayedPayments
+  const totalSettlements = roundIQD(displayedPayments
     .filter((p) => p.type === 'settlement')
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-  const totalAllPaid = totalAdvances + totalSettlements;
+  const totalAllPaid = roundIQD(totalAdvances + totalSettlements);
 
   const handleDelete = async (paymentId) => {
     if (window.confirm(t('paymentDeleteConfirm'))) {

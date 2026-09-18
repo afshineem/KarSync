@@ -12,7 +12,8 @@ import {
   getTodayDateString, 
   formatDateDisplay, 
   formatFullDateWithWeekday, 
-  formatHoursAndMinutes 
+  formatHoursAndMinutes,
+  roundIQD
 } from '../utils/formatters';
 import { exportAttendanceToExcel, triggerPrintReport } from './ExportEngine';
 import { 
@@ -130,7 +131,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
       if (totalWorkers > 0) {
         totalMonthDaysWorked += 1;
         totalMonthOt = Number((totalMonthOt + totalOvertime).toFixed(4));
-        totalMonthSalary += totalPay;
+        totalMonthSalary = roundIQD(totalMonthSalary + totalPay);
       }
 
       // Collect notes
@@ -284,9 +285,9 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
       entriesCount: filteredLogs.length,
       days,
       otHours,
-      basePay,
-      otPay,
-      totalPay
+      basePay: roundIQD(basePay),
+      otPay: roundIQD(otPay),
+      totalPay: roundIQD(totalPay)
     };
   }, [filteredLogs]);
 
@@ -326,6 +327,10 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
       const worker = workerMap[g.workerId] || { name: 'Unknown', role: '' };
       return {
         ...g,
+        fullDaysPay: roundIQD(g.fullDaysPay),
+        halfDaysPay: roundIQD(g.halfDaysPay),
+        overtimePay: roundIQD(g.overtimePay),
+        totalPay: roundIQD(g.totalPay),
         worker
       };
     });

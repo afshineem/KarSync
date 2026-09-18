@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db, generatePaymentId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { pushPaymentsLive } from '../services/realtimeSync';
-import { getTodayDateString, getCurrentYearMonth, formatAmount } from '../utils/formatters';
+import { getTodayDateString, getCurrentYearMonth, formatAmount, roundIQD } from '../utils/formatters';
 import { 
   Banknote, 
   X, 
@@ -51,7 +51,7 @@ export function AdvancePaymentModal({
     e.preventDefault();
     setFeedback({ type: '', message: '' });
 
-    const numAmount = Number(amount);
+    const numAmount = roundIQD(Number(amount));
     if (!workerId) {
       setFeedback({ type: 'error', message: t('pleaseSelectWorker') });
       return;
@@ -198,10 +198,15 @@ export function AdvancePaymentModal({
             <div className="relative">
               <input
                 type="number"
-                min="1000"
-                step="500"
+                min="250"
+                step="250"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                onBlur={() => {
+                  if (amount !== '') {
+                    setAmount(String(roundIQD(amount)));
+                  }
+                }}
                 placeholder="25000"
                 required
                 className="w-full px-3.5 py-2.5 text-sm font-black bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-600 dark:text-amber-400 font-mono pe-14"

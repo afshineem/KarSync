@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getAttendanceLogId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
-import { formatIQD, getTodayDateString, toDecimalHours, fromDecimalHours, formatHoursAndMinutes } from '../utils/formatters';
+import { formatIQD, getTodayDateString, toDecimalHours, fromDecimalHours, formatHoursAndMinutes, roundIQD } from '../utils/formatters';
 import { EditRecordModal } from './EditRecordModal';
 import { 
   Plus, 
@@ -142,17 +142,17 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
     if (cfg.type === 'hourly') {
       basePay = 0;
-      otPay = Math.round(otHours * hourlyRate);
+      otPay = roundIQD(otHours * hourlyRate);
     } else {
       const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
-      basePay = Math.round((worker.dailyRate || 0) * baseFactor);
-      otPay = Math.round(otHours * (worker.overtimeHourlyRate || 0));
+      basePay = roundIQD((worker.dailyRate || 0) * baseFactor);
+      otPay = roundIQD(otHours * (worker.overtimeHourlyRate || 0));
     }
 
     return {
       basePay,
       otPay,
-      total: basePay + otPay
+      total: roundIQD(basePay + otPay)
     };
   };
 
@@ -223,13 +223,13 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
           if (cfg.type === 'hourly') {
             calculatedDailyWage = 0;
-            calculatedOvertimeWage = Math.round(otHours * hourlyRate);
+            calculatedOvertimeWage = roundIQD(otHours * hourlyRate);
           } else {
             const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
-            calculatedDailyWage = Math.round(worker.dailyRate * baseFactor);
-            calculatedOvertimeWage = Math.round(otHours * (worker.overtimeHourlyRate || 0));
+            calculatedDailyWage = roundIQD(worker.dailyRate * baseFactor);
+            calculatedOvertimeWage = roundIQD(otHours * (worker.overtimeHourlyRate || 0));
           }
-          const totalDayPay = calculatedDailyWage + calculatedOvertimeWage;
+          const totalDayPay = roundIQD(calculatedDailyWage + calculatedOvertimeWage);
 
           // Deterministic unique ID per worker per date
           const canonicalId = getAttendanceLogId(workerId, selectedDate);

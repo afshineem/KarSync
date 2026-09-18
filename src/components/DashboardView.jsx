@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditRecordModal } from './EditRecordModal';
-import { formatIQD, formatAmount, formatNumber, getCurrentYearMonth, formatHoursAndMinutes } from '../utils/formatters';
+import { formatIQD, formatAmount, formatNumber, getCurrentYearMonth, formatHoursAndMinutes, roundIQD } from '../utils/formatters';
 import { 
   Users, 
   Calendar, 
@@ -87,7 +87,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       totalNormalDays,
       totalHalfDays,
       totalOvertimeHours,
-      totalPayroll
+      totalPayroll: roundIQD(totalPayroll)
     };
   }, [logs, activeWorkers]);
 
@@ -122,9 +122,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         fullDays,
         halfDays,
         otHours,
-        basePay,
-        otPay,
-        totalPay,
+        basePay: roundIQD(basePay),
+        otPay: roundIQD(otPay),
+        totalPay: roundIQD(totalPay),
         logsCount: workerLogs.length
       };
     });
@@ -136,12 +136,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     workers.forEach((w) => {
       const wLogs = allAllLogs.filter((l) => l.workerId === w.id);
       const wPayments = allPayments.filter((p) => p.workerId === w.id);
-      const totalAllTimeGross = wLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
-      const totalAllTimePaid = wPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      const grossUpToPeriod = wLogs
+      const totalAllTimeGross = roundIQD(wLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
+      const totalAllTimePaid = roundIQD(wPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+      const grossUpToPeriod = roundIQD(wLogs
         .filter((l) => l.date && l.date <= `${selectedMonth}-31`)
-        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
-      const netDebt = Math.max(0, totalAllTimeGross - totalAllTimePaid);
+        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
+      const netDebt = roundIQD(Math.max(0, totalAllTimeGross - totalAllTimePaid));
 
       let isSettled = false;
       if (totalAllTimeGross === 0 && totalAllTimePaid === 0) {
@@ -176,8 +176,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     });
 
     return {
-      totalMonthPaid,
-      totalWorkshopOutstanding,
+      totalMonthPaid: roundIQD(totalMonthPaid),
+      totalWorkshopOutstanding: roundIQD(totalWorkshopOutstanding),
       settledCount,
       totalWorkers: workers.length
     };

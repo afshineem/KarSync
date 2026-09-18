@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db, generatePaymentId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { pushPaymentsLive } from '../services/realtimeSync';
-import { getTodayDateString, getCurrentYearMonth, formatAmount } from '../utils/formatters';
+import { getTodayDateString, getCurrentYearMonth, formatAmount, roundIQD } from '../utils/formatters';
 import { 
   CheckCircle2, 
   X, 
@@ -32,35 +32,35 @@ export function SettlementModal({
   // Financial calculations for this worker: Prior months debt + Current month
   const calculations = useMemo(() => {
     // 1. Prior months (before this month)
-    const priorGross = workerLogs
+    const priorGross = roundIQD(workerLogs
       .filter((l) => l.date && l.date < month)
-      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
 
-    const priorPaid = workerPayments
+    const priorPaid = roundIQD(workerPayments
       .filter((p) => (p.month && p.month < month) || (!p.month && p.date && p.date < month))
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-    const priorBalance = priorGross - priorPaid; // > 0: workshop owes worker from past months
+    const priorBalance = roundIQD(Math.max(0, priorGross - priorPaid)); // > 0: workshop owes worker from past months
 
     // 2. Current selected month
-    const currentMonthGross = workerLogs
+    const currentMonthGross = roundIQD(workerLogs
       .filter((l) => l.date && l.date.startsWith(month))
-      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
 
-    const currentMonthAdvances = workerPayments
+    const currentMonthAdvances = roundIQD(workerPayments
       .filter((p) => (p.month === month || (!p.month && p.date && p.date.startsWith(month))) && p.type === 'advance')
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-    const currentMonthSettlements = workerPayments
+    const currentMonthSettlements = roundIQD(workerPayments
       .filter((p) => (p.month === month || (!p.month && p.date && p.date.startsWith(month))) && p.type === 'settlement')
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-    const currentMonthPaid = currentMonthAdvances + currentMonthSettlements;
+    const currentMonthPaid = roundIQD(currentMonthAdvances + currentMonthSettlements);
 
     // 3. All-time cumulative
-    const totalEarnings = priorGross + currentMonthGross;
-    const totalPaid = priorPaid + currentMonthPaid;
-    const totalCumulativeDebt = Math.max(0, totalEarnings - totalPaid);
+    const totalEarnings = roundIQD(priorGross + currentMonthGross);
+    const totalPaid = roundIQD(priorPaid + currentMonthPaid);
+    const totalCumulativeDebt = roundIQD(Math.max(0, totalEarnings - totalPaid));
 
     return {
       priorGross,
@@ -108,7 +108,7 @@ export function SettlementModal({
     e.preventDefault();
     setFeedback({ type: '', message: '' });
 
-    const payAmount = Number(finalPaymentAmount);
+    const payAmount = roundIQD(Number(finalPaymentAmount));
     if (isNaN(payAmount) || payAmount < 0) {
       setFeedback({ type: 'error', message: t('pleaseEnterValidAmount') });
       return;
@@ -116,7 +116,7 @@ export function SettlementModal({
 
     setIsSubmitting(true);
     try {
-      const remainingAfter = Math.max(0, calculations.totalCumulativeDebt - payAmount);
+      const remainingAfter = roundIQD(Math.max(0, calculations.totalCumulativeDebt - payAmount));
       const now = new Date();
       const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
@@ -275,9 +275,14 @@ export function SettlementModal({
                 <input
                   type="number"
                   min="0"
-                  step="500"
+                  step="250"
                   value={finalPaymentAmount}
                   onChange={(e) => setFinalPaymentAmount(e.target.value)}
+                  onBlur={() => {
+                    if (finalPaymentAmount !== '') {
+                      setFinalPaymentAmount(String(roundIQD(finalPaymentAmount)));
+                    }
+                  }}
                   required
                   className="w-full px-3 py-2 text-sm font-black bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-600 dark:text-emerald-400 font-mono pe-14"
                 />

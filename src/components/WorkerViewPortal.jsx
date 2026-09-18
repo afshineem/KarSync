@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { formatAmount, formatHoursAndMinutes, getCurrentYearMonth } from '../utils/formatters';
+import { formatAmount, formatHoursAndMinutes, getCurrentYearMonth, roundIQD } from '../utils/formatters';
 import { 
   User, 
   LogOut, 
@@ -95,27 +95,27 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       hourlyDays,
       effectiveDays,
       totalOtHours,
-      totalBasePay,
-      totalOtPay,
-      netSalary
+      totalBasePay: roundIQD(totalBasePay),
+      totalOtPay: roundIQD(totalOtPay),
+      netSalary: roundIQD(netSalary)
     };
   }, [monthlyLogs]);
 
   // Financial status & settlement calculation with cumulative prior debt
   const financialStatus = useMemo(() => {
     // 1. Prior months (before selectedMonth)
-    const priorGross = logs
+    const priorGross = roundIQD(logs
       .filter((l) => l.date && l.date < selectedMonth)
-      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
 
-    const priorPaid = payments
+    const priorPaid = roundIQD(payments
       .filter((p) => (p.month && p.month < selectedMonth) || (!p.month && p.date && p.date < selectedMonth))
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-    const priorBalance = priorGross - priorPaid;
+    const priorBalance = roundIQD(Math.max(0, priorGross - priorPaid));
 
     // 2. Current selected month
-    const grossEarned = totals.netSalary;
+    const grossEarned = roundIQD(totals.netSalary);
     let advances = 0;
     let settlements = 0;
     let isMarkedSettled = false;
@@ -129,19 +129,21 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       }
     }
 
-    const totalPaidThisMonth = advances + settlements;
+    const totalAdvances = roundIQD(advances);
+    const totalSettlements = roundIQD(settlements);
+    const totalPaidThisMonth = roundIQD(totalAdvances + totalSettlements);
 
     // 3. Cumulative totals
-    const totalAllTimeGross = priorGross + grossEarned;
-    const totalAllTimePaid = priorPaid + totalPaidThisMonth;
-    const totalCumulativeBalance = totalAllTimeGross - totalAllTimePaid;
+    const totalAllTimeGross = roundIQD(priorGross + grossEarned);
+    const totalAllTimePaid = roundIQD(priorPaid + totalPaidThisMonth);
+    const totalCumulativeBalance = roundIQD(Math.max(0, totalAllTimeGross - totalAllTimePaid));
 
     const isSettled = isMarkedSettled || (totalAllTimeGross > 0 && totalCumulativeBalance <= 0);
 
     return {
       grossEarned,
-      advances,
-      settlements,
+      advances: totalAdvances,
+      settlements: totalSettlements,
       totalPaid: totalPaidThisMonth,
       priorBalance,
       totalCumulativeBalance,

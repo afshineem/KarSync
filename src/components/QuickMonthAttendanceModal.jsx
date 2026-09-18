@@ -10,7 +10,8 @@ import {
   toDecimalHours, 
   fromDecimalHours, 
   formatHoursAndMinutes,
-  formatTileHours
+  formatTileHours,
+  roundIQD
 } from '../utils/formatters';
 import { 
   Calendar, 
@@ -268,22 +269,22 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       if (cfg.type === 'hourly') {
         hourlyDays += 1;
         totalHourlyHours += otHours;
-        otPay += Math.round(otHours * effectiveHourlyRate);
+        otPay += roundIQD(otHours * effectiveHourlyRate);
       } else if (cfg.type === 'half') {
         halfDays += 1;
         totalOt += otHours;
-        basePay += Math.round((worker?.dailyRate || 0) * 0.5);
-        otPay += Math.round(otHours * (worker?.overtimeHourlyRate || 0));
+        basePay += roundIQD((worker?.dailyRate || 0) * 0.5);
+        otPay += roundIQD(otHours * (worker?.overtimeHourlyRate || 0));
       } else {
         fullDays += 1;
         totalOt += otHours;
-        basePay += Math.round(worker?.dailyRate || 0);
-        otPay += Math.round(otHours * (worker?.overtimeHourlyRate || 0));
+        basePay += roundIQD(worker?.dailyRate || 0);
+        otPay += roundIQD(otHours * (worker?.overtimeHourlyRate || 0));
       }
     });
 
     const effectiveDays = fullDays + (halfDays * 0.5);
-    const grandTotal = basePay + otPay;
+    const grandTotal = roundIQD(basePay + otPay);
 
     return {
       activeCount: Object.keys(dayConfigs).length,
@@ -293,8 +294,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       effectiveDays: Number(effectiveDays.toFixed(1)),
       totalOt: Number(totalOt.toFixed(4)),
       totalHourlyHours: Number(totalHourlyHours.toFixed(4)),
-      basePay,
-      otPay,
+      basePay: roundIQD(basePay),
+      otPay: roundIQD(otPay),
       grandTotal
     };
   }, [dayConfigs, worker?.dailyRate, worker?.overtimeHourlyRate]);
@@ -330,13 +331,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
               ? worker.overtimeHourlyRate 
               : Math.round(worker.dailyRate / 8);
             calculatedDailyWage = 0;
-            calculatedOvertimeWage = Math.round(otHours * effectiveHourlyRate);
+            calculatedOvertimeWage = roundIQD(otHours * effectiveHourlyRate);
           } else {
             const factor = cfg.type === 'half' ? 0.5 : 1.0;
-            calculatedDailyWage = Math.round(worker.dailyRate * factor);
-            calculatedOvertimeWage = Math.round(otHours * (worker.overtimeHourlyRate || 0));
+            calculatedDailyWage = roundIQD(worker.dailyRate * factor);
+            calculatedOvertimeWage = roundIQD(otHours * (worker.overtimeHourlyRate || 0));
           }
-          const totalDayPay = calculatedDailyWage + calculatedOvertimeWage;
+          const totalDayPay = roundIQD(calculatedDailyWage + calculatedOvertimeWage);
 
           newLogs.push({
             id: getAttendanceLogId(worker.id, dateStr),

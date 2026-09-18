@@ -1,5 +1,19 @@
 /**
- * Format currency in Iraqi Dinars (IQD)
+ * Round Iraqi Dinars (IQD) to the nearest multiple of 250 (000, 250, 500, 750)
+ * As per Iraqi cash circulation denominations.
+ * e.g., 417,001 -> 417,000 | 417,198 -> 417,250 | 417,400 -> 417,500 | 417,650 -> 417,750
+ * @param {number|string} amount
+ * @returns {number}
+ */
+export function roundIQD(amount) {
+  if (amount === undefined || amount === null || isNaN(amount)) return 0;
+  const num = Number(amount);
+  const rounded = Math.round(num / 250) * 250;
+  return Object.is(rounded, -0) || rounded === 0 ? 0 : rounded;
+}
+
+/**
+ * Format currency in Iraqi Dinars (IQD) rounded to nearest 250 (000, 250, 500, 750)
  * @param {number} amount
  * @param {string} lang - 'ku' | 'fa' | 'en'
  * @returns {string}
@@ -8,7 +22,7 @@ export function formatIQD(amount, lang = 'ku') {
   if (amount === undefined || amount === null || isNaN(amount)) {
     amount = 0;
   }
-  const formattedNumber = Math.round(amount).toLocaleString('en-US');
+  const formattedNumber = roundIQD(amount).toLocaleString('en-US');
   
   if (lang === 'en') {
     return `${formattedNumber} IQD`;
@@ -28,11 +42,11 @@ export function formatNumber(num) {
 }
 
 /**
- * Clean currency amount formatter (rounded with comma separators, e.g. 45,000)
+ * Clean currency amount formatter (rounded to nearest 250 with comma separators, e.g. 417,250)
  */
 export function formatAmount(amount) {
   if (amount === undefined || amount === null || isNaN(amount)) return '0';
-  return Math.round(Number(amount)).toLocaleString('en-US');
+  return roundIQD(amount).toLocaleString('en-US');
 }
 
 /**

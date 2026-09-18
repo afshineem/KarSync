@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers } from '../db/db';
 import { getSyncConfig, saveSyncConfig, setLastSyncTime, getLastSyncTime } from './syncService';
+import { roundIQD } from '../utils/formatters';
 
 const SUPABASE_URL = 'https://akeferuiyijsmgmjqnqc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_mDz14UqQ3Qukv5RmWPlsVg_uxQg0XQk';
@@ -296,9 +297,9 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         date: l.date,
         type: l.type,
         overtimeHours: Number(l.overtime_hours) || 0,
-        calculatedDailyWage: Number(l.calculated_daily_wage) || 0,
-        calculatedOvertimeWage: Number(l.calculated_overtime_wage) || 0,
-        totalDayPay: Number(l.total_day_pay) || 0,
+        calculatedDailyWage: roundIQD(l.calculated_daily_wage),
+        calculatedOvertimeWage: roundIQD(l.calculated_overtime_wage),
+        totalDayPay: roundIQD(l.total_day_pay),
         notes: l.notes || '',
         createdAt: l.created_at,
         updatedAt: l.updated_at
@@ -441,9 +442,9 @@ function subscribeToRealtime() {
             date: l.date,
             type: l.type,
             overtimeHours: Number(l.overtime_hours) || 0,
-            calculatedDailyWage: Number(l.calculated_daily_wage) || 0,
-            calculatedOvertimeWage: Number(l.calculated_overtime_wage) || 0,
-            totalDayPay: Number(l.total_day_pay) || 0,
+            calculatedDailyWage: roundIQD(l.calculated_daily_wage),
+            calculatedOvertimeWage: roundIQD(l.calculated_overtime_wage),
+            totalDayPay: roundIQD(l.total_day_pay),
             notes: l.notes || '',
             createdAt: l.created_at,
             updatedAt: l.updated_at
@@ -490,9 +491,9 @@ export async function pushLogsLive(logs) {
     date: l.date,
     type: l.type || 'full',
     overtime_hours: Number(l.overtimeHours) || 0,
-    calculated_daily_wage: Number(l.calculatedDailyWage) || 0,
-    calculated_overtime_wage: Number(l.calculatedOvertimeWage) || 0,
-    total_day_pay: Number(l.totalDayPay) || 0,
+    calculated_daily_wage: roundIQD(l.calculatedDailyWage),
+    calculated_overtime_wage: roundIQD(l.calculatedOvertimeWage),
+    total_day_pay: roundIQD(l.totalDayPay),
     notes: l.notes || null,
     deleted_at: null,
     updated_at: new Date().toISOString()
@@ -603,7 +604,10 @@ export async function pushPaymentsLive() {
       mergedMap.set(lp.id, lp);
     }
 
-    const mergedList = Array.from(mergedMap.values());
+    const mergedList = Array.from(mergedMap.values()).map(p => ({
+      ...p,
+      amount: roundIQD(p.amount)
+    }));
 
     await supabase.from('settings').upsert({
       setting_key: 'app_payments',
@@ -659,7 +663,10 @@ export async function pullPaymentsLive() {
 
         await db.transaction('rw', db.payments, async () => {
           for (const p of validCloudPayments) {
-            await db.payments.put(p);
+            await db.payments.put({
+              ...p,
+              amount: roundIQD(p.amount)
+            });
           }
           // If cloud has a populated list, remove any local records that were deleted remotely
           if (validCloudPayments.length > 0) {

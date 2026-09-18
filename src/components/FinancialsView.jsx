@@ -6,7 +6,8 @@ import {
   formatAmount, 
   formatHoursAndMinutes, 
   getCurrentYearMonth, 
-  getTodayDateString 
+  getTodayDateString,
+  roundIQD
 } from '../utils/formatters';
 import { SettlementModal } from './SettlementModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
@@ -65,9 +66,9 @@ export function FinancialsView() {
       const allWorkerPayments = allPayments.filter((p) => p.workerId === w.id);
 
       // Total All-Time Gross & Paid across entire database history
-      const totalAllTimeGross = allWorkerLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
-      const totalAllTimePaid = allWorkerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      const netBalanceDue = Math.max(0, totalAllTimeGross - totalAllTimePaid);
+      const totalAllTimeGross = roundIQD(allWorkerLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
+      const totalAllTimePaid = roundIQD(allWorkerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+      const netBalanceDue = roundIQD(Math.max(0, totalAllTimeGross - totalAllTimePaid));
 
       // Determine period boundaries
       let currentLogs = [];
@@ -134,24 +135,25 @@ export function FinancialsView() {
       });
 
       const priorEffectiveDays = priorFullDays + priorHalfDays * 0.5;
-      const priorPaid = priorPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      const priorBalance = Math.max(0, priorGross - priorPaid);
+      const priorGrossRounded = roundIQD(priorGross);
+      const priorPaid = roundIQD(priorPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+      const priorBalance = roundIQD(Math.max(0, priorGrossRounded - priorPaid));
 
       // 3. Current Period Payments
-      const totalAdvances = currentPayments
+      const totalAdvances = roundIQD(currentPayments
         .filter((p) => p.type === 'advance')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-      const totalSettlements = currentPayments
+      const totalSettlements = roundIQD(currentPayments
         .filter((p) => p.type === 'settlement')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-      const totalPaidPeriod = totalAdvances + totalSettlements;
+      const totalPaidPeriod = roundIQD(totalAdvances + totalSettlements);
 
       // 4. Gross cumulative earnings up to this inspected period
-      const grossUpToPeriod = allWorkerLogs
+      const grossUpToPeriod = roundIQD(allWorkerLogs
         .filter((l) => l.date && l.date <= periodEndDate)
-        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
 
       // 5. FIFO Cumulative Settlement Status
       // If the worker's cumulative payments to date cover all gross wages earned up to this period,
@@ -178,12 +180,12 @@ export function FinancialsView() {
         hourlyDays,
         effectiveDays,
         otHours,
-        grossEarnings,
+        grossEarnings: roundIQD(grossEarnings),
         priorFullDays,
         priorHalfDays,
         priorEffectiveDays,
         priorOtHours,
-        priorGross,
+        priorGross: priorGrossRounded,
         priorBalance,
         totalAdvances,
         totalSettlements,
@@ -227,9 +229,9 @@ export function FinancialsView() {
     });
 
     return {
-      totalGross,
-      totalPaid,
-      totalOutstanding,
+      totalGross: roundIQD(totalGross),
+      totalPaid: roundIQD(totalPaid),
+      totalOutstanding: roundIQD(totalOutstanding),
       settledCount,
       relevantWorkersCount: relevantWorkersCount || workers.filter((w) => w.isActive === 1).length
     };
