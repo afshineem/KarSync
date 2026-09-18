@@ -7,16 +7,18 @@ export async function exportDatabaseToJSON() {
   const workers = await db.workers.toArray();
   const attendanceLogs = await db.attendanceLogs.toArray();
   const settings = await db.settings.toArray();
+  const payments = await db.payments.toArray();
 
   const backupData = {
-    version: 1,
+    version: 2,
     appName: 'Workshop Attendance & Payroll PWA',
     exportedAt: new Date().toISOString(),
     currency: 'IQD',
     data: {
       workers,
       attendanceLogs,
-      settings
+      settings,
+      payments
     }
   };
 
@@ -52,30 +54,34 @@ export async function importDatabaseFromJSON(jsonText, mode = 'replace') {
     throw new Error('Invalid backup schema / داتای یەدەگ نادروستە / ساختار فایل پشتیبان صحیح نیست');
   }
 
-  const { workers, attendanceLogs = [], settings = [] } = parsed.data;
+  const { workers, attendanceLogs = [], settings = [], payments = [] } = parsed.data;
 
   if (mode === 'replace') {
-    await db.transaction('rw', db.workers, db.attendanceLogs, db.settings, async () => {
+    await db.transaction('rw', db.workers, db.attendanceLogs, db.settings, db.payments, async () => {
       await db.workers.clear();
       await db.attendanceLogs.clear();
       await db.settings.clear();
+      await db.payments.clear();
 
       if (workers.length > 0) await db.workers.bulkPut(workers);
       if (attendanceLogs.length > 0) await db.attendanceLogs.bulkPut(attendanceLogs);
       if (settings.length > 0) await db.settings.bulkPut(settings);
+      if (payments.length > 0) await db.payments.bulkPut(payments);
     });
   } else {
     // Merge mode
-    await db.transaction('rw', db.workers, db.attendanceLogs, db.settings, async () => {
+    await db.transaction('rw', db.workers, db.attendanceLogs, db.settings, db.payments, async () => {
       if (workers.length > 0) await db.workers.bulkPut(workers);
       if (attendanceLogs.length > 0) await db.attendanceLogs.bulkPut(attendanceLogs);
       if (settings.length > 0) await db.settings.bulkPut(settings);
+      if (payments.length > 0) await db.payments.bulkPut(payments);
     });
   }
 
   return {
     workersCount: workers.length,
-    logsCount: attendanceLogs.length
+    logsCount: attendanceLogs.length,
+    paymentsCount: payments.length
   };
 }
 

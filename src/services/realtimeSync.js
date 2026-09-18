@@ -174,6 +174,7 @@ export async function autoInitialSync() {
 
   // Case B: Reconcile Cloud data into local IndexedDB
   await reconcileCloudIntoLocal(cloudWorkers, cloudLogs);
+  await pullPaymentsLive();
 }
 
 /**
@@ -511,11 +512,57 @@ export async function deleteWorkerLive(workerId) {
 }
 
 /**
+ * Push all local payments to Supabase settings
+ */
+export async function pushPaymentsLive() {
+  if (!navigator.onLine) return;
+  try {
+    const allPayments = await db.payments.toArray();
+    await supabase.from('settings').upsert({
+      setting_key: 'app_payments',
+      setting_value: JSON.stringify(allPayments),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('Could not push payments to Supabase:', err);
+  }
+}
+
+/**
+ * Pull cloud payments from Supabase settings
+ */
+export async function pullPaymentsLive() {
+  if (!navigator.onLine) return;
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_payments')
+      .maybeSingle();
+
+    if (!error && data && data.setting_value) {
+      const cloudPayments = JSON.parse(data.setting_value);
+      if (Array.isArray(cloudPayments) && cloudPayments.length > 0) {
+        await db.transaction('rw', db.payments, async () => {
+          for (const p of cloudPayments) {
+            await db.payments.put(p);
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Could not pull payments from Supabase:', err);
+  }
+}
+
+/**
  * Full two-way sync:
  * Always flush pending local deletions FIRST, pull remote cloud changes SECOND, and push active local changes THIRD.
  */
 export async function fullSyncBothDirections() {
   await flushPendingDeletions();
   await pullRemoteChangesSilently();
+  await pullPaymentsLive();
   await pushAllLocalToCloud();
+  await pushPaymentsLive();
 }

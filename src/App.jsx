@@ -6,6 +6,7 @@ import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { WorkersView } from './components/WorkersView';
 import { CalendarReportsView } from './components/CalendarReportsView';
+import { FinancialsView } from './components/FinancialsView';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
 import { SettingsModal } from './components/SettingsModal';
@@ -104,6 +105,10 @@ function AppContent() {
           <CalendarReportsView
             onOpenLoggingModal={handleOpenLoggingModal}
           />
+        )}
+
+        {activeTab === 'financials' && (
+          <FinancialsView />
         )}
       </main>
 

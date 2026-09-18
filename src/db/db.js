@@ -9,9 +9,18 @@ db.version(1).stores({
   settings: 'key'
 });
 
+db.version(2).stores({
+  payments: 'id, workerId, date, month, type, status, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+}
+
+// Helper to generate Payment / Settlement IDs
+export function generatePaymentId() {
+  return 'pay_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Canonical deterministic ID for attendance logs to prevent duplicate entries per worker per day

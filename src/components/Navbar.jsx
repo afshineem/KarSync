@@ -6,7 +6,8 @@ import {
   Users, 
   CalendarDays,
   Settings,
-  LogOut
+  LogOut,
+  WalletCards
 } from 'lucide-react';
 
 export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
@@ -17,6 +18,7 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
     { id: 'workers', label: t('workers'), icon: Users },
     { id: 'calendar', label: t('calendarLogs'), icon: CalendarDays },
+    { id: 'financials', label: t('financialsTab'), icon: WalletCards },
   ];
 
   return (

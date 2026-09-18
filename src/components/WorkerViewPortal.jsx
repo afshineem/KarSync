@@ -19,7 +19,13 @@ import {
   FileText,
   ShieldCheck,
   CheckCircle2,
-  Building2
+  AlertCircle,
+  Building2,
+  WalletCards,
+  Banknote,
+  Receipt,
+  ArrowDownLeft,
+  ArrowUpRight
 } from 'lucide-react';
 
 export function WorkerViewPortal({ theme, toggleTheme }) {
@@ -40,12 +46,25 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     [user?.workerId]
   ) || [];
 
+  // Query only this worker's payments (advances and settlements)
+  const payments = useLiveQuery(
+    () => (user?.workerId ? db.payments.where('workerId').equals(user.workerId).toArray() : []),
+    [user?.workerId]
+  ) || [];
+
   // Filter logs by selected month
   const monthlyLogs = useMemo(() => {
     return logs
       .filter((l) => l.date && l.date.startsWith(selectedMonth))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [logs, selectedMonth]);
+
+  // Filter payments by selected month
+  const monthlyPayments = useMemo(() => {
+    return payments
+      .filter((p) => p.month === selectedMonth || (p.date && p.date.startsWith(selectedMonth)))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [payments, selectedMonth]);
 
   // Compute monthly totals for this worker
   const totals = useMemo(() => {
@@ -81,6 +100,36 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       netSalary
     };
   }, [monthlyLogs]);
+
+  // Financial status & settlement calculation
+  const financialStatus = useMemo(() => {
+    const grossEarned = totals.netSalary;
+    let advances = 0;
+    let settlements = 0;
+    let isMarkedSettled = false;
+
+    for (const p of monthlyPayments) {
+      const amt = Number(p.amount) || 0;
+      if (p.type === 'advance') advances += amt;
+      else if (p.type === 'settlement') {
+        settlements += amt;
+        if (p.status === 'settled') isMarkedSettled = true;
+      }
+    }
+
+    const totalPaid = advances + settlements;
+    const balance = grossEarned - totalPaid; // > 0: workshop owes worker, < 0: worker owes workshop, 0: exact
+    const isSettled = isMarkedSettled || (grossEarned > 0 && balance === 0);
+
+    return {
+      grossEarned,
+      advances,
+      settlements,
+      totalPaid,
+      balance,
+      isSettled
+    };
+  }, [totals.netSalary, monthlyPayments]);
 
   // Month navigation helpers
   const handleShiftMonth = (delta) => {
@@ -220,11 +269,91 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
         </div>
 
-        {/* 3 Monthly Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* 1. Settlement Status Banner (Dedicated Requirement #5) */}
+        <div className={`p-5 rounded-3xl border transition-all ${
+          financialStatus.isSettled
+            ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800'
+            : financialStatus.balance > 0
+            ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+            : financialStatus.balance < 0
+            ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800'
+            : 'bg-slate-100/80 dark:bg-slate-900 border-slate-300 dark:border-slate-800'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className={`p-3 rounded-2xl shrink-0 ${
+                financialStatus.isSettled
+                  ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                  : financialStatus.balance > 0
+                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                  : financialStatus.balance < 0
+                  ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
+                  : 'bg-slate-500 text-white'
+              }`}>
+                {financialStatus.isSettled ? (
+                  <CheckCircle2 className="w-6 h-6" />
+                ) : (
+                  <AlertCircle className="w-6 h-6" />
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                    {t('settlementStatus')}:{' '}
+                    <span className={
+                      financialStatus.isSettled 
+                        ? 'text-emerald-600 dark:text-emerald-400' 
+                        : financialStatus.balance > 0 
+                        ? 'text-amber-600 dark:text-amber-400' 
+                        : 'text-rose-600 dark:text-rose-400'
+                    }>
+                      {financialStatus.isSettled ? t('workerSettledStatus') : t('workerPendingStatus')}
+                    </span>
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                  {financialStatus.isSettled
+                    ? (language === 'ku' ? 'سەرجەم حەقدەست و مافە داراییەکانی ئەم مانگە بە تەواوی تەسویە کراوە.' : 'تمام حقوق و مطالبات مالی مربوط به این ماه به صورت کامل تسویه شده است.')
+                    : financialStatus.balance > 0
+                    ? (language === 'ku' ? 'هێشتا بڕە پارەیەک وەک مافی شایستەی ئەم مانگە ماوە و تەسویەی کۆتایی ئەنجام نەدراوە.' : 'مطالبات این ماه هنوز به صورت نهایی تسویه نشده و دارای مانده پرداخت است.')
+                    : (language === 'ku' ? 'بڕی پێشەکییە وەرگیراوەکان لە کارکردی ئەم مانگە زیاترە.' : 'مجموع پیش‌پرداخت‌های دریافتی از کل کارکرد این ماه بیشتر است.')
+                  }
+                </p>
+              </div>
+            </div>
+
+            {/* Transparent Balance Display */}
+            <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs text-start sm:text-end">
+              <span className="text-[11px] font-bold text-slate-400 block">
+                {t('remainingBalanceIQD')}
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5 justify-start sm:justify-end">
+                <span className={`text-xl sm:text-2xl font-black font-mono ${
+                  financialStatus.balance === 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : financialStatus.balance > 0
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                }`}>
+                  {formatAmount(Math.abs(financialStatus.balance))}
+                </span>
+                <span className="text-xs text-slate-500 font-bold">
+                  {financialStatus.balance === 0 
+                    ? 'دینار (تسویه)' 
+                    : financialStatus.balance > 0 
+                    ? 'دینار (طلب شما)' 
+                    : 'دینار (بدهکار)'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 4 Financial & Work Metric Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           
           {/* Card 1: Worked Days */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-400">{t('totalMonthWorkedDays')}</span>
               <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
@@ -232,49 +361,131 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               </div>
             </div>
             <div className="mt-3">
-              <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
                 {totals.effectiveDays}
               </span>
-              <span className="text-xs text-slate-400 ms-1 font-bold">
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">
                 ({totals.fullDays} {t('fullDayWork')}{totals.halfDays > 0 ? ` • ${totals.halfDays} ${t('halfDayWork')}` : ''})
               </span>
             </div>
           </div>
 
-          {/* Card 2: Overtime Hours */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          {/* Card 2: Total Gross Earnings */}
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400">{t('totalMonthOvertime')}</span>
-              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
-                <Clock className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                {formatHoursAndMinutes(totals.totalOtHours)}
-              </span>
-            </div>
-          </div>
-
-          {/* Card 3: Net Salary */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-sky-200 dark:border-sky-900/60 shadow-sm flex flex-col justify-between bg-gradient-to-br from-sky-500/5 to-transparent">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-sky-700 dark:text-sky-300">{t('netPayIQD')}</span>
+              <span className="text-xs font-bold text-slate-400">{t('totalCalculatedPayroll')}</span>
               <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
                 <Coins className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
-              <span className="text-2xl sm:text-3xl font-black text-sky-600 dark:text-sky-400">
+              <span className="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono">
                 {formatAmount(totals.netSalary)}
               </span>
-              <span className="text-xs text-slate-400 ms-1.5 font-bold">دینار</span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">دینار</span>
+            </div>
+          </div>
+
+          {/* Card 3: Total Advances & Payments Received */}
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400">{t('totalPaidAdvances')}</span>
+              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+                <Banknote className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">
+                {formatAmount(financialStatus.totalPaid)}
+              </span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">دینار</span>
+            </div>
+          </div>
+
+          {/* Card 4: Net Balance Due */}
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400">{t('netBalanceDue')}</span>
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                <WalletCards className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className={`text-xl sm:text-2xl font-black font-mono ${
+                financialStatus.balance <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'
+              }`}>
+                {formatAmount(Math.max(0, financialStatus.balance))}
+              </span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">دینار</span>
             </div>
           </div>
 
         </div>
 
-        {/* Detailed Timesheet Table */}
+        {/* 2. Personal Payment History & Advances Ledger (Requirement #5) */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-sky-500" />
+              <span>{t('paymentHistory')} ({selectedMonth})</span>
+            </h3>
+            <span className="text-[11px] text-slate-400 font-bold">
+              {monthlyPayments.length} {language === 'ku' ? 'پارەدان' : 'تراکنش دریافتی'}
+            </span>
+          </div>
+
+          {monthlyPayments.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              {t('noPaymentsRecorded')}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-start text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <th className="py-3 px-4 text-start font-bold">#</th>
+                    <th className="py-3 px-4 text-start font-bold">{t('paymentDate')}</th>
+                    <th className="py-3 px-4 text-center font-bold">{t('status')}</th>
+                    <th className="py-3 px-4 text-end font-bold">{t('paymentAmount')}</th>
+                    <th className="py-3 px-4 text-start font-bold">{t('referenceNumber')}</th>
+                    <th className="py-3 px-4 text-start font-bold">{t('notesLabel')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {monthlyPayments.map((p, idx) => (
+                    <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-4 font-mono text-slate-400">{idx + 1}</td>
+                      <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200 font-mono whitespace-nowrap">
+                        {p.date}
+                      </td>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                          p.type === 'settlement'
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                        }`}>
+                          {p.type === 'settlement' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                          {p.type === 'settlement' ? t('settlementType') : t('advanceType')}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-end font-black font-mono text-slate-900 dark:text-white whitespace-nowrap">
+                        {formatAmount(p.amount)} <span className="text-[10px] text-slate-400 font-normal">دینار</span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-mono">
+                        {p.referenceNumber || '—'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">
+                        {p.notes || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* 3. Detailed Attendance Timesheet Table */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -375,6 +586,18 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             </div>
           )}
 
+        </div>
+
+        {/* Dual Signature Blocks (Printed Payslip) */}
+        <div className="hidden print:flex justify-around items-end pt-16 pb-6 mt-8 border-t border-slate-300 text-xs font-bold text-slate-800">
+          <div className="text-center">
+            <p className="mb-14">{t('receiptWorkerSign')}</p>
+            <div className="w-44 border-b border-slate-600"></div>
+          </div>
+          <div className="text-center">
+            <p className="mb-14">{t('receiptManagerSign')}</p>
+            <div className="w-44 border-b border-slate-600"></div>
+          </div>
         </div>
 
       </main>
