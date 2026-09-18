@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers } from '../db/db';
-import { getSyncConfig, saveSyncConfig, setLastSyncTime } from './syncService';
+import { getSyncConfig, saveSyncConfig, setLastSyncTime, getLastSyncTime } from './syncService';
 
 const SUPABASE_URL = 'https://akeferuiyijsmgmjqnqc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_mDz14UqQ3Qukv5RmWPlsVg_uxQg0XQk';

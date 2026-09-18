@@ -1,9 +1,9 @@
-const CACHE_NAME = 'workshop-attendance-v1';
+const CACHE_NAME = 'karsync-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon.svg'
+  '/karsync-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -31,6 +31,16 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // CRITICAL: Ignore non-GET requests and unsupported schemes (e.g. chrome-extension://, moz-extension://)
+  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
+    return;
+  }
+
+  // Never cache Supabase cloud API or WebSocket connections
+  if (event.request.url.includes('supabase.co')) {
+    return;
+  }
+
   // Navigation preload or cache first with network fallback
   if (event.request.mode === 'navigate') {
     event.respondWith(
@@ -54,7 +64,9 @@ self.addEventListener('fetch', (event) => {
         }
         const responseToCache = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+          if (event.request.url.startsWith('http')) {
+            cache.put(event.request, responseToCache).catch(() => {});
+          }
         });
         return networkResponse;
       }).catch(() => {
@@ -64,3 +76,4 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
