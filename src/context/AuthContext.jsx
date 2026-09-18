@@ -96,14 +96,17 @@ export function AuthProvider({ children }) {
 
     // Push to Supabase settings for multi-device sync
     if (navigator.onLine) {
-      supabase
-        .from('settings')
-        .upsert({
-          setting_key: 'app_worker_credentials',
-          setting_value: serialized,
-          updated_at: new Date().toISOString()
-        })
-        .catch((err) => console.warn('Worker creds cloud save warning:', err));
+      try {
+        await supabase
+          .from('settings')
+          .upsert({
+            setting_key: 'app_worker_credentials',
+            setting_value: serialized,
+            updated_at: new Date().toISOString()
+          });
+      } catch (err) {
+        console.warn('Worker creds cloud save warning:', err);
+      }
     }
   };
 
@@ -185,11 +188,15 @@ export function AuthProvider({ children }) {
 
     // Push to Supabase settings for cross-device admin sync
     if (navigator.onLine) {
-      await supabase.from('settings').upsert({
-        setting_key: 'app_admin_credentials',
-        setting_value: serialized,
-        updated_at: new Date().toISOString()
-      });
+      try {
+        await supabase.from('settings').upsert({
+          setting_key: 'app_admin_credentials',
+          setting_value: serialized,
+          updated_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn('Admin creds cloud save warning:', err);
+      }
     }
 
     return { success: true };

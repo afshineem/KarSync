@@ -269,7 +269,9 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
   });
 
   if (duplicateIdsToDeleteFromCloud.length > 0) {
-    supabase.from('attendance_logs').delete().in('id', duplicateIdsToDeleteFromCloud).catch(() => {});
+    try {
+      await supabase.from('attendance_logs').delete().in('id', duplicateIdsToDeleteFromCloud);
+    } catch (_) {}
   }
 
   const now = new Date().toISOString();
