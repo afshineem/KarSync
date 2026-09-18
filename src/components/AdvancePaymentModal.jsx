@@ -53,28 +53,32 @@ export function AdvancePaymentModal({
 
     const numAmount = Number(amount);
     if (!workerId) {
-      setFeedback({ type: 'error', message: 'لطفاً کارگر را انتخاب کنید / تکایە کرێکار دیاری بکە' });
+      setFeedback({ type: 'error', message: t('pleaseSelectWorker') });
       return;
     }
     if (isNaN(numAmount) || numAmount <= 0) {
-      setFeedback({ type: 'error', message: 'لطفاً مبلغ معتبری وارد نمایید / بڕی دروست بنووسە' });
+      setFeedback({ type: 'error', message: t('pleaseEnterValidAmount') });
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const now = new Date();
+      const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
       const newPayment = {
         id: generatePaymentId(),
         workerId,
         month,
         date,
+        time: currentTime,
         type: 'advance',
         amount: numAmount,
         referenceNumber: referenceNumber.trim() || null,
         notes: notes.trim() || null,
         status: 'partial',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString()
       };
 
       await db.payments.add(newPayment);
@@ -203,12 +207,12 @@ export function AdvancePaymentModal({
                 className="w-full px-3.5 py-2.5 text-sm font-black bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-600 dark:text-amber-400 font-mono pe-14"
               />
               <span className="absolute inset-y-0 end-0 pe-3 flex items-center text-xs font-bold text-slate-400">
-                دینار
+                {t('currencySymbol')}
               </span>
             </div>
             {Number(amount) > 0 && (
               <p className="mt-1 text-[11px] text-slate-400 font-mono">
-                {formatAmount(Number(amount))} دینار عێراقی
+                {formatAmount(Number(amount))} {t('currencyName')}
               </p>
             )}
           </div>

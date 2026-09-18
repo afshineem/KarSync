@@ -18,7 +18,8 @@ import {
   Lock,
   Eye,
   EyeOff,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from 'lucide-react';
 
 export function SettingsModal({ 
@@ -29,7 +30,7 @@ export function SettingsModal({
   onOpenBackupModal
 }) {
   const { language, changeLanguage, t, direction } = useLanguage();
-  const { changeAdminPassword } = useAuth();
+  const { changeAdminPassword, logout } = useAuth();
   const [isSyncingLive, setIsSyncingLive] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState('');
 
@@ -394,7 +395,24 @@ export function SettingsModal({
             </button>
           </div>
 
-          {/* Section 5: Modal Footer - Owner Copyright & Social Links (Scrolls naturally) */}
+          {/* Section 5: Logout Account */}
+          <div className="p-3 bg-red-50/50 dark:bg-red-950/20 rounded-2xl border border-red-100 dark:border-red-900/40">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(t('logoutConfirm'))) {
+                  onClose();
+                  logout();
+                }
+              }}
+              className="w-full py-2.5 px-3 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>{t('logoutAccount')}</span>
+            </button>
+          </div>
+
+          {/* Section 6: Modal Footer - Owner Copyright & Social Links (Scrolls naturally) */}
           <div className="pt-5 mt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center text-center">
             
             {/* Creator & Ownership Badge */}

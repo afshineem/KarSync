@@ -334,15 +334,17 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
                   {financialStatus.isSettled
-                    ? (language === 'ku' ? 'سەرجەم حەقدەست و مافە داراییەکانی ئەم مانگە بە تەواوی تەسویە کراوە.' : 'تمام حقوق و مطالبات مالی مربوط به این ماه به صورت کامل تسویه شده است.')
+                    ? (language === 'en' ? 'All wages and financial entitlements for this period have been fully settled.' : language === 'ku' ? 'سەرجەم حەقدەست و مافە داراییەکانی ئەم مانگە بە تەواوی تەسویە کراوە.' : 'تمام حقوق و مطالبات مالی مربوط به این ماه به صورت کامل تسویه شده است.')
                     : financialStatus.balance > 0
                     ? (financialStatus.priorBalance > 0
-                        ? (language === 'ku'
+                        ? (language === 'en'
+                            ? `Total balance due: ${formatAmount(financialStatus.priorBalance)} IQD prior arrears + ${formatAmount(financialStatus.grossEarned)} IQD this month.`
+                            : language === 'ku'
                             ? `کۆی گشتی ماوە: ${formatAmount(financialStatus.priorBalance)} دینار قەرزی مانگەکانی پێشوو + ${formatAmount(financialStatus.grossEarned)} دینار کارکردی ئەم مانگە.`
                             : `مجموع کل طلب شما: ${formatAmount(financialStatus.priorBalance)} دینار معوقه از ماه‌های گذشته + ${formatAmount(financialStatus.grossEarned)} دینار کارکرد این ماه.`)
-                        : (language === 'ku' ? 'هێشتا بڕە پارەیەک وەک مافی شایستەی ئەم مانگە ماوە و تەسویەی کۆتایی ئەنجام نەدراوە.' : 'مطالبات این ماه هنوز به صورت نهایی تسویه نشده و دارای مانده پرداخت است.')
+                        : (language === 'en' ? 'Entitlements for this period are pending settlement.' : language === 'ku' ? 'هێشتا بڕە پارەیەک وەک مافی شایستەی ئەم مانگە ماوە و تەسویەی کۆتایی ئەنجام نەدراوە.' : 'مطالبات این ماه هنوز به صورت نهایی تسویه نشده و دارای مانده پرداخت است.')
                       )
-                    : (language === 'ku' ? 'بڕی پێشەکییە وەرگیراوەکان لە کارکردی ئەم مانگە زیاترە.' : 'مجموع پیش‌پرداخت‌های دریافتی از کل کارکرد این ماه بیشتر است.')
+                    : (language === 'en' ? 'Total advances received exceed earnings for this period.' : language === 'ku' ? 'بڕی پێشەکییە وەرگیراوەکان لە کارکردی ئەم مانگە زیاترە.' : 'مجموع پیش‌پرداخت‌های دریافتی از کل کارکرد این ماه بیشتر است.')
                   }
                 </p>
               </div>
@@ -365,10 +367,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 </span>
                 <span className="text-xs text-slate-500 font-bold">
                   {financialStatus.balance === 0 
-                    ? 'دینار (تسویه)' 
+                    ? (language === 'en' ? 'IQD (Settled)' : language === 'ku' ? 'د.ع (تەسویە)' : 'دینار (تسویه)') 
                     : financialStatus.balance > 0 
-                    ? 'دینار (طلب شما)' 
-                    : 'دینار (بدهکار)'}
+                    ? (language === 'en' ? 'IQD (Your Credit)' : language === 'ku' ? 'د.ع (شایستەی تۆ)' : 'دینار (طلب شما)') 
+                    : (language === 'en' ? 'IQD (Owed)' : language === 'ku' ? 'د.ع (قەرز)' : 'دینار (بدهکار)')}
                 </span>
               </div>
             </div>
@@ -408,7 +410,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <span className="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono">
                 {formatAmount(totals.netSalary)}
               </span>
-              <span className="text-[11px] text-slate-400 ms-1 font-bold">دینار</span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
             </div>
           </div>
 
@@ -424,7 +426,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <span className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">
                 {formatAmount(financialStatus.totalPaid)}
               </span>
-              <span className="text-[11px] text-slate-400 ms-1 font-bold">دینار</span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
             </div>
           </div>
 
@@ -442,7 +444,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               }`}>
                 {formatAmount(Math.max(0, financialStatus.balance))}
               </span>
-              <span className="text-[11px] text-slate-400 ms-1 font-bold">دینار</span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
             </div>
           </div>
 
@@ -453,58 +455,66 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
               <Receipt className="w-4 h-4 text-sky-500" />
-              <span>{t('paymentHistory')} ({selectedMonth})</span>
+              <span>{t('myPaymentsLedger')}</span>
             </h3>
-            <span className="text-[11px] text-slate-400 font-bold">
-              {monthlyPayments.length} {language === 'ku' ? 'پارەدان' : 'تراکنش دریافتی'}
+            <span className="text-xs text-slate-400">
+              {displayedPayments.length} {t('paymentRecordsCount')}
             </span>
           </div>
 
-          {monthlyPayments.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs">
+          {displayedPayments.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs">
               {t('noPaymentsRecorded')}
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-start text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
-                    <th className="py-3 px-4 text-start font-bold">#</th>
-                    <th className="py-3 px-4 text-start font-bold">{t('paymentDate')}</th>
-                    <th className="py-3 px-4 text-center font-bold">{t('status')}</th>
-                    <th className="py-3 px-4 text-end font-bold">{t('paymentAmount')}</th>
-                    <th className="py-3 px-4 text-start font-bold">{t('referenceNumber')}</th>
-                    <th className="py-3 px-4 text-start font-bold">{t('notesLabel')}</th>
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-3 px-4 text-start">{t('dateTimeColumn')}</th>
+                    <th className="py-3 px-4 text-center">{t('typeColumn')}</th>
+                    <th className="py-3 px-4 text-end">{t('paymentAmount')}</th>
+                    <th className="py-3 px-4 text-start">{t('referenceNumber')}</th>
+                    <th className="py-3 px-4 text-start">{t('notesColumn')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {monthlyPayments.map((p, idx) => (
-                    <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4 font-mono text-slate-400">{idx + 1}</td>
-                      <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200 font-mono whitespace-nowrap">
-                        {p.date}
-                      </td>
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                          p.type === 'settlement'
-                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-                        }`}>
-                          {p.type === 'settlement' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                          {p.type === 'settlement' ? t('settlementType') : t('advanceType')}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-end font-black font-mono text-slate-900 dark:text-white whitespace-nowrap">
-                        {formatAmount(p.amount)} <span className="text-[10px] text-slate-400 font-normal">دینار</span>
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-mono">
-                        {p.referenceNumber || '—'}
-                      </td>
-                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">
-                        {p.notes || '—'}
-                      </td>
-                    </tr>
-                  ))}
+                  {displayedPayments.map((p) => {
+                    const paymentTime = p.time || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                            <span>{p.date}</span>
+                            {paymentTime && (
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                                {paymentTime}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                            p.type === 'settlement'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                          }`}>
+                            {p.type === 'settlement' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            {p.type === 'settlement' ? t('settlementType') : t('advanceType')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-end font-black font-mono text-slate-900 dark:text-white whitespace-nowrap">
+                          {formatAmount(p.amount)} <span className="text-[10px] text-slate-400 font-normal">{t('currencySymbol')}</span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-mono">
+                          {p.referenceNumber || '—'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">
+                          {p.notes || '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

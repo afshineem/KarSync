@@ -22,7 +22,8 @@ import {
   XCircle, 
   X,
   AlertCircle,
-  Key
+  Key,
+  Receipt
 } from 'lucide-react';
 
 export function WorkersView() {
@@ -36,6 +37,7 @@ export function WorkersView() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState(null);
   const [historyWorker, setHistoryWorker] = useState(null);
+  const [historyTab, setHistoryTab] = useState('logs'); // 'logs' | 'payments'
   const [quickAttendanceWorker, setQuickAttendanceWorker] = useState(null);
   const [editingLog, setEditingLog] = useState(null);
 
@@ -57,6 +59,15 @@ export function WorkersView() {
     async () => {
       if (!historyWorker?.id) return [];
       return await db.attendanceLogs.where('workerId').equals(historyWorker.id).toArray();
+    },
+    [historyWorker?.id]
+  ) || [];
+
+  const workerPayments = useLiveQuery(
+    async () => {
+      if (!historyWorker?.id) return [];
+      const list = await db.payments.where('workerId').equals(historyWorker.id).toArray();
+      return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     },
     [historyWorker?.id]
   ) || [];
@@ -601,7 +612,7 @@ export function WorkersView() {
       {historyWorker && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-6 shadow-2xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <History className="w-5 h-5 text-sky-500" />
@@ -619,57 +630,129 @@ export function WorkersView() {
               </button>
             </div>
 
+            {/* Modal Tabs: Attendance Logs vs Payments History */}
+            <div className="flex items-center gap-2 mt-3 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => setHistoryTab('logs')}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  historyTab === 'logs'
+                    ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>{t('calendarLogs')} ({workerHistoryLogs.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryTab('payments')}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  historyTab === 'payments'
+                    ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>{t('paymentHistory')} ({workerPayments.length})</span>
+              </button>
+            </div>
+
             {/* Scrollable history logs list */}
-            <div className="overflow-y-auto flex-1 mt-4 space-y-2 pe-1">
-              {workerHistoryLogs.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-sm">
-                  {t('noDataForMonth')}
-                </div>
-              ) : (
-                workerHistoryLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <span>{log.date}</span>
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                          log.type === 'hourly'
-                            ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-400'
-                            : log.type === 'half'
-                            ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
-                            : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
-                        }`}>
-                          {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDayOption') : t('fullDayOption')}
-                        </span>
-                        {log.overtimeHours > 0 && (
-                          <span className="bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded text-[11px] font-medium">
-                            {log.type === 'hourly' ? '' : '+'}{formatHoursAndMinutes(log.overtimeHours, language)}
+            <div className="overflow-y-auto flex-1 mt-3 space-y-2 pe-1">
+              {historyTab === 'logs' ? (
+                workerHistoryLogs.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-sm">
+                    {t('noDataForMonth')}
+                  </div>
+                ) : (
+                  workerHistoryLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>{log.date}</span>
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                            log.type === 'hourly'
+                              ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-400'
+                              : log.type === 'half'
+                              ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
+                              : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
+                          }`}>
+                            {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDayOption') : t('fullDayOption')}
                           </span>
+                          {log.overtimeHours > 0 && (
+                            <span className="bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded text-[11px] font-medium">
+                              {log.type === 'hourly' ? '' : '+'}{formatHoursAndMinutes(log.overtimeHours, language)}
+                            </span>
+                          )}
+                        </div>
+                        {log.notes && (
+                          <p className="text-slate-500 dark:text-slate-400 mt-1">
+                            {log.notes}
+                          </p>
                         )}
                       </div>
-                      {log.notes && (
-                        <p className="text-slate-500 dark:text-slate-400 mt-1">
-                          {log.notes}
-                        </p>
-                      )}
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="text-end font-bold text-sky-600 dark:text-sky-400 text-sm">
-                        {formatIQD(log.totalDayPay, language)}
+                      <div className="flex items-center gap-3">
+                        <div className="text-end font-bold text-sky-600 dark:text-sky-400 text-sm">
+                          {formatIQD(log.totalDayPay, language)}
+                        </div>
+                        <button
+                          onClick={() => setEditingLog(log)}
+                          className="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-sky-50 dark:hover:bg-sky-950/50 transition-colors"
+                          title={t('edit')}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setEditingLog(log)}
-                        className="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-sky-50 dark:hover:bg-sky-950/50 transition-colors"
-                        title={t('edit')}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
                     </div>
+                  ))
+                )
+              ) : (
+                workerPayments.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-sm">
+                    {t('noPaymentsRecorded')}
                   </div>
-                ))
+                ) : (
+                  workerPayments.map((p) => {
+                    const paymentTime = p.time || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
+                    return (
+                      <div
+                        key={p.id}
+                        className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span className="font-mono">{p.date}</span>
+                            {paymentTime && (
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                                {paymentTime}
+                              </span>
+                            )}
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              p.type === 'settlement'
+                                ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
+                                : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
+                            }`}>
+                              {p.type === 'settlement' ? t('settlementType') : t('advanceType')}
+                            </span>
+                          </div>
+                          {(p.notes || p.referenceNumber) && (
+                            <p className="text-slate-500 dark:text-slate-400 mt-1">
+                              {p.notes} {p.referenceNumber ? `(#${p.referenceNumber})` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-end font-extrabold text-slate-900 dark:text-white text-sm font-mono">
+                          {formatIQD(p.amount, language)}
+                        </div>
+                      </div>
+                    );
+                  })
+                )
               )}
             </div>
 

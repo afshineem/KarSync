@@ -16,7 +16,10 @@ import {
   TrendingUp,
   FileSpreadsheet, 
   FileText,
-  Edit2
+  Edit2,
+  WalletCards,
+  CheckCircle2,
+  Banknote
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
@@ -26,6 +29,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
   // Fetch reactive data from Dexie
   const workers = useLiveQuery(() => db.workers.toArray(), []) || [];
+  const allPayments = useLiveQuery(() => db.payments.toArray(), []) || [];
+  const allAllLogs = useLiveQuery(() => db.attendanceLogs.toArray(), []) || [];
   const rawLogs = useLiveQuery(
     () => db.attendanceLogs.where('date').startsWith(selectedMonth).toArray(),
     [selectedMonth]
@@ -124,6 +129,59 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       };
     });
   }, [workers, logs]);
+
+  // Compute FIFO settlement status and debt per worker for the current month
+  const workerFinancialStatusMap = useMemo(() => {
+    const map = new Map();
+    workers.forEach((w) => {
+      const wLogs = allAllLogs.filter((l) => l.workerId === w.id);
+      const wPayments = allPayments.filter((p) => p.workerId === w.id);
+      const totalAllTimeGross = wLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+      const totalAllTimePaid = wPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const grossUpToPeriod = wLogs
+        .filter((l) => l.date && l.date <= `${selectedMonth}-31`)
+        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+      const netDebt = Math.max(0, totalAllTimeGross - totalAllTimePaid);
+
+      let isSettled = false;
+      if (totalAllTimeGross === 0 && totalAllTimePaid === 0) {
+        isSettled = true;
+      } else if (netDebt === 0 && totalAllTimeGross > 0) {
+        isSettled = true;
+      } else if (totalAllTimePaid >= grossUpToPeriod && grossUpToPeriod > 0) {
+        isSettled = true;
+      }
+      map.set(w.id, { isSettled, netDebt, totalAllTimePaid, totalAllTimeGross });
+    });
+    return map;
+  }, [workers, allAllLogs, allPayments, selectedMonth]);
+
+  // Financial summary metrics for Dashboard Overview Widget
+  const financialSummary = useMemo(() => {
+    let totalMonthPaid = 0;
+    allPayments.forEach((p) => {
+      if (p.month === selectedMonth || (!p.month && p.date && p.date.startsWith(selectedMonth))) {
+        totalMonthPaid += Number(p.amount) || 0;
+      }
+    });
+
+    let totalWorkshopOutstanding = 0;
+    let settledCount = 0;
+    workers.forEach((w) => {
+      const info = workerFinancialStatusMap.get(w.id);
+      if (info) {
+        totalWorkshopOutstanding += info.netDebt;
+        if (info.isSettled) settledCount++;
+      }
+    });
+
+    return {
+      totalMonthPaid,
+      totalWorkshopOutstanding,
+      settledCount,
+      totalWorkers: workers.length
+    };
+  }, [allPayments, selectedMonth, workers, workerFinancialStatusMap]);
 
   // Month navigation helpers
   const handlePrevMonth = () => {
@@ -301,6 +359,59 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
       </div>
 
+      {/* Financial Overview Widget (Prompt Item 4) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-5">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 flex-shrink-0">
+            <WalletCards className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              {t('financialSummaryTitle')}
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {t('financialSummarySubtitle')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+          <div>
+            <span className="text-[11px] font-bold text-slate-400 block">{t('totalPaidAll')} ({selectedMonth})</span>
+            <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
+              {formatAmount(financialSummary.totalMonthPaid)} <span className="text-xs font-normal">{t('currencySymbol')}</span>
+            </span>
+          </div>
+
+          <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+
+          <div>
+            <span className="text-[11px] font-bold text-slate-400 block">{t('totalOutstandingPayable')}</span>
+            <span className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 font-mono">
+              {formatAmount(financialSummary.totalWorkshopOutstanding)} <span className="text-xs font-normal">{t('currencySymbol')}</span>
+            </span>
+          </div>
+
+          <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+
+          <div>
+            <span className="text-[11px] font-bold text-slate-400 block">{t('settlementStatus')}</span>
+            <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+              {financialSummary.settledCount} <span className="text-xs font-normal text-slate-400">/ {financialSummary.totalWorkers} {t('settledBadge')}</span>
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('financials')}
+            className="w-full sm:w-auto px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-1.5 active:scale-95 ms-auto"
+          >
+            <span>{t('goToFinancialsBtn')}</span>
+            <ArrowUpRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       {/* Worker Summary Table / Card List */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -342,19 +453,34 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {workerSummaries.map((w) => (
-                  <tr 
-                    key={w.id} 
-                    className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
-                      w.isActive === 0 ? 'opacity-60 bg-slate-50/40' : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white text-start">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${w.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                        <span>{w.name}</span>
-                      </div>
-                    </td>
+                {workerSummaries.map((w) => {
+                  const statusInfo = workerFinancialStatusMap.get(w.id);
+                  const isWorkerSettled = statusInfo?.isSettled;
+
+                  return (
+                    <tr 
+                      key={w.id} 
+                      className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
+                        isWorkerSettled ? 'bg-emerald-50/15 dark:bg-emerald-950/10' : ''
+                      } ${w.isActive === 0 ? 'opacity-60 bg-slate-50/40' : ''}`}
+                    >
+                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white text-start">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`w-2 h-2 rounded-full ${w.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                          <span>{w.name}</span>
+                          {isWorkerSettled ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1 shadow-xs">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              <span>{t('settledBadge')}</span>
+                            </span>
+                          ) : w.totalPay > 0 ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 inline-flex items-center gap-1 shadow-xs">
+                              <Clock className="w-2.5 h-2.5" />
+                              <span>{t('pendingBadge')}</span>
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs text-start">
                       {w.role}
                     </td>
@@ -379,7 +505,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                       </span>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
               <tfoot className="bg-slate-50 dark:bg-slate-800/80 font-bold text-slate-900 dark:text-white border-t-2 border-slate-200 dark:border-slate-700">
                 <tr>

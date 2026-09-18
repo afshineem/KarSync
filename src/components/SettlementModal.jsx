@@ -90,12 +90,17 @@ export function SettlementModal({
       setFinalPaymentAmount(calculations.totalCumulativeDebt > 0 ? String(calculations.totalCumulativeDebt) : '0');
       setSettlementDate(getTodayDateString());
       setReferenceNumber('');
-      setNotes(`تسویه حساب حقوق ${month}`);
+      const defaultNote = language === 'en' 
+        ? `Payroll settlement for ${month}` 
+        : language === 'ku' 
+          ? `تەسویەی حیساب بۆ مانگی ${month}` 
+          : `تسویه حساب حقوق ${month}`;
+      setNotes(defaultNote);
       setMarkAsSettled(true);
       setFeedback({ type: '', message: '' });
       setCompletedPayment(null);
     }
-  }, [isOpen, calculations.totalCumulativeDebt, month]);
+  }, [isOpen, calculations.totalCumulativeDebt, month, language]);
 
   if (!isOpen || !worker) return null;
 
@@ -105,13 +110,15 @@ export function SettlementModal({
 
     const payAmount = Number(finalPaymentAmount);
     if (isNaN(payAmount) || payAmount < 0) {
-      setFeedback({ type: 'error', message: 'مبلغ پرداختی نامعتبر است' });
+      setFeedback({ type: 'error', message: t('pleaseEnterValidAmount') });
       return;
     }
 
     setIsSubmitting(true);
     try {
       const remainingAfter = Math.max(0, calculations.totalCumulativeDebt - payAmount);
+      const now = new Date();
+      const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
       const settlementRecord = {
         id: generatePaymentId(),
@@ -119,6 +126,7 @@ export function SettlementModal({
         workerName: worker.name,
         month: month,
         date: settlementDate,
+        time: currentTime,
         amount: payAmount,
         type: 'settlement',
         status: markAsSettled ? 'settled' : 'partial',
@@ -128,7 +136,8 @@ export function SettlementModal({
         grossEarningsCalculated: calculations.totalEarnings,
         priorBalanceDeducted: calculations.priorBalance,
         advancesDeducted: calculations.currentMonthAdvances,
-        createdAt: new Date().toISOString()
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString()
       };
 
       await db.payments.put(settlementRecord);
@@ -147,7 +156,7 @@ export function SettlementModal({
       console.error('Settlement save error:', err);
       setFeedback({
         type: 'error',
-        message: 'خطا در ثبت تسویه حساب: ' + err.message
+        message: err.message || 'Settlement save error'
       });
     } finally {
       setIsSubmitting(false);
@@ -204,7 +213,7 @@ export function SettlementModal({
             }`}>
               <span className="font-semibold">{t('priorBalanceDue')}:</span>
               <span className="font-bold font-mono">
-                {calculations.priorBalance > 0 ? '+' : ''}{formatAmount(calculations.priorBalance)} دینار
+                {calculations.priorBalance > 0 ? '+' : ''}{formatAmount(calculations.priorBalance)} {t('currencySymbol')}
               </span>
             </div>
           )}
@@ -213,7 +222,7 @@ export function SettlementModal({
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">{t('thisMonthGross')} ({month}):</span>
             <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
-              {formatAmount(calculations.currentMonthGross)} دینار
+              {formatAmount(calculations.currentMonthGross)} {t('currencySymbol')}
             </span>
           </div>
 
@@ -222,7 +231,7 @@ export function SettlementModal({
             <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400">
               <span>(-) {t('thisMonthAdvances')}:</span>
               <span className="font-bold font-mono">
-                {formatAmount(calculations.currentMonthAdvances)} دینار
+                {formatAmount(calculations.currentMonthAdvances)} {t('currencySymbol')}
               </span>
             </div>
           )}
@@ -230,9 +239,9 @@ export function SettlementModal({
           {/* Previous settlements in this month */}
           {calculations.currentMonthSettlements > 0 && (
             <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
-              <span>(-) تسویه‌های پرداختی این ماه:</span>
+              <span>(-) {t('previousSettlementsInMonth')}</span>
               <span className="font-bold font-mono">
-                {formatAmount(calculations.currentMonthSettlements)} دینار
+                {formatAmount(calculations.currentMonthSettlements)} {t('currencySymbol')}
               </span>
             </div>
           )}
@@ -244,7 +253,7 @@ export function SettlementModal({
               <span>{t('totalCumulativeDebt')}:</span>
             </span>
             <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-base sm:text-lg">
-              {formatAmount(calculations.totalCumulativeDebt)} دینار
+              {formatAmount(calculations.totalCumulativeDebt)} {t('currencySymbol')}
             </span>
           </div>
           
@@ -273,7 +282,7 @@ export function SettlementModal({
                   className="w-full px-3 py-2 text-sm font-black bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-600 dark:text-emerald-400 font-mono pe-14"
                 />
                 <span className="absolute inset-y-0 end-0 pe-2.5 flex items-center text-xs font-bold text-slate-400">
-                  دینار
+                  {t('currencySymbol')}
                 </span>
               </div>
             </div>

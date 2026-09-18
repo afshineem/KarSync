@@ -105,9 +105,9 @@ export function PaymentHistoryModal({
           <h1 className="text-xl font-black">{t('appName')}</h1>
           <h2 className="text-sm font-bold text-slate-700 mt-1">{t('receiptTitle')}</h2>
           <div className="flex justify-between items-center text-xs text-slate-600 mt-3 px-4 font-mono">
-            <span>نام کارگر: <strong>{worker.name}</strong> ({worker.role})</span>
-            <span>دوره / ماه: <strong>{month || 'کل سوابق'}</strong></span>
-            <span>تاریخ صدور سند: <strong>{new Date().toISOString().split('T')[0]}</strong></span>
+            <span>{t('workerName')}: <strong>{worker.name}</strong> ({worker.role})</span>
+            <span>{t('monthSelector')}: <strong>{month || t('allTime')}</strong></span>
+            <span>{t('reportGeneratedAt')}: <strong>{new Date().toISOString().split('T')[0]}</strong></span>
           </div>
         </div>
 
@@ -115,14 +115,14 @@ export function PaymentHistoryModal({
         {month && (
           <div className="flex items-center justify-between mt-3 text-xs no-print">
             <span className="text-slate-400">
-              {displayedPayments.length} تراکنش ثبت شده
+              {displayedPayments.length} {t('paymentRecordsCount')}
             </span>
             <button
               type="button"
               onClick={() => setFilterMonthOnly(!filterMonthOnly)}
               className="text-sky-600 dark:text-sky-400 hover:underline font-bold"
             >
-              {filterMonthOnly ? `نمایش کل تاریخچه (${payments.filter(p => p.workerId === worker.id).length})` : `فقط ماه جاری (${month})`}
+              {filterMonthOnly ? `${t('showingAllHistory')} (${payments.filter(p => p.workerId === worker.id).length})` : `${t('showingOnlyMonth')} (${month})`}
             </button>
           </div>
         )}
@@ -134,7 +134,7 @@ export function PaymentHistoryModal({
               {t('totalPaidAdvances')}
             </span>
             <span className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-300 font-mono mt-1 block">
-              {formatAmount(totalAdvances)} <span className="text-[10px] font-normal">دینار</span>
+              {formatAmount(totalAdvances)} <span className="text-[10px] font-normal">{t('currencySymbol')}</span>
             </span>
           </div>
 
@@ -143,16 +143,16 @@ export function PaymentHistoryModal({
               {t('workerFinalSettlementTotal')}
             </span>
             <span className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-300 font-mono mt-1 block">
-              {formatAmount(totalSettlements)} <span className="text-[10px] font-normal">دینار</span>
+              {formatAmount(totalSettlements)} <span className="text-[10px] font-normal">{t('currencySymbol')}</span>
             </span>
           </div>
 
           <div className="p-3 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-900/60 print:border print:border-slate-300">
             <span className="text-[11px] font-bold text-sky-800 dark:text-sky-300 block">
-              مجموع کل پرداختی‌ها
+              {t('totalPaidAll')}
             </span>
             <span className="text-sm sm:text-base font-black text-sky-700 dark:text-sky-300 font-mono mt-1 block">
-              {formatAmount(totalAllPaid)} <span className="text-[10px] font-normal">دینار</span>
+              {formatAmount(totalAllPaid)} <span className="text-[10px] font-normal">{t('currencySymbol')}</span>
             </span>
           </div>
         </div>
@@ -167,7 +167,7 @@ export function PaymentHistoryModal({
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700 sticky top-0">
                 <tr>
-                  <th className="px-3 py-2.5 text-start">{t('dateColumn')}</th>
+                  <th className="px-3 py-2.5 text-start">{t('dateTimeColumn')}</th>
                   <th className="px-3 py-2.5 text-center">{t('typeColumn')}</th>
                   <th className="px-3 py-2.5 text-end">{t('paymentAmount')}</th>
                   <th className="px-3 py-2.5 text-start">{t('referenceNumber')}</th>
@@ -176,41 +176,51 @@ export function PaymentHistoryModal({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 print:divide-slate-300">
-                {displayedPayments.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="px-3 py-2.5 font-semibold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                      {p.date}
-                    </td>
-                    <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        p.type === 'settlement'
-                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-                      }`}>
-                        {p.type === 'settlement' ? t('settlementType') : t('advanceType')}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-end font-extrabold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                      {formatAmount(p.amount)}
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 font-mono">
-                      {p.referenceNumber || '-'}
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300 max-w-xs truncate">
-                      {p.notes || '-'}
-                    </td>
-                    <td className="px-3 py-2.5 text-center no-print whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(p.id)}
-                        className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
-                        title={t('delete')}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {displayedPayments.map((p) => {
+                  const paymentTime = p.time || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-3 py-2.5 font-semibold text-slate-900 dark:text-white font-mono whitespace-nowrap">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                          <span>{p.date}</span>
+                          {paymentTime && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                              {paymentTime}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          p.type === 'settlement'
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                        }`}>
+                          {p.type === 'settlement' ? t('settlementType') : t('advanceType')}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-end font-extrabold text-slate-900 dark:text-white font-mono whitespace-nowrap">
+                        {formatAmount(p.amount)}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 font-mono">
+                        {p.referenceNumber || '-'}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                        {p.notes || '-'}
+                      </td>
+                      <td className="px-3 py-2.5 text-center no-print whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p.id)}
+                          className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                          title={t('delete')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
