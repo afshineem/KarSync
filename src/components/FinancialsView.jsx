@@ -589,18 +589,64 @@ export function FinancialsView() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
+              <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800 text-[11px] leading-snug">
                 <tr>
-                  <th className="px-3.5 py-3 text-start whitespace-nowrap">{t('workerName')}</th>
-                  <th className="px-3.5 py-3 text-center whitespace-nowrap">{t('currentMonthWork')}</th>
-                  <th className="px-3.5 py-3 text-center whitespace-nowrap">{t('priorMonthsWork')}</th>
-                  <th className="px-3.5 py-3 text-end whitespace-nowrap">{t('currentMonthGrossPayroll')}</th>
-                  <th className="px-3.5 py-3 text-end whitespace-nowrap">{t('priorMonthsEarnings')}</th>
-                  <th className="px-3.5 py-3 text-end whitespace-nowrap">{t('totalAllGrossEarnings')}</th>
-                  <th className="px-3.5 py-3 text-end whitespace-nowrap">{t('totalPaidAll')}</th>
-                  <th className="px-3.5 py-3 text-end whitespace-nowrap">{t('netBalanceDueLabel')}</th>
-                  <th className="px-3.5 py-3 text-center whitespace-nowrap">{t('settlementStatusLabel')}</th>
-                  <th className="px-3.5 py-3 text-center whitespace-nowrap">{t('financialActionsLabel')}</th>
+                  {/* 1. Worker Name */}
+                  <th className="px-3 py-2.5 text-start whitespace-nowrap">
+                    {t('colWorker')}
+                  </th>
+
+                  {/* 2. Current Month Work */}
+                  <th className="px-2 py-2 text-center whitespace-nowrap">
+                    <div className="font-bold">{t('colCurrentWork')}</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t('colCurrentWorkSub')}</div>
+                  </th>
+
+                  {/* 3. Prior Months Work */}
+                  <th className="px-2 py-2 text-center whitespace-nowrap">
+                    <div className="font-bold">{t('colPriorWork')}</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t('colPriorWorkSub')}</div>
+                  </th>
+
+                  {/* 4. Current Month Gross */}
+                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
+                    <div className="font-bold">{t('colCurrentGross')}</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({t('currencySymbol')})</div>
+                  </th>
+
+                  {/* 5. Prior Months Arrears */}
+                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
+                    <div className="font-bold">{t('colPriorGross')}</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({t('currencySymbol')})</div>
+                  </th>
+
+                  {/* 6. Total Combined Gross */}
+                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
+                    <div className="font-bold">{t('colTotalGross')}</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({t('currencySymbol')})</div>
+                  </th>
+
+                  {/* 7. Total Paid */}
+                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
+                    <div className="font-bold">{t('colTotalPaid')}</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t('colTotalPaidSub')}</div>
+                  </th>
+
+                  {/* 8. Net Balance Due */}
+                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
+                    <div className="font-bold">{t('colNetBalance')}</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({t('currencySymbol')})</div>
+                  </th>
+
+                  {/* 9. Settlement Status */}
+                  <th className="px-2 py-2.5 text-center whitespace-nowrap">
+                    {t('colStatus')}
+                  </th>
+
+                  {/* 10. Financial Actions */}
+                  <th className="px-2.5 py-2.5 text-center whitespace-nowrap">
+                    {t('colActions')}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -617,7 +663,7 @@ export function FinancialsView() {
                       }`}
                     >
                       {/* 1. Worker Name & Role */}
-                      <td className="px-3.5 py-3.5 text-start font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-start font-bold text-slate-900 dark:text-white whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.worker.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
                           <div>
@@ -630,7 +676,7 @@ export function FinancialsView() {
                       </td>
 
                       {/* 2. Current Month Work (Days / Overtime) */}
-                      <td className="px-3.5 py-3.5 text-center font-mono whitespace-nowrap">
+                      <td className="px-2 py-2.5 text-center font-mono whitespace-nowrap">
                         {row.effectiveDays > 0 || row.otHours > 0 ? (
                           <>
                             <span className="font-bold text-slate-800 dark:text-slate-200">
@@ -648,7 +694,7 @@ export function FinancialsView() {
                       </td>
 
                       {/* 3. Prior Months Arrears Work (Days / Overtime) */}
-                      <td className="px-3.5 py-3.5 text-center font-mono whitespace-nowrap">
+                      <td className="px-2 py-2.5 text-center font-mono whitespace-nowrap">
                         {row.priorEffectiveDays > 0 || row.priorOtHours > 0 ? (
                           <>
                             <span className="font-bold text-amber-700 dark:text-amber-400">
@@ -666,28 +712,28 @@ export function FinancialsView() {
                       </td>
 
                       {/* 4. Current Month Gross Payroll */}
-                      <td className="px-3.5 py-3.5 text-end font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
+                      <td className="px-2.5 py-2.5 text-end font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
                         {formatAmount(row.grossEarnings)}
                       </td>
 
                       {/* 5. Prior Months Gross Arrears */}
-                      <td className="px-3.5 py-3.5 text-end font-mono whitespace-nowrap text-amber-600 dark:text-amber-400 font-semibold">
+                      <td className="px-2.5 py-2.5 text-end font-mono whitespace-nowrap text-amber-600 dark:text-amber-400 font-semibold">
                         {row.priorGross > 0 ? formatAmount(row.priorGross) : '—'}
                       </td>
 
                       {/* 6. Total Combined Gross Earnings */}
-                      <td className="px-3.5 py-3.5 text-end font-extrabold text-slate-900 dark:text-white font-mono whitespace-nowrap">
+                      <td className="px-2.5 py-2.5 text-end font-extrabold text-slate-900 dark:text-white font-mono whitespace-nowrap">
                         {formatAmount(row.totalAllTimeGross)}
                       </td>
 
                       {/* 7. Total Paid (Advances + Settlements) */}
-                      <td className="px-3.5 py-3.5 text-end text-emerald-600 dark:text-emerald-400 font-bold font-mono whitespace-nowrap">
+                      <td className="px-2.5 py-2.5 text-end text-emerald-600 dark:text-emerald-400 font-bold font-mono whitespace-nowrap">
                         {row.totalAllTimePaid > 0 ? formatAmount(row.totalAllTimePaid) : '—'}
                       </td>
 
                       {/* 8. Net Balance Due (To Settle) */}
-                      <td className="px-3.5 py-3.5 text-end font-mono whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-xl text-xs font-black inline-block ${
+                      <td className="px-2.5 py-2.5 text-end font-mono whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded-xl text-xs font-black inline-block ${
                           isSettled
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
                             : isOverpaid
@@ -706,36 +752,36 @@ export function FinancialsView() {
                       </td>
 
                       {/* 9. Settlement Status Badge (FIFO) */}
-                      <td className="px-3.5 py-3.5 text-center whitespace-nowrap">
+                      <td className="px-2 py-2.5 text-center whitespace-nowrap">
                         {isSettled ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>{t('settledBadge')}</span>
                           </span>
                         ) : isOverpaid ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300">
                             <AlertCircle className="w-3 h-3" />
                             <span>{t('overpaid')}</span>
                           </span>
                         ) : row.grossEarnings > 0 || row.netBalanceDue > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300">
                             <Clock className="w-3 h-3" />
                             <span>{t('pendingBadge')}</span>
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">{t('noActivityPeriod')}</span>
+                          <span className="text-slate-400 text-[10px]">{t('noActivityPeriod')}</span>
                         )}
                       </td>
 
                       {/* 10. Financial Actions */}
-                      <td className="px-3.5 py-3.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1">
                           
                           {/* Settle Button */}
                           <button
                             type="button"
                             onClick={() => setSettlementTargetWorker(row.worker)}
-                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-[11px] shadow-xs transition-all flex items-center gap-1 active:scale-95"
+                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] shadow-xs transition-all flex items-center gap-0.5 active:scale-95"
                             title={t('settleBtn')}
                           >
                             <CheckCircle2 className="w-3 h-3" />
@@ -746,7 +792,7 @@ export function FinancialsView() {
                           <button
                             type="button"
                             onClick={() => setAdvanceTargetWorker(row.worker)}
-                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-[11px] transition-colors flex items-center gap-1"
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-bold text-[10px] transition-colors flex items-center gap-0.5"
                             title={t('addAdvanceBtn')}
                           >
                             <PlusCircle className="w-3 h-3 text-amber-500" />
@@ -757,7 +803,7 @@ export function FinancialsView() {
                           <button
                             type="button"
                             onClick={() => setHistoryTargetWorker(row.worker)}
-                            className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-colors"
+                            className="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                             title={t('paymentHistory')}
                           >
                             <Receipt className="w-3.5 h-3.5 text-sky-500" />

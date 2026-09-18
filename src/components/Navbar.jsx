@@ -19,27 +19,27 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
   ];
 
   return (
-    <header className="bg-slate-900/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/60 shadow-lg sticky top-0 z-40 no-print transition-colors">
+    <header className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/60 shadow-xs dark:shadow-md sticky top-0 z-40 no-print transition-colors">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="relative flex items-center justify-between h-16">
           
           {/* Logo & Brand: KarSync */}
           <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0 z-10">
             {/* KarSync Logo Icon */}
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center shadow-md p-1.5 flex-shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-100 dark:bg-slate-700/70 border border-slate-200/90 dark:border-slate-600/60 flex items-center justify-center shadow-xs p-1.5 flex-shrink-0">
               <img 
                 src="/karsync-icon.png" 
                 alt="KarSync" 
-                className="w-full h-full object-contain brightness-0 invert" 
+                className="w-full h-full object-contain dark:brightness-0 dark:invert" 
               />
             </div>
             
             {/* Title & Subtitle */}
             <div className="hidden sm:block">
-              <h1 className="font-extrabold text-sm sm:text-base md:text-lg leading-tight tracking-tight text-white">
+              <h1 className="font-extrabold text-sm sm:text-base md:text-lg leading-tight tracking-tight text-slate-900 dark:text-white">
                 KarSync
               </h1>
-              <p className="hidden lg:block text-xs text-slate-400 leading-none mt-0.5">
+              <p className="hidden lg:block text-xs text-slate-500 dark:text-slate-400 leading-none mt-0.5">
                 {t('appSubtitle')}
               </p>
             </div>
@@ -47,7 +47,7 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
 
           {/* Navigation Tabs (Mathematically dead-centered across all screen sizes) */}
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center z-10 pointer-events-auto">
-            <nav className="flex items-center gap-1 sm:gap-1.5 bg-slate-800/80 dark:bg-slate-900/80 backdrop-blur-md p-1 rounded-2xl border border-slate-700/60 shadow-inner">
+            <nav className="flex items-center gap-1 sm:gap-1.5 bg-slate-100/90 dark:bg-slate-700/60 backdrop-blur-md p-1 rounded-2xl border border-slate-200/90 dark:border-slate-600/60 shadow-inner">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
@@ -60,14 +60,14 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
                     className={`relative p-2 sm:p-2.5 rounded-xl transition-all duration-150 group ${
                       isActive
                         ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 scale-105'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-700/70'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/90 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-600/60'
                     }`}
                   >
                     <Icon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 transition-transform group-hover:scale-110" />
                     
                     {/* Subtle active indicator dot */}
                     {isActive && (
-                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-300 rounded-full shadow-sm"></span>
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-300 rounded-full shadow-xs"></span>
                     )}
                   </button>
                 );
@@ -82,9 +82,9 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
               onClick={onOpenSettings}
               title={t('settings')}
               aria-label={t('settings')}
-              className="p-2 sm:p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/80 transition-all shadow-sm flex items-center justify-center group hover:border-sky-500/50 hover:scale-105 active:scale-95"
+              className="p-2 sm:p-2.5 rounded-2xl bg-slate-100/90 hover:bg-white dark:bg-slate-700/60 dark:hover:bg-slate-600/60 text-slate-600 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white border border-slate-200/90 dark:border-slate-600/60 transition-all shadow-xs flex items-center justify-center group hover:border-sky-500/50 hover:scale-105 active:scale-95"
             >
-              <Settings className="w-5 h-5 text-slate-300 group-hover:text-sky-400 group-hover:rotate-45 transition-all duration-300" />
+              <Settings className="w-5 h-5 text-slate-600 dark:text-slate-200 group-hover:text-sky-600 dark:group-hover:text-sky-400 group-hover:rotate-45 transition-all duration-300" />
             </button>
           </div>
 
