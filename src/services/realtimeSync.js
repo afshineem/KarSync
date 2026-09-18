@@ -20,6 +20,83 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 let isInitialized = false;
 let realtimeChannel = null;
 
+const PENDING_DELETED_WORKERS_KEY = 'workshop_pending_deleted_workers';
+const PENDING_DELETED_LOGS_KEY = 'workshop_pending_deleted_logs';
+
+export function getPendingDeletedWorkers() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_DELETED_WORKERS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingWorkerDeletion(workerId) {
+  if (!workerId) return;
+  const list = getPendingDeletedWorkers();
+  if (!list.includes(workerId)) {
+    list.push(workerId);
+    localStorage.setItem(PENDING_DELETED_WORKERS_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingWorkerDeletion(workerId) {
+  const list = getPendingDeletedWorkers().filter(id => id !== workerId);
+  localStorage.setItem(PENDING_DELETED_WORKERS_KEY, JSON.stringify(list));
+}
+
+export function getPendingDeletedLogs() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_DELETED_LOGS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingLogDeletion(logId) {
+  if (!logId) return;
+  const list = getPendingDeletedLogs();
+  if (!list.includes(logId)) {
+    list.push(logId);
+    localStorage.setItem(PENDING_DELETED_LOGS_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingLogDeletion(logId) {
+  const list = getPendingDeletedLogs().filter(id => id !== logId);
+  localStorage.setItem(PENDING_DELETED_LOGS_KEY, JSON.stringify(list));
+}
+
+export async function flushPendingDeletions() {
+  if (!navigator.onLine) return;
+  const now = new Date().toISOString();
+
+  // Flush pending deleted workers
+  const pendingWorkers = getPendingDeletedWorkers();
+  for (const workerId of pendingWorkers) {
+    try {
+      await Promise.all([
+        supabase.from('workers').update({ deleted_at: now, updated_at: now }).eq('id', workerId),
+        supabase.from('attendance_logs').update({ deleted_at: now, updated_at: now }).eq('worker_id', workerId)
+      ]);
+      clearPendingWorkerDeletion(workerId);
+    } catch (err) {
+      console.warn('Flush worker deletion warning:', workerId, err);
+    }
+  }
+
+  // Flush pending deleted logs
+  const pendingLogs = getPendingDeletedLogs();
+  for (const logId of pendingLogs) {
+    try {
+      await supabase.from('attendance_logs').update({ deleted_at: now, updated_at: now }).eq('id', logId);
+      clearPendingLogDeletion(logId);
+    } catch (err) {
+      console.warn('Flush log deletion warning:', logId, err);
+    }
+  }
+}
+
 /**
  * Initialize Realtime Sync:
  * 1. Seed or Reconcile local and cloud data on startup
@@ -35,6 +112,7 @@ export async function initRealtimeSync() {
   try {
     await purgeDummySeedWorkers();
     await cleanupDuplicateAttendanceLogs();
+    await flushPendingDeletions();
     await autoInitialSync();
   } catch (err) {
     console.warn('Initial sync deferred (offline or connection issue):', err.message);
@@ -46,6 +124,7 @@ export async function initRealtimeSync() {
   // Background polling every 12 seconds as a rock-solid fallback
   setInterval(() => {
     if (navigator.onLine) {
+      flushPendingDeletions().catch(() => {});
       pullRemoteChangesSilently().catch(() => {});
     }
   }, 12000);
@@ -53,6 +132,7 @@ export async function initRealtimeSync() {
   // Sync automatically when browser comes back online
   window.addEventListener('online', () => {
     console.log('🌐 Internet connection restored. Syncing with Supabase...');
+    flushPendingDeletions().catch(() => {});
     fullSyncBothDirections().catch(() => {});
   });
 }
@@ -101,13 +181,17 @@ export async function autoInitialSync() {
  */
 export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
   const duplicateIdsToDeleteFromCloud = [];
+  const pendingWorkers = new Set(getPendingDeletedWorkers());
+  const pendingLogs = new Set(getPendingDeletedLogs());
 
   await purgeDummySeedWorkers();
 
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
+    // 1. Reconcile Workers
     for (const w of cloudWorkers) {
-      if (w.deleted_at) {
+      if (w.deleted_at || pendingWorkers.has(w.id)) {
         await db.workers.delete(w.id);
+        await db.attendanceLogs.where('workerId').equals(w.id).delete();
       } else {
         await db.workers.put({
           id: w.id,
@@ -123,11 +207,11 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
       }
     }
 
-    // Deduplicate cloud logs by worker_id + date
+    // 2. Reconcile Attendance Logs
     const dedupedLogsMap = new Map();
 
     for (const l of cloudLogs) {
-      if (l.deleted_at) {
+      if (l.deleted_at || pendingLogs.has(l.id)) {
         await db.attendanceLogs.delete(l.id);
         const canonicalId = getAttendanceLogId(l.worker_id, l.date);
         await db.attendanceLogs.delete(canonicalId);
@@ -169,6 +253,19 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         updatedAt: l.updated_at
       });
     }
+
+    // 3. Remove any local workers that were hard-deleted from cloud
+    const lastSync = getLastSyncTime();
+    if (lastSync && cloudWorkers.length > 0) {
+      const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
+      const localWorkers = await db.workers.toArray();
+      for (const lw of localWorkers) {
+        if (!cloudWorkerIds.has(lw.id) && lw.createdAt && lw.createdAt < lastSync) {
+          await db.workers.delete(lw.id);
+          await db.attendanceLogs.where('workerId').equals(lw.id).delete();
+        }
+      }
+    }
   });
 
   if (duplicateIdsToDeleteFromCloud.length > 0) {
@@ -184,11 +281,17 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
  * Push all local data into Supabase
  */
 export async function pushAllLocalToCloud() {
-  const localWorkers = await db.workers.toArray();
-  const localLogs = await db.attendanceLogs.toArray();
+  const pendingWorkers = new Set(getPendingDeletedWorkers());
+  const pendingLogs = new Set(getPendingDeletedLogs());
 
-  if (localWorkers.length > 0) {
-    const workerPayload = localWorkers.map(w => ({
+  const localWorkers = await db.workers.toArray();
+  const activeWorkers = localWorkers.filter(w => !pendingWorkers.has(w.id));
+
+  const localLogs = await db.attendanceLogs.toArray();
+  const activeLogs = localLogs.filter(l => !pendingLogs.has(l.id));
+
+  if (activeWorkers.length > 0) {
+    const workerPayload = activeWorkers.map(w => ({
       id: w.id,
       name: w.name,
       phone: w.phone || null,
@@ -196,16 +299,17 @@ export async function pushAllLocalToCloud() {
       daily_rate: Number(w.dailyRate) || 0,
       overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
       is_active: Number(w.isActive) === 0 ? 0 : 1,
-      updated_at: new Date().toISOString()
+      deleted_at: null,
+      updated_at: w.updatedAt || new Date().toISOString()
     }));
 
     const { error } = await supabase.from('workers').upsert(workerPayload);
     if (error) console.error('Error uploading local workers to Supabase:', error);
   }
 
-  if (localLogs.length > 0) {
-    const logPayload = localLogs.map(l => ({
-      id: l.id,
+  if (activeLogs.length > 0) {
+    const logPayload = activeLogs.map(l => ({
+      id: getAttendanceLogId(l.workerId, l.date),
       worker_id: l.workerId,
       date: l.date,
       type: l.type || 'full',
@@ -214,7 +318,8 @@ export async function pushAllLocalToCloud() {
       calculated_overtime_wage: Number(l.calculatedOvertimeWage) || 0,
       total_day_pay: Number(l.totalDayPay) || 0,
       notes: l.notes || null,
-      updated_at: new Date().toISOString()
+      deleted_at: null,
+      updated_at: l.updatedAt || new Date().toISOString()
     }));
 
     const { error } = await supabase.from('attendance_logs').upsert(logPayload);
@@ -237,46 +342,60 @@ function subscribeToRealtime() {
   realtimeChannel = supabase
     .channel('workshop-live-stream')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, async (payload) => {
-      console.log('⚡ Realtime Worker Change received:', payload.eventType);
+      console.log('⚡ Realtime Worker Change received:', payload.eventType, payload);
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
-        const idToDelete = payload.old?.id || payload.new?.id;
-        if (idToDelete) await db.workers.delete(idToDelete);
+        const idToDelete = payload.new?.id || payload.old?.id;
+        if (idToDelete) {
+          await db.workers.delete(idToDelete);
+          await db.attendanceLogs.where('workerId').equals(idToDelete).delete();
+        }
       } else if (payload.new) {
         const w = payload.new;
-        await db.workers.put({
-          id: w.id,
-          name: w.name,
-          phone: w.phone || '',
-          role: w.role,
-          dailyRate: Number(w.daily_rate) || 0,
-          overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
-          isActive: Number(w.is_active) === 0 ? 0 : 1,
-          createdAt: w.created_at,
-          updatedAt: w.updated_at
-        });
+        if (w.deleted_at) {
+          await db.workers.delete(w.id);
+          await db.attendanceLogs.where('workerId').equals(w.id).delete();
+        } else {
+          await db.workers.put({
+            id: w.id,
+            name: w.name,
+            phone: w.phone || '',
+            role: w.role,
+            dailyRate: Number(w.daily_rate) || 0,
+            overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
+            isActive: Number(w.is_active) === 0 ? 0 : 1,
+            createdAt: w.created_at,
+            updatedAt: w.updated_at
+          });
+        }
       }
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, async (payload) => {
-      console.log('⚡ Realtime Attendance Log Change received:', payload.eventType);
+      console.log('⚡ Realtime Attendance Log Change received:', payload.eventType, payload);
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
-        const idToDelete = payload.old?.id || payload.new?.id;
-        if (idToDelete) await db.attendanceLogs.delete(idToDelete);
+        const idToDelete = payload.new?.id || payload.old?.id;
+        if (idToDelete) {
+          await db.attendanceLogs.delete(idToDelete);
+        }
       } else if (payload.new) {
         const l = payload.new;
-        await db.attendanceLogs.put({
-          id: l.id,
-          workerId: l.worker_id,
-          date: l.date,
-          type: l.type,
-          overtimeHours: Number(l.overtime_hours) || 0,
-          calculatedDailyWage: Number(l.calculated_daily_wage) || 0,
-          calculatedOvertimeWage: Number(l.calculated_overtime_wage) || 0,
-          totalDayPay: Number(l.total_day_pay) || 0,
-          notes: l.notes || '',
-          createdAt: l.created_at,
-          updatedAt: l.updated_at
-        });
+        if (l.deleted_at) {
+          await db.attendanceLogs.delete(l.id);
+        } else {
+          await db.attendanceLogs.put({
+            id: l.id,
+            workerId: l.worker_id,
+            date: l.date,
+            type: l.type,
+            overtimeHours: Number(l.overtime_hours) || 0,
+            calculatedDailyWage: Number(l.calculated_daily_wage) || 0,
+            calculatedOvertimeWage: Number(l.calculated_overtime_wage) || 0,
+            totalDayPay: Number(l.total_day_pay) || 0,
+            notes: l.notes || '',
+            createdAt: l.created_at,
+            updatedAt: l.updated_at
+          });
+        }
       }
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
     })
@@ -316,6 +435,7 @@ export async function pushLogsLive(logs) {
     calculated_overtime_wage: Number(l.calculatedOvertimeWage) || 0,
     total_day_pay: Number(l.totalDayPay) || 0,
     notes: l.notes || null,
+    deleted_at: null,
     updated_at: new Date().toISOString()
   }));
 
@@ -341,6 +461,7 @@ export async function pushWorkerLive(w) {
     daily_rate: Number(w.dailyRate) || 0,
     overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
     is_active: Number(w.isActive) === 0 ? 0 : 1,
+    deleted_at: null,
     updated_at: new Date().toISOString()
   };
 
@@ -356,9 +477,13 @@ export async function pushWorkerLive(w) {
  * Delete a log live from Supabase
  */
 export async function deleteLogLive(logId) {
-  if (!logId || !navigator.onLine) return;
+  if (!logId) return;
+  recordPendingLogDeletion(logId);
+  if (!navigator.onLine) return;
   try {
-    await supabase.from('attendance_logs').delete().eq('id', logId);
+    const now = new Date().toISOString();
+    await supabase.from('attendance_logs').update({ deleted_at: now, updated_at: now }).eq('id', logId);
+    clearPendingLogDeletion(logId);
   } catch (err) {
     console.error('Live-delete log failed:', err);
   }
@@ -368,18 +493,27 @@ export async function deleteLogLive(logId) {
  * Delete a worker live from Supabase
  */
 export async function deleteWorkerLive(workerId) {
-  if (!workerId || !navigator.onLine) return;
+  if (!workerId) return;
+  recordPendingWorkerDeletion(workerId);
+  if (!navigator.onLine) return;
   try {
-    await supabase.from('workers').delete().eq('id', workerId);
+    const now = new Date().toISOString();
+    await Promise.all([
+      supabase.from('workers').update({ deleted_at: now, updated_at: now }).eq('id', workerId),
+      supabase.from('attendance_logs').update({ deleted_at: now, updated_at: now }).eq('worker_id', workerId)
+    ]);
+    clearPendingWorkerDeletion(workerId);
   } catch (err) {
     console.error('Live-delete worker failed:', err);
   }
 }
 
 /**
- * Full two-way sync
+ * Full two-way sync:
+ * Always flush pending local deletions FIRST, pull remote cloud changes SECOND, and push active local changes THIRD.
  */
 export async function fullSyncBothDirections() {
-  await pushAllLocalToCloud();
+  await flushPendingDeletions();
   await pullRemoteChangesSilently();
+  await pushAllLocalToCloud();
 }
