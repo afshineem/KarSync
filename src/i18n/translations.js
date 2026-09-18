@@ -226,7 +226,34 @@ export const translations = {
     pullAllSuccess: 'تەواوی داتاکان بە سەرکەوتوویی لە هەورەوە داگیران و جێگیر کران.',
     syncSuccess: 'هاوکاتکردنی دوولایەنە لەگەڵ داتابەیسی هەور بە سەرکەوتوویی ئەنجامدرا!',
     syncingCloud: 'لە حاڵی هاوکاتکردندایە...',
-    cloudSyncBtn: 'هاوکاتکردنی هەور'
+    cloudSyncBtn: 'هاوکاتکردنی هەور',
+
+    // Authentication & Portal
+    loginTitle: 'چوونەژوورەوە بۆ سیستەم',
+    loginSubtitle: 'تکایە ناوی بەکارهێنەر و وشەی نهێنی بنووسە بۆ چوونەژوورەوە',
+    username: 'ناوی بەکارهێنەر',
+    password: 'وشەی نهێنی',
+    loginBtn: 'چوونەژوورەوە',
+    loggingIn: 'پشکنین...',
+    logout: 'چوونەدەرەوە',
+    invalidCredentials: 'ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە!',
+    adminRole: 'بەڕێوەبەری سیستەم',
+    workerRole: 'کرێکاری کارگە',
+    workerLoginCredentials: 'زانیاری چوونەژوورەوەی کرێکار (بۆ بینینی کارکرد)',
+    changeAdminPassword: 'گۆڕینی وشەی نهێنی بەڕێوەبەر',
+    currentPassword: 'وشەی نهێنی ئێستا',
+    newPassword: 'وشەی نهێنی نوێ',
+    confirmNewPassword: 'دووبارەکردنەوەی وشەی نهێنی نوێ',
+    passwordMismatch: 'وشەی نهێنی نوێ و دووبارەکردنەوەکەی وەک یەک نین!',
+    passwordChangedSuccess: 'وشەی نهێنی بە سەرکەوتوویی گۆڕدرا!',
+    myAttendance: 'ئامادەبوونی من',
+    myMonthlyReport: 'ڕاپۆرتی مانگانەی من',
+    printMyPayslip: 'چاپکردنی پسوولەی مووچە',
+    readOnlyNotice: 'تۆ تەنها دەتوانیت زانیاری کارکرد و مووچەی خۆت ببینیت.',
+    allAmountsInIQDNote: '* سەرجەم بڕەکان بە دیناری عێراقییە',
+    baseWageIQD: 'مووچەی بنەڕەت (دینار)',
+    overtimeWageIQD: 'سەروەخت (دینار)',
+    netPayIQD: 'کۆی وەرگیراو (دینار)'
   },
   fa: {
 
@@ -455,7 +482,34 @@ export const translations = {
     pullAllSuccess: 'اطلاعات کامل از سرور ابری با موفقیت دریافت و جایگزین شد.',
     syncSuccess: 'همگام‌سازی دوطرفه با دیتابیس ابری با موفقیت انجام شد!',
     syncingCloud: 'در حال همگام‌سازی...',
-    cloudSyncBtn: 'همگام‌سازی ابری'
+    cloudSyncBtn: 'همگام‌سازی ابری',
+
+    // Authentication & Portal
+    loginTitle: 'ورود به سیستم مدیریت کارگاه',
+    loginSubtitle: 'لطفاً نام کاربری و رمز عبور خود را جهت ورود وارد نمایید',
+    username: 'نام کاربری',
+    password: 'رمز عبور',
+    loginBtn: 'ورود به سیستم',
+    loggingIn: 'در حال بررسی...',
+    logout: 'خروج از حساب',
+    invalidCredentials: 'نام کاربری یا رمز عبور اشتباه است!',
+    adminRole: 'مدیر سیستم',
+    workerRole: 'نیروی کارگاه',
+    workerLoginCredentials: 'مشخصات ورود نیروی کار (جهت مشاهده کارکرد خود)',
+    changeAdminPassword: 'تغییر رمز عبور مدیر',
+    currentPassword: 'رمز عبور فعلی',
+    newPassword: 'رمز عبور جدید',
+    confirmNewPassword: 'تکرار رمز عبور جدید',
+    passwordMismatch: 'رمز عبور جدید با تکرار آن یکسان نیست!',
+    passwordChangedSuccess: 'رمز عبور مدیر با موفقیت به‌روزرسانی شد!',
+    myAttendance: 'کارکرد من',
+    myMonthlyReport: 'گزارش کارکرد ماهانه من',
+    printMyPayslip: 'چاپ فیش حقوقی من',
+    readOnlyNotice: 'شما در حالت مشاهده کارکرد شخصی خود هستید.',
+    allAmountsInIQDNote: '* کلیه مبالغ به دینار عراق می‌باشد',
+    baseWageIQD: 'حقوق پایه (دینار)',
+    overtimeWageIQD: 'اضافه کاری (دینار)',
+    netPayIQD: 'خالص دریافتی (دینار)'
   },
   en: {
 
@@ -684,6 +738,33 @@ export const translations = {
     pullAllSuccess: 'Full cloud database downloaded and applied successfully.',
     syncSuccess: 'Two-way sync with cloud database completed successfully!',
     syncingCloud: 'Syncing...',
-    cloudSyncBtn: 'Cloud Sync'
+    cloudSyncBtn: 'Cloud Sync',
+
+    // Authentication & Portal
+    loginTitle: 'Sign In to Workshop Portal',
+    loginSubtitle: 'Please enter your username and password to sign in',
+    username: 'Username',
+    password: 'Password',
+    loginBtn: 'Sign In',
+    loggingIn: 'Verifying...',
+    logout: 'Sign Out',
+    invalidCredentials: 'Invalid username or password!',
+    adminRole: 'Administrator',
+    workerRole: 'Workshop Worker',
+    workerLoginCredentials: 'Worker Portal Credentials (Optional for Self-Service)',
+    changeAdminPassword: 'Change Admin Password',
+    currentPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmNewPassword: 'Confirm New Password',
+    passwordMismatch: 'New password and confirmation do not match!',
+    passwordChangedSuccess: 'Admin password updated successfully!',
+    myAttendance: 'My Attendance',
+    myMonthlyReport: 'My Monthly Timesheet',
+    printMyPayslip: 'Print My Payslip',
+    readOnlyNotice: 'You are viewing your personal read-only attendance records.',
+    allAmountsInIQDNote: '* All amounts in Iraqi Dinars (IQD)',
+    baseWageIQD: 'Base Wage (IQD)',
+    overtimeWageIQD: 'Overtime (IQD)',
+    netPayIQD: 'Net Pay (IQD)'
   }
 };

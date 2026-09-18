@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { formatIQD, formatHoursAndMinutes } from '../utils/formatters';
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 import { EditRecordModal } from './EditRecordModal';
@@ -20,11 +21,14 @@ import {
   CheckCircle2, 
   XCircle, 
   X,
-  AlertCircle
+  AlertCircle,
+  Key
 } from 'lucide-react';
 
 export function WorkersView() {
   const { t, language } = useLanguage();
+  const { setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
+  const workerCreds = getWorkerCredentialsMap();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState('all'); // 'all' | 'active' | 'inactive'
   
@@ -104,7 +108,9 @@ export function WorkersView() {
       role: '',
       dailyRate: '35000',
       overtimeHourlyRate: '5000',
-      isActive: 1
+      isActive: 1,
+      username: '',
+      password: ''
     });
     setFormError('');
     setIsFormModalOpen(true);
@@ -113,13 +119,16 @@ export function WorkersView() {
   // Open modal to edit worker
   const handleOpenEditModal = (worker) => {
     setEditingWorker(worker);
+    const creds = workerCreds[worker.id] || {};
     setFormData({
       name: worker.name,
       phone: worker.phone || '',
       role: worker.role || '',
       dailyRate: String(worker.dailyRate),
       overtimeHourlyRate: String(worker.overtimeHourlyRate),
-      isActive: worker.isActive
+      isActive: worker.isActive,
+      username: creds.username || worker.username || '',
+      password: creds.password || worker.password || ''
     });
     setFormError('');
     setIsFormModalOpen(true);
@@ -144,7 +153,9 @@ export function WorkersView() {
     }
 
     try {
+      let targetWorkerId = null;
       if (editingWorker) {
+        targetWorkerId = editingWorker.id;
         // Update
         const updatedWorker = {
           ...editingWorker,
@@ -154,26 +165,37 @@ export function WorkersView() {
           dailyRate: dailyRate,
           overtimeHourlyRate: overtimeRate,
           isActive: Number(formData.isActive),
+          username: (formData.username || '').trim(),
+          password: (formData.password || '').trim(),
           updatedAt: new Date().toISOString()
         };
         await db.workers.update(editingWorker.id, updatedWorker);
         pushWorkerLive(updatedWorker).catch(console.error);
       } else {
         // Create
+        targetWorkerId = generateId();
         const newWorker = {
-          id: generateId(),
+          id: targetWorkerId,
           name: formData.name.trim(),
           phone: formData.phone.trim(),
           role: formData.role.trim(),
           dailyRate: dailyRate,
           overtimeHourlyRate: overtimeRate,
           isActive: 1,
+          username: (formData.username || '').trim(),
+          password: (formData.password || '').trim(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
         await db.workers.add(newWorker);
         pushWorkerLive(newWorker).catch(console.error);
       }
+
+      // Save portal credentials
+      if (targetWorkerId) {
+        await setWorkerCredentials(targetWorkerId, formData.username, formData.password);
+      }
+
       setIsFormModalOpen(false);
     } catch (err) {
       setFormError(err.message || 'Error saving worker');
@@ -305,9 +327,20 @@ export function WorkersView() {
                       <span>{t('quickMonthlyAttendance')}</span>
                     </span>
                   </h3>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{worker.role || t('workerRole')}</span>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{worker.role || t('workerRole')}</span>
+                    </div>
+                    {(workerCreds[worker.id]?.username || worker.username) && (
+                      <span 
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-800/60"
+                        title="مشخصات ورود پرتال کارگر فعال است"
+                      >
+                        <Key className="w-3 h-3" />
+                        <span>{workerCreds[worker.id]?.username || worker.username}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -500,6 +533,40 @@ export function WorkersView() {
                     onChange={(e) => setFormData({ ...formData, overtimeHourlyRate: e.target.value })}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
+                </div>
+              </div>
+
+              {/* Worker Portal Login Credentials Section */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{t('workerLoginCredentials')}</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                      {t('username')}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.username || ''}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      placeholder="e.g. feryad"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                      {t('password')}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.password || ''}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="e.g. 1234"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
                 </div>
               </div>
 

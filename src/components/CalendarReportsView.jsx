@@ -6,6 +6,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { EditRecordModal } from './EditRecordModal';
 import { 
   formatIQD, 
+  formatAmount,
   formatNumber, 
   getCurrentYearMonth, 
   getTodayDateString, 
@@ -1051,7 +1052,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         <th className="px-4 py-3.5 text-center">{t('fullDaysWithPay')}</th>
                         <th className="px-4 py-3.5 text-center">{t('halfDaysWithPay')}</th>
                         <th className="px-4 py-3.5 text-center">{t('overtimeWithPay')}</th>
-                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{t('totalSummaryPay')}</th>
+                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{t('netPayIQD')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1065,28 +1066,28 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                             <div className="font-bold text-slate-800 dark:text-slate-200">
                               {row.fullDaysCount} {t('normalDays')}
                             </div>
-                            <div className="text-xs text-slate-400">
-                              ({formatIQD(row.fullDaysPay, language)})
+                            <div className="text-xs text-slate-400 font-mono">
+                              ({formatAmount(row.fullDaysPay)})
                             </div>
                           </td>
                           <td className="px-4 py-3.5 text-center">
                             <div className="font-bold text-slate-800 dark:text-slate-200">
                               {row.halfDaysCount} {t('halfDays')}
                             </div>
-                            <div className="text-xs text-slate-400">
-                              ({formatIQD(row.halfDaysPay, language)})
+                            <div className="text-xs text-slate-400 font-mono">
+                              ({formatAmount(row.halfDaysPay)})
                             </div>
                           </td>
                           <td className="px-4 py-3.5 text-center">
                             <div className="font-bold text-amber-600 dark:text-amber-400">
                               {formatHoursAndMinutes(row.overtimeHours, language)}
                             </div>
-                            <div className="text-xs text-slate-400">
-                              ({formatIQD(row.overtimePay, language)})
+                            <div className="text-xs text-slate-400 font-mono">
+                              ({formatAmount(row.overtimePay)})
                             </div>
                           </td>
-                          <td className="px-4 py-3.5 text-end font-extrabold text-sky-600 dark:text-sky-400 text-base">
-                            {formatIQD(row.totalPay, language)}
+                          <td className="px-4 py-3.5 text-end font-extrabold text-sky-600 dark:text-sky-400 text-base font-mono">
+                            {formatAmount(row.totalPay)}
                           </td>
                         </tr>
                       ))}
@@ -1098,28 +1099,31 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         </td>
                         <td className="px-4 py-3.5 text-center font-bold">
                           {summaryGroupedData.reduce((acc, r) => acc + r.fullDaysCount, 0)} روز
-                          <div className="text-[11px] text-slate-500">
-                            {formatIQD(summaryGroupedData.reduce((acc, r) => acc + r.fullDaysPay, 0), language)}
+                          <div className="text-[11px] text-slate-500 font-mono">
+                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.fullDaysPay, 0))}
                           </div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-bold">
                           {summaryGroupedData.reduce((acc, r) => acc + r.halfDaysCount, 0)} روز
-                          <div className="text-[11px] text-slate-500">
-                            {formatIQD(summaryGroupedData.reduce((acc, r) => acc + r.halfDaysPay, 0), language)}
+                          <div className="text-[11px] text-slate-500 font-mono">
+                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.halfDaysPay, 0))}
                           </div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-bold text-amber-600 dark:text-amber-400">
                           {formatHoursAndMinutes(summaryGroupedData.reduce((acc, r) => acc + r.overtimeHours, 0), language)}
-                          <div className="text-[11px] text-slate-500">
-                            {formatIQD(summaryGroupedData.reduce((acc, r) => acc + r.overtimePay, 0), language)}
+                          <div className="text-[11px] text-slate-500 font-mono">
+                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.overtimePay, 0))}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-end font-extrabold text-emerald-600 dark:text-emerald-400 text-base">
-                          {formatIQD(summaryGroupedData.reduce((acc, r) => acc + r.totalPay, 0), language)}
+                        <td className="px-4 py-3.5 text-end font-extrabold text-emerald-600 dark:text-emerald-400 text-base font-mono">
+                          {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.totalPay, 0))}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+                    <span>{t('allAmountsInIQDNote')}</span>
+                  </div>
                 </div>
               )
             ) : (
@@ -1138,7 +1142,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         <th className="px-4 py-3.5 text-center">{t('typeColumn')}</th>
                         <th className="px-4 py-3.5 text-center">{t('overtimeHours')}</th>
                         <th className="px-4 py-3.5 text-start">{t('notesColumn')}</th>
-                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{t('netSalary')}</th>
+                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{t('netPayIQD')}</th>
                         <th className="px-4 py-3.5 text-center no-print">{t('actions')}</th>
                       </tr>
                     </thead>
@@ -1171,8 +1175,8 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                             <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 max-w-xs truncate">
                               {log.notes || '-'}
                             </td>
-                            <td className="px-4 py-3 text-end font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                              {formatIQD(log.totalDayPay, language)}
+                            <td className="px-4 py-3 text-end font-bold text-slate-900 dark:text-white whitespace-nowrap font-mono">
+                              {formatAmount(log.totalDayPay)}
                             </td>
                             <td className="px-4 py-3 text-center no-print whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1">
@@ -1197,6 +1201,9 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                       })}
                     </tbody>
                   </table>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+                    <span>{t('allAmountsInIQDNote')}</span>
+                  </div>
                 </div>
               )
             )}

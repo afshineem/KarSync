@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditRecordModal } from './EditRecordModal';
-import { formatIQD, formatNumber, getCurrentYearMonth, formatHoursAndMinutes } from '../utils/formatters';
+import { formatIQD, formatAmount, formatNumber, getCurrentYearMonth, formatHoursAndMinutes } from '../utils/formatters';
 import { 
   Users, 
   Calendar, 
@@ -336,9 +336,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                   <th className="px-4 py-3 text-center">{t('normalDays')}</th>
                   <th className="px-4 py-3 text-center">{t('halfDays')}</th>
                   <th className="px-4 py-3 text-center">{t('overtimeHours')}</th>
-                  <th className="px-4 py-3 text-end">{t('basePay')}</th>
-                  <th className="px-4 py-3 text-end">{t('overtimePay')}</th>
-                  <th className="px-4 py-3 text-end font-bold text-sky-600 dark:text-sky-400">{t('netSalary')}</th>
+                  <th className="px-4 py-3 text-end">{t('baseWageIQD')}</th>
+                  <th className="px-4 py-3 text-end">{t('overtimeWageIQD')}</th>
+                  <th className="px-4 py-3 text-end font-bold text-sky-600 dark:text-sky-400">{t('netPayIQD')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -367,15 +367,15 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                     <td className="px-4 py-3 text-center font-medium text-amber-600 dark:text-amber-400">
                       {w.otHours > 0 ? formatHoursAndMinutes(w.otHours, language) : '0'}
                     </td>
-                    <td className="px-4 py-3 text-end text-slate-600 dark:text-slate-400">
-                      {formatIQD(w.basePay, language)}
+                    <td className="px-4 py-3 text-end text-slate-600 dark:text-slate-400 font-mono">
+                      {formatAmount(w.basePay)}
                     </td>
-                    <td className="px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-medium">
-                      {formatIQD(w.otPay, language)}
+                    <td className="px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-medium font-mono">
+                      {formatAmount(w.otPay)}
                     </td>
                     <td className="px-4 py-3 text-end font-bold text-slate-900 dark:text-white">
-                      <span className="bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800/60">
-                        {formatIQD(w.totalPay, language)}
+                      <span className="bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800/60 font-mono">
+                        {formatAmount(w.totalPay)}
                       </span>
                     </td>
                   </tr>
@@ -395,18 +395,21 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                   <td className="px-4 py-3 text-center text-amber-600 dark:text-amber-400">
                     {formatHoursAndMinutes(monthlyStats.totalOvertimeHours, language)}
                   </td>
-                  <td className="px-4 py-3 text-end">
-                    {formatIQD(logs.reduce((acc, l) => acc + (Number(l.calculatedDailyWage) || 0), 0), language)}
+                  <td className="px-4 py-3 text-end font-mono">
+                    {formatAmount(logs.reduce((acc, l) => acc + (Number(l.calculatedDailyWage) || 0), 0))}
                   </td>
-                  <td className="px-4 py-3 text-end text-amber-600 dark:text-amber-400">
-                    {formatIQD(logs.reduce((acc, l) => acc + (Number(l.calculatedOvertimeWage) || 0), 0), language)}
+                  <td className="px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-mono">
+                    {formatAmount(logs.reduce((acc, l) => acc + (Number(l.calculatedOvertimeWage) || 0), 0))}
                   </td>
-                  <td className="px-4 py-3 text-end text-sky-600 dark:text-sky-400 text-base font-black">
-                    {formatIQD(monthlyStats.totalPayroll, language)}
+                  <td className="px-4 py-3 text-end text-sky-600 dark:text-sky-400 text-base font-black font-mono">
+                    {formatAmount(monthlyStats.totalPayroll)}
                   </td>
                 </tr>
               </tfoot>
             </table>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+              <span>{t('allAmountsInIQDNote')}</span>
+            </div>
           </div>
         )}
       </div>

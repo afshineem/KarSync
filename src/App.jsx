@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { seedInitialDataIfEmpty } from './db/db';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
@@ -7,16 +8,17 @@ import { WorkersView } from './components/WorkersView';
 import { CalendarReportsView } from './components/CalendarReportsView';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
-import { SyncModal } from './components/SyncModal';
 import { SettingsModal } from './components/SettingsModal';
+import { LoginView } from './components/LoginView';
+import { WorkerViewPortal } from './components/WorkerViewPortal';
 import { performSyncUnified, getSyncConfig } from './services/syncService';
 import { initRealtimeSync } from './services/realtimeSync';
 
 function AppContent() {
+  const { user, isAdmin, isWorker } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
 
@@ -41,6 +43,9 @@ function AppContent() {
     }
   }, [theme]);
 
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   // Auto-sync listener when device reconnects to internet
   useEffect(() => {
@@ -54,10 +59,6 @@ function AppContent() {
     return () => window.removeEventListener('online', handleOnline);
   }, []);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  };
-
   useEffect(() => {
     // Seed initial demo data if database is newly initialized
     seedInitialDataIfEmpty();
@@ -65,6 +66,17 @@ function AppContent() {
     initRealtimeSync();
   }, []);
 
+  // 1. If not authenticated, render Login Screen
+  if (!user) {
+    return <LoginView theme={theme} toggleTheme={toggleTheme} />;
+  }
+
+  // 2. If logged in as Worker, render Dedicated Read-Only Worker Portal
+  if (isWorker) {
+    return <WorkerViewPortal theme={theme} toggleTheme={toggleTheme} />;
+  }
+
+  // 3. If Admin, render Full Workshop Management Application
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200">
       
@@ -116,12 +128,6 @@ function AppContent() {
         onClose={() => setIsBackupModalOpen(false)}
       />
 
-      {/* Cloud Database Sync Modal */}
-      <SyncModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-      />
-
       {/* System Settings Modal */}
       <SettingsModal
         isOpen={isSettingsModalOpen}
@@ -129,7 +135,6 @@ function AppContent() {
         theme={theme}
         toggleTheme={toggleTheme}
         onOpenBackupModal={() => setIsBackupModalOpen(true)}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
       />
     </div>
   );
@@ -138,7 +143,9 @@ function AppContent() {
 export default function App() {
   return (
     <LanguageProvider>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </LanguageProvider>
   );
 }

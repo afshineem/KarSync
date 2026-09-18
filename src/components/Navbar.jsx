@@ -1,14 +1,17 @@
 import React from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, 
   Users, 
   CalendarDays,
-  Settings
+  Settings,
+  LogOut
 } from 'lucide-react';
 
 export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
   const { t } = useLanguage();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
@@ -70,8 +73,10 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
             })}
           </nav>
 
-          {/* Right Controls: Single Sleek Settings Button (Gear icon) */}
+          {/* Right Controls: Settings Button + Admin Badge + Logout Button */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            
+            {/* Settings Button */}
             <button
               type="button"
               onClick={onOpenSettings}
@@ -86,6 +91,21 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
               {/* Subtle green indicator showing Supabase cloud is active */}
               <span className="w-2 h-2 rounded-full bg-emerald-400 absolute top-1.5 end-1.5 ring-2 ring-slate-900 animate-pulse"></span>
             </button>
+
+            {/* Logout Button */}
+            <button
+              type="button"
+              onClick={logout}
+              title={t('logout')}
+              aria-label="Logout"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-white border border-red-800/60 transition-all shadow-sm flex items-center gap-1.5 group"
+            >
+              <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+              <span className="hidden md:inline text-xs font-bold">
+                {t('logout')}
+              </span>
+            </button>
+
           </div>
         </div>
       </div>

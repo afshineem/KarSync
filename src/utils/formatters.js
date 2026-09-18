@@ -20,11 +20,19 @@ export function formatIQD(amount, lang = 'ku') {
 }
 
 /**
- * Format numbers with comma separators
+ * Format numbers with comma separators (pure digits, e.g. 35,000)
  */
 export function formatNumber(num) {
   if (num === undefined || num === null || isNaN(num)) return '0';
   return Number(num).toLocaleString('en-US');
+}
+
+/**
+ * Clean currency amount formatter (rounded with comma separators, e.g. 45,000)
+ */
+export function formatAmount(amount) {
+  if (amount === undefined || amount === null || isNaN(amount)) return '0';
+  return Math.round(Number(amount)).toLocaleString('en-US');
 }
 
 /**
