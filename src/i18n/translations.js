@@ -29,8 +29,8 @@ export const translations = {
     saveQuickAttendance: 'پاشەکەوتکردنی کارکردی مانگ',
     savedQuickAttendanceSuccess: 'ئامادەبوونی {days} ڕۆژ بە سەرکەوتوویی بۆ {name} پاشەکەوتکرا!',
     // Navigation & App
-    appName: 'بەڕێوەبردنی کارگە و مووچە',
-    appSubtitle: 'سیستەمی لۆکاڵی ئۆفلاین بۆ ئامادەبوونی ڕۆژانە و حیساباتی مووچە',
+    appName: 'KarSync',
+    appSubtitle: 'سیستەمی بەڕێوەبردنی کارگە، ئامادەبوون و تەسویەی حساب',
     dashboard: 'دەشبۆرد و پوختە',
     workers: 'بەڕێوەبردنی کرێکاران',
     calendarLogs: 'تەقویم و تۆمارەکان',
@@ -309,7 +309,12 @@ export const translations = {
     workerNetBalanceStatus: 'دۆخی کۆتایی ماوە:',
     workerNoDebt: 'حساب بە تەواوی تەسویەیە (۰ دینار)',
     workerHasCredit: 'بڕی پارەی داواکراو لە کارگە:',
-    workerHasDebt: 'بڕی قەرزاری کارگە:'
+    workerHasDebt: 'بڕی قەرزاری کارگە:',
+    priorBalanceDue: 'قەرزی ماوە لە مانگەکانی پێشوو',
+    totalCumulativeDebt: 'کۆی گشتی هەموو قەرزەکان (شایستەی تەسویە)',
+    thisMonthGross: 'حەقدەستی کارکردی ئەم مانگە',
+    thisMonthAdvances: 'پێشەکییە دراوەکانی ئەم مانگە',
+    cumulativeOutstandingNotice: 'ئەم بڕە سەرجەم قەرز و مافە کەڵەکەبووەکانی کرێکار لە سەرەتای کارکردنەوە تا ئێستا لەخۆ دەگرێت.'
   },
   fa: {
 
@@ -341,8 +346,8 @@ export const translations = {
     saveQuickAttendance: 'ذخیره نهایی روزهای ماه',
     savedQuickAttendanceSuccess: 'کارکرد {days} روز با موفقیت برای {name} ثبت شد!',
     // Navigation & App
-    appName: 'مدیریت حضور و غیاب کارگاه و حقوق',
-    appSubtitle: 'سامانه محلی آفلاین ثبت کارکرد روزانه و محاسبات دستمزد',
+    appName: 'KarSync',
+    appSubtitle: 'سامانه هوشمند مدیریت کارگاه، حضور و غیاب و تسویه حساب',
     dashboard: 'داشبورد و خلاصه',
     workers: 'مدیریت کارکنان',
     calendarLogs: 'تقویم و گزارش کارکرد',
@@ -621,7 +626,12 @@ export const translations = {
     workerNetBalanceStatus: 'وضعیت مانده نهایی:',
     workerNoDebt: 'حساب کاملاً تسویه است (۰ دینار)',
     workerHasCredit: 'مبلغ طلبکار از کارگاه:',
-    workerHasDebt: 'مبلغ بدهکار به کارگاه:'
+    workerHasDebt: 'مبلغ بدهکار به کارگاه:',
+    priorBalanceDue: 'بدهی معوقه از ماه‌های گذشته',
+    totalCumulativeDebt: 'مجموع تمام بدهی‌ها (کل معوقه قابل تسویه)',
+    thisMonthGross: 'کارکرد ناخالص این ماه',
+    thisMonthAdvances: 'پیش‌پرداخت‌های دریافتی این ماه',
+    cumulativeOutstandingNotice: 'این مبلغ شامل جمع کل مطالبات معوقه کارگر از ابتدا تا پایان این ماه منهای کل پرداختی‌ها می‌باشد.'
   },
   en: {
 
@@ -653,8 +663,8 @@ export const translations = {
     saveQuickAttendance: 'Save Monthly Attendance',
     savedQuickAttendanceSuccess: 'Attendance for {days} days saved successfully for {name}!',
     // Navigation & App
-    appName: 'Workshop Attendance & Payroll',
-    appSubtitle: 'Local-first offline attendance logging & payroll calculations in IQD',
+    appName: 'KarSync',
+    appSubtitle: 'Workshop Attendance, Daily Task Logging & Financial Settlement',
     dashboard: 'Dashboard',
     workers: 'Workers',
     calendarLogs: 'Calendar & Logs',
@@ -933,6 +943,11 @@ export const translations = {
     workerNetBalanceStatus: 'Net Balance Status:',
     workerNoDebt: 'Account is fully settled (0 IQD)',
     workerHasCredit: 'Amount due from workshop:',
-    workerHasDebt: 'Amount owed to workshop:'
+    workerHasDebt: 'Amount owed to workshop:',
+    priorBalanceDue: 'Prior Months Outstanding Debt',
+    totalCumulativeDebt: 'Total Cumulative Debt (To Settle)',
+    thisMonthGross: 'Current Month Gross Earnings',
+    thisMonthAdvances: 'Current Month Advances',
+    cumulativeOutstandingNotice: 'This balance includes all cumulative unpaid wages from previous months through this period minus all payments made.'
   }
 };

@@ -26,20 +26,21 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
-          {/* Logo & Brand: On mobile ONLY the sleek logo is visible; Title/Subtitle hidden */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0">
-            {/* Minimalist Vector Logo */}
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-sky-600 to-sky-800 flex items-center justify-center shadow-md shadow-sky-500/20 ring-2 ring-sky-400/20 flex-shrink-0">
-              <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 100 100" fill="none">
-                <path d="M26 32 L38 32 L50 56 L62 32 L74 32 L58 68 L42 68 Z" fill="#ffffff" />
-                <circle cx="50" cy="38" r="5" fill="#f59e0b" />
-              </svg>
+          {/* Logo & Brand: KarSync */}
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0 min-w-0">
+            {/* KarSync Logo Icon */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center shadow-md p-1.5 flex-shrink-0">
+              <img 
+                src="/karsync-icon.png" 
+                alt="KarSync" 
+                className="w-full h-full object-contain brightness-0 invert" 
+              />
             </div>
             
-            {/* Title & Subtitle: On tablet show compact title and hide long subtitle */}
+            {/* Title & Subtitle */}
             <div className="hidden sm:block min-w-0">
-              <h1 className="font-bold text-xs sm:text-sm md:text-base leading-tight tracking-tight text-white truncate max-w-[150px] md:max-w-[210px] lg:max-w-none">
-                {t('appName')}
+              <h1 className="font-extrabold text-sm sm:text-base md:text-lg leading-tight tracking-tight text-white truncate max-w-[150px] md:max-w-[210px] lg:max-w-none">
+                KarSync
               </h1>
               <p className="hidden lg:block text-xs text-slate-400 leading-none mt-0.5 truncate">
                 {t('appSubtitle')}

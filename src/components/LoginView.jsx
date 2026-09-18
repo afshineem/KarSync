@@ -91,16 +91,18 @@ export function LoginView({ theme, toggleTheme }) {
       {/* Main Login Card */}
       <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 flex flex-col animate-in fade-in zoom-in-95 duration-200">
         
-        {/* App Logo & Header */}
+        {/* App Logo & Header: KarSync */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 mb-3">
-            <Lock className="w-7 h-7" />
-          </div>
+          <img 
+            src="/karsync-logo.png" 
+            alt="KarSync" 
+            className="h-20 sm:h-24 w-auto object-contain dark:brightness-0 dark:invert transition-all mb-3" 
+          />
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             {t('loginTitle')}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs">
-            {t('loginSubtitle')}
+            {t('appSubtitle')}
           </p>
         </div>
 

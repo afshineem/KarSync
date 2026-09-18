@@ -101,8 +101,20 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     };
   }, [monthlyLogs]);
 
-  // Financial status & settlement calculation
+  // Financial status & settlement calculation with cumulative prior debt
   const financialStatus = useMemo(() => {
+    // 1. Prior months (before selectedMonth)
+    const priorGross = logs
+      .filter((l) => l.date && l.date < selectedMonth)
+      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+
+    const priorPaid = payments
+      .filter((p) => (p.month && p.month < selectedMonth) || (!p.month && p.date && p.date < selectedMonth))
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    const priorBalance = priorGross - priorPaid;
+
+    // 2. Current selected month
     const grossEarned = totals.netSalary;
     let advances = 0;
     let settlements = 0;
@@ -117,19 +129,26 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       }
     }
 
-    const totalPaid = advances + settlements;
-    const balance = grossEarned - totalPaid; // > 0: workshop owes worker, < 0: worker owes workshop, 0: exact
-    const isSettled = isMarkedSettled || (grossEarned > 0 && balance === 0);
+    const totalPaidThisMonth = advances + settlements;
+
+    // 3. Cumulative totals
+    const totalAllTimeGross = priorGross + grossEarned;
+    const totalAllTimePaid = priorPaid + totalPaidThisMonth;
+    const totalCumulativeBalance = totalAllTimeGross - totalAllTimePaid;
+
+    const isSettled = isMarkedSettled || (totalAllTimeGross > 0 && totalCumulativeBalance <= 0);
 
     return {
       grossEarned,
       advances,
       settlements,
-      totalPaid,
-      balance,
+      totalPaid: totalPaidThisMonth,
+      priorBalance,
+      totalCumulativeBalance,
+      balance: totalCumulativeBalance,
       isSettled
     };
-  }, [totals.netSalary, monthlyPayments]);
+  }, [logs, payments, selectedMonth, totals.netSalary, monthlyPayments]);
 
   // Month navigation helpers
   const handleShiftMonth = (delta) => {
@@ -159,9 +178,11 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           
           {/* Logo & Worker Name */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-sky-600 text-white flex items-center justify-center shadow-md shadow-sky-600/20 font-black">
-              <Building2 className="w-5 h-5" />
-            </div>
+            <img 
+              src="/karsync-icon.png" 
+              alt="KarSync" 
+              className="w-10 h-10 object-contain dark:brightness-0 dark:invert transition-all" 
+            />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white">
@@ -172,7 +193,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                {t('readOnlyNotice')}
+                KarSync • {t('readOnlyNotice')}
               </p>
             </div>
           </div>
@@ -315,7 +336,12 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   {financialStatus.isSettled
                     ? (language === 'ku' ? 'سەرجەم حەقدەست و مافە داراییەکانی ئەم مانگە بە تەواوی تەسویە کراوە.' : 'تمام حقوق و مطالبات مالی مربوط به این ماه به صورت کامل تسویه شده است.')
                     : financialStatus.balance > 0
-                    ? (language === 'ku' ? 'هێشتا بڕە پارەیەک وەک مافی شایستەی ئەم مانگە ماوە و تەسویەی کۆتایی ئەنجام نەدراوە.' : 'مطالبات این ماه هنوز به صورت نهایی تسویه نشده و دارای مانده پرداخت است.')
+                    ? (financialStatus.priorBalance > 0
+                        ? (language === 'ku'
+                            ? `کۆی گشتی ماوە: ${formatAmount(financialStatus.priorBalance)} دینار قەرزی مانگەکانی پێشوو + ${formatAmount(financialStatus.grossEarned)} دینار کارکردی ئەم مانگە.`
+                            : `مجموع کل طلب شما: ${formatAmount(financialStatus.priorBalance)} دینار معوقه از ماه‌های گذشته + ${formatAmount(financialStatus.grossEarned)} دینار کارکرد این ماه.`)
+                        : (language === 'ku' ? 'هێشتا بڕە پارەیەک وەک مافی شایستەی ئەم مانگە ماوە و تەسویەی کۆتایی ئەنجام نەدراوە.' : 'مطالبات این ماه هنوز به صورت نهایی تسویه نشده و دارای مانده پرداخت است.')
+                      )
                     : (language === 'ku' ? 'بڕی پێشەکییە وەرگیراوەکان لە کارکردی ئەم مانگە زیاترە.' : 'مجموع پیش‌پرداخت‌های دریافتی از کل کارکرد این ماه بیشتر است.')
                   }
                 </p>

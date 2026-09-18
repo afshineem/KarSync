@@ -29,32 +29,50 @@ export function SettlementModal({
 }) {
   const { t, language } = useLanguage();
 
-  // Financial calculations for this worker in this month
+  // Financial calculations for this worker: Prior months debt + Current month
   const calculations = useMemo(() => {
-    // 1. Gross earnings from attendance logs
-    const grossEarnings = workerLogs
+    // 1. Prior months (before this month)
+    const priorGross = workerLogs
+      .filter((l) => l.date && l.date < month)
+      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+
+    const priorPaid = workerPayments
+      .filter((p) => (p.month && p.month < month) || (!p.month && p.date && p.date < month))
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    const priorBalance = priorGross - priorPaid; // > 0: workshop owes worker from past months
+
+    // 2. Current selected month
+    const currentMonthGross = workerLogs
       .filter((l) => l.date && l.date.startsWith(month))
       .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
 
-    // 2. Previous advances already paid in this month
-    const previousAdvances = workerPayments
-      .filter((p) => p.month === month && p.type === 'advance')
+    const currentMonthAdvances = workerPayments
+      .filter((p) => (p.month === month || (!p.month && p.date && p.date.startsWith(month))) && p.type === 'advance')
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-    // 3. Previous settlements in this month (if any)
-    const previousSettlements = workerPayments
-      .filter((p) => p.month === month && p.type === 'settlement')
+    const currentMonthSettlements = workerPayments
+      .filter((p) => (p.month === month || (!p.month && p.date && p.date.startsWith(month))) && p.type === 'settlement')
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-    const totalPaidSoFar = previousAdvances + previousSettlements;
-    const balanceDue = Math.max(0, grossEarnings - totalPaidSoFar);
+    const currentMonthPaid = currentMonthAdvances + currentMonthSettlements;
+
+    // 3. All-time cumulative
+    const totalEarnings = priorGross + currentMonthGross;
+    const totalPaid = priorPaid + currentMonthPaid;
+    const totalCumulativeDebt = Math.max(0, totalEarnings - totalPaid);
 
     return {
-      grossEarnings,
-      previousAdvances,
-      previousSettlements,
-      totalPaidSoFar,
-      balanceDue
+      priorGross,
+      priorPaid,
+      priorBalance,
+      currentMonthGross,
+      currentMonthAdvances,
+      currentMonthSettlements,
+      currentMonthPaid,
+      totalEarnings,
+      totalPaid,
+      totalCumulativeDebt
     };
   }, [workerLogs, workerPayments, month]);
 
@@ -69,7 +87,7 @@ export function SettlementModal({
 
   useEffect(() => {
     if (isOpen) {
-      setFinalPaymentAmount(calculations.balanceDue > 0 ? String(calculations.balanceDue) : '0');
+      setFinalPaymentAmount(calculations.totalCumulativeDebt > 0 ? String(calculations.totalCumulativeDebt) : '0');
       setSettlementDate(getTodayDateString());
       setReferenceNumber('');
       setNotes(`تسویه حساب حقوق ${month}`);
@@ -77,7 +95,7 @@ export function SettlementModal({
       setFeedback({ type: '', message: '' });
       setCompletedPayment(null);
     }
-  }, [isOpen, calculations.balanceDue, month]);
+  }, [isOpen, calculations.totalCumulativeDebt, month]);
 
   if (!isOpen || !worker) return null;
 
@@ -93,40 +111,44 @@ export function SettlementModal({
 
     setIsSubmitting(true);
     try {
-      const remainingAfter = Math.max(0, calculations.balanceDue - payAmount);
+      const remainingAfter = Math.max(0, calculations.totalCumulativeDebt - payAmount);
 
       const settlementRecord = {
         id: generatePaymentId(),
         workerId: worker.id,
-        month,
+        workerName: worker.name,
+        month: month,
         date: settlementDate,
-        type: 'settlement',
         amount: payAmount,
-        calculatedEarnings: calculations.grossEarnings,
-        previousAdvances: calculations.previousAdvances,
-        remainingBalance: remainingAfter,
-        status: markAsSettled ? 'settled' : (remainingAfter === 0 ? 'settled' : 'partial'),
+        type: 'settlement',
+        status: markAsSettled ? 'settled' : 'partial',
         referenceNumber: referenceNumber.trim() || null,
         notes: notes.trim() || null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        remainingBalanceAfter: remainingAfter,
+        grossEarningsCalculated: calculations.totalEarnings,
+        priorBalanceDeducted: calculations.priorBalance,
+        advancesDeducted: calculations.currentMonthAdvances,
+        createdAt: new Date().toISOString()
       };
 
-      await db.payments.add(settlementRecord);
+      await db.payments.put(settlementRecord);
       pushPaymentsLive().catch(() => {});
-
-      setCompletedPayment(settlementRecord);
-      setFeedback({ type: 'success', message: t('settlementSuccessMsg') });
 
       if (onSettlementComplete) {
         onSettlementComplete(settlementRecord);
       }
 
-      setTimeout(() => {
-        onClose();
-      }, 1400);
+      setCompletedPayment(settlementRecord);
+      setFeedback({
+        type: 'success',
+        message: t('settlementSuccessMsg')
+      });
     } catch (err) {
-      setFeedback({ type: 'error', message: err.message || 'Error saving settlement' });
+      console.error('Settlement save error:', err);
+      setFeedback({
+        type: 'error',
+        message: 'خطا در ثبت تسویه حساب: ' + err.message
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -174,38 +196,61 @@ export function SettlementModal({
 
         {/* Calculation Breakdown Card */}
         <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 space-y-2.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 dark:text-slate-400">{t('calculatedEarningsThisPeriod')}:</span>
-            <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
-              {formatAmount(calculations.grossEarnings)} دینار
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400">
-            <span>(-) {t('previousAdvancesDeducted')}:</span>
-            <span className="font-bold font-mono">
-              {formatAmount(calculations.previousAdvances)} دینار
-            </span>
-          </div>
-
-          {calculations.previousSettlements > 0 && (
-            <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
-              <span>(-) تسویه‌های قبلی همین ماه:</span>
+          
+          {/* Prior Months Debt (if any) */}
+          {calculations.priorBalance !== 0 && (
+            <div className={`flex items-center justify-between text-xs ${
+              calculations.priorBalance > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+            }`}>
+              <span className="font-semibold">{t('priorBalanceDue')}:</span>
               <span className="font-bold font-mono">
-                {formatAmount(calculations.previousSettlements)} دینار
+                {calculations.priorBalance > 0 ? '+' : ''}{formatAmount(calculations.priorBalance)} دینار
               </span>
             </div>
           )}
 
-          <div className="pt-2 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-sm">
-            <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <Calculator className="w-4 h-4 text-sky-500" />
-              <span>{t('netBalanceDue')}:</span>
-            </span>
-            <span className="font-black text-sky-600 dark:text-sky-400 font-mono text-base">
-              {formatAmount(calculations.balanceDue)} دینار
+          {/* This Month's Gross Earnings */}
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500 dark:text-slate-400">{t('thisMonthGross')} ({month}):</span>
+            <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
+              {formatAmount(calculations.currentMonthGross)} دینار
             </span>
           </div>
+
+          {/* This Month's Advances */}
+          {calculations.currentMonthAdvances > 0 && (
+            <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400">
+              <span>(-) {t('thisMonthAdvances')}:</span>
+              <span className="font-bold font-mono">
+                {formatAmount(calculations.currentMonthAdvances)} دینار
+              </span>
+            </div>
+          )}
+
+          {/* Previous settlements in this month */}
+          {calculations.currentMonthSettlements > 0 && (
+            <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
+              <span>(-) تسویه‌های پرداختی این ماه:</span>
+              <span className="font-bold font-mono">
+                {formatAmount(calculations.currentMonthSettlements)} دینار
+              </span>
+            </div>
+          )}
+
+          {/* Total Cumulative Debt */}
+          <div className="pt-2.5 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-sm">
+            <span className="font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <Calculator className="w-4 h-4 text-emerald-500" />
+              <span>{t('totalCumulativeDebt')}:</span>
+            </span>
+            <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-base sm:text-lg">
+              {formatAmount(calculations.totalCumulativeDebt)} دینار
+            </span>
+          </div>
+          
+          <p className="text-[10px] text-slate-400 leading-tight">
+            {t('cumulativeOutstandingNotice')}
+          </p>
         </div>
 
         {/* Form */}

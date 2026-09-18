@@ -60,11 +60,16 @@ export function FinancialsView() {
     return allPayments.filter((p) => p.month === selectedMonth);
   }, [allPayments, selectedMonth, isAllTime]);
 
-  // Compute worker financial summaries
+  // Compute worker financial summaries with cumulative prior debt
   const workerFinancials = useMemo(() => {
     return workers.map((w) => {
-      // 1. Logs for this worker
-      const wLogs = filteredLogs.filter((l) => l.workerId === w.id);
+      const allWorkerLogs = allLogs.filter((l) => l.workerId === w.id);
+      const allWorkerPayments = allPayments.filter((p) => p.workerId === w.id);
+
+      // 1. Current Month (or All Time) Logs
+      const wLogs = isAllTime 
+        ? allWorkerLogs 
+        : allWorkerLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
       
       let fullDays = 0;
       let halfDays = 0;
@@ -83,8 +88,11 @@ export function FinancialsView() {
 
       const effectiveDays = fullDays + halfDays * 0.5;
 
-      // 2. Payments for this worker
-      const wPayments = filteredPayments.filter((p) => p.workerId === w.id);
+      // 2. Current Month Payments
+      const wPayments = isAllTime
+        ? allWorkerPayments
+        : allWorkerPayments.filter((p) => p.month === selectedMonth || (!p.month && p.date && p.date.startsWith(selectedMonth)));
+
       const totalAdvances = wPayments
         .filter((p) => p.type === 'advance')
         .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -93,18 +101,34 @@ export function FinancialsView() {
         .filter((p) => p.type === 'settlement')
         .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-      const totalPaid = totalAdvances + totalSettlements;
-      const netBalance = grossEarnings - totalPaid;
+      const totalPaidThisMonth = totalAdvances + totalSettlements;
 
-      // Settlement status
+      // 3. Prior Months Unpaid Debt (before selectedMonth)
+      const priorLogs = isAllTime 
+        ? [] 
+        : allWorkerLogs.filter((l) => l.date && l.date < selectedMonth);
+      const priorPayments = isAllTime 
+        ? [] 
+        : allWorkerPayments.filter((p) => (p.month && p.month < selectedMonth) || (!p.month && p.date && p.date < selectedMonth));
+
+      const priorGross = priorLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0);
+      const priorPaid = priorPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const priorBalance = priorGross - priorPaid; // > 0: unpaid debt from previous months
+
+      // 4. Cumulative All-Time Totals
+      const totalAllTimeGross = isAllTime ? grossEarnings : (priorGross + grossEarnings);
+      const totalAllTimePaid = isAllTime ? totalPaidThisMonth : (priorPaid + totalPaidThisMonth);
+      const totalCumulativeDebt = totalAllTimeGross - totalAllTimePaid;
+
+      // Status
       const hasSettledRecord = wPayments.some((p) => p.type === 'settlement' && p.status === 'settled');
       
       let status = 'pending';
-      if (grossEarnings === 0 && totalPaid === 0) {
+      if (totalAllTimeGross === 0 && totalAllTimePaid === 0) {
         status = 'no_activity';
-      } else if (hasSettledRecord || (netBalance <= 0 && grossEarnings > 0)) {
+      } else if (hasSettledRecord || (totalCumulativeDebt <= 0 && totalAllTimeGross > 0)) {
         status = 'settled';
-      } else if (netBalance < 0) {
+      } else if (totalCumulativeDebt < 0) {
         status = 'overpaid';
       } else {
         status = 'pending';
@@ -120,15 +144,17 @@ export function FinancialsView() {
         grossEarnings,
         totalAdvances,
         totalSettlements,
-        totalPaid,
-        netBalance,
+        totalPaid: totalPaidThisMonth,
+        priorBalance,
+        totalCumulativeDebt,
+        netBalance: totalCumulativeDebt,
         status,
         hasSettledRecord,
         wLogs,
         wPayments
       };
     });
-  }, [workers, filteredLogs, filteredPayments]);
+  }, [workers, allLogs, allPayments, selectedMonth, isAllTime]);
 
   // Aggregate KPI metrics
   const aggregateMetrics = useMemo(() => {
@@ -143,8 +169,8 @@ export function FinancialsView() {
         activeWorkersCount++;
         totalGross += item.grossEarnings;
         totalPaid += item.totalPaid;
-        if (item.netBalance > 0) {
-          totalOutstanding += item.netBalance;
+        if (item.totalCumulativeDebt > 0) {
+          totalOutstanding += item.totalCumulativeDebt;
         }
         if (item.status === 'settled') {
           settledCount++;
@@ -492,7 +518,7 @@ export function FinancialsView() {
                         {row.totalPaid > 0 ? formatAmount(row.totalPaid) : '-'}
                       </td>
 
-                      {/* Net Balance Due */}
+                      {/* Net Balance Due (Total Cumulative Debt) */}
                       <td className="px-4 py-3.5 text-end font-mono">
                         <span className={`px-2.5 py-1 rounded-xl text-xs font-black inline-block ${
                           isSettled
@@ -501,10 +527,15 @@ export function FinancialsView() {
                             ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
                             : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
                         }`}>
-                          {isSettled && row.netBalance <= 0
+                          {isSettled && row.totalCumulativeDebt <= 0
                             ? '۰ (تسویه کامل)'
-                            : formatAmount(row.netBalance)}
+                            : formatAmount(row.totalCumulativeDebt)}
                         </span>
+                        {row.priorBalance > 0 && !isSettled && (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-normal mt-0.5">
+                            (+{formatAmount(row.priorBalance)} معوقه قبلی)
+                          </span>
+                        )}
                       </td>
 
                       {/* Status Badge */}

@@ -11,7 +11,7 @@ export async function exportDatabaseToJSON() {
 
   const backupData = {
     version: 2,
-    appName: 'Workshop Attendance & Payroll PWA',
+    appName: 'KarSync',
     exportedAt: new Date().toISOString(),
     currency: 'IQD',
     data: {

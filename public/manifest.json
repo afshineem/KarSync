@@ -1,11 +1,11 @@
 {
-  "short_name": "WorkshopHub",
-  "name": "Workshop Attendance & Payroll Manager",
+  "short_name": "KarSync",
+  "name": "KarSync - Workshop Attendance & Payroll Manager",
   "description": "Local-first offline Attendance, Daily Logging and Payroll Management in Iraqi Dinars (IQD)",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "type": "image/svg+xml",
+      "src": "/karsync-icon.png",
+      "type": "image/png",
       "sizes": "192x192 512x512",
       "purpose": "any maskable"
     }
