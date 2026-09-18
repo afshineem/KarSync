@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
-import { pushPaymentsLive } from '../services/realtimeSync';
+import { pushPaymentsLive, recordPendingPaymentDeletion } from '../services/realtimeSync';
 import { formatAmount } from '../utils/formatters';
 import { 
   Receipt, 
@@ -50,6 +50,7 @@ export function PaymentHistoryModal({
 
   const handleDelete = async (paymentId) => {
     if (window.confirm(t('paymentDeleteConfirm'))) {
+      recordPendingPaymentDeletion(paymentId);
       await db.payments.delete(paymentId);
       pushPaymentsLive().catch(() => {});
     }

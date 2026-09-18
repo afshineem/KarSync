@@ -11,6 +11,7 @@ import {
 import { SettlementModal } from './SettlementModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
 import { PaymentHistoryModal } from './PaymentHistoryModal';
+import { fullSyncBothDirections } from '../services/realtimeSync';
 import { 
   WalletCards, 
   Search, 
@@ -24,11 +25,14 @@ import {
   Receipt, 
   PlusCircle, 
   Calendar,
-  Users
+  Users,
+  RefreshCw
 } from 'lucide-react';
 
 export function FinancialsView() {
   const { t, language, direction } = useLanguage();
+  const [isSyncingLive, setIsSyncingLive] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState('');
 
   // Filter mode: 'monthly' | 'range'
   const [filterMode, setFilterMode] = useState('monthly');
@@ -271,6 +275,19 @@ export function FinancialsView() {
     setSelectedMonth(`${newY}-${newM}`);
   };
 
+  const handleQuickSync = async () => {
+    setIsSyncingLive(true);
+    try {
+      await fullSyncBothDirections();
+      setSyncStatusMsg(language === 'en' ? 'Synced!' : language === 'ku' ? 'هاوکاتکرا!' : 'سینک شد!');
+      setTimeout(() => setSyncStatusMsg(''), 2500);
+    } catch (err) {
+      console.warn('Manual sync failed:', err);
+    } finally {
+      setIsSyncingLive(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20 no-print" dir={direction}>
       
@@ -288,8 +305,21 @@ export function FinancialsView() {
             </p>
           </div>
 
-          {/* Quick Record Advance Button */}
+          {/* Quick Actions: Sync + Add Advance Button */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleQuickSync}
+              disabled={isSyncingLive}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs transition-all active:scale-95 disabled:opacity-50"
+              title={language === 'en' ? 'Sync now with Cloud' : language === 'ku' ? 'هاوکاتکردنی خێرا لەگەڵ هەور' : 'سینک فوری با سرور ابری'}
+            >
+              <RefreshCw className={`w-4 h-4 text-sky-500 ${isSyncingLive ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">
+                {syncStatusMsg || (isSyncingLive ? (language === 'en' ? 'Syncing...' : language === 'ku' ? 'هاوکات دەکرێت...' : 'در حال سینک...') : (language === 'en' ? 'Cloud Sync' : language === 'ku' ? 'سینکی هەور' : 'سینک ابری'))}
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsGlobalAdvanceModalOpen(true)}

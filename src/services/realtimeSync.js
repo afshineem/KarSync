@@ -22,6 +22,7 @@ let realtimeChannel = null;
 
 const PENDING_DELETED_WORKERS_KEY = 'workshop_pending_deleted_workers';
 const PENDING_DELETED_LOGS_KEY = 'workshop_pending_deleted_logs';
+const PENDING_DELETED_PAYMENTS_KEY = 'workshop_pending_deleted_payments';
 
 export function getPendingDeletedWorkers() {
   try {
@@ -67,6 +68,28 @@ export function clearPendingLogDeletion(logId) {
   localStorage.setItem(PENDING_DELETED_LOGS_KEY, JSON.stringify(list));
 }
 
+export function getPendingDeletedPayments() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_DELETED_PAYMENTS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingPaymentDeletion(paymentId) {
+  if (!paymentId) return;
+  const list = getPendingDeletedPayments();
+  if (!list.includes(paymentId)) {
+    list.push(paymentId);
+    localStorage.setItem(PENDING_DELETED_PAYMENTS_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingPaymentDeletion(paymentId) {
+  const list = getPendingDeletedPayments().filter(id => id !== paymentId);
+  localStorage.setItem(PENDING_DELETED_PAYMENTS_KEY, JSON.stringify(list));
+}
+
 export async function flushPendingDeletions() {
   if (!navigator.onLine) return;
   const now = new Date().toISOString();
@@ -95,6 +118,16 @@ export async function flushPendingDeletions() {
       console.warn('Flush log deletion warning:', logId, err);
     }
   }
+
+  // Flush pending deleted payments
+  const pendingPayments = getPendingDeletedPayments();
+  if (pendingPayments.length > 0) {
+    try {
+      await pushPaymentsLive();
+    } catch (err) {
+      console.warn('Flush payment deletion warning:', err);
+    }
+  }
 }
 
 /**
@@ -102,6 +135,7 @@ export async function flushPendingDeletions() {
  * 1. Seed or Reconcile local and cloud data on startup
  * 2. Subscribe to Postgres Realtime changes via WebSockets
  * 3. Start background safety-net polling
+ * 4. Setup mobile visibility/focus listeners for instant sync on screen unlock
  */
 export async function initRealtimeSync() {
   if (isInitialized) return;
@@ -121,19 +155,35 @@ export async function initRealtimeSync() {
   // Subscribe to Realtime WebSocket changes
   subscribeToRealtime();
 
-  // Background polling every 12 seconds as a rock-solid fallback
+  // Background polling every 4 seconds as a rock-solid fallback for all devices
   setInterval(() => {
     if (navigator.onLine) {
       flushPendingDeletions().catch(() => {});
       pullRemoteChangesSilently().catch(() => {});
     }
-  }, 12000);
+  }, 4000);
 
   // Sync automatically when browser comes back online
   window.addEventListener('online', () => {
     console.log('🌐 Internet connection restored. Syncing with Supabase...');
     flushPendingDeletions().catch(() => {});
     fullSyncBothDirections().catch(() => {});
+  });
+
+  // Mobile / Tab visibility & focus recovery:
+  // When mobile browser tab becomes visible or screen turns on, sync immediately!
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && navigator.onLine) {
+      console.log('📱 App became visible. Pulling latest cloud changes...');
+      flushPendingDeletions().catch(() => {});
+      pullRemoteChangesSilently().catch(() => {});
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (navigator.onLine) {
+      pullRemoteChangesSilently().catch(() => {});
+    }
   });
 }
 
@@ -402,6 +452,11 @@ function subscribeToRealtime() {
       }
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
+      console.log('⚡ Realtime Settings/Payments Change received:', payload.eventType, payload);
+      await pullPaymentsLive();
+      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+    })
     .subscribe((status) => {
       console.log('📡 Supabase WebSocket channel status:', status);
     });
@@ -419,6 +474,7 @@ async function pullRemoteChangesSilently() {
   if (!wRes.error && !lRes.error && (wRes.data || lRes.data)) {
     await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
   }
+  await pullPaymentsLive();
 }
 
 /**
@@ -512,24 +568,72 @@ export async function deleteWorkerLive(workerId) {
 }
 
 /**
- * Push all local payments to Supabase settings
+ * Push all local payments to Supabase settings with safe cloud merge and deletion reconciliation
  */
 export async function pushPaymentsLive() {
   if (!navigator.onLine) return;
   try {
-    const allPayments = await db.payments.toArray();
+    const localPayments = await db.payments.toArray();
+    const pendingDeleted = new Set(getPendingDeletedPayments());
+    const filteredLocal = localPayments.filter(p => !pendingDeleted.has(p.id));
+
+    // Fetch latest cloud payments to safely merge
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_payments')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data && data.setting_value) {
+      try {
+        const cloudPayments = JSON.parse(data.setting_value);
+        if (Array.isArray(cloudPayments)) {
+          for (const cp of cloudPayments) {
+            if (!pendingDeleted.has(cp.id)) {
+              mergedMap.set(cp.id, cp);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Merge in current local payments (local updates win for modified payments)
+    for (const lp of filteredLocal) {
+      mergedMap.set(lp.id, lp);
+    }
+
+    const mergedList = Array.from(mergedMap.values());
+
     await supabase.from('settings').upsert({
       setting_key: 'app_payments',
-      setting_value: JSON.stringify(allPayments),
+      setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
+
+    // Reconcile local Dexie database
+    await db.transaction('rw', db.payments, async () => {
+      for (const p of mergedList) {
+        await db.payments.put(p);
+      }
+      for (const id of pendingDeleted) {
+        await db.payments.delete(id);
+      }
+    });
+
+    // Clear flushed pending payment deletions
+    for (const id of pendingDeleted) {
+      clearPendingPaymentDeletion(id);
+    }
+
+    window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
   } catch (err) {
     console.warn('Could not push payments to Supabase:', err);
   }
 }
 
 /**
- * Pull cloud payments from Supabase settings
+ * Pull cloud payments from Supabase settings and update local Dexie
  */
 export async function pullPaymentsLive() {
   if (!navigator.onLine) return;
@@ -541,13 +645,34 @@ export async function pullPaymentsLive() {
       .maybeSingle();
 
     if (!error && data && data.setting_value) {
-      const cloudPayments = JSON.parse(data.setting_value);
-      if (Array.isArray(cloudPayments) && cloudPayments.length > 0) {
+      let cloudPayments = [];
+      try {
+        cloudPayments = JSON.parse(data.setting_value);
+      } catch (parseErr) {
+        console.warn('Error parsing cloud payments:', parseErr);
+      }
+
+      if (Array.isArray(cloudPayments)) {
+        const pendingDeleted = new Set(getPendingDeletedPayments());
+        const validCloudPayments = cloudPayments.filter(p => !pendingDeleted.has(p.id));
+        const validCloudIds = new Set(validCloudPayments.map(p => p.id));
+
         await db.transaction('rw', db.payments, async () => {
-          for (const p of cloudPayments) {
+          for (const p of validCloudPayments) {
             await db.payments.put(p);
           }
+          // If cloud has a populated list, remove any local records that were deleted remotely
+          if (validCloudPayments.length > 0) {
+            const localPayments = await db.payments.toArray();
+            for (const lp of localPayments) {
+              if (pendingDeleted.has(lp.id) || !validCloudIds.has(lp.id)) {
+                await db.payments.delete(lp.id);
+              }
+            }
+          }
         });
+
+        window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
       }
     }
   } catch (err) {
