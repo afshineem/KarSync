@@ -146,7 +146,8 @@ export function WorkersView() {
     try {
       if (editingWorker) {
         // Update
-        await db.workers.update(editingWorker.id, {
+        const updatedWorker = {
+          ...editingWorker,
           name: formData.name.trim(),
           phone: formData.phone.trim(),
           role: formData.role.trim(),
@@ -154,7 +155,9 @@ export function WorkersView() {
           overtimeHourlyRate: overtimeRate,
           isActive: Number(formData.isActive),
           updatedAt: new Date().toISOString()
-        });
+        };
+        await db.workers.update(editingWorker.id, updatedWorker);
+        pushWorkerLive(updatedWorker).catch(console.error);
       } else {
         // Create
         const newWorker = {
@@ -169,6 +172,7 @@ export function WorkersView() {
           updatedAt: new Date().toISOString()
         };
         await db.workers.add(newWorker);
+        pushWorkerLive(newWorker).catch(console.error);
       }
       setIsFormModalOpen(false);
     } catch (err) {
@@ -179,10 +183,16 @@ export function WorkersView() {
   // Toggle worker active/inactive status
   const handleToggleActive = async (worker) => {
     const newStatus = worker.isActive === 1 ? 0 : 1;
-    await db.workers.update(worker.id, {
+    const updated = {
+      ...worker,
       isActive: newStatus,
       updatedAt: new Date().toISOString()
+    };
+    await db.workers.update(worker.id, {
+      isActive: newStatus,
+      updatedAt: updated.updatedAt
     });
+    pushWorkerLive(updated).catch(console.error);
   };
 
   // Delete worker permanently
@@ -190,6 +200,7 @@ export function WorkersView() {
     if (window.confirm(t('confirmDelete'))) {
       await db.workers.delete(worker.id);
       await db.attendanceLogs.where('workerId').equals(worker.id).delete();
+      deleteWorkerLive(worker.id).catch(console.error);
     }
   };
 
