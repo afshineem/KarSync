@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="26" fill="url(#logoGrad)" />
+  <!-- Minimalist Precision Workshop Crest -->
+  <path d="M26 32 L38 32 L50 56 L62 32 L74 32 L58 68 L42 68 Z" fill="#ffffff" />
+  <circle cx="50" cy="38" r="5" fill="#f59e0b" />
+</svg>
