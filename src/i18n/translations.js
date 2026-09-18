@@ -176,7 +176,28 @@ export const translations = {
     noLogsForMonth: 'هیچ کارکردێک لەم مانگەدا تۆمار نەکراوە.',
     totalMonthWorkedDays: 'کۆی ڕۆژانی کارکردن لەم مانگە',
     totalMonthOvertime: 'کۆی کاتژمێری ئۆڤەرتایم',
-    totalMonthCost: 'کۆی خەرجی مووچەی مانگ'
+    totalMonthCost: 'کۆی خەرجی مووچەی مانگ',
+
+    // Settings Modal
+    settings: 'ڕێکخستنەکان',
+    settingsSubtitle: 'شەخسیکردنی زمان، ڕووکار، بنکەدراوە و باری پەیوەندی هەور',
+    appearance: 'ڕووکار و دۆخی دەرکەوتن',
+    themeLight: 'دۆخی ڕۆژ (ڕووناک)',
+    themeDark: 'دۆخی شەو (تاریک)',
+    languageSelect: 'زمانی بەرنامە',
+    cloudSyncTitle: 'داتابەیسی هەوری سوپابەیس (Supabase Realtime)',
+    cloudSyncStatusConnected: 'پەیوەستکراوە و زیندوە (Online)',
+    cloudSyncDesc: 'داتاکانت بە شێوەی خۆکار و بێ دەستێوەردان لە نێوان هەموو ئامێرەکان هاوکات دەکرێن',
+    testCloudConnection: 'پشکنینی پەیوەندی / هاوکاتکردنی خێرا',
+    openFullCloudSettings: 'ڕێکخستنی پێشکەوتووی سێرڤەر',
+    backupRestoreTitle: 'پاشەکەوت و هێنانەوەی زانیارییەکان',
+    backupRestoreDesc: 'دەرکردنی فایلی یەدەگ (JSON) بۆ پاراستنی داتا یان هێنانەوە لەسەر مۆبایل و کۆمپیوتەر',
+    openBackupModalBtn: 'بەڕێوەبردنی فایلی یەدەگ (Backup)',
+    appOwnership: 'خاوەنداریەتی و گەشەپێدانی سیستەم',
+    developedBy: 'دیزاین و پرۆگرامسازی تایبەت بۆ بەڕێوەبردنی کارگە',
+    ownerName: 'خاوەن و بەڕێوەبەر: ئەفشین زارعی',
+    allRightsReserved: 'هەموو مافەکان پارێزراون © ۲۰۲۶',
+    socialLinks: 'پەیوەندی لە تۆڕە کۆمەڵایەتییەکان'
   },
   fa: {
 
@@ -357,6 +378,26 @@ export const translations = {
     totalMonthOvertime: 'مجموع ساعات اضافه‌کاری',
     totalMonthCost: 'مجموع کل دستمزد ماه',
 
+    // Settings Modal
+    settings: 'تنظیمات',
+    settingsSubtitle: 'شخصی‌سازی زبان، حالت شب/روز، پایگاه داده و اتصال ابری',
+    appearance: 'ظاهر و تم برنامه',
+    themeLight: 'حالت روز (روشن)',
+    themeDark: 'حالت شب (تاریک)',
+    languageSelect: 'زبان برنامه',
+    cloudSyncTitle: 'پایگاه داده ابری سوپابیس (Supabase Realtime)',
+    cloudSyncStatusConnected: 'متصل و فعال (Online & Synced)',
+    cloudSyncDesc: 'اطلاعات کارگاه به صورت زنده و خودکار در فضای ابری بین تمامی دستگاه‌های شما همگام‌سازی می‌شود',
+    testCloudConnection: 'تست اتصال / همگام‌سازی فوری',
+    openFullCloudSettings: 'تنظیمات پیشرفته سرور ابری',
+    backupRestoreTitle: 'پشتیبان‌گیری و بازیابی داده‌ها (Backup & Restore)',
+    backupRestoreDesc: 'دانلود فایل پشتیبان کامل (JSON) از اطلاعات کارگاه یا بازیابی داده‌ها در دستگاه دیگر',
+    openBackupModalBtn: 'مدیریت فایل پشتیبان (Backup)',
+    appOwnership: 'مالکیت و کپی‌رایت برنامه',
+    developedBy: 'طراحی و توسعه اختصاصی برای مدیریت حضور و غیاب و حقوق کارگاه',
+    ownerName: 'مالک و صاحب امتیاز: افشین زارعی',
+    allRightsReserved: 'تمامی حقوق محفوظ است © ۲۰۲۶',
+    socialLinks: 'راه‌های ارتباطی و شبکه‌های اجتماعی'
   },
   en: {
 
@@ -535,6 +576,27 @@ export const translations = {
     noLogsForMonth: 'No attendance records found for this month.',
     totalMonthWorkedDays: 'Total Working Days',
     totalMonthOvertime: 'Total Overtime Hours',
-    totalMonthCost: 'Total Monthly Payroll'
+    totalMonthCost: 'Total Monthly Payroll',
+
+    // Settings Modal
+    settings: 'Settings',
+    settingsSubtitle: 'Customize language, theme, database & cloud sync',
+    appearance: 'Appearance & Theme',
+    themeLight: 'Light Mode',
+    themeDark: 'Dark Mode',
+    languageSelect: 'Application Language',
+    cloudSyncTitle: 'Supabase Realtime Cloud',
+    cloudSyncStatusConnected: 'Connected & Active (Online)',
+    cloudSyncDesc: 'Workshop data is continuously synchronized across all your devices in real-time',
+    testCloudConnection: 'Test Connection / Sync Now',
+    openFullCloudSettings: 'Advanced Cloud Settings',
+    backupRestoreTitle: 'Database Backup & Restore',
+    backupRestoreDesc: 'Export full JSON backup for offline safety or restore saved data across devices',
+    openBackupModalBtn: 'Manage Backup Files',
+    appOwnership: 'App Ownership & Credits',
+    developedBy: 'Custom designed and developed for workshop attendance & payroll management',
+    ownerName: 'Owner & Creator: Afshin Zarei',
+    allRightsReserved: 'All rights reserved © 2026',
+    socialLinks: 'Social Networks & Contact'
   }
 };

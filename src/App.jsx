@@ -8,6 +8,7 @@ import { CalendarReportsView } from './components/CalendarReportsView';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
 import { SyncModal } from './components/SyncModal';
+import { SettingsModal } from './components/SettingsModal';
 import { performSyncUnified, getSyncConfig } from './services/syncService';
 import { initRealtimeSync } from './services/realtimeSync';
 
@@ -16,6 +17,7 @@ function AppContent() {
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
 
   const handleOpenLoggingModal = (dateStr) => {
@@ -70,10 +72,7 @@ function AppContent() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenBackupModal={() => setIsBackupModalOpen(true)}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
-        theme={theme}
-        toggleTheme={toggleTheme}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
       {/* Main Content View */}
@@ -121,6 +120,16 @@ function AppContent() {
       <SyncModal
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
+      />
+
+      {/* System Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        onOpenBackupModal={() => setIsBackupModalOpen(true)}
+        onOpenSyncModal={() => setIsSyncModalOpen(true)}
       />
     </div>
   );

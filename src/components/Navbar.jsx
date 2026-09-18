@@ -4,13 +4,11 @@ import {
   LayoutDashboard, 
   Users, 
   CalendarDays,
-  Database, 
-  Sun,
-  Moon
+  Settings
 } from 'lucide-react';
 
-export function Navbar({ activeTab, setActiveTab, onOpenBackupModal, onOpenSyncModal, theme, toggleTheme }) {
-  const { language, changeLanguage, t } = useLanguage();
+export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
+  const { t } = useLanguage();
 
   const navItems = [
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
@@ -72,71 +70,22 @@ export function Navbar({ activeTab, setActiveTab, onOpenBackupModal, onOpenSyncM
             })}
           </nav>
 
-          {/* Right Controls: Dark Mode Toggle, Language Switcher, Backup Trigger, Cloud Sync */}
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
-            
-            {/* Dark Mode Toggle */}
+          {/* Right Controls: Single Sleek Settings Button (Gear icon) */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
-              onClick={toggleTheme}
-              title={theme === 'dark' ? 'حالت روز (Light Mode)' : 'حالت شب (Dark Mode)'}
-              aria-label="Toggle Theme"
-              className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-amber-400 border border-slate-700 transition-colors shadow-sm"
+              type="button"
+              onClick={onOpenSettings}
+              title={t('settings') || 'تنظیمات'}
+              aria-label="Settings"
+              className="relative p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/80 transition-all shadow-sm flex items-center gap-2 group hover:border-sky-500/50"
             >
-              {theme === 'dark' ? (
-                <Sun className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 transition-transform hover:rotate-45" />
-              ) : (
-                <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 transition-transform hover:-rotate-12" />
-              )}
+              <Settings className="w-5 h-5 text-slate-300 group-hover:text-sky-400 group-hover:rotate-45 transition-all duration-300" />
+              <span className="hidden sm:inline text-xs font-bold text-slate-200 group-hover:text-white">
+                {t('settings')}
+              </span>
+              {/* Subtle green indicator showing Supabase cloud is active */}
+              <span className="w-2 h-2 rounded-full bg-emerald-400 absolute top-1.5 end-1.5 ring-2 ring-slate-900 animate-pulse"></span>
             </button>
-
-            {/* Language Switcher */}
-            <div className="flex items-center bg-slate-800 rounded-xl p-0.5 border border-slate-700 text-[10px] sm:text-xs font-semibold">
-              <button
-                onClick={() => changeLanguage('ku')}
-                className={`px-1.5 py-1 sm:px-2.5 sm:py-1 rounded-lg transition-colors ${
-                  language === 'ku'
-                    ? 'bg-sky-600 text-white'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title="کوردی (سۆرانی)"
-              >
-                کو
-              </button>
-              <button
-                onClick={() => changeLanguage('fa')}
-                className={`px-1.5 py-1 sm:px-2.5 sm:py-1 rounded-lg transition-colors ${
-                  language === 'fa'
-                    ? 'bg-sky-600 text-white'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title="فارسی"
-              >
-                فا
-              </button>
-              <button
-                onClick={() => changeLanguage('en')}
-                className={`px-1.5 py-1 sm:px-2.5 sm:py-1 rounded-lg transition-colors ${
-                  language === 'en'
-                    ? 'bg-sky-600 text-white'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title="English"
-              >
-                EN
-              </button>
-            </div>
-
-
-            {/* Backup Modal Trigger */}
-            <button
-              onClick={onOpenBackupModal}
-              className="p-1.5 sm:px-2.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-medium border border-slate-700 transition-colors shadow-sm flex items-center gap-1.5"
-              title={t('backup')}
-            >
-              <Database className="w-4 h-4 text-sky-400" />
-              <span className="hidden xl:inline">{t('backup')}</span>
-            </button>
-
           </div>
         </div>
       </div>
