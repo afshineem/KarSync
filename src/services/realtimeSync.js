@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs } from '../db/db';
+import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers } from '../db/db';
 import { getSyncConfig, saveSyncConfig, setLastSyncTime } from './syncService';
 
 const SUPABASE_URL = 'https://akeferuiyijsmgmjqnqc.supabase.co';
@@ -33,6 +33,7 @@ export async function initRealtimeSync() {
   console.log('🔄 Initializing Supabase Realtime Sync...');
 
   try {
+    await purgeDummySeedWorkers();
     await cleanupDuplicateAttendanceLogs();
     await autoInitialSync();
   } catch (err) {
@@ -100,6 +101,8 @@ export async function autoInitialSync() {
  */
 export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
   const duplicateIdsToDeleteFromCloud = [];
+
+  await purgeDummySeedWorkers();
 
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
     for (const w of cloudWorkers) {

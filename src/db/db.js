@@ -19,117 +19,48 @@ export function getAttendanceLogId(workerId, date) {
   return `att_${workerId}_${date}`;
 }
 
-// Seed initial realistic data if database is empty
-export async function seedInitialDataIfEmpty() {
-  const count = await db.workers.count();
-  if (count > 0) return;
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-
-  const initialWorkers = [
-    {
-      id: 'w_1',
-      name: 'ئاراس ئەحمەد (Aras Ahmad)',
-      phone: '07501234567',
-      role: 'Master Craftsman / وەستای گشتی',
-      dailyRate: 45000, // 45,000 IQD per day
-      overtimeHourlyRate: 7000, // 7,000 IQD per hour
-      isActive: 1,
-      createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'w_2',
-      name: 'کاروان حوسێن (Karwan Husein)',
-      phone: '07709876543',
-      role: 'Welder / لەحیمچی',
-      dailyRate: 35000,
-      overtimeHourlyRate: 5500,
-      isActive: 1,
-      createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'w_3',
-      name: 'هێمن مەحمود (Hemin Mahmud)',
-      phone: '07504443322',
-      role: 'Apprentice / یاریدەدەر',
-      dailyRate: 25000,
-      overtimeHourlyRate: 4000,
-      isActive: 1,
-      createdAt: new Date(Date.now() - 20 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'w_4',
-      name: 'ڕێبین سالار (Rebin Salar)',
-      phone: '07715556677',
-      role: 'Technician / تەکنیککار',
-      dailyRate: 38000,
-      overtimeHourlyRate: 6000,
-      isActive: 1,
-      createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString()
+// Purge any legacy dummy seed workers (Aras, Karwan, Hemin, Rebin)
+export async function purgeDummySeedWorkers() {
+  const dummyIds = ['w_1', 'w_2', 'w_3', 'w_4'];
+  try {
+    for (const id of dummyIds) {
+      await db.workers.delete(id);
+      await db.attendanceLogs.where('workerId').equals(id).delete();
     }
-  ];
-
-  await db.workers.bulkAdd(initialWorkers);
-
-  // Generate some realistic sample attendance logs for the current month
-  const initialLogs = [];
-  const currentDay = Math.min(now.getDate(), 14);
-
-  for (let d = 1; d <= currentDay; d++) {
-    const dayStr = String(d).padStart(2, '0');
-    const date = `${year}-${month}-${dayStr}`;
-
-    // Skip Fridays (typical day off in workshop)
-    const dayOfWeek = new Date(date).getDay();
-    if (dayOfWeek === 5) continue;
-
-    initialWorkers.forEach((w, idx) => {
-      // Vary attendance: some full days, some half days, some overtime
-      let type = 'full';
-      let ot = 0;
-      let notes = 'کاری ئاسایی کارگە (Regular workshop tasks)';
-
-      if ((d + idx) % 5 === 0) {
-        type = 'half';
-        notes = 'نیوەڕۆ دەوامی کرد (Half-day morning shift)';
-      } else if ((d + idx) % 3 === 0) {
-        ot = 2;
-        notes = 'کاری زیادە بۆ تەواوکردنی پرۆژە (Overtime on custom project)';
+    const allWorkers = await db.workers.toArray();
+    for (const w of allWorkers) {
+      const name = w.name || '';
+      if (
+        name.includes('Aras') || 
+        name.includes('Karwan') || 
+        name.includes('Hemin') || 
+        name.includes('Rebin') ||
+        name.includes('ئاراس') ||
+        name.includes('کاروان') ||
+        name.includes('هێمن') ||
+        name.includes('ڕێبین')
+      ) {
+        await db.workers.delete(w.id);
+        await db.attendanceLogs.where('workerId').equals(w.id).delete();
       }
-
-      const dailyRateFactor = type === 'half' ? 0.5 : 1.0;
-      const basePay = Math.round(w.dailyRate * dailyRateFactor);
-      const otPay = Math.round(ot * w.overtimeHourlyRate);
-
-      initialLogs.push({
-        id: generateId(),
-        workerId: w.id,
-        date: date,
-        type: type,
-        overtimeHours: ot,
-        calculatedDailyWage: basePay,
-        calculatedOvertimeWage: otPay,
-        totalDayPay: basePay + otPay,
-        notes: notes,
-        createdAt: new Date(date).toISOString()
-      });
-    });
+    }
+  } catch (err) {
+    console.warn('purgeDummySeedWorkers warning:', err);
   }
+}
 
-  await db.attendanceLogs.bulkAdd(initialLogs);
+// Seed initial settings only (NO fake or dummy workers or logs)
+export async function seedInitialDataIfEmpty() {
+  await purgeDummySeedWorkers();
 
-  // Initial settings
-  await db.settings.bulkAdd([
-    { key: 'workshop_name', value: 'کارگەی ئاسنگەری و دارتاشی (Central Workshop)' },
-    { key: 'default_currency', value: 'IQD' },
-    { key: 'language', value: 'ku' }
-  ]);
+  const settingsCount = await db.settings.count();
+  if (settingsCount === 0) {
+    await db.settings.bulkAdd([
+      { key: 'workshop_name', value: 'کارگەی ئاسنگەری و دارتاشی (Central Workshop)' },
+      { key: 'default_currency', value: 'IQD' },
+      { key: 'language', value: 'ku' }
+    ]);
+  }
 }
 
 /**
