@@ -7,17 +7,18 @@ import {
   Plus, 
   Settings2, 
   Check,
-  Building
+  Building,
+  Pencil
 } from 'lucide-react';
 
 export function ProjectSwitcher() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { 
     activeProjects, 
     currentProject, 
     switchProject,
     setIsNewProjectModalOpen,
-    setIsProjectSettingsModalOpen
+    openProjectSettings
   } = useProject();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -78,7 +79,7 @@ export function ProjectSwitcher() {
           {/* Header title */}
           <div className="px-3 py-1.5 text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase flex items-center justify-between">
             <span>{t('projects') || 'پروژه‌ها و کارگاه‌ها'}</span>
-            <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-full text-slate-600 dark:text-slate-300">
+            <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-full text-slate-600 dark:text-slate-300 font-mono">
               {activeProjects.length}
             </span>
           </div>
@@ -88,20 +89,19 @@ export function ProjectSwitcher() {
             {activeProjects.map((p) => {
               const isSelected = p.id === currentProject?.id;
               return (
-                <button
+                <div
                   key={p.id}
-                  type="button"
                   onClick={() => {
                     switchProject(p.id);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-right px-3 py-2 text-xs sm:text-sm flex items-center justify-between gap-2 transition-colors ${
+                  className={`w-full text-right px-3 py-2 text-xs sm:text-sm flex items-center justify-between gap-2 transition-colors cursor-pointer group ${
                     isSelected
                       ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 font-bold'
                       : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50'
                   }`}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <Building className={`w-3.5 h-3.5 flex-shrink-0 ${
                       isSelected ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400'
                     }`} />
@@ -114,9 +114,24 @@ export function ProjectSwitcher() {
                     }`}>
                       {p.currency}
                     </span>
+
+                    {/* Quick Edit icon button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsOpen(false);
+                        if (openProjectSettings) openProjectSettings(p.id);
+                      }}
+                      className="p-1 rounded-md text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                      title={language === 'fa' ? `ویرایش تنظیمات «${p.name}»` : 'Edit Project Settings'}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+
                     {isSelected && <Check className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -139,12 +154,12 @@ export function ProjectSwitcher() {
               type="button"
               onClick={() => {
                 setIsOpen(false);
-                setIsProjectSettingsModalOpen(true);
+                if (openProjectSettings) openProjectSettings(currentProject?.id);
               }}
               className="w-full text-right px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
             >
               <Settings2 className="w-4 h-4 text-slate-500" />
-              <span>{t('manageProjectSettings') || 'تنظیمات این پروژه'}</span>
+              <span>{language === 'fa' ? 'مدیریت و تنظیمات پروژه‌ها' : language === 'ku' ? 'بەڕێوەبردنی پڕۆژەکان' : 'Project Management'}</span>
             </button>
           </div>
 

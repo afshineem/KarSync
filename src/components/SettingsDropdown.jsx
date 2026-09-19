@@ -14,7 +14,8 @@ import {
   Info, 
   Check, 
   ChevronRight, 
-  ChevronLeft 
+  ChevronLeft,
+  FolderKanban
 } from 'lucide-react';
 
 export function SettingsDropdown({ 
@@ -24,7 +25,8 @@ export function SettingsDropdown({
   toggleTheme, 
   onOpenBackupModal,
   onOpenChangePasswordModal,
-  onOpenAboutModal 
+  onOpenAboutModal,
+  onOpenProjectSettings
 }) {
   const { language, changeLanguage, t, direction } = useLanguage();
   const { logout } = useAuth();
@@ -183,7 +185,22 @@ export function SettingsDropdown({
         </div>
       </button>
 
-      {/* 4. Change Password */}
+      {/* 4. Project Management & Settings */}
+      <button
+        type="button"
+        onClick={() => {
+          onClose();
+          if (onOpenProjectSettings) onOpenProjectSettings();
+        }}
+        className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <FolderKanban className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+          <span>{language === 'fa' ? 'مدیریت و ویرایش پروژه‌ها' : language === 'ku' ? 'بەڕێوەبردنی پڕۆژەکان' : 'Project Management'}</span>
+        </div>
+      </button>
+
+      {/* 5. Change Password */}
       <button
         type="button"
         onClick={() => {

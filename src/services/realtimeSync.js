@@ -24,6 +24,52 @@ let realtimeChannel = null;
 const PENDING_DELETED_WORKERS_KEY = 'workshop_pending_deleted_workers';
 const PENDING_DELETED_LOGS_KEY = 'workshop_pending_deleted_logs';
 const PENDING_DELETED_PAYMENTS_KEY = 'workshop_pending_deleted_payments';
+const PENDING_DELETED_PROJECTS_KEY = 'workshop_pending_deleted_projects';
+const PENDING_DELETED_SECTIONS_KEY = 'workshop_pending_deleted_sections';
+
+export function getPendingDeletedProjects() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_DELETED_PROJECTS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingProjectDeletion(projectId) {
+  if (!projectId) return;
+  const list = getPendingDeletedProjects();
+  if (!list.includes(projectId)) {
+    list.push(projectId);
+    localStorage.setItem(PENDING_DELETED_PROJECTS_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingProjectDeletion(projectId) {
+  const list = getPendingDeletedProjects().filter(id => id !== projectId);
+  localStorage.setItem(PENDING_DELETED_PROJECTS_KEY, JSON.stringify(list));
+}
+
+export function getPendingDeletedSections() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_DELETED_SECTIONS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingSectionDeletion(sectionId) {
+  if (!sectionId) return;
+  const list = getPendingDeletedSections();
+  if (!list.includes(sectionId)) {
+    list.push(sectionId);
+    localStorage.setItem(PENDING_DELETED_SECTIONS_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingSectionDeletion(sectionId) {
+  const list = getPendingDeletedSections().filter(id => id !== sectionId);
+  localStorage.setItem(PENDING_DELETED_SECTIONS_KEY, JSON.stringify(list));
+}
 
 export function getPendingDeletedWorkers() {
   try {
@@ -517,6 +563,24 @@ function subscribeToRealtime() {
       }
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
     })
+    .on('broadcast', { event: 'workshop_sync' }, async ({ payload }) => {
+      console.log('⚡ Realtime Broadcast received:', payload);
+      const syncType = payload?.type;
+      if (syncType === 'projects' || syncType === 'all') {
+        await pullProjectsLive();
+        await pullProjectSectionsLive();
+      } else if (syncType === 'sections') {
+        await pullProjectSectionsLive();
+      } else if (syncType === 'payments') {
+        await pullPaymentsLive();
+      } else {
+        await pullProjectsLive();
+        await pullProjectSectionsLive();
+        await pullPaymentsLive();
+      }
+      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
+    })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
       console.log('⚡ Realtime Settings Change received:', payload.eventType, payload);
       await pullPaymentsLive();
@@ -574,100 +638,209 @@ function subscribeToRealtime() {
 }
 
 /**
- * Pull projects from Supabase
+ * Broadcast an instant sync notification to all active clients (PC & Mobile)
+ */
+export async function broadcastSyncEvent(type, extra = {}) {
+  if (!realtimeChannel) return;
+  try {
+    await realtimeChannel.send({
+      type: 'broadcast',
+      event: 'workshop_sync',
+      payload: { type, timestamp: Date.now(), ...extra }
+    });
+  } catch (err) {
+    console.warn('Could not send realtime broadcast:', err);
+  }
+}
+
+/**
+ * Pull projects from Supabase settings with safe merge
  */
 export async function pullProjectsLive() {
   if (!navigator.onLine) return;
   try {
     let projectsData = [];
-    const { data, error } = await supabase.from('projects').select('*');
-    if (!error && data && data.length > 0) {
-      projectsData = data;
-    } else {
-      // Fallback to settings table 'app_projects' if projects table not created in Supabase
-      const { data: sData } = await supabase
-        .from('settings')
-        .select('setting_value')
-        .eq('setting_key', 'app_projects')
-        .maybeSingle();
-      if (sData?.setting_value) {
-        try {
-          projectsData = JSON.parse(sData.setting_value);
-        } catch (_) {}
-      }
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_projects')
+      .maybeSingle();
+
+    if (!sErr && sData?.setting_value) {
+      try {
+        projectsData = JSON.parse(sData.setting_value);
+      } catch (_) {}
     }
 
-    if (projectsData && projectsData.length > 0) {
-      for (const p of projectsData) {
-        await db.projects.put({
-          id: p.id,
-          userId: p.user_id || p.userId,
-          name: p.name,
-          currency: p.currency || 'IQD',
-          standardWorkHours: Number(p.standard_work_hours || p.standardWorkHours) || 8,
-          overtimeMultiplier: Number(p.overtime_multiplier || p.overtimeMultiplier) || 1.0,
-          status: p.status || 'active',
-          notes: p.notes || '',
-          createdAt: p.created_at || p.createdAt,
-          updatedAt: p.updated_at || p.updatedAt
-        });
-      }
+    if (Array.isArray(projectsData) && projectsData.length > 0) {
+      const pendingDeleted = new Set(getPendingDeletedProjects());
+      const validCloudProjects = projectsData.filter(p => !pendingDeleted.has(p.id));
+
+      await db.transaction('rw', db.projects, async () => {
+        for (const p of validCloudProjects) {
+          await db.projects.put({
+            id: p.id,
+            userId: p.user_id || p.userId || 'default_user',
+            name: p.name,
+            currency: p.currency || 'IQD',
+            standardWorkHours: Number(p.standard_work_hours || p.standardWorkHours) || 8,
+            overtimeMultiplier: Number(p.overtime_multiplier || p.overtimeMultiplier) || 1.0,
+            status: p.status || 'active',
+            notes: p.notes || '',
+            createdAt: p.created_at || p.createdAt,
+            updatedAt: p.updated_at || p.updatedAt
+          });
+        }
+      });
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
       window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     }
   } catch (err) {
-    // Project table might not exist yet if migration not run yet, fail silently
+    console.warn('pullProjectsLive warning:', err);
   }
 }
 
 /**
- * Push an individual project to Supabase
+ * Push an individual project or all projects to Supabase settings with safe cloud merge
  */
 export async function pushProjectLive(p) {
   if (!navigator.onLine) return;
   try {
     const localProjects = await db.projects.toArray();
-    await supabase.from('settings').upsert({
+    const pendingDeleted = new Set(getPendingDeletedProjects());
+    const filteredLocal = localProjects.filter(prj => !pendingDeleted.has(prj.id));
+
+    // Fetch latest cloud projects to merge safely
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_projects')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudProjects = JSON.parse(data.setting_value);
+        if (Array.isArray(cloudProjects)) {
+          for (const cp of cloudProjects) {
+            if (!pendingDeleted.has(cp.id)) {
+              mergedMap.set(cp.id, cp);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Merge in local projects (local wins for updated fields)
+    for (const lp of filteredLocal) {
+      const existing = mergedMap.get(lp.id);
+      if (!existing || !existing.updatedAt || !lp.updatedAt || new Date(lp.updatedAt) >= new Date(existing.updatedAt)) {
+        mergedMap.set(lp.id, lp);
+      }
+    }
+
+    // If a single project p was provided, ensure it is in the map
+    if (p && !pendingDeleted.has(p.id)) {
+      mergedMap.set(p.id, p);
+    }
+
+    const mergedList = Array.from(mergedMap.values());
+
+    const { error } = await supabase.from('settings').upsert({
       setting_key: 'app_projects',
-      setting_value: JSON.stringify(localProjects),
+      setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
+
+    if (error) {
+      console.error('Live-push project error:', error);
+    } else {
+      // Reconcile local Dexie
+      await db.transaction('rw', db.projects, async () => {
+        for (const prj of mergedList) {
+          await db.projects.put(prj);
+        }
+      });
+      broadcastSyncEvent('projects');
+      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
+    }
   } catch (err) {
     console.warn('Live-push project failed:', err);
   }
 }
 
 /**
- * Pull project sections from Supabase
+ * Delete a project live from Supabase
+ */
+export async function deleteProjectLive(projectId) {
+  if (!projectId) return;
+  recordPendingProjectDeletion(projectId);
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_projects')
+      .maybeSingle();
+
+    let projects = [];
+    if (data?.setting_value) {
+      try {
+        projects = JSON.parse(data.setting_value) || [];
+      } catch (_) {}
+    }
+
+    const filtered = projects.filter(p => p.id !== projectId);
+    await supabase.from('settings').upsert({
+      setting_key: 'app_projects',
+      setting_value: JSON.stringify(filtered),
+      updated_at: new Date().toISOString()
+    });
+
+    clearPendingProjectDeletion(projectId);
+    broadcastSyncEvent('projects');
+    window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
+  } catch (err) {
+    console.warn('Live-delete project failed:', err);
+  }
+}
+
+/**
+ * Pull project sections from Supabase settings
  */
 export async function pullProjectSectionsLive() {
   if (!navigator.onLine) return;
   try {
     let sectionsData = [];
-    const { data: sData } = await supabase
+    const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
       .eq('setting_key', 'app_project_sections')
       .maybeSingle();
 
-    if (sData?.setting_value) {
+    if (!sErr && sData?.setting_value) {
       try {
         sectionsData = JSON.parse(sData.setting_value);
       } catch (_) {}
     }
 
-    if (sectionsData && sectionsData.length > 0) {
-      for (const s of sectionsData) {
-        await db.projectSections.put({
-          id: s.id,
-          projectId: s.project_id || s.projectId,
-          userId: s.user_id || s.userId,
-          name: s.name,
-          status: s.status || 'active',
-          createdAt: s.created_at || s.createdAt,
-          updatedAt: s.updated_at || s.updatedAt
-        });
-      }
+    if (Array.isArray(sectionsData) && sectionsData.length > 0) {
+      const pendingDeleted = new Set(getPendingDeletedSections());
+      const validCloudSections = sectionsData.filter(s => !pendingDeleted.has(s.id));
+
+      await db.transaction('rw', db.projectSections, async () => {
+        for (const s of validCloudSections) {
+          await db.projectSections.put({
+            id: s.id,
+            projectId: s.project_id || s.projectId,
+            userId: s.user_id || s.userId || 'default_user',
+            name: s.name,
+            status: s.status || 'active',
+            createdAt: s.created_at || s.createdAt,
+            updatedAt: s.updated_at || s.updatedAt
+          });
+        }
+      });
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
       window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     }
@@ -677,17 +850,60 @@ export async function pullProjectSectionsLive() {
 }
 
 /**
- * Push an individual project section to Supabase
+ * Push an individual project section to Supabase with safe merge
  */
 export async function pushProjectSectionLive(s) {
   if (!navigator.onLine) return;
   try {
     const localSections = await db.projectSections.toArray();
-    await supabase.from('settings').upsert({
+    const pendingDeleted = new Set(getPendingDeletedSections());
+    const filteredLocal = localSections.filter(sec => !pendingDeleted.has(sec.id));
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_project_sections')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudSections = JSON.parse(data.setting_value) || [];
+        for (const cs of cloudSections) {
+          if (!pendingDeleted.has(cs.id)) {
+            mergedMap.set(cs.id, cs);
+          }
+        }
+      } catch (_) {}
+    }
+
+    for (const ls of filteredLocal) {
+      const existing = mergedMap.get(ls.id);
+      if (!existing || !existing.updatedAt || !ls.updatedAt || new Date(ls.updatedAt) >= new Date(existing.updatedAt)) {
+        mergedMap.set(ls.id, ls);
+      }
+    }
+
+    if (s && !pendingDeleted.has(s.id)) {
+      mergedMap.set(s.id, s);
+    }
+
+    const mergedList = Array.from(mergedMap.values());
+    const { error } = await supabase.from('settings').upsert({
       setting_key: 'app_project_sections',
-      setting_value: JSON.stringify(localSections),
+      setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
+
+    if (!error) {
+      await db.transaction('rw', db.projectSections, async () => {
+        for (const sec of mergedList) {
+          await db.projectSections.put(sec);
+        }
+      });
+      broadcastSyncEvent('sections');
+      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
+    }
   } catch (err) {
     console.warn('Live-push section failed:', err);
   }
@@ -697,15 +913,33 @@ export async function pushProjectSectionLive(s) {
  * Delete a project section from Supabase
  */
 export async function deleteProjectSectionLive(sectionId) {
-  if (!sectionId || !navigator.onLine) return;
+  if (!sectionId) return;
+  recordPendingSectionDeletion(sectionId);
+  if (!navigator.onLine) return;
   try {
-    const localSections = await db.projectSections.toArray();
-    const filtered = localSections.filter(sec => sec.id !== sectionId);
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_project_sections')
+      .maybeSingle();
+
+    let sections = [];
+    if (data?.setting_value) {
+      try {
+        sections = JSON.parse(data.setting_value) || [];
+      } catch (_) {}
+    }
+
+    const filtered = sections.filter(sec => sec.id !== sectionId);
     await supabase.from('settings').upsert({
       setting_key: 'app_project_sections',
       setting_value: JSON.stringify(filtered),
       updated_at: new Date().toISOString()
     });
+
+    clearPendingSectionDeletion(sectionId);
+    broadcastSyncEvent('sections');
+    window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
   } catch (err) {
     console.warn('Live-delete section failed:', err);
   }
@@ -734,22 +968,8 @@ async function pullRemoteChangesSilently() {
 export async function pushAllProjectsAndSectionsLive() {
   if (!navigator.onLine) return;
   try {
-    const localProjects = await db.projects.toArray();
-    if (localProjects.length > 0) {
-      await supabase.from('settings').upsert({
-        setting_key: 'app_projects',
-        setting_value: JSON.stringify(localProjects),
-        updated_at: new Date().toISOString()
-      });
-    }
-    const localSections = await db.projectSections.toArray();
-    if (localSections.length > 0) {
-      await supabase.from('settings').upsert({
-        setting_key: 'app_project_sections',
-        setting_value: JSON.stringify(localSections),
-        updated_at: new Date().toISOString()
-      });
-    }
+    await pushProjectLive();
+    await pushProjectSectionLive();
   } catch (err) {
     console.warn('pushAllProjectsAndSectionsLive warning:', err);
   }

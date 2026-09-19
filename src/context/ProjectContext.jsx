@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateProjectId, ensureDefaultProjectExists, DEFAULT_PROJECT_ID } from '../db/db';
-import { supabase, pullProjectsLive, pushProjectLive } from '../services/realtimeSync';
+import { supabase, pullProjectsLive, pushProjectLive, deleteProjectLive } from '../services/realtimeSync';
 import { useAuth } from './AuthContext';
 
 const ACTIVE_PROJECT_KEY = 'karsync_active_project_id';
@@ -22,6 +22,12 @@ export function ProjectProvider({ children }) {
 
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isProjectSettingsModalOpen, setIsProjectSettingsModalOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState(null);
+
+  const openProjectSettings = (projectId = null) => {
+    setEditingProjectId(projectId || activeProjectId || DEFAULT_PROJECT_ID);
+    setIsProjectSettingsModalOpen(true);
+  };
 
   // Live query all projects from Dexie
   const allProjects = useLiveQuery(async () => {
@@ -219,18 +225,17 @@ export function ProjectProvider({ children }) {
     }
 
     await db.projects.delete(projectId);
+    await db.projectSections.where('projectId').equals(projectId).delete();
 
     // If active was deleted, switch to default
     if (activeProjectId === projectId) {
       switchProject(DEFAULT_PROJECT_ID);
     }
 
-    if (navigator.onLine && user?.supabaseUser) {
-      try {
-        await supabase.from('projects').delete().eq('id', projectId);
-      } catch (err) {
+    if (navigator.onLine) {
+      deleteProjectLive(projectId).catch((err) => {
         console.warn('Could not sync project delete to Supabase:', err);
-      }
+      });
     }
   };
 
@@ -250,7 +255,10 @@ export function ProjectProvider({ children }) {
         isNewProjectModalOpen,
         setIsNewProjectModalOpen,
         isProjectSettingsModalOpen,
-        setIsProjectSettingsModalOpen
+        setIsProjectSettingsModalOpen,
+        editingProjectId,
+        setEditingProjectId,
+        openProjectSettings
       }}
     >
       {children}

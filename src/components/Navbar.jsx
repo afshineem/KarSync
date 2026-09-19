@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { ProjectSwitcher } from './ProjectSwitcher';
 import { SettingsDropdown } from './SettingsDropdown';
+import { useProject } from '../context/ProjectContext';
 import { 
   LayoutDashboard, 
   Users, 
@@ -20,6 +21,7 @@ export function Navbar({
   onOpenAboutModal 
 }) {
   const { t } = useLanguage();
+  const { openProjectSettings } = useProject();
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
 
   const navItems = [
@@ -131,6 +133,7 @@ export function Navbar({
                   onOpenBackupModal={onOpenBackupModal}
                   onOpenChangePasswordModal={onOpenChangePasswordModal}
                   onOpenAboutModal={onOpenAboutModal}
+                  onOpenProjectSettings={openProjectSettings}
                 />
               </div>
             </div>

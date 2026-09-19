@@ -9,31 +9,39 @@ import {
   X, 
   Clock, 
   TrendingUp, 
-  Coins, 
   Check, 
   Archive, 
   Trash2, 
-  AlertTriangle,
-  Users,
-  CalendarCheck,
-  Layers,
-  Plus
+  Users, 
+  CalendarCheck, 
+  Layers, 
+  Plus,
+  Pencil,
+  FolderKanban
 } from 'lucide-react';
 
 export function ProjectSettingsModal() {
   const { t, language } = useLanguage();
   const { 
+    projects,
+    activeProjects,
     currentProject, 
     updateProject, 
     archiveProject, 
     deleteProject, 
     isProjectSettingsModalOpen, 
     setIsProjectSettingsModalOpen,
-    activeProjects
+    editingProjectId,
+    setEditingProjectId
   } = useProject();
 
   const [activeTab, setActiveTab] = useState('general'); // 'general' | 'sections'
-  const [newSectionName, setNewSectionName] = useState('');
+  
+  // Target project to edit (defaults to editingProjectId or currentProject)
+  const targetProjectId = editingProjectId || currentProject?.id || DEFAULT_PROJECT_ID;
+  const targetProject = (projects || []).find(p => p.id === targetProjectId) || currentProject;
+
+  // Form states for general tab
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState('IQD');
   const [standardWorkHours, setStandardWorkHours] = useState(8);
@@ -43,47 +51,57 @@ export function ProjectSettingsModal() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Sub-sections states for sections tab
+  const [newSectionName, setNewSectionName] = useState('');
+  const [editingSectionId, setEditingSectionId] = useState(null);
+  const [editingSectionName, setEditingSectionName] = useState('');
+
+  // Synchronize form when target project changes or modal opens
   useEffect(() => {
-    if (currentProject) {
-      setName(currentProject.name || '');
-      setCurrency(currentProject.currency || 'IQD');
-      setStandardWorkHours(currentProject.standardWorkHours || 8);
-      setOvertimeMultiplier(currentProject.overtimeMultiplier || 1.0);
-      setNotes(currentProject.notes || '');
+    if (targetProject) {
+      setName(targetProject.name || '');
+      setCurrency(targetProject.currency || 'IQD');
+      setStandardWorkHours(targetProject.standardWorkHours || 8);
+      setOvertimeMultiplier(targetProject.overtimeMultiplier || 1.0);
+      setNotes(targetProject.notes || '');
       setSuccessMsg('');
       setErrorMsg('');
+      setEditingSectionId(null);
+      setEditingSectionName('');
     }
-  }, [currentProject, isProjectSettingsModalOpen]);
+  }, [targetProject?.id, isProjectSettingsModalOpen]);
 
-  // Project statistics
+  // Project statistics for targeted project
   const stats = useLiveQuery(async () => {
-    if (!currentProject?.id) return { workers: 0, logs: 0 };
+    if (!targetProject?.id) return { workers: 0, logs: 0 };
     const [workersCount, logsCount] = await Promise.all([
-      db.workers.where('projectId').equals(currentProject.id).count(),
-      db.attendanceLogs.where('projectId').equals(currentProject.id).count()
+      db.workers.where('projectId').equals(targetProject.id).count(),
+      db.attendanceLogs.where('projectId').equals(targetProject.id).count()
     ]);
     return { workers: workersCount, logs: logsCount };
-  }, [currentProject?.id], { workers: 0, logs: 0 });
+  }, [targetProject?.id], { workers: 0, logs: 0 });
 
-  // Project sections
+  // Project sections for targeted project
   const sections = useLiveQuery(async () => {
-    if (!currentProject?.id) return [];
-    return await db.projectSections.where('projectId').equals(currentProject.id).toArray();
-  }, [currentProject?.id]) || [];
+    if (!targetProject?.id) return [];
+    return await db.projectSections.where('projectId').equals(targetProject.id).toArray();
+  }, [targetProject?.id]) || [];
 
+  // Add section handler
   const handleAddSection = async (e) => {
     e.preventDefault();
     if (!newSectionName.trim()) return;
     try {
       const newSec = {
         id: generateSectionId(),
-        projectId: currentProject.id,
-        userId: currentProject.userId || 'default_user',
+        projectId: targetProject.id,
+        userId: targetProject.userId || 'default_user',
         name: newSectionName.trim(),
         status: 'active',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
-      await db.projectSections.add(newSec);
+      await db.projectSections.put(newSec);
       pushProjectSectionLive(newSec).catch(() => {});
       setNewSectionName('');
     } catch (err) {
@@ -91,17 +109,48 @@ export function ProjectSettingsModal() {
     }
   };
 
+  // Start editing a section
+  const handleStartEditSection = (sec) => {
+    setEditingSectionId(sec.id);
+    setEditingSectionName(sec.name);
+  };
+
+  // Save edited section
+  const handleSaveEditSection = async (sec) => {
+    if (!editingSectionName.trim()) return;
+    try {
+      const updatedSec = {
+        ...sec,
+        name: editingSectionName.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      await db.projectSections.put(updatedSec);
+      pushProjectSectionLive(updatedSec).catch(() => {});
+      setEditingSectionId(null);
+      setEditingSectionName('');
+    } catch (err) {
+      console.error('Error saving edited section:', err);
+    }
+  };
+
+  // Delete section handler
   const handleDeleteSection = async (sec) => {
-    if (window.confirm(language === 'fa' ? `آیا از حذف بخش «${sec.name}» اطمینان دارید؟` : 'Are you sure you want to delete this section?')) {
+    const confirmText = language === 'fa' 
+      ? `آیا از حذف بخش «${sec.name}» اطمینان دارید؟` 
+      : language === 'ku'
+      ? `ئایا دڵنیایت لە سڕینەوەی بەشی «${sec.name}»؟`
+      : 'Are you sure you want to delete this section?';
+    if (window.confirm(confirmText)) {
       await db.projectSections.delete(sec.id);
       deleteProjectSectionLive(sec.id).catch(() => {});
     }
   };
 
-  if (!isProjectSettingsModalOpen || !currentProject) return null;
+  if (!isProjectSettingsModalOpen || !targetProject) return null;
 
-  const isDefaultProject = currentProject.id === DEFAULT_PROJECT_ID;
+  const isDefaultProject = targetProject.id === DEFAULT_PROJECT_ID;
 
+  // Save general project settings
   const handleSave = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -114,7 +163,7 @@ export function ProjectSettingsModal() {
     setSuccessMsg('');
 
     try {
-      await updateProject(currentProject.id, {
+      await updateProject(targetProject.id, {
         name: name.trim(),
         currency,
         standardWorkHours: Number(standardWorkHours) || 8,
@@ -122,7 +171,7 @@ export function ProjectSettingsModal() {
         notes: notes.trim()
       });
 
-      setSuccessMsg(t('projectSavedSuccess') || 'تنظیمات پروژه با موفقیت ذخیره شد');
+      setSuccessMsg(language === 'fa' ? 'تنظیمات پروژه با موفقیت ذخیره و همگام‌سازی شد' : t('projectSavedSuccess') || 'تنظیمات با موفقیت ذخیره شد');
       setTimeout(() => {
         setIsProjectSettingsModalOpen(false);
       }, 1000);
@@ -141,7 +190,7 @@ export function ProjectSettingsModal() {
     }
     if (confirm(t('confirmArchiveProject') || 'آیا از بایگانی کردن این پروژه اطمینان دارید؟')) {
       try {
-        await archiveProject(currentProject.id);
+        await archiveProject(targetProject.id);
         setIsProjectSettingsModalOpen(false);
       } catch (err) {
         alert(err.message);
@@ -154,9 +203,12 @@ export function ProjectSettingsModal() {
       alert(t('cannotDeleteDefaultProject') || 'پروژه پیش‌فرض سیستم قابل حذف نیست');
       return;
     }
-    if (confirm(t('confirmDeleteProject') || 'آیا از حذف این پروژه اطمینان دارید؟ تمامی رکوردهای مرتبط در این پروژه حذف خواهند شد.')) {
+    const confirmMsg = language === 'fa'
+      ? `آیا از حذف پروژه «${targetProject.name}» اطمینان دارید؟ تمامی رکوردهای مرتبط با این پروژه حذف خواهند شد.`
+      : t('confirmDeleteProject') || 'آیا از حذف این پروژه اطمینان دارید؟';
+    if (confirm(confirmMsg)) {
       try {
-        await deleteProject(currentProject.id);
+        await deleteProject(targetProject.id);
         setIsProjectSettingsModalOpen(false);
       } catch (err) {
         alert(err.message);
@@ -179,7 +231,7 @@ export function ProjectSettingsModal() {
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden transition-all"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400">
@@ -187,10 +239,10 @@ export function ProjectSettingsModal() {
             </div>
             <div>
               <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                {t('manageProjectSettings') || 'تنظیمات و پیکربندی پروژه'}
+                {language === 'fa' ? 'مدیریت و ویرایش پروژه' : language === 'ku' ? 'بەڕێوەبردن و دەستکاریکردنی پڕۆژە' : 'Project Management'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {currentProject.name}
+                {targetProject.name}
               </p>
             </div>
           </div>
@@ -202,6 +254,27 @@ export function ProjectSettingsModal() {
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Project Selector Bar: Switch between all projects inside the modal */}
+        <div className="px-6 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">
+            <FolderKanban className="w-4 h-4 text-sky-500 flex-shrink-0" />
+            <span>{language === 'fa' ? 'انتخاب پروژه:' : language === 'ku' ? 'پڕۆژەی هەڵبژێردراو:' : 'Selected Project:'}</span>
+          </div>
+          <select
+            value={targetProject.id}
+            onChange={(e) => {
+              if (setEditingProjectId) setEditingProjectId(e.target.value);
+            }}
+            className="flex-1 max-w-[260px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+          >
+            {(activeProjects || []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.currency})
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Tab Switcher: General vs Sections */}
@@ -216,7 +289,7 @@ export function ProjectSettingsModal() {
             }`}
           >
             <Settings2 className="w-3.5 h-3.5" />
-            <span>{language === 'fa' ? 'تنظیمات عمومی' : language === 'ku' ? 'ڕێکخستنی گشتی' : 'General'}</span>
+            <span>{language === 'fa' ? 'تنظیمات و نام پروژه' : language === 'ku' ? 'ڕێکخستن و ناوی پڕۆژە' : 'General & Rename'}</span>
           </button>
           <button
             type="button"
@@ -228,7 +301,7 @@ export function ProjectSettingsModal() {
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>{t('projectSections') || 'بخش‌های پروژه'}</span>
+            <span>{t('projectSections') || 'بخش‌های پروژه (ساب‌پروژه‌ها)'}</span>
             <span className="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-500 font-normal">
               {sections.length}
             </span>
@@ -243,12 +316,12 @@ export function ProjectSettingsModal() {
               <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 text-xs">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-sky-500" />
-                  <span className="text-slate-500 dark:text-slate-400">{t('workersCount') || 'کرێکاران'}:</span>
+                  <span className="text-slate-500 dark:text-slate-400">{t('workersCount') || 'پرسنل'}:</span>
                   <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">{stats.workers}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CalendarCheck className="w-4 h-4 text-emerald-500" />
-                  <span className="text-slate-500 dark:text-slate-400">{t('recordedLogs') || 'تۆمارەکانی ئامادەبوون'}:</span>
+                  <span className="text-slate-500 dark:text-slate-400">{t('recordedLogs') || 'کارکرد ثبت شده'}:</span>
                   <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">{stats.logs}</span>
                 </div>
               </div>
@@ -262,8 +335,9 @@ export function ProjectSettingsModal() {
                 </div>
               )}
               {successMsg && (
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs">
-                  {successMsg}
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-1.5">
+                  <Check className="w-4 h-4" />
+                  <span>{successMsg}</span>
                 </div>
               )}
 
@@ -271,13 +345,16 @@ export function ProjectSettingsModal() {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   {t('projectName') || 'نام پروژه / کارگاه'} *
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                  />
+                  <Pencil className="w-3.5 h-3.5 absolute top-1/2 -translate-y-1/2 left-3 text-slate-400 pointer-events-none" />
+                </div>
               </div>
 
               <div>
@@ -403,16 +480,16 @@ export function ProjectSettingsModal() {
             </form>
           </>
         ) : (
-          /* Tab 2: Project Sub-Sections Manager */
+          /* Tab 2: Project Sub-Sections Manager with Full Edit capability */
           <div className="p-6 space-y-4">
             <div>
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                {t('projectSections') || 'بخش‌های پروژه'}
+                {t('projectSections') || 'بخش‌های پروژه (ساب‌پروژه‌ها)'}
               </h4>
               <p className="text-[11px] text-slate-400">
                 {language === 'fa' 
-                  ? 'تعریف زیرپروژه‌ها یا بخش‌های کاری (مانند زراعت، ساختمان‌سازی، راه‌سازی) جهت تفکیک دقیق هزینه‌ها و کارکرد پرسنل'
-                  : 'Define structured sub-sections for strict cost and attendance allocation.'}
+                  ? 'تعریف، ویرایش نام و مدیریت زیرپروژه‌ها جهت تفکیک دقیق هزینه‌ها و کارکرد پرسنل'
+                  : 'Define, edit names, and manage sub-sections for strict cost and attendance allocation.'}
               </p>
             </div>
 
@@ -435,7 +512,7 @@ export function ProjectSettingsModal() {
               </button>
             </form>
 
-            {/* List of sections */}
+            {/* List of sections with inline edit and delete */}
             <div className="space-y-2 max-h-64 overflow-y-auto pe-1">
               {sections.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
@@ -446,22 +523,69 @@ export function ProjectSettingsModal() {
                 sections.map((sec) => (
                   <div 
                     key={sec.id}
-                    className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs"
+                    className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs transition-all"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                        <Layers className="w-3.5 h-3.5" />
+                    {editingSectionId === sec.id ? (
+                      /* Inline Edit Mode */
+                      <div className="flex items-center gap-2 w-full">
+                        <input
+                          type="text"
+                          value={editingSectionName}
+                          onChange={(e) => setEditingSectionName(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEditSection(sec);
+                            if (e.key === 'Escape') setEditingSectionId(null);
+                          }}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-sky-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEditSection(sec)}
+                          disabled={!editingSectionName.trim()}
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
+                          title={t('save') || 'ذخیره'}
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingSectionId(null)}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                          title={t('cancel') || 'انصراف'}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
-                      <span className="font-bold text-slate-800 dark:text-slate-100">{sec.name}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSection(sec)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
-                      title={t('delete')}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    ) : (
+                      /* Normal Display Mode */
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                            <Layers className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-bold text-slate-800 dark:text-slate-100">{sec.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditSection(sec)}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-lg transition-colors"
+                            title={language === 'fa' ? 'ویرایش نام بخش' : 'Edit Section Name'}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSection(sec)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
+                            title={t('delete')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
