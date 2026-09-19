@@ -26,6 +26,22 @@ const PENDING_DELETED_LOGS_KEY = 'workshop_pending_deleted_logs';
 const PENDING_DELETED_PAYMENTS_KEY = 'workshop_pending_deleted_payments';
 const PENDING_DELETED_PROJECTS_KEY = 'workshop_pending_deleted_projects';
 const PENDING_DELETED_SECTIONS_KEY = 'workshop_pending_deleted_sections';
+export const WORKER_PROJECTS_STORAGE_KEY = 'workshop_worker_projects';
+
+export function getWorkerProjectMap() {
+  try {
+    const raw = localStorage.getItem(WORKER_PROJECTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveWorkerProjectMap(map) {
+  try {
+    localStorage.setItem(WORKER_PROJECTS_STORAGE_KEY, JSON.stringify(map || {}));
+  } catch (_) {}
+}
 
 export function getPendingDeletedProjects() {
   try {
@@ -160,6 +176,7 @@ export async function flushPendingDeletions() {
         supabase.from('attendance_logs').update({ deleted_at: now, updated_at: now }).eq('worker_id', workerId)
       ]);
       clearPendingWorkerDeletion(workerId);
+      removeWorkerProjectMapLive(workerId).catch(console.warn);
     } catch (err) {
       console.warn('Flush worker deletion warning:', workerId, err);
     }
@@ -300,6 +317,7 @@ export async function autoInitialSync() {
   }
 
   // Case B: Reconcile Cloud data into local IndexedDB
+  await pullWorkerProjectsLive(true);
   await reconcileCloudIntoLocal(cloudWorkers, cloudLogs);
   await pullPaymentsLive(true);
   await pullProjectsLive(true);
@@ -339,6 +357,9 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           }
         }
 
+        const projectMap = getWorkerProjectMap();
+        const resolvedProjectId = w.project_id || localW?.projectId || projectMap[w.id] || DEFAULT_PROJECT_ID;
+
         await db.workers.put({
           id: w.id,
           name: w.name,
@@ -347,7 +368,7 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           dailyRate: Number(w.daily_rate) || 0,
           overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
           isActive: Number(w.is_active) === 0 ? 0 : 1,
-          projectId: w.project_id || w.projectId || DEFAULT_PROJECT_ID,
+          projectId: resolvedProjectId,
           userId: w.user_id || w.userId || 'default_user',
           createdAt: w.created_at,
           updatedAt: w.updated_at
@@ -475,6 +496,19 @@ export async function pushAllLocalToCloud() {
   const activeLogs = localLogs.filter(l => !pendingLogs.has(l.id));
 
   if (activeWorkers.length > 0) {
+    const map = getWorkerProjectMap();
+    let mapChanged = false;
+    for (const w of activeWorkers) {
+      if (w.projectId && map[w.id] !== w.projectId) {
+        map[w.id] = w.projectId;
+        mapChanged = true;
+      }
+    }
+    if (mapChanged) {
+      saveWorkerProjectMap(map);
+      syncAllWorkerProjectsToCloud().catch(console.warn);
+    }
+
     const workerPayload = activeWorkers.map(w => ({
       id: w.id,
       name: w.name,
@@ -492,19 +526,32 @@ export async function pushAllLocalToCloud() {
   }
 
   if (activeLogs.length > 0) {
-    const logPayload = activeLogs.map(l => ({
-      id: getAttendanceLogId(l.workerId, l.date),
-      worker_id: l.workerId,
-      date: l.date,
-      type: l.type || 'full',
-      overtime_hours: Number(l.overtimeHours) || 0,
-      calculated_daily_wage: Number(l.calculatedDailyWage) || 0,
-      calculated_overtime_wage: Number(l.calculatedOvertimeWage) || 0,
-      total_day_pay: Number(l.totalDayPay) || 0,
-      notes: l.notes || null,
-      deleted_at: null,
-      updated_at: l.updatedAt || new Date().toISOString()
-    }));
+    const logPayload = activeLogs.map(l => {
+      let cleanNotes = (l.notes || '').trim();
+      if (l.sectionId || (l.projectId && l.projectId !== DEFAULT_PROJECT_ID)) {
+        const meta = {};
+        if (l.sectionId) meta.s = l.sectionId;
+        if (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) meta.p = l.projectId;
+        const metaStr = `__META__${JSON.stringify(meta)}__META__`;
+        if (!cleanNotes.includes('__META__')) {
+          cleanNotes = metaStr + (cleanNotes ? '\n' + cleanNotes : '');
+        }
+      }
+
+      return {
+        id: getAttendanceLogId(l.workerId, l.date),
+        worker_id: l.workerId,
+        date: l.date,
+        type: l.type || 'full',
+        overtime_hours: Number(l.overtimeHours) || 0,
+        calculated_daily_wage: Number(l.calculatedDailyWage) || 0,
+        calculated_overtime_wage: Number(l.calculatedOvertimeWage) || 0,
+        total_day_pay: Number(l.totalDayPay) || 0,
+        notes: cleanNotes || null,
+        deleted_at: null,
+        updated_at: l.updatedAt || new Date().toISOString()
+      };
+    });
 
     const { error } = await supabase.from('attendance_logs').upsert(logPayload);
     if (error) console.error('Error uploading local logs to Supabase:', error);
@@ -544,6 +591,10 @@ function subscribeToRealtime() {
             await db.workers.delete(w.id);
             return;
           }
+          const localW = await db.workers.get(w.id);
+          const projectMap = getWorkerProjectMap();
+          const resolvedProjectId = w.project_id || localW?.projectId || projectMap[w.id] || DEFAULT_PROJECT_ID;
+
           await db.workers.put({
             id: w.id,
             name: w.name,
@@ -552,7 +603,7 @@ function subscribeToRealtime() {
             dailyRate: Number(w.daily_rate) || 0,
             overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
             isActive: Number(w.is_active) === 0 ? 0 : 1,
-            projectId: w.project_id || w.projectId || DEFAULT_PROJECT_ID,
+            projectId: resolvedProjectId,
             userId: w.user_id || w.userId || 'default_user',
             createdAt: w.created_at,
             updatedAt: w.updated_at
@@ -593,7 +644,7 @@ function subscribeToRealtime() {
           }
 
           let sectionId = l.section_id || null;
-          let projectId = l.project_id || l.projectId || DEFAULT_PROJECT_ID;
+          let projectId = l.project_id || l.projectId || localLog?.projectId || DEFAULT_PROJECT_ID;
           let cleanNotes = l.notes || '';
           if (cleanNotes.includes('__META__')) {
             const parts = cleanNotes.split('__META__');
@@ -636,10 +687,13 @@ function subscribeToRealtime() {
         await pullProjectSectionsLive(true);
       } else if (syncType === 'payments') {
         await pullPaymentsLive(true);
+      } else if (syncType === 'workers') {
+        await pullWorkerProjectsLive(true);
       } else {
         await pullProjectsLive(true);
         await pullProjectSectionsLive(true);
         await pullPaymentsLive(true);
+        await pullWorkerProjectsLive(true);
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
@@ -647,6 +701,7 @@ function subscribeToRealtime() {
       await pullPaymentsLive(true);
       await pullProjectsLive(true);
       await pullProjectSectionsLive(true);
+      await pullWorkerProjectsLive(true);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
       console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
@@ -1052,6 +1107,174 @@ export async function deleteProjectSectionLive(sectionId) {
   }
 }
 
+let isPullingWorkerProjects = false;
+let lastWorkerProjectsPullTime = 0;
+
+/**
+ * Pull worker-to-project mappings from Supabase settings with safe merge
+ */
+export async function pullWorkerProjectsLive(force = false) {
+  if (!navigator.onLine) return getWorkerProjectMap();
+  const now = Date.now();
+  if (isPullingWorkerProjects) return getWorkerProjectMap();
+  if (!force && now - lastWorkerProjectsPullTime < 2500) return getWorkerProjectMap();
+  isPullingWorkerProjects = true;
+  lastWorkerProjectsPullTime = now;
+
+  try {
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_worker_projects')
+      .maybeSingle();
+
+    let cloudMap = {};
+    if (!sErr && sData?.setting_value) {
+      try {
+        cloudMap = JSON.parse(sData.setting_value) || {};
+      } catch (_) {}
+    }
+
+    const localMap = getWorkerProjectMap();
+    // Merge: cloudMap base + localMap
+    const mergedMap = { ...cloudMap, ...localMap };
+    saveWorkerProjectMap(mergedMap);
+
+    // Reconcile Dexie workers
+    const allWorkers = await db.workers.toArray();
+    for (const w of allWorkers) {
+      const mappedPrj = mergedMap[w.id];
+      if (mappedPrj && w.projectId !== mappedPrj) {
+        await db.workers.update(w.id, { projectId: mappedPrj });
+      } else if (!mappedPrj && w.projectId) {
+        mergedMap[w.id] = w.projectId;
+      }
+    }
+    saveWorkerProjectMap(mergedMap);
+
+    return mergedMap;
+  } catch (err) {
+    console.warn('pullWorkerProjectsLive warning:', err);
+    return getWorkerProjectMap();
+  } finally {
+    isPullingWorkerProjects = false;
+  }
+}
+
+/**
+ * Update a worker's project mapping in Supabase settings
+ */
+export async function pushWorkerProjectMapLive(workerId, projectId) {
+  if (!workerId || !projectId) return;
+  try {
+    const localMap = getWorkerProjectMap();
+    localMap[workerId] = projectId;
+    saveWorkerProjectMap(localMap);
+
+    if (!navigator.onLine) return;
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_worker_projects')
+      .maybeSingle();
+
+    let cloudMap = {};
+    if (data?.setting_value) {
+      try {
+        cloudMap = JSON.parse(data.setting_value) || {};
+      } catch (_) {}
+    }
+
+    cloudMap[workerId] = projectId;
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_worker_projects',
+      setting_value: JSON.stringify(cloudMap),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('pushWorkerProjectMapLive warning:', err);
+  }
+}
+
+/**
+ * Remove a worker's project mapping in Supabase settings
+ */
+export async function removeWorkerProjectMapLive(workerId) {
+  if (!workerId) return;
+  try {
+    const localMap = getWorkerProjectMap();
+    delete localMap[workerId];
+    saveWorkerProjectMap(localMap);
+
+    if (!navigator.onLine) return;
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_worker_projects')
+      .maybeSingle();
+
+    let cloudMap = {};
+    if (data?.setting_value) {
+      try {
+        cloudMap = JSON.parse(data.setting_value) || {};
+      } catch (_) {}
+    }
+
+    delete cloudMap[workerId];
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_worker_projects',
+      setting_value: JSON.stringify(cloudMap),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('removeWorkerProjectMapLive warning:', err);
+  }
+}
+
+/**
+ * Sync all worker project mappings to cloud
+ */
+export async function syncAllWorkerProjectsToCloud() {
+  if (!navigator.onLine) return;
+  try {
+    const allWorkers = await db.workers.toArray();
+    const map = getWorkerProjectMap();
+    for (const w of allWorkers) {
+      if (w.projectId) {
+        map[w.id] = w.projectId;
+      }
+    }
+    saveWorkerProjectMap(map);
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_worker_projects')
+      .maybeSingle();
+
+    let cloudMap = {};
+    if (data?.setting_value) {
+      try {
+        cloudMap = JSON.parse(data.setting_value) || {};
+      } catch (_) {}
+    }
+
+    const merged = { ...cloudMap, ...map };
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_worker_projects',
+      setting_value: JSON.stringify(merged),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('syncAllWorkerProjectsToCloud warning:', err);
+  }
+}
+
 let isPullingRemote = false;
 let lastRemotePullTime = 0;
 
@@ -1066,6 +1289,7 @@ async function pullRemoteChangesSilently(force = false) {
   isPullingRemote = true;
   lastRemotePullTime = now;
   try {
+    await pullWorkerProjectsLive();
     const [wRes, lRes] = await Promise.all([
       supabase.from('workers').select('*'),
       supabase.from('attendance_logs').select('*')
@@ -1153,6 +1377,11 @@ export async function pushLogsLive(logs) {
 export async function pushWorkerLive(w) {
   if (!w) return;
   clearPendingWorkerDeletion(w.id);
+
+  if (w.projectId) {
+    pushWorkerProjectMapLive(w.id, w.projectId).catch(console.warn);
+  }
+
   if (!navigator.onLine) return;
 
   const payload = {
@@ -1169,7 +1398,11 @@ export async function pushWorkerLive(w) {
 
   try {
     const { error } = await supabase.from('workers').upsert(payload);
-    if (error) console.error('Error live-pushing worker to Supabase:', error);
+    if (error) {
+      console.error('Error live-pushing worker to Supabase:', error);
+    } else {
+      broadcastSyncEvent('workers');
+    }
   } catch (err) {
     console.error('Live-push worker failed:', err);
   }
@@ -1181,6 +1414,20 @@ export async function pushWorkerLive(w) {
 export async function pushWorkersLive(workers) {
   if (!workers || workers.length === 0) return;
   workers.forEach(w => clearPendingWorkerDeletion(w.id));
+
+  const map = getWorkerProjectMap();
+  let changed = false;
+  for (const w of workers) {
+    if (w.projectId && map[w.id] !== w.projectId) {
+      map[w.id] = w.projectId;
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveWorkerProjectMap(map);
+    syncAllWorkerProjectsToCloud().catch(console.warn);
+  }
+
   if (!navigator.onLine) return;
 
   const payload = workers.map(w => ({
@@ -1197,7 +1444,11 @@ export async function pushWorkersLive(workers) {
 
   try {
     const { error } = await supabase.from('workers').upsert(payload);
-    if (error) console.error('Error live-pushing workers to Supabase:', error);
+    if (error) {
+      console.error('Error live-pushing workers to Supabase:', error);
+    } else {
+      broadcastSyncEvent('workers');
+    }
   } catch (err) {
     console.error('Live-push workers failed:', err);
   }
@@ -1225,6 +1476,7 @@ export async function deleteLogLive(logId) {
 export async function deleteWorkerLive(workerId) {
   if (!workerId) return;
   recordPendingWorkerDeletion(workerId);
+  removeWorkerProjectMapLive(workerId).catch(console.warn);
   if (!navigator.onLine) return;
   try {
     const now = new Date().toISOString();
@@ -1233,6 +1485,7 @@ export async function deleteWorkerLive(workerId) {
       supabase.from('attendance_logs').update({ deleted_at: now, updated_at: now }).eq('worker_id', workerId)
     ]);
     clearPendingWorkerDeletion(workerId);
+    broadcastSyncEvent('workers');
   } catch (err) {
     console.error('Live-delete worker failed:', err);
   }
@@ -1373,6 +1626,7 @@ export async function pullPaymentsLive(force = false) {
  */
 export async function fullSyncBothDirections() {
   await flushPendingDeletions();
+  await pullWorkerProjectsLive();
   await pullRemoteChangesSilently();
   await pullPaymentsLive();
   await pullProjectsLive();
