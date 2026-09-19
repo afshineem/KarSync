@@ -31,6 +31,8 @@ import {
   Clock, 
   Coins, 
   CalendarDays,
+  LayoutGrid,
+  ClipboardList,
   X, 
   PieChart, 
   TableProperties, 
@@ -39,10 +41,15 @@ import {
   PlusCircle, 
   Search, 
   ArrowUpDown, 
+  ArrowDown01,
+  ArrowDown10,
   CheckCircle2, 
   AlertCircle,
   Layers
 } from 'lucide-react';
+
+const TIMELINE_SORT_KEY = 'karsync_timeline_sort_ascending';
+const CALENDAR_VIEW_MODE_KEY = 'karsync_calendar_view_mode';
 
 export function CalendarReportsView({ onOpenLoggingModal }) {
   const { t, language, direction } = useLanguage();
@@ -50,13 +57,46 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
   const currency = currentProject?.currency || 'IQD';
 
   // Primary view mode: 'timeline' (لیست تفکیک روزانه) | 'calendar' (تقویم شبکه‌ای) | 'logs' (گزارش‌ها)
-  const [viewMode, setViewMode] = useState('timeline'); 
+  const [viewMode, setViewModeState] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CALENDAR_VIEW_MODE_KEY);
+      return saved && ['timeline', 'calendar', 'logs'].includes(saved) ? saved : 'timeline';
+    } catch {
+      return 'timeline';
+    }
+  }); 
+
+  const setViewMode = (mode) => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem(CALENDAR_VIEW_MODE_KEY, mode);
+    } catch (_) {}
+  };
+
   const [calendarMonth, setCalendarMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
   const [editingLog, setEditingLog] = useState(null);
 
-  // Timeline list controls
+  // Timeline list controls with persistent sort order
   const [filterOnlyWithLogs, setFilterOnlyWithLogs] = useState(true);
-  const [sortAscending, setSortAscending] = useState(true);
+  const [sortAscending, setSortAscending] = useState(() => {
+    try {
+      const saved = localStorage.getItem(TIMELINE_SORT_KEY);
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleSortOrder = () => {
+    setSortAscending((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(TIMELINE_SORT_KEY, JSON.stringify(next));
+      } catch (_) {}
+      return next;
+    });
+  };
+
   const [timelineSearch, setTimelineSearch] = useState('');
 
   // In Reporting mode: Sub-mode between 'summary' (گزارش مجموع) and 'detailed' (گزارش با جزییات)
@@ -468,67 +508,76 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
           </p>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 3-Way Mode Switcher */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700">
+        {/* Action Controls: Icon-based buttons matching app ecosystem */}
+        <div className="flex items-center gap-2">
+          {/* 3-Way Mode Switcher (Unified Icon-driven Segmented Control) */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-200/90 dark:border-slate-700/80 shadow-xs">
             {/* 1. Day-by-Day Timeline Breakdown (Default!) */}
             <button
+              type="button"
               onClick={() => setViewMode('timeline')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              title={t('monthTimeline')}
+              aria-label={t('monthTimeline')}
+              className={`p-2 sm:p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center ${
                 viewMode === 'timeline'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 scale-105'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
               }`}
             >
-              <CalendarDays className="w-3.5 h-3.5" />
-              <span>{t('monthTimeline')}</span>
+              <CalendarDays className="w-5 h-5" />
             </button>
 
             {/* 2. Monthly Calendar Grid */}
             <button
+              type="button"
               onClick={() => setViewMode('calendar')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              title={t('calendarGridTab')}
+              aria-label={t('calendarGridTab')}
+              className={`p-2 sm:p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center ${
                 viewMode === 'calendar'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 scale-105'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
               }`}
             >
-              <CalendarIcon className="w-3.5 h-3.5" />
-              <span>{t('calendarGridTab')}</span>
+              <LayoutGrid className="w-5 h-5" />
             </button>
 
-            {/* 3. Reports & Settlement */}
+            {/* 3. Reports & Settlement (Detailed Daily Logs) */}
             <button
+              type="button"
               onClick={() => setViewMode('logs')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              title={t('logsTitle')}
+              aria-label={t('logsTitle')}
+              className={`p-2 sm:p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center ${
                 viewMode === 'logs'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 scale-105'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
               }`}
             >
-              <ListFilter className="w-3.5 h-3.5" />
-              <span>{t('logsTitle')}</span>
+              <ClipboardList className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Export Buttons */}
+          {/* 4. Export Excel (.xlsx) Button */}
           <button
+            type="button"
             onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-sm transition-all"
-            title="Download Excel spreadsheet"
+            className="p-2 sm:p-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-xs hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-emerald-500/30"
+            title={t('exportExcel')}
+            aria-label={t('exportExcel')}
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('exportExcel')}</span>
+            <FileSpreadsheet className="w-5 h-5" />
           </button>
 
+          {/* 5. Print / Export PDF Button */}
           <button
+            type="button"
             onClick={triggerPrintReport}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-all"
-            title="Print or Save PDF"
+            className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-2xl shadow-xs hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-slate-700/30 dark:border-slate-600/50"
+            title={t('printPdf')}
+            aria-label={t('printPdf')}
           >
-            <Printer className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('printPdf')}</span>
+            <Printer className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -622,13 +671,20 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                   <span>{filterOnlyWithLogs ? t('filterOnlyWithLogs') : t('showAllMonthDays')}</span>
                 </button>
 
-                {/* Sort order */}
+                {/* Sort order (Dynamic Lucide Icon & persistent state) */}
                 <button
-                  onClick={() => setSortAscending(!sortAscending)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors border border-slate-200 dark:border-slate-700"
-                  title="تغییر ترتیب نمایش"
+                  type="button"
+                  onClick={toggleSortOrder}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-all border border-slate-200 dark:border-slate-700 shadow-xs active:scale-95"
+                  title={sortAscending 
+                    ? (language === 'fa' ? 'مرتب‌سازی: صعودی (۱ به ۳۰)' : language === 'ku' ? 'ڕیزکردن: ۱ بۆ ۳۰' : 'Sort: 1 to 30')
+                    : (language === 'fa' ? 'مرتب‌سازی: نزولی (۳۰ به ۱)' : language === 'ku' ? 'ڕیزکردن: ۳۰ بۆ ۱' : 'Sort: 30 to 1')}
                 >
-                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  {sortAscending ? (
+                    <ArrowDown01 className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                  ) : (
+                    <ArrowDown10 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  )}
                   <span>{sortAscending ? '۱ ⬅️ ۳۰' : '۳۰ ⬅️ ۱'}</span>
                 </button>
 
