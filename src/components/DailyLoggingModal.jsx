@@ -187,7 +187,10 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     let basePay = 0;
     let otPay = 0;
 
-    if (cfg.type === 'hourly') {
+    if (cfg.type === 'absent') {
+      basePay = 0;
+      otPay = 0;
+    } else if (cfg.type === 'hourly') {
       basePay = 0;
       otPay = roundCurrency(otHours * hourlyRate, currency);
     } else {

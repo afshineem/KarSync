@@ -238,6 +238,7 @@ export async function autoInitialSync() {
   await pullPaymentsLive();
   await pullProjectsLive();
   await pullProjectSectionsLive();
+  await pushAllProjectsAndSectionsLive();
 }
 
 /**
@@ -317,6 +318,22 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
       if (l.id !== canonicalId) {
         await db.attendanceLogs.delete(l.id);
       }
+
+      let sectionId = l.section_id || null;
+      let projectId = l.project_id || l.projectId || DEFAULT_PROJECT_ID;
+      let cleanNotes = l.notes || '';
+      if (cleanNotes.includes('__META__')) {
+        const parts = cleanNotes.split('__META__');
+        if (parts.length >= 3) {
+          try {
+            const meta = JSON.parse(parts[1]);
+            if (meta.s) sectionId = meta.s;
+            if (meta.p) projectId = meta.p;
+            cleanNotes = parts.slice(2).join('').trim();
+          } catch (_) {}
+        }
+      }
+
       await db.attendanceLogs.put({
         id: canonicalId,
         workerId: l.worker_id,
@@ -326,8 +343,9 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         calculatedDailyWage: roundCurrency(l.calculated_daily_wage, l.currency),
         calculatedOvertimeWage: roundCurrency(l.calculated_overtime_wage, l.currency),
         totalDayPay: roundCurrency(l.total_day_pay, l.currency),
-        notes: l.notes || '',
-        projectId: l.project_id || l.projectId || DEFAULT_PROJECT_ID,
+        notes: cleanNotes,
+        sectionId: sectionId,
+        projectId: projectId,
         userId: l.user_id || l.userId || 'default_user',
         createdAt: l.created_at,
         updatedAt: l.updated_at
@@ -464,6 +482,21 @@ function subscribeToRealtime() {
         if (l.deleted_at) {
           await db.attendanceLogs.delete(l.id);
         } else {
+          let sectionId = l.section_id || null;
+          let projectId = l.project_id || l.projectId || DEFAULT_PROJECT_ID;
+          let cleanNotes = l.notes || '';
+          if (cleanNotes.includes('__META__')) {
+            const parts = cleanNotes.split('__META__');
+            if (parts.length >= 3) {
+              try {
+                const meta = JSON.parse(parts[1]);
+                if (meta.s) sectionId = meta.s;
+                if (meta.p) projectId = meta.p;
+                cleanNotes = parts.slice(2).join('').trim();
+              } catch (_) {}
+            }
+          }
+
           await db.attendanceLogs.put({
             id: l.id,
             workerId: l.worker_id,
@@ -473,9 +506,9 @@ function subscribeToRealtime() {
             calculatedDailyWage: roundCurrency(l.calculated_daily_wage, l.currency),
             calculatedOvertimeWage: roundCurrency(l.calculated_overtime_wage, l.currency),
             totalDayPay: roundCurrency(l.total_day_pay, l.currency),
-            notes: l.notes || '',
-            sectionId: l.section_id || null,
-            projectId: l.project_id || l.projectId || DEFAULT_PROJECT_ID,
+            notes: cleanNotes,
+            sectionId: sectionId,
+            projectId: projectId,
             userId: l.user_id || l.userId || 'default_user',
             createdAt: l.created_at,
             updatedAt: l.updated_at
@@ -485,9 +518,12 @@ function subscribeToRealtime() {
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
-      console.log('⚡ Realtime Settings/Payments Change received:', payload.eventType, payload);
+      console.log('⚡ Realtime Settings Change received:', payload.eventType, payload);
       await pullPaymentsLive();
+      await pullProjectsLive();
+      await pullProjectSectionsLive();
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
       console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
@@ -588,38 +624,16 @@ export async function pullProjectsLive() {
  * Push an individual project to Supabase
  */
 export async function pushProjectLive(p) {
-  if (!p || !navigator.onLine) return;
-  const payload = {
-    id: p.id,
-    user_id: p.userId || null,
-    name: p.name,
-    currency: p.currency || 'IQD',
-    standard_work_hours: Number(p.standardWorkHours) || 8,
-    overtime_multiplier: Number(p.overtimeMultiplier) || 1.0,
-    status: p.status || 'active',
-    notes: p.notes || '',
-    created_at: p.createdAt || new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
+  if (!navigator.onLine) return;
   try {
-    const { error } = await supabase.from('projects').upsert(payload);
-    if (error) {
-      const localProjects = await db.projects.toArray();
-      await supabase.from('settings').upsert({
-        setting_key: 'app_projects',
-        setting_value: JSON.stringify(localProjects),
-        updated_at: new Date().toISOString()
-      });
-    }
+    const localProjects = await db.projects.toArray();
+    await supabase.from('settings').upsert({
+      setting_key: 'app_projects',
+      setting_value: JSON.stringify(localProjects),
+      updated_at: new Date().toISOString()
+    });
   } catch (err) {
-    try {
-      const localProjects = await db.projects.toArray();
-      await supabase.from('settings').upsert({
-        setting_key: 'app_projects',
-        setting_value: JSON.stringify(localProjects),
-        updated_at: new Date().toISOString()
-      });
-    } catch (_) {}
+    console.warn('Live-push project failed:', err);
   }
 }
 
@@ -629,22 +643,36 @@ export async function pushProjectLive(p) {
 export async function pullProjectSectionsLive() {
   if (!navigator.onLine) return;
   try {
-    const { data, error } = await supabase.from('project_sections').select('*');
-    if (!error && data && data.length > 0) {
-      for (const s of data) {
+    let sectionsData = [];
+    const { data: sData } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_project_sections')
+      .maybeSingle();
+
+    if (sData?.setting_value) {
+      try {
+        sectionsData = JSON.parse(sData.setting_value);
+      } catch (_) {}
+    }
+
+    if (sectionsData && sectionsData.length > 0) {
+      for (const s of sectionsData) {
         await db.projectSections.put({
           id: s.id,
           projectId: s.project_id || s.projectId,
           userId: s.user_id || s.userId,
           name: s.name,
           status: s.status || 'active',
-          createdAt: s.created_at,
-          updatedAt: s.updated_at
+          createdAt: s.created_at || s.createdAt,
+          updatedAt: s.updated_at || s.updatedAt
         });
       }
+      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     }
   } catch (err) {
-    // Project sections table might not exist yet if migration not run yet, fail silently
+    console.warn('pullProjectSectionsLive warning:', err);
   }
 }
 
@@ -652,18 +680,14 @@ export async function pullProjectSectionsLive() {
  * Push an individual project section to Supabase
  */
 export async function pushProjectSectionLive(s) {
-  if (!s || !navigator.onLine) return;
-  const payload = {
-    id: s.id,
-    project_id: s.projectId,
-    user_id: s.userId || null,
-    name: s.name,
-    status: s.status || 'active',
-    updated_at: new Date().toISOString()
-  };
+  if (!navigator.onLine) return;
   try {
-    const { error } = await supabase.from('project_sections').upsert(payload);
-    if (error) console.warn('Push section error:', error);
+    const localSections = await db.projectSections.toArray();
+    await supabase.from('settings').upsert({
+      setting_key: 'app_project_sections',
+      setting_value: JSON.stringify(localSections),
+      updated_at: new Date().toISOString()
+    });
   } catch (err) {
     console.warn('Live-push section failed:', err);
   }
@@ -675,7 +699,13 @@ export async function pushProjectSectionLive(s) {
 export async function deleteProjectSectionLive(sectionId) {
   if (!sectionId || !navigator.onLine) return;
   try {
-    await supabase.from('project_sections').delete().eq('id', sectionId);
+    const localSections = await db.projectSections.toArray();
+    const filtered = localSections.filter(sec => sec.id !== sectionId);
+    await supabase.from('settings').upsert({
+      setting_key: 'app_project_sections',
+      setting_value: JSON.stringify(filtered),
+      updated_at: new Date().toISOString()
+    });
   } catch (err) {
     console.warn('Live-delete section failed:', err);
   }
@@ -699,6 +729,33 @@ async function pullRemoteChangesSilently() {
 }
 
 /**
+ * Push all projects and project sections from local database to Supabase settings
+ */
+export async function pushAllProjectsAndSectionsLive() {
+  if (!navigator.onLine) return;
+  try {
+    const localProjects = await db.projects.toArray();
+    if (localProjects.length > 0) {
+      await supabase.from('settings').upsert({
+        setting_key: 'app_projects',
+        setting_value: JSON.stringify(localProjects),
+        updated_at: new Date().toISOString()
+      });
+    }
+    const localSections = await db.projectSections.toArray();
+    if (localSections.length > 0) {
+      await supabase.from('settings').upsert({
+        setting_key: 'app_project_sections',
+        setting_value: JSON.stringify(localSections),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('pushAllProjectsAndSectionsLive warning:', err);
+  }
+}
+
+/**
  * Push an individual or batch of logs immediately to Supabase
  */
 export async function pushLogsLive(logs) {
@@ -713,22 +770,32 @@ export async function pushLogsLive(logs) {
 
   if (!navigator.onLine) return;
 
-  const payload = logs.map(l => ({
-    id: getAttendanceLogId(l.workerId, l.date),
-    worker_id: l.workerId,
-    date: l.date,
-    type: l.type || 'full',
-    overtime_hours: Number(l.overtimeHours) || 0,
-    calculated_daily_wage: roundCurrency(l.calculatedDailyWage, l.currency),
-    calculated_overtime_wage: roundCurrency(l.calculatedOvertimeWage, l.currency),
-    total_day_pay: roundCurrency(l.totalDayPay, l.currency),
-    notes: l.notes || null,
-    section_id: l.sectionId || null,
-    project_id: l.projectId || DEFAULT_PROJECT_ID,
-    user_id: l.userId || null,
-    deleted_at: null,
-    updated_at: new Date().toISOString()
-  }));
+  const payload = logs.map(l => {
+    let cleanNotes = (l.notes || '').trim();
+    if (l.sectionId || (l.projectId && l.projectId !== DEFAULT_PROJECT_ID)) {
+      const meta = {};
+      if (l.sectionId) meta.s = l.sectionId;
+      if (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) meta.p = l.projectId;
+      const metaStr = `__META__${JSON.stringify(meta)}__META__`;
+      if (!cleanNotes.includes('__META__')) {
+        cleanNotes = metaStr + (cleanNotes ? '\n' + cleanNotes : '');
+      }
+    }
+
+    return {
+      id: getAttendanceLogId(l.workerId, l.date),
+      worker_id: l.workerId,
+      date: l.date,
+      type: l.type || 'full',
+      overtime_hours: Number(l.overtimeHours) || 0,
+      calculated_daily_wage: roundCurrency(l.calculatedDailyWage, l.currency),
+      calculated_overtime_wage: roundCurrency(l.calculatedOvertimeWage, l.currency),
+      total_day_pay: roundCurrency(l.totalDayPay, l.currency),
+      notes: cleanNotes || null,
+      deleted_at: null,
+      updated_at: new Date().toISOString()
+    };
+  });
 
   try {
     const { error } = await supabase.from('attendance_logs').upsert(payload);
