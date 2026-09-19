@@ -3,15 +3,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateId, getAttendanceLogId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import { 
-  formatIQD, 
+  formatCurrency, 
   getCurrentYearMonth, 
   formatDateDisplay, 
   toDecimalHours, 
   fromDecimalHours, 
   formatHoursAndMinutes,
   formatTileHours,
-  roundIQD
+  roundCurrency,
+  getCurrencySymbol
 } from '../utils/formatters';
 import { 
   Calendar, 
@@ -45,6 +48,11 @@ const MONTH_NAMES = {
 
 export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   const { t, language, direction } = useLanguage();
+  const { currentProject } = useProject();
+  const { user } = useAuth();
+  const currency = currentProject?.currency || 'IQD';
+  const standardHours = currentProject?.standardWorkHours || 8;
+
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
   
   // dayConfigs map: dateStr ('YYYY-MM-DD') -> { type: 'full'|'half'|'hourly', overtimeHours: number, notes: string }
@@ -53,17 +61,17 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Fetch existing logs for this worker and month
+  // Fetch existing logs for this worker and month in active project
   const existingLogs = useLiveQuery(
     () => {
-      if (!worker || !isOpen) return [];
+      if (!worker || !isOpen || !currentProject?.id) return [];
       return db.attendanceLogs
-        .where('workerId')
-        .equals(worker.id)
-        .filter((l) => l.date.startsWith(selectedMonth))
+        .where('projectId')
+        .equals(currentProject.id)
+        .and((l) => l.workerId === worker.id && l.date.startsWith(selectedMonth))
         .toArray();
     },
-    [worker?.id, selectedMonth, isOpen]
+    [worker?.id, selectedMonth, isOpen, currentProject?.id]
   ) || [];
 
   // When existing logs or month changes, populate dayConfigs
@@ -262,29 +270,29 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
     const effectiveHourlyRate = worker?.overtimeHourlyRate > 0 
       ? worker.overtimeHourlyRate 
-      : Math.round((worker?.dailyRate || 0) / 8);
+      : Math.round((worker?.dailyRate || 0) / standardHours);
 
     Object.values(dayConfigs).forEach((cfg) => {
       const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
       if (cfg.type === 'hourly') {
         hourlyDays += 1;
         totalHourlyHours += otHours;
-        otPay += roundIQD(otHours * effectiveHourlyRate);
+        otPay += roundCurrency(otHours * effectiveHourlyRate, currency);
       } else if (cfg.type === 'half') {
         halfDays += 1;
         totalOt += otHours;
-        basePay += roundIQD((worker?.dailyRate || 0) * 0.5);
-        otPay += roundIQD(otHours * (worker?.overtimeHourlyRate || 0));
+        basePay += roundCurrency((worker?.dailyRate || 0) * 0.5, currency);
+        otPay += roundCurrency(otHours * (worker?.overtimeHourlyRate || 0), currency);
       } else {
         fullDays += 1;
         totalOt += otHours;
-        basePay += roundIQD(worker?.dailyRate || 0);
-        otPay += roundIQD(otHours * (worker?.overtimeHourlyRate || 0));
+        basePay += roundCurrency(worker?.dailyRate || 0, currency);
+        otPay += roundCurrency(otHours * (worker?.overtimeHourlyRate || 0), currency);
       }
     });
 
     const effectiveDays = fullDays + (halfDays * 0.5);
-    const grandTotal = roundIQD(basePay + otPay);
+    const grandTotal = roundCurrency(basePay + otPay, currency);
 
     return {
       activeCount: Object.keys(dayConfigs).length,
@@ -294,11 +302,11 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       effectiveDays: Number(effectiveDays.toFixed(1)),
       totalOt: Number(totalOt.toFixed(4)),
       totalHourlyHours: Number(totalHourlyHours.toFixed(4)),
-      basePay: roundIQD(basePay),
-      otPay: roundIQD(otPay),
+      basePay: roundCurrency(basePay, currency),
+      otPay: roundCurrency(otPay, currency),
       grandTotal
     };
-  }, [dayConfigs, worker?.dailyRate, worker?.overtimeHourlyRate]);
+  }, [dayConfigs, worker?.dailyRate, worker?.overtimeHourlyRate, currency, standardHours]);
 
   // Save changes to IndexedDB
   const handleSave = async () => {
@@ -308,11 +316,11 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     try {
       const newLogs = [];
       await db.transaction('rw', db.attendanceLogs, async () => {
-        // 1. Delete previous logs for this worker for the selected month
+        // 1. Delete previous logs for this worker for the selected month in current project
         const oldLogs = await db.attendanceLogs
-          .where('workerId')
-          .equals(worker.id)
-          .filter((l) => l.date.startsWith(selectedMonth))
+          .where('projectId')
+          .equals(currentProject?.id || 'prj_default_main')
+          .and((l) => l.workerId === worker.id && l.date.startsWith(selectedMonth))
           .toArray();
         
         for (const ol of oldLogs) {
@@ -329,18 +337,20 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
           if (cfg.type === 'hourly') {
             const effectiveHourlyRate = worker.overtimeHourlyRate > 0 
               ? worker.overtimeHourlyRate 
-              : Math.round(worker.dailyRate / 8);
+              : Math.round(worker.dailyRate / standardHours);
             calculatedDailyWage = 0;
-            calculatedOvertimeWage = roundIQD(otHours * effectiveHourlyRate);
+            calculatedOvertimeWage = roundCurrency(otHours * effectiveHourlyRate, currency);
           } else {
             const factor = cfg.type === 'half' ? 0.5 : 1.0;
-            calculatedDailyWage = roundIQD(worker.dailyRate * factor);
-            calculatedOvertimeWage = roundIQD(otHours * (worker.overtimeHourlyRate || 0));
+            calculatedDailyWage = roundCurrency(worker.dailyRate * factor, currency);
+            calculatedOvertimeWage = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
           }
-          const totalDayPay = roundIQD(calculatedDailyWage + calculatedOvertimeWage);
+          const totalDayPay = roundCurrency(calculatedDailyWage + calculatedOvertimeWage, currency);
 
           newLogs.push({
             id: getAttendanceLogId(worker.id, dateStr),
+            projectId: currentProject?.id || 'prj_default_main',
+            userId: user?.id || null,
             workerId: worker.id,
             date: dateStr,
             type: cfg.type,
@@ -349,7 +359,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
             calculatedOvertimeWage,
             totalDayPay,
             notes: cfg.notes || '',
-            createdAt: new Date(dateStr).toISOString()
+            createdAt: new Date(dateStr).toISOString(),
+            updatedAt: new Date().toISOString()
           });
         }
 
@@ -923,7 +934,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
           <div>
             <span className="text-slate-400 block text-[11px]">{t('netSalary')}</span>
             <span className="text-sm sm:text-base font-extrabold text-sky-600 dark:text-sky-400">
-              {formatIQD(totals.grandTotal, language)}
+              {formatCurrency(totals.grandTotal, currency, language)}
             </span>
           </div>
         </div>

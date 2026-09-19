@@ -3,7 +3,16 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditRecordModal } from './EditRecordModal';
-import { formatIQD, formatAmount, formatNumber, getCurrentYearMonth, formatHoursAndMinutes, roundIQD } from '../utils/formatters';
+import { useProject } from '../context/ProjectContext';
+import { 
+  formatCurrency, 
+  formatAmount, 
+  formatNumber, 
+  getCurrentYearMonth, 
+  formatHoursAndMinutes, 
+  roundCurrency,
+  getCurrencySymbol 
+} from '../utils/formatters';
 import { 
   Users, 
   Calendar, 
@@ -24,16 +33,44 @@ import {
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const { t, language, direction } = useLanguage();
+  const { currentProject } = useProject();
+  const currency = currentProject?.currency || 'IQD';
+
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
   const [editingLog, setEditingLog] = useState(null);
 
-  // Fetch reactive data from Dexie
-  const workers = useLiveQuery(() => db.workers.toArray(), []) || [];
-  const allPayments = useLiveQuery(() => db.payments.toArray(), []) || [];
-  const allAllLogs = useLiveQuery(() => db.attendanceLogs.toArray(), []) || [];
+  // Fetch reactive data from Dexie scoped to active project
+  const workers = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.workers.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
+
+  const allPayments = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.payments.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
+
+  const allAllLogs = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.attendanceLogs.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
+
   const rawLogs = useLiveQuery(
-    () => db.attendanceLogs.where('date').startsWith(selectedMonth).toArray(),
-    [selectedMonth]
+    async () => {
+      if (!currentProject?.id) return [];
+      const list = await db.attendanceLogs.where('projectId').equals(currentProject.id).toArray();
+      return list.filter((l) => l.date && l.date.startsWith(selectedMonth));
+    },
+    [currentProject?.id, selectedMonth]
   ) || [];
 
   // Deduplicate logs in memory by workerId + date
@@ -87,9 +124,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       totalNormalDays,
       totalHalfDays,
       totalOvertimeHours,
-      totalPayroll: roundIQD(totalPayroll)
+      totalPayroll: roundCurrency(totalPayroll, currency)
     };
-  }, [logs, activeWorkers]);
+  }, [logs, activeWorkers, currency]);
 
   // Aggregate per-worker breakdown for the selected month
   const workerSummaries = useMemo(() => {
@@ -122,13 +159,13 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         fullDays,
         halfDays,
         otHours,
-        basePay: roundIQD(basePay),
-        otPay: roundIQD(otPay),
-        totalPay: roundIQD(totalPay),
+        basePay: roundCurrency(basePay, currency),
+        otPay: roundCurrency(otPay, currency),
+        totalPay: roundCurrency(totalPay, currency),
         logsCount: workerLogs.length
       };
     });
-  }, [workers, logs]);
+  }, [workers, logs, currency]);
 
   // Compute FIFO settlement status and debt per worker for the current month
   const workerFinancialStatusMap = useMemo(() => {
@@ -136,12 +173,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     workers.forEach((w) => {
       const wLogs = allAllLogs.filter((l) => l.workerId === w.id);
       const wPayments = allPayments.filter((p) => p.workerId === w.id);
-      const totalAllTimeGross = roundIQD(wLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
-      const totalAllTimePaid = roundIQD(wPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
-      const grossUpToPeriod = roundIQD(wLogs
+      const totalAllTimeGross = roundCurrency(wLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+      const totalAllTimePaid = roundCurrency(wPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
+      const grossUpToPeriod = roundCurrency(wLogs
         .filter((l) => l.date && l.date <= `${selectedMonth}-31`)
-        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
-      const netDebt = roundIQD(Math.max(0, totalAllTimeGross - totalAllTimePaid));
+        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+      const netDebt = roundCurrency(Math.max(0, totalAllTimeGross - totalAllTimePaid), currency);
 
       let isSettled = false;
       if (totalAllTimeGross === 0 && totalAllTimePaid === 0) {
@@ -154,7 +191,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       map.set(w.id, { isSettled, netDebt, totalAllTimePaid, totalAllTimeGross });
     });
     return map;
-  }, [workers, allAllLogs, allPayments, selectedMonth]);
+  }, [workers, allAllLogs, allPayments, selectedMonth, currency]);
 
   // Financial summary metrics for Dashboard Overview Widget
   const financialSummary = useMemo(() => {
@@ -176,12 +213,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     });
 
     return {
-      totalMonthPaid: roundIQD(totalMonthPaid),
-      totalWorkshopOutstanding: roundIQD(totalWorkshopOutstanding),
+      totalMonthPaid: roundCurrency(totalMonthPaid, currency),
+      totalWorkshopOutstanding: roundCurrency(totalWorkshopOutstanding, currency),
       settledCount,
       totalWorkers: workers.length
     };
-  }, [allPayments, selectedMonth, workers, workerFinancialStatusMap]);
+  }, [allPayments, selectedMonth, workers, workerFinancialStatusMap, currency]);
 
   // Month navigation helpers
   const handlePrevMonth = () => {
@@ -326,11 +363,11 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </span>
           </div>
           <div className="mt-3 text-xs text-slate-400">
-            {t('overtimePay')}: {formatIQD(logs.reduce((acc, l) => acc + (Number(l.calculatedOvertimeWage) || 0), 0), language)}
+            {t('overtimePay')}: {formatCurrency(logs.reduce((acc, l) => acc + (Number(l.calculatedOvertimeWage) || 0), 0), currency, language)}
           </div>
         </div>
 
-        {/* Card 4: Total Payroll (IQD) */}
+        {/* Card 4: Total Payroll */}
         <div className="bg-gradient-to-br from-sky-600 to-sky-700 text-white rounded-2xl p-5 shadow-lg shadow-sky-600/20 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-sky-100">
@@ -342,7 +379,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           </div>
           <div className="mt-4">
             <span className="text-2xl sm:text-3xl font-black tracking-tight">
-              {formatIQD(monthlyStats.totalPayroll, language)}
+              {formatCurrency(monthlyStats.totalPayroll, currency, language)}
             </span>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-sky-200">
@@ -379,7 +416,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           <div>
             <span className="text-[11px] font-bold text-slate-400 block">{t('totalPaidAll')} ({selectedMonth})</span>
             <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
-              {formatAmount(financialSummary.totalMonthPaid)} <span className="text-xs font-normal">{t('currencySymbol')}</span>
+              {formatAmount(financialSummary.totalMonthPaid, currency)} <span className="text-xs font-normal">{getCurrencySymbol(currency, language)}</span>
             </span>
           </div>
 
@@ -388,7 +425,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           <div>
             <span className="text-[11px] font-bold text-slate-400 block">{t('totalOutstandingPayable')}</span>
             <span className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 font-mono">
-              {formatAmount(financialSummary.totalWorkshopOutstanding)} <span className="text-xs font-normal">{t('currencySymbol')}</span>
+              {formatAmount(financialSummary.totalWorkshopOutstanding, currency)} <span className="text-xs font-normal">{getCurrencySymbol(currency, language)}</span>
             </span>
           </div>
 
@@ -447,9 +484,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                   <th className="px-4 py-3 text-center">{t('normalDays')}</th>
                   <th className="px-4 py-3 text-center">{t('halfDays')}</th>
                   <th className="px-4 py-3 text-center">{t('overtimeHours')}</th>
-                  <th className="px-4 py-3 text-end">{t('baseWageIQD')}</th>
-                  <th className="px-4 py-3 text-end">{t('overtimeWageIQD')}</th>
-                  <th className="px-4 py-3 text-end font-bold text-sky-600 dark:text-sky-400">{t('netPayIQD')}</th>
+                  <th className="px-4 py-3 text-end">{t('basePay')} ({currency})</th>
+                  <th className="px-4 py-3 text-end">{t('overtimePay')} ({currency})</th>
+                  <th className="px-4 py-3 text-end font-bold text-sky-600 dark:text-sky-400">{t('netSalary')} ({currency})</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -494,14 +531,14 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                       {w.otHours > 0 ? formatHoursAndMinutes(w.otHours, language) : '0'}
                     </td>
                     <td className="px-4 py-3 text-end text-slate-600 dark:text-slate-400 font-mono">
-                      {formatAmount(w.basePay)}
+                      {formatAmount(w.basePay, currency)}
                     </td>
                     <td className="px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-medium font-mono">
-                      {formatAmount(w.otPay)}
+                      {formatAmount(w.otPay, currency)}
                     </td>
                     <td className="px-4 py-3 text-end font-bold text-slate-900 dark:text-white">
                       <span className="bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800/60 font-mono">
-                        {formatAmount(w.totalPay)}
+                        {formatAmount(w.totalPay, currency)}
                       </span>
                     </td>
                   </tr>
@@ -523,19 +560,19 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                     {formatHoursAndMinutes(monthlyStats.totalOvertimeHours, language)}
                   </td>
                   <td className="px-4 py-3 text-end font-mono">
-                    {formatAmount(logs.reduce((acc, l) => acc + (Number(l.calculatedDailyWage) || 0), 0))}
+                    {formatAmount(logs.reduce((acc, l) => acc + (Number(l.calculatedDailyWage) || 0), 0), currency)}
                   </td>
                   <td className="px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-mono">
-                    {formatAmount(logs.reduce((acc, l) => acc + (Number(l.calculatedOvertimeWage) || 0), 0))}
+                    {formatAmount(logs.reduce((acc, l) => acc + (Number(l.calculatedOvertimeWage) || 0), 0), currency)}
                   </td>
                   <td className="px-4 py-3 text-end text-sky-600 dark:text-sky-400 text-base font-black font-mono">
-                    {formatAmount(monthlyStats.totalPayroll)}
+                    {formatAmount(monthlyStats.totalPayroll, currency)}
                   </td>
                 </tr>
               </tfoot>
             </table>
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-              <span>{t('allAmountsInIQDNote')}</span>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+              <span>* {t('projectCurrency') || 'ارز مالی این پروژه'}: <strong>{currency} ({getCurrencySymbol(currency, language)})</strong></span>
             </div>
           </div>
         )}

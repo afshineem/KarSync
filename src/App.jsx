@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ProjectProvider, useProject } from './context/ProjectContext';
 import { seedInitialDataIfEmpty } from './db/db';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
@@ -12,11 +13,14 @@ import { BackupModal } from './components/BackupModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginView } from './components/LoginView';
 import { WorkerViewPortal } from './components/WorkerViewPortal';
+import { OnboardingModal } from './components/OnboardingModal';
+import { NewProjectModal } from './components/NewProjectModal';
+import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { performSyncUnified, getSyncConfig } from './services/syncService';
 import { initRealtimeSync } from './services/realtimeSync';
 
 function AppContent() {
-  const { user, isAdmin, isWorker } = useAuth();
+  const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
@@ -79,8 +83,13 @@ function AppContent() {
 
   // 3. If Admin, render Full Workshop Management Application
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200 pb-16 md:pb-0">
       
+      {/* SaaS First-time Onboarding Wizard */}
+      {isAdmin && !onboardingCompleted && (
+        <OnboardingModal />
+      )}
+
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
@@ -127,6 +136,12 @@ function AppContent() {
         }}
       />
 
+      {/* New Project Modal */}
+      <NewProjectModal />
+
+      {/* Project Settings Modal */}
+      <ProjectSettingsModal />
+
       {/* Database Backup & Restore Modal */}
       <BackupModal
         isOpen={isBackupModalOpen}
@@ -149,7 +164,9 @@ export default function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <AppContent />
+        <ProjectProvider>
+          <AppContent />
+        </ProjectProvider>
       </AuthProvider>
     </LanguageProvider>
   );

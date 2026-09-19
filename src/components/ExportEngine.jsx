@@ -1,5 +1,4 @@
 import * as XLSX from 'xlsx';
-import { formatIQD } from '../utils/formatters';
 
 /**
  * Generates and downloads an Excel (.xlsx) spreadsheet

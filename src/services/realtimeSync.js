@@ -1,15 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers } from '../db/db';
 import { getSyncConfig, saveSyncConfig, setLastSyncTime, getLastSyncTime } from './syncService';
-import { roundIQD } from '../utils/formatters';
+import { roundCurrency } from '../utils/formatters';
 
 const SUPABASE_URL = 'https://akeferuiyijsmgmjqnqc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_mDz14UqQ3Qukv5RmWPlsVg_uxQg0XQk';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
-    persistSession: false,
-    autoRefreshToken: false
+    persistSession: true,
+    autoRefreshToken: true
   },
   realtime: {
     params: {
@@ -297,9 +297,9 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         date: l.date,
         type: l.type,
         overtimeHours: Number(l.overtime_hours) || 0,
-        calculatedDailyWage: roundIQD(l.calculated_daily_wage),
-        calculatedOvertimeWage: roundIQD(l.calculated_overtime_wage),
-        totalDayPay: roundIQD(l.total_day_pay),
+        calculatedDailyWage: roundCurrency(l.calculated_daily_wage, l.currency),
+        calculatedOvertimeWage: roundCurrency(l.calculated_overtime_wage, l.currency),
+        totalDayPay: roundCurrency(l.total_day_pay, l.currency),
         notes: l.notes || '',
         createdAt: l.created_at,
         updatedAt: l.updated_at
@@ -442,9 +442,9 @@ function subscribeToRealtime() {
             date: l.date,
             type: l.type,
             overtimeHours: Number(l.overtime_hours) || 0,
-            calculatedDailyWage: roundIQD(l.calculated_daily_wage),
-            calculatedOvertimeWage: roundIQD(l.calculated_overtime_wage),
-            totalDayPay: roundIQD(l.total_day_pay),
+            calculatedDailyWage: roundCurrency(l.calculated_daily_wage, l.currency),
+            calculatedOvertimeWage: roundCurrency(l.calculated_overtime_wage, l.currency),
+            totalDayPay: roundCurrency(l.total_day_pay, l.currency),
             notes: l.notes || '',
             createdAt: l.created_at,
             updatedAt: l.updated_at
@@ -458,9 +458,59 @@ function subscribeToRealtime() {
       await pullPaymentsLive();
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
+      console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
+      if (payload.eventType === 'DELETE') {
+        const idToDelete = payload.old?.id;
+        if (idToDelete) await db.projects.delete(idToDelete);
+      } else if (payload.new) {
+        const p = payload.new;
+        await db.projects.put({
+          id: p.id,
+          userId: p.user_id,
+          name: p.name,
+          currency: p.currency || 'IQD',
+          standardWorkHours: Number(p.standard_work_hours) || 8,
+          overtimeMultiplier: Number(p.overtime_multiplier) || 1.0,
+          status: p.status || 'active',
+          notes: p.notes || '',
+          createdAt: p.created_at,
+          updatedAt: p.updated_at
+        });
+      }
+      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+    })
     .subscribe((status) => {
       console.log('📡 Supabase WebSocket channel status:', status);
     });
+}
+
+/**
+ * Pull projects from Supabase
+ */
+export async function pullProjectsLive() {
+  if (!navigator.onLine) return;
+  try {
+    const { data, error } = await supabase.from('projects').select('*');
+    if (!error && data && data.length > 0) {
+      for (const p of data) {
+        await db.projects.put({
+          id: p.id,
+          userId: p.user_id,
+          name: p.name,
+          currency: p.currency || 'IQD',
+          standardWorkHours: Number(p.standard_work_hours) || 8,
+          overtimeMultiplier: Number(p.overtime_multiplier) || 1.0,
+          status: p.status || 'active',
+          notes: p.notes || '',
+          createdAt: p.created_at,
+          updatedAt: p.updated_at
+        });
+      }
+    }
+  } catch (err) {
+    // Project table might not exist yet if migration not run yet, fail silently
+  }
 }
 
 /**
@@ -476,6 +526,7 @@ async function pullRemoteChangesSilently() {
     await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
   }
   await pullPaymentsLive();
+  await pullProjectsLive();
 }
 
 /**
@@ -491,9 +542,9 @@ export async function pushLogsLive(logs) {
     date: l.date,
     type: l.type || 'full',
     overtime_hours: Number(l.overtimeHours) || 0,
-    calculated_daily_wage: roundIQD(l.calculatedDailyWage),
-    calculated_overtime_wage: roundIQD(l.calculatedOvertimeWage),
-    total_day_pay: roundIQD(l.totalDayPay),
+    calculated_daily_wage: roundCurrency(l.calculatedDailyWage, l.currency),
+    calculated_overtime_wage: roundCurrency(l.calculatedOvertimeWage, l.currency),
+    total_day_pay: roundCurrency(l.totalDayPay, l.currency),
     notes: l.notes || null,
     deleted_at: null,
     updated_at: new Date().toISOString()
@@ -606,7 +657,7 @@ export async function pushPaymentsLive() {
 
     const mergedList = Array.from(mergedMap.values()).map(p => ({
       ...p,
-      amount: roundIQD(p.amount)
+      amount: roundCurrency(p.amount, p.currency)
     }));
 
     await supabase.from('settings').upsert({
@@ -665,7 +716,7 @@ export async function pullPaymentsLive() {
           for (const p of validCloudPayments) {
             await db.payments.put({
               ...p,
-              amount: roundIQD(p.amount)
+              amount: roundCurrency(p.amount, p.currency)
             });
           }
           // If cloud has a populated list, remove any local records that were deleted remotely

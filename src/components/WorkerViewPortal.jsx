@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { formatAmount, formatHoursAndMinutes, getCurrentYearMonth, roundIQD } from '../utils/formatters';
+import { formatAmount, formatHoursAndMinutes, getCurrentYearMonth, roundCurrency, getCurrencySymbol } from '../utils/formatters';
 import { 
   User, 
   LogOut, 
@@ -39,6 +39,14 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     () => (user?.workerId ? db.workers.get(user.workerId) : null),
     [user?.workerId]
   );
+
+  // Query this worker's project for currency & settings
+  const project = useLiveQuery(
+    () => (worker?.projectId ? db.projects.get(worker.projectId) : null),
+    [worker?.projectId]
+  );
+
+  const currency = project?.currency || 'IQD';
 
   // Query only this worker's logs
   const logs = useLiveQuery(
@@ -95,27 +103,27 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       hourlyDays,
       effectiveDays,
       totalOtHours,
-      totalBasePay: roundIQD(totalBasePay),
-      totalOtPay: roundIQD(totalOtPay),
-      netSalary: roundIQD(netSalary)
+      totalBasePay: roundCurrency(totalBasePay, currency),
+      totalOtPay: roundCurrency(totalOtPay, currency),
+      netSalary: roundCurrency(netSalary, currency)
     };
-  }, [monthlyLogs]);
+  }, [monthlyLogs, currency]);
 
   // Financial status & settlement calculation with cumulative prior debt
   const financialStatus = useMemo(() => {
     // 1. Prior months (before selectedMonth)
-    const priorGross = roundIQD(logs
+    const priorGross = roundCurrency(logs
       .filter((l) => l.date && l.date < selectedMonth)
-      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
+      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
 
-    const priorPaid = roundIQD(payments
+    const priorPaid = roundCurrency(payments
       .filter((p) => (p.month && p.month < selectedMonth) || (!p.month && p.date && p.date < selectedMonth))
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
 
-    const priorBalance = roundIQD(Math.max(0, priorGross - priorPaid));
+    const priorBalance = roundCurrency(Math.max(0, priorGross - priorPaid), currency);
 
     // 2. Current selected month
-    const grossEarned = roundIQD(totals.netSalary);
+    const grossEarned = roundCurrency(totals.netSalary, currency);
     let advances = 0;
     let settlements = 0;
     let isMarkedSettled = false;
@@ -129,14 +137,14 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       }
     }
 
-    const totalAdvances = roundIQD(advances);
-    const totalSettlements = roundIQD(settlements);
-    const totalPaidThisMonth = roundIQD(totalAdvances + totalSettlements);
+    const totalAdvances = roundCurrency(advances, currency);
+    const totalSettlements = roundCurrency(settlements, currency);
+    const totalPaidThisMonth = roundCurrency(totalAdvances + totalSettlements, currency);
 
     // 3. Cumulative totals
-    const totalAllTimeGross = roundIQD(priorGross + grossEarned);
-    const totalAllTimePaid = roundIQD(priorPaid + totalPaidThisMonth);
-    const totalCumulativeBalance = roundIQD(Math.max(0, totalAllTimeGross - totalAllTimePaid));
+    const totalAllTimeGross = roundCurrency(priorGross + grossEarned, currency);
+    const totalAllTimePaid = roundCurrency(priorPaid + totalPaidThisMonth, currency);
+    const totalCumulativeBalance = roundCurrency(Math.max(0, totalAllTimeGross - totalAllTimePaid), currency);
 
     const isSettled = isMarkedSettled || (totalAllTimeGross > 0 && totalCumulativeBalance <= 0);
 
@@ -150,7 +158,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       balance: totalCumulativeBalance,
       isSettled
     };
-  }, [logs, payments, selectedMonth, totals.netSalary, monthlyPayments]);
+  }, [logs, payments, selectedMonth, totals.netSalary, monthlyPayments, currency]);
 
   // Month navigation helpers
   const handleShiftMonth = (delta) => {
@@ -340,10 +348,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     : financialStatus.balance > 0
                     ? (financialStatus.priorBalance > 0
                         ? (language === 'en'
-                            ? `Total balance due: ${formatAmount(financialStatus.priorBalance)} IQD prior arrears + ${formatAmount(financialStatus.grossEarned)} IQD this month.`
+                            ? `Total balance due: ${formatAmount(financialStatus.priorBalance, currency)} ${getCurrencySymbol(currency, language)} prior arrears + ${formatAmount(financialStatus.grossEarned, currency)} ${getCurrencySymbol(currency, language)} this month.`
                             : language === 'ku'
-                            ? `کۆی گشتی ماوە: ${formatAmount(financialStatus.priorBalance)} دینار قەرزی مانگەکانی پێشوو + ${formatAmount(financialStatus.grossEarned)} دینار کارکردی ئەم مانگە.`
-                            : `مجموع کل طلب شما: ${formatAmount(financialStatus.priorBalance)} دینار معوقه از ماه‌های گذشته + ${formatAmount(financialStatus.grossEarned)} دینار کارکرد این ماه.`)
+                            ? `کۆی گشتی ماوە: ${formatAmount(financialStatus.priorBalance, currency)} ${getCurrencySymbol(currency, language)} قەرزی مانگەکانی پێشوو + ${formatAmount(financialStatus.grossEarned, currency)} ${getCurrencySymbol(currency, language)} کارکردی ئەم مانگە.`
+                            : `مجموع کل طلب شما: ${formatAmount(financialStatus.priorBalance, currency)} ${getCurrencySymbol(currency, language)} معوقه از ماه‌های گذشته + ${formatAmount(financialStatus.grossEarned, currency)} ${getCurrencySymbol(currency, language)} کارکرد این ماه.`)
                         : (language === 'en' ? 'Entitlements for this period are pending settlement.' : language === 'ku' ? 'هێشتا بڕە پارەیەک وەک مافی شایستەی ئەم مانگە ماوە و تەسویەی کۆتایی ئەنجام نەدراوە.' : 'مطالبات این ماه هنوز به صورت نهایی تسویه نشده و دارای مانده پرداخت است.')
                       )
                     : (language === 'en' ? 'Total advances received exceed earnings for this period.' : language === 'ku' ? 'بڕی پێشەکییە وەرگیراوەکان لە کارکردی ئەم مانگە زیاترە.' : 'مجموع پیش‌پرداخت‌های دریافتی از کل کارکرد این ماه بیشتر است.')
@@ -355,7 +363,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             {/* Transparent Balance Display */}
             <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs text-start sm:text-end">
               <span className="text-[11px] font-bold text-slate-400 block">
-                {t('remainingBalanceIQD')}
+                {currency === 'IQD' ? t('remainingBalanceIQD') : `${language === 'ku' ? 'ماوەی قەرز / داواکراو' : language === 'fa' ? 'مانده طلب / بدهی' : 'Remaining Balance'} (${getCurrencySymbol(currency, language)})`}
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5 justify-start sm:justify-end">
                 <span className={`text-xl sm:text-2xl font-black font-mono ${
@@ -365,14 +373,14 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     ? 'text-amber-600 dark:text-amber-400'
                     : 'text-rose-600 dark:text-rose-400'
                 }`}>
-                  {formatAmount(Math.abs(financialStatus.balance))}
+                  {formatAmount(Math.abs(financialStatus.balance), currency)}
                 </span>
                 <span className="text-xs text-slate-500 font-bold">
                   {financialStatus.balance === 0 
-                    ? (language === 'en' ? 'IQD (Settled)' : language === 'ku' ? 'د.ع (تەسویە)' : 'دینار (تسویه)') 
+                    ? `${getCurrencySymbol(currency, language)} (${language === 'en' ? 'Settled' : language === 'ku' ? 'تەسویە' : 'تسویه'})` 
                     : financialStatus.balance > 0 
-                    ? (language === 'en' ? 'IQD (Your Credit)' : language === 'ku' ? 'د.ع (شایستەی تۆ)' : 'دینار (طلب شما)') 
-                    : (language === 'en' ? 'IQD (Owed)' : language === 'ku' ? 'د.ع (قەرز)' : 'دینار (بدهکار)')}
+                    ? `${getCurrencySymbol(currency, language)} (${language === 'en' ? 'Your Credit' : language === 'ku' ? 'شایستەی تۆ' : 'طلب شما'})` 
+                    : `${getCurrencySymbol(currency, language)} (${language === 'en' ? 'Owed' : language === 'ku' ? 'قەرز' : 'بدهکار'})`}
                 </span>
               </div>
             </div>
@@ -410,9 +418,9 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             </div>
             <div className="mt-3">
               <span className="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono">
-                {formatAmount(totals.netSalary)}
+                {formatAmount(totals.netSalary, currency)}
               </span>
-              <span className="text-[11px] text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
             </div>
           </div>
 
@@ -426,9 +434,9 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             </div>
             <div className="mt-3">
               <span className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">
-                {formatAmount(financialStatus.totalPaid)}
+                {formatAmount(financialStatus.totalPaid, currency)}
               </span>
-              <span className="text-[11px] text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
             </div>
           </div>
 
@@ -444,9 +452,9 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <span className={`text-xl sm:text-2xl font-black font-mono ${
                 financialStatus.balance <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'
               }`}>
-                {formatAmount(Math.max(0, financialStatus.balance))}
+                {formatAmount(Math.max(0, financialStatus.balance), currency)}
               </span>
-              <span className="text-[11px] text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
+              <span className="text-[11px] text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
             </div>
           </div>
 
@@ -506,7 +514,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-end font-black font-mono text-slate-900 dark:text-white whitespace-nowrap">
-                          {formatAmount(p.amount)} <span className="text-[10px] text-slate-400 font-normal">{t('currencySymbol')}</span>
+                          {formatAmount(p.amount, currency)} <span className="text-[10px] text-slate-400 font-normal">{getCurrencySymbol(currency, language)}</span>
                         </td>
                         <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-mono">
                           {p.referenceNumber || '—'}
@@ -532,7 +540,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <span>{t('myMonthlyReport')}</span>
             </h3>
             <span className="text-[11px] text-slate-400 font-bold">
-              {t('allAmountsInIQDNote')}
+              {currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}
             </span>
           </div>
 
@@ -549,9 +557,15 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     <th className="py-3 px-4 text-start font-bold">{t('date')}</th>
                     <th className="py-3 px-4 text-start font-bold">{t('workType')}</th>
                     <th className="py-3 px-4 text-start font-bold">{t('overtimeHours')}</th>
-                    <th className="py-3 px-4 text-start font-bold">{t('baseWageIQD')}</th>
-                    <th className="py-3 px-4 text-start font-bold">{t('overtimeWageIQD')}</th>
-                    <th className="py-3 px-4 text-start font-bold">{t('netPayIQD')}</th>
+                    <th className="py-3 px-4 text-start font-bold">
+                      {currency === 'IQD' ? t('baseWageIQD') : `${language === 'ku' ? 'مووچەی بنەڕەت' : language === 'fa' ? 'حقوق پایه' : 'Base Wage'} (${getCurrencySymbol(currency, language)})`}
+                    </th>
+                    <th className="py-3 px-4 text-start font-bold">
+                      {currency === 'IQD' ? t('overtimeWageIQD') : `${language === 'ku' ? 'سەروەخت' : language === 'fa' ? 'اضافه کاری' : 'Overtime'} (${getCurrencySymbol(currency, language)})`}
+                    </th>
+                    <th className="py-3 px-4 text-start font-bold">
+                      {currency === 'IQD' ? t('netPayIQD') : `${language === 'ku' ? 'کۆی ڕۆژ' : language === 'fa' ? 'مجموع روز' : 'Total Day Pay'} (${getCurrencySymbol(currency, language)})`}
+                    </th>
                     <th className="py-3 px-4 text-start font-bold">{t('taskNotesTitle')}</th>
                   </tr>
                 </thead>
@@ -584,13 +598,13 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         {l.overtimeHours > 0 ? formatHoursAndMinutes(l.overtimeHours) : '—'}
                       </td>
                       <td className="py-3 px-4 font-bold text-slate-700 dark:text-slate-300 font-mono">
-                        {formatAmount(l.calculatedDailyWage)}
+                        {formatAmount(l.calculatedDailyWage, currency)}
                       </td>
                       <td className="py-3 px-4 font-bold text-amber-600 dark:text-amber-400 font-mono">
-                        {l.calculatedOvertimeWage > 0 ? formatAmount(l.calculatedOvertimeWage) : '—'}
+                        {l.calculatedOvertimeWage > 0 ? formatAmount(l.calculatedOvertimeWage, currency) : '—'}
                       </td>
                       <td className="py-3 px-4 font-black text-sky-600 dark:text-sky-400 font-mono">
-                        {formatAmount(l.totalDayPay)}
+                        {formatAmount(l.totalDayPay, currency)}
                       </td>
                       <td className="py-3 px-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">
                         {l.notes || '—'}
@@ -607,16 +621,16 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       {formatHoursAndMinutes(totals.totalOtHours)}
                     </td>
                     <td className="py-3.5 px-4 font-mono">
-                      {formatAmount(totals.totalBasePay)}
+                      {formatAmount(totals.totalBasePay, currency)}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-amber-600 dark:text-amber-400">
-                      {formatAmount(totals.totalOtPay)}
+                      {formatAmount(totals.totalOtPay, currency)}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-sky-600 dark:text-sky-400 text-sm">
-                      {formatAmount(totals.netSalary)}
+                      {formatAmount(totals.netSalary, currency)}
                     </td>
                     <td className="py-3.5 px-4 text-[10px] text-slate-400">
-                      {t('allAmountsInIQDNote')}
+                      {currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}
                     </td>
                   </tr>
                 </tfoot>

@@ -13,9 +13,21 @@ db.version(2).stores({
   payments: 'id, workerId, date, month, type, status, createdAt'
 });
 
+db.version(3).stores({
+  projects: 'id, userId, name, status, createdAt',
+  workers: 'id, projectId, userId, name, role, isActive, createdAt',
+  attendanceLogs: 'id, projectId, userId, workerId, date, type, [workerId+date], [projectId+workerId+date]',
+  payments: 'id, projectId, userId, workerId, date, month, type, status, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+}
+
+// Helper to generate Project IDs
+export function generateProjectId() {
+  return 'prj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Payment / Settlement IDs
@@ -58,9 +70,57 @@ export async function purgeDummySeedWorkers() {
   }
 }
 
+export const DEFAULT_PROJECT_ID = 'prj_default_main';
+
+// Ensure at least one active project exists and migrate legacy records to it
+export async function ensureDefaultProjectExists(userId = 'default_user') {
+  try {
+    const projectCount = await db.projects.count();
+    let currentDefault = await db.projects.get(DEFAULT_PROJECT_ID);
+
+    if (projectCount === 0 || !currentDefault) {
+      currentDefault = {
+        id: DEFAULT_PROJECT_ID,
+        userId: userId || 'default_user',
+        name: 'پروژه مرکزی (کارگاه)',
+        currency: 'IQD',
+        standardWorkHours: 8,
+        overtimeMultiplier: 1.0,
+        status: 'active',
+        notes: 'پروژه پیش‌فرض سیستم',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await db.projects.put(currentDefault);
+    }
+
+    // Migrate any legacy unassociated local workers, logs, and payments
+    await db.workers.toCollection().modify((w) => {
+      if (!w.projectId) w.projectId = DEFAULT_PROJECT_ID;
+      if (!w.userId && userId) w.userId = userId;
+    });
+
+    await db.attendanceLogs.toCollection().modify((l) => {
+      if (!l.projectId) l.projectId = DEFAULT_PROJECT_ID;
+      if (!l.userId && userId) l.userId = userId;
+    });
+
+    await db.payments.toCollection().modify((p) => {
+      if (!p.projectId) p.projectId = DEFAULT_PROJECT_ID;
+      if (!p.userId && userId) p.userId = userId;
+    });
+
+    return currentDefault;
+  } catch (err) {
+    console.warn('ensureDefaultProjectExists warning:', err);
+    return null;
+  }
+}
+
 // Seed initial settings only (NO fake or dummy workers or logs)
-export async function seedInitialDataIfEmpty() {
+export async function seedInitialDataIfEmpty(userId = 'default_user') {
   await purgeDummySeedWorkers();
+  await ensureDefaultProjectExists(userId);
 
   const settingsCount = await db.settings.count();
   if (settingsCount === 0) {

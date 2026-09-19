@@ -3,9 +3,10 @@ import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useProject } from '../context/ProjectContext';
 import { EditRecordModal } from './EditRecordModal';
 import { 
-  formatIQD, 
+  formatCurrency, 
   formatAmount,
   formatNumber, 
   getCurrentYearMonth, 
@@ -13,7 +14,8 @@ import {
   formatDateDisplay, 
   formatFullDateWithWeekday, 
   formatHoursAndMinutes,
-  roundIQD
+  roundCurrency,
+  getCurrencySymbol
 } from '../utils/formatters';
 import { exportAttendanceToExcel, triggerPrintReport } from './ExportEngine';
 import { 
@@ -43,6 +45,8 @@ import {
 
 export function CalendarReportsView({ onOpenLoggingModal }) {
   const { t, language, direction } = useLanguage();
+  const { currentProject } = useProject();
+  const currency = currentProject?.currency || 'IQD';
 
   // Primary view mode: 'timeline' (لیست تفکیک روزانه) | 'calendar' (تقویم شبکه‌ای) | 'logs' (گزارش‌ها)
   const [viewMode, setViewMode] = useState('timeline'); 
@@ -74,9 +78,22 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
   // Inspected date string for quick modal inspection from monthly calendar
   const [inspectedDateStr, setInspectedDateStr] = useState(null);
 
-  // Dexie live queries (Reactive)
-  const workers = useLiveQuery(() => db.workers.toArray(), []) || [];
-  const rawLogs = useLiveQuery(() => db.attendanceLogs.toArray(), []) || [];
+  // Dexie live queries (Reactive) scoped to active project
+  const workers = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.workers.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
+
+  const rawLogs = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.attendanceLogs.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
 
   // Deduplicate logs by workerId + date in memory to guarantee 1 log per worker per day
   const allLogs = useMemo(() => {
@@ -131,7 +148,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
       if (totalWorkers > 0) {
         totalMonthDaysWorked += 1;
         totalMonthOt = Number((totalMonthOt + totalOvertime).toFixed(4));
-        totalMonthSalary = roundIQD(totalMonthSalary + totalPay);
+        totalMonthSalary = roundCurrency(totalMonthSalary + totalPay, currency);
       }
 
       // Collect notes
@@ -285,11 +302,11 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
       entriesCount: filteredLogs.length,
       days,
       otHours,
-      basePay: roundIQD(basePay),
-      otPay: roundIQD(otPay),
-      totalPay: roundIQD(totalPay)
+      basePay: roundCurrency(basePay, currency),
+      otPay: roundCurrency(otPay, currency),
+      totalPay: roundCurrency(totalPay, currency)
     };
-  }, [filteredLogs]);
+  }, [filteredLogs, currency]);
 
   const summaryGroupedData = useMemo(() => {
     const grouped = {};
@@ -327,14 +344,14 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
       const worker = workerMap[g.workerId] || { name: 'Unknown', role: '' };
       return {
         ...g,
-        fullDaysPay: roundIQD(g.fullDaysPay),
-        halfDaysPay: roundIQD(g.halfDaysPay),
-        overtimePay: roundIQD(g.overtimePay),
-        totalPay: roundIQD(g.totalPay),
+        fullDaysPay: roundCurrency(g.fullDaysPay, currency),
+        halfDaysPay: roundCurrency(g.halfDaysPay, currency),
+        overtimePay: roundCurrency(g.overtimePay, currency),
+        totalPay: roundCurrency(g.totalPay, currency),
         worker
       };
     });
-  }, [filteredLogs, workerMap]);
+  }, [filteredLogs, workerMap, currency]);
 
   // Delete an individual log
   const handleDeleteLog = async (logId) => {
@@ -486,7 +503,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
 
                 <div className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 rounded-xl font-bold flex items-center gap-1.5 border border-emerald-100 dark:border-emerald-900">
                   <Coins className="w-3.5 h-3.5" />
-                  <span>{formatIQD(monthTimelineData.monthStats.totalSalary, language)}</span>
+                  <span>{formatCurrency(monthTimelineData.monthStats.totalSalary, currency, language)}</span>
                 </div>
               </div>
             </div>
@@ -631,7 +648,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                             {/* Total day pay */}
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50">
                               <Coins className="w-3.5 h-3.5" />
-                              <span>{formatIQD(dayItem.totalPay, language)}</span>
+                              <span>{formatCurrency(dayItem.totalPay, currency, language)}</span>
                             </span>
                           </>
                         ) : (
@@ -696,7 +713,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
 
                                   {/* Calculated pay for worker */}
                                   <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold border-s ps-2 border-slate-200 dark:border-slate-700">
-                                    {formatIQD(log.totalDayPay, language)}
+                                    {formatCurrency(log.totalDayPay, currency, language)}
                                   </span>
 
                                   {/* Edit action */}
@@ -867,7 +884,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         </div>
                       )}
                       <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold truncate">
-                        {formatIQD(dayItem.totalPay, language)}
+                        {formatCurrency(dayItem.totalPay, currency, language)}
                       </div>
                     </div>
                   ) : (
@@ -1013,7 +1030,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
               </div>
               <div>
                 <span className="text-xs text-slate-400 font-medium">{t('basePay')}</span>
-                <p className="text-base font-bold text-slate-900 dark:text-white truncate">{formatIQD(aggregatedStats.basePay, language)}</p>
+                <p className="text-base font-bold text-slate-900 dark:text-white truncate">{formatCurrency(aggregatedStats.basePay, currency, language)}</p>
               </div>
             </div>
 
@@ -1023,7 +1040,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
               </div>
               <div>
                 <span className="text-xs text-slate-400 font-medium">{t('aggregatedTotalPay')}</span>
-                <p className="text-base font-bold text-slate-900 dark:text-white truncate">{formatIQD(aggregatedStats.totalPay, language)}</p>
+                <p className="text-base font-bold text-slate-900 dark:text-white truncate">{formatCurrency(aggregatedStats.totalPay, currency, language)}</p>
               </div>
             </div>
           </div>
@@ -1057,7 +1074,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         <th className="px-4 py-3.5 text-center">{t('fullDaysWithPay')}</th>
                         <th className="px-4 py-3.5 text-center">{t('halfDaysWithPay')}</th>
                         <th className="px-4 py-3.5 text-center">{t('overtimeWithPay')}</th>
-                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{t('netPayIQD')}</th>
+                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1072,7 +1089,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                               {row.fullDaysCount} {t('normalDays')}
                             </div>
                             <div className="text-xs text-slate-400 font-mono">
-                              ({formatAmount(row.fullDaysPay)})
+                              ({formatAmount(row.fullDaysPay, currency)})
                             </div>
                           </td>
                           <td className="px-4 py-3.5 text-center">
@@ -1080,7 +1097,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                               {row.halfDaysCount} {t('halfDays')}
                             </div>
                             <div className="text-xs text-slate-400 font-mono">
-                              ({formatAmount(row.halfDaysPay)})
+                              ({formatAmount(row.halfDaysPay, currency)})
                             </div>
                           </td>
                           <td className="px-4 py-3.5 text-center">
@@ -1088,11 +1105,11 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                               {formatHoursAndMinutes(row.overtimeHours, language)}
                             </div>
                             <div className="text-xs text-slate-400 font-mono">
-                              ({formatAmount(row.overtimePay)})
+                              ({formatAmount(row.overtimePay, currency)})
                             </div>
                           </td>
                           <td className="px-4 py-3.5 text-end font-extrabold text-sky-600 dark:text-sky-400 text-base font-mono">
-                            {formatAmount(row.totalPay)}
+                            {formatAmount(row.totalPay, currency)}
                           </td>
                         </tr>
                       ))}
@@ -1105,29 +1122,29 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         <td className="px-4 py-3.5 text-center font-bold">
                           {summaryGroupedData.reduce((acc, r) => acc + r.fullDaysCount, 0)} روز
                           <div className="text-[11px] text-slate-500 font-mono">
-                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.fullDaysPay, 0))}
+                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.fullDaysPay, 0), currency)}
                           </div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-bold">
                           {summaryGroupedData.reduce((acc, r) => acc + r.halfDaysCount, 0)} روز
                           <div className="text-[11px] text-slate-500 font-mono">
-                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.halfDaysPay, 0))}
+                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.halfDaysPay, 0), currency)}
                           </div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-bold text-amber-600 dark:text-amber-400">
                           {formatHoursAndMinutes(summaryGroupedData.reduce((acc, r) => acc + r.overtimeHours, 0), language)}
                           <div className="text-[11px] text-slate-500 font-mono">
-                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.overtimePay, 0))}
+                            {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.overtimePay, 0), currency)}
                           </div>
                         </td>
                         <td className="px-4 py-3.5 text-end font-extrabold text-emerald-600 dark:text-emerald-400 text-base font-mono">
-                          {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.totalPay, 0))}
+                          {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.totalPay, 0), currency)}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
                   <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-                    <span>{t('allAmountsInIQDNote')}</span>
+                    <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
                   </div>
                 </div>
               )
@@ -1147,7 +1164,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         <th className="px-4 py-3.5 text-center">{t('typeColumn')}</th>
                         <th className="px-4 py-3.5 text-center">{t('overtimeHours')}</th>
                         <th className="px-4 py-3.5 text-start">{t('notesColumn')}</th>
-                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{t('netPayIQD')}</th>
+                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
                         <th className="px-4 py-3.5 text-center no-print">{t('actions')}</th>
                       </tr>
                     </thead>
@@ -1181,7 +1198,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                               {log.notes || '-'}
                             </td>
                             <td className="px-4 py-3 text-end font-bold text-slate-900 dark:text-white whitespace-nowrap font-mono">
-                              {formatAmount(log.totalDayPay)}
+                              {formatAmount(log.totalDayPay, currency)}
                             </td>
                             <td className="px-4 py-3 text-center no-print whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1">
@@ -1207,7 +1224,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                     </tbody>
                   </table>
                   <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-                    <span>{t('allAmountsInIQDNote')}</span>
+                    <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
                   </div>
                 </div>
               )
@@ -1252,7 +1269,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                   <span>{inspectedDateStr}</span>
                 </h3>
                 <span className="text-xs text-slate-400">
-                  {inspectedDateLogs.length} {t('workers')} • {formatIQD(inspectedTotalPay, language)}
+                  {inspectedDateLogs.length} {t('workers')} • {formatCurrency(inspectedTotalPay, currency, language)}
                 </span>
               </div>
               <button
@@ -1297,7 +1314,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
 
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-900 dark:text-white text-sm">
-                          {formatIQD(log.totalDayPay, language)}
+                          {formatCurrency(log.totalDayPay, currency, language)}
                         </span>
                         <button
                           onClick={() => setEditingLog(log)}

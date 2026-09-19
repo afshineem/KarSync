@@ -2,12 +2,15 @@ import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useProject } from '../context/ProjectContext';
 import { 
+  formatCurrency,
   formatAmount, 
   formatHoursAndMinutes, 
   getCurrentYearMonth, 
-  getTodayDateString,
-  roundIQD
+  getTodayDateString, 
+  roundCurrency,
+  getCurrencySymbol 
 } from '../utils/formatters';
 import { SettlementModal } from './SettlementModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
@@ -25,13 +28,16 @@ import {
   AlertCircle, 
   Receipt, 
   PlusCircle, 
-  Calendar,
-  Users,
-  RefreshCw
+  Calendar, 
+  Users, 
+  RefreshCw 
 } from 'lucide-react';
 
 export function FinancialsView() {
   const { t, language, direction } = useLanguage();
+  const { currentProject } = useProject();
+  const currency = currentProject?.currency || 'IQD';
+
   const [isSyncingLive, setIsSyncingLive] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState('');
 
@@ -54,10 +60,30 @@ export function FinancialsView() {
   const [historyTargetWorker, setHistoryTargetWorker] = useState(null);
   const [isGlobalAdvanceModalOpen, setIsGlobalAdvanceModalOpen] = useState(false);
 
-  // Live queries from IndexedDB
-  const workers = useLiveQuery(() => db.workers.toArray(), []) || [];
-  const allLogs = useLiveQuery(() => db.attendanceLogs.toArray(), []) || [];
-  const allPayments = useLiveQuery(() => db.payments.toArray(), []) || [];
+  // Live queries from IndexedDB scoped to active project
+  const workers = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.workers.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
+
+  const allLogs = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.attendanceLogs.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
+
+  const allPayments = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.payments.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
 
   // Compute worker financial summaries with cumulative prior debt & FIFO settlement status
   const workerFinancials = useMemo(() => {
@@ -66,9 +92,9 @@ export function FinancialsView() {
       const allWorkerPayments = allPayments.filter((p) => p.workerId === w.id);
 
       // Total All-Time Gross & Paid across entire database history
-      const totalAllTimeGross = roundIQD(allWorkerLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
-      const totalAllTimePaid = roundIQD(allWorkerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
-      const netBalanceDue = roundIQD(Math.max(0, totalAllTimeGross - totalAllTimePaid));
+      const totalAllTimeGross = roundCurrency(allWorkerLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+      const totalAllTimePaid = roundCurrency(allWorkerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
+      const netBalanceDue = roundCurrency(Math.max(0, totalAllTimeGross - totalAllTimePaid), currency);
 
       // Determine period boundaries
       let currentLogs = [];
@@ -135,29 +161,27 @@ export function FinancialsView() {
       });
 
       const priorEffectiveDays = priorFullDays + priorHalfDays * 0.5;
-      const priorGrossRounded = roundIQD(priorGross);
-      const priorPaid = roundIQD(priorPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
-      const priorBalance = roundIQD(Math.max(0, priorGrossRounded - priorPaid));
+      const priorGrossRounded = roundCurrency(priorGross, currency);
+      const priorPaid = roundCurrency(priorPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
+      const priorBalance = roundCurrency(Math.max(0, priorGrossRounded - priorPaid), currency);
 
       // 3. Current Period Payments
-      const totalAdvances = roundIQD(currentPayments
+      const totalAdvances = roundCurrency(currentPayments
         .filter((p) => p.type === 'advance')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
 
-      const totalSettlements = roundIQD(currentPayments
+      const totalSettlements = roundCurrency(currentPayments
         .filter((p) => p.type === 'settlement')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
 
-      const totalPaidPeriod = roundIQD(totalAdvances + totalSettlements);
+      const totalPaidPeriod = roundCurrency(totalAdvances + totalSettlements, currency);
 
       // 4. Gross cumulative earnings up to this inspected period
-      const grossUpToPeriod = roundIQD(allWorkerLogs
+      const grossUpToPeriod = roundCurrency(allWorkerLogs
         .filter((l) => l.date && l.date <= periodEndDate)
-        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
+        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
 
       // 5. FIFO Cumulative Settlement Status
-      // If the worker's cumulative payments to date cover all gross wages earned up to this period,
-      // this period is fully settled (even if the settlement was processed in a subsequent month)!
       let status = 'pending';
       if (totalAllTimeGross === 0 && totalAllTimePaid === 0) {
         status = 'no_activity';
@@ -180,7 +204,7 @@ export function FinancialsView() {
         hourlyDays,
         effectiveDays,
         otHours,
-        grossEarnings: roundIQD(grossEarnings),
+        grossEarnings: roundCurrency(grossEarnings, currency),
         priorFullDays,
         priorHalfDays,
         priorEffectiveDays,
@@ -200,9 +224,9 @@ export function FinancialsView() {
         currentPayments
       };
     });
-  }, [workers, allLogs, allPayments, filterMode, selectedMonth, fromDate, toDate]);
+  }, [workers, allLogs, allPayments, filterMode, selectedMonth, fromDate, toDate, currency]);
 
-  // Aggregate KPI metrics (Includes all workers with activity/debt, even if inactive, per user requirement 2.1)
+  // Aggregate KPI metrics
   const aggregateMetrics = useMemo(() => {
     let totalGross = 0;
     let totalPaid = 0;
@@ -211,7 +235,6 @@ export function FinancialsView() {
     let relevantWorkersCount = 0;
 
     workerFinancials.forEach((item) => {
-      // Check if this worker should be included in worker dropdown filter
       if (selectedWorkerId !== 'all' && item.worker.id !== selectedWorkerId) {
         return;
       }
@@ -229,13 +252,13 @@ export function FinancialsView() {
     });
 
     return {
-      totalGross: roundIQD(totalGross),
-      totalPaid: roundIQD(totalPaid),
-      totalOutstanding: roundIQD(totalOutstanding),
+      totalGross: roundCurrency(totalGross, currency),
+      totalPaid: roundCurrency(totalPaid, currency),
+      totalOutstanding: roundCurrency(totalOutstanding, currency),
       settledCount,
       relevantWorkersCount: relevantWorkersCount || workers.filter((w) => w.isActive === 1).length
     };
-  }, [workerFinancials, selectedWorkerId, workers]);
+  }, [workerFinancials, selectedWorkerId, workers, currency]);
 
   // Filtered workers for table
   const displayedRows = useMemo(() => {
@@ -454,9 +477,9 @@ export function FinancialsView() {
           </div>
           <div className="mt-3">
             <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono">
-              {formatAmount(aggregateMetrics.totalGross)}
+              {formatAmount(aggregateMetrics.totalGross, currency)}
             </span>
-            <span className="text-xs text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
+            <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400">
             {filterMode === 'monthly' ? `${selectedMonth}` : `${fromDate} ➔ ${toDate}`}
@@ -475,9 +498,9 @@ export function FinancialsView() {
           </div>
           <div className="mt-3">
             <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-              {formatAmount(aggregateMetrics.totalPaid)}
+              {formatAmount(aggregateMetrics.totalPaid, currency)}
             </span>
-            <span className="text-xs text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
+            <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
           </div>
           <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
             <span>{t('totalPaidAll')}</span>
@@ -496,9 +519,9 @@ export function FinancialsView() {
           </div>
           <div className="mt-3">
             <span className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400 font-mono">
-              {formatAmount(aggregateMetrics.totalOutstanding)}
+              {formatAmount(aggregateMetrics.totalOutstanding, currency)}
             </span>
-            <span className="text-xs text-slate-400 ms-1 font-bold">{t('currencySymbol')}</span>
+            <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400">
             {t('netBalanceDueLabel')}
@@ -643,19 +666,19 @@ export function FinancialsView() {
                   {/* 4. Current Month Gross */}
                   <th className="px-2.5 py-2 text-end whitespace-nowrap">
                     <div className="font-bold">{t('colCurrentGross')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({t('currencySymbol')})</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
                   </th>
 
                   {/* 5. Prior Months Arrears */}
                   <th className="px-2.5 py-2 text-end whitespace-nowrap">
                     <div className="font-bold">{t('colPriorGross')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({t('currencySymbol')})</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
                   </th>
 
                   {/* 6. Total Combined Gross */}
                   <th className="px-2.5 py-2 text-end whitespace-nowrap">
                     <div className="font-bold">{t('colTotalGross')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({t('currencySymbol')})</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
                   </th>
 
                   {/* 7. Total Paid */}
@@ -667,7 +690,7 @@ export function FinancialsView() {
                   {/* 8. Net Balance Due */}
                   <th className="px-2.5 py-2 text-end whitespace-nowrap">
                     <div className="font-bold">{t('colNetBalance')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({t('currencySymbol')})</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
                   </th>
 
                   {/* 9. Settlement Status */}
@@ -745,22 +768,22 @@ export function FinancialsView() {
 
                       {/* 4. Current Month Gross Payroll */}
                       <td className="px-2.5 py-2.5 text-end font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                        {formatAmount(row.grossEarnings)}
+                        {formatAmount(row.grossEarnings, currency)}
                       </td>
 
                       {/* 5. Prior Months Gross Arrears */}
                       <td className="px-2.5 py-2.5 text-end font-mono whitespace-nowrap text-amber-600 dark:text-amber-400 font-semibold">
-                        {row.priorGross > 0 ? formatAmount(row.priorGross) : '—'}
+                        {row.priorGross > 0 ? formatAmount(row.priorGross, currency) : '—'}
                       </td>
 
                       {/* 6. Total Combined Gross Earnings */}
                       <td className="px-2.5 py-2.5 text-end font-extrabold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                        {formatAmount(row.totalAllTimeGross)}
+                        {formatAmount(row.totalAllTimeGross, currency)}
                       </td>
 
                       {/* 7. Total Paid (Advances + Settlements) */}
                       <td className="px-2.5 py-2.5 text-end text-emerald-600 dark:text-emerald-400 font-bold font-mono whitespace-nowrap">
-                        {row.totalAllTimePaid > 0 ? formatAmount(row.totalAllTimePaid) : '—'}
+                        {row.totalAllTimePaid > 0 ? formatAmount(row.totalAllTimePaid, currency) : '—'}
                       </td>
 
                       {/* 8. Net Balance Due (To Settle) */}
@@ -774,11 +797,11 @@ export function FinancialsView() {
                         }`}>
                           {isSettled && row.netBalanceDue <= 0
                             ? t('fullySettledZero')
-                            : formatAmount(row.netBalanceDue)}
+                            : formatAmount(row.netBalanceDue, currency)}
                         </span>
                         {row.priorBalance > 0 && !isSettled && (
                           <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-normal mt-0.5">
-                            {t('priorArrearsSubtitle').replace('{amount}', formatAmount(row.priorBalance))}
+                            {t('priorArrearsSubtitle').replace('{amount}', formatAmount(row.priorBalance, currency))}
                           </span>
                         )}
                       </td>
@@ -852,7 +875,7 @@ export function FinancialsView() {
 
             {/* Table Footnote */}
             <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-              <span>{t('allAmountsInIQDNote')}</span>
+              <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
             </div>
           </div>
         )}

@@ -4,7 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { formatIQD, formatHoursAndMinutes } from '../utils/formatters';
+import { useProject } from '../context/ProjectContext';
+import { formatCurrency, formatHoursAndMinutes, getCurrencySymbol } from '../utils/formatters';
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 import { EditRecordModal } from './EditRecordModal';
 import { 
@@ -20,15 +21,18 @@ import {
   History, Calendar, Sparkles, 
   CheckCircle2, 
   XCircle, 
-  X,
-  AlertCircle,
-  Key,
-  Receipt
+  X, 
+  AlertCircle, 
+  Key, 
+  Receipt 
 } from 'lucide-react';
 
 export function WorkersView() {
   const { t, language } = useLanguage();
-  const { setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
+  const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
+  const { currentProject } = useProject();
+  const currency = currentProject?.currency || 'IQD';
+
   const workerCreds = getWorkerCredentialsMap();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState('all'); // 'all' | 'active' | 'inactive'
@@ -52,8 +56,14 @@ export function WorkersView() {
   });
   const [formError, setFormError] = useState('');
 
-  // Live query from Dexie
-  const workers = useLiveQuery(() => db.workers.toArray(), []) || [];
+  // Live query from Dexie scoped to active project
+  const workers = useLiveQuery(
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.workers.where('projectId').equals(currentProject.id).toArray();
+    },
+    [currentProject?.id]
+  ) || [];
 
   const rawWorkerHistoryLogs = useLiveQuery(
     async () => {
@@ -170,6 +180,8 @@ export function WorkersView() {
         // Update
         const updatedWorker = {
           ...editingWorker,
+          projectId: editingWorker.projectId || currentProject?.id || 'prj_default_main',
+          userId: editingWorker.userId || user?.id || 'default_user',
           name: formData.name.trim(),
           phone: formData.phone.trim(),
           role: formData.role.trim(),
@@ -187,6 +199,8 @@ export function WorkersView() {
         targetWorkerId = generateId();
         const newWorker = {
           id: targetWorkerId,
+          projectId: currentProject?.id || 'prj_default_main',
+          userId: user?.id || 'default_user',
           name: formData.name.trim(),
           phone: formData.phone.trim(),
           role: formData.role.trim(),
@@ -394,7 +408,7 @@ export function WorkersView() {
                     <span>{t('dailyRateLabel')}:</span>
                   </span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {formatIQD(worker.dailyRate, language)}
+                    {formatCurrency(worker.dailyRate, currency, language)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
@@ -403,7 +417,7 @@ export function WorkersView() {
                     <span>{t('overtimeRateLabel')}:</span>
                   </span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {formatIQD(worker.overtimeHourlyRate, language)} / hr
+                    {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
                   </span>
                 </div>
               </div>
@@ -635,7 +649,7 @@ export function WorkersView() {
                   <span>{t('history')} - {historyWorker.name}</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {historyWorker.role} • {formatIQD(historyWorker.dailyRate, language)} / day
+                  {historyWorker.role} • {formatCurrency(historyWorker.dailyRate, currency, language)} / day
                 </p>
               </div>
               <button
@@ -714,7 +728,7 @@ export function WorkersView() {
 
                       <div className="flex items-center gap-3">
                         <div className="text-end font-bold text-sky-600 dark:text-sky-400 text-sm">
-                          {formatIQD(log.totalDayPay, language)}
+                          {formatCurrency(log.totalDayPay, currency, language)}
                         </div>
                         <button
                           onClick={() => setEditingLog(log)}
@@ -763,7 +777,7 @@ export function WorkersView() {
                           )}
                         </div>
                         <div className="text-end font-extrabold text-slate-900 dark:text-white text-sm font-mono">
-                          {formatIQD(p.amount, language)}
+                          {formatCurrency(p.amount, currency, language)}
                         </div>
                       </div>
                     );

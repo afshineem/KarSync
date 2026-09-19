@@ -3,14 +3,17 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getAttendanceLogId } from '../db/db';
 import { pushLogsLive, deleteLogLive } from '../services/realtimeSync';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import { 
-  formatIQD, 
+  formatCurrency, 
   formatDateDisplay, 
   formatFullDateWithWeekday, 
   toDecimalHours, 
   fromDecimalHours, 
   formatHoursAndMinutes,
-  roundIQD
+  roundCurrency,
+  getCurrencySymbol
 } from '../utils/formatters';
 import { 
   X, 
@@ -29,6 +32,10 @@ import {
 
 export function EditRecordModal({ log, isOpen, onClose }) {
   const { t, language } = useLanguage();
+  const { currentProject } = useProject();
+  const { user } = useAuth();
+  const currency = currentProject?.currency || 'IQD';
+  const standardHours = currentProject?.standardWorkHours || 8;
 
   const worker = useLiveQuery(
     () => (log?.workerId ? db.workers.get(log.workerId) : null),
@@ -61,20 +68,20 @@ export function EditRecordModal({ log, isOpen, onClose }) {
   const decimalHours = toDecimalHours(hours, minutes);
   const hourlyRate = (worker?.overtimeHourlyRate > 0)
     ? worker.overtimeHourlyRate
-    : Math.round((worker?.dailyRate || 0) / 8);
+    : Math.round((worker?.dailyRate || 0) / standardHours);
 
   let calculatedDailyWage = 0;
   let calculatedOvertimeWage = 0;
 
   if (type === 'hourly') {
     calculatedDailyWage = 0;
-    calculatedOvertimeWage = roundIQD(decimalHours * hourlyRate);
+    calculatedOvertimeWage = roundCurrency(decimalHours * hourlyRate, currency);
   } else {
     const baseFactor = type === 'half' ? 0.5 : 1.0;
-    calculatedDailyWage = roundIQD((worker?.dailyRate || 0) * baseFactor);
-    calculatedOvertimeWage = roundIQD(decimalHours * (worker?.overtimeHourlyRate || 0));
+    calculatedDailyWage = roundCurrency((worker?.dailyRate || 0) * baseFactor, currency);
+    calculatedOvertimeWage = roundCurrency(decimalHours * (worker?.overtimeHourlyRate || 0), currency);
   }
-  const totalDayPay = roundIQD(calculatedDailyWage + calculatedOvertimeWage);
+  const totalDayPay = roundCurrency(calculatedDailyWage + calculatedOvertimeWage, currency);
 
   // Stepper handlers
   const handleHoursChange = (val) => {
@@ -104,6 +111,8 @@ export function EditRecordModal({ log, isOpen, onClose }) {
       const updatedRecord = {
         ...log,
         id: canonicalId,
+        projectId: log.projectId || currentProject?.id || 'prj_default_main',
+        userId: log.userId || user?.id || null,
         type,
         overtimeHours: decimalHours,
         calculatedDailyWage,
@@ -385,13 +394,13 @@ export function EditRecordModal({ log, isOpen, onClose }) {
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pb-2 border-b border-slate-200/60 dark:border-slate-700/60">
               <span>{t('dailyRateLabel')}:</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">
-                {formatIQD(worker?.dailyRate || 0, language)}
+                {formatCurrency(worker?.dailyRate || 0, currency, language)}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2">
               <span>{t('calculatedDayTotal')}</span>
               <span className="text-base font-extrabold text-sky-600 dark:text-sky-400">
-                {formatIQD(totalDayPay, language)}
+                {formatCurrency(totalDayPay, currency, language)}
               </span>
             </div>
           </div>

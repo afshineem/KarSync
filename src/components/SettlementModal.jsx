@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db, generatePaymentId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import { pushPaymentsLive } from '../services/realtimeSync';
-import { getTodayDateString, getCurrentYearMonth, formatAmount, roundIQD } from '../utils/formatters';
+import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol } from '../utils/formatters';
 import { 
   CheckCircle2, 
   X, 
@@ -28,39 +30,42 @@ export function SettlementModal({
   onSettlementComplete
 }) {
   const { t, language } = useLanguage();
+  const { currentProject } = useProject();
+  const { user } = useAuth();
+  const currency = currentProject?.currency || 'IQD';
 
   // Financial calculations for this worker: Prior months debt + Current month
   const calculations = useMemo(() => {
     // 1. Prior months (before this month)
-    const priorGross = roundIQD(workerLogs
+    const priorGross = roundCurrency(workerLogs
       .filter((l) => l.date && l.date < month)
-      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
+      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
 
-    const priorPaid = roundIQD(workerPayments
+    const priorPaid = roundCurrency(workerPayments
       .filter((p) => (p.month && p.month < month) || (!p.month && p.date && p.date < month))
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
 
-    const priorBalance = roundIQD(Math.max(0, priorGross - priorPaid)); // > 0: workshop owes worker from past months
+    const priorBalance = roundCurrency(Math.max(0, priorGross - priorPaid), currency); // > 0: workshop owes worker from past months
 
     // 2. Current selected month
-    const currentMonthGross = roundIQD(workerLogs
+    const currentMonthGross = roundCurrency(workerLogs
       .filter((l) => l.date && l.date.startsWith(month))
-      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0));
+      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
 
-    const currentMonthAdvances = roundIQD(workerPayments
+    const currentMonthAdvances = roundCurrency(workerPayments
       .filter((p) => (p.month === month || (!p.month && p.date && p.date.startsWith(month))) && p.type === 'advance')
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
 
-    const currentMonthSettlements = roundIQD(workerPayments
+    const currentMonthSettlements = roundCurrency(workerPayments
       .filter((p) => (p.month === month || (!p.month && p.date && p.date.startsWith(month))) && p.type === 'settlement')
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
 
-    const currentMonthPaid = roundIQD(currentMonthAdvances + currentMonthSettlements);
+    const currentMonthPaid = roundCurrency(currentMonthAdvances + currentMonthSettlements, currency);
 
     // 3. All-time cumulative
-    const totalEarnings = roundIQD(priorGross + currentMonthGross);
-    const totalPaid = roundIQD(priorPaid + currentMonthPaid);
-    const totalCumulativeDebt = roundIQD(Math.max(0, totalEarnings - totalPaid));
+    const totalEarnings = roundCurrency(priorGross + currentMonthGross, currency);
+    const totalPaid = roundCurrency(priorPaid + currentMonthPaid, currency);
+    const totalCumulativeDebt = roundCurrency(Math.max(0, totalEarnings - totalPaid), currency);
 
     return {
       priorGross,
@@ -74,7 +79,7 @@ export function SettlementModal({
       totalPaid,
       totalCumulativeDebt
     };
-  }, [workerLogs, workerPayments, month]);
+  }, [workerLogs, workerPayments, month, currency]);
 
   const [finalPaymentAmount, setFinalPaymentAmount] = useState('');
   const [settlementDate, setSettlementDate] = useState(getTodayDateString());
@@ -108,7 +113,7 @@ export function SettlementModal({
     e.preventDefault();
     setFeedback({ type: '', message: '' });
 
-    const payAmount = roundIQD(Number(finalPaymentAmount));
+    const payAmount = roundCurrency(Number(finalPaymentAmount), currency);
     if (isNaN(payAmount) || payAmount < 0) {
       setFeedback({ type: 'error', message: t('pleaseEnterValidAmount') });
       return;
@@ -116,18 +121,21 @@ export function SettlementModal({
 
     setIsSubmitting(true);
     try {
-      const remainingAfter = roundIQD(Math.max(0, calculations.totalCumulativeDebt - payAmount));
+      const remainingAfter = roundCurrency(Math.max(0, calculations.totalCumulativeDebt - payAmount), currency);
       const now = new Date();
       const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
       const settlementRecord = {
         id: generatePaymentId(),
+        projectId: currentProject?.id || 'prj_default_main',
+        userId: user?.id || null,
         workerId: worker.id,
         workerName: worker.name,
         month: month,
         date: settlementDate,
         time: currentTime,
         amount: payAmount,
+        currency: currency,
         type: 'settlement',
         status: markAsSettled ? 'settled' : 'partial',
         referenceNumber: referenceNumber.trim() || null,
@@ -217,7 +225,7 @@ export function SettlementModal({
             }`}>
               <span className="font-semibold">{t('priorBalanceDue')}:</span>
               <span className="font-bold font-mono">
-                {calculations.priorBalance > 0 ? '+' : ''}{formatAmount(calculations.priorBalance)} {t('currencySymbol')}
+                {calculations.priorBalance > 0 ? '+' : ''}{formatAmount(calculations.priorBalance, currency)} {getCurrencySymbol(currency, language)}
               </span>
             </div>
           )}
@@ -226,7 +234,7 @@ export function SettlementModal({
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">{t('thisMonthGross')} ({month}):</span>
             <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
-              {formatAmount(calculations.currentMonthGross)} {t('currencySymbol')}
+              {formatAmount(calculations.currentMonthGross, currency)} {getCurrencySymbol(currency, language)}
             </span>
           </div>
 
@@ -235,7 +243,7 @@ export function SettlementModal({
             <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400">
               <span>(-) {t('thisMonthAdvances')}:</span>
               <span className="font-bold font-mono">
-                {formatAmount(calculations.currentMonthAdvances)} {t('currencySymbol')}
+                {formatAmount(calculations.currentMonthAdvances, currency)} {getCurrencySymbol(currency, language)}
               </span>
             </div>
           )}
@@ -245,7 +253,7 @@ export function SettlementModal({
             <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
               <span>(-) {t('previousSettlementsInMonth')}</span>
               <span className="font-bold font-mono">
-                {formatAmount(calculations.currentMonthSettlements)} {t('currencySymbol')}
+                {formatAmount(calculations.currentMonthSettlements, currency)} {getCurrencySymbol(currency, language)}
               </span>
             </div>
           )}
@@ -257,7 +265,7 @@ export function SettlementModal({
               <span>{t('totalCumulativeDebt')}:</span>
             </span>
             <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-base sm:text-lg">
-              {formatAmount(calculations.totalCumulativeDebt)} {t('currencySymbol')}
+              {formatAmount(calculations.totalCumulativeDebt, currency)} {getCurrencySymbol(currency, language)}
             </span>
           </div>
           
@@ -279,19 +287,19 @@ export function SettlementModal({
                 <input
                   type="number"
                   min="0"
-                  step="250"
+                  step={currency === 'IQD' ? '250' : '1'}
                   value={finalPaymentAmount}
                   onChange={(e) => setFinalPaymentAmount(e.target.value)}
                   onBlur={() => {
                     if (finalPaymentAmount !== '') {
-                      setFinalPaymentAmount(String(roundIQD(finalPaymentAmount)));
+                      setFinalPaymentAmount(String(roundCurrency(finalPaymentAmount, currency)));
                     }
                   }}
                   required
                   className="w-full px-3 py-2 text-sm font-black bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-600 dark:text-emerald-400 font-mono pe-14"
                 />
                 <span className="absolute inset-y-0 end-0 pe-2.5 flex items-center text-xs font-bold text-slate-400">
-                  {t('currencySymbol')}
+                  {getCurrencySymbol(currency, language)}
                 </span>
               </div>
             </div>

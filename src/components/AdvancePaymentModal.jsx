@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db, generatePaymentId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import { pushPaymentsLive } from '../services/realtimeSync';
-import { getTodayDateString, getCurrentYearMonth, formatAmount, roundIQD } from '../utils/formatters';
+import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol } from '../utils/formatters';
 import { 
   Banknote, 
   X, 
@@ -23,6 +25,9 @@ export function AdvancePaymentModal({
   targetMonth = null 
 }) {
   const { t, language } = useLanguage();
+  const { currentProject } = useProject();
+  const { user } = useAuth();
+  const currency = currentProject?.currency || 'IQD';
 
   const [workerId, setWorkerId] = useState(targetWorkerId || '');
   const [month, setMonth] = useState(targetMonth || getCurrentYearMonth());
@@ -51,7 +56,7 @@ export function AdvancePaymentModal({
     e.preventDefault();
     setFeedback({ type: '', message: '' });
 
-    const numAmount = roundIQD(Number(amount));
+    const numAmount = roundCurrency(Number(amount), currency);
     if (!workerId) {
       setFeedback({ type: 'error', message: t('pleaseSelectWorker') });
       return;
@@ -68,12 +73,15 @@ export function AdvancePaymentModal({
 
       const newPayment = {
         id: generatePaymentId(),
+        projectId: currentProject?.id || 'prj_default_main',
+        userId: user?.id || null,
         workerId,
         month,
         date,
         time: currentTime,
         type: 'advance',
         amount: numAmount,
+        currency,
         referenceNumber: referenceNumber.trim() || null,
         notes: notes.trim() || null,
         status: 'partial',
@@ -198,7 +206,7 @@ export function AdvancePaymentModal({
             </div>
           </div>
 
-          {/* Amount in IQD */}
+          {/* Amount in Project Currency */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               {t('paymentAmount')}
@@ -206,26 +214,26 @@ export function AdvancePaymentModal({
             <div className="relative">
               <input
                 type="number"
-                min="250"
-                step="250"
+                min={currency === 'IQD' ? '250' : '1'}
+                step={currency === 'IQD' ? '250' : '1'}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 onBlur={() => {
                   if (amount !== '') {
-                    setAmount(String(roundIQD(amount)));
+                    setAmount(String(roundCurrency(amount, currency)));
                   }
                 }}
-                placeholder="25000"
+                placeholder={currency === 'IQD' ? '25000' : '100'}
                 required
                 className="w-full px-3.5 py-2.5 text-sm font-black bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-600 dark:text-amber-400 font-mono pe-14"
               />
               <span className="absolute inset-y-0 end-0 pe-3 flex items-center text-xs font-bold text-slate-400">
-                {t('currencySymbol')}
+                {getCurrencySymbol(currency, language)}
               </span>
             </div>
             {Number(amount) > 0 && (
               <p className="mt-1 text-[11px] text-slate-400 font-mono">
-                {formatAmount(Number(amount))} {t('currencyName')}
+                {formatAmount(Number(amount), currency)} {getCurrencySymbol(currency, language)}
               </p>
             )}
           </div>

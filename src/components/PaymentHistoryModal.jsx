@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useProject } from '../context/ProjectContext';
 import { pushPaymentsLive, recordPendingPaymentDeletion } from '../services/realtimeSync';
-import { formatAmount, roundIQD } from '../utils/formatters';
+import { formatAmount, roundCurrency, getCurrencySymbol } from '../utils/formatters';
 import { 
   Receipt, 
   X, 
@@ -25,6 +26,8 @@ export function PaymentHistoryModal({
   month = null
 }) {
   const { t, language } = useLanguage();
+  const { currentProject } = useProject();
+  const currency = currentProject?.currency || 'IQD';
   const [filterMonthOnly, setFilterMonthOnly] = useState(false);
 
   if (!isOpen || !worker) return null;
@@ -38,15 +41,15 @@ export function PaymentHistoryModal({
   displayedPayments.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   // Calculate totals
-  const totalAdvances = roundIQD(displayedPayments
+  const totalAdvances = roundCurrency(displayedPayments
     .filter((p) => p.type === 'advance')
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
 
-  const totalSettlements = roundIQD(displayedPayments
+  const totalSettlements = roundCurrency(displayedPayments
     .filter((p) => p.type === 'settlement')
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
 
-  const totalAllPaid = roundIQD(totalAdvances + totalSettlements);
+  const totalAllPaid = roundCurrency(totalAdvances + totalSettlements, currency);
 
   const handleDelete = async (paymentId) => {
     if (window.confirm(t('paymentDeleteConfirm'))) {
@@ -143,7 +146,7 @@ export function PaymentHistoryModal({
               {t('totalPaidAdvances')}
             </span>
             <span className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-300 font-mono mt-1 block">
-              {formatAmount(totalAdvances)} <span className="text-[10px] font-normal">{t('currencySymbol')}</span>
+              {formatAmount(totalAdvances, currency)} <span className="text-[10px] font-normal">{getCurrencySymbol(currency, language)}</span>
             </span>
           </div>
 
@@ -152,7 +155,7 @@ export function PaymentHistoryModal({
               {t('workerFinalSettlementTotal')}
             </span>
             <span className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-300 font-mono mt-1 block">
-              {formatAmount(totalSettlements)} <span className="text-[10px] font-normal">{t('currencySymbol')}</span>
+              {formatAmount(totalSettlements, currency)} <span className="text-[10px] font-normal">{getCurrencySymbol(currency, language)}</span>
             </span>
           </div>
 
@@ -161,7 +164,7 @@ export function PaymentHistoryModal({
               {t('totalPaidAll')}
             </span>
             <span className="text-sm sm:text-base font-black text-sky-700 dark:text-sky-300 font-mono mt-1 block">
-              {formatAmount(totalAllPaid)} <span className="text-[10px] font-normal">{t('currencySymbol')}</span>
+              {formatAmount(totalAllPaid, currency)} <span className="text-[10px] font-normal">{getCurrencySymbol(currency, language)}</span>
             </span>
           </div>
         </div>
@@ -209,7 +212,7 @@ export function PaymentHistoryModal({
                         </span>
                       </td>
                       <td className="px-3 py-2.5 text-end font-extrabold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                        {formatAmount(p.amount)}
+                        {formatAmount(p.amount, currency)}
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 font-mono">
                         {p.referenceNumber || '-'}

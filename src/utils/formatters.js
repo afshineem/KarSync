@@ -13,25 +13,70 @@ export function roundIQD(amount) {
 }
 
 /**
- * Format currency in Iraqi Dinars (IQD) rounded to nearest 250 (000, 250, 500, 750)
- * @param {number} amount
- * @param {string} lang - 'ku' | 'fa' | 'en'
- * @returns {string}
+ * Round currency based on project currency rules:
+ * - IQD: nearest multiple of 250 (000, 250, 500, 750)
+ * - IRT (Toman): whole numbers rounded
+ * - USD: standard rounded decimal
  */
-export function formatIQD(amount, lang = 'ku') {
+export function roundCurrency(amount, currency = 'IQD') {
+  if (amount === undefined || amount === null || isNaN(amount)) return 0;
+  const num = Number(amount);
+  if (currency === 'IQD') {
+    return roundIQD(num);
+  } else if (currency === 'IRT') {
+    return Math.round(num);
+  } else if (currency === 'USD') {
+    return Math.round(num * 100) / 100;
+  }
+  return Math.round(num);
+}
+
+/**
+ * Get display currency symbol/name according to language and currency code
+ */
+export function getCurrencySymbol(currency = 'IQD', lang = 'ku') {
+  if (currency === 'IRT') {
+    if (lang === 'en') return 'IRT';
+    if (lang === 'ku') return 'تۆمەن';
+    return 'تومان';
+  } else if (currency === 'USD') {
+    if (lang === 'en') return '$';
+    if (lang === 'ku') return '$';
+    return 'دلار';
+  } else {
+    // Default IQD
+    if (lang === 'en') return 'IQD';
+    if (lang === 'ku') return 'د.ع';
+    return 'دینار';
+  }
+}
+
+/**
+ * Universal Currency Formatter for SaaS multi-currency projects
+ */
+export function formatCurrency(amount, currency = 'IQD', lang = 'ku') {
   if (amount === undefined || amount === null || isNaN(amount)) {
     amount = 0;
   }
-  const formattedNumber = roundIQD(amount).toLocaleString('en-US');
-  
-  if (lang === 'en') {
-    return `${formattedNumber} IQD`;
-  } else if (lang === 'ku') {
-    return `${formattedNumber} د.ع`;
-  } else {
-    return `${formattedNumber} دینار`;
+  const rounded = roundCurrency(amount, currency);
+  const symbol = getCurrencySymbol(currency, lang);
+
+  if (currency === 'USD') {
+    const formatted = rounded.toLocaleString('en-US', {
+      minimumFractionDigits: rounded % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2
+    });
+    return lang === 'fa' ? `${formatted} دلار` : `$${formatted}`;
   }
+
+  const formattedNumber = rounded.toLocaleString('en-US');
+  return `${formattedNumber} ${symbol}`;
 }
+
+/**
+ * Backward-compatible formatIQD export
+ */
+export const formatIQD = (amount, lang = 'ku') => formatCurrency(amount, 'IQD', lang);
 
 /**
  * Format numbers with comma separators (pure digits, e.g. 35,000)
@@ -42,11 +87,11 @@ export function formatNumber(num) {
 }
 
 /**
- * Clean currency amount formatter (rounded to nearest 250 with comma separators, e.g. 417,250)
+ * Clean currency amount formatter without symbol, rounded appropriately (e.g. 417,250)
  */
-export function formatAmount(amount) {
+export function formatAmount(amount, currency = 'IQD') {
   if (amount === undefined || amount === null || isNaN(amount)) return '0';
-  return roundIQD(amount).toLocaleString('en-US');
+  return roundCurrency(amount, currency).toLocaleString('en-US');
 }
 
 /**

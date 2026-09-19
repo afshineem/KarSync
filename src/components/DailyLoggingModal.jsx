@@ -3,7 +3,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getAttendanceLogId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
-import { formatIQD, getTodayDateString, toDecimalHours, fromDecimalHours, formatHoursAndMinutes, roundIQD } from '../utils/formatters';
+import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
+import { 
+  formatCurrency, 
+  getTodayDateString, 
+  toDecimalHours, 
+  fromDecimalHours, 
+  formatHoursAndMinutes, 
+  roundCurrency,
+  getCurrencySymbol 
+} from '../utils/formatters';
 import { EditRecordModal } from './EditRecordModal';
 import { 
   Plus, 
@@ -25,6 +35,11 @@ import {
 
 export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const { t, language } = useLanguage();
+  const { currentProject } = useProject();
+  const { user } = useAuth();
+  const currency = currentProject?.currency || 'IQD';
+  const standardHours = currentProject?.standardWorkHours || 8;
+
   const [selectedDate, setSelectedDate] = useState(initialDate || getTodayDateString());
   const [selectedWorkers, setSelectedWorkers] = useState({});
   const [workerConfigs, setWorkerConfigs] = useState({});
@@ -32,16 +47,28 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const [toastMessage, setToastMessage] = useState('');
   const [editingLog, setEditingLog] = useState(null);
 
-  // Fetch active workers
+  // Fetch active workers for current project
   const workers = useLiveQuery(
-    () => db.workers.where('isActive').equals(1).toArray(),
-    []
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.workers
+        .where('projectId').equals(currentProject.id)
+        .and(w => w.isActive === 1)
+        .toArray();
+    },
+    [currentProject?.id]
   ) || [];
 
   // Fetch existing logs for the selected date to detect pre-existing logs
   const existingDateLogs = useLiveQuery(
-    () => db.attendanceLogs.where('date').equals(selectedDate).toArray(),
-    [selectedDate]
+    async () => {
+      if (!currentProject?.id) return [];
+      return await db.attendanceLogs
+        .where('projectId').equals(currentProject.id)
+        .and(l => l.date === selectedDate)
+        .toArray();
+    },
+    [currentProject?.id, selectedDate]
   ) || [];
 
   const existingWorkerLogMap = useMemo(() => {
@@ -135,24 +162,24 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
     const hourlyRate = worker.overtimeHourlyRate > 0 
       ? worker.overtimeHourlyRate 
-      : Math.round((worker.dailyRate || 0) / 8);
+      : Math.round((worker.dailyRate || 0) / standardHours);
 
     let basePay = 0;
     let otPay = 0;
 
     if (cfg.type === 'hourly') {
       basePay = 0;
-      otPay = roundIQD(otHours * hourlyRate);
+      otPay = roundCurrency(otHours * hourlyRate, currency);
     } else {
       const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
-      basePay = roundIQD((worker.dailyRate || 0) * baseFactor);
-      otPay = roundIQD(otHours * (worker.overtimeHourlyRate || 0));
+      basePay = roundCurrency((worker.dailyRate || 0) * baseFactor, currency);
+      otPay = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
     }
 
     return {
       basePay,
       otPay,
-      total: roundIQD(basePay + otPay)
+      total: roundCurrency(basePay + otPay, currency)
     };
   };
 
@@ -216,26 +243,28 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
           const hourlyRate = worker.overtimeHourlyRate > 0 
             ? worker.overtimeHourlyRate 
-            : Math.round((worker.dailyRate || 0) / 8);
+            : Math.round((worker.dailyRate || 0) / standardHours);
 
           let calculatedDailyWage = 0;
           let calculatedOvertimeWage = 0;
 
           if (cfg.type === 'hourly') {
             calculatedDailyWage = 0;
-            calculatedOvertimeWage = roundIQD(otHours * hourlyRate);
+            calculatedOvertimeWage = roundCurrency(otHours * hourlyRate, currency);
           } else {
             const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
-            calculatedDailyWage = roundIQD(worker.dailyRate * baseFactor);
-            calculatedOvertimeWage = roundIQD(otHours * (worker.overtimeHourlyRate || 0));
+            calculatedDailyWage = roundCurrency(worker.dailyRate * baseFactor, currency);
+            calculatedOvertimeWage = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
           }
-          const totalDayPay = roundIQD(calculatedDailyWage + calculatedOvertimeWage);
+          const totalDayPay = roundCurrency(calculatedDailyWage + calculatedOvertimeWage, currency);
 
           // Deterministic unique ID per worker per date
           const canonicalId = getAttendanceLogId(workerId, selectedDate);
           const newRecord = {
             id: canonicalId,
             workerId,
+            projectId: currentProject?.id || 'prj_default_main',
+            userId: user?.id || null,
             date: selectedDate,
             type: cfg.type,
             overtimeHours: otHours,
@@ -418,7 +447,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                             {worker.name}
                           </span>
                           <p className="text-xs text-slate-400">
-                            {worker.role} • {formatIQD(worker.dailyRate, language)}
+                            {worker.role} • {formatCurrency(worker.dailyRate, currency, language)}
                           </p>
                         </div>
                       </div>
@@ -428,7 +457,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                         <div className="text-end">
                           <span className="text-[11px] text-slate-400 block">{t('calculatedDayTotal')}</span>
                           <span className="text-sm sm:text-base font-extrabold text-sky-600 dark:text-sky-400">
-                            {formatIQD(pay.total, language)}
+                            {formatCurrency(pay.total, currency, language)}
                           </span>
                         </div>
                       )}
@@ -603,7 +632,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
                     <div className="flex items-center justify-between sm:justify-end gap-3">
                       <span className="font-extrabold text-slate-700 dark:text-slate-300">
-                        {formatIQD(log.totalDayPay, language)}
+                        {formatCurrency(log.totalDayPay, currency, language)}
                       </span>
                       <button
                         type="button"
@@ -685,8 +714,8 @@ export function FloatingActionButton({ onClick }) {
 
   return (
     <div
-      className={`fixed bottom-6 ${
-        direction === 'rtl' ? 'left-6' : 'right-6'
+      className={`fixed bottom-20 md:bottom-6 ${
+        direction === 'rtl' ? 'left-4 sm:left-6' : 'right-4 sm:right-6'
       } z-30 no-print`}
     >
       <button
