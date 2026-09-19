@@ -260,10 +260,11 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           if (!worker) continue;
 
           const cfg = workerConfigs[workerId] || { type: 'full', overtimeHours: 0, notes: '' };
-          const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
-          const hourlyRate = worker.overtimeHourlyRate > 0 
-            ? worker.overtimeHourlyRate 
-            : Math.round((worker.dailyRate || 0) / standardHours);
+          const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
+          const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
+          const hourlyRate = wOtRate > 0 
+            ? wOtRate 
+            : Math.round(wDaily / standardHours);
 
           let calculatedDailyWage = 0;
           let calculatedOvertimeWage = 0;
@@ -273,17 +274,17 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             calculatedOvertimeWage = roundCurrency(otHours * hourlyRate, currency);
           } else {
             const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
-            calculatedDailyWage = roundCurrency(worker.dailyRate * baseFactor, currency);
-            calculatedOvertimeWage = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
+            calculatedDailyWage = roundCurrency(wDaily * baseFactor, currency);
+            calculatedOvertimeWage = roundCurrency(otHours * wOtRate, currency);
           }
           const totalDayPay = roundCurrency(calculatedDailyWage + calculatedOvertimeWage, currency);
 
           // Deterministic unique ID per worker per date
-          const canonicalId = getAttendanceLogId(workerId, selectedDate);
+          const canonicalId = getAttendanceLogId(String(workerId), selectedDate);
           const newRecord = {
             id: canonicalId,
-            workerId,
-            projectId: currentProject?.id || 'prj_default_main',
+            workerId: String(workerId),
+            projectId: worker.projectId || currentProject?.id || DEFAULT_PROJECT_ID,
             userId: user?.id || null,
             sectionId: cfg.sectionId || defaultSectionId || null,
             date: selectedDate,
@@ -782,9 +783,9 @@ export function FloatingActionButton({ onClick }) {
 
   return (
     <div
-      className={`fixed bottom-20 md:bottom-6 ${
+      className={`fixed bottom-24 md:bottom-6 ${
         direction === 'rtl' ? 'left-4 sm:left-6' : 'right-4 sm:right-6'
-      } z-30 no-print`}
+      } z-40 no-print`}
     >
       <button
         onClick={onClick}

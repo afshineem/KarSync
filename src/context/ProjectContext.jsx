@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateProjectId, ensureDefaultProjectExists, DEFAULT_PROJECT_ID } from '../db/db';
-import { supabase } from '../services/realtimeSync';
+import { supabase, pullProjectsLive, pushProjectLive } from '../services/realtimeSync';
 import { useAuth } from './AuthContext';
 
 const ACTIVE_PROJECT_KEY = 'karsync_active_project_id';
@@ -47,6 +47,47 @@ export function ProjectProvider({ children }) {
     initProjects();
     return () => { isMounted = false; };
   }, [userId]);
+
+  // Realtime synchronization: Listen to sync events, window focus, and visibility changes
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLatestProjects = async () => {
+      if (navigator.onLine) {
+        await pullProjectsLive().catch(() => {});
+      }
+    };
+
+    fetchLatestProjects();
+
+    const handleSync = () => {
+      if (isMounted) fetchLatestProjects();
+    };
+
+    const handleFocus = () => {
+      if (isMounted && navigator.onLine) {
+        fetchLatestProjects();
+      }
+    };
+
+    const handleVisibility = () => {
+      if (isMounted && document.visibilityState === 'visible' && navigator.onLine) {
+        fetchLatestProjects();
+      }
+    };
+
+    window.addEventListener('workshop-sync-complete', handleSync);
+    window.addEventListener('workshop-projects-sync', handleSync);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('workshop-sync-complete', handleSync);
+      window.removeEventListener('workshop-projects-sync', handleSync);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
 
   // Filter active and archived projects
   const activeProjects = useMemo(() => {
@@ -129,24 +170,11 @@ export function ProjectProvider({ children }) {
     await db.projects.put(newProject);
     switchProject(newProject.id);
 
-    // Push to Supabase if online and user is authenticated
-    if (navigator.onLine && user?.supabaseUser) {
-      try {
-        await supabase.from('projects').insert({
-          id: newProject.id,
-          user_id: user.supabaseUser.id,
-          name: newProject.name,
-          currency: newProject.currency,
-          standard_work_hours: newProject.standardWorkHours,
-          overtime_multiplier: newProject.overtimeMultiplier,
-          status: newProject.status,
-          notes: newProject.notes,
-          created_at: newProject.createdAt,
-          updated_at: newProject.updatedAt
-        });
-      } catch (err) {
+    // Push to Supabase if online
+    if (navigator.onLine) {
+      pushProjectLive(newProject).catch((err) => {
         console.warn('Could not sync new project to Supabase:', err);
-      }
+      });
     }
 
     return newProject;
@@ -165,22 +193,10 @@ export function ProjectProvider({ children }) {
 
     await db.projects.put(updated);
 
-    if (navigator.onLine && user?.supabaseUser) {
-      try {
-        const payload = {
-          updated_at: updated.updatedAt
-        };
-        if (updates.name !== undefined) payload.name = updates.name;
-        if (updates.currency !== undefined) payload.currency = updates.currency;
-        if (updates.standardWorkHours !== undefined) payload.standard_work_hours = updates.standardWorkHours;
-        if (updates.overtimeMultiplier !== undefined) payload.overtime_multiplier = updates.overtimeMultiplier;
-        if (updates.status !== undefined) payload.status = updates.status;
-        if (updates.notes !== undefined) payload.notes = updates.notes;
-
-        await supabase.from('projects').update(payload).eq('id', projectId);
-      } catch (err) {
+    if (navigator.onLine) {
+      pushProjectLive(updated).catch((err) => {
         console.warn('Could not sync project update to Supabase:', err);
-      }
+      });
     }
 
     return updated;

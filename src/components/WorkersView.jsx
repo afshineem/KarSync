@@ -80,7 +80,8 @@ export function WorkersView() {
   const rawWorkerHistoryLogs = useLiveQuery(
     async () => {
       if (!historyWorker?.id) return [];
-      return await db.attendanceLogs.where('workerId').equals(historyWorker.id).toArray();
+      const list = await db.attendanceLogs.toArray();
+      return list.filter((l) => String(l.workerId) === String(historyWorker.id));
     },
     [historyWorker?.id]
   ) || [];
@@ -88,8 +89,9 @@ export function WorkersView() {
   const workerPayments = useLiveQuery(
     async () => {
       if (!historyWorker?.id) return [];
-      const list = await db.payments.where('workerId').equals(historyWorker.id).toArray();
-      return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const list = await db.payments.toArray();
+      const filtered = list.filter((p) => String(p.workerId) === String(historyWorker.id));
+      return filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     },
     [historyWorker?.id]
   ) || [];

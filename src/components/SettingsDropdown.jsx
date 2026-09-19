@@ -50,6 +50,27 @@ export function SettingsDropdown({
     };
   }, [isOpen, onClose]);
 
+  // Dynamic viewport edge containment: auto-clamp away from screen borders
+  useEffect(() => {
+    if (!isOpen || !dropdownRef.current) return;
+    const adjustPosition = () => {
+      if (!dropdownRef.current) return;
+      dropdownRef.current.style.transform = 'none';
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const padding = 12;
+      if (rect.right > window.innerWidth - padding) {
+        const overflow = rect.right - (window.innerWidth - padding);
+        dropdownRef.current.style.transform = `translateX(-${overflow}px)`;
+      } else if (rect.left < padding) {
+        const underflow = padding - rect.left;
+        dropdownRef.current.style.transform = `translateX(${underflow}px)`;
+      }
+    };
+    adjustPosition();
+    window.addEventListener('resize', adjustPosition);
+    return () => window.removeEventListener('resize', adjustPosition);
+  }, [isOpen, direction]);
+
   if (!isOpen) return null;
 
   const handleCloudSync = async () => {
@@ -76,9 +97,7 @@ export function SettingsDropdown({
   return (
     <div 
       ref={dropdownRef}
-      className={`absolute top-full mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl z-50 py-1.5 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ${
-        direction === 'rtl' ? 'left-0 sm:left-auto sm:end-0' : 'right-0 sm:right-auto sm:start-0'
-      }`}
+      className={`absolute top-full mt-2 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl z-50 py-1.5 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 ltr:left-auto rtl:left-0 rtl:right-auto`}
     >
       {/* 1. Language Selection */}
       <div className="relative">

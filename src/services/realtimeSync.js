@@ -226,6 +226,8 @@ export async function autoInitialSync() {
   // Case B: Reconcile Cloud data into local IndexedDB
   await reconcileCloudIntoLocal(cloudWorkers, cloudLogs);
   await pullPaymentsLive();
+  await pullProjectsLive();
+  await pullProjectSectionsLive();
 }
 
 /**
@@ -488,6 +490,7 @@ function subscribeToRealtime() {
         });
       }
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'project_sections' }, async (payload) => {
       console.log('⚡ Realtime Project Section Change received:', payload.eventType, payload);
@@ -507,6 +510,7 @@ function subscribeToRealtime() {
         });
       }
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     })
     .subscribe((status) => {
       console.log('📡 Supabase WebSocket channel status:', status);
@@ -535,9 +539,36 @@ export async function pullProjectsLive() {
           updatedAt: p.updated_at
         });
       }
+      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     }
   } catch (err) {
     // Project table might not exist yet if migration not run yet, fail silently
+  }
+}
+
+/**
+ * Push an individual project to Supabase
+ */
+export async function pushProjectLive(p) {
+  if (!p || !navigator.onLine) return;
+  const payload = {
+    id: p.id,
+    user_id: p.userId || null,
+    name: p.name,
+    currency: p.currency || 'IQD',
+    standard_work_hours: Number(p.standardWorkHours) || 8,
+    overtime_multiplier: Number(p.overtimeMultiplier) || 1.0,
+    status: p.status || 'active',
+    notes: p.notes || '',
+    created_at: p.createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  try {
+    const { error } = await supabase.from('projects').upsert(payload);
+    if (error) console.warn('Push project error:', error);
+  } catch (err) {
+    console.warn('Live-push project failed:', err);
   }
 }
 
@@ -838,6 +869,8 @@ export async function fullSyncBothDirections() {
   await flushPendingDeletions();
   await pullRemoteChangesSilently();
   await pullPaymentsLive();
+  await pullProjectsLive();
+  await pullProjectSectionsLive();
   await pushAllLocalToCloud();
   await pushPaymentsLive();
 }

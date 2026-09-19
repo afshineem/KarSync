@@ -54,24 +54,57 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
   const allPayments = useLiveQuery(
     async () => {
-      const list = await db.payments.toArray();
-      return list.filter((p) => (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      const [list, wList] = await Promise.all([
+        db.payments.toArray(),
+        db.workers.toArray()
+      ]);
+      const projectWorkerIds = new Set(
+        wList
+          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+          .map((w) => String(w.id))
+      );
+      return list.filter((p) => 
+        (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
+        projectWorkerIds.has(String(p.workerId))
+      );
     },
     [targetProjectId]
   ) || [];
 
   const allAllLogs = useLiveQuery(
     async () => {
-      const list = await db.attendanceLogs.toArray();
-      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      const [list, wList] = await Promise.all([
+        db.attendanceLogs.toArray(),
+        db.workers.toArray()
+      ]);
+      const projectWorkerIds = new Set(
+        wList
+          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+          .map((w) => String(w.id))
+      );
+      return list.filter((l) => 
+        (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
+        projectWorkerIds.has(String(l.workerId))
+      );
     },
     [targetProjectId]
   ) || [];
 
   const rawLogs = useLiveQuery(
     async () => {
-      const list = await db.attendanceLogs.toArray();
-      const projLogs = list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      const [list, wList] = await Promise.all([
+        db.attendanceLogs.toArray(),
+        db.workers.toArray()
+      ]);
+      const projectWorkerIds = new Set(
+        wList
+          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+          .map((w) => String(w.id))
+      );
+      const projLogs = list.filter((l) => 
+        (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
+        projectWorkerIds.has(String(l.workerId))
+      );
       return projLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
     },
     [targetProjectId, selectedMonth]
@@ -89,7 +122,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const logs = useMemo(() => {
     const map = new Map();
     rawLogs.forEach((l) => {
-      const key = `${l.workerId}_${l.date}`;
+      const key = `${String(l.workerId)}_${l.date}`;
       const existing = map.get(key);
       if (!existing) {
         map.set(key, l);
@@ -180,7 +213,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   // Aggregate per-worker breakdown for the selected month
   const workerSummaries = useMemo(() => {
     return workers.map((worker) => {
-      const workerLogs = logs.filter((l) => l.workerId === worker.id);
+      const workerLogs = logs.filter((l) => String(l.workerId) === String(worker.id));
       
       let fullDays = 0;
       let halfDays = 0;
@@ -188,6 +221,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       let basePay = 0;
       let otPay = 0;
       let totalPay = 0;
+
+      const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
+      const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
 
       workerLogs.forEach((l) => {
         if (l.type === 'half') {
@@ -197,10 +233,31 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         } else {
           fullDays += 1;
         }
-        otHours += Number(l.overtimeHours) || 0;
-        basePay += Number(l.calculatedDailyWage) || 0;
-        otPay += Number(l.calculatedOvertimeWage) || 0;
-        totalPay += Number(l.totalDayPay) || 0;
+        const otH = Math.max(0, Number(l.overtimeHours) || 0);
+        otHours += otH;
+
+        let logDaily = Number(l.calculatedDailyWage);
+        let logOt = Number(l.calculatedOvertimeWage);
+        let logTotal = Number(l.totalDayPay);
+
+        // Safe recalculation if record had 0 or NaN wage
+        if (isNaN(logTotal) || logTotal <= 0) {
+          if (l.type === 'half') {
+            logDaily = wDaily * 0.5;
+            logOt = otH * wOtRate;
+          } else if (l.type === 'hourly') {
+            logDaily = 0;
+            logOt = otH * (wOtRate || (wDaily / 8));
+          } else {
+            logDaily = wDaily;
+            logOt = otH * wOtRate;
+          }
+          logTotal = logDaily + logOt;
+        }
+
+        basePay += isNaN(logDaily) ? 0 : logDaily;
+        otPay += isNaN(logOt) ? 0 : logOt;
+        totalPay += isNaN(logTotal) ? 0 : logTotal;
       });
 
       return {
@@ -220,13 +277,25 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const workerFinancialStatusMap = useMemo(() => {
     const map = new Map();
     workers.forEach((w) => {
-      const wLogs = allAllLogs.filter((l) => l.workerId === w.id);
-      const wPayments = allPayments.filter((p) => p.workerId === w.id);
-      const totalAllTimeGross = roundCurrency(wLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+      const wLogs = allAllLogs.filter((l) => String(l.workerId) === String(w.id));
+      const wPayments = allPayments.filter((p) => String(p.workerId) === String(w.id));
+      const wDaily = Number(String(w.dailyRate).replace(/,/g, '')) || 0;
+      const wOtRate = Number(String(w.overtimeHourlyRate).replace(/,/g, '')) || 0;
+
+      const getLogPay = (l) => {
+        let val = Number(l.totalDayPay);
+        if (!isNaN(val) && val > 0) return val;
+        const otH = Math.max(0, Number(l.overtimeHours) || 0);
+        if (l.type === 'half') return (wDaily * 0.5) + (otH * wOtRate);
+        if (l.type === 'hourly') return otH * (wOtRate || (wDaily / 8));
+        return wDaily + (otH * wOtRate);
+      };
+
+      const totalAllTimeGross = roundCurrency(wLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
       const totalAllTimePaid = roundCurrency(wPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
       const grossUpToPeriod = roundCurrency(wLogs
         .filter((l) => l.date && l.date <= `${selectedMonth}-31`)
-        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+        .reduce((sum, l) => sum + getLogPay(l), 0), currency);
       const netDebt = roundCurrency(Math.max(0, totalAllTimeGross - totalAllTimePaid), currency);
 
       let isSettled = false;

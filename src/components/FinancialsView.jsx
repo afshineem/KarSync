@@ -73,16 +73,38 @@ export function FinancialsView() {
 
   const allLogs = useLiveQuery(
     async () => {
-      const list = await db.attendanceLogs.toArray();
-      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      const [list, wList] = await Promise.all([
+        db.attendanceLogs.toArray(),
+        db.workers.toArray()
+      ]);
+      const projectWorkerIds = new Set(
+        wList
+          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+          .map((w) => String(w.id))
+      );
+      return list.filter((l) => 
+        (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
+        projectWorkerIds.has(String(l.workerId))
+      );
     },
     [targetProjectId]
   ) || [];
 
   const allPayments = useLiveQuery(
     async () => {
-      const list = await db.payments.toArray();
-      return list.filter((p) => (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      const [list, wList] = await Promise.all([
+        db.payments.toArray(),
+        db.workers.toArray()
+      ]);
+      const projectWorkerIds = new Set(
+        wList
+          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+          .map((w) => String(w.id))
+      );
+      return list.filter((p) => 
+        (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
+        projectWorkerIds.has(String(p.workerId))
+      );
     },
     [targetProjectId]
   ) || [];
@@ -90,11 +112,23 @@ export function FinancialsView() {
   // Compute worker financial summaries with cumulative prior debt & FIFO settlement status
   const workerFinancials = useMemo(() => {
     return workers.map((w) => {
-      const allWorkerLogs = allLogs.filter((l) => l.workerId === w.id);
-      const allWorkerPayments = allPayments.filter((p) => p.workerId === w.id);
+      const allWorkerLogs = allLogs.filter((l) => String(l.workerId) === String(w.id));
+      const allWorkerPayments = allPayments.filter((p) => String(p.workerId) === String(w.id));
+
+      const wDaily = Number(String(w.dailyRate).replace(/,/g, '')) || 0;
+      const wOtRate = Number(String(w.overtimeHourlyRate).replace(/,/g, '')) || 0;
+
+      const getLogPay = (l) => {
+        let val = Number(l.totalDayPay);
+        if (!isNaN(val) && val > 0) return val;
+        const otH = Math.max(0, Number(l.overtimeHours) || 0);
+        if (l.type === 'half') return (wDaily * 0.5) + (otH * wOtRate);
+        if (l.type === 'hourly') return otH * (wOtRate || (wDaily / 8));
+        return wDaily + (otH * wOtRate);
+      };
 
       // Total All-Time Gross & Paid across entire database history
-      const totalAllTimeGross = roundCurrency(allWorkerLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+      const totalAllTimeGross = roundCurrency(allWorkerLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
       const totalAllTimePaid = roundCurrency(allWorkerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
       const netBalanceDue = roundCurrency(Math.max(0, totalAllTimeGross - totalAllTimePaid), currency);
 
@@ -141,7 +175,7 @@ export function FinancialsView() {
         else if (l.type === 'hourly') hourlyDays++;
 
         otHours += Number(l.overtimeHours) || 0;
-        grossEarnings += Number(l.totalDayPay) || 0;
+        grossEarnings += getLogPay(l);
       });
 
       const effectiveDays = fullDays + halfDays * 0.5;
@@ -159,7 +193,7 @@ export function FinancialsView() {
         else if (l.type === 'hourly') priorHourlyDays++;
 
         priorOtHours += Number(l.overtimeHours) || 0;
-        priorGross += Number(l.totalDayPay) || 0;
+        priorGross += getLogPay(l);
       });
 
       const priorEffectiveDays = priorFullDays + priorHalfDays * 0.5;

@@ -110,8 +110,19 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
 
   const rawLogs = useLiveQuery(
     async () => {
-      const list = await db.attendanceLogs.toArray();
-      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      const [list, wList] = await Promise.all([
+        db.attendanceLogs.toArray(),
+        db.workers.toArray()
+      ]);
+      const projectWorkerIds = new Set(
+        wList
+          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+          .map((w) => String(w.id))
+      );
+      return list.filter((l) => 
+        (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
+        projectWorkerIds.has(String(l.workerId))
+      );
     },
     [targetProjectId]
   ) || [];
@@ -120,7 +131,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
   const allLogs = useMemo(() => {
     const map = new Map();
     rawLogs.forEach((l) => {
-      const key = `${l.workerId}_${l.date}`;
+      const key = `${String(l.workerId)}_${l.date}`;
       const existing = map.get(key);
       if (!existing) {
         map.set(key, l);
@@ -139,6 +150,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
     const map = {};
     workers.forEach((w) => {
       map[w.id] = w;
+      map[String(w.id)] = w;
     });
     return map;
   }, [workers]);

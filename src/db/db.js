@@ -82,38 +82,78 @@ export async function purgeDummySeedWorkers() {
 
 export const DEFAULT_PROJECT_ID = 'prj_default_main';
 
-// Ensure any record inserted or updated always has projectId and userId defaults
+// Ensure any record inserted or updated always has projectId and userId defaults and clean types
 db.workers.hook('creating', function (primKey, obj) {
+  if (obj.id !== undefined) obj.id = String(obj.id);
   if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
   if (!obj.userId) obj.userId = 'default_user';
+  if (obj.dailyRate !== undefined) obj.dailyRate = Number(String(obj.dailyRate).replace(/,/g, '')) || 0;
+  if (obj.overtimeHourlyRate !== undefined) obj.overtimeHourlyRate = Number(String(obj.overtimeHourlyRate).replace(/,/g, '')) || 0;
 });
 db.workers.hook('updating', function (modifications, primKey, obj) {
   if ('projectId' in modifications && !modifications.projectId) {
     modifications.projectId = DEFAULT_PROJECT_ID;
   }
+  if ('dailyRate' in modifications && modifications.dailyRate !== undefined) {
+    modifications.dailyRate = Number(String(modifications.dailyRate).replace(/,/g, '')) || 0;
+  }
+  if ('overtimeHourlyRate' in modifications && modifications.overtimeHourlyRate !== undefined) {
+    modifications.overtimeHourlyRate = Number(String(modifications.overtimeHourlyRate).replace(/,/g, '')) || 0;
+  }
 });
 
 db.attendanceLogs.hook('creating', function (primKey, obj) {
+  if (obj.id !== undefined) obj.id = String(obj.id);
+  if (obj.workerId !== undefined) obj.workerId = String(obj.workerId);
   if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
   if (!obj.userId) obj.userId = 'default_user';
+  if (obj.overtimeHours !== undefined) obj.overtimeHours = Number(obj.overtimeHours) || 0;
+  if (obj.calculatedDailyWage !== undefined) obj.calculatedDailyWage = Number(obj.calculatedDailyWage) || 0;
+  if (obj.calculatedOvertimeWage !== undefined) obj.calculatedOvertimeWage = Number(obj.calculatedOvertimeWage) || 0;
+  if (obj.totalDayPay !== undefined) obj.totalDayPay = Number(obj.totalDayPay) || 0;
 });
 db.attendanceLogs.hook('updating', function (modifications, primKey, obj) {
   if ('projectId' in modifications && !modifications.projectId) {
     modifications.projectId = DEFAULT_PROJECT_ID;
   }
+  if ('workerId' in modifications && modifications.workerId !== undefined) {
+    modifications.workerId = String(modifications.workerId);
+  }
+  if ('overtimeHours' in modifications && modifications.overtimeHours !== undefined) {
+    modifications.overtimeHours = Number(modifications.overtimeHours) || 0;
+  }
+  if ('calculatedDailyWage' in modifications && modifications.calculatedDailyWage !== undefined) {
+    modifications.calculatedDailyWage = Number(modifications.calculatedDailyWage) || 0;
+  }
+  if ('calculatedOvertimeWage' in modifications && modifications.calculatedOvertimeWage !== undefined) {
+    modifications.calculatedOvertimeWage = Number(modifications.calculatedOvertimeWage) || 0;
+  }
+  if ('totalDayPay' in modifications && modifications.totalDayPay !== undefined) {
+    modifications.totalDayPay = Number(modifications.totalDayPay) || 0;
+  }
 });
 
 db.payments.hook('creating', function (primKey, obj) {
+  if (obj.id !== undefined) obj.id = String(obj.id);
+  if (obj.workerId !== undefined) obj.workerId = String(obj.workerId);
   if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
   if (!obj.userId) obj.userId = 'default_user';
+  if (obj.amount !== undefined) obj.amount = Number(String(obj.amount).replace(/,/g, '')) || 0;
 });
 db.payments.hook('updating', function (modifications, primKey, obj) {
   if ('projectId' in modifications && !modifications.projectId) {
     modifications.projectId = DEFAULT_PROJECT_ID;
   }
+  if ('workerId' in modifications && modifications.workerId !== undefined) {
+    modifications.workerId = String(modifications.workerId);
+  }
+  if ('amount' in modifications && modifications.amount !== undefined) {
+    modifications.amount = Number(String(modifications.amount).replace(/,/g, '')) || 0;
+  }
 });
 
 db.projectSections.hook('creating', function (primKey, obj) {
+  if (obj.id !== undefined) obj.id = String(obj.id);
   if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
   if (!obj.userId) obj.userId = 'default_user';
   if (!obj.status) obj.status = 'active';

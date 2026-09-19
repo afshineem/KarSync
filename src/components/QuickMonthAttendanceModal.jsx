@@ -651,17 +651,20 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!dayConfigs[day.dateStr]) {
-                              setDayConfigs(prev => ({
-                                ...prev,
-                                [day.dateStr]: { 
-                                  type: 'full', 
-                                  overtimeHours: 0, 
-                                  notes: '', 
-                                  sectionId: defaultSectionId || null 
-                                }
-                              }));
-                            }
+                            setDayConfigs((prev) => {
+                              if (!prev[day.dateStr]) {
+                                return {
+                                  ...prev,
+                                  [day.dateStr]: { 
+                                    type: 'full', 
+                                    overtimeHours: 0, 
+                                    notes: '', 
+                                    sectionId: defaultSectionId || null 
+                                  }
+                                };
+                              }
+                              return prev;
+                            });
                             setSelectedDayDate(selectedDayDate === day.dateStr ? null : day.dateStr);
                           }}
                           className={`p-0.5 rounded-md transition-colors ${
@@ -751,291 +754,271 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         </div>
 
         {/* Inline Day Inspector for Granular Hours and Minutes */}
-        {selectedDayDate && (
-          <div className="mb-3 p-3 bg-sky-50/80 dark:bg-sky-950/40 rounded-2xl border border-sky-200 dark:border-sky-800 shadow-sm animate-in fade-in duration-150 w-full max-w-full overflow-hidden space-y-2.5">
-            {/* Header: Day Info + Explicit Close Button */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-sky-600 text-white font-extrabold text-xs flex items-center justify-center">
-                  {selectedDayDate.split('-')[2]}
-                </span>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">
-                    {formatDateDisplay(selectedDayDate, language)}
+        {selectedDayDate && (() => {
+          const activeCfg = dayConfigs[selectedDayDate] || {
+            type: 'full',
+            overtimeHours: 0,
+            notes: '',
+            sectionId: defaultSectionId || null
+          };
+          const { hours, minutes } = fromDecimalHours(activeCfg.overtimeHours);
+          const isHourly = activeCfg.type === 'hourly';
+          const isHalf = activeCfg.type === 'half';
+          const isFull = activeCfg.type === 'full';
+
+          const updateActiveCfg = (updates) => {
+            setDayConfigs((prev) => ({
+              ...prev,
+              [selectedDayDate]: {
+                ...(prev[selectedDayDate] || { 
+                  type: 'full', 
+                  overtimeHours: 0, 
+                  notes: '', 
+                  sectionId: defaultSectionId || null 
+                }),
+                ...updates
+              }
+            }));
+          };
+
+          return (
+            <div className="mb-3 p-3 sm:p-4 bg-sky-50/90 dark:bg-sky-950/60 rounded-2xl border border-sky-200 dark:border-sky-800 shadow-md animate-in fade-in duration-150 w-full flex-shrink-0 max-h-[50vh] overflow-y-auto space-y-3">
+              {/* Header: Day Info + Explicit Close Button */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-sky-600 text-white font-extrabold text-xs flex items-center justify-center">
+                    {selectedDayDate.split('-')[2]}
                   </span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
-                    {dayConfigs[selectedDayDate] ? (
-                      dayConfigs[selectedDayDate].type === 'hourly'
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      {formatDateDisplay(selectedDayDate, language)}
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
+                      {isHourly
                         ? t('hourlyOnlyOption')
-                        : dayConfigs[selectedDayDate].type === 'half'
+                        : isHalf
                         ? t('halfDayOption')
-                        : t('fullDayOption')
-                    ) : (language === 'fa' ? 'غایب / ثبت نشده' : 'Absent')}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDayDate(null)}
-                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
-                  title={t('close') || 'بستن'}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Row 2: Status Tabs + Section Selector */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-sky-100 dark:border-sky-900/40">
-              <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '', sectionId: defaultSectionId || null };
-                    setDayConfigs(prev => ({ ...prev, [selectedDayDate]: { ...cur, type: 'full' } }));
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition-colors ${
-                    dayConfigs[selectedDayDate]?.type === 'full'
-                      ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {t('fullDayOption')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '', sectionId: defaultSectionId || null };
-                    setDayConfigs(prev => ({ ...prev, [selectedDayDate]: { ...cur, type: 'half' } }));
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition-colors ${
-                    dayConfigs[selectedDayDate]?.type === 'half'
-                      ? 'bg-amber-600 text-white font-bold shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {t('halfDayOption')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '', sectionId: defaultSectionId || null };
-                    setDayConfigs(prev => ({ 
-                      ...prev, 
-                      [selectedDayDate]: { 
-                        ...cur, 
-                        type: 'hourly', 
-                        overtimeHours: cur.overtimeHours > 0 ? cur.overtimeHours : 1 
-                      } 
-                    }));
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition-colors ${
-                    dayConfigs[selectedDayDate]?.type === 'hourly'
-                      ? 'bg-purple-600 text-white font-bold shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {t('hourlyOnlyOption')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDayConfigs(prev => {
-                      const cp = { ...prev };
-                      delete cp[selectedDayDate];
-                      return cp;
-                    });
-                    setSelectedDayDate(null);
-                  }}
-                  className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
-                  title={language === 'fa' ? 'حذف / غایب' : 'Remove / Absent'}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Project Section Selector (if project has sections) */}
-              {projectSections.length > 0 && (
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-                  <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
-                  <span className="text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
-                    {t('section') || 'بخش'}:
-                  </span>
-                  <select
-                    value={dayConfigs[selectedDayDate]?.sectionId || ''}
-                    onChange={(e) => {
-                      const secId = e.target.value;
-                      setDayConfigs(prev => ({
-                        ...prev,
-                        [selectedDayDate]: {
-                          ...(prev[selectedDayDate] || { type: 'full', overtimeHours: 0, notes: '' }),
-                          sectionId: secId || null
-                        }
-                      }));
-                    }}
-                    className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-semibold focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="" className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      {language === 'fa' ? 'عمومی / کل پروژه' : 'General / Entire Project'}
-                    </option>
-                    {projectSections.map((sec) => (
-                      <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {sec.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Row 3: Stepper for Hours & Minutes + Presets */}
-            {dayConfigs[selectedDayDate] && (() => {
-              const cur = dayConfigs[selectedDayDate];
-              const { hours, minutes } = fromDecimalHours(cur.overtimeHours);
-              const isHourly = cur.type === 'hourly';
-              return (
-                <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Clock className={`w-3.5 h-3.5 flex-shrink-0 ${isHourly ? 'text-purple-500' : 'text-amber-500'}`} />
-                      <span className="text-[11px] text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
-                        {isHourly ? t('workedTimeLabel') : t('overtimeHoursLabel')}:
-                      </span>
-                      
-                      {/* Inputs in LTR for clean numbers */}
-                      <div className="flex items-center gap-1 direction-ltr">
-                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-1.5 py-0.5 border border-slate-200 dark:border-slate-700">
-                          <input
-                            type="number"
-                            min="0"
-                            max="24"
-                            value={hours}
-                            onChange={(e) => {
-                              const newH = Math.max(0, Math.min(24, parseInt(e.target.value, 10) || 0));
-                              const dec = toDecimalHours(newH, minutes);
-                              setDayConfigs(prev => ({
-                                ...prev,
-                                [selectedDayDate]: { ...prev[selectedDayDate], overtimeHours: dec }
-                              }));
-                            }}
-                            className="w-8 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
-                            title={t('hoursLabel')}
-                          />
-                          <span className="text-[10px] text-slate-400 ms-0.5">{t('hourShort')}</span>
-                        </div>
-                        <span className="text-slate-400 font-bold">:</span>
-                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-1.5 py-0.5 border border-slate-200 dark:border-slate-700">
-                          <input
-                            type="number"
-                            min="0"
-                            max="59"
-                            value={minutes}
-                            onChange={(e) => {
-                              const newM = Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0));
-                              const dec = toDecimalHours(hours, newM);
-                              setDayConfigs(prev => ({
-                                ...prev,
-                                [selectedDayDate]: { ...prev[selectedDayDate], overtimeHours: dec }
-                              }));
-                            }}
-                            className="w-8 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
-                            title={t('minutesLabel')}
-                          />
-                          <span className="text-[10px] text-slate-400 ms-0.5">{t('minuteShort')}</span>
-                        </div>
-                      </div>
-
-                      {cur.overtimeHours > 0 && (
-                        <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 whitespace-nowrap">
-                          ({formatHoursAndMinutes(cur.overtimeHours, language)})
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Quick Presets */}
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {language === 'en' ? 'Quick:' : language === 'fa' ? 'سریع:' : 'خێرا:'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => addMinutesToSelectedDay(15)}
-                        className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded text-[10px] font-semibold transition-colors"
-                      >
-                        +15د
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => addMinutesToSelectedDay(30)}
-                        className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded text-[10px] font-semibold transition-colors"
-                      >
-                        +30د
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => addMinutesToSelectedDay(60)}
-                        className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded text-[10px] font-semibold transition-colors"
-                      >
-                        +1س
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => addMinutesToSelectedDay(120)}
-                        className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded text-[10px] font-semibold transition-colors"
-                      >
-                        +2س
-                      </button>
-                      {cur.overtimeHours > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDayConfigs(prev => ({
-                              ...prev,
-                              [selectedDayDate]: { ...prev[selectedDayDate], overtimeHours: 0 }
-                            }));
-                          }}
-                          className="px-1.5 py-0.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 rounded text-[10px] font-semibold transition-colors"
-                          title="صفر کردن"
-                        >
-                          0
-                        </button>
-                      )}
-                    </div>
+                        : isFull
+                        ? t('fullDayOption')
+                        : (language === 'fa' ? 'غایب / ثبت نشده' : 'Absent')}
+                    </span>
                   </div>
                 </div>
-              );
-            })()}
 
-            {/* Row 4: Notes and Done Button */}
-            {dayConfigs[selectedDayDate] && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDayDate(null)}
+                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+                    title={t('close') || 'بستن'}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 2: Status Tabs (Full, Half, Hourly, Remove) + Section Selector */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-sky-200/60 dark:border-sky-800/60">
+                <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => updateActiveCfg({ type: 'full' })}
+                    className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                      isFull
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {t('fullDayOption')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateActiveCfg({ type: 'half' })}
+                    className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                      isHalf
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {t('halfDayOption')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateActiveCfg({ 
+                      type: 'hourly', 
+                      overtimeHours: activeCfg.overtimeHours > 0 ? activeCfg.overtimeHours : 1 
+                    })}
+                    className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                      isHourly
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {t('hourlyOnlyOption')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDayConfigs((prev) => {
+                        const cp = { ...prev };
+                        delete cp[selectedDayDate];
+                        return cp;
+                      });
+                      setSelectedDayDate(null);
+                    }}
+                    className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
+                    title={language === 'fa' ? 'حذف / غایب' : 'Remove / Absent'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Project Section Selector (if project has sections) */}
+                {projectSections.length > 0 && (
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                    <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                    <span className="text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                      {t('section') || 'بخش'}:
+                    </span>
+                    <select
+                      value={activeCfg.sectionId || ''}
+                      onChange={(e) => updateActiveCfg({ sectionId: e.target.value || null })}
+                      className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-semibold focus:outline-hidden cursor-pointer"
+                    >
+                      <option value="" className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        {language === 'fa' ? 'عمومی / کل پروژه' : 'General / Entire Project'}
+                      </option>
+                      {projectSections.map((sec) => (
+                        <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {sec.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Row 3: Stepper for Hours & Minutes + Presets */}
+              <div className="bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className={`w-4 h-4 flex-shrink-0 ${isHourly ? 'text-purple-500' : 'text-amber-500'}`} />
+                    <span className="text-[11px] text-slate-700 dark:text-slate-200 font-bold whitespace-nowrap">
+                      {isHourly ? t('workedTimeLabel') : t('overtimeHoursLabel')}:
+                    </span>
+                    
+                    {/* Inputs in LTR for clean numbers */}
+                    <div className="flex items-center gap-1 direction-ltr">
+                      <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1 border border-slate-200 dark:border-slate-700">
+                        <input
+                          type="number"
+                          min="0"
+                          max="24"
+                          value={hours}
+                          onChange={(e) => {
+                            const newH = Math.max(0, Math.min(24, parseInt(e.target.value, 10) || 0));
+                            const dec = toDecimalHours(newH, minutes);
+                            updateActiveCfg({ overtimeHours: dec });
+                          }}
+                          className="w-9 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
+                          title={t('hoursLabel')}
+                        />
+                        <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{t('hourShort')}</span>
+                      </div>
+                      <span className="text-slate-400 font-bold">:</span>
+                      <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1 border border-slate-200 dark:border-slate-700">
+                        <input
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={minutes}
+                          onChange={(e) => {
+                            const newM = Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0));
+                            const dec = toDecimalHours(hours, newM);
+                            updateActiveCfg({ overtimeHours: dec });
+                          }}
+                          className="w-9 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
+                          title={t('minutesLabel')}
+                        />
+                        <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{t('minuteShort')}</span>
+                      </div>
+                    </div>
+
+                    {activeCfg.overtimeHours > 0 && (
+                      <span className="text-[11px] font-extrabold text-sky-600 dark:text-sky-400 whitespace-nowrap">
+                        ({formatHoursAndMinutes(activeCfg.overtimeHours, language)})
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Quick Presets */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      {language === 'en' ? 'Quick:' : language === 'fa' ? 'سریع:' : 'خێرا:'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => addMinutesToSelectedDay(15)}
+                      className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded-lg text-[11px] font-bold transition-colors"
+                    >
+                      +15د
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addMinutesToSelectedDay(30)}
+                      className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded-lg text-[11px] font-bold transition-colors"
+                    >
+                      +30د
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addMinutesToSelectedDay(60)}
+                      className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded-lg text-[11px] font-bold transition-colors"
+                    >
+                      +1س
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addMinutesToSelectedDay(120)}
+                      className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded-lg text-[11px] font-bold transition-colors"
+                    >
+                      +2س
+                    </button>
+                    {activeCfg.overtimeHours > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => updateActiveCfg({ overtimeHours: 0 })}
+                        className="px-2 py-1 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 rounded-lg text-[11px] font-bold transition-colors"
+                        title="صفر کردن"
+                      >
+                        0
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Notes and Done Button */}
               <div className="flex items-center gap-2 pt-1">
                 <input
                   type="text"
-                  value={dayConfigs[selectedDayDate]?.notes || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setDayConfigs(prev => ({
-                      ...prev,
-                      [selectedDayDate]: { ...prev[selectedDayDate], notes: val }
-                    }));
-                  }}
+                  value={activeCfg.notes || ''}
+                  onChange={(e) => updateActiveCfg({ notes: e.target.value })}
                   placeholder={t('notesOptional')}
-                  className="flex-1 text-xs px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
+                  className="flex-1 text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
                 />
                 <button
                   type="button"
                   onClick={() => setSelectedDayDate(null)}
-                  className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 flex-shrink-0"
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 flex-shrink-0 active:scale-95"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>{language === 'fa' ? 'ثبت روز' : 'Done'}</span>
                 </button>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          );
+        })()}
 
         {/* Live Calculation Summary Bar */}
         <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-2 text-center text-xs">
