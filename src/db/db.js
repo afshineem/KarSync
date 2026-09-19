@@ -180,8 +180,8 @@ export async function ensureDefaultProjectExists(userId = 'default_user') {
         overtimeMultiplier: 1.0,
         status: 'active',
         notes: 'پروژه پیش‌فرض سیستم',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
       };
       await db.projects.put(currentDefault);
     }

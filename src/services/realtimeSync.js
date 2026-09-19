@@ -185,6 +185,26 @@ export async function flushPendingDeletions() {
       console.warn('Flush payment deletion warning:', err);
     }
   }
+
+  // Flush pending deleted projects
+  const pendingProjects = getPendingDeletedProjects();
+  for (const projectId of pendingProjects) {
+    try {
+      await deleteProjectLive(projectId);
+    } catch (err) {
+      console.warn('Flush project deletion warning:', projectId, err);
+    }
+  }
+
+  // Flush pending deleted sections
+  const pendingSections = getPendingDeletedSections();
+  for (const sectionId of pendingSections) {
+    try {
+      await deleteProjectSectionLive(sectionId);
+    } catch (err) {
+      console.warn('Flush section deletion warning:', sectionId, err);
+    }
+  }
 }
 
 /**
@@ -281,10 +301,9 @@ export async function autoInitialSync() {
 
   // Case B: Reconcile Cloud data into local IndexedDB
   await reconcileCloudIntoLocal(cloudWorkers, cloudLogs);
-  await pullPaymentsLive();
-  await pullProjectsLive();
-  await pullProjectSectionsLive();
-  await pushAllProjectsAndSectionsLive();
+  await pullPaymentsLive(true);
+  await pullProjectsLive(true);
+  await pullProjectSectionsLive(true);
 }
 
 /**
@@ -303,11 +322,21 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
       if (w.deleted_at) {
         await db.workers.delete(w.id);
         await db.attendanceLogs.where('workerId').equals(w.id).delete();
+        clearPendingWorkerDeletion(w.id);
       } else {
-        // Cloud worker is active: clear any stale local pending deletion
+        // If worker was marked deleted locally, keep it deleted!
         if (pendingWorkers.has(w.id)) {
-          clearPendingWorkerDeletion(w.id);
-          pendingWorkers.delete(w.id);
+          await db.workers.delete(w.id);
+          await db.attendanceLogs.where('workerId').equals(w.id).delete();
+          continue;
+        }
+
+        // Check if local worker is newer
+        const localW = await db.workers.get(w.id);
+        if (localW && localW.updatedAt && w.updated_at) {
+          if (new Date(localW.updatedAt).getTime() > new Date(w.updated_at).getTime()) {
+            continue;
+          }
         }
 
         await db.workers.put({
@@ -330,17 +359,20 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
     const dedupedLogsMap = new Map();
 
     for (const l of cloudLogs) {
+      const canonicalId = getAttendanceLogId(l.worker_id, l.date);
       if (l.deleted_at) {
         await db.attendanceLogs.delete(l.id);
-        const canonicalId = getAttendanceLogId(l.worker_id, l.date);
         await db.attendanceLogs.delete(canonicalId);
+        clearPendingLogDeletion(l.id);
+        clearPendingLogDeletion(canonicalId);
         continue;
       }
 
-      // Cloud log is active: clear any stale local pending deletion
-      if (pendingLogs.has(l.id)) {
-        clearPendingLogDeletion(l.id);
-        pendingLogs.delete(l.id);
+      // If user marked this log deleted locally, keep it deleted!
+      if (pendingLogs.has(l.id) || pendingLogs.has(canonicalId)) {
+        await db.attendanceLogs.delete(l.id);
+        await db.attendanceLogs.delete(canonicalId);
+        continue;
       }
 
       const key = `${l.worker_id}_${l.date}`;
@@ -363,6 +395,14 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
       const canonicalId = getAttendanceLogId(l.worker_id, l.date);
       if (l.id !== canonicalId) {
         await db.attendanceLogs.delete(l.id);
+      }
+
+      // If local log is newer, do not overwrite with stale cloud data!
+      const localLog = await db.attendanceLogs.get(canonicalId);
+      if (localLog && localLog.updatedAt && l.updated_at) {
+        if (new Date(localLog.updatedAt).getTime() > new Date(l.updated_at).getTime()) {
+          continue;
+        }
       }
 
       let sectionId = l.section_id || null;
@@ -403,7 +443,7 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
       const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
       const localWorkers = await db.workers.toArray();
       for (const lw of localWorkers) {
-        if (!cloudWorkerIds.has(lw.id)) {
+        if (!cloudWorkerIds.has(lw.id) && !pendingWorkers.has(lw.id)) {
           pushWorkerLive(lw).catch(console.warn);
         }
       }
@@ -499,6 +539,11 @@ function subscribeToRealtime() {
           await db.workers.delete(w.id);
           await db.attendanceLogs.where('workerId').equals(w.id).delete();
         } else {
+          const pending = new Set(getPendingDeletedWorkers());
+          if (pending.has(w.id)) {
+            await db.workers.delete(w.id);
+            return;
+          }
           await db.workers.put({
             id: w.id,
             name: w.name,
@@ -514,20 +559,39 @@ function subscribeToRealtime() {
           });
         }
       }
-      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, async (payload) => {
       console.log('⚡ Realtime Attendance Log Change received:', payload.eventType, payload);
+      const idToDelete = payload.new?.id || payload.old?.id;
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
-        const idToDelete = payload.new?.id || payload.old?.id;
         if (idToDelete) {
           await db.attendanceLogs.delete(idToDelete);
         }
+        if (payload.old?.worker_id && payload.old?.date) {
+          await db.attendanceLogs.delete(getAttendanceLogId(payload.old.worker_id, payload.old.date));
+        }
       } else if (payload.new) {
         const l = payload.new;
+        const canonicalId = getAttendanceLogId(l.worker_id, l.date);
         if (l.deleted_at) {
           await db.attendanceLogs.delete(l.id);
+          await db.attendanceLogs.delete(canonicalId);
         } else {
+          const pending = new Set(getPendingDeletedLogs());
+          if (pending.has(l.id) || pending.has(canonicalId)) {
+            await db.attendanceLogs.delete(l.id);
+            await db.attendanceLogs.delete(canonicalId);
+            return;
+          }
+
+          // If local log is newer, don't overwrite
+          const localLog = await db.attendanceLogs.get(canonicalId);
+          if (localLog && localLog.updatedAt && l.updated_at) {
+            if (new Date(localLog.updatedAt).getTime() > new Date(l.updated_at).getTime()) {
+              return;
+            }
+          }
+
           let sectionId = l.section_id || null;
           let projectId = l.project_id || l.projectId || DEFAULT_PROJECT_ID;
           let cleanNotes = l.notes || '';
@@ -544,7 +608,7 @@ function subscribeToRealtime() {
           }
 
           await db.attendanceLogs.put({
-            id: l.id,
+            id: canonicalId,
             workerId: l.worker_id,
             date: l.date,
             type: l.type,
@@ -561,33 +625,28 @@ function subscribeToRealtime() {
           });
         }
       }
-      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
     })
     .on('broadcast', { event: 'workshop_sync' }, async ({ payload }) => {
       console.log('⚡ Realtime Broadcast received:', payload);
       const syncType = payload?.type;
       if (syncType === 'projects' || syncType === 'all') {
-        await pullProjectsLive();
-        await pullProjectSectionsLive();
+        await pullProjectsLive(true);
+        await pullProjectSectionsLive(true);
       } else if (syncType === 'sections') {
-        await pullProjectSectionsLive();
+        await pullProjectSectionsLive(true);
       } else if (syncType === 'payments') {
-        await pullPaymentsLive();
+        await pullPaymentsLive(true);
       } else {
-        await pullProjectsLive();
-        await pullProjectSectionsLive();
-        await pullPaymentsLive();
+        await pullProjectsLive(true);
+        await pullProjectSectionsLive(true);
+        await pullPaymentsLive(true);
       }
-      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
-      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
       console.log('⚡ Realtime Settings Change received:', payload.eventType, payload);
-      await pullPaymentsLive();
-      await pullProjectsLive();
-      await pullProjectSectionsLive();
-      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
-      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
+      await pullPaymentsLive(true);
+      await pullProjectsLive(true);
+      await pullProjectSectionsLive(true);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
       console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
@@ -609,8 +668,6 @@ function subscribeToRealtime() {
           updatedAt: p.updated_at
         });
       }
-      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
-      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'project_sections' }, async (payload) => {
       console.log('⚡ Realtime Project Section Change received:', payload.eventType, payload);
@@ -629,8 +686,6 @@ function subscribeToRealtime() {
           updatedAt: s.updated_at
         });
       }
-      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
-      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     })
     .subscribe((status) => {
       console.log('📡 Supabase WebSocket channel status:', status);
@@ -653,11 +708,19 @@ export async function broadcastSyncEvent(type, extra = {}) {
   }
 }
 
+let isPullingProjects = false;
+let lastProjectsPullTime = 0;
+
 /**
  * Pull projects from Supabase settings with safe merge
  */
-export async function pullProjectsLive() {
+export async function pullProjectsLive(force = false) {
   if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingProjects) return;
+  if (!force && now - lastProjectsPullTime < 2500) return;
+  isPullingProjects = true;
+  lastProjectsPullTime = now;
   try {
     let projectsData = [];
     const { data: sData, error: sErr } = await supabase
@@ -675,9 +738,19 @@ export async function pullProjectsLive() {
     if (Array.isArray(projectsData) && projectsData.length > 0) {
       const pendingDeleted = new Set(getPendingDeletedProjects());
       const validCloudProjects = projectsData.filter(p => !pendingDeleted.has(p.id));
+      const validCloudProjectIds = new Set(validCloudProjects.map(p => p.id));
 
       await db.transaction('rw', db.projects, async () => {
         for (const p of validCloudProjects) {
+          const localP = await db.projects.get(p.id);
+          if (localP && localP.updatedAt && (p.updated_at || p.updatedAt)) {
+            const localTime = new Date(localP.updatedAt).getTime();
+            const cloudTime = new Date(p.updated_at || p.updatedAt).getTime();
+            if (localTime > cloudTime) {
+              continue;
+            }
+          }
+
           await db.projects.put({
             id: p.id,
             userId: p.user_id || p.userId || 'default_user',
@@ -691,12 +764,20 @@ export async function pullProjectsLive() {
             updatedAt: p.updated_at || p.updatedAt
           });
         }
+
+        // Remove local projects that were deleted in cloud (except DEFAULT_PROJECT_ID)
+        const localProjects = await db.projects.toArray();
+        for (const lp of localProjects) {
+          if (lp.id !== DEFAULT_PROJECT_ID && !validCloudProjectIds.has(lp.id)) {
+            await db.projects.delete(lp.id);
+          }
+        }
       });
-      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
-      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     }
   } catch (err) {
     console.warn('pullProjectsLive warning:', err);
+  } finally {
+    isPullingProjects = false;
   }
 }
 
@@ -805,11 +886,19 @@ export async function deleteProjectLive(projectId) {
   }
 }
 
+let isPullingSections = false;
+let lastSectionsPullTime = 0;
+
 /**
  * Pull project sections from Supabase settings
  */
-export async function pullProjectSectionsLive() {
+export async function pullProjectSectionsLive(force = false) {
   if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingSections) return;
+  if (!force && now - lastSectionsPullTime < 2500) return;
+  isPullingSections = true;
+  lastSectionsPullTime = now;
   try {
     let sectionsData = [];
     const { data: sData, error: sErr } = await supabase
@@ -824,12 +913,22 @@ export async function pullProjectSectionsLive() {
       } catch (_) {}
     }
 
-    if (Array.isArray(sectionsData) && sectionsData.length > 0) {
+    if (Array.isArray(sectionsData)) {
       const pendingDeleted = new Set(getPendingDeletedSections());
       const validCloudSections = sectionsData.filter(s => !pendingDeleted.has(s.id));
+      const validCloudSectionIds = new Set(validCloudSections.map(s => s.id));
 
       await db.transaction('rw', db.projectSections, async () => {
         for (const s of validCloudSections) {
+          const localS = await db.projectSections.get(s.id);
+          if (localS && localS.updatedAt && (s.updated_at || s.updatedAt)) {
+            const localTime = new Date(localS.updatedAt).getTime();
+            const cloudTime = new Date(s.updated_at || s.updatedAt).getTime();
+            if (localTime > cloudTime) {
+              continue;
+            }
+          }
+
           await db.projectSections.put({
             id: s.id,
             projectId: s.project_id || s.projectId,
@@ -840,12 +939,20 @@ export async function pullProjectSectionsLive() {
             updatedAt: s.updated_at || s.updatedAt
           });
         }
+
+        // Reconcile deleted sections
+        const localSections = await db.projectSections.toArray();
+        for (const ls of localSections) {
+          if (!validCloudSectionIds.has(ls.id)) {
+            await db.projectSections.delete(ls.id);
+          }
+        }
       });
-      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
-      window.dispatchEvent(new CustomEvent('workshop-projects-sync'));
     }
   } catch (err) {
     console.warn('pullProjectSectionsLive warning:', err);
+  } finally {
+    isPullingSections = false;
   }
 }
 
@@ -945,21 +1052,36 @@ export async function deleteProjectSectionLive(sectionId) {
   }
 }
 
+let isPullingRemote = false;
+let lastRemotePullTime = 0;
+
 /**
  * Background silent pull
  */
-async function pullRemoteChangesSilently() {
-  const [wRes, lRes] = await Promise.all([
-    supabase.from('workers').select('*'),
-    supabase.from('attendance_logs').select('*')
-  ]);
+async function pullRemoteChangesSilently(force = false) {
+  if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingRemote) return;
+  if (!force && now - lastRemotePullTime < 3000) return;
+  isPullingRemote = true;
+  lastRemotePullTime = now;
+  try {
+    const [wRes, lRes] = await Promise.all([
+      supabase.from('workers').select('*'),
+      supabase.from('attendance_logs').select('*')
+    ]);
 
-  if (!wRes.error && !lRes.error && (wRes.data || lRes.data)) {
-    await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
+    if (!wRes.error && !lRes.error && (wRes.data || lRes.data)) {
+      await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
+    }
+    await pullPaymentsLive();
+    await pullProjectsLive();
+    await pullProjectSectionsLive();
+  } catch (err) {
+    console.warn('pullRemoteChangesSilently warning:', err);
+  } finally {
+    isPullingRemote = false;
   }
-  await pullPaymentsLive();
-  await pullProjectsLive();
-  await pullProjectSectionsLive();
 }
 
 /**
@@ -1184,11 +1306,19 @@ export async function pushPaymentsLive() {
   }
 }
 
+let isPullingPayments = false;
+let lastPaymentsPullTime = 0;
+
 /**
  * Pull cloud payments from Supabase settings and update local Dexie
  */
-export async function pullPaymentsLive() {
+export async function pullPaymentsLive(force = false) {
   if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingPayments) return;
+  if (!force && now - lastPaymentsPullTime < 2500) return;
+  isPullingPayments = true;
+  lastPaymentsPullTime = now;
   try {
     const { data, error } = await supabase
       .from('settings')
@@ -1228,12 +1358,12 @@ export async function pullPaymentsLive() {
             }
           }
         });
-
-        window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
       }
     }
   } catch (err) {
     console.warn('Could not pull payments from Supabase:', err);
+  } finally {
+    isPullingPayments = false;
   }
 }
 

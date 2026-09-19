@@ -54,45 +54,13 @@ export function ProjectProvider({ children }) {
     return () => { isMounted = false; };
   }, [userId]);
 
-  // Realtime synchronization: Listen to sync events, window focus, and visibility changes
+  // Pull initial projects on startup once
   useEffect(() => {
     let isMounted = true;
-    const fetchLatestProjects = async () => {
-      if (navigator.onLine) {
-        await pullProjectsLive().catch(() => {});
-      }
-    };
-
-    fetchLatestProjects();
-
-    const handleSync = () => {
-      if (isMounted) fetchLatestProjects();
-    };
-
-    const handleFocus = () => {
-      if (isMounted && navigator.onLine) {
-        fetchLatestProjects();
-      }
-    };
-
-    const handleVisibility = () => {
-      if (isMounted && document.visibilityState === 'visible' && navigator.onLine) {
-        fetchLatestProjects();
-      }
-    };
-
-    window.addEventListener('workshop-sync-complete', handleSync);
-    window.addEventListener('workshop-projects-sync', handleSync);
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener('workshop-sync-complete', handleSync);
-      window.removeEventListener('workshop-projects-sync', handleSync);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
+    if (navigator.onLine) {
+      pullProjectsLive().catch(() => {});
+    }
+    return () => { isMounted = false; };
   }, []);
 
   // Filter active and archived projects
