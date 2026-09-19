@@ -260,6 +260,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           if (!worker) continue;
 
           const cfg = workerConfigs[workerId] || { type: 'full', overtimeHours: 0, notes: '' };
+          const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
           const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
           const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
           const hourlyRate = wOtRate > 0 
@@ -269,7 +270,10 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           let calculatedDailyWage = 0;
           let calculatedOvertimeWage = 0;
 
-          if (cfg.type === 'hourly') {
+          if (cfg.type === 'absent') {
+            calculatedDailyWage = 0;
+            calculatedOvertimeWage = 0;
+          } else if (cfg.type === 'hourly') {
             calculatedDailyWage = 0;
             calculatedOvertimeWage = roundCurrency(otHours * hourlyRate, currency);
           } else {

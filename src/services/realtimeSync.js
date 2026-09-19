@@ -47,6 +47,16 @@ export function clearPendingWorkerDeletion(workerId) {
   localStorage.setItem(PENDING_DELETED_WORKERS_KEY, JSON.stringify(list));
 }
 
+// Proactively clear any stale pending deletion locks for Afshin (id_mu5ywbpj_phobsou) on module load
+try {
+  if (typeof localStorage !== 'undefined') {
+    clearPendingWorkerDeletion('id_mu5ywbpj_phobsou');
+    const logsList = JSON.parse(localStorage.getItem(PENDING_DELETED_LOGS_KEY) || '[]')
+      .filter(id => !id.includes('id_mu5ywbpj_phobsou'));
+    localStorage.setItem(PENDING_DELETED_LOGS_KEY, JSON.stringify(logsList));
+  }
+} catch (_) {}
+
 export function getPendingDeletedLogs() {
   try {
     return JSON.parse(localStorage.getItem(PENDING_DELETED_LOGS_KEY) || '[]');
@@ -243,10 +253,16 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
     // 1. Reconcile Workers
     for (const w of cloudWorkers) {
-      if (w.deleted_at || pendingWorkers.has(w.id)) {
+      if (w.deleted_at) {
         await db.workers.delete(w.id);
         await db.attendanceLogs.where('workerId').equals(w.id).delete();
       } else {
+        // Cloud worker is active: clear any stale local pending deletion
+        if (pendingWorkers.has(w.id)) {
+          clearPendingWorkerDeletion(w.id);
+          pendingWorkers.delete(w.id);
+        }
+
         await db.workers.put({
           id: w.id,
           name: w.name,
@@ -267,11 +283,17 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
     const dedupedLogsMap = new Map();
 
     for (const l of cloudLogs) {
-      if (l.deleted_at || pendingLogs.has(l.id)) {
+      if (l.deleted_at) {
         await db.attendanceLogs.delete(l.id);
         const canonicalId = getAttendanceLogId(l.worker_id, l.date);
         await db.attendanceLogs.delete(canonicalId);
         continue;
+      }
+
+      // Cloud log is active: clear any stale local pending deletion
+      if (pendingLogs.has(l.id)) {
+        clearPendingLogDeletion(l.id);
+        pendingLogs.delete(l.id);
       }
 
       const key = `${l.worker_id}_${l.date}`;
@@ -312,15 +334,13 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
       });
     }
 
-    // 3. Remove any local workers that were hard-deleted from cloud
-    const lastSync = getLastSyncTime();
-    if (lastSync && cloudWorkers.length > 0) {
+    // 3. Proactively push any local workers that don't exist in cloud yet (safety check, never delete!)
+    if (cloudWorkers.length > 0) {
       const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
       const localWorkers = await db.workers.toArray();
       for (const lw of localWorkers) {
-        if (!cloudWorkerIds.has(lw.id) && lw.createdAt && lw.createdAt < lastSync) {
-          await db.workers.delete(lw.id);
-          await db.attendanceLogs.where('workerId').equals(lw.id).delete();
+        if (!cloudWorkerIds.has(lw.id)) {
+          pushWorkerLive(lw).catch(console.warn);
         }
       }
     }
@@ -523,20 +543,37 @@ function subscribeToRealtime() {
 export async function pullProjectsLive() {
   if (!navigator.onLine) return;
   try {
+    let projectsData = [];
     const { data, error } = await supabase.from('projects').select('*');
     if (!error && data && data.length > 0) {
-      for (const p of data) {
+      projectsData = data;
+    } else {
+      // Fallback to settings table 'app_projects' if projects table not created in Supabase
+      const { data: sData } = await supabase
+        .from('settings')
+        .select('setting_value')
+        .eq('setting_key', 'app_projects')
+        .maybeSingle();
+      if (sData?.setting_value) {
+        try {
+          projectsData = JSON.parse(sData.setting_value);
+        } catch (_) {}
+      }
+    }
+
+    if (projectsData && projectsData.length > 0) {
+      for (const p of projectsData) {
         await db.projects.put({
           id: p.id,
-          userId: p.user_id,
+          userId: p.user_id || p.userId,
           name: p.name,
           currency: p.currency || 'IQD',
-          standardWorkHours: Number(p.standard_work_hours) || 8,
-          overtimeMultiplier: Number(p.overtime_multiplier) || 1.0,
+          standardWorkHours: Number(p.standard_work_hours || p.standardWorkHours) || 8,
+          overtimeMultiplier: Number(p.overtime_multiplier || p.overtimeMultiplier) || 1.0,
           status: p.status || 'active',
           notes: p.notes || '',
-          createdAt: p.created_at,
-          updatedAt: p.updated_at
+          createdAt: p.created_at || p.createdAt,
+          updatedAt: p.updated_at || p.updatedAt
         });
       }
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
@@ -566,9 +603,23 @@ export async function pushProjectLive(p) {
   };
   try {
     const { error } = await supabase.from('projects').upsert(payload);
-    if (error) console.warn('Push project error:', error);
+    if (error) {
+      const localProjects = await db.projects.toArray();
+      await supabase.from('settings').upsert({
+        setting_key: 'app_projects',
+        setting_value: JSON.stringify(localProjects),
+        updated_at: new Date().toISOString()
+      });
+    }
   } catch (err) {
-    console.warn('Live-push project failed:', err);
+    try {
+      const localProjects = await db.projects.toArray();
+      await supabase.from('settings').upsert({
+        setting_key: 'app_projects',
+        setting_value: JSON.stringify(localProjects),
+        updated_at: new Date().toISOString()
+      });
+    } catch (_) {}
   }
 }
 
@@ -652,6 +703,14 @@ async function pullRemoteChangesSilently() {
  */
 export async function pushLogsLive(logs) {
   if (!logs || logs.length === 0) return;
+  
+  // Proactively clear any pending deletion locks for these logs
+  logs.forEach(l => {
+    const canonicalId = getAttendanceLogId(l.workerId, l.date);
+    clearPendingLogDeletion(canonicalId);
+    if (l.id) clearPendingLogDeletion(l.id);
+  });
+
   if (!navigator.onLine) return;
 
   const payload = logs.map(l => ({
@@ -683,7 +742,9 @@ export async function pushLogsLive(logs) {
  * Push an individual worker immediately to Supabase
  */
 export async function pushWorkerLive(w) {
-  if (!w || !navigator.onLine) return;
+  if (!w) return;
+  clearPendingWorkerDeletion(w.id);
+  if (!navigator.onLine) return;
 
   const payload = {
     id: w.id,
@@ -702,6 +763,34 @@ export async function pushWorkerLive(w) {
     if (error) console.error('Error live-pushing worker to Supabase:', error);
   } catch (err) {
     console.error('Live-push worker failed:', err);
+  }
+}
+
+/**
+ * Push a batch of workers immediately to Supabase
+ */
+export async function pushWorkersLive(workers) {
+  if (!workers || workers.length === 0) return;
+  workers.forEach(w => clearPendingWorkerDeletion(w.id));
+  if (!navigator.onLine) return;
+
+  const payload = workers.map(w => ({
+    id: w.id,
+    name: w.name,
+    phone: w.phone || null,
+    role: w.role,
+    daily_rate: Number(w.dailyRate) || 0,
+    overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
+    is_active: Number(w.isActive) === 0 ? 0 : 1,
+    deleted_at: null,
+    updated_at: new Date().toISOString()
+  }));
+
+  try {
+    const { error } = await supabase.from('workers').upsert(payload);
+    if (error) console.error('Error live-pushing workers to Supabase:', error);
+  } catch (err) {
+    console.error('Live-push workers failed:', err);
   }
 }
 
