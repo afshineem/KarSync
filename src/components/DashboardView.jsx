@@ -21,12 +21,16 @@ import {
   ChevronLeft, 
   ChevronRight, 
   PlusCircle, 
-  FileEdit,
-  TrendingUp,
-  FileText,
-  Briefcase,
-  CheckCircle2,
-  Banknote
+  FileEdit, 
+  TrendingUp, 
+  FileText, 
+  Briefcase, 
+  CheckCircle2, 
+  Banknote,
+  ArrowUpRight,
+  WalletCards,
+  FileSpreadsheet,
+  Edit2
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
