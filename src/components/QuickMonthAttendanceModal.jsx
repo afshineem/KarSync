@@ -1,7 +1,7 @@
 import { pushLogsLive, deleteLogLive } from '../services/realtimeSync';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, generateId, getAttendanceLogId } from '../db/db';
+import { db, generateId, getAttendanceLogId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
@@ -61,17 +61,16 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Fetch existing logs for this worker and month in active project
+  const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Fetch existing logs for this worker and month in active project with fallback
   const existingLogs = useLiveQuery(
-    () => {
-      if (!worker || !isOpen || !currentProject?.id) return [];
-      return db.attendanceLogs
-        .where('projectId')
-        .equals(currentProject.id)
-        .and((l) => l.workerId === worker.id && l.date.startsWith(selectedMonth))
-        .toArray();
+    async () => {
+      if (!worker || !isOpen) return [];
+      const list = await db.attendanceLogs.where('workerId').equals(worker.id).toArray();
+      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId && l.date.startsWith(selectedMonth));
     },
-    [worker?.id, selectedMonth, isOpen, currentProject?.id]
+    [worker?.id, selectedMonth, isOpen, targetProjectId]
   ) || [];
 
   // When existing logs or month changes, populate dayConfigs
@@ -317,11 +316,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       const newLogs = [];
       await db.transaction('rw', db.attendanceLogs, async () => {
         // 1. Delete previous logs for this worker for the selected month in current project
-        const oldLogs = await db.attendanceLogs
-          .where('projectId')
-          .equals(currentProject?.id || 'prj_default_main')
-          .and((l) => l.workerId === worker.id && l.date.startsWith(selectedMonth))
-          .toArray();
+        const list = await db.attendanceLogs.where('workerId').equals(worker.id).toArray();
+        const oldLogs = list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId && l.date.startsWith(selectedMonth));
         
         for (const ol of oldLogs) {
           await db.attendanceLogs.delete(ol.id);

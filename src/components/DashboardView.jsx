@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
+import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditRecordModal } from './EditRecordModal';
 import { useProject } from '../context/ProjectContext';
@@ -21,12 +21,10 @@ import {
   ChevronLeft, 
   ChevronRight, 
   PlusCircle, 
-  ArrowUpRight,
+  FileEdit,
   TrendingUp,
-  FileSpreadsheet, 
   FileText,
-  Edit2,
-  WalletCards,
+  Briefcase,
   CheckCircle2,
   Banknote
 } from 'lucide-react';
@@ -35,42 +33,43 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const { t, language, direction } = useLanguage();
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
+  const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
   const [editingLog, setEditingLog] = useState(null);
 
-  // Fetch reactive data from Dexie scoped to active project
+  // Fetch reactive data from Dexie scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.workers.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.workers.toArray();
+      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   const allPayments = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.payments.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.payments.toArray();
+      return list.filter((p) => (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   const allAllLogs = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.attendanceLogs.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.attendanceLogs.toArray();
+      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   const rawLogs = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      const list = await db.attendanceLogs.where('projectId').equals(currentProject.id).toArray();
-      return list.filter((l) => l.date && l.date.startsWith(selectedMonth));
+      const list = await db.attendanceLogs.toArray();
+      const projLogs = list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      return projLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
     },
-    [currentProject?.id, selectedMonth]
+    [targetProjectId, selectedMonth]
   ) || [];
 
   // Deduplicate logs in memory by workerId + date

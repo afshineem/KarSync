@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
+import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { formatAmount, formatHoursAndMinutes, getCurrentYearMonth, roundCurrency, getCurrencySymbol } from '../utils/formatters';
 import { 
   User, 
@@ -42,7 +42,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
   // Query this worker's project for currency & settings
   const project = useLiveQuery(
-    () => (worker?.projectId ? db.projects.get(worker.projectId) : null),
+    () => db.projects.get(worker?.projectId || DEFAULT_PROJECT_ID),
     [worker?.projectId]
   );
 

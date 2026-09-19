@@ -1,7 +1,7 @@
 import { pushWorkerLive, deleteWorkerLive } from '../services/realtimeSync';
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, generateId } from '../db/db';
+import { db, generateId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
@@ -56,13 +56,15 @@ export function WorkersView() {
   });
   const [formError, setFormError] = useState('');
 
-  // Live query from Dexie scoped to active project
+  const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Live query from Dexie scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.workers.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.workers.toArray();
+      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   const rawWorkerHistoryLogs = useLiveQuery(

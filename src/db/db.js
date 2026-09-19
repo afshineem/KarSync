@@ -72,6 +72,37 @@ export async function purgeDummySeedWorkers() {
 
 export const DEFAULT_PROJECT_ID = 'prj_default_main';
 
+// Ensure any record inserted or updated always has projectId and userId defaults
+db.workers.hook('creating', function (primKey, obj) {
+  if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
+  if (!obj.userId) obj.userId = 'default_user';
+});
+db.workers.hook('updating', function (modifications, primKey, obj) {
+  if ('projectId' in modifications && !modifications.projectId) {
+    modifications.projectId = DEFAULT_PROJECT_ID;
+  }
+});
+
+db.attendanceLogs.hook('creating', function (primKey, obj) {
+  if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
+  if (!obj.userId) obj.userId = 'default_user';
+});
+db.attendanceLogs.hook('updating', function (modifications, primKey, obj) {
+  if ('projectId' in modifications && !modifications.projectId) {
+    modifications.projectId = DEFAULT_PROJECT_ID;
+  }
+});
+
+db.payments.hook('creating', function (primKey, obj) {
+  if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
+  if (!obj.userId) obj.userId = 'default_user';
+});
+db.payments.hook('updating', function (modifications, primKey, obj) {
+  if ('projectId' in modifications && !modifications.projectId) {
+    modifications.projectId = DEFAULT_PROJECT_ID;
+  }
+});
+
 // Ensure at least one active project exists and migrate legacy records to it
 export async function ensureDefaultProjectExists(userId = 'default_user') {
   try {
@@ -94,21 +125,27 @@ export async function ensureDefaultProjectExists(userId = 'default_user') {
       await db.projects.put(currentDefault);
     }
 
-    // Migrate any legacy unassociated local workers, logs, and payments
-    await db.workers.toCollection().modify((w) => {
-      if (!w.projectId) w.projectId = DEFAULT_PROJECT_ID;
-      if (!w.userId && userId) w.userId = userId;
-    });
+    // Forcefully migrate ALL workers, logs, and payments without a valid projectId
+    const allWorkers = await db.workers.toArray();
+    for (const w of allWorkers) {
+      if (!w.projectId) {
+        await db.workers.update(w.id, { projectId: DEFAULT_PROJECT_ID, userId: w.userId || userId || 'default_user' });
+      }
+    }
 
-    await db.attendanceLogs.toCollection().modify((l) => {
-      if (!l.projectId) l.projectId = DEFAULT_PROJECT_ID;
-      if (!l.userId && userId) l.userId = userId;
-    });
+    const allLogs = await db.attendanceLogs.toArray();
+    for (const l of allLogs) {
+      if (!l.projectId) {
+        await db.attendanceLogs.update(l.id, { projectId: DEFAULT_PROJECT_ID, userId: l.userId || userId || 'default_user' });
+      }
+    }
 
-    await db.payments.toCollection().modify((p) => {
-      if (!p.projectId) p.projectId = DEFAULT_PROJECT_ID;
-      if (!p.userId && userId) p.userId = userId;
-    });
+    const allPayments = await db.payments.toArray();
+    for (const p of allPayments) {
+      if (!p.projectId) {
+        await db.payments.update(p.id, { projectId: DEFAULT_PROJECT_ID, userId: p.userId || userId || 'default_user' });
+      }
+    }
 
     return currentDefault;
   } catch (err) {

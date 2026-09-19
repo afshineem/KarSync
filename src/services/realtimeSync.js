@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers } from '../db/db';
+import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID } from '../db/db';
 import { getSyncConfig, saveSyncConfig, setLastSyncTime, getLastSyncTime } from './syncService';
 import { roundCurrency } from '../utils/formatters';
 
@@ -253,6 +253,8 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           dailyRate: Number(w.daily_rate) || 0,
           overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
           isActive: Number(w.is_active) === 0 ? 0 : 1,
+          projectId: w.project_id || w.projectId || DEFAULT_PROJECT_ID,
+          userId: w.user_id || w.userId || 'default_user',
           createdAt: w.created_at,
           updatedAt: w.updated_at
         });
@@ -301,6 +303,8 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         calculatedOvertimeWage: roundCurrency(l.calculated_overtime_wage, l.currency),
         totalDayPay: roundCurrency(l.total_day_pay, l.currency),
         notes: l.notes || '',
+        projectId: l.project_id || l.projectId || DEFAULT_PROJECT_ID,
+        userId: l.user_id || l.userId || 'default_user',
         createdAt: l.created_at,
         updatedAt: l.updated_at
       });
@@ -417,6 +421,8 @@ function subscribeToRealtime() {
             dailyRate: Number(w.daily_rate) || 0,
             overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
             isActive: Number(w.is_active) === 0 ? 0 : 1,
+            projectId: w.project_id || w.projectId || DEFAULT_PROJECT_ID,
+            userId: w.user_id || w.userId || 'default_user',
             createdAt: w.created_at,
             updatedAt: w.updated_at
           });
@@ -446,6 +452,8 @@ function subscribeToRealtime() {
             calculatedOvertimeWage: roundCurrency(l.calculated_overtime_wage, l.currency),
             totalDayPay: roundCurrency(l.total_day_pay, l.currency),
             notes: l.notes || '',
+            projectId: l.project_id || l.projectId || DEFAULT_PROJECT_ID,
+            userId: l.user_id || l.userId || 'default_user',
             createdAt: l.created_at,
             updatedAt: l.updated_at
           });
@@ -716,6 +724,8 @@ export async function pullPaymentsLive() {
           for (const p of validCloudPayments) {
             await db.payments.put({
               ...p,
+              projectId: p.projectId || p.project_id || DEFAULT_PROJECT_ID,
+              userId: p.userId || p.user_id || 'default_user',
               amount: roundCurrency(p.amount, p.currency)
             });
           }

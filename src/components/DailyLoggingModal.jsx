@@ -1,7 +1,7 @@
 import { pushLogsLive } from '../services/realtimeSync';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, getAttendanceLogId } from '../db/db';
+import { db, getAttendanceLogId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
@@ -47,28 +47,24 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const [toastMessage, setToastMessage] = useState('');
   const [editingLog, setEditingLog] = useState(null);
 
-  // Fetch active workers for current project
+  const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Fetch active workers for current project with fallback for legacy records
   const workers = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.workers
-        .where('projectId').equals(currentProject.id)
-        .and(w => w.isActive === 1)
-        .toArray();
+      const list = await db.workers.toArray();
+      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && w.isActive === 1);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   // Fetch existing logs for the selected date to detect pre-existing logs
   const existingDateLogs = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.attendanceLogs
-        .where('projectId').equals(currentProject.id)
-        .and(l => l.date === selectedDate)
-        .toArray();
+      const list = await db.attendanceLogs.toArray();
+      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId && l.date === selectedDate);
     },
-    [currentProject?.id, selectedDate]
+    [targetProjectId, selectedDate]
   ) || [];
 
   const existingWorkerLogMap = useMemo(() => {

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
+import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { 
@@ -60,29 +60,31 @@ export function FinancialsView() {
   const [historyTargetWorker, setHistoryTargetWorker] = useState(null);
   const [isGlobalAdvanceModalOpen, setIsGlobalAdvanceModalOpen] = useState(false);
 
-  // Live queries from IndexedDB scoped to active project
+  const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Live queries from IndexedDB scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.workers.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.workers.toArray();
+      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   const allLogs = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.attendanceLogs.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.attendanceLogs.toArray();
+      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   const allPayments = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.payments.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.payments.toArray();
+      return list.filter((p) => (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   // Compute worker financial summaries with cumulative prior debt & FIFO settlement status

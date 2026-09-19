@@ -1,7 +1,7 @@
 import { deleteLogLive } from '../services/realtimeSync';
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
+import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { EditRecordModal } from './EditRecordModal';
@@ -78,21 +78,23 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
   // Inspected date string for quick modal inspection from monthly calendar
   const [inspectedDateStr, setInspectedDateStr] = useState(null);
 
-  // Dexie live queries (Reactive) scoped to active project
+  const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Dexie live queries (Reactive) scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.workers.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.workers.toArray();
+      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   const rawLogs = useLiveQuery(
     async () => {
-      if (!currentProject?.id) return [];
-      return await db.attendanceLogs.where('projectId').equals(currentProject.id).toArray();
+      const list = await db.attendanceLogs.toArray();
+      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
-    [currentProject?.id]
+    [targetProjectId]
   ) || [];
 
   // Deduplicate logs by workerId + date in memory to guarantee 1 log per worker per day
