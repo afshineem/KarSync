@@ -24,7 +24,9 @@ import {
   X, 
   AlertCircle, 
   Key, 
-  Receipt 
+  Receipt,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 
 export function WorkersView() {
@@ -36,6 +38,14 @@ export function WorkersView() {
   const workerCreds = getWorkerCredentialsMap();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState('all'); // 'all' | 'active' | 'inactive'
+  
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('workshop_workers_view_mode') || 'grid';
+  });
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('workshop_workers_view_mode', mode);
+  };
   
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -292,169 +302,311 @@ export function WorkersView() {
           />
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 self-stretch sm:self-auto justify-center">
-          <button
-            onClick={() => setFilterActive('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              filterActive === 'all'
-                ? 'bg-slate-800 text-white dark:bg-slate-700'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            {t('allWorkers')} ({workers.length})
-          </button>
-          <button
-            onClick={() => setFilterActive('active')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              filterActive === 'active'
-                ? 'bg-emerald-600 text-white'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            {t('active')} ({workers.filter(w => w.isActive === 1).length})
-          </button>
-          <button
-            onClick={() => setFilterActive('inactive')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              filterActive === 'inactive'
-                ? 'bg-rose-600 text-white'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            {t('inactive')} ({workers.filter(w => w.isActive === 0).length})
-          </button>
+        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end flex-wrap">
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+            <button
+              onClick={() => setFilterActive('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                filterActive === 'all'
+                  ? 'bg-slate-800 text-white dark:bg-slate-700'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              {t('allWorkers')} ({workers.length})
+            </button>
+            <button
+              onClick={() => setFilterActive('active')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                filterActive === 'active'
+                  ? 'bg-emerald-600 text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              {t('active')} ({workers.filter(w => w.isActive === 1).length})
+            </button>
+            <button
+              onClick={() => setFilterActive('inactive')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                filterActive === 'inactive'
+                  ? 'bg-rose-600 text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              {t('inactive')} ({workers.filter(w => w.isActive === 0).length})
+            </button>
+          </div>
+
+          {/* Grid vs List View Switcher */}
+          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('grid')}
+              className={`p-1.5 rounded-lg transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-slate-800 text-white dark:bg-slate-700 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+              title={t('gridView') || 'کارت‌ها'}
+              aria-label={t('gridView') || 'کارت‌ها'}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('list')}
+              className={`p-1.5 rounded-lg transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-slate-800 text-white dark:bg-slate-700 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+              title={t('listView') || 'فهرست'}
+              aria-label={t('listView') || 'فهرست'}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
       </div>
 
-      {/* Workers Grid Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredWorkers.map((worker) => (
-          <div
-            key={worker.id}
-            className={`bg-white dark:bg-slate-900 rounded-2xl p-5 border transition-all shadow-sm hover:shadow-md flex flex-col justify-between ${
-              worker.isActive === 1
-                ? 'border-slate-200 dark:border-slate-800'
-                : 'border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/10'
-            }`}
-          >
-            <div>
-              {/* Header: Name, Status Badge */}
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 
-                    onClick={() => setQuickAttendanceWorker(worker)}
-                    className="font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors group"
-                    title={t('quickMonthlyAttendance')}
-                  >
-                    <span>{worker.name}</span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400 font-semibold border border-sky-200 dark:border-sky-800 flex items-center gap-1 opacity-90 group-hover:opacity-100">
-                      <Calendar className="w-3 h-3" />
-                      <span>{t('quickMonthlyAttendance')}</span>
-                    </span>
-                  </h3>
-                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{worker.role || t('workerRole')}</span>
+      {/* Workers View: Grid Mode vs List Mode */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredWorkers.map((worker) => (
+            <div
+              key={worker.id}
+              className={`bg-white dark:bg-slate-900 rounded-2xl p-5 border transition-all shadow-sm hover:shadow-md flex flex-col justify-between ${
+                worker.isActive === 1
+                  ? 'border-slate-200 dark:border-slate-800'
+                  : 'border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/10'
+              }`}
+            >
+              <div>
+                {/* Header: Name & Icon-Only Actions (No Wrapping!) */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 
+                      onClick={() => setQuickAttendanceWorker(worker)}
+                      className="font-bold text-base sm:text-lg text-slate-900 dark:text-white cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate"
+                      title={t('quickMonthlyAttendance')}
+                    >
+                      {worker.name}
+                    </h3>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{worker.role || t('workerRole')}</span>
+                      </div>
+                      {(workerCreds[worker.id]?.username || worker.username) && (
+                        <span 
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-800/60"
+                          title="مشخصات ورود پرتال کارگر فعال است"
+                        >
+                          <Key className="w-3 h-3" />
+                          <span>{workerCreds[worker.id]?.username || worker.username}</span>
+                        </span>
+                      )}
                     </div>
-                    {(workerCreds[worker.id]?.username || worker.username) && (
-                      <span 
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-800/60"
-                        title="مشخصات ورود پرتال کارگر فعال است"
-                      >
-                        <Key className="w-3 h-3" />
-                        <span>{workerCreds[worker.id]?.username || worker.username}</span>
-                      </span>
-                    )}
+                  </div>
+
+                  {/* Clean Icon-Only Action Buttons */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setQuickAttendanceWorker(worker)}
+                      title={t('quickMonthlyAttendance')}
+                      aria-label={t('quickMonthlyAttendance')}
+                      className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/60 border border-sky-200/60 dark:border-sky-800/60 transition-colors"
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActive(worker)}
+                      className={`p-2 rounded-xl border transition-colors ${
+                        worker.isActive === 1
+                          ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700'
+                      }`}
+                      title={worker.isActive === 1 ? t('deactivate') : t('activate')}
+                      aria-label={worker.isActive === 1 ? t('deactivate') : t('activate')}
+                    >
+                      {worker.isActive === 1 ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : (
+                        <XCircle className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleToggleActive(worker)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors ${
-                    worker.isActive === 1
-                      ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
-                  }`}
-                  title={worker.isActive === 1 ? t('deactivate') : t('activate')}
-                >
-                  {worker.isActive === 1 ? (
-                    <>
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>{t('active')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-3 h-3" />
-                      <span>{t('inactive')}</span>
-                    </>
-                  )}
-                </button>
-              </div>
+                {/* Phone number */}
+                {worker.phone && (
+                  <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    <Phone className="w-3.5 h-3.5 text-sky-500" />
+                    <span dir="ltr">{worker.phone}</span>
+                  </div>
+                )}
 
-              {/* Phone number */}
-              {worker.phone && (
-                <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                  <Phone className="w-3.5 h-3.5 text-sky-500" />
-                  <span dir="ltr">{worker.phone}</span>
-                </div>
-              )}
-
-              {/* Wage Rates Breakdown */}
-              <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                    <Coins className="w-3.5 h-3.5 text-sky-500" />
-                    <span>{t('dailyRateLabel')}:</span>
-                  </span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {formatCurrency(worker.dailyRate, currency, language)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{t('overtimeRateLabel')}:</span>
-                  </span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
-                  </span>
+                {/* Wage Rates Breakdown (Clean, Non-Redundant Currency) */}
+                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Coins className="w-3.5 h-3.5 text-sky-500" />
+                      <span>{t('dailyRateLabel')}:</span>
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                      {formatCurrency(worker.dailyRate, currency, language)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{t('overtimeRateLabel')}:</span>
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                      {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Footer Action Buttons */}
-            <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-              <button
-                onClick={() => setHistoryWorker(worker)}
-                className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-medium py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <History className="w-3.5 h-3.5" />
-                <span>{t('history')}</span>
-              </button>
+              {/* Footer Action Buttons */}
+              <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => setHistoryWorker(worker)}
+                  className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-medium py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>{t('history')}</span>
+                </button>
 
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleOpenEditModal(worker)}
-                  className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                  title={t('edit')}
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDeleteWorker(worker)}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                  title={t('delete')}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditModal(worker)}
+                    className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    title={t('edit')}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteWorker(worker)}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    title={t('delete')}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      ) : (
+        /* List Mode: High-Density Minimal Table */
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold">
+                <tr>
+                  <th className="py-3 px-3 text-center w-12">{t('status')}</th>
+                  <th className="py-3 px-3.5">{t('fullName')}</th>
+                  <th className="py-3 px-3.5">{t('workerRole')}</th>
+                  <th className="py-3 px-3.5">{t('phoneNumber')}</th>
+                  <th className="py-3 px-3.5">{t('dailyRateLabel')}</th>
+                  <th className="py-3 px-3.5">{t('overtimeRateLabel')}</th>
+                  <th className="py-3 px-3.5 text-center">{t('actions')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredWorkers.map((worker) => (
+                  <tr key={worker.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group">
+                    <td className="py-2.5 px-3 text-center">
+                      <span 
+                        className={`inline-block w-2.5 h-2.5 rounded-full ${
+                          worker.isActive === 1 ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-slate-300 dark:bg-slate-600'
+                        }`}
+                        title={worker.isActive === 1 ? t('active') : t('inactive')}
+                      />
+                    </td>
+                    <td className="py-2.5 px-3.5 font-bold text-slate-900 dark:text-white">
+                      <span 
+                        className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                        onClick={() => setQuickAttendanceWorker(worker)}
+                      >
+                        {worker.name}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400">
+                      {worker.role || '-'}
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 font-mono" dir="ltr">
+                      {worker.phone || '-'}
+                    </td>
+                    <td className="py-2.5 px-3.5 font-bold font-mono text-slate-800 dark:text-slate-200">
+                      {formatCurrency(worker.dailyRate, currency, language)}
+                    </td>
+                    <td className="py-2.5 px-3.5 font-medium font-mono text-slate-700 dark:text-slate-300">
+                      {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setQuickAttendanceWorker(worker)}
+                          title={t('quickMonthlyAttendance')}
+                          className="p-1.5 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/60 rounded-lg transition-colors"
+                        >
+                          <Calendar className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHistoryWorker(worker)}
+                          title={t('history')}
+                          className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(worker)}
+                          title={t('edit')}
+                          className="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(worker)}
+                          title={worker.isActive === 1 ? t('deactivate') : t('activate')}
+                          className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                        >
+                          {worker.isActive === 1 ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-slate-400" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteWorker(worker)}
+                          title={t('delete')}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {filteredWorkers.length === 0 && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800">

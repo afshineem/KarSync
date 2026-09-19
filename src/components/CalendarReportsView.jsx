@@ -40,7 +40,8 @@ import {
   Search, 
   ArrowUpDown, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Layers
 } from 'lucide-react';
 
 export function CalendarReportsView({ onOpenLoggingModal }) {
@@ -64,6 +65,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
   // Filters for reporting
   const [selectedWorkerId, setSelectedWorkerId] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
+  const [selectedSectionId, setSelectedSectionId] = useState('all');
   
   // Date range defaults to current month
   const [dateFrom, setDateFrom] = useState(() => `${getCurrentYearMonth()}-01`);
@@ -79,6 +81,23 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
   const [inspectedDateStr, setInspectedDateStr] = useState(null);
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Fetch project sections
+  const projectSections = useLiveQuery(
+    async () => {
+      if (!targetProjectId) return [];
+      return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
+    },
+    [targetProjectId]
+  ) || [];
+
+  const sectionMap = useMemo(() => {
+    const map = {};
+    projectSections.forEach((s) => {
+      map[s.id] = s;
+    });
+    return map;
+  }, [projectSections]);
 
   // Dexie live queries (Reactive) scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
@@ -278,12 +297,56 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
       .filter((log) => {
         if (selectedWorkerId !== 'all' && log.workerId !== selectedWorkerId) return false;
         if (selectedType !== 'all' && log.type !== selectedType) return false;
+        if (selectedSectionId !== 'all') {
+          if (selectedSectionId === 'unassigned') {
+            if (log.sectionId) return false;
+          } else if (log.sectionId !== selectedSectionId) {
+            return false;
+          }
+        }
         if (dateFrom && log.date < dateFrom) return false;
         if (dateTo && log.date > dateTo) return false;
         return true;
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [allLogs, selectedWorkerId, selectedType, dateFrom, dateTo]);
+  }, [allLogs, selectedWorkerId, selectedType, selectedSectionId, dateFrom, dateTo]);
+
+  // Project section breakdown in reporting
+  const sectionBreakdown = useMemo(() => {
+    if (projectSections.length === 0) return [];
+    const breakdown = {};
+
+    projectSections.forEach((s) => {
+      breakdown[s.id] = {
+        id: s.id,
+        name: s.name,
+        days: 0,
+        otHours: 0,
+        totalCost: 0,
+        entriesCount: 0
+      };
+    });
+
+    breakdown['unassigned'] = {
+      id: 'unassigned',
+      name: language === 'fa' ? 'عمومی / بدون بخش' : 'General / Unassigned',
+      days: 0,
+      otHours: 0,
+      totalCost: 0,
+      entriesCount: 0
+    };
+
+    filteredLogs.forEach((l) => {
+      const targetSecId = l.sectionId && breakdown[l.sectionId] ? l.sectionId : 'unassigned';
+      const item = breakdown[targetSecId];
+      item.days += l.type === 'hourly' ? 0 : l.type === 'half' ? 0.5 : 1.0;
+      item.otHours += Number(l.overtimeHours) || 0;
+      item.totalCost += Number(l.totalDayPay) || 0;
+      item.entriesCount += 1;
+    });
+
+    return Object.values(breakdown).filter((b) => b.entriesCount > 0);
+  }, [filteredLogs, projectSections, language]);
 
   const aggregatedStats = useMemo(() => {
     let days = 0;
@@ -946,7 +1009,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
             </div>
 
             {/* Filter controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${projectSections.length > 0 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-3`}>
               {/* Worker */}
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">{t('filterByWorker')}</label>
@@ -978,6 +1041,29 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                   <option value="hourly">{t('hourlyOnlyOption')}</option>
                 </select>
               </div>
+
+              {/* Project Section */}
+              {projectSections.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                    <Layers className="w-3 h-3 text-sky-500" />
+                    <span>{t('section') || 'بخش پروژه'}</span>
+                  </label>
+                  <select
+                    value={selectedSectionId}
+                    onChange={(e) => setSelectedSectionId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    <option value="all">{language === 'fa' ? 'همه بخش‌ها' : 'All Sections'}</option>
+                    <option value="unassigned">{language === 'fa' ? 'عمومی / بدون بخش' : 'General / Unassigned'}</option>
+                    {projectSections.map((sec) => (
+                      <option key={sec.id} value={sec.id}>
+                        {sec.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* From Date */}
               <div>
@@ -1046,6 +1132,59 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
               </div>
             </div>
           </div>
+
+          {/* Project Sections Cost Allocation Breakdown */}
+          {sectionBreakdown.length > 0 && (
+            <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 no-print">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    {language === 'fa' ? 'تفکیک هزینه‌ها بر اساس بخش‌های پروژه' : 'Cost Allocation by Project Section'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {language === 'fa' ? 'سهم هر بخش کاری از کل کارکرد و دستمزد این بازه زمانی' : 'Breakdown of hours, days and labor cost per section'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {sectionBreakdown.map((sec) => {
+                  const percent = aggregatedStats.totalPay > 0 
+                    ? Math.round((sec.totalCost / aggregatedStats.totalPay) * 100) 
+                    : 0;
+                  return (
+                    <div 
+                      key={sec.id}
+                      className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/80 dark:border-slate-700/80 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">{sec.name}</span>
+                        <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400">{percent}%</span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-sky-500 rounded-full transition-all duration-300"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                        <span>{sec.days} {t('normalDays')} {sec.otHours > 0 ? `+ ${formatHoursAndMinutes(sec.otHours, language)}` : ''}</span>
+                        <span className="font-extrabold text-slate-800 dark:text-slate-200 font-mono">
+                          {formatCurrency(sec.totalCost, currency, language)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* MAIN REPORT TABLE (SCREEN + PRINT) */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden print:border-none print:shadow-none">
@@ -1165,6 +1304,9 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         <th className="px-4 py-3.5 text-start">{t('workerName')}</th>
                         <th className="px-4 py-3.5 text-center">{t('typeColumn')}</th>
                         <th className="px-4 py-3.5 text-center">{t('overtimeHours')}</th>
+                        {projectSections.length > 0 && (
+                          <th className="px-4 py-3.5 text-center">{t('section') || 'بخش'}</th>
+                        )}
                         <th className="px-4 py-3.5 text-start">{t('notesColumn')}</th>
                         <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
                         <th className="px-4 py-3.5 text-center no-print">{t('actions')}</th>
@@ -1196,6 +1338,13 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                             <td className="px-4 py-3 text-center font-bold text-amber-600 dark:text-amber-400">
                               {log.overtimeHours > 0 ? (log.type === 'hourly' ? formatHoursAndMinutes(log.overtimeHours, language) : `+${formatHoursAndMinutes(log.overtimeHours, language)}`) : '-'}
                             </td>
+                            {projectSections.length > 0 && (
+                              <td className="px-4 py-3 text-center whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                  {log.sectionId && sectionMap[log.sectionId] ? sectionMap[log.sectionId].name : (language === 'fa' ? 'عمومی' : 'General')}
+                                </span>
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 max-w-xs truncate">
                               {log.notes || '-'}
                             </td>

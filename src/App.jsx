@@ -10,7 +10,8 @@ import { CalendarReportsView } from './components/CalendarReportsView';
 import { FinancialsView } from './components/FinancialsView';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
-import { SettingsModal } from './components/SettingsModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { AboutModal } from './components/AboutModal';
 import { LoginView } from './components/LoginView';
 import { WorkerViewPortal } from './components/WorkerViewPortal';
 import { OnboardingModal } from './components/OnboardingModal';
@@ -24,7 +25,8 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
 
   const handleOpenLoggingModal = (dateStr) => {
@@ -94,7 +96,11 @@ function AppContent() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        onOpenBackupModal={() => setIsBackupModalOpen(true)}
+        onOpenChangePasswordModal={() => setIsChangePasswordModalOpen(true)}
+        onOpenAboutModal={() => setIsAboutModalOpen(true)}
       />
 
       {/* Main Content View */}
@@ -148,13 +154,16 @@ function AppContent() {
         onClose={() => setIsBackupModalOpen(false)}
       />
 
-      {/* System Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        theme={theme}
-        toggleTheme={toggleTheme}
-        onOpenBackupModal={() => setIsBackupModalOpen(true)}
+      {/* Admin Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordModalOpen}
+        onClose={() => setIsChangePasswordModalOpen(false)}
+      />
+
+      {/* Dedicated About Modal */}
+      <AboutModal
+        isOpen={isAboutModalOpen}
+        onClose={() => setIsAboutModalOpen(false)}
       />
     </div>
   );

@@ -20,6 +20,11 @@ db.version(3).stores({
   payments: 'id, projectId, userId, workerId, date, month, type, status, createdAt'
 });
 
+db.version(4).stores({
+  projectSections: 'id, projectId, userId, name, status, createdAt',
+  attendanceLogs: 'id, projectId, sectionId, userId, workerId, date, type, [workerId+date], [projectId+workerId+date]'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -28,6 +33,11 @@ export function generateId() {
 // Helper to generate Project IDs
 export function generateProjectId() {
   return 'prj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+}
+
+// Helper to generate Project Section IDs
+export function generateSectionId() {
+  return 'sec_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Payment / Settlement IDs
@@ -98,6 +108,17 @@ db.payments.hook('creating', function (primKey, obj) {
   if (!obj.userId) obj.userId = 'default_user';
 });
 db.payments.hook('updating', function (modifications, primKey, obj) {
+  if ('projectId' in modifications && !modifications.projectId) {
+    modifications.projectId = DEFAULT_PROJECT_ID;
+  }
+});
+
+db.projectSections.hook('creating', function (primKey, obj) {
+  if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
+  if (!obj.userId) obj.userId = 'default_user';
+  if (!obj.status) obj.status = 'active';
+});
+db.projectSections.hook('updating', function (modifications, primKey, obj) {
   if ('projectId' in modifications && !modifications.projectId) {
     modifications.projectId = DEFAULT_PROJECT_ID;
   }

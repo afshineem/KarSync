@@ -452,6 +452,7 @@ function subscribeToRealtime() {
             calculatedOvertimeWage: roundCurrency(l.calculated_overtime_wage, l.currency),
             totalDayPay: roundCurrency(l.total_day_pay, l.currency),
             notes: l.notes || '',
+            sectionId: l.section_id || null,
             projectId: l.project_id || l.projectId || DEFAULT_PROJECT_ID,
             userId: l.user_id || l.userId || 'default_user',
             createdAt: l.created_at,
@@ -484,6 +485,25 @@ function subscribeToRealtime() {
           notes: p.notes || '',
           createdAt: p.created_at,
           updatedAt: p.updated_at
+        });
+      }
+      window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'project_sections' }, async (payload) => {
+      console.log('⚡ Realtime Project Section Change received:', payload.eventType, payload);
+      if (payload.eventType === 'DELETE') {
+        const idToDelete = payload.old?.id;
+        if (idToDelete) await db.projectSections.delete(idToDelete);
+      } else if (payload.new) {
+        const s = payload.new;
+        await db.projectSections.put({
+          id: s.id,
+          projectId: s.project_id || s.projectId,
+          userId: s.user_id || s.userId,
+          name: s.name,
+          status: s.status || 'active',
+          createdAt: s.created_at,
+          updatedAt: s.updated_at
         });
       }
       window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
@@ -522,6 +542,64 @@ export async function pullProjectsLive() {
 }
 
 /**
+ * Pull project sections from Supabase
+ */
+export async function pullProjectSectionsLive() {
+  if (!navigator.onLine) return;
+  try {
+    const { data, error } = await supabase.from('project_sections').select('*');
+    if (!error && data && data.length > 0) {
+      for (const s of data) {
+        await db.projectSections.put({
+          id: s.id,
+          projectId: s.project_id || s.projectId,
+          userId: s.user_id || s.userId,
+          name: s.name,
+          status: s.status || 'active',
+          createdAt: s.created_at,
+          updatedAt: s.updated_at
+        });
+      }
+    }
+  } catch (err) {
+    // Project sections table might not exist yet if migration not run yet, fail silently
+  }
+}
+
+/**
+ * Push an individual project section to Supabase
+ */
+export async function pushProjectSectionLive(s) {
+  if (!s || !navigator.onLine) return;
+  const payload = {
+    id: s.id,
+    project_id: s.projectId,
+    user_id: s.userId || null,
+    name: s.name,
+    status: s.status || 'active',
+    updated_at: new Date().toISOString()
+  };
+  try {
+    const { error } = await supabase.from('project_sections').upsert(payload);
+    if (error) console.warn('Push section error:', error);
+  } catch (err) {
+    console.warn('Live-push section failed:', err);
+  }
+}
+
+/**
+ * Delete a project section from Supabase
+ */
+export async function deleteProjectSectionLive(sectionId) {
+  if (!sectionId || !navigator.onLine) return;
+  try {
+    await supabase.from('project_sections').delete().eq('id', sectionId);
+  } catch (err) {
+    console.warn('Live-delete section failed:', err);
+  }
+}
+
+/**
  * Background silent pull
  */
 async function pullRemoteChangesSilently() {
@@ -535,6 +613,7 @@ async function pullRemoteChangesSilently() {
   }
   await pullPaymentsLive();
   await pullProjectsLive();
+  await pullProjectSectionsLive();
 }
 
 /**
@@ -554,6 +633,9 @@ export async function pushLogsLive(logs) {
     calculated_overtime_wage: roundCurrency(l.calculatedOvertimeWage, l.currency),
     total_day_pay: roundCurrency(l.totalDayPay, l.currency),
     notes: l.notes || null,
+    section_id: l.sectionId || null,
+    project_id: l.projectId || DEFAULT_PROJECT_ID,
+    user_id: l.userId || null,
     deleted_at: null,
     updated_at: new Date().toISOString()
   }));

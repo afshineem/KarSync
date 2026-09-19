@@ -27,8 +27,10 @@ import {
   ChevronUp, 
   ChevronDown, 
   RotateCcw,
-  Edit3
+  Edit3,
+  Layers
 } from 'lucide-react';
+import { DEFAULT_PROJECT_ID } from '../db/db';
 
 export function EditRecordModal({ log, isOpen, onClose }) {
   const { t, language } = useLanguage();
@@ -36,6 +38,15 @@ export function EditRecordModal({ log, isOpen, onClose }) {
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
   const standardHours = currentProject?.standardWorkHours || 8;
+
+  const targetProjectId = log?.projectId || currentProject?.id || DEFAULT_PROJECT_ID;
+  const projectSections = useLiveQuery(
+    async () => {
+      if (!targetProjectId) return [];
+      return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
+    },
+    [targetProjectId]
+  ) || [];
 
   const worker = useLiveQuery(
     () => (log?.workerId ? db.workers.get(log.workerId) : null),
@@ -46,6 +57,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [notes, setNotes] = useState('');
+  const [sectionId, setSectionId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
@@ -58,6 +70,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
     setHours(h);
     setMinutes(m);
     setNotes(log.notes || '');
+    setSectionId(log.sectionId || '');
     setToastMessage('');
     setIsSaving(false);
   }, [isOpen, log]);
@@ -118,6 +131,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
         calculatedDailyWage,
         calculatedOvertimeWage,
         totalDayPay,
+        sectionId: sectionId || null,
         notes: notes ? notes.trim() : '',
         updatedAt: new Date().toISOString()
       };
@@ -256,6 +270,30 @@ export function EditRecordModal({ log, isOpen, onClose }) {
               </button>
             </div>
           </div>
+
+          {/* Project Sub-Section Selection */}
+          {projectSections.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-sky-500" />
+                <span>{t('projectSections') || 'بخش پروژه'}</span>
+              </label>
+              <select
+                value={sectionId}
+                onChange={(e) => setSectionId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
+              >
+                <option value="" className="bg-white dark:bg-slate-800">
+                  {language === 'fa' ? 'عمومی / کل پروژه' : 'General / Entire Project'}
+                </option>
+                {projectSections.map((sec) => (
+                  <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
+                    {sec.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Time inputs: Hours and Minutes Stepper */}
           <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/80 dark:border-slate-700/80">

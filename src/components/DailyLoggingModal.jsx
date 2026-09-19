@@ -30,7 +30,8 @@ import {
   CheckCircle2,
   Edit2,
   Users,
-  ShieldAlert
+  ShieldAlert,
+  Layers
 } from 'lucide-react';
 
 export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
@@ -48,6 +49,28 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const [editingLog, setEditingLog] = useState(null);
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Fetch project sections for current project
+  const projectSections = useLiveQuery(
+    async () => {
+      if (!targetProjectId) return [];
+      return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
+    },
+    [targetProjectId]
+  ) || [];
+
+  const [defaultSectionId, setDefaultSectionId] = useState('');
+
+  const handleDefaultSectionChange = (newSecId) => {
+    setDefaultSectionId(newSecId);
+    setWorkerConfigs((prev) => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach((id) => {
+        updated[id] = { ...updated[id], sectionId: newSecId || null };
+      });
+      return updated;
+    });
+  };
 
   // Fetch active workers for current project with fallback for legacy records
   const workers = useLiveQuery(
@@ -105,13 +128,14 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       initialConfigs[w.id] = {
         type: 'full',
         overtimeHours: 0,
-        notes: ''
+        notes: '',
+        sectionId: defaultSectionId || null
       };
     });
 
     setSelectedWorkers(initialSelected);
     setWorkerConfigs(initialConfigs);
-  }, [isOpen, selectedDate, unloggedWorkers.length]);
+  }, [isOpen, selectedDate, unloggedWorkers.length, defaultSectionId]);
 
   // Handle worker checkbox toggle
   const toggleWorkerSelection = (workerId) => {
@@ -261,6 +285,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             workerId,
             projectId: currentProject?.id || 'prj_default_main',
             userId: user?.id || null,
+            sectionId: cfg.sectionId || defaultSectionId || null,
             date: selectedDate,
             type: cfg.type,
             overtimeHours: otHours,
@@ -358,6 +383,29 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
               className="px-3 py-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
+
+          {projectSections.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
+              <Layers className="w-4 h-4 text-sky-500 flex-shrink-0" />
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                {t('section') || 'بخش'}:
+              </label>
+              <select
+                value={defaultSectionId}
+                onChange={(e) => handleDefaultSectionChange(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden cursor-pointer"
+              >
+                <option value="" className="bg-white dark:bg-slate-800">
+                  {language === 'fa' ? 'عمومی / کل پروژه' : 'General'}
+                </option>
+                {projectSections.map((sec) => (
+                  <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
+                    {sec.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {unloggedWorkers.length > 0 && (
             <div className="flex items-center gap-2 self-end sm:self-auto text-xs font-medium">
@@ -561,6 +609,30 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                           </div>
 
                         </div>
+
+                        {/* Optional Worker Project Section Allocation */}
+                        {projectSections.length > 0 && (
+                          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-xl px-3 py-1.5 border border-slate-200 dark:border-slate-700 shadow-xs">
+                            <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {t('section') || 'بخش'}:
+                            </span>
+                            <select
+                              value={cfg.sectionId ?? (defaultSectionId || '')}
+                              onChange={(e) => updateWorkerConfig(worker.id, 'sectionId', e.target.value || null)}
+                              className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer w-full"
+                            >
+                              <option value="" className="bg-white dark:bg-slate-800">
+                                {language === 'fa' ? 'عمومی / کل پروژه' : 'General'}
+                              </option>
+                              {projectSections.map((sec) => (
+                                <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
+                                  {sec.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
                         {/* Lower Row: Notes & Tasks Performed (100% Full Width) */}
                         <div className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-xl px-3 py-1.5 border border-slate-200 dark:border-slate-700 shadow-xs">

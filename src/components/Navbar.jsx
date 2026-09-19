@@ -1,16 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { ProjectSwitcher } from './ProjectSwitcher';
+import { SettingsDropdown } from './SettingsDropdown';
 import { 
   LayoutDashboard, 
   Users, 
-  CalendarDays,
-  Settings,
-  WalletCards
+  CalendarDays, 
+  Settings, 
+  WalletCards 
 } from 'lucide-react';
 
-export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
+export function Navbar({ 
+  activeTab, 
+  setActiveTab, 
+  theme, 
+  toggleTheme, 
+  onOpenBackupModal, 
+  onOpenChangePasswordModal, 
+  onOpenAboutModal 
+}) {
   const { t } = useLanguage();
+  const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
@@ -39,9 +49,6 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
               <div>
                 <h1 className="font-black text-sm sm:text-base md:text-lg leading-tight tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
                   KarSync
-                  <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                    SaaS
-                  </span>
                 </h1>
                 <p className="hidden xl:block text-[11px] text-slate-500 dark:text-slate-400 leading-none mt-0.5">
                   {t('appSubtitle')}
@@ -95,20 +102,37 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings }) {
             </div>
 
             {/* Right Controls: ProjectSwitcher + Settings Gear */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0 relative">
               {/* SaaS Multi-Project Switcher */}
               <ProjectSwitcher />
 
-              {/* Minimal Settings Button */}
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                title={t('settings')}
-                aria-label={t('settings')}
-                className="p-2 sm:p-2.5 rounded-2xl bg-slate-100/90 hover:bg-white dark:bg-slate-700/60 dark:hover:bg-slate-600/60 text-slate-600 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white border border-slate-200/90 dark:border-slate-600/60 transition-all shadow-xs flex items-center justify-center group hover:border-sky-500/50 hover:scale-105 active:scale-95"
-              >
-                <Settings className="w-5 h-5 text-slate-600 dark:text-slate-200 group-hover:text-sky-600 dark:group-hover:text-sky-400 group-hover:rotate-45 transition-all duration-300" />
-              </button>
+              {/* Minimal Settings Trigger Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
+                  title={t('settings')}
+                  aria-label={t('settings')}
+                  className={`p-2 sm:p-2.5 rounded-2xl border transition-all shadow-xs flex items-center justify-center group hover:scale-105 active:scale-95 ${
+                    isSettingsDropdownOpen
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent shadow-md'
+                      : 'bg-slate-100/90 hover:bg-white dark:bg-slate-700/60 dark:hover:bg-slate-600/60 text-slate-600 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white border-slate-200/90 dark:border-slate-600/60'
+                  }`}
+                >
+                  <Settings className={`w-5 h-5 transition-all duration-300 ${isSettingsDropdownOpen ? 'rotate-90' : 'group-hover:rotate-45'}`} />
+                </button>
+
+                {/* Sleek Minimal Settings Dropdown */}
+                <SettingsDropdown
+                  isOpen={isSettingsDropdownOpen}
+                  onClose={() => setIsSettingsDropdownOpen(false)}
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                  onOpenBackupModal={onOpenBackupModal}
+                  onOpenChangePasswordModal={onOpenChangePasswordModal}
+                  onOpenAboutModal={onOpenAboutModal}
+                />
+              </div>
             </div>
 
           </div>

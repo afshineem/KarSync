@@ -30,7 +30,8 @@ import {
   ArrowUpRight,
   WalletCards,
   FileSpreadsheet,
-  Edit2
+  Edit2,
+  Layers
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
@@ -74,6 +75,14 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       return projLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
     },
     [targetProjectId, selectedMonth]
+  ) || [];
+
+  const projectSections = useLiveQuery(
+    async () => {
+      if (!targetProjectId) return [];
+      return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
+    },
+    [targetProjectId]
   ) || [];
 
   // Deduplicate logs in memory by workerId + date
@@ -130,6 +139,43 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       totalPayroll: roundCurrency(totalPayroll, currency)
     };
   }, [logs, activeWorkers, currency]);
+
+  // Project section breakdown for current month
+  const sectionBreakdown = useMemo(() => {
+    if (projectSections.length === 0) return [];
+    const map = {};
+
+    projectSections.forEach((s) => {
+      map[s.id] = {
+        id: s.id,
+        name: s.name,
+        days: 0,
+        otHours: 0,
+        totalCost: 0,
+        entriesCount: 0
+      };
+    });
+
+    map['unassigned'] = {
+      id: 'unassigned',
+      name: language === 'fa' ? 'عمومی / بدون بخش' : 'General / Unassigned',
+      days: 0,
+      otHours: 0,
+      totalCost: 0,
+      entriesCount: 0
+    };
+
+    logs.forEach((l) => {
+      const secId = l.sectionId && map[l.sectionId] ? l.sectionId : 'unassigned';
+      const item = map[secId];
+      item.days += l.type === 'hourly' ? 0 : l.type === 'half' ? 0.5 : 1.0;
+      item.otHours += Number(l.overtimeHours) || 0;
+      item.totalCost += Number(l.totalDayPay) || 0;
+      item.entriesCount += 1;
+    });
+
+    return Object.values(map).filter((b) => b.entriesCount > 0);
+  }, [logs, projectSections, language]);
 
   // Aggregate per-worker breakdown for the selected month
   const workerSummaries = useMemo(() => {
@@ -451,6 +497,64 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           </button>
         </div>
       </div>
+
+      {/* Project Sections Cost Breakdown Card */}
+      {sectionBreakdown.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  {language === 'fa' ? 'توزیع هزینه‌ها بر اساس بخش‌های پروژه' : 'Project Sections Cost Breakdown'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {language === 'fa' ? `تحلیل تفکیکی هزینه‌های ماه ${selectedMonth}` : `Section cost breakdown for ${selectedMonth}`}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-xl">
+              {sectionBreakdown.length} {language === 'fa' ? 'بخش فعال' : 'Active Sections'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {sectionBreakdown.map((sec) => {
+              const percent = monthlyStats.totalPayroll > 0
+                ? Math.round((sec.totalCost / monthlyStats.totalPayroll) * 100)
+                : 0;
+              return (
+                <div 
+                  key={sec.id}
+                  className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-900 dark:text-white">{sec.name}</span>
+                    <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400">{percent}%</span>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-sky-500 rounded-full transition-all duration-300"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                    <span>{sec.days} {t('normalDays')} {sec.otHours > 0 ? `+ ${formatHoursAndMinutes(sec.otHours, language)}` : ''}</span>
+                    <span className="font-extrabold text-slate-800 dark:text-slate-200 font-mono">
+                      {formatCurrency(sec.totalCost, currency, language)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Worker Summary Table / Card List */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">

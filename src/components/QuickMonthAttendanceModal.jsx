@@ -26,7 +26,9 @@ import {
   Trash2, 
   Info,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  SlidersHorizontal,
+  Layers
 } from 'lucide-react';
 
 const MONTH_NAMES = {
@@ -63,6 +65,17 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
+  // Fetch project sections for current project
+  const projectSections = useLiveQuery(
+    async () => {
+      if (!targetProjectId) return [];
+      return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
+    },
+    [targetProjectId]
+  ) || [];
+
+  const [defaultSectionId, setDefaultSectionId] = useState('');
+
   // Fetch existing logs for this worker and month in active project with fallback
   const existingLogs = useLiveQuery(
     async () => {
@@ -81,7 +94,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       initialConfigs[l.date] = {
         type: l.type || 'full',
         overtimeHours: Number(l.overtimeHours) || 0,
-        notes: l.notes || ''
+        notes: l.notes || '',
+        sectionId: l.sectionId || ''
       };
     });
     setDayConfigs(initialConfigs);
@@ -135,55 +149,55 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     return days;
   }, [selectedMonth]);
 
-  // Click on a day tile:
-  // - If day is absent (not active): mark as Full Day and select day
-  // - If day is already active but not selected: select it so Day Inspector opens below without altering status
-  // - If day is already selected: cycle type (Full -> Half -> Hourly -> Absent)
+  // Direct 1-Click Day Tile Toggle:
+  // - If absent: directly mark as Full Day
+  // - If already Full Day: toggle to absent
+  // - If Half or Hourly: clicking toggles back to standard Full Day
   const handleDayTileClick = (dateStr) => {
     const current = dayConfigs[dateStr];
     if (!current) {
-      setSelectedDayDate(dateStr);
       setDayConfigs((prev) => ({
         ...prev,
-        [dateStr]: { type: 'full', overtimeHours: 0, notes: '' }
+        [dateStr]: { 
+          type: 'full', 
+          overtimeHours: 0, 
+          notes: '', 
+          sectionId: defaultSectionId || null 
+        }
       }));
       return;
     }
 
-    if (selectedDayDate !== dateStr) {
-      setSelectedDayDate(dateStr);
+    if (current.type === 'full') {
+      // Toggle off to absent
+      setDayConfigs((prev) => {
+        const updated = { ...prev };
+        delete updated[dateStr];
+        return updated;
+      });
+      if (selectedDayDate === dateStr) {
+        setSelectedDayDate(null);
+      }
       return;
     }
 
-    // Already selected: cycle states
-    setDayConfigs((prev) => {
-      const cur = prev[dateStr];
-      if (!cur) return prev;
-      if (cur.type === 'full') {
-        return {
-          ...prev,
-          [dateStr]: { ...cur, type: 'half' }
-        };
-      } else if (cur.type === 'half') {
-        return {
-          ...prev,
-          [dateStr]: { ...cur, type: 'hourly', overtimeHours: cur.overtimeHours > 0 ? cur.overtimeHours : 1 }
-        };
-      } else {
-        // Remove / Mark Absent
-        const updated = { ...prev };
-        delete updated[dateStr];
-        setSelectedDayDate(null);
-        return updated;
-      }
-    });
+    // If it was half or hourly, toggle to standard full day
+    setDayConfigs((prev) => ({
+      ...prev,
+      [dateStr]: { ...prev[dateStr], type: 'full' }
+    }));
   };
 
   // Adjust overtime hours for an active day
   const handleOvertimeChange = (dateStr, delta) => {
     setSelectedDayDate(dateStr);
     setDayConfigs((prev) => {
-      const current = prev[dateStr] || { type: 'full', overtimeHours: 0, notes: '' };
+      const current = prev[dateStr] || { 
+        type: 'full', 
+        overtimeHours: 0, 
+        notes: '', 
+        sectionId: defaultSectionId || null 
+      };
       const currentOt = Number(current.overtimeHours) || 0;
       const newOt = Number(Math.max(0, currentOt + delta).toFixed(4));
       return {
@@ -197,7 +211,12 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   const addMinutesToSelectedDay = (delta) => {
     if (!selectedDayDate) return;
     setDayConfigs((prev) => {
-      const cur = prev[selectedDayDate] || { type: 'full', overtimeHours: 0, notes: '' };
+      const cur = prev[selectedDayDate] || { 
+        type: 'full', 
+        overtimeHours: 0, 
+        notes: '', 
+        sectionId: defaultSectionId || null 
+      };
       const { hours, minutes } = fromDecimalHours(cur.overtimeHours);
       let totalM = hours * 60 + minutes + delta;
       if (totalM < 0) totalM = 0;
@@ -223,7 +242,12 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         const isFriday = new Date(dateStr).getDay() === 5;
         if (!isFriday) {
           if (!updated[dateStr]) {
-            updated[dateStr] = { type: 'full', overtimeHours: 0, notes: '' };
+            updated[dateStr] = { 
+              type: 'full', 
+              overtimeHours: 0, 
+              notes: '', 
+              sectionId: defaultSectionId || null 
+            };
           }
         }
       }
@@ -243,7 +267,12 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         const isFriday = new Date(dateStr).getDay() === 5;
         if (!isFriday) {
           if (!updated[dateStr]) {
-            updated[dateStr] = { type: 'full', overtimeHours: 0, notes: '' };
+            updated[dateStr] = { 
+              type: 'full', 
+              overtimeHours: 0, 
+              notes: '', 
+              sectionId: defaultSectionId || null 
+            };
           }
         }
       }
@@ -354,6 +383,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
             calculatedDailyWage,
             calculatedOvertimeWage,
             totalDayPay,
+            sectionId: cfg.sectionId || null,
             notes: cfg.notes || '',
             createdAt: new Date(dateStr).toISOString(),
             updatedAt: new Date().toISOString()
@@ -483,6 +513,26 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
           {/* Quick Preset Buttons */}
           <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium self-end sm:self-auto">
+            {projectSections.length > 0 && (
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                <select
+                  value={defaultSectionId}
+                  onChange={(e) => setDefaultSectionId(e.target.value)}
+                  className="bg-transparent text-slate-700 dark:text-slate-300 text-xs font-semibold focus:outline-hidden cursor-pointer"
+                  title={language === 'fa' ? 'بخش پیش‌فرض این ماه' : 'Default section for this month'}
+                >
+                  <option value="" className="bg-white dark:bg-slate-800">
+                    {language === 'fa' ? 'بخش عمومی' : 'General'}
+                  </option>
+                  {projectSections.map((sec) => (
+                    <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
+                      {sec.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleSelectFirst15Days}
@@ -580,21 +630,50 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         {day.dayNumber}
                       </span>
 
-                      {isFull && (
-                        <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">
-                          ✓
-                        </span>
-                      )}
-                      {isHalf && (
-                        <span className="px-1 py-0.2 rounded bg-amber-500 text-white text-[9px] font-bold">
-                          ½
-                        </span>
-                      )}
-                      {isHourly && (
-                        <span className="px-1 py-0.2 rounded bg-purple-600 text-white text-[8px] font-bold">
-                          ⏱
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {isFull && (
+                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">
+                            ✓
+                          </span>
+                        )}
+                        {isHalf && (
+                          <span className="px-1 py-0.2 rounded bg-amber-500 text-white text-[9px] font-bold">
+                            ½
+                          </span>
+                        )}
+                        {isHourly && (
+                          <span className="px-1 py-0.2 rounded bg-purple-600 text-white text-[8px] font-bold">
+                            ⏱
+                          </span>
+                        )}
+                        {/* Subtle adjustment icon button to open Day Inspector without altering status */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!dayConfigs[day.dateStr]) {
+                              setDayConfigs(prev => ({
+                                ...prev,
+                                [day.dateStr]: { 
+                                  type: 'full', 
+                                  overtimeHours: 0, 
+                                  notes: '', 
+                                  sectionId: defaultSectionId || null 
+                                }
+                              }));
+                            }
+                            setSelectedDayDate(selectedDayDate === day.dateStr ? null : day.dateStr);
+                          }}
+                          className={`p-0.5 rounded-md transition-colors ${
+                            isSelected 
+                              ? 'bg-sky-500 text-white shadow-xs' 
+                              : 'text-slate-400 hover:text-sky-600 hover:bg-slate-200/60 dark:hover:bg-slate-700'
+                          }`}
+                          title={language === 'fa' ? 'تنظیمات و ساعت این روز' : 'Day inspector'}
+                        >
+                          <SlidersHorizontal className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="text-[10px] font-semibold mt-1">
@@ -673,10 +752,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
         {/* Inline Day Inspector for Granular Hours and Minutes */}
         {selectedDayDate && (
-          <div className="mb-3 p-3 bg-sky-50/80 dark:bg-sky-950/40 rounded-2xl border border-sky-200 dark:border-sky-800 shadow-sm animate-in fade-in duration-150">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-              
-              {/* Day info */}
+          <div className="mb-3 p-3 bg-sky-50/80 dark:bg-sky-950/40 rounded-2xl border border-sky-200 dark:border-sky-800 shadow-sm animate-in fade-in duration-150 w-full max-w-full overflow-hidden space-y-2.5">
+            {/* Header: Day Info + Explicit Close Button */}
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-7 h-7 rounded-lg bg-sky-600 text-white font-extrabold text-xs flex items-center justify-center">
                   {selectedDayDate.split('-')[2]}
@@ -697,18 +775,31 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 </div>
               </div>
 
-              {/* Day Type Selector */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDayDate(null)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+                  title={t('close') || 'بستن'}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Row 2: Status Tabs + Section Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-sky-100 dark:border-sky-900/40">
               <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium">
                 <button
                   type="button"
                   onClick={() => {
-                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '' };
+                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '', sectionId: defaultSectionId || null };
                     setDayConfigs(prev => ({ ...prev, [selectedDayDate]: { ...cur, type: 'full' } }));
                   }}
                   className={`px-2.5 py-1 rounded-lg transition-colors ${
                     dayConfigs[selectedDayDate]?.type === 'full'
                       ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {t('fullDayOption')}
@@ -716,13 +807,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 <button
                   type="button"
                   onClick={() => {
-                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '' };
+                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '', sectionId: defaultSectionId || null };
                     setDayConfigs(prev => ({ ...prev, [selectedDayDate]: { ...cur, type: 'half' } }));
                   }}
                   className={`px-2.5 py-1 rounded-lg transition-colors ${
                     dayConfigs[selectedDayDate]?.type === 'half'
                       ? 'bg-amber-600 text-white font-bold shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {t('halfDayOption')}
@@ -730,7 +821,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 <button
                   type="button"
                   onClick={() => {
-                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '' };
+                    const cur = dayConfigs[selectedDayDate] || { overtimeHours: 0, notes: '', sectionId: defaultSectionId || null };
                     setDayConfigs(prev => ({ 
                       ...prev, 
                       [selectedDayDate]: { 
@@ -743,7 +834,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                   className={`px-2.5 py-1 rounded-lg transition-colors ${
                     dayConfigs[selectedDayDate]?.type === 'hourly'
                       ? 'bg-purple-600 text-white font-bold shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {t('hourlyOnlyOption')}
@@ -759,19 +850,54 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     setSelectedDayDate(null);
                   }}
                   className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
-                  title="حذف / غایب"
+                  title={language === 'fa' ? 'حذف / غایب' : 'Remove / Absent'}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Exact Hours & Minutes Stepper and Quick Presets */}
-              {dayConfigs[selectedDayDate] && (() => {
-                const cur = dayConfigs[selectedDayDate];
-                const { hours, minutes } = fromDecimalHours(cur.overtimeHours);
-                const isHourly = cur.type === 'hourly';
-                return (
-                  <div className="flex flex-col gap-1.5 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              {/* Project Section Selector (if project has sections) */}
+              {projectSections.length > 0 && (
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                  <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                    {t('section') || 'بخش'}:
+                  </span>
+                  <select
+                    value={dayConfigs[selectedDayDate]?.sectionId || ''}
+                    onChange={(e) => {
+                      const secId = e.target.value;
+                      setDayConfigs(prev => ({
+                        ...prev,
+                        [selectedDayDate]: {
+                          ...(prev[selectedDayDate] || { type: 'full', overtimeHours: 0, notes: '' }),
+                          sectionId: secId || null
+                        }
+                      }));
+                    }}
+                    className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-semibold focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="" className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      {language === 'fa' ? 'عمومی / کل پروژه' : 'General / Entire Project'}
+                    </option>
+                    {projectSections.map((sec) => (
+                      <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        {sec.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Row 3: Stepper for Hours & Minutes + Presets */}
+            {dayConfigs[selectedDayDate] && (() => {
+              const cur = dayConfigs[selectedDayDate];
+              const { hours, minutes } = fromDecimalHours(cur.overtimeHours);
+              const isHourly = cur.type === 'hourly';
+              return (
+                <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Clock className={`w-3.5 h-3.5 flex-shrink-0 ${isHourly ? 'text-purple-500' : 'text-amber-500'}`} />
                       <span className="text-[11px] text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
@@ -780,7 +906,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                       
                       {/* Inputs in LTR for clean numbers */}
                       <div className="flex items-center gap-1 direction-ltr">
-                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-1 py-0.5 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-1.5 py-0.5 border border-slate-200 dark:border-slate-700">
                           <input
                             type="number"
                             min="0"
@@ -794,13 +920,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                 [selectedDayDate]: { ...prev[selectedDayDate], overtimeHours: dec }
                               }));
                             }}
-                            className="w-9 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
+                            className="w-8 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
                             title={t('hoursLabel')}
                           />
-                          <span className="text-[10px] text-slate-400 ms-0.5 pe-1">{t('hourShort')}</span>
+                          <span className="text-[10px] text-slate-400 ms-0.5">{t('hourShort')}</span>
                         </div>
                         <span className="text-slate-400 font-bold">:</span>
-                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-1 py-0.5 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-1.5 py-0.5 border border-slate-200 dark:border-slate-700">
                           <input
                             type="number"
                             min="0"
@@ -814,14 +940,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                 [selectedDayDate]: { ...prev[selectedDayDate], overtimeHours: dec }
                               }));
                             }}
-                            className="w-9 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
+                            className="w-8 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
                             title={t('minutesLabel')}
                           />
-                          <span className="text-[10px] text-slate-400 ms-0.5 pe-1">{t('minuteShort')}</span>
+                          <span className="text-[10px] text-slate-400 ms-0.5">{t('minuteShort')}</span>
                         </div>
                       </div>
 
-                      {/* Readable confirmation label */}
                       {cur.overtimeHours > 0 && (
                         <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 whitespace-nowrap">
                           ({formatHoursAndMinutes(cur.overtimeHours, language)})
@@ -829,8 +954,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                       )}
                     </div>
 
-                    {/* Quick Add minute preset buttons */}
-                    <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-slate-100 dark:border-slate-800">
+                    {/* Quick Presets */}
+                    <div className="flex items-center gap-1 flex-wrap">
                       <span className="text-[10px] text-slate-400 font-medium">
                         {language === 'en' ? 'Quick:' : language === 'fa' ? 'سریع:' : 'خێرا:'}
                       </span>
@@ -879,17 +1004,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                       )}
                     </div>
                   </div>
-                );
-              })()}
+                </div>
+              );
+            })()}
 
-            </div>
-
-            {/* Optional Notes Input for the Selected Day */}
+            {/* Row 4: Notes and Done Button */}
             {dayConfigs[selectedDayDate] && (
-              <div className="mt-2 pt-2 border-t border-sky-100 dark:border-sky-900/60 flex items-center gap-2">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                  {t('notes')}:
-                </span>
+              <div className="flex items-center gap-2 pt-1">
                 <input
                   type="text"
                   value={dayConfigs[selectedDayDate]?.notes || ''}
@@ -901,8 +1022,16 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     }));
                   }}
                   placeholder={t('notesOptional')}
-                  className="w-full text-xs px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
+                  className="flex-1 text-xs px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setSelectedDayDate(null)}
+                  className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 flex-shrink-0"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{language === 'fa' ? 'ثبت روز' : 'Done'}</span>
+                </button>
               </div>
             )}
           </div>
