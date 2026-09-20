@@ -361,6 +361,7 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         const resolvedProjectId = w.project_id || localW?.projectId || projectMap[w.id] || DEFAULT_PROJECT_ID;
 
         await db.workers.put({
+          ...(localW || {}),
           id: w.id,
           name: w.name,
           phone: w.phone || '',
@@ -368,6 +369,7 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           dailyRate: Number(w.daily_rate) || 0,
           overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
           isActive: Number(w.is_active) === 0 ? 0 : 1,
+          defaultSectionId: w.default_section_id || w.defaultSectionId || localW?.defaultSectionId || null,
           projectId: resolvedProjectId,
           userId: w.user_id || w.userId || 'default_user',
           createdAt: w.created_at,
@@ -603,6 +605,7 @@ function subscribeToRealtime() {
             dailyRate: Number(w.daily_rate) || 0,
             overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
             isActive: Number(w.is_active) === 0 ? 0 : 1,
+            defaultSectionId: w.default_section_id || w.defaultSectionId || localW?.defaultSectionId || null,
             projectId: resolvedProjectId,
             userId: w.user_id || w.userId || 'default_user',
             createdAt: w.created_at,
@@ -710,7 +713,10 @@ function subscribeToRealtime() {
         if (idToDelete) await db.projects.delete(idToDelete);
       } else if (payload.new) {
         const p = payload.new;
+        const localP = await db.projects.get(p.id);
         await db.projects.put({
+          ...(localP || {}),
+          ...p,
           id: p.id,
           userId: p.user_id,
           name: p.name,
@@ -731,14 +737,17 @@ function subscribeToRealtime() {
         if (idToDelete) await db.projectSections.delete(idToDelete);
       } else if (payload.new) {
         const s = payload.new;
+        const localS = await db.projectSections.get(s.id);
         await db.projectSections.put({
+          ...(localS || {}),
+          ...s,
           id: s.id,
           projectId: s.project_id || s.projectId,
           userId: s.user_id || s.userId,
           name: s.name,
           status: s.status || 'active',
-          createdAt: s.created_at,
-          updatedAt: s.updated_at
+          createdAt: s.created_at || s.createdAt,
+          updatedAt: s.updated_at || s.updatedAt
         });
       }
     })
@@ -807,6 +816,8 @@ export async function pullProjectsLive(force = false) {
           }
 
           await db.projects.put({
+            ...(localP || {}),
+            ...p,
             id: p.id,
             userId: p.user_id || p.userId || 'default_user',
             name: p.name,
@@ -985,6 +996,8 @@ export async function pullProjectSectionsLive(force = false) {
           }
 
           await db.projectSections.put({
+            ...(localS || {}),
+            ...s,
             id: s.id,
             projectId: s.project_id || s.projectId,
             userId: s.user_id || s.userId || 'default_user',
@@ -1438,7 +1451,7 @@ export async function pushWorkersLive(workers) {
     daily_rate: Number(w.dailyRate) || 0,
     overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
     is_active: Number(w.isActive) === 0 ? 0 : 1,
-    deleted_at: null,
+    deleted_at: w.deletedAt || null,
     updated_at: new Date().toISOString()
   }));
 
@@ -1594,7 +1607,9 @@ export async function pullPaymentsLive(force = false) {
 
         await db.transaction('rw', db.payments, async () => {
           for (const p of validCloudPayments) {
+            const localP = await db.payments.get(p.id);
             await db.payments.put({
+              ...(localP || {}),
               ...p,
               projectId: p.projectId || p.project_id || DEFAULT_PROJECT_ID,
               userId: p.userId || p.user_id || 'default_user',

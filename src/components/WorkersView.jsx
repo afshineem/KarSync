@@ -28,7 +28,10 @@ import {
   Key, 
   Receipt,
   LayoutGrid,
-  List
+  List,
+  Layers,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 
 export function WorkersView() {
@@ -40,12 +43,14 @@ export function WorkersView() {
   const workerCreds = getWorkerCredentialsMap();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState('all'); // 'all' | 'active' | 'inactive'
+  const [filterSection, setFilterSection] = useState('all'); // 'all' | 'unassigned' | secId
+  const [statusTab, setStatusTab] = useState('active'); // 'active' | 'archived' | 'trash'
   
-  const [viewMode, setViewMode] = useState(() => {
+  const [layoutMode, setLayoutMode] = useState(() => {
     return localStorage.getItem('workshop_workers_view_mode') || 'grid';
   });
-  const handleSetViewMode = (mode) => {
-    setViewMode(mode);
+  const handleSetLayoutMode = (mode) => {
+    setLayoutMode(mode);
     localStorage.setItem('workshop_workers_view_mode', mode);
   };
   
@@ -64,11 +69,29 @@ export function WorkersView() {
     role: '',
     dailyRate: '',
     overtimeHourlyRate: '',
+    defaultSectionId: '',
     isActive: 1
   });
   const [formError, setFormError] = useState('');
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Live query project sections for current project
+  const projectSections = useLiveQuery(
+    async () => {
+      if (!targetProjectId) return [];
+      return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
+    },
+    [targetProjectId]
+  ) || [];
+
+  const sectionMap = useMemo(() => {
+    const map = {};
+    projectSections.forEach((s) => {
+      map[s.id] = s;
+    });
+    return map;
+  }, [projectSections]);
 
   // Live query from Dexie scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
@@ -117,10 +140,36 @@ export function WorkersView() {
     return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
   }, [rawWorkerHistoryLogs]);
 
-  // Filtered workers list
+  // Active, Archived, and Trash lists for accurate counts
+  const activeWorkersList = useMemo(() => {
+    return (workers || []).filter(w => !w.deletedAt && !w.isArchived && w.status !== 'archived');
+  }, [workers]);
+
+  const archivedWorkersList = useMemo(() => {
+    return (workers || []).filter(w => !w.deletedAt && (w.isArchived || w.status === 'archived'));
+  }, [workers]);
+
+  const trashWorkersList = useMemo(() => {
+    return (workers || []).filter(w => !!w.deletedAt);
+  }, [workers]);
+
+  // Filtered workers list based on statusTab, search, section, and active/inactive subfilter
   const filteredWorkers = useMemo(() => {
     return (workers || []).filter((w) => {
       if (!w) return false;
+
+      // 1. Status Tab filter
+      if (statusTab === 'active') {
+        if (w.deletedAt || w.isArchived || w.status === 'archived') return false;
+        if (filterActive === 'active' && w.isActive !== 1) return false;
+        if (filterActive === 'inactive' && w.isActive !== 0) return false;
+      } else if (statusTab === 'archived') {
+        if (w.deletedAt || (!w.isArchived && w.status !== 'archived')) return false;
+      } else if (statusTab === 'trash') {
+        if (!w.deletedAt) return false;
+      }
+
+      // 2. Search
       const wName = (w.name || '').toLowerCase();
       const s = (searchTerm || '').toLowerCase();
       const matchSearch = 
@@ -130,11 +179,18 @@ export function WorkersView() {
       
       if (!matchSearch) return false;
 
-      if (filterActive === 'active') return w.isActive === 1;
-      if (filterActive === 'inactive') return w.isActive === 0;
+      // 3. Section filter (applied in active & archived views)
+      if (statusTab !== 'trash' && filterSection !== 'all') {
+        if (filterSection === 'unassigned') {
+          if (w.defaultSectionId) return false;
+        } else {
+          if (w.defaultSectionId !== filterSection) return false;
+        }
+      }
+
       return true;
     });
-  }, [workers, searchTerm, filterActive]);
+  }, [workers, statusTab, searchTerm, filterActive, filterSection]);
 
   // Open modal to add worker
   const handleOpenAddModal = () => {
@@ -145,6 +201,7 @@ export function WorkersView() {
       role: '',
       dailyRate: '35000',
       overtimeHourlyRate: '5000',
+      defaultSectionId: '',
       isActive: 1,
       username: '',
       password: ''
@@ -163,6 +220,7 @@ export function WorkersView() {
       role: worker.role || '',
       dailyRate: String(worker.dailyRate),
       overtimeHourlyRate: String(worker.overtimeHourlyRate),
+      defaultSectionId: worker.defaultSectionId || '',
       isActive: worker.isActive,
       username: creds.username || worker.username || '',
       password: creds.password || worker.password || ''
@@ -203,6 +261,7 @@ export function WorkersView() {
           role: formData.role.trim(),
           dailyRate: dailyRate,
           overtimeHourlyRate: overtimeRate,
+          defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
           isActive: Number(formData.isActive),
           username: (formData.username || '').trim(),
           password: (formData.password || '').trim(),
@@ -222,6 +281,7 @@ export function WorkersView() {
           role: formData.role.trim(),
           dailyRate: dailyRate,
           overtimeHourlyRate: overtimeRate,
+          defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
           isActive: 1,
           username: (formData.username || '').trim(),
           password: (formData.password || '').trim(),
@@ -258,19 +318,91 @@ export function WorkersView() {
     pushWorkerLive(updated).catch(console.error);
   };
 
-  // Delete worker permanently
-  const handleDeleteWorker = async (worker) => {
-    if (window.confirm(t('confirmDelete'))) {
+  // Archive worker
+  const handleArchiveWorker = async (worker) => {
+    const updated = {
+      ...worker,
+      isArchived: true,
+      status: 'archived',
+      updatedAt: new Date().toISOString()
+    };
+    await db.workers.update(worker.id, {
+      isArchived: true,
+      status: 'archived',
+      updatedAt: updated.updatedAt
+    });
+    pushWorkerLive(updated).catch(console.error);
+  };
+
+  // Unarchive worker
+  const handleUnarchiveWorker = async (worker) => {
+    const updated = {
+      ...worker,
+      isArchived: false,
+      status: 'active',
+      updatedAt: new Date().toISOString()
+    };
+    await db.workers.update(worker.id, {
+      isArchived: false,
+      status: 'active',
+      updatedAt: updated.updatedAt
+    });
+    pushWorkerLive(updated).catch(console.error);
+  };
+
+  // Move worker to Trash (Soft Delete)
+  const handleMoveToTrash = async (worker) => {
+    const updated = {
+      ...worker,
+      deletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await db.workers.update(worker.id, {
+      deletedAt: updated.deletedAt,
+      updatedAt: updated.updatedAt
+    });
+    pushWorkerLive(updated).catch(console.error);
+  };
+
+  // Restore worker from Trash
+  const handleRestoreWorker = async (worker) => {
+    const updated = {
+      ...worker,
+      deletedAt: null,
+      updatedAt: new Date().toISOString()
+    };
+    await db.workers.update(worker.id, {
+      deletedAt: null,
+      updatedAt: updated.updatedAt
+    });
+    pushWorkerLive(updated).catch(console.error);
+  };
+
+  // Permanent Delete
+  const handlePermanentDeleteWorker = async (worker) => {
+    if (window.confirm(t('confirmPermanentDelete') || 'آیا از حذف دائمی این پرسنل اطمینان دارید؟ تمامی سوابق حضور و غیاب وی پاک خواهند شد.')) {
       await db.workers.delete(worker.id);
       await db.attendanceLogs.where('workerId').equals(worker.id).delete();
       deleteWorkerLive(worker.id).catch(console.error);
     }
   };
 
+  // Empty Trash for workers
+  const handleEmptyWorkersTrash = async () => {
+    if (trashWorkersList.length === 0) return;
+    if (window.confirm(t('confirmEmptyTrash') || 'آیا از خالی کردن سطل آشغال و حذف قطعی تمام موارد اطمینان دارید؟')) {
+      for (const w of trashWorkersList) {
+        await db.workers.delete(w.id);
+        await db.attendanceLogs.where('workerId').equals(w.id).delete();
+        deleteWorkerLive(w.id).catch(console.error);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20">
       
-      {/* Top Bar: Title, Search, and Add Worker Button */}
+      {/* Top Bar: Title, Status Tabs, and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -278,19 +410,72 @@ export function WorkersView() {
             <span>{t('workers')}</span>
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {t('workerList')} ({workers.length})
+            {statusTab === 'active' && `${t('activeWorkersTab') || 'پرسنل فعال'}: ${activeWorkersList.length}`}
+            {statusTab === 'archived' && `${t('archived') || 'بایگانی‌شده'}: ${archivedWorkersList.length}`}
+            {statusTab === 'trash' && `${t('trash') || 'سطل آشغال'}: ${trashWorkersList.length}`}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenAddModal}
-          aria-label={t('addNewWorker')}
-          title={t('addNewWorker')}
-          className="p-2.5 sm:p-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-sky-500/30 cursor-pointer group"
-        >
-          <UserPlus className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Main Status Tabs: Active | Archived | Trash */}
+          {/* Main Status Tabs: Active | Archived | Trash (Navbar Style) */}
+          <div className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/60 p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+            {(() => {
+              const TABS = [
+                { id: 'active', icon: Users, label: t('activeWorkersTab') || 'پرسنل فعال' },
+                { id: 'archived', icon: Archive, label: t('archived') || 'بایگانی' },
+                { id: 'trash', icon: Trash2, label: t('trash') || 'سطل آشغال' }
+              ];
+              
+              return TABS.map((tab) => {
+                const isActive = statusTab === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setStatusTab(tab.id)}
+                    className={`relative p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 transition-transform hover:scale-110" />
+                    {isActive && (
+                      <span className="text-xs font-semibold px-1 whitespace-nowrap animate-fade-in">
+                        {tab.label}
+                      </span>
+                    )}
+                  </button>
+                );
+              });
+            })()}
+          </div>
+
+          {/* Action Button: Add Worker (always visible) */}
+          <button
+            type="button"
+            onClick={handleOpenAddModal}
+            aria-label={t('addNewWorker')}
+            title={t('addNewWorker')}
+            className="p-2.5 sm:p-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-sky-500/30 cursor-pointer group"
+          >
+            <UserPlus className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
+          </button>
+
+          {statusTab === 'trash' && trashWorkersList.length > 0 && (
+            <button
+              type="button"
+              onClick={handleEmptyWorkersTrash}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-300 rounded-2xl text-xs font-bold border border-rose-200 dark:border-rose-800 shadow-xs transition-colors"
+              title={t('emptyTrash')}
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{t('emptyTrash') || 'خالی کردن سطل آشغال'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search & Status Filters */}
@@ -308,70 +493,90 @@ export function WorkersView() {
           />
         </div>
 
-        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end flex-wrap">
-          {/* Status Filter Segmented Control (Google M3 Icon-First with Active Title Expansion) */}
-          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-            {[
-              { id: 'all', label: t('allWorkers') || 'همه', count: workers.length, icon: Users },
-              { id: 'active', label: t('active') || 'فعال', count: workers.filter(w => w.isActive === 1).length, icon: UserCheck },
-              { id: 'inactive', label: t('inactive') || 'غیرفعال', count: workers.filter(w => w.isActive === 0).length, icon: UserX },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isSelected = filterActive === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setFilterActive(tab.id)}
-                  aria-label={`${tab.label} (${tab.count})`}
-                  title={`${tab.label} (${tab.count})`}
-                  className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
-                    isSelected
-                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold py-2.5 px-3.5 sm:py-3 sm:px-4'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2.5 sm:p-3'
-                  }`}
-                >
-                  <Icon className="w-5.5 h-5.5 flex-shrink-0" />
-                  {isSelected && (
-                    <span className="text-xs font-semibold whitespace-nowrap animate-fade-in flex items-center gap-1.5">
-                      <span>{tab.label}</span>
-                      <span className="text-[10px] bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded-full font-mono">
-                        {tab.count}
-                      </span>
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+        {/* Section Filter Dropdown (in active & archived) */}
+        {statusTab !== 'trash' && projectSections.length > 0 && (
+          <div className="relative w-full sm:w-56">
+            <Layers className="w-4 h-4 text-sky-500 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={filterSection}
+              onChange={(e) => setFilterSection(e.target.value)}
+              className="w-full ps-9 pe-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm text-slate-800 dark:text-slate-200 cursor-pointer"
+            >
+              <option value="all">{t('allSections') || 'همه بخش‌ها'}</option>
+              {projectSections.map((sec) => (
+                <option key={sec.id} value={sec.id}>{sec.name}</option>
+              ))}
+              <option value="unassigned">{t('noSection') || 'بدون بخش (عمومی)'}</option>
+            </select>
           </div>
+        )}
 
-          {/* Grid vs List View Switcher (Matching Google M3 Language) */}
+        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end flex-wrap">
+          {/* Active/Inactive Subfilter (Only in Active Tab) */}
+          {statusTab === 'active' && (
+            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+              {[
+                { id: 'all', label: t('allWorkers') || 'همه', count: activeWorkersList.length, icon: Users },
+                { id: 'active', label: t('active') || 'فعال', count: activeWorkersList.filter(w => w.isActive === 1).length, icon: UserCheck },
+                { id: 'inactive', label: t('inactive') || 'غیرفعال', count: activeWorkersList.filter(w => w.isActive === 0).length, icon: UserX },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isSelected = filterActive === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilterActive(tab.id)}
+                    aria-label={`${tab.label} (${tab.count})`}
+                    title={`${tab.label} (${tab.count})`}
+                    className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
+                      isSelected
+                        ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold py-2 px-3'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    {isSelected && (
+                      <span className="text-xs font-semibold whitespace-nowrap animate-fade-in flex items-center gap-1.5">
+                        <span>{tab.label}</span>
+                        <span className="text-[10px] bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded-full font-mono">
+                          {tab.count}
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Grid vs List View Switcher */}
           <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
             <button
               type="button"
-              onClick={() => handleSetViewMode('grid')}
-              className={`p-2.5 sm:p-3 rounded-xl transition-all duration-200 ${
-                viewMode === 'grid'
+              onClick={() => handleSetLayoutMode('grid')}
+              className={`p-2.5 rounded-xl transition-all duration-200 ${
+                layoutMode === 'grid'
                   ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
                   : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
               }`}
               title={t('gridView') || 'کارت‌ها'}
               aria-label={t('gridView') || 'کارت‌ها'}
             >
-              <LayoutGrid className="w-5.5 h-5.5" />
+              <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               type="button"
-              onClick={() => handleSetViewMode('list')}
-              className={`p-2.5 sm:p-3 rounded-xl transition-all duration-200 ${
-                viewMode === 'list'
+              onClick={() => handleSetLayoutMode('list')}
+              className={`p-2.5 rounded-xl transition-all duration-200 ${
+                layoutMode === 'list'
                   ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
                   : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
               }`}
               title={t('listView') || 'فهرست'}
               aria-label={t('listView') || 'فهرست'}
             >
-              <List className="w-5.5 h-5.5" />
+              <List className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -379,7 +584,7 @@ export function WorkersView() {
       </div>
 
       {/* Workers View: Grid Mode vs List Mode */}
-      {viewMode === 'grid' ? (
+      {layoutMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredWorkers.map((worker) => (
             <div
@@ -406,6 +611,15 @@ export function WorkersView() {
                         <Briefcase className="w-3.5 h-3.5 text-slate-400" />
                         <span>{worker.role || t('workerRole')}</span>
                       </div>
+                      {worker.defaultSectionId && sectionMap[worker.defaultSectionId] && (
+                        <span 
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/60"
+                          title={t('defaultSection')}
+                        >
+                          <Layers className="w-3 h-3 text-sky-500 flex-shrink-0" />
+                          <span className="truncate max-w-[120px]">{sectionMap[worker.defaultSectionId]?.name}</span>
+                        </span>
+                      )}
                       {(workerCreds[worker.id]?.username || worker.username) && (
                         <span 
                           className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-800/60"
@@ -420,32 +634,48 @@ export function WorkersView() {
 
                   {/* Clean Icon-Only Action Buttons */}
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setQuickAttendanceWorker(worker)}
-                      title={t('quickMonthlyAttendance')}
-                      aria-label={t('quickMonthlyAttendance')}
-                      className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/60 border border-sky-200/60 dark:border-sky-800/60 transition-colors"
-                    >
-                      <Calendar className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleActive(worker)}
-                      className={`p-2 rounded-xl border transition-colors ${
-                        worker.isActive === 1
-                          ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700'
-                      }`}
-                      title={worker.isActive === 1 ? t('deactivate') : t('activate')}
-                      aria-label={worker.isActive === 1 ? t('deactivate') : t('activate')}
-                    >
-                      {worker.isActive === 1 ? (
-                        <CheckCircle2 className="w-4 h-4" />
-                      ) : (
-                        <XCircle className="w-4 h-4" />
-                      )}
-                    </button>
+                    {statusTab === 'active' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setQuickAttendanceWorker(worker)}
+                          title={t('quickMonthlyAttendance')}
+                          aria-label={t('quickMonthlyAttendance')}
+                          className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/60 border border-sky-200/60 dark:border-sky-800/60 transition-colors"
+                        >
+                          <Calendar className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(worker)}
+                          className={`p-2 rounded-xl border transition-colors ${
+                            worker.isActive === 1
+                              ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700'
+                          }`}
+                          title={worker.isActive === 1 ? t('deactivate') : t('activate')}
+                          aria-label={worker.isActive === 1 ? t('deactivate') : t('activate')}
+                        >
+                          {worker.isActive === 1 ? (
+                            <CheckCircle2 className="w-4 h-4" />
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                        </button>
+                      </>
+                    )}
+                    {statusTab === 'archived' && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
+                        <Archive className="w-3 h-3" />
+                        <span>{t('archived')}</span>
+                      </span>
+                    )}
+                    {statusTab === 'trash' && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300">
+                        <Trash2 className="w-3 h-3" />
+                        <span>{t('trash')}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -482,33 +712,106 @@ export function WorkersView() {
 
               {/* Footer Action Buttons */}
               <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                <button
-                  type="button"
-                  onClick={() => setHistoryWorker(worker)}
-                  className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-medium py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  <History className="w-3.5 h-3.5" />
-                  <span>{t('history')}</span>
-                </button>
+                {statusTab === 'active' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryWorker(worker)}
+                      className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-medium py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      <span>{t('history')}</span>
+                    </button>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditModal(worker)}
-                    className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    title={t('edit')}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteWorker(worker)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                    title={t('delete')}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(worker)}
+                        className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title={t('edit')}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleArchiveWorker(worker)}
+                        className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                        title={t('archive') || 'بایگانی پرسنل'}
+                      >
+                        <Archive className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveToTrash(worker)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        title={t('moveToTrash') || 'انتقال به سطل آشغال'}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {statusTab === 'archived' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryWorker(worker)}
+                      className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-medium py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      <span>{t('history')}</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleUnarchiveWorker(worker)}
+                        className="flex items-center gap-1 px-2.5 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-lg font-bold text-[11px] transition-colors"
+                        title={t('unarchive') || 'خروج از بایگانی'}
+                      >
+                        <Archive className="w-3.5 h-3.5" />
+                        <span>{t('unarchive') || 'خروج از بایگانی'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveToTrash(worker)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        title={t('moveToTrash') || 'انتقال به سطل آشغال'}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {statusTab === 'trash' && (
+                  <>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      {worker.deletedAt ? String(worker.deletedAt).substring(0, 10) : ''}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleRestoreWorker(worker)}
+                        className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-lg font-bold text-[11px] transition-colors"
+                        title={t('restore') || 'بازیابی'}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>{t('restore') || 'بازیابی'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePermanentDeleteWorker(worker)}
+                        className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg transition-colors"
+                        title={t('permanentDelete') || 'حذف دائمی'}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -523,6 +826,7 @@ export function WorkersView() {
                   <th className="py-3 px-3 text-center w-12">{t('status')}</th>
                   <th className="py-3 px-3.5">{t('fullName')}</th>
                   <th className="py-3 px-3.5">{t('workerRole')}</th>
+                  <th className="py-3 px-3.5">{t('section') || 'بخش'}</th>
                   <th className="py-3 px-3.5">{t('phoneNumber')}</th>
                   <th className="py-3 px-3.5">{t('dailyRateLabel')}</th>
                   <th className="py-3 px-3.5">{t('overtimeRateLabel')}</th>
@@ -535,21 +839,45 @@ export function WorkersView() {
                     <td className="py-2.5 px-3 text-center">
                       <span 
                         className={`inline-block w-2.5 h-2.5 rounded-full ${
-                          worker.isActive === 1 ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-slate-300 dark:bg-slate-600'
+                          worker.deletedAt
+                            ? 'bg-rose-500 ring-4 ring-rose-500/20'
+                            : worker.isArchived || worker.status === 'archived'
+                            ? 'bg-amber-500 ring-4 ring-amber-500/20'
+                            : worker.isActive === 1
+                            ? 'bg-emerald-500 ring-4 ring-emerald-500/20'
+                            : 'bg-slate-300 dark:bg-slate-600'
                         }`}
-                        title={worker.isActive === 1 ? t('active') : t('inactive')}
+                        title={
+                          worker.deletedAt
+                            ? t('trash')
+                            : worker.isArchived
+                            ? t('archived')
+                            : worker.isActive === 1
+                            ? t('active')
+                            : t('inactive')
+                        }
                       />
                     </td>
                     <td className="py-2.5 px-3.5 font-bold text-slate-900 dark:text-white">
                       <span 
                         className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
-                        onClick={() => setQuickAttendanceWorker(worker)}
+                        onClick={() => statusTab === 'active' && setQuickAttendanceWorker(worker)}
                       >
                         {worker.name}
                       </span>
                     </td>
                     <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400">
                       {worker.role || '-'}
+                    </td>
+                    <td className="py-2.5 px-3.5">
+                      {worker.defaultSectionId && sectionMap[worker.defaultSectionId] ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/60">
+                          <Layers className="w-3 h-3 text-sky-500 flex-shrink-0" />
+                          <span>{sectionMap[worker.defaultSectionId].name}</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">-</span>
+                      )}
                     </td>
                     <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 font-mono" dir="ltr">
                       {worker.phone || '-'}
@@ -562,50 +890,102 @@ export function WorkersView() {
                     </td>
                     <td className="py-2.5 px-3.5 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setQuickAttendanceWorker(worker)}
-                          title={t('quickMonthlyAttendance')}
-                          className="p-1.5 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/60 rounded-lg transition-colors"
-                        >
-                          <Calendar className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHistoryWorker(worker)}
-                          title={t('history')}
-                          className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                        >
-                          <History className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(worker)}
-                          title={t('edit')}
-                          className="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(worker)}
-                          title={worker.isActive === 1 ? t('deactivate') : t('activate')}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
-                        >
-                          {worker.isActive === 1 ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-slate-400" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteWorker(worker)}
-                          title={t('delete')}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {statusTab === 'active' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setQuickAttendanceWorker(worker)}
+                              title={t('quickMonthlyAttendance')}
+                              className="p-1.5 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/60 rounded-lg transition-colors"
+                            >
+                              <Calendar className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setHistoryWorker(worker)}
+                              title={t('history')}
+                              className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                              <History className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(worker)}
+                              title={t('edit')}
+                              className="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleArchiveWorker(worker)}
+                              title={t('archive')}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                            >
+                              <Archive className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveToTrash(worker)}
+                              title={t('moveToTrash')}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {statusTab === 'archived' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setHistoryWorker(worker)}
+                              title={t('history')}
+                              className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                              <History className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUnarchiveWorker(worker)}
+                              title={t('unarchive')}
+                              className="flex items-center gap-1 px-2 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors"
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                              <span>{t('unarchive')}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveToTrash(worker)}
+                              title={t('moveToTrash')}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {statusTab === 'trash' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreWorker(worker)}
+                              title={t('restore')}
+                              className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>{t('restore')}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePermanentDeleteWorker(worker)}
+                              title={t('permanentDelete')}
+                              className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -618,10 +998,28 @@ export function WorkersView() {
 
       {filteredWorkers.length === 0 && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800">
-          <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-            {t('noWorkerSelectedError')}
-          </p>
+          {statusTab === 'trash' ? (
+            <>
+              <Trash2 className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-700 dark:text-slate-300 text-sm font-bold">
+                {t('emptyTrashDesc') || 'سطل آشغال در حال حاضر خالی است.'}
+              </p>
+            </>
+          ) : statusTab === 'archived' ? (
+            <>
+              <Archive className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-700 dark:text-slate-300 text-sm font-bold">
+                هیچ پرسنل بایگانی‌شده‌ای وجود ندارد.
+              </p>
+            </>
+          ) : (
+            <>
+              <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                {t('noWorkerSelectedError')}
+              </p>
+            </>
+          )}
         </div>
       )}
 
@@ -698,6 +1096,31 @@ export function WorkersView() {
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               </div>
+
+              {projectSections.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-sky-500" />
+                      <span>{t('defaultSection') || 'بخش پیش‌فرض کاری'}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">({t('optional') || 'اختیاری'})</span>
+                  </label>
+                  <select
+                    value={formData.defaultSectionId || ''}
+                    onChange={(e) => setFormData({ ...formData, defaultSectionId: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    <option value="">{t('noSection') || 'بدون بخش (عمومی)'}</option>
+                    {projectSections.map((sec) => (
+                      <option key={sec.id} value={sec.id}>{sec.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {t('defaultSectionHint') || 'این بخش در ثبت روزانه به صورت خودکار برای پرسنل لود می‌شود اما برای هر روز قابل تغییر است.'}
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

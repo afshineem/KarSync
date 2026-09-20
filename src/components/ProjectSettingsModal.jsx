@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { db, DEFAULT_PROJECT_ID, generateSectionId } from '../db/db';
@@ -17,7 +17,8 @@ import {
   Layers, 
   Plus,
   Pencil,
-  FolderKanban
+  FolderKanban,
+  RotateCcw
 } from 'lucide-react';
 
 export function ProjectSettingsModal() {
@@ -25,17 +26,24 @@ export function ProjectSettingsModal() {
   const { 
     projects,
     activeProjects,
+    archivedProjects,
+    trashProjects,
     currentProject, 
     updateProject, 
     archiveProject, 
+    unarchiveProject,
+    softDeleteProject,
+    restoreProject,
     deleteProject, 
     isProjectSettingsModalOpen, 
     setIsProjectSettingsModalOpen,
+    setIsNewProjectModalOpen,
     editingProjectId,
     setEditingProjectId
   } = useProject();
 
-  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'sections'
+  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'sections' | 'trash'
+  const [sectionsFilter, setSectionsFilter] = useState('active'); // 'active' | 'archived'
   
   // Target project to edit (defaults to editingProjectId or currentProject)
   const targetProjectId = editingProjectId || currentProject?.id || DEFAULT_PROJECT_ID;
@@ -82,10 +90,24 @@ export function ProjectSettingsModal() {
   }, [targetProject?.id], { workers: 0, logs: 0 });
 
   // Project sections for targeted project
-  const sections = useLiveQuery(async () => {
+  const allProjectSections = useLiveQuery(async () => {
     if (!targetProject?.id) return [];
     return await db.projectSections.where('projectId').equals(targetProject.id).toArray();
   }, [targetProject?.id]) || [];
+
+  const activeSections = useMemo(() => {
+    return allProjectSections.filter(s => !s.deletedAt && s.status !== 'archived');
+  }, [allProjectSections]);
+
+  const archivedSections = useMemo(() => {
+    return allProjectSections.filter(s => !s.deletedAt && s.status === 'archived');
+  }, [allProjectSections]);
+
+  const deletedSections = useMemo(() => {
+    return allProjectSections.filter(s => !!s.deletedAt);
+  }, [allProjectSections]);
+
+  const totalTrashCount = (deletedSections.length || 0) + (trashProjects?.length || 0);
 
   // Add section handler
   const handleAddSection = async (e) => {
@@ -133,16 +155,79 @@ export function ProjectSettingsModal() {
     }
   };
 
-  // Delete section handler
-  const handleDeleteSection = async (sec) => {
-    const confirmText = language === 'fa' 
-      ? `آیا از حذف بخش «${sec.name}» اطمینان دارید؟` 
-      : language === 'ku'
-      ? `ئایا دڵنیایت لە سڕینەوەی بەشی «${sec.name}»؟`
-      : 'Are you sure you want to delete this section?';
+  // Archive section handler
+  const handleArchiveSection = async (sec) => {
+    try {
+      const updatedSec = {
+        ...sec,
+        status: 'archived',
+        updatedAt: new Date().toISOString()
+      };
+      await db.projectSections.put(updatedSec);
+      pushProjectSectionLive(updatedSec).catch(() => {});
+    } catch (err) {
+      console.error('Error archiving section:', err);
+    }
+  };
+
+  // Unarchive section handler
+  const handleUnarchiveSection = async (sec) => {
+    try {
+      const updatedSec = {
+        ...sec,
+        status: 'active',
+        updatedAt: new Date().toISOString()
+      };
+      await db.projectSections.put(updatedSec);
+      pushProjectSectionLive(updatedSec).catch(() => {});
+    } catch (err) {
+      console.error('Error unarchiving section:', err);
+    }
+  };
+
+  // Move section to trash (soft delete)
+  const handleMoveSectionToTrash = async (sec) => {
+    const confirmText = (t('moveToTrash') || 'انتقال به سطل آشغال') + `: «${sec.name}»؟`;
     if (window.confirm(confirmText)) {
-      await db.projectSections.delete(sec.id);
-      deleteProjectSectionLive(sec.id).catch(() => {});
+      try {
+        const updatedSec = {
+          ...sec,
+          deletedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await db.projectSections.put(updatedSec);
+        pushProjectSectionLive(updatedSec).catch(() => {});
+      } catch (err) {
+        console.error('Error moving section to trash:', err);
+      }
+    }
+  };
+
+  // Restore section from trash
+  const handleRestoreSection = async (sec) => {
+    try {
+      const updatedSec = {
+        ...sec,
+        deletedAt: null,
+        updatedAt: new Date().toISOString()
+      };
+      await db.projectSections.put(updatedSec);
+      pushProjectSectionLive(updatedSec).catch(() => {});
+    } catch (err) {
+      console.error('Error restoring section:', err);
+    }
+  };
+
+  // Permanent delete section handler
+  const handlePermanentDeleteSection = async (sec) => {
+    const confirmText = t('permanentDeleteConfirm') || 'آیا از حذف دائمی این بخش اطمینان دارید؟ این عملیات غیرقابل بازگشت است.';
+    if (window.confirm(confirmText)) {
+      try {
+        await db.projectSections.delete(sec.id);
+        deleteProjectSectionLive(sec.id).catch(() => {});
+      } catch (err) {
+        console.error('Error permanently deleting section:', err);
+      }
     }
   };
 
@@ -198,6 +283,31 @@ export function ProjectSettingsModal() {
     }
   };
 
+  const handleUnarchive = async () => {
+    try {
+      await unarchiveProject(targetProject.id);
+      setIsProjectSettingsModalOpen(false);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleSoftDelete = async () => {
+    if (isDefaultProject) {
+      alert(t('cannotDeleteDefaultProject') || 'پروژه پیش‌فرض سیستم قابل حذف نیست');
+      return;
+    }
+    const confirmMsg = (t('moveToTrash') || 'انتقال به سطل آشغال') + `: «${targetProject.name}»؟`;
+    if (confirm(confirmMsg)) {
+      try {
+        await softDeleteProject(targetProject.id);
+        setIsProjectSettingsModalOpen(false);
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+  };
+
   const handleDelete = async () => {
     if (isDefaultProject) {
       alert(t('cannotDeleteDefaultProject') || 'پروژه پیش‌فرض سیستم قابل حذف نیست');
@@ -228,11 +338,11 @@ export function ProjectSettingsModal() {
       onClick={() => setIsProjectSettingsModalOpen(false)}
     >
       <div 
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden transition-all"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-xl w-full h-[85vh] sm:h-[520px] max-h-[700px] flex flex-col overflow-hidden transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400">
               <Settings2 className="w-5 h-5" />
@@ -257,124 +367,164 @@ export function ProjectSettingsModal() {
         </div>
 
         {/* Project Selector Bar: Switch between all projects inside the modal */}
-        <div className="px-6 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+        <div className="px-6 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">
             <FolderKanban className="w-4 h-4 text-sky-500 flex-shrink-0" />
             <span>{language === 'fa' ? 'انتخاب پروژه:' : language === 'ku' ? 'پڕۆژەی هەڵبژێردراو:' : 'Selected Project:'}</span>
           </div>
-          <select
-            value={targetProject.id}
-            onChange={(e) => {
-              if (setEditingProjectId) setEditingProjectId(e.target.value);
-            }}
-            className="flex-1 max-w-[260px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-          >
-            {(activeProjects || []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.currency})
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2 flex-1 justify-end">
+            <select
+              value={targetProject.id}
+              onChange={(e) => {
+                if (setEditingProjectId) setEditingProjectId(e.target.value);
+              }}
+              className="flex-1 max-w-[200px] sm:max-w-[260px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+            >
+              {(activeProjects || []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.currency})
+                </option>
+              ))}
+            </select>
+            
+            {/* New Project Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsProjectSettingsModalOpen(false);
+                setIsNewProjectModalOpen(true);
+              }}
+              className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-400 rounded-xl transition-colors border border-emerald-200/50 dark:border-emerald-800/50"
+              title={language === 'fa' ? 'ایجاد پروژه جدید' : 'New Project'}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Tab Switcher: General vs Sections */}
-        <div className="flex border-b border-slate-100 dark:border-slate-800 px-6 pt-3 gap-4 text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('general')}
-            className={`pb-2.5 border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'general'
-                ? 'border-sky-600 text-sky-600 dark:text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-            }`}
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            <span>{language === 'fa' ? 'تنظیمات و نام پروژه' : language === 'ku' ? 'ڕێکخستن و ناوی پڕۆژە' : 'General & Rename'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('sections')}
-            className={`pb-2.5 border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'sections'
-                ? 'border-sky-600 text-sky-600 dark:text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>{t('projectSections') || 'بخش‌های پروژه (ساب‌پروژه‌ها)'}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-600 dark:text-slate-300 font-normal">
-              {sections.length}
-            </span>
-          </button>
+        {/* Tab Switcher: Navbar Style */}
+        <div className="px-6 pt-4 pb-2 shrink-0 flex justify-center">
+          <div className="inline-flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/60 p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+            {(() => {
+              const TABS = [
+                { id: 'general', icon: FolderKanban, label: language === 'fa' ? 'پروژه‌ها' : 'Projects' },
+                { id: 'sections', icon: Layers, label: language === 'fa' ? 'بخش‌ها' : 'Sections' },
+                { id: 'archived', icon: Archive, label: language === 'fa' ? 'بایگانی‌شده' : 'Archived' },
+                { id: 'trash', icon: Trash2, label: language === 'fa' ? 'حذف‌شده' : 'Deleted' }
+              ];
+              
+              return TABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`relative justify-center p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 transition-transform hover:scale-110" />
+                    {isActive && (
+                      <span className="text-xs font-semibold px-1 whitespace-nowrap animate-fade-in">
+                        {tab.label}
+                      </span>
+                    )}
+                  </button>
+                );
+              });
+            })()}
+          </div>
         </div>
+
+        {/* Modal Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto">
 
         {/* Tab 1: General Settings Form */}
         {activeTab === 'general' ? (
           <>
-            {/* Quick Stats Pill */}
-            <div className="px-6 pt-4 pb-1">
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-sky-500" />
-                  <span className="text-slate-500 dark:text-slate-400">{t('workersCount') || 'پرسنل'}:</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">{stats.workers}</span>
+            {/* Quick Stats Banner */}
+            <div className="grid grid-cols-2 gap-3 px-6 pt-4 pb-2">
+              <div className="p-3 rounded-2xl bg-sky-50/50 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-sky-100 dark:bg-sky-900 text-sky-600 dark:text-sky-300">
+                  <Users className="w-4 h-4" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <CalendarCheck className="w-4 h-4 text-emerald-500" />
-                  <span className="text-slate-500 dark:text-slate-400">{t('recordedLogs') || 'کارکرد ثبت شده'}:</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">{stats.logs}</span>
+                <div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {t('totalPersonnel') || 'کل پرسنل اختصاص‌یافته'}
+                  </div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">
+                    {stats.workers} نفر
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300">
+                  <CalendarCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {t('totalLogsRecorded') || 'کل رکوردهای حضور'}
+                  </div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">
+                    {stats.logs} رکورد
+                  </div>
                 </div>
               </div>
             </div>
 
+            {/* Notification messages */}
+            {successMsg && (
+              <div className="mx-6 mt-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
+            {errorMsg && (
+              <div className="mx-6 mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-fade-in">
+                {errorMsg}
+              </div>
+            )}
+
             {/* Form */}
             <form onSubmit={handleSave} className="p-6 space-y-4">
-              {errorMsg && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs">
-                  {errorMsg}
-                </div>
-              )}
-              {successMsg && (
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-1.5">
-                  <Check className="w-4 h-4" />
-                  <span>{successMsg}</span>
-                </div>
-              )}
-
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  {t('projectName') || 'نام پروژه / کارگاه'} *
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {t('projectName') || 'نام پروژه'} <span className="text-rose-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                  />
-                  <Pencil className="w-3.5 h-3.5 absolute top-1/2 -translate-y-1/2 left-3 text-slate-400 pointer-events-none" />
-                </div>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="مثال: پروژه ورامین، سد ایذه..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  {t('projectCurrency') || 'ارز مالی این پروژه'}
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {t('projectCurrency') || 'واحد پول پروژه'}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {currencies.map((c) => (
                     <button
-                      type="button"
                       key={c.code}
+                      type="button"
                       onClick={() => setCurrency(c.code)}
-                      className={`py-2 px-2 rounded-xl border text-center text-xs font-bold transition-all ${
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-0.5 ${
                         currency === c.code
-                          ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 ring-2 ring-sky-500/20 shadow-xs'
-                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}
                     >
-                      <div>{c.code}</div>
-                      <div className="text-[10px] font-normal opacity-80 mt-0.5">{c.symbol}</div>
+                      <span>{c.label}</span>
+                      <span className="text-[10px] opacity-60">({c.symbol})</span>
                     </button>
                   ))}
                 </div>
@@ -382,74 +532,81 @@ export function ProjectSettingsModal() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('standardWorkHours') || 'ساعت کار روزانه'}
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{t('standardWorkHours') || 'ساعت کار استاندارد روزانه'}</span>
                   </label>
-                  <div className="relative">
-                    <Clock className="w-4 h-4 absolute top-1/2 -translate-y-1/2 right-3 text-slate-400" />
-                    <input
-                      type="number"
-                      min="1"
-                      max="24"
-                      step="0.5"
-                      value={standardWorkHours}
-                      onChange={(e) => setStandardWorkHours(e.target.value)}
-                      className="w-full pr-10 pl-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max="24"
+                    step="0.5"
+                    value={standardWorkHours}
+                    onChange={(e) => setStandardWorkHours(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden font-mono"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('overtimeMultiplier') || 'ضریب اضافه‌کاری'}
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{t('overtimeMultiplier') || 'ضریب اضافه کاری'}</span>
                   </label>
-                  <div className="relative">
-                    <TrendingUp className="w-4 h-4 absolute top-1/2 -translate-y-1/2 right-3 text-slate-400" />
-                    <select
-                      value={overtimeMultiplier}
-                      onChange={(e) => setOvertimeMultiplier(Number(e.target.value))}
-                      className="w-full pr-10 pl-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                    >
-                      <option value={1.0}>1.0x</option>
-                      <option value={1.25}>1.25x</option>
-                      <option value={1.5}>1.5x</option>
-                      <option value={2.0}>2.0x</option>
-                    </select>
-                  </div>
+                  <input
+                    type="number"
+                    min="0.5"
+                    max="5.0"
+                    step="0.1"
+                    value={overtimeMultiplier}
+                    onChange={(e) => setOvertimeMultiplier(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden font-mono"
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  {t('notes') || 'توضیحات و مشخصات'}
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {t('notes') || 'توضیحات و یادداشت'}
                 </label>
                 <textarea
                   rows="2"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                  placeholder="ملاحظات خاص این پروژه..."
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden resize-none"
                 />
               </div>
 
-              {/* Danger Zone: Archive / Delete */}
+              {/* Danger Zone: Archive / Trash */}
               {!isDefaultProject && (
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={handleArchive}
-                    className="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 flex items-center gap-1.5 font-medium transition-colors"
-                  >
-                    <Archive className="w-3.5 h-3.5" />
-                    <span>{t('archiveProject') || 'بایگانی کردن پروژه'}</span>
-                  </button>
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-start gap-2">
+                  {targetProject.status === 'archived' || targetProject.isArchived ? (
+                    <button
+                      type="button"
+                      onClick={handleUnarchive}
+                      className="p-2 text-slate-400 hover:text-amber-600 bg-slate-50 hover:bg-amber-50 dark:bg-slate-800/50 dark:hover:bg-amber-950/50 rounded-xl transition-colors border border-transparent hover:border-amber-200/50 dark:hover:border-amber-800/50 shadow-xs"
+                      title={t('unarchiveProject') || 'خروج از بایگانی'}
+                    >
+                      <Archive className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleArchive}
+                      className="p-2 text-slate-400 hover:text-amber-600 bg-slate-50 hover:bg-amber-50 dark:bg-slate-800/50 dark:hover:bg-amber-950/50 rounded-xl transition-colors border border-transparent hover:border-amber-200/50 dark:hover:border-amber-800/50 shadow-xs"
+                      title={t('archiveProject') || 'بایگانی کردن پروژه'}
+                    >
+                      <Archive className="w-5 h-5" />
+                    </button>
+                  )}
 
                   <button
                     type="button"
-                    onClick={handleDelete}
-                    className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 flex items-center gap-1.5 font-medium transition-colors"
+                    onClick={handleSoftDelete}
+                    className="p-2 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 dark:bg-slate-800/50 dark:hover:bg-rose-950/50 rounded-xl transition-colors border border-transparent hover:border-rose-200/50 dark:hover:border-rose-800/50 shadow-xs"
+                    title={t('moveToTrash') || 'انتقال به سطل آشغال'}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{t('deleteProject') || 'حذف این پروژه'}</span>
+                    <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
               )}
@@ -479,18 +636,20 @@ export function ProjectSettingsModal() {
               </div>
             </form>
           </>
-        ) : (
-          /* Tab 2: Project Sub-Sections Manager with Full Edit capability */
+        ) : activeTab === 'sections' ? (
+          /* Tab 2: Project Sub-Sections Manager (Active only) */
           <div className="p-6 space-y-4">
-            <div>
-              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                {t('projectSections') || 'بخش‌های پروژه (ساب‌پروژه‌ها)'}
-              </h4>
-              <p className="text-[11px] text-slate-400">
-                {language === 'fa' 
-                  ? 'تعریف، ویرایش نام و مدیریت زیرپروژه‌ها جهت تفکیک دقیق هزینه‌ها و کارکرد پرسنل'
-                  : 'Define, edit names, and manage sub-sections for strict cost and attendance allocation.'}
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+                  {t('projectSections') || 'بخش‌های پروژه (ساب‌پروژه‌ها)'}
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  {language === 'fa' 
+                    ? 'تعریف، ویرایش نام و مدیریت زیرپروژه‌ها جهت تفکیک دقیق هزینه‌ها و کارکرد پرسنل'
+                    : 'Define, edit names, and manage sub-sections for strict cost and attendance allocation.'}
+                </p>
+              </div>
             </div>
 
             {/* Add section form */}
@@ -512,15 +671,15 @@ export function ProjectSettingsModal() {
               </button>
             </form>
 
-            {/* List of sections with inline edit and delete */}
+            {/* List of active sections */}
             <div className="space-y-2 max-h-64 overflow-y-auto pe-1">
-              {sections.length === 0 ? (
+              {activeSections.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
                   <Layers className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                   <span>{language === 'fa' ? 'هنوز بخشی برای این پروژه تعریف نشده است.' : 'No sub-sections defined for this project yet.'}</span>
                 </div>
               ) : (
-                sections.map((sec) => (
+                activeSections.map((sec) => (
                   <div 
                     key={sec.id}
                     className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs transition-all"
@@ -564,8 +723,11 @@ export function ProjectSettingsModal() {
                           <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 flex items-center justify-center">
                             <Layers className="w-3.5 h-3.5" />
                           </div>
-                          <span className="font-bold text-slate-800 dark:text-slate-100">{sec.name}</span>
+                          <div>
+                            <span className="font-bold text-slate-800 dark:text-slate-100">{sec.name}</span>
+                          </div>
                         </div>
+
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
@@ -577,9 +739,17 @@ export function ProjectSettingsModal() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteSection(sec)}
+                            onClick={() => handleArchiveSection(sec)}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-colors"
+                            title={t('archive') || 'بایگانی بخش'}
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveSectionToTrash(sec)}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
-                            title={t('delete')}
+                            title={t('moveToTrash') || 'انتقال به سطل آشغال'}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -590,18 +760,270 @@ export function ProjectSettingsModal() {
                 ))
               )}
             </div>
+          </div>
+        ) : activeTab === 'archived' ? (
+          /* Tab 3: Archived */
+          <div className="p-6 space-y-5">
+            <div>
+              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-1.5">
+                <Archive className="w-4 h-4 text-amber-500" />
+                <span>{t('archived') || 'بایگانی‌شده'}</span>
+              </h4>
+              <p className="text-[11px] text-slate-400">
+                {language === 'fa'
+                  ? 'پروژه‌ها و بخش‌های غیرفعال در اینجا قرار می‌گیرند تا فضای کاری شما خلوت بماند.'
+                  : 'Inactive projects and sections are kept here to declutter your workspace.'}
+              </p>
+            </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsProjectSettingsModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
-              >
-                {t('close') || 'بستن'}
-              </button>
+            {/* 1. Archived Sections for this project */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>بخش‌های بایگانی‌شده این پروژه</span>
+                <span className="text-[11px] text-slate-400 font-mono">({archivedSections.length})</span>
+              </div>
+
+              {archivedSections.length === 0 ? (
+                <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                  <span>هیچ بخش بایگانی‌شده‌ای وجود ندارد.</span>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto pe-1">
+                  {archivedSections.map((sec) => (
+                    <div
+                      key={sec.id}
+                      className="p-2.5 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/40 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{sec.name}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleUnarchiveSection(sec)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors"
+                          title={t('unarchive')}
+                        >
+                          <Archive className="w-3 h-3" />
+                          <span>{t('unarchive') || 'خروج از بایگانی'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveSectionToTrash(sec)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 bg-rose-50/50 dark:bg-rose-950/30 rounded-lg transition-colors"
+                          title={t('moveToTrash')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Archived Projects */}
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>پروژه‌های بایگانی‌شده</span>
+                <span className="text-[11px] text-slate-400 font-mono">({archivedProjects?.length || 0})</span>
+              </div>
+
+              {(!archivedProjects || archivedProjects.length === 0) ? (
+                <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                  <span>هیچ پروژه‌ای بایگانی نشده است.</span>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto pe-1">
+                  {archivedProjects.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-2.5 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/40 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{p.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono ms-1.5">({p.currency})</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await unarchiveProject(p.id);
+                            } catch (err) {
+                              alert(err.message);
+                            }
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors"
+                          title={t('unarchive')}
+                        >
+                          <Archive className="w-3 h-3" />
+                          <span>{t('unarchive') || 'خروج از بایگانی'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm((t('moveToTrash') || 'انتقال به سطل آشغال') + ` (${p.name})`)) {
+                              try {
+                                await softDeleteProject(p.id);
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 bg-rose-50/50 dark:bg-rose-950/30 rounded-lg transition-colors"
+                          title={t('moveToTrash')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Tab 3: Trash & Recovery (Deleted Sections & Deleted Projects) */
+          <div className="p-6 space-y-5">
+            <div>
+              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-1.5">
+                <Trash2 className="w-4 h-4 text-rose-500" />
+                <span>{t('trash') || 'سطل آشغال و بازیابی اطلاعات'}</span>
+              </h4>
+              <p className="text-[11px] text-slate-400">
+                {language === 'fa'
+                  ? 'موارد حذف‌شده در اینجا نگهداری می‌شوند تا در صورت نیاز بازیابی شوند یا به صورت دائمی حذف گردند.'
+                  : 'Deleted items are kept here so they can be restored or permanently removed.'}
+              </p>
+            </div>
+
+            {/* 1. Deleted Sections for this project */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>{t('deletedSections') || 'بخش‌های حذف‌شده این پروژه'}</span>
+                <span className="text-[11px] text-slate-400 font-mono">({deletedSections.length})</span>
+              </div>
+
+              {deletedSections.length === 0 ? (
+                <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                  <span>هیچ بخش حذف‌شده‌ای وجود ندارد.</span>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto pe-1">
+                  {deletedSections.map((sec) => (
+                    <div
+                      key={sec.id}
+                      className="p-2.5 bg-rose-50/40 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900/40 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{sec.name}</span>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {sec.deletedAt ? String(sec.deletedAt).substring(0, 10) : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreSection(sec)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
+                          title={t('restore')}
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>{t('restore') || 'بازیابی'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePermanentDeleteSection(sec)}
+                          className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-100/70 dark:bg-rose-950/60 rounded-lg transition-colors"
+                          title={t('permanentDelete')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Deleted Projects */}
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>{t('deletedProjects') || 'پروژه‌های حذف‌شده'}</span>
+                <span className="text-[11px] text-slate-400 font-mono">({trashProjects?.length || 0})</span>
+              </div>
+
+              {(!trashProjects || trashProjects.length === 0) ? (
+                <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                  <span>هیچ پروژه حذف‌شده‌ای در سطل آشغال نیست.</span>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto pe-1">
+                  {trashProjects.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-2.5 bg-rose-50/40 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900/40 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{p.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono ms-1.5">({p.currency})</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await restoreProject(p.id);
+                            } catch (err) {
+                              alert(err.message);
+                            }
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
+                          title={t('restore')}
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>{t('restore') || 'بازیابی'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm((t('permanentDeleteConfirm') || 'آیا از حذف دائمی اطمینان دارید؟') + ` (${p.name})`)) {
+                              try {
+                                await deleteProject(p.id);
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }
+                          }}
+                          className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-100/70 dark:bg-rose-950/60 rounded-lg transition-colors"
+                          title={t('permanentDelete')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

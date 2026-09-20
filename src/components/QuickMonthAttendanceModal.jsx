@@ -76,6 +76,14 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   const [defaultSectionId, setDefaultSectionId] = useState('');
 
+  useEffect(() => {
+    if (worker?.defaultSectionId) {
+      setDefaultSectionId(worker.defaultSectionId);
+    } else {
+      setDefaultSectionId('');
+    }
+  }, [worker?.id, worker?.defaultSectionId, isOpen]);
+
   // Fetch existing logs for this worker and month in active project with fallback
   const existingLogs = useLiveQuery(
     async () => {

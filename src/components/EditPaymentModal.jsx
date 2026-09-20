@@ -69,15 +69,17 @@ export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
   };
 
   const handleDelete = async () => {
-    if (window.confirm(t('paymentDeleteConfirm') || 'آیا از حذف این تراکنش اطمینان دارید؟')) {
+    if (window.confirm(t('moveToTrash') || 'انتقال به سطل آشغال؟')) {
       try {
         setIsSubmitting(true);
-        recordPendingPaymentDeletion(payment.id);
-        await db.payments.delete(payment.id);
+        await db.payments.update(payment.id, {
+          deletedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
         pushPaymentsLive().catch(() => {});
         onClose();
       } catch (err) {
-        console.error('Error deleting payment:', err);
+        console.error('Error moving payment to trash:', err);
         setFeedback({ type: 'error', message: err.message || 'خطا در حذف' });
         setIsSubmitting(false);
       }

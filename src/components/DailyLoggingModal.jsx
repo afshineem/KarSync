@@ -73,11 +73,17 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     });
   };
 
-  // Fetch active workers for current project with fallback for legacy records
+  // Fetch active workers for current project with fallback for legacy records (exclude archived and deleted)
   const workers = useLiveQuery(
     async () => {
       const list = await db.workers.toArray();
-      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && w.isActive === 1);
+      return list.filter((w) => 
+        (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && 
+        w.isActive === 1 && 
+        !w.deletedAt && 
+        !w.isArchived && 
+        w.status !== 'archived'
+      );
     },
     [targetProjectId]
   ) || [];
@@ -130,13 +136,38 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         type: 'full',
         overtimeHours: 0,
         notes: '',
-        sectionId: defaultSectionId || null
+        sectionId: w.defaultSectionId || defaultSectionId || null
       };
     });
 
     setSelectedWorkers(initialSelected);
     setWorkerConfigs(initialConfigs);
   }, [isOpen, selectedDate, unloggedWorkers.length, defaultSectionId]);
+
+  // Section filter within logging modal
+  const [filterModalSection, setFilterModalSection] = useState('all');
+
+  const filteredUnloggedWorkers = useMemo(() => {
+    if (filterModalSection === 'all') return unloggedWorkers;
+    return unloggedWorkers.filter((w) => {
+      const assignedSec = workerConfigs[w.id]?.sectionId ?? w.defaultSectionId;
+      if (filterModalSection === 'unassigned') return !assignedSec;
+      return assignedSec === filterModalSection;
+    });
+  }, [unloggedWorkers, filterModalSection, workerConfigs]);
+
+  // Bulk move selected workers to section today
+  const handleBulkAssignSection = (targetSecId) => {
+    setWorkerConfigs((prev) => {
+      const updated = { ...prev };
+      Object.keys(selectedWorkers).forEach((id) => {
+        if (selectedWorkers[id]) {
+          updated[id] = { ...updated[id], sectionId: targetSecId || null };
+        }
+      });
+      return updated;
+    });
+  };
 
   // Handle worker checkbox toggle
   const toggleWorkerSelection = (workerId) => {
@@ -397,15 +428,48 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
               <Layers className="w-4 h-4 text-sky-500 flex-shrink-0" />
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                {t('section') || 'بخش'}:
+                {t('filterBySection') || 'فیلتر بخش'}:
               </label>
               <select
-                value={defaultSectionId}
-                onChange={(e) => handleDefaultSectionChange(e.target.value)}
+                value={filterModalSection}
+                onChange={(e) => setFilterModalSection(e.target.value)}
                 className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden cursor-pointer"
               >
+                <option value="all" className="bg-white dark:bg-slate-800">
+                  {t('allSections') || 'همه بخش‌ها'}
+                </option>
+                {projectSections.map((sec) => (
+                  <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
+                    {sec.name}
+                  </option>
+                ))}
+                <option value="unassigned" className="bg-white dark:bg-slate-800">
+                  {t('noSection') || 'بدون بخش (عمومی)'}
+                </option>
+              </select>
+            </div>
+          )}
+
+          {/* Bulk Assign Section Action when multiple workers selected */}
+          {projectSections.length > 0 && selectedCount > 1 && (
+            <div className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-950/60 px-2.5 py-1.5 rounded-xl border border-sky-200/80 dark:border-sky-800/80 self-start sm:self-auto">
+              <span className="text-[11px] font-bold text-sky-700 dark:text-sky-300 whitespace-nowrap">
+                {t('bulkAssignSection') || 'تغییر گروهی بخش'}:
+              </span>
+              <select
+                onChange={(e) => {
+                  if (e.target.value !== '__noop__') {
+                    handleBulkAssignSection(e.target.value);
+                  }
+                }}
+                defaultValue="__noop__"
+                className="bg-transparent text-xs font-semibold text-sky-900 dark:text-sky-200 focus:outline-hidden cursor-pointer"
+              >
+                <option value="__noop__" disabled className="bg-white dark:bg-slate-800">
+                  -- انتخاب بخش --
+                </option>
                 <option value="" className="bg-white dark:bg-slate-800">
-                  {language === 'fa' ? 'عمومی / کل پروژه' : 'General'}
+                  {t('noSection') || 'عمومی / بدون بخش'}
                 </option>
                 {projectSections.map((sec) => (
                   <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
@@ -448,7 +512,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                 <span>{t('allWorkersAlreadyLoggedNotice')}</span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-                {t('alreadyLoggedSectionDesc')}
+                {t('allWorkersAlreadyLoggedSubtitle')}
               </p>
             </div>
           )}
@@ -457,13 +521,13 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           {unloggedWorkers.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 px-1">
-                <span>{t('readyToLogCount', { count: unloggedWorkers.length })}:</span>
+                <span>{t('readyToLogCount', { count: filteredUnloggedWorkers.length })}:</span>
                 <span className="text-slate-400 font-normal">
                   {selectedCount} کارگر انتخاب‌شده
                 </span>
               </div>
 
-              {unloggedWorkers.map((worker) => {
+              {filteredUnloggedWorkers.map((worker) => {
                 const isChecked = !!selectedWorkers[worker.id];
                 const cfg = workerConfigs[worker.id] || { type: 'full', overtimeHours: 0, notes: '' };
                 const pay = calculateWorkerDayPay(worker);
@@ -496,10 +560,23 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                         </button>
 
                         <div>
-                          <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                            {worker.name}
-                          </span>
-                          <p className="text-xs text-slate-400">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                              {worker.name}
+                            </span>
+                            {projectSections.length > 0 && cfg.sectionId && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                                <Layers className="w-2.5 h-2.5 text-sky-500" />
+                                <span>{projectSections.find(s => s.id === cfg.sectionId)?.name || ''}</span>
+                              </span>
+                            )}
+                            {worker.defaultSectionId && cfg.sectionId && worker.defaultSectionId !== cfg.sectionId && (
+                              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800">
+                                {t('temporaryForToday') || 'برای امروز'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">
                             {worker.role} • {formatCurrency(worker.dailyRate, currency, language)}
                           </p>
                         </div>
@@ -627,16 +704,16 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                               {t('section') || 'بخش'}:
                             </span>
                             <select
-                              value={cfg.sectionId ?? (defaultSectionId || '')}
+                              value={cfg.sectionId || ''}
                               onChange={(e) => updateWorkerConfig(worker.id, 'sectionId', e.target.value || null)}
                               className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer w-full"
                             >
                               <option value="" className="bg-white dark:bg-slate-800">
-                                {language === 'fa' ? 'عمومی / کل پروژه' : 'General'}
+                                {t('noSection') || 'عمومی / بدون بخش'}
                               </option>
                               {projectSections.map((sec) => (
                                 <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
-                                  {sec.name}
+                                  {sec.name} {worker.defaultSectionId === sec.id ? `(${t('defaultSection') || 'پیش‌فرض'})` : ''}
                                 </option>
                               ))}
                             </select>

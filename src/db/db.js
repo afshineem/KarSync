@@ -25,6 +25,10 @@ db.version(4).stores({
   attendanceLogs: 'id, projectId, sectionId, userId, workerId, date, type, [workerId+date], [projectId+workerId+date]'
 });
 
+db.version(5).stores({
+  workers: 'id, projectId, defaultSectionId, userId, name, role, isActive, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -89,6 +93,7 @@ db.workers.hook('creating', function (primKey, obj) {
   if (!obj.userId) obj.userId = 'default_user';
   if (obj.dailyRate !== undefined) obj.dailyRate = Number(String(obj.dailyRate).replace(/,/g, '')) || 0;
   if (obj.overtimeHourlyRate !== undefined) obj.overtimeHourlyRate = Number(String(obj.overtimeHourlyRate).replace(/,/g, '')) || 0;
+  if (obj.defaultSectionId !== undefined) obj.defaultSectionId = obj.defaultSectionId ? String(obj.defaultSectionId) : null;
 });
 db.workers.hook('updating', function (modifications, primKey, obj) {
   if ('projectId' in modifications && !modifications.projectId) {
@@ -99,6 +104,9 @@ db.workers.hook('updating', function (modifications, primKey, obj) {
   }
   if ('overtimeHourlyRate' in modifications && modifications.overtimeHourlyRate !== undefined) {
     modifications.overtimeHourlyRate = Number(String(modifications.overtimeHourlyRate).replace(/,/g, '')) || 0;
+  }
+  if ('defaultSectionId' in modifications) {
+    modifications.defaultSectionId = modifications.defaultSectionId ? String(modifications.defaultSectionId) : null;
   }
 });
 

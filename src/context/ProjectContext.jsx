@@ -63,13 +63,17 @@ export function ProjectProvider({ children }) {
     return () => { isMounted = false; };
   }, []);
 
-  // Filter active and archived projects
+  // Filter active, archived, and trash projects
   const activeProjects = useMemo(() => {
-    return allProjects.filter((p) => p.status !== 'archived');
+    return allProjects.filter((p) => !p.deletedAt && p.status !== 'archived' && !p.isArchived);
   }, [allProjects]);
 
   const archivedProjects = useMemo(() => {
-    return allProjects.filter((p) => p.status === 'archived');
+    return allProjects.filter((p) => !p.deletedAt && (p.status === 'archived' || p.isArchived));
+  }, [allProjects]);
+
+  const trashProjects = useMemo(() => {
+    return allProjects.filter((p) => !!p.deletedAt);
   }, [allProjects]);
 
   // Current active project
@@ -86,13 +90,13 @@ export function ProjectProvider({ children }) {
       };
     }
 
-    const found = allProjects.find((p) => p.id === activeProjectId);
+    const found = allProjects.find((p) => p.id === activeProjectId && !p.deletedAt);
     if (found) return found;
 
     // Fallback to first active project
     if (activeProjects.length > 0) return activeProjects[0];
 
-    return allProjects[0];
+    return allProjects.find((p) => !p.deletedAt) || allProjects[0];
   }, [allProjects, activeProjectId, activeProjects, userId]);
 
   // Keep activeProjectId in sync if currentProject changes
@@ -178,15 +182,33 @@ export function ProjectProvider({ children }) {
 
   // Archive project
   const archiveProject = async (projectId) => {
-    return updateProject(projectId, { status: 'archived' });
+    return updateProject(projectId, { status: 'archived', isArchived: true });
   };
 
   // Unarchive project
   const unarchiveProject = async (projectId) => {
-    return updateProject(projectId, { status: 'active' });
+    return updateProject(projectId, { status: 'active', isArchived: false });
   };
 
-  // Delete project
+  // Soft-delete project (move to trash)
+  const softDeleteProject = async (projectId) => {
+    if (projectId === DEFAULT_PROJECT_ID) {
+      throw new Error('Cannot delete default project');
+    }
+    const updated = await updateProject(projectId, { deletedAt: new Date().toISOString() });
+    if (activeProjectId === projectId) {
+      const fallback = activeProjects.find((p) => p.id !== projectId)?.id || DEFAULT_PROJECT_ID;
+      switchProject(fallback);
+    }
+    return updated;
+  };
+
+  // Restore project from trash
+  const restoreProject = async (projectId) => {
+    return updateProject(projectId, { deletedAt: null });
+  };
+
+  // Permanent Delete project
   const deleteProject = async (projectId) => {
     if (projectId === DEFAULT_PROJECT_ID) {
       throw new Error('Cannot delete default project');
@@ -213,12 +235,15 @@ export function ProjectProvider({ children }) {
         projects: allProjects,
         activeProjects,
         archivedProjects,
+        trashProjects,
         currentProject,
         switchProject,
         createProject,
         updateProject,
         archiveProject,
         unarchiveProject,
+        softDeleteProject,
+        restoreProject,
         deleteProject,
         isNewProjectModalOpen,
         setIsNewProjectModalOpen,

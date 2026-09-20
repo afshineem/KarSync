@@ -33,7 +33,11 @@ import {
   FileSpreadsheet,
   Edit2,
   Layers,
-  CalendarPlus
+  CalendarPlus,
+  Activity,
+  UserCheck,
+  X,
+  Sparkles
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
@@ -43,6 +47,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
+  const [selectedSectionId, setSelectedSectionId] = useState('all');
   const [editingLog, setEditingLog] = useState(null);
 
   // Fetch reactive data from Dexie scoped to active project with fallback for legacy records
@@ -175,7 +180,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     };
   }, [logs, activeWorkers, currency]);
 
-  // Project section breakdown for current month
+  // Project section breakdown & comprehensive analytics for current month
   const sectionBreakdown = useMemo(() => {
     if (projectSections.length === 0) return [];
     const map = {};
@@ -187,7 +192,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         days: 0,
         otHours: 0,
         totalCost: 0,
-        entriesCount: 0
+        entriesCount: 0,
+        workerStats: {},
+        activities: []
       };
     });
 
@@ -197,20 +204,65 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       days: 0,
       otHours: 0,
       totalCost: 0,
-      entriesCount: 0
+      entriesCount: 0,
+      workerStats: {},
+      activities: []
     };
+
+    const workerMap = {};
+    workers.forEach((w) => { workerMap[String(w.id)] = w; });
 
     logs.forEach((l) => {
       const secId = l.sectionId && map[l.sectionId] ? l.sectionId : 'unassigned';
       const item = map[secId];
-      item.days += l.type === 'hourly' ? 0 : l.type === 'half' ? 0.5 : 1.0;
-      item.otHours += Number(l.overtimeHours) || 0;
-      item.totalCost += Number(l.totalDayPay) || 0;
+      const dayVal = l.type === 'hourly' ? 0 : l.type === 'half' ? 0.5 : 1.0;
+      const otVal = Number(l.overtimeHours) || 0;
+      const payVal = Number(l.totalDayPay) || 0;
+
+      item.days += dayVal;
+      item.otHours += otVal;
+      item.totalCost += payVal;
       item.entriesCount += 1;
+
+      // Track worker stats in this section
+      const wId = String(l.workerId);
+      const wObj = workerMap[wId];
+      if (!item.workerStats[wId]) {
+        item.workerStats[wId] = {
+          worker: wObj || { id: wId, name: 'کارگر ' + wId, role: '' },
+          days: 0,
+          otHours: 0,
+          totalPay: 0
+        };
+      }
+      item.workerStats[wId].days += dayVal;
+      item.workerStats[wId].otHours += otVal;
+      item.workerStats[wId].totalPay += payVal;
+
+      // Track activities / work notes
+      if (l.notes && l.notes.trim()) {
+        item.activities.push({
+          id: l.id,
+          date: l.date,
+          workerName: wObj?.name || 'کارگر',
+          workerRole: wObj?.role || '',
+          notes: l.notes.trim(),
+          type: l.type,
+          overtimeHours: otVal
+        });
+      }
     });
 
-    return Object.values(map).filter((b) => b.entriesCount > 0);
-  }, [logs, projectSections, language]);
+    // Format workers array & sort activities by date desc
+    return Object.values(map).map((sec) => {
+      return {
+        ...sec,
+        workers: Object.values(sec.workerStats).sort((a, b) => b.days - a.days),
+        distinctWorkersCount: Object.keys(sec.workerStats).length,
+        activities: sec.activities.sort((a, b) => b.date.localeCompare(a.date))
+      };
+    }).filter((b) => b.entriesCount > 0 || (b.id !== 'unassigned' && projectSections.some(s => s.id === b.id)));
+  }, [logs, projectSections, workers, language]);
 
   // Aggregate per-worker breakdown for the selected month
   const workerSummaries = useMemo(() => {
@@ -578,63 +630,260 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         </div>
       </div>
 
-      {/* Project Sections Cost Breakdown Card */}
-      {sectionBreakdown.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                <Layers className="w-5 h-5" />
+      {/* Dynamic Project Sections Command Center (Section Hub) */}
+      {sectionBreakdown.length > 0 && (() => {
+        const activeSection = selectedSectionId !== 'all' 
+          ? sectionBreakdown.find((s) => s.id === selectedSectionId) 
+          : null;
+
+        return (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+            {/* Header & Section Filter Tabs */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>{t('sectionCommandCenter') || 'مرکز فرماندهی و تحلیل بخش‌های پروژه'}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                      {sectionBreakdown.length} {language === 'fa' ? 'بخش' : 'Sections'}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {language === 'fa' ? `تحلیل تعاملی کارکرد، پرسنل و هزینه‌های ماه ${selectedMonth}` : `Interactive analytics for ${selectedMonth}`}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {language === 'fa' ? 'توزیع هزینه‌ها بر اساس بخش‌های پروژه' : 'Project Sections Cost Breakdown'}
-                </h3>
-                <p className="text-xs text-slate-400">
-                  {language === 'fa' ? `تحلیل تفکیکی هزینه‌های ماه ${selectedMonth}` : `Section cost breakdown for ${selectedMonth}`}
-                </p>
+
+              {/* Section Selector Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSectionId('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    selectedSectionId === 'all'
+                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/20'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>{t('allSections') || 'نمای مقایسه‌ای'}</span>
+                </button>
+
+                {sectionBreakdown.map((sec) => {
+                  const percent = monthlyStats.totalPayroll > 0
+                    ? Math.round((sec.totalCost / monthlyStats.totalPayroll) * 100)
+                    : 0;
+                  const isSelected = selectedSectionId === sec.id;
+                  return (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => setSelectedSectionId(sec.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-sky-600 text-white shadow-md shadow-sky-600/20'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>{sec.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}>
+                        {percent}%
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-xl">
-              {sectionBreakdown.length} {language === 'fa' ? 'بخش فعال' : 'Active Sections'}
-            </span>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sectionBreakdown.map((sec) => {
-              const percent = monthlyStats.totalPayroll > 0
-                ? Math.round((sec.totalCost / monthlyStats.totalPayroll) * 100)
-                : 0;
-              return (
-                <div 
-                  key={sec.id}
-                  className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-slate-900 dark:text-white">{sec.name}</span>
-                    <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400">{percent}%</span>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            {/* View A: Overview / Comparative Grid of All Sections */}
+            {selectedSectionId === 'all' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {sectionBreakdown.map((sec) => {
+                  const percent = monthlyStats.totalPayroll > 0
+                    ? Math.round((sec.totalCost / monthlyStats.totalPayroll) * 100)
+                    : 0;
+                  return (
                     <div 
-                      className="h-full bg-sky-500 rounded-full transition-all duration-300"
-                      style={{ width: `${percent}%` }}
-                    />
+                      key={sec.id}
+                      onClick={() => setSelectedSectionId(sec.id)}
+                      className="p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-sky-50/50 dark:hover:bg-sky-950/20 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 hover:border-sky-300 dark:hover:border-sky-700 transition-all cursor-pointer group space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                          {sec.name}
+                        </span>
+                        <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400 bg-sky-100/60 dark:bg-sky-950/80 px-2 py-0.5 rounded-md font-mono">
+                          {percent}%
+                        </span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-sky-500 rounded-full transition-all duration-500"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-sky-500" />
+                          <span>{sec.distinctWorkersCount} نفر ({sec.days} نفر-روز)</span>
+                        </span>
+                        <span className="font-extrabold text-slate-800 dark:text-slate-200 font-mono">
+                          {formatCurrency(sec.totalCost, currency, language)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-sky-600 dark:text-sky-400 font-semibold pt-0.5 group-hover:underline">
+                        <span>{sec.activities.length} یادداشت فعالیت</span>
+                        <span className="flex items-center gap-0.5">
+                          <span>مشاهده جزئیات</span>
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* View B: Deep Dive into a Single Section */}
+            {activeSection && (
+              <div className="space-y-4 animate-fade-in">
+                {/* Active Section Banner & KPIs */}
+                <div className="p-4 bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-sky-950/40 dark:to-indigo-950/40 rounded-2xl border border-sky-200 dark:border-sky-800/60 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-lg font-black text-slate-900 dark:text-white">
+                        {activeSection.name}
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSectionId('all')}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800 transition-colors"
+                        title="بازگشت به همه بخش‌ها"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      گزارش تحلیلی تفکیکی این بخش در ماه {selectedMonth}
+                    </p>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                    <span>{sec.days} {t('normalDays')} {sec.otHours > 0 ? `+ ${formatHoursAndMinutes(sec.otHours, language)}` : ''}</span>
-                    <span className="font-extrabold text-slate-800 dark:text-slate-200 font-mono">
-                      {formatCurrency(sec.totalCost, currency, language)}
-                    </span>
+                  {/* 4 Mini KPIs */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-white/60 dark:border-slate-800">
+                      <span className="text-[10px] text-slate-400 block font-medium">{t('personDays') || 'نفر-روز'}</span>
+                      <span className="text-sm font-extrabold text-slate-900 dark:text-white font-mono">
+                        {activeSection.days}
+                      </span>
+                    </div>
+
+                    <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-white/60 dark:border-slate-800">
+                      <span className="text-[10px] text-slate-400 block font-medium">{t('sectionCost') || 'کل دستمزد'}</span>
+                      <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 font-mono truncate block">
+                        {formatCurrency(activeSection.totalCost, currency, language)}
+                      </span>
+                    </div>
+
+                    <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-white/60 dark:border-slate-800">
+                      <span className="text-[10px] text-slate-400 block font-medium">{t('overtime') || 'اضافه‌کاری'}</span>
+                      <span className="text-sm font-extrabold text-amber-600 dark:text-amber-400 font-mono">
+                        {formatHoursAndMinutes(activeSection.otHours, language)}
+                      </span>
+                    </div>
+
+                    <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-white/60 dark:border-slate-800">
+                      <span className="text-[10px] text-slate-400 block font-medium">{t('activeWorkersInSection') || 'پرسنل فعال'}</span>
+                      <span className="text-sm font-extrabold text-sky-600 dark:text-sky-400 font-mono">
+                        {activeSection.distinctWorkersCount} نفر
+                      </span>
+                    </div>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Grid of Crew & Activities Feed */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Left Box: Active Crew in this Section */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-sky-500" />
+                        <span>{t('activeWorkersInSection') || 'پرسنل فعال در این بخش'} ({activeSection.workers.length})</span>
+                      </h5>
+                    </div>
+
+                    <div className="space-y-2 max-h-64 overflow-y-auto pe-1">
+                      {activeSection.workers.map(({ worker, days, otHours, totalPay }) => (
+                        <div 
+                          key={worker.id}
+                          className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white block">
+                              {worker.name}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              {worker.role || 'پرسنل'} • {days} روز کارکرد {otHours > 0 ? `(+${formatHoursAndMinutes(otHours, language)})` : ''}
+                            </span>
+                          </div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                            {formatCurrency(totalPay, currency, language)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right Box: Activities & Notes Timeline */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <Activity className="w-4 h-4 text-emerald-500" />
+                        <span>{t('sectionActivities') || 'لاگ فعالیت‌ها و شرح کارها'} ({activeSection.activities.length})</span>
+                      </h5>
+                    </div>
+
+                    <div className="space-y-2 max-h-64 overflow-y-auto pe-1">
+                      {activeSection.activities.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-slate-400 bg-white/50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                          {t('noActivitiesLogged') || 'یادداشت یا شرح فعالیتی برای این بخش در این ماه ثبت نشده است.'}
+                        </div>
+                      ) : (
+                        activeSection.activities.map((act) => (
+                          <div 
+                            key={act.id}
+                            className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs space-y-1"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-sky-600 dark:text-sky-400 text-[11px] font-mono">
+                                {act.date}
+                              </span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                {act.workerName} {act.workerRole ? `(${act.workerRole})` : ''}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-700 dark:text-slate-200 pt-0.5 leading-relaxed bg-slate-50 dark:bg-slate-800/60 px-2 py-1 rounded-lg">
+                              «{act.notes}»
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Worker Summary Table / Card List */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
