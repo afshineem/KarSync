@@ -11,6 +11,8 @@ import { EditRecordModal } from './EditRecordModal';
 import { 
   Users, 
   UserPlus, 
+  UserCheck,
+  UserX,
   Search, 
   Edit2, 
   Trash2, 
@@ -281,11 +283,13 @@ export function WorkersView() {
         </div>
 
         <button
+          type="button"
           onClick={handleOpenAddModal}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm rounded-xl shadow-md shadow-sky-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          aria-label={t('addNewWorker')}
+          title={t('addNewWorker')}
+          className="p-2.5 sm:p-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-sky-500/30 cursor-pointer group"
         >
-          <UserPlus className="w-4 h-4" />
-          <span>{t('addNewWorker')}</span>
+          <UserPlus className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
         </button>
       </div>
 
@@ -294,7 +298,7 @@ export function WorkersView() {
         
         {/* Search Bar */}
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-5 h-5 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchTerm}
@@ -305,67 +309,69 @@ export function WorkersView() {
         </div>
 
         <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end flex-wrap">
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-            <button
-              onClick={() => setFilterActive('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                filterActive === 'all'
-                  ? 'bg-slate-800 text-white dark:bg-slate-700'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              }`}
-            >
-              {t('allWorkers')} ({workers.length})
-            </button>
-            <button
-              onClick={() => setFilterActive('active')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                filterActive === 'active'
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              }`}
-            >
-              {t('active')} ({workers.filter(w => w.isActive === 1).length})
-            </button>
-            <button
-              onClick={() => setFilterActive('inactive')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                filterActive === 'inactive'
-                  ? 'bg-rose-600 text-white'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              }`}
-            >
-              {t('inactive')} ({workers.filter(w => w.isActive === 0).length})
-            </button>
+          {/* Status Filter Segmented Control (Google M3 Icon-First with Active Title Expansion) */}
+          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+            {[
+              { id: 'all', label: t('allWorkers') || 'همه', count: workers.length, icon: Users },
+              { id: 'active', label: t('active') || 'فعال', count: workers.filter(w => w.isActive === 1).length, icon: UserCheck },
+              { id: 'inactive', label: t('inactive') || 'غیرفعال', count: workers.filter(w => w.isActive === 0).length, icon: UserX },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isSelected = filterActive === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFilterActive(tab.id)}
+                  aria-label={`${tab.label} (${tab.count})`}
+                  title={`${tab.label} (${tab.count})`}
+                  className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold py-2.5 px-3.5 sm:py-3 sm:px-4'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2.5 sm:p-3'
+                  }`}
+                >
+                  <Icon className="w-5.5 h-5.5 flex-shrink-0" />
+                  {isSelected && (
+                    <span className="text-xs font-semibold whitespace-nowrap animate-fade-in flex items-center gap-1.5">
+                      <span>{tab.label}</span>
+                      <span className="text-[10px] bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded-full font-mono">
+                        {tab.count}
+                      </span>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Grid vs List View Switcher */}
-          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+          {/* Grid vs List View Switcher (Matching Google M3 Language) */}
+          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
             <button
               type="button"
               onClick={() => handleSetViewMode('grid')}
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`p-2.5 sm:p-3 rounded-xl transition-all duration-200 ${
                 viewMode === 'grid'
-                  ? 'bg-slate-800 text-white dark:bg-slate-700 shadow-xs'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
               }`}
               title={t('gridView') || 'کارت‌ها'}
               aria-label={t('gridView') || 'کارت‌ها'}
             >
-              <LayoutGrid className="w-4 h-4" />
+              <LayoutGrid className="w-5.5 h-5.5" />
             </button>
             <button
               type="button"
               onClick={() => handleSetViewMode('list')}
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`p-2.5 sm:p-3 rounded-xl transition-all duration-200 ${
                 viewMode === 'list'
-                  ? 'bg-slate-800 text-white dark:bg-slate-700 shadow-xs'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
               }`}
               title={t('listView') || 'فهرست'}
               aria-label={t('listView') || 'فهرست'}
             >
-              <List className="w-4 h-4" />
+              <List className="w-5.5 h-5.5" />
             </button>
           </div>
         </div>

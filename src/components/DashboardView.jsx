@@ -31,7 +31,8 @@ import {
   WalletCards,
   FileSpreadsheet,
   Edit2,
-  Layers
+  Layers,
+  CalendarPlus
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
@@ -370,10 +371,11 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Month Selector Controls */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
             <button
+              type="button"
               onClick={direction === 'rtl' ? handleNextMonth : handlePrevMonth}
-              className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition-colors"
+              className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-slate-700/70 rounded-xl text-slate-600 dark:text-slate-300 transition-colors"
               title="Previous Month"
             >
               {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
@@ -382,24 +384,27 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-sm font-bold text-slate-800 dark:text-slate-200 px-2 py-1 focus:outline-none cursor-pointer"
+              className="bg-transparent text-sm font-black text-slate-800 dark:text-slate-200 px-2 py-1 focus:outline-none cursor-pointer font-mono"
             />
             <button
+              type="button"
               onClick={direction === 'rtl' ? handlePrevMonth : handleNextMonth}
-              className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition-colors"
+              className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-slate-700/70 rounded-xl text-slate-600 dark:text-slate-300 transition-colors"
               title="Next Month"
             >
               {direction === 'rtl' ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
             </button>
           </div>
 
-          {/* Quick Record Button */}
+          {/* Quick Record Button (Icon-Only matching Floating Action Button & Add Worker size) */}
           <button
+            type="button"
             onClick={onOpenLoggingModal}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white font-medium text-sm rounded-xl shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            aria-label={t('logDailyAttendance')}
+            title={t('logDailyAttendance')}
+            className="p-2.5 sm:p-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-sky-500/30 cursor-pointer group"
           >
-            <PlusCircle className="w-4 h-4" />
-            <span>{t('logDailyAttendance')}</span>
+            <CalendarPlus className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
           </button>
         </div>
       </div>

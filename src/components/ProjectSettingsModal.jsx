@@ -302,7 +302,7 @@ export function ProjectSettingsModal() {
           >
             <Layers className="w-3.5 h-3.5" />
             <span>{t('projectSections') || 'بخش‌های پروژه (ساب‌پروژه‌ها)'}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-500 font-normal">
+            <span className="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-600 dark:text-slate-300 font-normal">
               {sections.length}
             </span>
           </button>
@@ -313,7 +313,7 @@ export function ProjectSettingsModal() {
           <>
             {/* Quick Stats Pill */}
             <div className="px-6 pt-4 pb-1">
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 text-xs">
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-sky-500" />
                   <span className="text-slate-500 dark:text-slate-400">{t('workersCount') || 'پرسنل'}:</span>
@@ -351,7 +351,7 @@ export function ProjectSettingsModal() {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
                   />
                   <Pencil className="w-3.5 h-3.5 absolute top-1/2 -translate-y-1/2 left-3 text-slate-400 pointer-events-none" />
                 </div>
@@ -427,7 +427,7 @@ export function ProjectSettingsModal() {
                   rows="2"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden resize-none"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden resize-none"
                 />
               </div>
 
@@ -458,14 +458,14 @@ export function ProjectSettingsModal() {
                 <button
                   type="button"
                   onClick={() => setIsProjectSettingsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition-colors"
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
                 >
                   {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-md shadow-sky-600/25 flex items-center gap-1.5 transition-all active:scale-[0.98] disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-md shadow-sky-600/25 flex items-center gap-1.5 transition-all active:scale-[0.98] disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -500,7 +500,7 @@ export function ProjectSettingsModal() {
                 value={newSectionName}
                 onChange={(e) => setNewSectionName(e.target.value)}
                 placeholder={language === 'fa' ? 'نام بخش جدید (مثال: زراعت، تاسیسات...)' : 'New section name...'}
-                className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
               />
               <button
                 type="submit"
@@ -515,7 +515,7 @@ export function ProjectSettingsModal() {
             {/* List of sections with inline edit and delete */}
             <div className="space-y-2 max-h-64 overflow-y-auto pe-1">
               {sections.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
                   <Layers className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                   <span>{language === 'fa' ? 'هنوز بخشی برای این پروژه تعریف نشده است.' : 'No sub-sections defined for this project yet.'}</span>
                 </div>
@@ -523,7 +523,7 @@ export function ProjectSettingsModal() {
                 sections.map((sec) => (
                   <div 
                     key={sec.id}
-                    className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs transition-all"
+                    className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs transition-all"
                   >
                     {editingSectionId === sec.id ? (
                       /* Inline Edit Mode */
@@ -537,13 +537,13 @@ export function ProjectSettingsModal() {
                             if (e.key === 'Enter') handleSaveEditSection(sec);
                             if (e.key === 'Escape') setEditingSectionId(null);
                           }}
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-sky-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-sky-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
                         />
                         <button
                           type="button"
                           onClick={() => handleSaveEditSection(sec)}
                           disabled={!editingSectionName.trim()}
-                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors"
                           title={t('save') || 'ذخیره'}
                         >
                           <Check className="w-4 h-4" />
@@ -561,7 +561,7 @@ export function ProjectSettingsModal() {
                       /* Normal Display Mode */
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                          <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 flex items-center justify-center">
                             <Layers className="w-3.5 h-3.5" />
                           </div>
                           <span className="font-bold text-slate-800 dark:text-slate-100">{sec.name}</span>
@@ -570,7 +570,7 @@ export function ProjectSettingsModal() {
                           <button
                             type="button"
                             onClick={() => handleStartEditSection(sec)}
-                            className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                             title={language === 'fa' ? 'ویرایش نام بخش' : 'Edit Section Name'}
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -578,7 +578,7 @@ export function ProjectSettingsModal() {
                           <button
                             type="button"
                             onClick={() => handleDeleteSection(sec)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
                             title={t('delete')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -595,7 +595,7 @@ export function ProjectSettingsModal() {
               <button
                 type="button"
                 onClick={() => setIsProjectSettingsModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
               >
                 {t('close') || 'بستن'}
               </button>

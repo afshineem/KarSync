@@ -10,7 +10,8 @@ import {
   getCurrentYearMonth, 
   getTodayDateString, 
   roundCurrency,
-  getCurrencySymbol 
+  getCurrencySymbol,
+  formatDayMonth
 } from '../utils/formatters';
 import { SettlementModal } from './SettlementModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
@@ -29,6 +30,9 @@ import {
   Receipt, 
   PlusCircle, 
   Calendar, 
+  CalendarDays,
+  CalendarRange,
+  SlidersHorizontal,
   Users, 
   RefreshCw 
 } from 'lucide-react';
@@ -336,18 +340,42 @@ export function FinancialsView() {
     setSelectedMonth(`${newY}-${newM}`);
   };
 
-  const handleQuickSync = async () => {
-    setIsSyncingLive(true);
-    try {
-      await fullSyncBothDirections();
-      setSyncStatusMsg(language === 'en' ? 'Synced!' : language === 'ku' ? 'هاوکاتکرا!' : 'سینک شد!');
-      setTimeout(() => setSyncStatusMsg(''), 2500);
-    } catch (err) {
-      console.warn('Manual sync failed:', err);
-    } finally {
-      setIsSyncingLive(false);
+  const handleOpenSettlement = () => {
+    if (selectedWorkerId && selectedWorkerId !== 'all') {
+      const w = workers.find((x) => String(x.id) === String(selectedWorkerId));
+      if (w) {
+        setSettlementTargetWorker(w);
+        return;
+      }
+    }
+    const dueRow = displayedRows.find((r) => r.netBalanceDue > 0);
+    if (dueRow?.worker) {
+      setSettlementTargetWorker(dueRow.worker);
+    } else if (workers.length > 0) {
+      setSettlementTargetWorker(workers[0]);
     }
   };
+
+  const statusCounts = useMemo(() => {
+    let pending = 0;
+    let settled = 0;
+    let overpaid = 0;
+    const list = selectedWorkerId !== 'all'
+      ? workerFinancials.filter((item) => item.worker.id === selectedWorkerId)
+      : workerFinancials;
+
+    list.forEach((item) => {
+      if (item.status === 'settled') settled++;
+      else if (item.status === 'overpaid') overpaid++;
+      else pending++;
+    });
+    return {
+      all: list.length,
+      pending,
+      settled,
+      overpaid
+    };
+  }, [workerFinancials, selectedWorkerId]);
 
   return (
     <div className="space-y-6 pb-20 no-print" dir={direction}>
@@ -366,28 +394,26 @@ export function FinancialsView() {
             </p>
           </div>
 
-          {/* Quick Actions: Sync + Add Advance Button */}
+          {/* Quick Actions: Settlement + Add Advance Icon Buttons */}
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleQuickSync}
-              disabled={isSyncingLive}
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs transition-all active:scale-95 disabled:opacity-50"
-              title={language === 'en' ? 'Sync now with Cloud' : language === 'ku' ? 'هاوکاتکردنی خێرا لەگەڵ هەور' : 'سینک فوری با سرور ابری'}
+              onClick={handleOpenSettlement}
+              aria-label={t('settleBtn') || 'ثبت تسویه حساب'}
+              title={t('settleBtn') || 'ثبت تسویه حساب'}
+              className="p-2.5 sm:p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-md shadow-emerald-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-emerald-500/30 cursor-pointer group"
             >
-              <RefreshCw className={`w-4 h-4 text-sky-500 ${isSyncingLive ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">
-                {syncStatusMsg || (isSyncingLive ? (language === 'en' ? 'Syncing...' : language === 'ku' ? 'هاوکات دەکرێت...' : 'در حال سینک...') : (language === 'en' ? 'Cloud Sync' : language === 'ku' ? 'سینکی هەور' : 'سینک ابری'))}
-              </span>
+              <CheckCircle2 className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
             </button>
 
             <button
               type="button"
               onClick={() => setIsGlobalAdvanceModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-2xl shadow-md shadow-amber-600/20 transition-all active:scale-95"
+              aria-label={t('addAdvanceBtn') || 'ثبت علی‌الحساب'}
+              title={t('addAdvanceBtn') || 'ثبت علی‌الحساب'}
+              className="p-2.5 sm:p-3 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl shadow-md shadow-amber-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-amber-500/30 cursor-pointer group"
             >
-              <Banknote className="w-4 h-4" />
-              <span>{t('addAdvanceBtn')}</span>
+              <Banknote className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
             </button>
           </div>
         </div>
@@ -395,43 +421,49 @@ export function FinancialsView() {
         {/* Filter Controls Bar */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
           
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Mode Switcher: Monthly vs Date Range */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 border border-slate-200 dark:border-slate-700">
-              <button
-                type="button"
-                onClick={() => setFilterMode('monthly')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  filterMode === 'monthly'
-                    ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {t('filterModeMonthly')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterMode('range')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  filterMode === 'range'
-                    ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {t('filterModeDateRange')}
-              </button>
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            {/* Mode Switcher: Monthly vs Date Range (Google M3 Icon-First with Active Title Expansion) */}
+            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
+              {[
+                { id: 'monthly', label: t('filterModeMonthly') || 'ماهانه', icon: CalendarDays },
+                { id: 'range', label: t('filterModeDateRange') || 'بازه دلخواه', icon: CalendarRange }
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isSelected = filterMode === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilterMode(tab.id)}
+                    aria-label={tab.label}
+                    title={tab.label}
+                    className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
+                      isSelected
+                        ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold py-2.5 px-3.5 sm:py-3 sm:px-4'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2.5 sm:p-3'
+                    }`}
+                  >
+                    <Icon className="w-5.5 h-5.5 flex-shrink-0" />
+                    {isSelected && (
+                      <span className="text-xs font-semibold whitespace-nowrap animate-fade-in">
+                        {tab.label}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Date Selector based on mode */}
             {filterMode === 'monthly' ? (
-              <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
                 <button
                   type="button"
                   onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
-                  className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/70 transition-colors"
                   title="Previous Month"
                 >
-                  {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                  {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
                 </button>
 
                 <input
@@ -444,46 +476,57 @@ export function FinancialsView() {
                 <button
                   type="button"
                   onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
-                  className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/70 transition-colors"
                   title="Next Month"
                 >
-                  {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  {direction === 'rtl' ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 px-3 border border-slate-200 dark:border-slate-700 text-xs font-semibold">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-slate-500 dark:text-slate-400">{t('fromDateLabel')}</span>
+              <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1.5 px-2 sm:px-3 border border-slate-200/90 dark:border-slate-700/70 shadow-inner text-xs font-semibold w-full sm:w-auto max-w-full">
+                {/* From Date Pill */}
+                <div className="relative flex-1 sm:flex-initial flex items-center justify-between sm:justify-start gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer hover:border-sky-500/50 transition-colors min-w-0 group">
+                  <span className="text-slate-400 text-xs font-semibold whitespace-nowrap">{t('fromDateLabel') || 'از'}:</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 font-mono truncate">
+                    {formatDayMonth(fromDate, language)}
+                  </span>
+                  <Calendar className="w-3.5 h-3.5 text-sky-500 flex-shrink-0 ms-1 transition-transform group-hover:scale-110" />
                   <input
                     type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 font-mono text-xs focus:outline-none"
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                   />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-slate-500 dark:text-slate-400">{t('toDateLabel')}</span>
+
+                {/* To Date Pill */}
+                <div className="relative flex-1 sm:flex-initial flex items-center justify-between sm:justify-start gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer hover:border-sky-500/50 transition-colors min-w-0 group">
+                  <span className="text-slate-400 text-xs font-semibold whitespace-nowrap">{t('toDateLabel') || 'تا'}:</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 font-mono truncate">
+                    {formatDayMonth(toDate, language)}
+                  </span>
+                  <Calendar className="w-3.5 h-3.5 text-sky-500 flex-shrink-0 ms-1 transition-transform group-hover:scale-110" />
                   <input
                     type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 font-mono text-xs focus:outline-none"
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                   />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Worker Selector Dropdown */}
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 px-3 border border-slate-200 dark:border-slate-700 w-full sm:w-auto">
-            <Users className="w-4 h-4 text-slate-400 flex-shrink-0" />
+          {/* Worker Selector Dropdown (Enlarged Icon & Google M3 Styling) */}
+          <div className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1.5 px-3 border border-slate-200/90 dark:border-slate-700/70 shadow-inner w-full sm:w-auto">
+            <Users className="w-5.5 h-5.5 text-sky-600 dark:text-sky-400 flex-shrink-0" />
             <label className="text-xs font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
               {t('selectWorkerLabel')}
             </label>
             <select
               value={selectedWorkerId}
               onChange={(e) => setSelectedWorkerId(e.target.value)}
-              className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer flex-1 sm:w-48"
+              className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer flex-1 sm:w-48"
             >
               <option value="all">{t('allWorkersOption')}</option>
               {workers.map((w) => (
@@ -593,68 +636,51 @@ export function FinancialsView() {
         
         {/* Search */}
         <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-5 h-5 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t('searchWorkerPlaceholder')}
-            className="w-full ps-9 pe-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
+            className="w-full ps-10 pe-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white shadow-xs"
           />
         </div>
 
-        {/* Status Filter Chips */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          <button
-            type="button"
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              statusFilter === 'all'
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            {t('filterAll')}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStatusFilter('pending')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-              statusFilter === 'pending'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            <Clock className="w-3 h-3" />
-            <span>{t('filterPending')}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStatusFilter('settled')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-              statusFilter === 'settled'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            <CheckCircle2 className="w-3 h-3" />
-            <span>{t('filterSettled')}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStatusFilter('overpaid')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-              statusFilter === 'overpaid'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            <AlertCircle className="w-3 h-3" />
-            <span>{t('filterOverpaid')}</span>
-          </button>
+        {/* Status Filter Segmented Control (Google M3 Icon-First with Active Title Expansion) */}
+        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner overflow-x-auto">
+          {[
+            { id: 'all', label: t('filterAll') || 'همه', count: statusCounts.all, icon: SlidersHorizontal, activeClass: 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md' },
+            { id: 'pending', label: t('filterPending') || 'در انتظار', count: statusCounts.pending, icon: Clock, activeClass: 'bg-amber-600 text-white shadow-md shadow-amber-600/30' },
+            { id: 'settled', label: t('filterSettled') || 'تسویه شده', count: statusCounts.settled, icon: CheckCircle2, activeClass: 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' },
+            { id: 'overpaid', label: t('filterOverpaid') || 'اضافه پرداخت', count: statusCounts.overpaid, icon: AlertCircle, activeClass: 'bg-rose-600 text-white shadow-md shadow-rose-600/30' }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isSelected = statusFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setStatusFilter(tab.id)}
+                aria-label={`${tab.label} (${tab.count})`}
+                title={`${tab.label} (${tab.count})`}
+                className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
+                  isSelected
+                    ? `${tab.activeClass} font-bold py-2.5 px-3.5 sm:py-3 sm:px-4`
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2.5 sm:p-3'
+                }`}
+              >
+                <Icon className="w-5.5 h-5.5 flex-shrink-0" />
+                {isSelected && (
+                  <span className="text-xs font-semibold whitespace-nowrap animate-fade-in flex items-center gap-1.5">
+                    <span>{tab.label}</span>
+                    <span className="text-[10px] bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded-full font-mono">
+                      {tab.count}
+                    </span>
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
       </div>

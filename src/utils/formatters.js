@@ -167,6 +167,32 @@ export function formatFullDateWithWeekday(dateStr, lang = 'ku') {
   }
 }
 
+/**
+ * Format short date showing day and localized month name (e.g., "1 سپتامبر", "1 ئەیلوول", "1 Sep")
+ * @param {string} dateStr 'YYYY-MM-DD'
+ * @param {string} lang 'fa' | 'ku' | 'en'
+ * @returns {string}
+ */
+export function formatDayMonth(dateStr, lang = 'fa') {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!m || !d) return dateStr;
+
+  const months = {
+    fa: ['ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن', 'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر'],
+    ku: ['کانوونی دووەم', 'شوبات', 'ئازار', 'نیسان', 'ئایار', 'حوزەیران', 'تەممووز', 'ئاب', 'ئەیلوول', 'تشرینی یەکەم', 'تشرینی دووەم', 'کانوونی یەکەم'],
+    en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  };
+
+  const mList = months[lang] || months.fa;
+  const mName = mList[m - 1] || '';
+
+  return `${d} ${mName}`;
+}
+
 
 /**
  * Convert hours and minutes to decimal hours

@@ -43,7 +43,7 @@ export function AboutModal({ isOpen, onClose }) {
           </h2>
           <div className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
             <Sparkles className="w-3 h-3 text-sky-500" />
-            <span>v2.0 • SaaS Edition</span>
+            <span>v0.1.0 Beta • SaaS Edition</span>
           </div>
         </div>
 

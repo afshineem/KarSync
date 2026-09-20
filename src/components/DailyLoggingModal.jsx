@@ -17,6 +17,7 @@ import {
 import { EditRecordModal } from './EditRecordModal';
 import { 
   Plus, 
+  CalendarPlus,
   Calendar, 
   Clock, 
   FileText, 
@@ -783,26 +784,25 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 }
 
 /**
- * Persistent Floating Action Button (FAB)
+ * Persistent Floating Action Button (FAB - Google M3 Icon-Only)
  */
 export function FloatingActionButton({ onClick }) {
   const { t, direction } = useLanguage();
 
   return (
     <div
-      className={`fixed bottom-24 md:bottom-6 ${
-        direction === 'rtl' ? 'left-4 sm:left-6' : 'right-4 sm:right-6'
+      className={`fixed bottom-24 md:bottom-8 ${
+        direction === 'rtl' ? 'left-4 sm:left-8' : 'right-4 sm:right-8'
       } z-40 no-print`}
     >
       <button
+        type="button"
         onClick={onClick}
         aria-label={t('logDailyAttendance')}
-        className="group relative flex items-center gap-3 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white p-4 sm:px-5 sm:py-3.5 rounded-full shadow-2xl shadow-sky-600/40 ring-4 ring-sky-500/20 transition-all duration-200 hover:scale-105 active:scale-95"
+        title={t('logDailyAttendance')}
+        className="group relative flex items-center justify-center bg-gradient-to-tr from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl shadow-xl shadow-sky-600/35 ring-4 ring-sky-500/20 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
       >
-        <Plus className="w-6 h-6 stroke-[2.5] transition-transform duration-200 group-hover:rotate-90" />
-        <span className="hidden sm:inline font-bold text-sm tracking-tight whitespace-nowrap">
-          {t('logDailyAttendance')}
-        </span>
+        <CalendarPlus className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
       </button>
     </div>
   );

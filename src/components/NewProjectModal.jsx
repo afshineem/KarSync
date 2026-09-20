@@ -49,11 +49,10 @@ export function NewProjectModal() {
         overtimeMultiplier: Number(overtimeMultiplier) || 1.0,
         notes: notes.trim()
       });
-
-      // Reset and close
+      setIsNewProjectModalOpen(false);
       setName('');
       setNotes('');
-      setIsNewProjectModalOpen(false);
+      setCurrency('IQD');
     } catch (err) {
       console.error('Create project error:', err);
       setErrorMsg(err.message || 'Error creating project');

@@ -45,7 +45,8 @@ import {
   ArrowDown10,
   CheckCircle2, 
   AlertCircle,
-  Layers
+  Layers,
+  CalendarPlus
 } from 'lucide-react';
 
 const TIMELINE_SORT_KEY = 'karsync_timeline_sort_ascending';
@@ -508,76 +509,61 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
           </p>
         </div>
 
-        {/* Action Controls: Icon-based buttons matching app ecosystem */}
-        <div className="flex items-center gap-2">
-          {/* 3-Way Mode Switcher (Unified Icon-driven Segmented Control) */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-200/90 dark:border-slate-700/80 shadow-xs">
-            {/* 1. Day-by-Day Timeline Breakdown (Default!) */}
-            <button
-              type="button"
-              onClick={() => setViewMode('timeline')}
-              title={t('monthTimeline')}
-              aria-label={t('monthTimeline')}
-              className={`p-2 sm:p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center ${
-                viewMode === 'timeline'
-                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 scale-105'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <CalendarDays className="w-5 h-5" />
-            </button>
-
-            {/* 2. Monthly Calendar Grid */}
-            <button
-              type="button"
-              onClick={() => setViewMode('calendar')}
-              title={t('calendarGridTab')}
-              aria-label={t('calendarGridTab')}
-              className={`p-2 sm:p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center ${
-                viewMode === 'calendar'
-                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 scale-105'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <LayoutGrid className="w-5 h-5" />
-            </button>
-
-            {/* 3. Reports & Settlement (Detailed Daily Logs) */}
-            <button
-              type="button"
-              onClick={() => setViewMode('logs')}
-              title={t('logsTitle')}
-              aria-label={t('logsTitle')}
-              className={`p-2 sm:p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center ${
-                viewMode === 'logs'
-                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 scale-105'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <ClipboardList className="w-5 h-5" />
-            </button>
+        {/* Action Controls: Google M3 Icon-First Segmented Control with Active Title Expansion */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* 3-Way Mode Switcher (Google M3 Expressive Style) */}
+          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+            {[
+              { id: 'timeline', label: language === 'fa' ? 'تفکیک روزانه' : language === 'ku' ? 'لیستی مانگانە' : 'Timeline', icon: CalendarDays },
+              { id: 'calendar', label: language === 'fa' ? 'ماه‌نما' : language === 'ku' ? 'تەقویم' : 'Month Grid', icon: LayoutGrid },
+              { id: 'logs', label: language === 'fa' ? 'ریز کارکرد' : language === 'ku' ? 'وردەکاری' : 'Daily Logs', icon: ClipboardList }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isSelected = viewMode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setViewMode(tab.id)}
+                  aria-label={tab.label}
+                  title={tab.label}
+                  className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold py-2.5 px-3.5 sm:py-3 sm:px-4'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2.5 sm:p-3'
+                  }`}
+                >
+                  <Icon className="w-5.5 h-5.5 flex-shrink-0" />
+                  {isSelected && (
+                    <span className="text-xs font-semibold whitespace-nowrap animate-fade-in">
+                      {tab.label}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* 4. Export Excel (.xlsx) Button */}
+          {/* Export Excel (.xlsx) Button (Size matching Add Worker) */}
           <button
             type="button"
             onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
-            className="p-2 sm:p-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-xs hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-emerald-500/30"
+            className="p-2.5 sm:p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-md shadow-emerald-600/25 hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-emerald-500/30 cursor-pointer group"
             title={t('exportExcel')}
             aria-label={t('exportExcel')}
           >
-            <FileSpreadsheet className="w-5 h-5" />
+            <FileSpreadsheet className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
           </button>
 
-          {/* 5. Print / Export PDF Button */}
+          {/* Print / Export PDF Button (Size matching Add Worker) */}
           <button
             type="button"
             onClick={triggerPrintReport}
-            className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-2xl shadow-xs hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-slate-700/30 dark:border-slate-600/50"
+            className="p-2.5 sm:p-3 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-2xl shadow-md shadow-slate-900/25 hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-slate-700/30 dark:border-slate-600/50 cursor-pointer group"
             title={t('printPdf')}
             aria-label={t('printPdf')}
           >
-            <Printer className="w-5 h-5" />
+            <Printer className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
           </button>
         </div>
       </div>
@@ -681,20 +667,22 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                     : (language === 'fa' ? 'مرتب‌سازی: نزولی (۳۰ به ۱)' : language === 'ku' ? 'ڕیزکردن: ۳۰ بۆ ۱' : 'Sort: 30 to 1')}
                 >
                   {sortAscending ? (
-                    <ArrowDown01 className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                    <ArrowDown01 className="w-5 h-5 text-sky-600 dark:text-sky-400" />
                   ) : (
-                    <ArrowDown10 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <ArrowDown10 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                   )}
                   <span>{sortAscending ? '۱ ⬅️ ۳۰' : '۳۰ ⬅️ ۱'}</span>
                 </button>
 
-                {/* Quick Add Log Button */}
+                {/* Quick Add Log Button (Matching FAB) */}
                 <button
+                  type="button"
                   onClick={() => onOpenLoggingModal && onOpenLoggingModal(getTodayDateString())}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white shadow-sm transition-all"
+                  aria-label={t('logDailyAttendance')}
+                  title={t('logDailyAttendance')}
+                  className="p-2 sm:p-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-sky-500/30 cursor-pointer group"
                 >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{t('logDailyAttendance')}</span>
+                  <CalendarPlus className="w-5 h-5 transition-transform group-hover:scale-110" />
                 </button>
               </div>
             </div>
