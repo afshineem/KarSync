@@ -11,7 +11,8 @@ import {
   getCurrentYearMonth, 
   formatHoursAndMinutes, 
   roundCurrency,
-  getCurrencySymbol 
+  getCurrencySymbol,
+  formatMonthOnly
 } from '../utils/formatters';
 import { 
   Users, 
@@ -380,12 +381,17 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             >
               {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
             </button>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-sm font-black text-slate-800 dark:text-slate-200 px-2 py-1 focus:outline-none cursor-pointer font-mono"
-            />
+            <div className="relative flex items-center justify-center cursor-pointer min-w-[5rem]">
+              <div className="pointer-events-none px-2 py-1 text-sm font-black text-slate-800 dark:text-slate-200 text-center">
+                {formatMonthOnly(selectedMonth, language)}
+              </div>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </div>
             <button
               type="button"
               onClick={direction === 'rtl' ? handlePrevMonth : handleNextMonth}

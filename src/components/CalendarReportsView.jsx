@@ -15,7 +15,8 @@ import {
   formatFullDateWithWeekday, 
   formatHoursAndMinutes,
   roundCurrency,
-  getCurrencySymbol
+  getCurrencySymbol,
+  formatMonthOnly
 } from '../utils/formatters';
 import { exportAttendanceToExcel, triggerPrintReport } from './ExportEngine';
 import { 
@@ -544,27 +545,28 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
             })}
           </div>
 
-          {/* Export Excel (.xlsx) Button (Size matching Add Worker) */}
-          <button
-            type="button"
-            onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
-            className="p-2.5 sm:p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-md shadow-emerald-600/25 hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-emerald-500/30 cursor-pointer group"
-            title={t('exportExcel')}
-            aria-label={t('exportExcel')}
-          >
-            <FileSpreadsheet className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
-          </button>
+          {/* Export & Print Actions */}
+          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
+              className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
+              title={t('exportExcel')}
+              aria-label={t('exportExcel')}
+            >
+              <FileSpreadsheet className="w-5.5 h-5.5 flex-shrink-0" />
+            </button>
 
-          {/* Print / Export PDF Button (Size matching Add Worker) */}
-          <button
-            type="button"
-            onClick={triggerPrintReport}
-            className="p-2.5 sm:p-3 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-2xl shadow-md shadow-slate-900/25 hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-slate-700/30 dark:border-slate-600/50 cursor-pointer group"
-            title={t('printPdf')}
-            aria-label={t('printPdf')}
-          >
-            <Printer className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
-          </button>
+            <button
+              type="button"
+              onClick={triggerPrintReport}
+              className="p-2 sm:p-2.5 text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
+              title={t('printPdf')}
+              aria-label={t('printPdf')}
+            >
+              <Printer className="w-5.5 h-5.5 flex-shrink-0" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -586,12 +588,17 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                 >
                   {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
                 </button>
-                <input
-                  type="month"
-                  value={calendarMonth}
-                  onChange={(e) => setCalendarMonth(e.target.value)}
-                  className="text-base sm:text-lg font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white px-3 py-1.5 cursor-pointer focus:outline-none"
-                />
+                <div className="relative flex items-center justify-center cursor-pointer min-w-[7rem]">
+                  <div className="pointer-events-none text-base sm:text-lg font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white px-4 py-1.5 text-center w-full">
+                    {formatMonthOnly(calendarMonth, language)}
+                  </div>
+                  <input
+                    type="month"
+                    value={calendarMonth}
+                    onChange={(e) => setCalendarMonth(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
                 <button
                   onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
                   className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800"
@@ -832,11 +839,12 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                                     </span>
                                   )}
 
-                                  {/* Calculated pay for worker */}
-                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold border-s ps-2 border-slate-200 dark:border-slate-700">
-                                    {formatCurrency(log.totalDayPay, currency, language)}
-                                  </span>
-
+                                  {/* Project Section (Instead of Pay) */}
+                                  {projectSections.length > 0 && (
+                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold border-s ps-2 border-slate-200 dark:border-slate-700">
+                                      {log.sectionId && sectionMap[log.sectionId] ? sectionMap[log.sectionId].name : (language === 'fa' ? 'عمومی' : 'General')}
+                                    </span>
+                                  )}
                                   {/* Edit action */}
                                   <button
                                     onClick={() => setEditingLog(log)}
@@ -924,12 +932,17 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
               >
                 {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
               </button>
-              <input
-                type="month"
-                value={calendarMonth}
-                onChange={(e) => setCalendarMonth(e.target.value)}
-                className="text-base sm:text-lg font-bold bg-transparent text-slate-900 dark:text-white px-2 py-1 cursor-pointer focus:outline-none"
-              />
+              <div className="relative flex items-center justify-center cursor-pointer min-w-[7rem]">
+                <div className="pointer-events-none text-base sm:text-lg font-bold bg-transparent text-slate-900 dark:text-white px-2 py-1 text-center w-full">
+                  {formatMonthOnly(calendarMonth, language)}
+                </div>
+                <input
+                  type="month"
+                  value={calendarMonth}
+                  onChange={(e) => setCalendarMonth(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+              </div>
               <button
                 onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-700 dark:text-slate-300"

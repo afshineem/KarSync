@@ -434,7 +434,13 @@ export const translations = {
     noSection: 'بێ بەش (گشتی)',
     dayAdjustment: 'ڕێکخستنی وردەکاری ڕۆژ',
     saveAndCloseDay: 'پاشەکەوت و داخستن',
-    closeInspector: 'داخستن'
+    closeInspector: 'داخستن',
+    
+    // Ledger
+    recentFinancialActivity: 'ڕەفتاری دارایی (دوایین مامەڵەکان)',
+    recentFinancialActivitySub: 'دەستکاری و سڕینەوەی مامەڵە تۆمارکراوەکان',
+    noPaymentsFound: 'هیچ مامەڵەیەک نەدۆزرایەوە',
+    paymentDeleteConfirm: 'ئایا دڵنیایت لە سڕینەوەی ئەم مامەڵەیە؟'
   },
   fa: {
 
@@ -871,7 +877,13 @@ export const translations = {
     noSection: 'بدون بخش (عمومی)',
     dayAdjustment: 'تنظیمات و جزئیات روز',
     saveAndCloseDay: 'ثبت روز و بستن',
-    closeInspector: 'بستن'
+    closeInspector: 'بستن',
+    
+    // Ledger
+    recentFinancialActivity: 'رفتار مالی (تراکنش‌های اخیر)',
+    recentFinancialActivitySub: 'امکان ویرایش (حذف و ثبت مجدد) تراکنش‌های ثبت‌شده',
+    noPaymentsFound: 'هیچ تراکنشی یافت نشد',
+    paymentDeleteConfirm: 'آیا از حذف این تراکنش اطمینان دارید؟'
   },
   en: {
 
@@ -1308,6 +1320,12 @@ export const translations = {
     noSection: 'General (No Section)',
     dayAdjustment: 'Day Details & Hours',
     saveAndCloseDay: 'Save & Close Day',
-    closeInspector: 'Close'
+    closeInspector: 'Close',
+    
+    // Ledger
+    recentFinancialActivity: 'Recent Financial Activity',
+    recentFinancialActivitySub: 'Edit or delete recorded transactions',
+    noPaymentsFound: 'No transactions found',
+    paymentDeleteConfirm: 'Are you sure you want to delete this transaction?'
   }
 };

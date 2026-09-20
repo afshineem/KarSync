@@ -48,7 +48,8 @@ export function AdvancePaymentModal({
       setNotes('');
       setFeedback({ type: '', message: '' });
     }
-  }, [isOpen, targetWorkerId, targetMonth, workers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -70,13 +71,17 @@ export function AdvancePaymentModal({
     try {
       const now = new Date();
       const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const derivedMonth = date ? date.slice(0, 7) : month;
+
+      const workerName = workers.find((w) => w.id === workerId)?.name || 'Unknown';
 
       const newPayment = {
         id: generatePaymentId(),
         projectId: currentProject?.id || 'prj_default_main',
         userId: user?.id || null,
         workerId,
-        month,
+        workerName,
+        month: derivedMonth,
         date,
         time: currentTime,
         type: 'advance',
@@ -177,20 +182,8 @@ export function AdvancePaymentModal({
             </div>
           </div>
 
-          {/* Month & Date Grid */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('monthView')}
-              </label>
-              <input
-                type="month"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                required
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white font-mono"
-              />
-            </div>
+          {/* Date Grid */}
+          <div className="grid grid-cols-1 gap-2.5">
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">

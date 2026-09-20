@@ -11,12 +11,14 @@ import {
   getTodayDateString, 
   roundCurrency,
   getCurrencySymbol,
-  formatDayMonth
+  formatDayMonth,
+  formatMonthOnly
 } from '../utils/formatters';
 import { SettlementModal } from './SettlementModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
 import { PaymentHistoryModal } from './PaymentHistoryModal';
-import { fullSyncBothDirections } from '../services/realtimeSync';
+import { EditPaymentModal } from './EditPaymentModal';
+import { fullSyncBothDirections, pushPaymentsLive } from '../services/realtimeSync';
 import { 
   WalletCards, 
   Search, 
@@ -34,7 +36,11 @@ import {
   CalendarRange,
   SlidersHorizontal,
   Users, 
-  RefreshCw 
+  RefreshCw,
+  Check,
+  X,
+  Trash2,
+  Edit3
 } from 'lucide-react';
 
 export function FinancialsView() {
@@ -63,6 +69,10 @@ export function FinancialsView() {
   const [advanceTargetWorker, setAdvanceTargetWorker] = useState(null);
   const [historyTargetWorker, setHistoryTargetWorker] = useState(null);
   const [isGlobalAdvanceModalOpen, setIsGlobalAdvanceModalOpen] = useState(false);
+  const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [tempFromDate, setTempFromDate] = useState(fromDate);
+  const [tempToDate, setTempToDate] = useState(toDate);
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -134,7 +144,8 @@ export function FinancialsView() {
       // Total All-Time Gross & Paid across entire database history
       const totalAllTimeGross = roundCurrency(allWorkerLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
       const totalAllTimePaid = roundCurrency(allWorkerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
-      const netBalanceDue = roundCurrency(Math.max(0, totalAllTimeGross - totalAllTimePaid), currency);
+      // Removed Math.max(0, ...) so it can be negative if overpaid (worker in debt)
+      const netBalanceDue = roundCurrency(totalAllTimeGross - totalAllTimePaid, currency);
 
       // Determine period boundaries
       let currentLogs = [];
@@ -225,12 +236,12 @@ export function FinancialsView() {
       let status = 'pending';
       if (totalAllTimeGross === 0 && totalAllTimePaid === 0) {
         status = 'no_activity';
+      } else if (totalAllTimePaid > totalAllTimeGross) {
+        status = 'overpaid';
       } else if (netBalanceDue === 0 && totalAllTimeGross > 0) {
         status = 'settled';
       } else if (totalAllTimePaid >= grossUpToPeriod && grossUpToPeriod > 0) {
         status = 'settled';
-      } else if (totalAllTimePaid > totalAllTimeGross) {
-        status = 'overpaid';
       } else {
         status = 'pending';
       }
@@ -377,6 +388,17 @@ export function FinancialsView() {
     };
   }, [workerFinancials, selectedWorkerId]);
 
+  const handleDeletePayment = async (paymentId) => {
+    if (window.confirm(t('paymentDeleteConfirm') || 'آیا از حذف این تراکنش اطمینان دارید؟')) {
+      try {
+        await db.payments.delete(paymentId);
+        pushPaymentsLive().catch(() => {});
+      } catch (err) {
+        console.error('Error deleting payment:', err);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20 no-print" dir={direction}>
       
@@ -393,36 +415,14 @@ export function FinancialsView() {
               {t('financialDashboardSubtitle')}
             </p>
           </div>
-
-          {/* Quick Actions: Settlement + Add Advance Icon Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleOpenSettlement}
-              aria-label={t('settleBtn') || 'ثبت تسویه حساب'}
-              title={t('settleBtn') || 'ثبت تسویه حساب'}
-              className="p-2.5 sm:p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-md shadow-emerald-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-emerald-500/30 cursor-pointer group"
-            >
-              <CheckCircle2 className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsGlobalAdvanceModalOpen(true)}
-              aria-label={t('addAdvanceBtn') || 'ثبت علی‌الحساب'}
-              title={t('addAdvanceBtn') || 'ثبت علی‌الحساب'}
-              className="p-2.5 sm:p-3 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl shadow-md shadow-amber-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-amber-500/30 cursor-pointer group"
-            >
-              <Banknote className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
-            </button>
-          </div>
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3">
           
-          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-            {/* Mode Switcher: Monthly vs Date Range (Google M3 Icon-First with Active Title Expansion) */}
+          {/* Row 1 on Mobile / Left on PC */}
+          <div className="flex items-center justify-between sm:justify-start gap-2.5">
+            {/* Mode Switcher: Monthly vs Date Range */}
             <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
               {[
                 { id: 'monthly', label: t('filterModeMonthly') || 'ماهانه', icon: CalendarDays },
@@ -434,7 +434,14 @@ export function FinancialsView() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setFilterMode(tab.id)}
+                    onClick={() => {
+                      setFilterMode(tab.id);
+                      if (tab.id === 'range') {
+                        setTempFromDate(fromDate);
+                        setTempToDate(toDate);
+                        setIsDateRangeModalOpen(true);
+                      }
+                    }}
                     aria-label={tab.label}
                     title={tab.label}
                     className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
@@ -454,89 +461,103 @@ export function FinancialsView() {
               })}
             </div>
 
-            {/* Date Selector based on mode */}
+            {/* Quick Actions: Settlement + Add Advance */}
+            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleOpenSettlement}
+                aria-label={t('settleBtn') || 'ثبت تسویه حساب'}
+                title={t('settleBtn') || 'ثبت تسویه حساب'}
+                className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
+              >
+                <CheckCircle2 className="w-5.5 h-5.5 flex-shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsGlobalAdvanceModalOpen(true)}
+                aria-label={t('addAdvanceBtn') || 'ثبت مساعده'}
+                title={t('addAdvanceBtn') || 'ثبت مساعده'}
+                className="p-2 sm:p-2.5 text-slate-500 hover:text-amber-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
+              >
+                <Banknote className="w-5.5 h-5.5 flex-shrink-0" />
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2 on Mobile / Right on PC */}
+          <div className="flex items-center gap-2.5 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 hide-scrollbar sm:ms-auto">
+            
+            {/* Date Selector */}
             {filterMode === 'monthly' ? (
-              <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+              <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/70 transition-colors"
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/70 transition-colors flex-shrink-0"
                   title="Previous Month"
                 >
                   {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
                 </button>
 
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="bg-transparent text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200 px-2 py-0.5 focus:outline-none cursor-pointer font-mono"
-                />
+                <div className="relative flex items-center justify-center cursor-pointer min-w-[6rem] sm:min-w-[7rem]">
+                  <div className="pointer-events-none px-2 py-0.5 text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200 text-center w-full">
+                    {formatMonthOnly(selectedMonth, language)}
+                  </div>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
 
                 <button
                   type="button"
                   onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/70 transition-colors"
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/70 transition-colors flex-shrink-0"
                   title="Next Month"
                 >
                   {direction === 'rtl' ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1.5 px-2 sm:px-3 border border-slate-200/90 dark:border-slate-700/70 shadow-inner text-xs font-semibold w-full sm:w-auto max-w-full">
-                {/* From Date Pill */}
-                <div className="relative flex-1 sm:flex-initial flex items-center justify-between sm:justify-start gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer hover:border-sky-500/50 transition-colors min-w-0 group">
-                  <span className="text-slate-400 text-xs font-semibold whitespace-nowrap">{t('fromDateLabel') || 'از'}:</span>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 font-mono truncate">
-                    {formatDayMonth(fromDate, language)}
-                  </span>
-                  <Calendar className="w-3.5 h-3.5 text-sky-500 flex-shrink-0 ms-1 transition-transform group-hover:scale-110" />
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                  />
+              <button
+                type="button"
+                onClick={() => {
+                  setTempFromDate(fromDate);
+                  setTempToDate(toDate);
+                  setIsDateRangeModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-2 px-3 sm:px-4 border border-slate-200/90 dark:border-slate-700/70 shadow-inner text-xs font-semibold hover:bg-slate-200/90 dark:hover:bg-slate-700/90 transition-colors flex-shrink-0"
+              >
+                <div className="flex items-center gap-1.5 leading-tight text-[11px] sm:text-xs whitespace-nowrap">
+                  <span className="text-slate-500 dark:text-slate-400 font-normal">{t('fromDateLabel') || 'از'}</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold font-mono">{formatDayMonth(fromDate, language)}</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-normal ms-1">{t('toDateLabel') || 'تا'}</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold font-mono">{formatDayMonth(toDate, language)}</span>
                 </div>
-
-                {/* To Date Pill */}
-                <div className="relative flex-1 sm:flex-initial flex items-center justify-between sm:justify-start gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer hover:border-sky-500/50 transition-colors min-w-0 group">
-                  <span className="text-slate-400 text-xs font-semibold whitespace-nowrap">{t('toDateLabel') || 'تا'}:</span>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 font-mono truncate">
-                    {formatDayMonth(toDate, language)}
-                  </span>
-                  <Calendar className="w-3.5 h-3.5 text-sky-500 flex-shrink-0 ms-1 transition-transform group-hover:scale-110" />
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                  />
-                </div>
-              </div>
+                <Calendar className="w-4 h-4 text-sky-500 flex-shrink-0 ms-2" />
+              </button>
             )}
-          </div>
 
-          {/* Worker Selector Dropdown (Enlarged Icon & Google M3 Styling) */}
-          <div className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1.5 px-3 border border-slate-200/90 dark:border-slate-700/70 shadow-inner w-full sm:w-auto">
-            <Users className="w-5.5 h-5.5 text-sky-600 dark:text-sky-400 flex-shrink-0" />
-            <label className="text-xs font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-              {t('selectWorkerLabel')}
-            </label>
-            <select
-              value={selectedWorkerId}
-              onChange={(e) => setSelectedWorkerId(e.target.value)}
-              className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer flex-1 sm:w-48"
-            >
-              <option value="all">{t('allWorkersOption')}</option>
-              {workers.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name} {w.isActive === 0 ? `(${t('inactive')})` : ''}
-                </option>
-              ))}
-            </select>
+            {/* Worker Selector Dropdown */}
+            <div className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1.5 px-3 border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
+              <Users className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-shrink-0" />
+              <select
+                value={selectedWorkerId}
+                onChange={(e) => setSelectedWorkerId(e.target.value)}
+                className="bg-transparent text-slate-900 dark:text-white text-xs font-bold py-1 focus:outline-none cursor-pointer sm:w-40 appearance-none"
+              >
+                <option value="all">{t('allWorkersOption')}</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} {w.isActive === 0 ? `(${t('inactive')})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-
         </div>
 
       </div>
@@ -851,15 +872,17 @@ export function FinancialsView() {
                       {/* 8. Net Balance Due (To Settle) */}
                       <td className="px-2.5 py-2.5 text-end font-mono whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded-xl text-xs font-black inline-block ${
-                          isSettled
+                          row.netBalanceDue === 0
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                            : isOverpaid
+                            : row.netBalanceDue < 0
                             ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
                             : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
                         }`}>
-                          {isSettled && row.netBalanceDue <= 0
+                          {row.netBalanceDue === 0
                             ? t('fullySettledZero')
-                            : formatAmount(row.netBalanceDue, currency)}
+                            : row.netBalanceDue < 0
+                            ? `${formatAmount(Math.abs(row.netBalanceDue), currency)} (بدهکار)`
+                            : `${formatAmount(row.netBalanceDue, currency)} (بستانکار)`}
                         </span>
                         {row.priorBalance > 0 && !isSettled && (
                           <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-normal mt-0.5">
@@ -944,6 +967,80 @@ export function FinancialsView() {
 
       </div>
 
+      {/* Recent Financial Activity / Ledger */}
+      <div className="mt-6 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+              <Receipt className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">{t('recentFinancialActivity') || 'رفتار مالی (تراکنش‌های اخیر)'}</h3>
+              <p className="text-[11px] text-slate-400 font-semibold">{t('recentFinancialActivitySub') || 'امکان ویرایش (حذف و ثبت مجدد) تراکنش‌های ثبت‌شده'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          {allPayments.length === 0 ? (
+            <div className="p-10 text-center text-slate-400">
+              <Receipt className="w-10 h-10 mx-auto opacity-20 mb-3" />
+              <p className="text-xs font-semibold">{t('noPaymentsFound') || 'هیچ تراکنشی یافت نشد'}</p>
+            </div>
+          ) : (
+            <table className="w-full text-xs text-slate-600 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
+                <tr>
+                  <th className="px-4 py-3 text-start font-bold w-32">{t('date') || 'تاریخ'}</th>
+                  <th className="px-4 py-3 text-start font-bold">{t('workerName')}</th>
+                  <th className="px-4 py-3 text-start font-bold">{t('type') || 'بابت'}</th>
+                  <th className="px-4 py-3 text-start font-bold">{t('description') || 'شرح'}</th>
+                  <th className="px-4 py-3 text-end font-bold">{t('amount')}</th>
+                  <th className="px-4 py-3 text-center font-bold w-16">{t('actions') || 'عملیات'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                {[...allPayments].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 50).map((payment) => (
+                  <tr key={payment.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                    <td className="px-4 py-2.5 whitespace-nowrap">
+                      <div className="font-bold">{payment.date}</div>
+                      <div className="text-[10px] text-slate-400">{payment.time}</div>
+                    </td>
+                    <td className="px-4 py-2.5 font-bold whitespace-nowrap">
+                      {payment.workerName || workers.find(w => w.id === payment.workerId)?.name || 'Unknown'}
+                    </td>
+                    <td className="px-4 py-2.5 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                        payment.type === 'settlement' 
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                          : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
+                      }`}>
+                        {payment.type === 'settlement' ? (t('settlementType') || 'تسویه حساب') : (t('advanceType') || 'علی‌الحساب')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-[11px] truncate max-w-[150px]" title={payment.notes}>
+                      {payment.notes || '-'}
+                    </td>
+                    <td className="px-4 py-2.5 text-end font-mono font-bold whitespace-nowrap">
+                      {formatAmount(payment.amount, currency)}
+                    </td>
+                    <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                      <button
+                        onClick={() => setEditingPayment(payment)}
+                        className="p-1.5 text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/50 rounded-lg transition-colors"
+                        title={t('edit') || 'ویرایش'}
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
       {/* Settlement Modal */}
       {settlementTargetWorker && (
         <SettlementModal
@@ -956,6 +1053,8 @@ export function FinancialsView() {
           onSettlementComplete={(record) => {
             // Refreshes live via Dexie liveQuery
           }}
+          arrearsList={workerFinancials.filter((w) => w.netBalanceDue !== 0)}
+          onSelectWorker={(w) => setSettlementTargetWorker(w)}
         />
       )}
 
@@ -991,6 +1090,86 @@ export function FinancialsView() {
           month={filterMode === 'monthly' ? selectedMonth : null}
         />
       )}
+
+      {/* Date Range Selection Modal */}
+      {isDateRangeModalOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsDateRangeModalOpen(false);
+          }}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200">
+            
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+              <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <CalendarRange className="w-4 h-4 text-sky-500" />
+                {t('filterModeDateRange') || 'انتخاب بازه زمانی'}
+              </h3>
+              <button
+                onClick={() => setIsDateRangeModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{t('fromDateLabel') || 'از تاریخ'}</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={tempFromDate}
+                    onChange={(e) => setTempFromDate(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 cursor-pointer font-mono"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{t('toDateLabel') || 'تا تاریخ'}</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={tempToDate}
+                    onChange={(e) => setTempToDate(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 cursor-pointer font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+              <button
+                onClick={() => setIsDateRangeModalOpen(false)}
+                className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                {t('cancel') || 'انصراف'}
+              </button>
+              <button
+                onClick={() => {
+                  setFromDate(tempFromDate);
+                  setToDate(tempToDate);
+                  setIsDateRangeModalOpen(false);
+                }}
+                className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 shadow-md shadow-sky-500/30 transition-all flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                {t('confirm') || 'تایید'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Payment Modal */}
+      <EditPaymentModal
+        isOpen={!!editingPayment}
+        onClose={() => setEditingPayment(null)}
+        payment={editingPayment}
+        currency={currency}
+      />
 
     </div>
   );

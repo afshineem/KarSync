@@ -193,6 +193,29 @@ export function formatDayMonth(dateStr, lang = 'fa') {
   return `${d} ${mName}`;
 }
 
+/**
+ * Format month showing localized month name only (e.g., "سپتامبر", "ئەیلوول", "September")
+ * @param {string} monthStr 'YYYY-MM'
+ * @param {string} lang 'fa' | 'ku' | 'en'
+ * @returns {string}
+ */
+export function formatMonthOnly(monthStr, lang = 'fa') {
+  if (!monthStr) return '';
+  const parts = monthStr.split('-');
+  if (parts.length < 2) return monthStr;
+  const m = Number(parts[1]);
+  if (!m) return monthStr;
+
+  const months = {
+    fa: ['ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن', 'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر'],
+    ku: ['کانوونی دووەم', 'شوبات', 'ئازار', 'نیسان', 'ئایار', 'حوزەیران', 'تەممووز', 'ئاب', 'ئەیلوول', 'تشرینی یەکەم', 'تشرینی دووەم', 'کانوونی یەکەم'],
+    en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  };
+
+  const mList = months[lang] || months.fa;
+  return mList[m - 1] || '';
+}
+
 
 /**
  * Convert hours and minutes to decimal hours

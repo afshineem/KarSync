@@ -27,7 +27,9 @@ export function SettlementModal({
   month = getCurrentYearMonth(),
   workerLogs = [],
   workerPayments = [],
-  onSettlementComplete
+  onSettlementComplete,
+  arrearsList = [],
+  onSelectWorker
 }) {
   const { t, language } = useLanguage();
   const { currentProject } = useProject();
@@ -105,7 +107,8 @@ export function SettlementModal({
       setFeedback({ type: '', message: '' });
       setCompletedPayment(null);
     }
-  }, [isOpen, calculations.totalCumulativeDebt, month, language]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen || !worker) return null;
 
@@ -212,6 +215,37 @@ export function SettlementModal({
           }`}>
             {feedback.type === 'error' ? <AlertCircle className="w-4 h-4 flex-shrink-0" /> : <Check className="w-4 h-4 flex-shrink-0" />}
             <span>{feedback.message}</span>
+          </div>
+        )}
+
+        {/* Workers With Arrears Selector */}
+        {arrearsList.length > 0 && onSelectWorker && (
+          <div className="mt-4 space-y-1.5">
+            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">{t('workersWithArrears') || 'پرسنل دارای معوقه / مانده:'}</label>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-2 px-2 hide-scrollbar">
+              {arrearsList.map((arrWorker) => (
+                <button
+                  key={arrWorker.worker.id}
+                  type="button"
+                  onClick={() => onSelectWorker(arrWorker.worker)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${
+                    worker.id === arrWorker.worker.id
+                      ? 'bg-emerald-100 dark:bg-emerald-900/50 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-200 hover:bg-emerald-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3 h-3" />
+                    <span>{arrWorker.worker.name}</span>
+                    <span className="font-mono bg-white/50 dark:bg-black/20 px-1.5 rounded text-[10px]">
+                      {arrWorker.netBalanceDue < 0 
+                        ? `${formatAmount(Math.abs(arrWorker.netBalanceDue), currency)} (بدهکار)`
+                        : `${formatAmount(arrWorker.netBalanceDue, currency)} (بستانکار)`}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
