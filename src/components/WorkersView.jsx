@@ -269,6 +269,27 @@ export function WorkersView() {
         };
         await db.workers.update(editingWorker.id, updatedWorker);
         pushWorkerLive(updatedWorker).catch(console.error);
+
+        // Migrate past attendance records to the new section if default section was changed
+        const oldSection = editingWorker.defaultSectionId;
+        const newSection = updatedWorker.defaultSectionId;
+        if (newSection && oldSection !== newSection) {
+          const logs = await db.attendanceLogs.where('workerId').equals(editingWorker.id).toArray();
+          const logsToUpdate = logs.filter(l => !l.sectionId || l.sectionId === oldSection);
+          
+          if (logsToUpdate.length > 0) {
+            const now = new Date().toISOString();
+            const bulkUpdates = logsToUpdate.map(l => ({
+              ...l,
+              sectionId: newSection,
+              updatedAt: now
+            }));
+            await db.attendanceLogs.bulkPut(bulkUpdates);
+            
+            // To ensure the global views refresh
+            window.dispatchEvent(new CustomEvent('workshop-logs-updated'));
+          }
+        }
       } else {
         // Create
         targetWorkerId = generateId();
@@ -1026,13 +1047,13 @@ export function WorkersView() {
       {/* Add / Edit Worker Modal */}
       {isFormModalOpen && (
         <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 print:p-0"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormModalOpen(false);
           }}
         >
           <div 
-            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 dark:border-slate-800 max-w-md w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] flex flex-col overflow-y-auto p-4 sm:p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -1218,13 +1239,13 @@ export function WorkersView() {
       {/* Worker Attendance History Modal */}
       {historyWorker && (
         <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 print:p-0"
           onClick={(e) => {
             if (e.target === e.currentTarget) setHistoryWorker(null);
           }}
         >
           <div 
-            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-6 shadow-2xl max-h-[85vh] flex flex-col"
+            className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 dark:border-slate-800 max-w-2xl w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] flex flex-col overflow-y-auto p-4 sm:p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">

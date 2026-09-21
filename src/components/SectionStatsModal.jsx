@@ -239,12 +239,12 @@ export function SectionStatsModal({ section, isOpen, onClose, onSwitchProject })
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto no-print animate-in fade-in duration-200"
+      className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-50 flex no-print animate-in fade-in duration-200 flex items-center justify-center p-0 sm:p-4 print:p-0"
       onClick={onClose}
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/60 dark:border-white/10 flex flex-col max-h-[90vh] overflow-hidden my-auto"
+        className="relative w-full max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-none sm:rounded-3xl shadow-2xl border border-white/60 dark:border-white/10 flex-col h-full sm:h-auto max-h-none sm:max-h-[90vh] overflow-hidden my-auto"
       >
         {/* Header (Apple Liquid Glass Header) */}
         <div className="px-5 py-4 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent border-b border-slate-200/80 dark:border-white/10 flex items-start justify-between gap-3">

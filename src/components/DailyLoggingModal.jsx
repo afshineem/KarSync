@@ -367,13 +367,13 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 print:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
-        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-3xl w-full p-4 sm:p-6 shadow-2xl my-auto flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] animate-in fade-in zoom-in-95 duration-200 h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -409,7 +409,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         )}
 
         {/* Date Selector & Quick Toggles */}
-        <div className="mt-4 p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="mt-4 p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-sky-500 flex-shrink-0" />
@@ -598,7 +598,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                       <div className="mt-3 pt-3 border-t border-sky-100 dark:border-sky-900/60 space-y-2.5 text-xs">
                         
                         {/* Upper Row: Day Type Toggle (Full, Half, Hourly) & Hours:Minutes Stepper */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                           
                           {/* Day Type Toggle Buttons */}
                           <div className="flex items-center bg-white dark:bg-slate-900 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-xs sm:flex-1 sm:max-w-md">
@@ -757,7 +757,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                 {alreadyLoggedWorkers.map(({ worker, log }) => (
                   <div
                     key={worker.id}
-                    className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
+                    className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-800 flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
                   >
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">

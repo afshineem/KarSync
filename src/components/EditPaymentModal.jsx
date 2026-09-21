@@ -88,13 +88,13 @@ export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex animate-in fade-in duration-150 flex items-center justify-center p-0 sm:p-4 print:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
-        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-sm w-full p-5 shadow-2xl animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white relative"
+        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-sm w-full p-5 shadow-2xl animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white relative h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-100 dark:border-slate-800">

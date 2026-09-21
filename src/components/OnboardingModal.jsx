@@ -87,8 +87,8 @@ export function OnboardingModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden transition-all">
+    <div className="fixed inset-0 z-50 flex bg-slate-900/80 backdrop-blur-md animate-fade-in flex items-center justify-center p-0 sm:p-4 print:p-0">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-none sm:rounded-3xl shadow-2xl max-w-lg w-full transition-all h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto">
         
         {/* Header Banner */}
         <div className="bg-gradient-to-br from-sky-600 to-indigo-700 p-6 text-white text-center relative overflow-hidden">

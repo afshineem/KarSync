@@ -112,13 +112,13 @@ export function AdvancePaymentModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto no-print animate-in fade-in duration-150"
+      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex no-print animate-in fade-in duration-150 flex items-center justify-center p-0 sm:p-4 print:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
-        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-5 sm:p-6 shadow-2xl my-auto animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white"
+        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-5 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         

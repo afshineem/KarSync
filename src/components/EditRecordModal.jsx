@@ -176,13 +176,13 @@ export function EditRecordModal({ log, isOpen, onClose }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 print:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
-        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-xl w-full p-4 sm:p-6 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-2xl border border-slate-200 dark:border-slate-800 max-w-xl w-full p-4 sm:p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150 h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -210,7 +210,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
         </div>
 
         {/* Worker & Date Pill Header */}
-        <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/70 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/70 dark:border-slate-800 flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
             <User className="w-4 h-4 text-sky-500" />
             <span className="font-bold text-slate-900 dark:text-white text-sm">
@@ -325,7 +325,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                   onChange={(e) => handleHoursChange(e.target.value)}
                   className="w-full bg-transparent text-sm font-extrabold text-slate-900 dark:text-white text-center focus:outline-none"
                 />
-                <div className="flex flex-col ms-1">
+                <div className="flex-col ms-1">
                   <button
                     type="button"
                     onClick={() => setHours((h) => Math.min(24, h + 1))}
@@ -358,7 +358,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                   onChange={(e) => handleMinutesChange(e.target.value)}
                   className="w-full bg-transparent text-sm font-extrabold text-slate-900 dark:text-white text-center focus:outline-none"
                 />
-                <div className="flex flex-col ms-1">
+                <div className="flex-col ms-1">
                   <button
                     type="button"
                     onClick={() => addMinutes(5)}
@@ -378,7 +378,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
             </div>
 
             {/* Quick adjust chips */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-[11px]">
+            <div className="flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-[11px]">
               <span className="text-slate-400 text-[10px] me-1">تنظیم سریع:</span>
               <button
                 type="button"

@@ -69,13 +69,13 @@ export function ChangePasswordModal({ isOpen, onClose }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex animate-in fade-in duration-150 flex items-center justify-center p-0 sm:p-4 print:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative text-slate-900 dark:text-white animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-none sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative text-slate-900 dark:text-white animate-in zoom-in-95 duration-150 h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

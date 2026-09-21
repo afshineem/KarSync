@@ -334,11 +334,11 @@ export function ProjectSettingsModal() {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex bg-slate-900/60 backdrop-blur-xs animate-fade-in flex items-center justify-center p-0 sm:p-4 print:p-0"
       onClick={() => setIsProjectSettingsModalOpen(false)}
     >
       <div 
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-xl w-full h-[85vh] sm:h-[520px] max-h-[700px] flex flex-col overflow-hidden transition-all"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-none sm:rounded-3xl shadow-2xl max-w-xl w-full sm:h-[520px] max-h-none sm:max-h-[700px] overflow-hidden transition-all h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -639,7 +639,7 @@ export function ProjectSettingsModal() {
         ) : activeTab === 'sections' ? (
           /* Tab 2: Project Sub-Sections Manager (Active only) */
           <div className="p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
                   {t('projectSections') || 'بخش‌های پروژه (ساب‌پروژه‌ها)'}

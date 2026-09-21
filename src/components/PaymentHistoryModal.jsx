@@ -65,13 +65,13 @@ export function PaymentHistoryModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto print:p-0 print:static print:bg-white animate-in fade-in duration-150"
+      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex print: print:static print:bg-white animate-in fade-in duration-150 flex items-center justify-center p-0 sm:p-4 print:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
-        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-5 sm:p-6 shadow-2xl my-auto animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white print:border-none print:shadow-none print:p-4 print:text-black"
+        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-5 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white print:border-none print:shadow-none print:p-4 print:text-black h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -193,7 +193,7 @@ export function PaymentHistoryModal({
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-3 py-2.5 font-semibold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                        <div className="flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                           <span>{p.date}</span>
                           {paymentTime && (
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">

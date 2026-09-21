@@ -519,6 +519,7 @@ export async function pushAllLocalToCloud() {
       daily_rate: Number(w.dailyRate) || 0,
       overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
       is_active: Number(w.isActive) === 0 ? 0 : 1,
+      default_section_id: w.defaultSectionId || null,
       deleted_at: null,
       updated_at: w.updatedAt || new Date().toISOString()
     }));
@@ -1405,6 +1406,7 @@ export async function pushWorkerLive(w) {
     daily_rate: Number(w.dailyRate) || 0,
     overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
     is_active: Number(w.isActive) === 0 ? 0 : 1,
+    default_section_id: w.defaultSectionId || null,
     deleted_at: null,
     updated_at: new Date().toISOString()
   };
