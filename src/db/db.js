@@ -332,47 +332,69 @@ export async function reconcileSettlementEpochs() {
 
     if (settlements.length === 0) return;
 
+    let totalLogsUpdated = [];
+    let totalAdvancesUpdated = [];
+
     for (const st of settlements) {
-      if (!st.workerId) continue;
-      const workerIdStr = String(st.workerId);
       const stDate = st.date || (st.createdAt ? st.createdAt.slice(0, 10) : '9999-12-31');
+      let workerIdsToSettle = [];
 
-      // 1. Mark logs on or before settlement date as settled
-      const workerLogs = await db.attendanceLogs.where('workerId').equals(workerIdStr).toArray();
-      const logsToSettle = workerLogs.filter((l) => !l.isSettled && l.date <= stDate);
-
-      if (logsToSettle.length > 0) {
-        const updatedLogs = logsToSettle.map((l) => ({
-          ...l,
-          isSettled: true,
-          settlementReceiptId: l.settlementReceiptId || st.id,
-          updatedAt: l.updatedAt || new Date().toISOString()
-        }));
-        await db.attendanceLogs.bulkPut(updatedLogs);
+      if (st.workerId) {
+        workerIdsToSettle.push(String(st.workerId));
       }
 
-      // 2. Mark previous advances on or before settlement date as settled
-      const workerAdvances = allPayments.filter(
-        (p) => !p.deletedAt && 
-               String(p.workerId) === workerIdStr && 
-               p.id !== st.id && 
-               (p.type === 'advance' || p.type === 'Advance_Payment') && 
-               !p.isSettled && 
-               (p.date || '') <= stDate
-      );
+      // If settlement has groupId or note indicates group settlement, find all group members
+      if (st.groupId) {
+        const groupWorkers = await db.workers.filter((w) => w.groupId === st.groupId).toArray();
+        groupWorkers.forEach((w) => {
+          const wIdStr = String(w.id);
+          if (!workerIdsToSettle.includes(wIdStr)) workerIdsToSettle.push(wIdStr);
+        });
+      }
 
-      if (workerAdvances.length > 0) {
-        const updatedAdvances = workerAdvances.map((p) => ({
-          ...p,
-          isSettled: true,
-          settlementReceiptId: p.settlementReceiptId || st.id,
-          updatedAt: p.updatedAt || new Date().toISOString()
-        }));
-        await db.payments.bulkPut(updatedAdvances);
+      for (const workerIdStr of workerIdsToSettle) {
+        // 1. Mark logs on or before settlement date as settled
+        const workerLogs = await db.attendanceLogs.where('workerId').equals(workerIdStr).toArray();
+        const logsToSettle = workerLogs.filter((l) => (!l.isSettled || !l.settlementReceiptId) && l.date <= stDate);
+
+        if (logsToSettle.length > 0) {
+          const updatedLogs = logsToSettle.map((l) => ({
+            ...l,
+            isSettled: true,
+            settlementReceiptId: l.settlementReceiptId || st.id,
+            updatedAt: new Date().toISOString()
+          }));
+          await db.attendanceLogs.bulkPut(updatedLogs);
+          totalLogsUpdated.push(...updatedLogs);
+        }
+
+        // 2. Mark previous advances on or before settlement date as settled
+        const workerAdvances = allPayments.filter(
+          (p) => !p.deletedAt && 
+                 String(p.workerId) === workerIdStr && 
+                 p.id !== st.id && 
+                 (p.type === 'advance' || p.type === 'Advance_Payment') && 
+                 (!p.isSettled || !p.settlementReceiptId) && 
+                 (p.date || '') <= stDate
+        );
+
+        if (workerAdvances.length > 0) {
+          const updatedAdvances = workerAdvances.map((p) => ({
+            ...p,
+            isSettled: true,
+            settlementReceiptId: p.settlementReceiptId || st.id,
+            updatedAt: new Date().toISOString()
+          }));
+          await db.payments.bulkPut(updatedAdvances);
+          totalAdvancesUpdated.push(...updatedAdvances);
+        }
       }
     }
+
+    return { totalLogsUpdated, totalAdvancesUpdated };
   } catch (err) {
     console.warn('reconcileSettlementEpochs warning:', err);
+    return { totalLogsUpdated: [], totalAdvancesUpdated: [] };
   }
 }
 

@@ -46,7 +46,8 @@ import {
   ChevronDown,
   ChevronUp,
   Archive,
-  RotateCcw
+  RotateCcw,
+  Crown
 } from 'lucide-react';
 
 export function FinancialsView() {
@@ -68,9 +69,13 @@ export function FinancialsView() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'settled' | 'overpaid'
+  const [settlementViewTab, setSettlementViewTab] = useState('current'); // 'current' (جاری) | 'settled' (تسویه شده)
 
   // Modals state
   const [settlementTargetWorker, setSettlementTargetWorker] = useState(null);
+  const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const [settlementInitialMode, setSettlementInitialMode] = useState('individual');
+  const [settlementInitialGroupId, setSettlementInitialGroupId] = useState(null);
   const [advanceTargetWorker, setAdvanceTargetWorker] = useState(null);
   const [historyTargetWorker, setHistoryTargetWorker] = useState(null);
   const [isGlobalAdvanceModalOpen, setIsGlobalAdvanceModalOpen] = useState(false);
@@ -141,180 +146,238 @@ export function FinancialsView() {
     [targetProjectId]
   ) || [];
 
-  // Compute worker financial summaries with cumulative prior debt & FIFO settlement status
-  const workerFinancials = useMemo(() => {
-    return workers.map((w) => {
-      const allWorkerLogs = allLogs.filter((l) => String(l.workerId) === String(w.id));
-      const allWorkerPayments = allPayments.filter((p) => String(p.workerId) === String(w.id) && !p.deletedAt);
+  // Live query groups for current project
+  const groups = useLiveQuery(
+    async () => {
+      if (!targetProjectId) return [];
+      const list = await db.groups.toArray();
+      return list.filter((g) => (g.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+    },
+    [targetProjectId]
+  ) || [];
 
-      const wDaily = Number(String(w.dailyRate).replace(/,/g, '')) || 0;
-      const wOtRate = Number(String(w.overtimeHourlyRate).replace(/,/g, '')) || 0;
+  // 1. Current / Open Financials (تب جاری)
+  // Strictly active personnel (w.isActive === 1 && !w.deletedAt)
+  // Strictly unpaid/unsettled work and open debt (!log.isSettled, !payment.isSettled)
+  // Double-Barrier Guard: Any log on or before worker's latest settlement date is NEVER treated as unsettled!
+  // Zero data from previously settled cycles!
+  const currentActiveRows = useMemo(() => {
+    return workers
+      .filter((w) => !w.deletedAt && w.isActive === 1)
+      .map((w) => {
+        const allWorkerLogs = allLogs.filter((l) => String(l.workerId) === String(w.id));
+        const allWorkerPayments = allPayments.filter((p) => String(p.workerId) === String(w.id) && !p.deletedAt);
 
-      const getLogPay = (l) => {
-        let val = Number(l.totalDayPay);
-        if (!isNaN(val) && val > 0) return val;
-        const otH = Math.max(0, Number(l.overtimeHours) || 0);
-        if (l.type === 'half') return (wDaily * 0.5) + (otH * wOtRate);
-        if (l.type === 'hourly') return otH * (wOtRate || (wDaily / 8));
-        return wDaily + (otH * wOtRate);
-      };
+        // Find worker's latest settlement date (individual or group)
+        const settlementReceipts = allWorkerPayments.filter((p) => 
+          p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled'
+        );
+        const sortedSettlements = [...settlementReceipts].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const lastSettlementDate = sortedSettlements[0]?.date || sortedSettlements[0]?.createdAt?.slice(0, 10) || null;
 
-      // Unsettled open records for this worker across entire history
-      const unsettledWorkerLogs = allWorkerLogs.filter((l) => !l.isSettled);
-      const unsettledWorkerPayments = allWorkerPayments.filter((p) => !p.isSettled);
-
-      const unsettledGross = roundCurrency(unsettledWorkerLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
-      const unsettledAdvances = roundCurrency(
-        unsettledWorkerPayments
-          .filter((p) => p.type === 'advance' || p.type === 'Advance_Payment')
-          .reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
-        currency
-      );
-
-      // True open balance due is strictly unsettled work minus unsettled advances
-      const netBalanceDue = roundCurrency(unsettledGross - unsettledAdvances, currency);
-
-      // Total All-Time Gross & Paid across entire database history
-      const totalAllTimeGross = roundCurrency(allWorkerLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
-      const totalAllTimePaid = roundCurrency(allWorkerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
-
-      // Determine period boundaries
-      let currentLogs = [];
-      let priorLogs = [];
-      let currentPayments = [];
-      let priorPayments = [];
-      let periodEndDate = '';
-
-      if (dateFilter?.mode === 'unsettled_only') {
-        periodEndDate = getTodayDateString();
-        currentLogs = unsettledWorkerLogs;
-        priorLogs = [];
-        currentPayments = unsettledWorkerPayments;
-        priorPayments = [];
-      } else if (filterMode === 'monthly') {
-        periodEndDate = `${selectedMonth}-31`;
-        currentLogs = allWorkerLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
-        // ONLY count prior logs that were NEVER settled as prior arrears!
-        priorLogs = allWorkerLogs.filter((l) => l.date && l.date < selectedMonth && !l.isSettled);
-        currentPayments = allWorkerPayments.filter((p) => p.month === selectedMonth || (!p.month && p.date && p.date.startsWith(selectedMonth)));
-        priorPayments = allWorkerPayments.filter((p) => ((p.month && p.month < selectedMonth) || (!p.month && p.date && p.date < selectedMonth)) && !p.isSettled);
-      } else {
-        // Date range mode
-        periodEndDate = toDate;
-        currentLogs = allWorkerLogs.filter((l) => l.date && l.date >= fromDate && l.date <= toDate);
-        priorLogs = allWorkerLogs.filter((l) => l.date && l.date < fromDate && !l.isSettled);
-        currentPayments = allWorkerPayments.filter((p) => {
-          if (p.date) return p.date >= fromDate && p.date <= toDate;
-          if (p.month) return p.month >= fromDate.slice(0, 7) && p.month <= toDate.slice(0, 7);
+        // Double-Barrier Guard
+        const isLogSettled = (l) => {
+          if (l.isSettled) return true;
+          if (l.settlementReceiptId) return true;
+          if (lastSettlementDate && l.date && l.date <= lastSettlementDate) return true;
           return false;
-        });
-        priorPayments = allWorkerPayments.filter((p) => {
-          if (p.isSettled) return false;
-          if (p.date) return p.date < fromDate;
-          if (p.month) return p.month < fromDate.slice(0, 7);
+        };
+
+        const isPaymentSettled = (p) => {
+          if (p.isSettled) return true;
+          if (p.settlementReceiptId) return true;
+          if (p.type === 'settlement' || p.type === 'Settlement') return true;
+          if (lastSettlementDate && p.date && p.date <= lastSettlementDate) return true;
           return false;
+        };
+
+        const wDaily = Number(String(w.dailyRate).replace(/,/g, '')) || 0;
+        const wOtRate = Number(String(w.overtimeHourlyRate).replace(/,/g, '')) || 0;
+
+        const getLogPay = (l) => {
+          let val = Number(l.totalDayPay);
+          if (!isNaN(val) && val > 0) return val;
+          const otH = Math.max(0, Number(l.overtimeHours) || 0);
+          if (l.type === 'half') return (wDaily * 0.5) + (otH * wOtRate);
+          if (l.type === 'hourly') return otH * (wOtRate || (wDaily / 8));
+          return wDaily + (otH * wOtRate);
+        };
+
+        // Strictly unsettled logs & payments
+        const unsettledLogs = allWorkerLogs.filter((l) => !isLogSettled(l));
+        const unsettledPayments = allWorkerPayments.filter((p) => !isPaymentSettled(p));
+
+        let fullDays = 0;
+        let halfDays = 0;
+        let hourlyDays = 0;
+        let otHours = 0;
+        let unsettledGross = 0;
+
+        unsettledLogs.forEach((l) => {
+          if (l.type === 'full') fullDays++;
+          else if (l.type === 'half') halfDays++;
+          else if (l.type === 'hourly') hourlyDays++;
+
+          otHours += Number(l.overtimeHours) || 0;
+          unsettledGross += getLogPay(l);
         });
-      }
 
-      // 1. Current Period Attendance & Gross
-      let fullDays = 0;
-      let halfDays = 0;
-      let hourlyDays = 0;
-      let otHours = 0;
-      let grossEarnings = 0;
+        const effectiveDays = fullDays + halfDays * 0.5;
+        const unsettledGrossRounded = roundCurrency(unsettledGross, currency);
 
-      currentLogs.forEach((l) => {
-        if (l.type === 'full') fullDays++;
-        else if (l.type === 'half') halfDays++;
-        else if (l.type === 'hourly') hourlyDays++;
+        const unsettledAdvances = roundCurrency(
+          unsettledPayments
+            .filter((p) => p.type === 'advance' || p.type === 'Advance_Payment')
+            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+          currency
+        );
 
-        otHours += Number(l.overtimeHours) || 0;
-        grossEarnings += getLogPay(l);
+        const netBalanceDue = roundCurrency(unsettledGrossRounded - unsettledAdvances, currency);
+
+        let status = 'settled';
+        if (netBalanceDue > 0) status = 'pending';
+        else if (netBalanceDue < 0) status = 'overpaid';
+        else if (effectiveDays > 0) status = 'pending';
+
+        return {
+          worker: w,
+          lastSettlementDate,
+          unsettledLogs,
+          unsettledPayments,
+          fullDays,
+          halfDays,
+          hourlyDays,
+          effectiveDays,
+          otHours,
+          unsettledGross: unsettledGrossRounded,
+          unsettledAdvances,
+          netBalanceDue,
+          status,
+          // Generic mappings for dashboard/KPI compatibility
+          grossEarnings: unsettledGrossRounded,
+          totalPaidPeriod: unsettledAdvances,
+          totalAllTimeGross: unsettledGrossRounded,
+          totalAllTimePaid: unsettledAdvances,
+          priorGross: 0,
+          priorEffectiveDays: 0,
+          priorOtHours: 0,
+          priorBalance: 0
+        };
       });
+  }, [workers, allLogs, allPayments, currency]);
 
-      const effectiveDays = fullDays + halfDays * 0.5;
+  // 2. Settled Financials History (تب تسویه شده)
+  // All personnel (active and inactive: w.isActive === 1 || w.isActive === 0)
+  // Strictly data that has been settled (log.isSettled, payment.isSettled, or dated <= lastSettlementDate)
+  const settledHistoryRows = useMemo(() => {
+    return workers
+      .filter((w) => !w.deletedAt)
+      .map((w) => {
+        const allWorkerLogs = allLogs.filter((l) => String(l.workerId) === String(w.id));
+        const allWorkerPayments = allPayments.filter((p) => String(p.workerId) === String(w.id) && !p.deletedAt);
 
-      // 2. Prior Months Arrears Attendance & Gross
-      let priorFullDays = 0;
-      let priorHalfDays = 0;
-      let priorHourlyDays = 0;
-      let priorOtHours = 0;
-      let priorGross = 0;
+        // Find last settlement date
+        const settlementReceipts = allWorkerPayments.filter((p) => 
+          p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled'
+        );
+        const sortedSettlements = [...settlementReceipts].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const lastSettlementDate = sortedSettlements[0]?.date || sortedSettlements[0]?.createdAt?.slice(0, 10) || null;
 
-      priorLogs.forEach((l) => {
-        if (l.type === 'full') priorFullDays++;
-        else if (l.type === 'half') priorHalfDays++;
-        else if (l.type === 'hourly') priorHourlyDays++;
+        // Double-Barrier Guard for historical settled items
+        const isLogSettled = (l) => {
+          if (l.isSettled) return true;
+          if (l.settlementReceiptId) return true;
+          if (lastSettlementDate && l.date && l.date <= lastSettlementDate) return true;
+          return false;
+        };
 
-        priorOtHours += Number(l.overtimeHours) || 0;
-        priorGross += getLogPay(l);
-      });
+        const isPaymentSettled = (p) => {
+          if (p.isSettled) return true;
+          if (p.settlementReceiptId) return true;
+          if (p.type === 'settlement' || p.type === 'Settlement') return true;
+          if (lastSettlementDate && p.date && p.date <= lastSettlementDate) return true;
+          return false;
+        };
 
-      const priorEffectiveDays = priorFullDays + priorHalfDays * 0.5;
-      const priorGrossRounded = roundCurrency(priorGross, currency);
-      const priorPaid = roundCurrency(priorPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
-      const priorBalance = roundCurrency(Math.max(0, priorGrossRounded - priorPaid), currency);
+        const wDaily = Number(String(w.dailyRate).replace(/,/g, '')) || 0;
+        const wOtRate = Number(String(w.overtimeHourlyRate).replace(/,/g, '')) || 0;
 
-      // 3. Current Period Payments
-      const totalAdvances = roundCurrency(currentPayments
-        .filter((p) => p.type === 'advance')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
+        const getLogPay = (l) => {
+          let val = Number(l.totalDayPay);
+          if (!isNaN(val) && val > 0) return val;
+          const otH = Math.max(0, Number(l.overtimeHours) || 0);
+          if (l.type === 'half') return (wDaily * 0.5) + (otH * wOtRate);
+          if (l.type === 'hourly') return otH * (wOtRate || (wDaily / 8));
+          return wDaily + (otH * wOtRate);
+        };
 
-      const totalSettlements = roundCurrency(currentPayments
-        .filter((p) => p.type === 'settlement')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
+        // Strictly settled logs & settlement transactions
+        const settledLogs = allWorkerLogs.filter((l) => isLogSettled(l));
+        const settledPayments = allWorkerPayments.filter((p) => isPaymentSettled(p));
 
-      const totalPaidPeriod = roundCurrency(totalAdvances + totalSettlements, currency);
+        let fullDays = 0;
+        let halfDays = 0;
+        let hourlyDays = 0;
+        let otHours = 0;
+        let settledGross = 0;
 
-      // 4. Gross cumulative earnings up to this inspected period
-      const grossUpToPeriod = roundCurrency(allWorkerLogs
-        .filter((l) => l.date && l.date <= periodEndDate)
-        .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+        settledLogs.forEach((l) => {
+          if (l.type === 'full') fullDays++;
+          else if (l.type === 'half') halfDays++;
+          else if (l.type === 'hourly') hourlyDays++;
 
-      // 5. FIFO Cumulative Settlement Status
-      let status = 'pending';
-      if (totalAllTimeGross === 0 && totalAllTimePaid === 0) {
-        status = 'no_activity';
-      } else if (totalAllTimePaid > totalAllTimeGross) {
-        status = 'overpaid';
-      } else if (netBalanceDue === 0 && totalAllTimeGross > 0) {
-        status = 'settled';
-      } else if (totalAllTimePaid >= grossUpToPeriod && grossUpToPeriod > 0) {
-        status = 'settled';
-      } else {
-        status = 'pending';
-      }
+          otHours += Number(l.overtimeHours) || 0;
+          settledGross += getLogPay(l);
+        });
 
-      const hasSettledRecord = currentPayments.some((p) => p.type === 'settlement' && p.status === 'settled');
+        const effectiveDays = fullDays + halfDays * 0.5;
+        const settledGrossRounded = roundCurrency(settledGross, currency);
 
-      return {
-        worker: w,
-        fullDays,
-        halfDays,
-        hourlyDays,
-        effectiveDays,
-        otHours,
-        grossEarnings: roundCurrency(grossEarnings, currency),
-        priorFullDays,
-        priorHalfDays,
-        priorEffectiveDays,
-        priorOtHours,
-        priorGross: priorGrossRounded,
-        priorBalance,
-        totalAdvances,
-        totalSettlements,
-        totalPaidPeriod,
-        totalAllTimeGross,
-        totalAllTimePaid,
-        grossUpToPeriod,
-        netBalanceDue,
-        status,
-        hasSettledRecord,
-        currentLogs,
-        currentPayments
-      };
-    });
-  }, [workers, allLogs, allPayments, filterMode, selectedMonth, fromDate, toDate, dateFilter, currency]);
+        const settledAdvances = roundCurrency(
+          settledPayments
+            .filter((p) => (p.type === 'advance' || p.type === 'Advance_Payment') && p.type !== 'settlement')
+            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+          currency
+        );
+
+        const totalSettlementPaid = roundCurrency(
+          settlementReceipts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+          currency
+        );
+
+        return {
+          worker: w,
+          settledLogs,
+          settledPayments,
+          settlementReceipts,
+          fullDays,
+          halfDays,
+          hourlyDays,
+          effectiveDays,
+          otHours,
+          settledGross: settledGrossRounded,
+          settledAdvances,
+          totalSettlementPaid,
+          lastSettlementDate,
+          settlementsCount: settlementReceipts.length,
+          status: 'settled',
+          // Generic mappings for dashboard/KPI compatibility
+          grossEarnings: settledGrossRounded,
+          totalPaidPeriod: totalSettlementPaid,
+          totalAllTimeGross: settledGrossRounded,
+          totalAllTimePaid: totalSettlementPaid,
+          netBalanceDue: 0,
+          priorGross: 0,
+          priorEffectiveDays: 0,
+          priorOtHours: 0,
+          priorBalance: 0
+        };
+      })
+      .filter((row) => row.effectiveDays > 0 || row.settlementsCount > 0 || row.totalSettlementPaid > 0);
+  }, [workers, allLogs, allPayments, currency]);
+
+  // Active view alias
+  const workerFinancials = settlementViewTab === 'current' ? currentActiveRows : settledHistoryRows;
 
   // Project sections financial distribution (concise & comprehensive matrix)
   const sectionFinancials = useMemo(() => {
@@ -408,70 +471,86 @@ export function FinancialsView() {
       });
   }, [allLogs, projectSections, workers, filterMode, selectedMonth, fromDate, toDate, language]);
 
-  // Aggregate KPI metrics
+  // Aggregate KPI metrics based on current tab view
   const aggregateMetrics = useMemo(() => {
-    let totalGross = 0;
-    let totalPaid = 0;
-    let totalOutstanding = 0;
-    let settledCount = 0;
-    let relevantWorkersCount = 0;
+    let currentGross = 0;
+    let currentAdvances = 0;
+    let currentNetDue = 0;
+    let activeWithDueCount = 0;
 
-    workerFinancials.forEach((item) => {
-      if (selectedWorkerId !== 'all' && item.worker.id !== selectedWorkerId) {
-        return;
-      }
-
-      totalGross += item.grossEarnings;
-      totalPaid += item.totalPaidPeriod;
-      totalOutstanding += item.netBalanceDue;
-
-      if (item.grossEarnings > 0 || item.totalAllTimeGross > 0 || item.netBalanceDue > 0 || item.totalPaidPeriod > 0) {
-        relevantWorkersCount++;
-        if (item.status === 'settled') {
-          settledCount++;
-        }
+    currentActiveRows.forEach((item) => {
+      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return;
+      currentGross += item.unsettledGross;
+      currentAdvances += item.unsettledAdvances;
+      currentNetDue += item.netBalanceDue;
+      if (item.netBalanceDue > 0 || item.effectiveDays > 0) {
+        activeWithDueCount++;
       }
     });
+
+    let settledGross = 0;
+    let settledPaid = 0;
+    let settledAdvances = 0;
+    let settledWorkersCount = 0;
+
+    settledHistoryRows.forEach((item) => {
+      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return;
+      settledGross += item.settledGross;
+      settledPaid += item.totalSettlementPaid;
+      settledAdvances += item.settledAdvances;
+      settledWorkersCount++;
+    });
+
+    const isCurrent = settlementViewTab === 'current';
 
     return {
-      totalGross: roundCurrency(totalGross, currency),
-      totalPaid: roundCurrency(totalPaid, currency),
-      totalOutstanding: roundCurrency(totalOutstanding, currency),
-      settledCount,
-      relevantWorkersCount: relevantWorkersCount || workers.filter((w) => w.isActive === 1).length
+      isCurrent,
+      currentGross: roundCurrency(currentGross, currency),
+      currentAdvances: roundCurrency(currentAdvances, currency),
+      currentNetDue: roundCurrency(currentNetDue, currency),
+      activeWithDueCount,
+      totalActiveWorkers: workers.filter((w) => w.isActive === 1 && !w.deletedAt).length,
+      settledGross: roundCurrency(settledGross, currency),
+      settledPaid: roundCurrency(settledPaid, currency),
+      settledAdvances: roundCurrency(settledAdvances, currency),
+      settledWorkersCount,
+      totalGross: isCurrent ? roundCurrency(currentGross, currency) : roundCurrency(settledGross, currency),
+      totalPaid: isCurrent ? roundCurrency(currentAdvances, currency) : roundCurrency(settledPaid, currency),
+      totalOutstanding: isCurrent ? roundCurrency(currentNetDue, currency) : 0,
+      settledCount: isCurrent ? (currentActiveRows.length - activeWithDueCount) : settledWorkersCount,
+      relevantWorkersCount: isCurrent ? currentActiveRows.length : settledHistoryRows.length
     };
-  }, [workerFinancials, selectedWorkerId, workers, currency]);
+  }, [currentActiveRows, settledHistoryRows, settlementViewTab, selectedWorkerId, workers, currency]);
 
-  // Filtered workers for table
-  const displayedRows = useMemo(() => {
-    return workerFinancials.filter((item) => {
-      // Worker dropdown filter
-      if (selectedWorkerId !== 'all' && item.worker.id !== selectedWorkerId) {
-        return false;
-      }
-
-      // Search term
+  // Filtered workers for current and settled tabs
+  const displayedCurrentRows = useMemo(() => {
+    return currentActiveRows.filter((item) => {
+      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return false;
+      if (statusFilter !== 'all' && item.status !== statusFilter) return false;
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
-        const matchName = item.worker.name.toLowerCase().includes(q);
-        const matchRole = item.worker.role.toLowerCase().includes(q);
+        const matchName = (item.worker.name || '').toLowerCase().includes(q);
+        const matchRole = (item.worker.role || '').toLowerCase().includes(q);
         if (!matchName && !matchRole) return false;
       }
-
-      // Status filter
-      if (statusFilter === 'pending') return item.status === 'pending';
-      if (statusFilter === 'settled') return item.status === 'settled';
-      if (statusFilter === 'overpaid') return item.status === 'overpaid';
-
-      // Show workers who have activity or debt or are active
-      const hasAnyActivity = item.grossEarnings > 0 || item.priorGross > 0 || item.totalAllTimeGross > 0 || item.netBalanceDue > 0 || item.totalPaidPeriod > 0;
-      if (item.worker.isActive === 0 && !hasAnyActivity && !searchTerm.trim() && selectedWorkerId === 'all') {
-        return false;
-      }
-
       return true;
     });
-  }, [workerFinancials, selectedWorkerId, searchTerm, statusFilter]);
+  }, [currentActiveRows, selectedWorkerId, statusFilter, searchTerm]);
+
+  const displayedSettledRows = useMemo(() => {
+    return settledHistoryRows.filter((item) => {
+      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return false;
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const matchName = (item.worker.name || '').toLowerCase().includes(q);
+        const matchRole = (item.worker.role || '').toLowerCase().includes(q);
+        if (!matchName && !matchRole) return false;
+      }
+      return true;
+    });
+  }, [settledHistoryRows, selectedWorkerId, searchTerm]);
+
+  const displayedRows = settlementViewTab === 'current' ? displayedCurrentRows : displayedSettledRows;
 
   // Month navigation helpers
   const handleShiftMonth = (delta) => {
@@ -483,18 +562,32 @@ export function FinancialsView() {
   };
 
   const handleOpenSettlement = () => {
+    let target = null;
     if (selectedWorkerId && selectedWorkerId !== 'all') {
-      const w = workers.find((x) => String(x.id) === String(selectedWorkerId));
-      if (w) {
-        setSettlementTargetWorker(w);
-        return;
-      }
+      target = workers.find((x) => String(x.id) === String(selectedWorkerId));
     }
-    const dueRow = displayedRows.find((r) => r.netBalanceDue > 0);
-    if (dueRow?.worker) {
-      setSettlementTargetWorker(dueRow.worker);
-    } else if (workers.length > 0) {
-      setSettlementTargetWorker(workers[0]);
+    if (!target) {
+      const dueRow = displayedCurrentRows.find((r) => r.netBalanceDue > 0);
+      target = dueRow?.worker || (currentActiveRows.length > 0 ? currentActiveRows[0].worker : workers[0]);
+    }
+    if (target) {
+      setSettlementTargetWorker(target);
+      setSettlementInitialMode(target.teamRole === 'Master' && target.groupId ? 'group' : 'individual');
+      setSettlementInitialGroupId(target.groupId || null);
+      setIsSettlementModalOpen(true);
+    }
+  };
+
+  const handleOpenGroupSettlement = () => {
+    if (groups.length > 0) {
+      const g = groups[0];
+      const master = workers.find((w) => w.groupId === g.id && w.teamRole === 'Master') || workers.find((w) => w.groupId === g.id) || workers[0];
+      setSettlementTargetWorker(master || null);
+      setSettlementInitialMode('group');
+      setSettlementInitialGroupId(g.id);
+      setIsSettlementModalOpen(true);
+    } else {
+      handleOpenSettlement();
     }
   };
 
@@ -502,22 +595,29 @@ export function FinancialsView() {
     let pending = 0;
     let settled = 0;
     let overpaid = 0;
-    const list = selectedWorkerId !== 'all'
-      ? workerFinancials.filter((item) => item.worker.id === selectedWorkerId)
-      : workerFinancials;
+    const baseList = currentActiveRows.filter((item) => {
+      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return false;
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const matchName = (item.worker.name || '').toLowerCase().includes(q);
+        const matchRole = (item.worker.role || '').toLowerCase().includes(q);
+        if (!matchName && !matchRole) return false;
+      }
+      return true;
+    });
 
-    list.forEach((item) => {
+    baseList.forEach((item) => {
       if (item.status === 'settled') settled++;
       else if (item.status === 'overpaid') overpaid++;
       else pending++;
     });
     return {
-      all: list.length,
+      all: baseList.length,
       pending,
       settled,
       overpaid
     };
-  }, [workerFinancials, selectedWorkerId]);
+  }, [currentActiveRows, selectedWorkerId, searchTerm]);
 
   const activePayments = useMemo(() => allPayments.filter(p => !p.deletedAt && !p.isArchived), [allPayments]);
   const archivedPayments = useMemo(() => allPayments.filter(p => !p.deletedAt && p.isArchived), [allPayments]);
@@ -636,17 +736,29 @@ export function FinancialsView() {
             {/* Mode Switcher: Monthly vs Unsettled (Global DateFilterComponent) */}
             <DateFilterComponent />
 
-            {/* Quick Actions: Settlement + Add Advance */}
+            {/* Quick Actions: Settlement + Group Settlement + Add Advance */}
             <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
               <button
                 type="button"
                 onClick={handleOpenSettlement}
-                aria-label={t('settleBtn') || 'ثبت تسویه حساب'}
-                title={t('settleBtn') || 'ثبت تسویه حساب'}
+                aria-label={t('settleBtn') || 'ثبت تسویه حساب فردی'}
+                title={t('settleBtn') || 'ثبت تسویه حساب فردی'}
                 className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
               >
                 <CheckCircle2 className="w-5.5 h-5.5 flex-shrink-0" />
               </button>
+
+              {groups.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleOpenGroupSettlement}
+                  aria-label="تسویه با سرپرست گروه"
+                  title="تسویه حساب گروهی با سرپرست"
+                  className="p-2 sm:p-2.5 text-slate-500 hover:text-amber-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
+                >
+                  <Users className="w-5.5 h-5.5 flex-shrink-0" />
+                </button>
+              )}
 
               <button
                 type="button"
@@ -749,7 +861,9 @@ export function FinancialsView() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-sky-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              {t('totalCalculatedPayroll')}
+              {settlementViewTab === 'current'
+                ? (t('currentGrossTitle') || 'کارکرد ناخالص جاری (تسویه‌نشده)')
+                : (t('settledGrossTitle') || 'مجموع کارکرد ناخالص تسویه‌شده')}
             </span>
             <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
               <Coins className="w-5 h-5" />
@@ -762,15 +876,19 @@ export function FinancialsView() {
             <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400">
-            {filterMode === 'monthly' ? `${selectedMonth}` : `${fromDate} ➔ ${toDate}`}
+            {settlementViewTab === 'current'
+              ? 'حق‌الزحمه روزها و ساعات کارکرد باز'
+              : 'شامل کلیه کارکردهای تسویه‌شده قبلی'}
           </div>
         </div>
 
-        {/* Card 2: Total Paid (Advances + Settlements) */}
+        {/* Card 2: Total Paid (Advances / Settlement Receipts) */}
         <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-emerald-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              {t('totalPaidAdvances')}
+              {settlementViewTab === 'current'
+                ? (t('unsettledAdvancesTitle') || 'مساعده‌های باز (کسر از حقوق)')
+                : (t('settledPaidTitle') || 'کل مبالغ پرداختی تسویه')}
             </span>
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
               <Banknote className="w-5 h-5" />
@@ -783,7 +901,11 @@ export function FinancialsView() {
             <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
           </div>
           <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-            <span>{t('totalPaidAll')}</span>
+            <span>
+              {settlementViewTab === 'current'
+                ? 'مساعده پرداخت‌شده جاری'
+                : 'اسناد و رسیدهای تسویه پرداخت‌شده'}
+            </span>
           </div>
         </div>
 
@@ -791,7 +913,9 @@ export function FinancialsView() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-amber-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              {t('totalOutstandingPayable')}
+              {settlementViewTab === 'current'
+                ? (t('totalOutstandingPayable') || 'خالص مانده قابل تسویه')
+                : (t('settledAdvancesTitle') || 'مساعده‌های کسر شده')}
             </span>
             <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <Clock className="w-5 h-5" />
@@ -799,20 +923,26 @@ export function FinancialsView() {
           </div>
           <div className="mt-3">
             <span className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400 font-mono">
-              {formatAmount(aggregateMetrics.totalOutstanding, currency)}
+              {settlementViewTab === 'current'
+                ? formatAmount(aggregateMetrics.totalOutstanding, currency)
+                : formatAmount(aggregateMetrics.settledAdvances, currency)}
             </span>
             <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400">
-            {t('netBalanceDueLabel')}
+            {settlementViewTab === 'current'
+              ? (t('netBalanceDueLabel') || 'خالص بدهی جهت تسویه حساب')
+              : 'مساعده‌های مستهلک‌شده در اسناد تسویه'}
           </div>
         </div>
 
-        {/* Card 4: Settled Ratio */}
+        {/* Card 4: Settled Ratio / Count */}
         <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white p-5 rounded-3xl shadow-lg shadow-indigo-600/20 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-indigo-100">
-              {t('settlementStatus')}
+              {settlementViewTab === 'current'
+                ? (t('settlementStatus') || 'وضعیت پرسنل فعال')
+                : (t('settledWorkersCountTitle') || 'پرسنل دارای سابقه تسویه')}
             </span>
             <div className="w-10 h-10 rounded-2xl bg-white/20 text-white flex items-center justify-center backdrop-blur-xs">
               <CheckCircle2 className="w-5 h-5" />
@@ -820,13 +950,25 @@ export function FinancialsView() {
           </div>
           <div className="mt-3">
             <span className="text-2xl sm:text-3xl font-black tracking-tight">
-              {aggregateMetrics.settledCount} <span className="text-lg font-bold text-indigo-200">/ {aggregateMetrics.relevantWorkersCount}</span>
+              {settlementViewTab === 'current' ? (
+                <>
+                  {aggregateMetrics.settledCount} <span className="text-lg font-bold text-indigo-200">/ {aggregateMetrics.relevantWorkersCount}</span>
+                </>
+              ) : (
+                <>
+                  {aggregateMetrics.settledWorkersCount} <span className="text-base font-bold text-indigo-200">نفر</span>
+                </>
+              )}
             </span>
           </div>
           <div className="mt-2 text-[11px] text-indigo-200 font-semibold">
-            {aggregateMetrics.settledCount === aggregateMetrics.relevantWorkersCount && aggregateMetrics.relevantWorkersCount > 0
-              ? t('settledBadge')
-              : `${aggregateMetrics.relevantWorkersCount - aggregateMetrics.settledCount} ${t('pendingBadge')}`}
+            {settlementViewTab === 'current' ? (
+              aggregateMetrics.settledCount === aggregateMetrics.relevantWorkersCount && aggregateMetrics.relevantWorkersCount > 0
+                ? (t('allSettledBadge') || 'همه تسویه‌شده')
+                : `${aggregateMetrics.relevantWorkersCount - aggregateMetrics.settledCount} نفر دارای مانده`
+            ) : (
+              'کلیه پرسنل (فعال و غیرفعال)'
+            )}
           </div>
         </div>
 
@@ -1032,143 +1174,186 @@ export function FinancialsView() {
         </div>
       )}
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Settlement View Mode Tabs (تب جاری vs تب تسویه شده) and Search Controls */}
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
         
-        {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <Search className="w-5 h-5 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('searchWorkerPlaceholder')}
-            className="w-full ps-10 pe-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white shadow-xs"
-          />
+        {/* Main View Mode Tabs */}
+        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner w-full md:w-auto">
+          {/* Tab 1: Current Unsettled (تب جاری) */}
+          <button
+            type="button"
+            onClick={() => setSettlementViewTab('current')}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl transition-all duration-200 py-2.5 px-4 text-xs font-bold ${
+              settlementViewTab === 'current'
+                ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
+            }`}
+          >
+            <Clock className="w-4 h-4 flex-shrink-0" />
+            <span>{t('tabCurrentFinancials') || 'تب جاری (پرسنل فعال و کارکرد باز)'}</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              settlementViewTab === 'current' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {currentActiveRows.length}
+            </span>
+          </button>
+
+          {/* Tab 2: Settled History (تب تسویه شده) */}
+          <button
+            type="button"
+            onClick={() => setSettlementViewTab('settled')}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl transition-all duration-200 py-2.5 px-4 text-xs font-bold ${
+              settlementViewTab === 'settled'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>{t('tabSettledFinancials') || 'تب تسویه شده (آرشیو سوابق)'}</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              settlementViewTab === 'settled' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {settledHistoryRows.length}
+            </span>
+          </button>
         </div>
 
-        {/* Status Filter Segmented Control (Google M3 Icon-First with Active Title Expansion) */}
-        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner overflow-x-auto">
-          {[
-            { id: 'all', label: t('filterAll') || 'همه', count: statusCounts.all, icon: SlidersHorizontal, activeClass: 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md' },
-            { id: 'pending', label: t('filterPending') || 'در انتظار', count: statusCounts.pending, icon: Clock, activeClass: 'bg-amber-600 text-white shadow-md shadow-amber-600/30' },
-            { id: 'settled', label: t('filterSettled') || 'تسویه شده', count: statusCounts.settled, icon: CheckCircle2, activeClass: 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' },
-            { id: 'overpaid', label: t('filterOverpaid') || 'اضافه پرداخت', count: statusCounts.overpaid, icon: AlertCircle, activeClass: 'bg-rose-600 text-white shadow-md shadow-rose-600/30' }
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isSelected = statusFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setStatusFilter(tab.id)}
-                aria-label={`${tab.label} (${tab.count})`}
-                title={`${tab.label} (${tab.count})`}
-                className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
-                  isSelected
-                    ? `${tab.activeClass} font-bold py-2.5 px-3.5 sm:py-3 sm:px-4`
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2.5 sm:p-3'
-                }`}
-              >
-                <Icon className="w-5.5 h-5.5 flex-shrink-0" />
-                {isSelected && (
-                  <span className="text-xs font-semibold whitespace-nowrap animate-fade-in flex items-center gap-1.5">
+        {/* Search & Status Filters */}
+        <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+          {/* Search */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={t('searchWorkerPlaceholder')}
+              className="w-full ps-9 pe-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white shadow-xs"
+            />
+          </div>
+
+          {/* Status Filter (Only in Current Tab) */}
+          {settlementViewTab === 'current' && (
+            <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner overflow-x-auto w-full sm:w-auto">
+              {[
+                { id: 'all', label: t('filterAll') || 'همه', count: statusCounts.all },
+                { id: 'pending', label: t('filterPending') || 'دارای مانده', count: statusCounts.pending },
+                { id: 'settled', label: t('filterSettled') || 'تسویه/صفر', count: statusCounts.settled },
+                { id: 'overpaid', label: t('filterOverpaid') || 'اضافه پرداخت', count: statusCounts.overpaid }
+              ].map((tab) => {
+                const isSelected = statusFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setStatusFilter(tab.id)}
+                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                    }`}
+                  >
                     <span>{tab.label}</span>
-                    <span className="text-[10px] bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded-full font-mono">
+                    <span className="ms-1 px-1 py-0.2 rounded-full bg-slate-200/60 dark:bg-slate-700 text-[10px] font-mono">
                       {tab.count}
                     </span>
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
       </div>
 
-      {/* Main Financial Ledger Table with Prior-Months Breakdown Columns (Item 2.2) */}
+      {/* Main Table: Either Current Tab OR Settled Tab */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        {/* Table Header Banner */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-              {t('financialSummaryTitle')}
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {filterMode === 'monthly' ? selectedMonth : `${fromDate} ➔ ${toDate}`} • {displayedRows.length} {t('workers')}
+            <div className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded-full ${settlementViewTab === 'current' ? 'bg-sky-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                {settlementViewTab === 'current'
+                  ? 'خلاصه کارکرد باز و مطالبات جاری (پرسنل فعال)'
+                  : 'آرشیو سوابق و اسناد تسویه حساب شده (کلیه پرسنل)'}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              {settlementViewTab === 'current'
+                ? 'فقط شامل کارکردها و مساعده‌های تسویه‌نشده پرسنل فعال. کارکردهای تسویه‌شده دوره‌های قبل جهت جلوگیری از سردرگمی از این جدول حذف شده‌اند.'
+                : 'شامل سوابق کارکردها، مساعده‌های کسر شده و پرداخت‌های نهایی تسویه برای کلیه پرسنل فعال و غیرفعال تا لحظه تسویه.'}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {displayedRows.length} {t('workers')}
+            </span>
           </div>
         </div>
 
+        {/* Empty State */}
         {displayedRows.length === 0 ? (
           <div className="py-14 text-center text-slate-400 text-sm">
-            {t('noDataForMonth')}
+            {settlementViewTab === 'current'
+              ? 'هیچ نیروی فعالی با کارکرد باز یا فیلتر مشخص‌شده یافت نشد.'
+              : 'هیچ سند یا سابقه تسویه حسابی یافت نشد.'}
           </div>
-        ) : (
+        ) : settlementViewTab === 'current' ? (
+          /* TAB 1: CURRENT ACTIVE PERSONNEL (UNSETTLED ONLY) */
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800 text-[11px] leading-snug">
                 <tr>
                   {/* 1. Worker Name */}
-                  <th className="px-3 py-2.5 text-start whitespace-nowrap">
+                  <th className="px-3 py-3 text-start whitespace-nowrap">
                     {t('colWorker')}
                   </th>
 
-                  {/* 2. Current Month Work */}
-                  <th className="px-2 py-2 text-center whitespace-nowrap">
-                    <div className="font-bold">{t('colCurrentWork')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t('colCurrentWorkSub')}</div>
+                  {/* 2. Unsettled Work (Days + OT) */}
+                  <th className="px-3 py-3 text-center whitespace-nowrap">
+                    <div className="font-bold">کارکرد جاری (تسویه‌نشده)</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">روزهای باز / اضافه‌کار</div>
                   </th>
 
-                  {/* 3. Prior Months Work */}
-                  <th className="px-2 py-2 text-center whitespace-nowrap">
-                    <div className="font-bold">{t('colPriorWork')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t('colPriorWorkSub')}</div>
-                  </th>
-
-                  {/* 4. Current Month Gross */}
-                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colCurrentGross')}</div>
+                  {/* 3. Daily Rate */}
+                  <th className="px-3 py-3 text-end whitespace-nowrap">
+                    <div className="font-bold">دستمزد روزانه</div>
                     <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
                   </th>
 
-                  {/* 5. Prior Months Arrears */}
-                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colPriorGross')}</div>
+                  {/* 4. Unsettled Gross */}
+                  <th className="px-3 py-3 text-end whitespace-nowrap">
+                    <div className="font-bold">ناخالص کارکرد جاری</div>
                     <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
                   </th>
 
-                  {/* 6. Total Combined Gross */}
-                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colTotalGross')}</div>
+                  {/* 5. Unsettled Advances */}
+                  <th className="px-3 py-3 text-end whitespace-nowrap">
+                    <div className="font-bold">مساعده باز (کسر)</div>
                     <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
                   </th>
 
-                  {/* 7. Total Paid */}
-                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colTotalPaid')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t('colTotalPaidSub')}</div>
-                  </th>
-
-                  {/* 8. Net Balance Due */}
-                  <th className="px-2.5 py-2 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colNetBalance')}</div>
+                  {/* 6. Net Balance Due */}
+                  <th className="px-3 py-3 text-end whitespace-nowrap">
+                    <div className="font-bold">خالص مانده قابل تسویه</div>
                     <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
                   </th>
 
-                  {/* 9. Settlement Status */}
-                  <th className="px-2 py-2.5 text-center whitespace-nowrap">
+                  {/* 7. Status */}
+                  <th className="px-3 py-3 text-center whitespace-nowrap">
                     {t('colStatus')}
                   </th>
 
-                  {/* 10. Financial Actions */}
-                  <th className="px-2.5 py-2.5 text-center whitespace-nowrap">
+                  {/* 8. Actions */}
+                  <th className="px-3 py-3 text-center whitespace-nowrap">
                     {t('colActions')}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {displayedRows.map((row) => {
+                {displayedCurrentRows.map((row) => {
                   const isSettled = row.status === 'settled';
                   const isPending = row.status === 'pending';
                   const isOverpaid = row.status === 'overpaid';
@@ -1176,28 +1361,26 @@ export function FinancialsView() {
                   return (
                     <tr 
                       key={row.worker.id}
-                      className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors ${
-                        row.worker.isActive === 0 ? 'opacity-70 bg-slate-50/40' : ''
-                      }`}
+                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                     >
                       {/* 1. Worker Name & Role */}
-                      <td className="px-3 py-2.5 text-start font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                      <td className="px-3 py-3 text-start font-bold text-slate-900 dark:text-white whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.worker.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" title="نیروی فعال"></span>
                           <div>
-                            <span className="block">{row.worker.name}</span>
+                            <span className="block font-black">{row.worker.name}</span>
                             <span className="text-[10px] text-slate-400 font-normal block">
-                              {row.worker.role} {row.worker.isActive === 0 ? `• (${t('inactive')})` : ''}
+                              {row.worker.role || 'نیرو'}
                             </span>
                           </div>
                         </div>
                       </td>
 
-                      {/* 2. Current Month Work (Days / Overtime) */}
-                      <td className="px-2 py-2.5 text-center font-mono whitespace-nowrap">
+                      {/* 2. Unsettled Days & OT */}
+                      <td className="px-3 py-3 text-center font-mono whitespace-nowrap">
                         {row.effectiveDays > 0 || row.otHours > 0 ? (
                           <>
-                            <span className="font-bold text-slate-800 dark:text-slate-200">
+                            <span className="font-bold text-slate-900 dark:text-white text-xs">
                               {row.effectiveDays} {t('daysCountUnit')}
                             </span>
                             {row.otHours > 0 && (
@@ -1205,145 +1388,282 @@ export function FinancialsView() {
                                 +{formatHoursAndMinutes(row.otHours, language)}
                               </span>
                             )}
-                          </>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-
-                      {/* 3. Prior Months Arrears Work (Days / Overtime) */}
-                      <td className="px-2 py-2.5 text-center font-mono whitespace-nowrap">
-                        {row.priorEffectiveDays > 0 || row.priorOtHours > 0 ? (
-                          <>
-                            <span className="font-bold text-amber-700 dark:text-amber-400">
-                              {row.priorEffectiveDays} {t('daysCountUnit')}
+                            <span className="text-[9px] text-slate-400 block mt-0.5 font-normal">
+                              ({row.fullDays} کامل{row.halfDays > 0 ? ` + ${row.halfDays} نیمه` : ''})
                             </span>
-                            {row.priorOtHours > 0 && (
-                              <span className="text-[10px] text-amber-600 dark:text-amber-500 block font-semibold">
-                                +{formatHoursAndMinutes(row.priorOtHours, language)}
-                              </span>
-                            )}
                           </>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 font-normal">بدون کارکرد باز</span>
                         )}
                       </td>
 
-                      {/* 4. Current Month Gross Payroll */}
-                      <td className="px-2.5 py-2.5 text-end font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                        {formatAmount(row.grossEarnings, currency)}
+                      {/* 3. Daily Rate */}
+                      <td className="px-3 py-3 text-end font-mono whitespace-nowrap text-slate-600 dark:text-slate-300">
+                        {formatAmount(row.worker.dailyRate, currency)}
                       </td>
 
-                      {/* 5. Prior Months Gross Arrears */}
-                      <td className="px-2.5 py-2.5 text-end font-mono whitespace-nowrap text-amber-600 dark:text-amber-400 font-semibold">
-                        {row.priorGross > 0 ? formatAmount(row.priorGross, currency) : '—'}
+                      {/* 4. Unsettled Gross */}
+                      <td className="px-3 py-3 text-end font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
+                        {formatAmount(row.unsettledGross, currency)}
                       </td>
 
-                      {/* 6. Total Combined Gross Earnings */}
-                      <td className="px-2.5 py-2.5 text-end font-extrabold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                        {formatAmount(row.totalAllTimeGross, currency)}
+                      {/* 5. Unsettled Advances */}
+                      <td className="px-3 py-3 text-end text-amber-600 dark:text-amber-400 font-bold font-mono whitespace-nowrap">
+                        {row.unsettledAdvances > 0 ? formatAmount(row.unsettledAdvances, currency) : '—'}
                       </td>
 
-                      {/* 7. Total Paid (Advances + Settlements) */}
-                      <td className="px-2.5 py-2.5 text-end text-emerald-600 dark:text-emerald-400 font-bold font-mono whitespace-nowrap">
-                        {row.totalAllTimePaid > 0 ? formatAmount(row.totalAllTimePaid, currency) : '—'}
-                      </td>
-
-                      {/* 8. Net Balance Due (To Settle) */}
-                      <td className="px-2.5 py-2.5 text-end font-mono whitespace-nowrap">
-                        <span className={`px-2 py-0.5 rounded-xl text-xs font-black inline-block ${
+                      {/* 6. Net Balance Due */}
+                      <td className="px-3 py-3 text-end font-mono whitespace-nowrap">
+                        <span className={`px-2.5 py-1 rounded-xl text-xs font-black inline-block ${
                           row.netBalanceDue === 0
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
                             : row.netBalanceDue < 0
                             ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
-                            : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                            : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
                         }`}>
                           {row.netBalanceDue === 0
-                            ? t('fullySettledZero')
+                            ? 'تسویه (۰)'
                             : row.netBalanceDue < 0
                             ? `${formatAmount(Math.abs(row.netBalanceDue), currency)} (بدهکار)`
-                            : `${formatAmount(row.netBalanceDue, currency)} (بستانکار)`}
+                            : `${formatAmount(row.netBalanceDue, currency)} (مانده طلب)`}
                         </span>
-                        {row.priorBalance > 0 && !isSettled && (
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-normal mt-0.5">
-                            {t('priorArrearsSubtitle').replace('{amount}', formatAmount(row.priorBalance, currency))}
-                          </span>
-                        )}
                       </td>
 
-                      {/* 9. Settlement Status Badge (FIFO) */}
-                      <td className="px-2 py-2.5 text-center whitespace-nowrap">
+                      {/* 7. Status */}
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
                         {isSettled ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
                             <CheckCircle2 className="w-3 h-3" />
-                            <span>{t('settledBadge')}</span>
+                            <span>تسویه‌شده</span>
                           </span>
                         ) : isOverpaid ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300">
                             <AlertCircle className="w-3 h-3" />
                             <span>{t('overpaid')}</span>
                           </span>
-                        ) : row.grossEarnings > 0 || row.netBalanceDue > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300">
+                        ) : row.netBalanceDue > 0 || row.effectiveDays > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300">
                             <Clock className="w-3 h-3" />
-                            <span>{t('pendingBadge')}</span>
+                            <span>در انتظار تسویه</span>
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[10px]">{t('noActivityPeriod')}</span>
+                          <span className="text-slate-400 text-[10px]">بدون بدهی</span>
                         )}
                       </td>
 
-                      {/* 10. Financial Actions */}
-                      <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1">
-                          
+                      {/* 8. Actions */}
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
                           {/* Settle Button */}
                           <button
                             type="button"
-                            onClick={() => setSettlementTargetWorker(row.worker)}
-                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] shadow-xs transition-all flex items-center gap-0.5 active:scale-95"
-                            title={t('settleBtn')}
+                            onClick={() => {
+                              setSettlementTargetWorker(row.worker);
+                              setSettlementInitialMode(row.worker.teamRole === 'Master' && row.worker.groupId ? 'group' : 'individual');
+                              setSettlementInitialGroupId(row.worker.groupId || null);
+                              setIsSettlementModalOpen(true);
+                            }}
+                            className={`px-2.5 py-1.5 text-white rounded-xl font-bold text-[11px] shadow-xs transition-all flex items-center gap-1 active:scale-95 ${
+                              row.worker.teamRole === 'Master' && row.worker.groupId
+                                ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20'
+                                : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
+                            }`}
+                            title={row.worker.teamRole === 'Master' && row.worker.groupId ? 'تسویه گروهی با سرپرست' : t('settleBtn')}
                           >
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>{t('settleBtn')}</span>
+                            {row.worker.teamRole === 'Master' && row.worker.groupId ? (
+                              <Crown className="w-3.5 h-3.5 text-amber-200" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                            <span>{row.worker.teamRole === 'Master' && row.worker.groupId ? 'تسویه گروهی' : t('settleBtn')}</span>
                           </button>
 
                           {/* Add Advance Button */}
                           <button
                             type="button"
                             onClick={() => setAdvanceTargetWorker(row.worker)}
-                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-bold text-[10px] transition-colors flex items-center gap-0.5"
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-[11px] transition-colors flex items-center gap-1"
                             title={t('addAdvanceBtn')}
                           >
-                            <PlusCircle className="w-3 h-3 text-amber-500" />
-                            <span>{t('advanceType')}</span>
+                            <PlusCircle className="w-3.5 h-3.5 text-amber-500" />
+                            <span>مساعده</span>
                           </button>
 
-                          {/* History Button */}
+                          {/* Profile History Button */}
                           <button
                             type="button"
                             onClick={() => setHistoryTargetWorker(row.worker)}
-                            className="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
-                            title={t('paymentHistory')}
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-colors"
+                            title="پروفایل و پرونده مالی"
                           >
-                            <Receipt className="w-3.5 h-3.5 text-sky-500" />
+                            <Receipt className="w-4 h-4 text-sky-500" />
                           </button>
-
                         </div>
                       </td>
-
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          </div>
+        ) : (
+          /* TAB 2: SETTLED PERSONNEL ARCHIVE (ALL PERSONNEL, SETTLED PORTION ONLY) */
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800 text-[11px] leading-snug">
+                <tr>
+                  {/* 1. Worker Name & Status */}
+                  <th className="px-3 py-3 text-start whitespace-nowrap">
+                    نام و وضعیت نیرو
+                  </th>
 
-            {/* Table Footnote */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-              <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
-            </div>
+                  {/* 2. Total Settled Work */}
+                  <th className="px-3 py-3 text-center whitespace-nowrap">
+                    <div className="font-bold">کل کارکرد تسویه‌شده</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">روزهای تسویه شده / اضافه‌کار</div>
+                  </th>
+
+                  {/* 3. Settled Gross Earnings */}
+                  <th className="px-3 py-3 text-end whitespace-nowrap">
+                    <div className="font-bold">مجموع ناخالص تسویه‌شده</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
+                  </th>
+
+                  {/* 4. Settled Advances Deducted */}
+                  <th className="px-3 py-3 text-end whitespace-nowrap">
+                    <div className="font-bold">مساعده‌های کسر شده</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
+                  </th>
+
+                  {/* 5. Total Settlement Amount Paid */}
+                  <th className="px-3 py-3 text-end whitespace-nowrap">
+                    <div className="font-bold">کل مبالغ پرداختی تسویه</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
+                  </th>
+
+                  {/* 6. Last Settlement Date & Count */}
+                  <th className="px-3 py-3 text-center whitespace-nowrap">
+                    <div className="font-bold">تاریخ آخرین تسویه</div>
+                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">تعداد اسناد صادرشده</div>
+                  </th>
+
+                  {/* 7. Status */}
+                  <th className="px-3 py-3 text-center whitespace-nowrap">
+                    وضعیت
+                  </th>
+
+                  {/* 8. Actions */}
+                  <th className="px-3 py-3 text-center whitespace-nowrap">
+                    {t('colActions')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {displayedSettledRows.map((row) => {
+                  return (
+                    <tr 
+                      key={row.worker.id}
+                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      {/* 1. Worker Name, Role & Active Badge */}
+                      <td className="px-3 py-3 text-start font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${row.worker.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black">{row.worker.name}</span>
+                              <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-bold ${
+                                row.worker.isActive === 1
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                              }`}>
+                                {row.worker.isActive === 1 ? 'فعال' : 'غیرفعال'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-normal block mt-0.5">
+                              {row.worker.role || 'نیرو'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 2. Total Settled Work (Days / Overtime) */}
+                      <td className="px-3 py-3 text-center font-mono whitespace-nowrap">
+                        <span className="font-bold text-slate-900 dark:text-white text-xs">
+                          {row.effectiveDays} {t('daysCountUnit')}
+                        </span>
+                        {row.otHours > 0 && (
+                          <span className="text-[10px] text-sky-600 dark:text-sky-400 block font-semibold">
+                            +{formatHoursAndMinutes(row.otHours, language)}
+                          </span>
+                        )}
+                        <span className="text-[9px] text-slate-400 block mt-0.5 font-normal">
+                          ({row.fullDays} کامل{row.halfDays > 0 ? ` + ${row.halfDays} نیمه` : ''})
+                        </span>
+                      </td>
+
+                      {/* 3. Settled Gross Earnings */}
+                      <td className="px-3 py-3 text-end font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
+                        {formatAmount(row.settledGross, currency)}
+                      </td>
+
+                      {/* 4. Settled Advances Deducted */}
+                      <td className="px-3 py-3 text-end text-amber-600 dark:text-amber-400 font-bold font-mono whitespace-nowrap">
+                        {row.settledAdvances > 0 ? formatAmount(row.settledAdvances, currency) : '—'}
+                      </td>
+
+                      {/* 5. Total Settlement Paid */}
+                      <td className="px-3 py-3 text-end text-emerald-600 dark:text-emerald-400 font-extrabold font-mono whitespace-nowrap">
+                        {formatAmount(row.totalSettlementPaid, currency)}
+                      </td>
+
+                      {/* 6. Last Settlement Date & Documents Count */}
+                      <td className="px-3 py-3 text-center font-mono whitespace-nowrap">
+                        <div className="font-bold text-slate-800 dark:text-slate-200">
+                          {row.lastSettlementDate || '—'}
+                        </div>
+                        <span className="inline-block mt-0.5 px-2 py-0.2 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          {row.settlementsCount} سند تسویه
+                        </span>
+                      </td>
+
+                      {/* 7. Settled Status */}
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>تسویه‌شده قطعی</span>
+                        </span>
+                      </td>
+
+                      {/* 8. Actions */}
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setHistoryTargetWorker(row.worker)}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-[11px] transition-colors inline-flex items-center gap-1.5"
+                          title="مشاهده اسناد تسویه و ریز سوابق"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-sky-500" />
+                          <span>ریز اسناد تسویه</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
+
+        {/* Table Footnote */}
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
+          <span className="font-semibold text-slate-500 dark:text-slate-400">
+            {settlementViewTab === 'current'
+              ? 'مبنای محاسبات: فقط کارکردهای باز بعد از آخرین تسویه حساب'
+              : 'مبنای محاسبات: آرشیو سوابق تسویه‌شده'}
+          </span>
+        </div>
 
       </div>
 
@@ -1570,19 +1890,32 @@ export function FinancialsView() {
       </div>
 
       {/* Settlement Modal */}
-      {settlementTargetWorker && (
+      {isSettlementModalOpen && (
         <SettlementModal
-          isOpen={!!settlementTargetWorker}
-          onClose={() => setSettlementTargetWorker(null)}
+          isOpen={isSettlementModalOpen}
+          onClose={() => {
+            setIsSettlementModalOpen(false);
+            setSettlementTargetWorker(null);
+          }}
           worker={settlementTargetWorker}
           month={selectedMonth}
-          workerLogs={allLogs.filter((l) => l.workerId === settlementTargetWorker.id)}
-          workerPayments={allPayments.filter((p) => p.workerId === settlementTargetWorker.id)}
+          workerLogs={settlementTargetWorker ? allLogs.filter((l) => String(l.workerId) === String(settlementTargetWorker.id)) : []}
+          workerPayments={settlementTargetWorker ? allPayments.filter((p) => String(p.workerId) === String(settlementTargetWorker.id)) : []}
+          allWorkers={workers}
+          allGroups={groups}
+          allLogs={allLogs}
+          allPayments={allPayments}
+          initialMode={settlementInitialMode}
+          initialGroupId={settlementInitialGroupId}
           onSettlementComplete={(record) => {
             // Refreshes live via Dexie liveQuery
           }}
           arrearsList={workerFinancials.filter((w) => w.netBalanceDue !== 0)}
-          onSelectWorker={(w) => setSettlementTargetWorker(w)}
+          onSelectWorker={(w) => {
+            setSettlementTargetWorker(w);
+            setSettlementInitialMode(w.teamRole === 'Master' && w.groupId ? 'group' : 'individual');
+            setSettlementInitialGroupId(w.groupId || null);
+          }}
         />
       )}
 

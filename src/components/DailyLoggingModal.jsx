@@ -353,6 +353,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
           // Deterministic unique ID per worker per date
           const canonicalId = getAttendanceLogId(String(workerId), selectedDate);
+          const existingLog = await db.attendanceLogs.get(canonicalId);
           const newRecord = {
             id: canonicalId,
             workerId: String(workerId),
@@ -366,7 +367,9 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             calculatedOvertimeWage,
             totalDayPay,
             notes: cfg.notes ? cfg.notes.trim() : '',
-            createdAt: new Date().toISOString(),
+            isSettled: existingLog ? Boolean(existingLog.isSettled) : false,
+            settlementReceiptId: existingLog?.settlementReceiptId || null,
+            createdAt: existingLog?.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
 

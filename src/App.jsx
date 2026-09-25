@@ -19,7 +19,8 @@ import { OnboardingModal } from './components/OnboardingModal';
 import { NewProjectModal } from './components/NewProjectModal';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { performSyncUnified, getSyncConfig } from './services/syncService';
-import { initRealtimeSync } from './services/realtimeSync';
+import { initRealtimeSync, pushLogsLive, pushPaymentsLive } from './services/realtimeSync';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
@@ -69,8 +70,14 @@ function AppContent() {
 
   useEffect(() => {
     // Seed initial demo data if database is newly initialized
-    seedInitialDataIfEmpty().then(() => {
-      reconcileSettlementEpochs();
+    seedInitialDataIfEmpty().then(async () => {
+      const res = await reconcileSettlementEpochs();
+      if (res?.totalLogsUpdated?.length) {
+        pushLogsLive(res.totalLogsUpdated).catch(() => {});
+      }
+      if (res?.totalAdvancesUpdated?.length) {
+        pushPaymentsLive().catch(() => {});
+      }
     });
     // Start automatic Real-Time Supabase Sync
     initRealtimeSync();
@@ -178,12 +185,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <ProjectProvider>
-          <AppContent />
-        </ProjectProvider>
-      </AuthProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <AuthProvider>
+          <ProjectProvider>
+            <AppContent />
+          </ProjectProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
