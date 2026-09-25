@@ -134,13 +134,11 @@ export function clearPendingWorkerDeletion(workerId) {
   localStorage.setItem(PENDING_DELETED_WORKERS_KEY, JSON.stringify(list));
 }
 
-// Proactively clear any stale pending deletion locks for Afshin (id_mu5ywbpj_phobsou) on module load
+// Proactively clear any stale pending deletion locks on module load
 try {
   if (typeof localStorage !== 'undefined') {
     clearPendingWorkerDeletion('id_mu5ywbpj_phobsou');
-    const logsList = JSON.parse(localStorage.getItem(PENDING_DELETED_LOGS_KEY) || '[]')
-      .filter(id => !id.includes('id_mu5ywbpj_phobsou'));
-    localStorage.setItem(PENDING_DELETED_LOGS_KEY, JSON.stringify(logsList));
+    localStorage.removeItem(PENDING_DELETED_LOGS_KEY);
   }
 } catch (_) {}
 
@@ -211,6 +209,12 @@ export async function flushPendingDeletions() {
   const pendingLogs = getPendingDeletedLogs();
   for (const logId of pendingLogs) {
     try {
+      const local = await db.attendanceLogs.get(logId);
+      if (local) {
+        // Log is active locally, cancel pending deletion
+        clearPendingLogDeletion(logId);
+        continue;
+      }
       await supabase.from('attendance_logs').update({ deleted_at: now, updated_at: now }).eq('id', logId);
       clearPendingLogDeletion(logId);
     } catch (err) {
@@ -473,11 +477,13 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         continue;
       }
 
-      // If user marked this log deleted locally, keep it deleted!
+      // If user had marked this log deleted locally, but cloud has an active version (e.g. restored or newer),
+      // clear the pending deletion lock and accept the active record.
       if (pendingLogs.has(l.id) || pendingLogs.has(canonicalId)) {
-        await db.attendanceLogs.delete(l.id);
-        await db.attendanceLogs.delete(canonicalId);
-        continue;
+        clearPendingLogDeletion(l.id);
+        clearPendingLogDeletion(canonicalId);
+        pendingLogs.delete(l.id);
+        pendingLogs.delete(canonicalId);
       }
 
       const key = `${l.worker_id}_${l.date}`;
@@ -729,12 +735,8 @@ function subscribeToRealtime() {
           await db.attendanceLogs.delete(l.id);
           await db.attendanceLogs.delete(canonicalId);
         } else {
-          const pending = new Set(getPendingDeletedLogs());
-          if (pending.has(l.id) || pending.has(canonicalId)) {
-            await db.attendanceLogs.delete(l.id);
-            await db.attendanceLogs.delete(canonicalId);
-            return;
-          }
+          clearPendingLogDeletion(l.id);
+          clearPendingLogDeletion(canonicalId);
 
           // If local log is newer, don't overwrite
           const localLog = await db.attendanceLogs.get(canonicalId);
@@ -2119,6 +2121,15 @@ export async function pushWorkersLive(workers) {
  */
 export async function deleteLogLive(logId) {
   if (!logId) return;
+  // Safety guard: Never delete settled logs
+  try {
+    const local = await db.attendanceLogs.get(logId);
+    if (local && (local.isSettled || local.settlementReceiptId)) {
+      console.warn(`[SAFETY] Refusing live delete for settled attendance log: ${logId}`);
+      return;
+    }
+  } catch (_) {}
+
   recordPendingLogDeletion(logId);
   if (!navigator.onLine) return;
   try {

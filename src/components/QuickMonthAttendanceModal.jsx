@@ -60,11 +60,17 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   
   // dayConfigs map: dateStr ('YYYY-MM-DD') -> { type: 'full'|'half'|'hourly', overtimeHours: number, notes: string }
   const [dayConfigs, setDayConfigs] = useState({});
+  const [removedDates, setRemovedDates] = useState(() => new Set());
   const [selectedDayDate, setSelectedDayDate] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+
+  // Reset removedDates when worker, month, or modal opens
+  useEffect(() => {
+    setRemovedDates(new Set());
+  }, [worker?.id, selectedMonth, isOpen]);
 
   // Fetch project sections for current project
   const projectSections = useLiveQuery(
@@ -85,14 +91,14 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     }
   }, [worker?.id, worker?.defaultSectionId, isOpen]);
 
-  // Fetch existing logs for this worker and month in active project with fallback
+  // Fetch existing logs for this worker and month
   const existingLogs = useLiveQuery(
     async () => {
       if (!worker || !isOpen) return [];
       const list = await db.attendanceLogs.where('workerId').equals(worker.id).toArray();
-      return list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId && l.date.startsWith(selectedMonth));
+      return list.filter((l) => l.date && l.date.startsWith(selectedMonth));
     },
-    [worker?.id, selectedMonth, isOpen, targetProjectId]
+    [worker?.id, selectedMonth, isOpen]
   ) || [];
 
   // When existing logs or month changes, populate dayConfigs
@@ -161,6 +167,12 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   const handleDayTileClick = (dateStr) => {
     const current = dayConfigs[dateStr];
     if (!current) {
+      setRemovedDates((prev) => {
+        if (!prev.has(dateStr)) return prev;
+        const next = new Set(prev);
+        next.delete(dateStr);
+        return next;
+      });
       setDayConfigs((prev) => ({
         ...prev,
         [dateStr]: { 
@@ -179,6 +191,11 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         const updated = { ...prev };
         delete updated[dateStr];
         return updated;
+      });
+      setRemovedDates((prev) => {
+        const next = new Set(prev);
+        next.add(dateStr);
+        return next;
       });
       if (selectedDayDate === dateStr) {
         setSelectedDayDate(null);
@@ -237,11 +254,20 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Quick Action 1: Select all days of the month
   const handleSelectAllDays = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const daysCount = new Date(y, m, 0).getDate();
+
+    setRemovedDates((prev) => {
+      const next = new Set(prev);
+      for (let d = 1; d <= daysCount; d++) {
+        const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+        next.delete(dateStr);
+      }
+      return next;
+    });
+
     setDayConfigs((prev) => {
       const updated = { ...prev };
-      const [y, m] = selectedMonth.split('-').map(Number);
-      const daysCount = new Date(y, m, 0).getDate();
-
       for (let d = 1; d <= daysCount; d++) {
         const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
         if (!updated[dateStr]) {
@@ -259,11 +285,23 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Quick Action 2: Select all workdays of the month (excluding Fridays)
   const handleSelectAllExceptFridays = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+
+    setRemovedDates((prev) => {
+      const next = new Set(prev);
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+        const isFriday = new Date(dateStr).getDay() === 5;
+        if (!isFriday) {
+          next.delete(dateStr);
+        }
+      }
+      return next;
+    });
+
     setDayConfigs((prev) => {
       const updated = { ...prev };
-      const [y, m] = selectedMonth.split('-').map(Number);
-      const daysInMonth = new Date(y, m, 0).getDate();
-
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
         const isFriday = new Date(dateStr).getDay() === 5;
@@ -284,6 +322,11 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Quick Action 3: Clear all
   const handleClearAll = () => {
+    setRemovedDates((prev) => {
+      const next = new Set(prev);
+      Object.keys(dayConfigs).forEach((d) => next.add(d));
+      return next;
+    });
     setDayConfigs({});
     setSelectedDayDate(null);
   };
@@ -344,61 +387,70 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     setIsSaving(true);
 
     try {
-      const newLogs = [];
-      await db.transaction('rw', db.attendanceLogs, async () => {
-        // 1. Delete previous logs for this worker for the selected month in current project
-        const list = await db.attendanceLogs.where('workerId').equals(worker.id).toArray();
-        const oldLogs = list.filter((l) => (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId && l.date.startsWith(selectedMonth));
-        
-        for (const ol of oldLogs) {
-          await db.attendanceLogs.delete(ol.id);
-          deleteLogLive(ol.id).catch(() => {});
-        }
+      // 1. Process deletions ONLY for dates explicitly removed by the user
+      if (removedDates.size > 0) {
+        for (const dateStr of removedDates) {
+          // If the day is currently active in dayConfigs, do not delete!
+          if (dayConfigs[dateStr]) continue;
 
-        // 2. Insert all configured days
-        for (const [dateStr, cfg] of Object.entries(dayConfigs)) {
-          const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
-          let calculatedDailyWage = 0;
-          let calculatedOvertimeWage = 0;
-
-          if (cfg.type === 'hourly') {
-            const effectiveHourlyRate = worker.overtimeHourlyRate > 0 
-              ? worker.overtimeHourlyRate 
-              : Math.round(worker.dailyRate / standardHours);
-            calculatedDailyWage = 0;
-            calculatedOvertimeWage = roundCurrency(otHours * effectiveHourlyRate, currency);
-          } else {
-            const factor = cfg.type === 'half' ? 0.5 : 1.0;
-            calculatedDailyWage = roundCurrency(worker.dailyRate * factor, currency);
-            calculatedOvertimeWage = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
+          const canonicalId = getAttendanceLogId(worker.id, dateStr);
+          const existing = await db.attendanceLogs.get(canonicalId);
+          if (existing) {
+            if (existing.isSettled) {
+              console.warn(`Cannot delete settled attendance log for ${dateStr}`);
+              continue;
+            }
+            await db.attendanceLogs.delete(canonicalId);
+            deleteLogLive(canonicalId).catch(() => {});
           }
-          const totalDayPay = roundCurrency(calculatedDailyWage + calculatedOvertimeWage, currency);
-
-          newLogs.push({
-            id: getAttendanceLogId(worker.id, dateStr),
-            projectId: currentProject?.id || 'prj_default_main',
-            userId: user?.id || null,
-            workerId: worker.id,
-            date: dateStr,
-            type: cfg.type,
-            overtimeHours: otHours,
-            calculatedDailyWage,
-            calculatedOvertimeWage,
-            totalDayPay,
-            sectionId: cfg.sectionId || null,
-            notes: cfg.notes || '',
-            createdAt: new Date(dateStr).toISOString(),
-            updatedAt: new Date().toISOString()
-          });
         }
+      }
 
-        if (newLogs.length > 0) {
-          await db.attendanceLogs.bulkPut(newLogs);
+      // 2. Prepare logs to upsert for all configured days
+      const newLogs = [];
+      for (const [dateStr, cfg] of Object.entries(dayConfigs)) {
+        const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
+        let calculatedDailyWage = 0;
+        let calculatedOvertimeWage = 0;
+
+        if (cfg.type === 'hourly') {
+          const effectiveHourlyRate = worker.overtimeHourlyRate > 0 
+            ? worker.overtimeHourlyRate 
+            : Math.round(worker.dailyRate / standardHours);
+          calculatedDailyWage = 0;
+          calculatedOvertimeWage = roundCurrency(otHours * effectiveHourlyRate, currency);
+        } else {
+          const factor = cfg.type === 'half' ? 0.5 : 1.0;
+          calculatedDailyWage = roundCurrency(worker.dailyRate * factor, currency);
+          calculatedOvertimeWage = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
         }
-      });
+        const totalDayPay = roundCurrency(calculatedDailyWage + calculatedOvertimeWage, currency);
 
-      // Realtime push to Supabase
+        const canonicalId = getAttendanceLogId(worker.id, dateStr);
+        const existing = await db.attendanceLogs.get(canonicalId);
+
+        newLogs.push({
+          id: canonicalId,
+          projectId: existing?.projectId || targetProjectId,
+          userId: existing?.userId || user?.id || null,
+          workerId: worker.id,
+          date: dateStr,
+          type: cfg.type,
+          overtimeHours: otHours,
+          calculatedDailyWage,
+          calculatedOvertimeWage,
+          totalDayPay,
+          sectionId: cfg.sectionId !== undefined ? (cfg.sectionId || null) : (existing?.sectionId || defaultSectionId || null),
+          notes: cfg.notes !== undefined ? (cfg.notes || '') : (existing?.notes || ''),
+          isSettled: Boolean(existing?.isSettled),
+          settlementReceiptId: existing?.settlementReceiptId || null,
+          createdAt: existing?.createdAt || new Date(dateStr).toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+
       if (newLogs.length > 0) {
+        await db.attendanceLogs.bulkPut(newLogs);
         pushLogsLive(newLogs).catch((err) => console.warn('Supabase live push warning:', err));
       }
 
