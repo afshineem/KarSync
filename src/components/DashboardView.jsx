@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { EditRecordModal } from './EditRecordModal';
 import { useProject } from '../context/ProjectContext';
 import { 
@@ -37,11 +38,15 @@ import {
   Activity,
   UserCheck,
   X,
-  Sparkles
+  Sparkles,
+  Receipt,
+  CalendarCheck,
+  ListTodo
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const { t, language, direction } = useLanguage();
+  const { user } = useAuth();
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
@@ -125,6 +130,53 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     [targetProjectId]
   ) || [];
 
+  // Live query for project expenses
+  const projectExpenses = useLiveQuery(
+    async () => {
+      const list = await db.projectExpenses.toArray();
+      return list.filter((e) => !targetProjectId || (e.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+    },
+    [targetProjectId]
+  ) || [];
+
+  const monthlyExpenses = useMemo(() => {
+    return projectExpenses.filter((e) => e.date && e.date.startsWith(selectedMonth));
+  }, [projectExpenses, selectedMonth]);
+
+  const monthlyExpensesTotal = useMemo(() => {
+    return monthlyExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [monthlyExpenses]);
+
+  const recentExpenses = useMemo(() => {
+    return [...projectExpenses].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 4);
+  }, [projectExpenses]);
+
+  // Live ticking Clock & Date
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const liveTimeString = useMemo(() => {
+    return currentDateTime.toLocaleTimeString(language === 'fa' ? 'fa-IR' : language === 'ku' ? 'ckb' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  }, [currentDateTime, language]);
+
+  const liveDateString = useMemo(() => {
+    return currentDateTime.toLocaleDateString(language === 'fa' ? 'fa-IR' : language === 'ku' ? 'ckb' : 'en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }, [currentDateTime, language]);
+
   // Deduplicate logs in memory by workerId + date
   const logs = useMemo(() => {
     const map = new Map();
@@ -144,28 +196,77 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     return Array.from(map.values());
   }, [rawLogs]);
 
+  // Settlement payments and per-worker last settlement date
+  const settlementPayments = useMemo(() => {
+    return allPayments.filter((p) => 
+      !p.deletedAt && 
+      (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled')
+    );
+  }, [allPayments]);
+
+  const workerLastSettlementMap = useMemo(() => {
+    const map = new Map();
+    settlementPayments.forEach((p) => {
+      const wId = String(p.workerId);
+      const d = p.date || p.createdAt?.slice(0, 10);
+      if (d) {
+        const cur = map.get(wId);
+        if (!cur || d > cur) map.set(wId, d);
+      }
+    });
+    return map;
+  }, [settlementPayments]);
+
+  const isLogSettled = (log) => {
+    if (log.isSettled) return true;
+    if (log.settlementReceiptId) return true;
+    const lastDate = workerLastSettlementMap.get(String(log.workerId));
+    if (lastDate && log.date && log.date <= lastDate) return true;
+    return false;
+  };
+
   // Filter active workers
   const activeWorkers = useMemo(() => {
     return workers.filter((w) => w.isActive === 1);
   }, [workers]);
 
-  // Aggregate monthly stats
+  // Aggregate monthly stats with before/after settlement breakdown
   const monthlyStats = useMemo(() => {
     let totalNormalDays = 0;
     let totalHalfDays = 0;
     let totalOvertimeHours = 0;
     let totalPayroll = 0;
 
+    let settledDays = 0;
+    let unsettledDays = 0;
+    let settledOtHours = 0;
+    let unsettledOtHours = 0;
+    let settledPayroll = 0;
+    let unsettledPayroll = 0;
+
     logs.forEach((log) => {
+      const dayVal = log.type === 'half' ? 0.5 : log.type === 'hourly' ? 0 : 1;
+      const otVal = Number(log.overtimeHours) || 0;
+      const payVal = Number(log.totalDayPay) || 0;
+
       if (log.type === 'half') {
         totalHalfDays += 1;
-      } else if (log.type === 'hourly') {
-        // Hourly only, not standard day
-      } else {
+      } else if (log.type !== 'hourly') {
         totalNormalDays += 1;
       }
-      totalOvertimeHours += Number(log.overtimeHours) || 0;
-      totalPayroll += Number(log.totalDayPay) || 0;
+      totalOvertimeHours += otVal;
+      totalPayroll += payVal;
+
+      const settled = isLogSettled(log);
+      if (settled) {
+        settledDays += dayVal;
+        settledOtHours += otVal;
+        settledPayroll += payVal;
+      } else {
+        unsettledDays += dayVal;
+        unsettledOtHours += otVal;
+        unsettledPayroll += payVal;
+      }
     });
 
     const totalDaysCount = totalNormalDays + (totalHalfDays * 0.5);
@@ -175,10 +276,16 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       totalDaysCount,
       totalNormalDays,
       totalHalfDays,
+      settledDays,
+      unsettledDays,
       totalOvertimeHours,
-      totalPayroll: roundCurrency(totalPayroll, currency)
+      settledOtHours,
+      unsettledOtHours,
+      totalPayroll: roundCurrency(totalPayroll, currency),
+      settledPayroll: roundCurrency(settledPayroll, currency),
+      unsettledPayroll: roundCurrency(unsettledPayroll, currency)
     };
-  }, [logs, activeWorkers, currency]);
+  }, [logs, activeWorkers, workerLastSettlementMap, currency]);
 
   // Project section breakdown & comprehensive analytics for current month
   const sectionBreakdown = useMemo(() => {
@@ -275,6 +382,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       let basePay = 0;
       let otPay = 0;
       let totalPay = 0;
+      let settledPay = 0;
+      let unsettledPay = 0;
 
       const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
       const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
@@ -309,9 +418,19 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           logTotal = logDaily + logOt;
         }
 
-        basePay += isNaN(logDaily) ? 0 : logDaily;
-        otPay += isNaN(logOt) ? 0 : logOt;
-        totalPay += isNaN(logTotal) ? 0 : logTotal;
+        const validDaily = isNaN(logDaily) ? 0 : logDaily;
+        const validOt = isNaN(logOt) ? 0 : logOt;
+        const validTotal = isNaN(logTotal) ? 0 : logTotal;
+
+        basePay += validDaily;
+        otPay += validOt;
+        totalPay += validTotal;
+
+        if (isLogSettled(l)) {
+          settledPay += validTotal;
+        } else {
+          unsettledPay += validTotal;
+        }
       });
 
       return {
@@ -322,10 +441,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         basePay: roundCurrency(basePay, currency),
         otPay: roundCurrency(otPay, currency),
         totalPay: roundCurrency(totalPay, currency),
+        settledPay: roundCurrency(settledPay, currency),
+        unsettledPay: roundCurrency(unsettledPay, currency),
         logsCount: workerLogs.length
       };
     });
-  }, [workers, logs, currency]);
+  }, [workers, logs, workerLastSettlementMap, currency]);
 
   // Compute FIFO settlement status and debt per worker for the current month
   const workerFinancialStatusMap = useMemo(() => {
@@ -410,16 +531,40 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   return (
     <div className="space-y-6 pb-20">
       
-      {/* Header with Month Navigator & Quick Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-sky-500" />
-            <span>{t('dashboard')}</span>
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {t('workerSummaryTitle')}
-          </p>
+      {/* Header with User Profile, Project Name, Live Clock & Month Navigator */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="relative flex-shrink-0">
+            {user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url ? (
+              <img
+                src={user.avatar || user.photo || user.supabaseUser.user_metadata.avatar_url}
+                alt={user?.name || 'کاربر'}
+                className="w-12 h-12 rounded-2xl object-cover border-2 border-sky-500/30 shadow-md"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-sky-600/25 border border-white/20">
+                {(user?.name ? user.name.slice(0, 1) : 'U').toUpperCase()}
+              </div>
+            )}
+            <span className="absolute -bottom-1 -end-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 ring-2 ring-emerald-500/20" title="آنلاین"></span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">
+                {user?.name || user?.email?.split('@')[0] || (language === 'ku' ? 'بەکارھێنەر' : 'مدیر سیستم')}
+              </span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                {currentProject?.name || (language === 'ku' ? 'پڕۆژەی کارگە' : 'پروژه کارگاه')}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1 text-xs font-medium text-slate-600 dark:text-slate-300 font-mono">
+              <Clock className="w-3.5 h-3.5 text-sky-500 animate-pulse" />
+              <span className="font-bold">{liveTimeString}</span>
+              <span className="text-slate-300 dark:text-slate-600">|</span>
+              <span>{liveDateString}</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -454,7 +599,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </button>
           </div>
 
-          {/* Quick Record Button (Icon-Only matching Floating Action Button & Add Worker size) */}
+          {/* Quick Record Button */}
           <button
             type="button"
             onClick={onOpenLoggingModal}
@@ -470,25 +615,151 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Card 1: Active Workers */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group hover:border-sky-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              {t('activeWorkersCount')}
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-              <Users className="w-5 h-5" />
+        {/* Card 1: Working Days with Settled vs Unsettled */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between group hover:border-emerald-500/40 transition-colors">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300">
+                {t('monthlyWorkingDays') || 'روزهای کاری ثبت‌شده'}
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Calendar className="w-4.5 h-4.5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono">
+                {formatNumber(monthlyStats.totalDaysCount)}
+              </span>
+              <span className="text-xs text-slate-400">
+                {language === 'ku' ? 'ڕۆژ کارکرد' : 'روز کارکرد'}
+              </span>
             </div>
           </div>
-          <div className="mt-4">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {formatNumber(monthlyStats.activeCount)}
-            </span>
-            <span className="text-xs text-slate-400 mx-2">
-              / {workers.length} {t('workers')}
-            </span>
+
+          {/* 2-Part Split: قبل از تسویه / بعد از تسویه */}
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-amber-50/60 dark:bg-amber-950/30 p-2 rounded-xl border border-amber-200/50 dark:border-amber-800/40">
+              <span className="text-[10px] text-amber-700 dark:text-amber-400 block font-bold mb-0.5">
+                {language === 'ku' ? 'پێش یەکلایی (معوق)' : 'قبل از تسویه (معوق)'}
+              </span>
+              <span className="font-extrabold text-amber-700 dark:text-amber-300 font-mono text-sm">
+                {formatNumber(monthlyStats.unsettledDays)} <span className="text-[10px] font-normal">{language === 'ku' ? 'ڕۆژ' : 'روز'}</span>
+              </span>
+            </div>
+            <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2 rounded-xl border border-emerald-200/50 dark:border-emerald-800/40">
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block font-bold mb-0.5">
+                {language === 'ku' ? 'دوای یەکلایی (تسویه)' : 'بعد از تسویه (تسویه‌شده)'}
+              </span>
+              <span className="font-extrabold text-emerald-700 dark:text-emerald-300 font-mono text-sm">
+                {formatNumber(monthlyStats.settledDays)} <span className="text-[10px] font-normal">{language === 'ku' ? 'ڕۆژ' : 'روز'}</span>
+              </span>
+            </div>
           </div>
-          <div className="mt-3 flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400 font-medium">
+        </div>
+
+        {/* Card 2: Overtime Hours with Settled vs Unsettled */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between group hover:border-amber-500/40 transition-colors">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300">
+                {t('totalOvertimeHours') || 'مجموع اضافه‌کاری'}
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <Clock className="w-4.5 h-4.5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono">
+                {formatHoursAndMinutes(monthlyStats.totalOvertimeHours, language)}
+              </span>
+              <span className="text-xs text-slate-400">
+                {language === 'ku' ? 'کۆی گشتی' : 'مجموع'}
+              </span>
+            </div>
+          </div>
+
+          {/* 2-Part Split: قبل از تسویه / بعد از تسویه */}
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-amber-50/60 dark:bg-amber-950/30 p-2 rounded-xl border border-amber-200/50 dark:border-amber-800/40">
+              <span className="text-[10px] text-amber-700 dark:text-amber-400 block font-bold mb-0.5">
+                {language === 'ku' ? 'پێش یەکلایی' : 'قبل از تسویه'}
+              </span>
+              <span className="font-extrabold text-amber-700 dark:text-amber-300 font-mono text-xs sm:text-sm">
+                {formatHoursAndMinutes(monthlyStats.unsettledOtHours, language)}
+              </span>
+            </div>
+            <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2 rounded-xl border border-emerald-200/50 dark:border-emerald-800/40">
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block font-bold mb-0.5">
+                {language === 'ku' ? 'دوای یەکلایی' : 'بعد از تسویه'}
+              </span>
+              <span className="font-extrabold text-emerald-700 dark:text-emerald-300 font-mono text-xs sm:text-sm">
+                {formatHoursAndMinutes(monthlyStats.settledOtHours, language)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Total Payroll with Settled vs Unsettled */}
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 text-white rounded-2xl p-5 border border-slate-700/60 shadow-lg relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-bold text-slate-300">
+                {t('totalPayrollExpense') || 'کل دستمزد و حقوق'}
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-white/10 text-white flex items-center justify-center backdrop-blur-sm">
+                <Coins className="w-4.5 h-4.5 text-amber-300" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
+                {formatAmount(monthlyStats.totalPayroll, currency)}
+              </span>
+              <span className="text-xs text-slate-300 font-medium">{getCurrencySymbol(currency, language)}</span>
+            </div>
+          </div>
+
+          {/* 2-Part Split: قبل از تسویه (معوق) / بعد از تسویه (تسویه‌شده) */}
+          <div className="mt-4 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-amber-400/10 p-2 rounded-xl border border-amber-400/20">
+              <span className="text-[10px] text-amber-300 block font-bold mb-0.5">
+                {language === 'ku' ? 'پێش یەکلایی (معوق)' : 'تسویه نشده (معوق)'}
+              </span>
+              <span className="font-extrabold text-amber-300 font-mono text-xs">
+                {formatAmount(monthlyStats.unsettledPayroll, currency)} <span className="text-[9px] font-normal">{getCurrencySymbol(currency, language)}</span>
+              </span>
+            </div>
+            <div className="bg-emerald-400/10 p-2 rounded-xl border border-emerald-400/20">
+              <span className="text-[10px] text-emerald-300 block font-bold mb-0.5">
+                {language === 'ku' ? 'دوای یەکلایی (دراو)' : 'تسویه شده (پرداخت)'}
+              </span>
+              <span className="font-extrabold text-emerald-300 font-mono text-xs">
+                {formatAmount(monthlyStats.settledPayroll, currency)} <span className="text-[9px] font-normal">{getCurrencySymbol(currency, language)}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Active Workers */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between group hover:border-sky-500/40 transition-colors">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300">
+                {t('activeWorkersCount')}
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                <Users className="w-4.5 h-4.5" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+                {formatNumber(monthlyStats.activeCount)}
+              </span>
+              <span className="text-xs text-slate-400 mx-2">
+                / {workers.length} {t('workers')}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-sky-600 dark:text-sky-400 font-medium">
             <button 
               onClick={() => setActiveTab('workers')} 
               className="hover:underline flex items-center gap-1"
@@ -496,137 +767,141 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               <span>{t('workerList')}</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
-          </div>
-        </div>
-
-        {/* Card 2: Total Working Days */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              {t('monthlyWorkingDays')}
+            <span className="text-[11px] text-slate-400">
+              {workers.length - monthlyStats.activeCount} {language === 'ku' ? 'ناچالاک' : 'غیرفعال'}
             </span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Calendar className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {formatNumber(monthlyStats.totalDaysCount)}
-            </span>
-            <span className="text-xs text-slate-400 mx-2">
-              ({monthlyStats.totalNormalDays} + {monthlyStats.totalHalfDays}?0.5)
-            </span>
-          </div>
-          <div className="mt-3 flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            <button 
-              onClick={() => setActiveTab('calendar')} 
-              className="hover:underline flex items-center gap-1"
-            >
-              <span>{t('calendarTitle')}</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Card 3: Total Overtime Hours */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group hover:border-amber-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              {t('totalOvertimeHours')}
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
-              {formatHoursAndMinutes(monthlyStats.totalOvertimeHours, language)}
-            </span>
-          </div>
-          <div className="mt-3 text-xs text-slate-400">
-            {t('overtimePay')}: {formatCurrency(logs.reduce((acc, l) => acc + (Number(l.calculatedOvertimeWage) || 0), 0), currency, language)}
-          </div>
-        </div>
-
-        {/* Card 4: Total Payroll */}
-        <div className="bg-gradient-to-br from-sky-600 to-sky-700 text-white rounded-2xl p-5 shadow-lg shadow-sky-600/20 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-sky-100">
-              {t('totalPayrollExpense')}
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm">
-              <Coins className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-2xl sm:text-3xl font-black tracking-tight">
-              {formatCurrency(monthlyStats.totalPayroll, currency, language)}
-            </span>
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-sky-200">
-            <span>{selectedMonth}</span>
-            <button 
-              onClick={() => setActiveTab('calendar')}
-              className="underline hover:text-white font-medium flex items-center gap-1"
-            >
-              <span>{t('reports')}</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
 
       </div>
 
-      {/* Financial Overview Widget (Prompt Item 4) */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-5">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 flex-shrink-0">
-            <WalletCards className="w-6 h-6" />
+      {/* 2-Part Expense Tile */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-5">
+          
+          {/* Side 1: مجموع هزینه‌های این ماه */}
+          <div className="flex-1 flex items-center gap-4 bg-rose-50/50 dark:bg-rose-950/20 p-4 rounded-2xl border border-rose-100 dark:border-rose-900/30">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
+              <Receipt className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-700 dark:text-rose-300">
+                  {language === 'ku' ? 'کۆی خەرجییەکانی ئەم مانگە' : 'مجموع هزینه‌های این ماه'} ({selectedMonth})
+                </span>
+                <span className="text-[11px] font-semibold text-rose-500/80 bg-rose-100 dark:bg-rose-900/40 px-2 py-0.5 rounded-full">
+                  {monthlyExpenses.length} {language === 'ku' ? 'تۆمار' : 'مورد'}
+                </span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 font-mono">
+                  {formatAmount(monthlyExpensesTotal, currency)}
+                </span>
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {getCurrencySymbol(currency, language)}
+                </span>
+              </div>
+              <button 
+                onClick={() => setActiveTab('expenses')}
+                className="mt-2 text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:underline flex items-center gap-1"
+              >
+                <span>{language === 'ku' ? 'بینینی هەموو خەرجییەکان' : 'مدیریت و ثبت هزینه‌ها'}</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-              {t('financialSummaryTitle')}
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {t('financialSummarySubtitle')}
-            </p>
+
+          <div className="hidden md:block w-px self-stretch bg-slate-200 dark:bg-slate-800"></div>
+
+          {/* Side 2: لیست چند هزینه آخر */}
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Banknote className="w-4 h-4 text-slate-400" />
+                <span>{language === 'ku' ? 'دوایین خەرجییە تۆمارکراوەکان' : 'چند هزینه آخر پروژه'}</span>
+              </span>
+              <button
+                onClick={() => setActiveTab('expenses')}
+                className="text-[11px] font-medium text-sky-600 dark:text-sky-400 hover:underline"
+              >
+                {language === 'ku' ? 'زیاتر' : 'مشاهده همه'}
+              </button>
+            </div>
+
+            {recentExpenses.length === 0 ? (
+              <div className="p-3 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                {language === 'ku' ? 'هیچ خەرجییەک تۆمار نەکراوە.' : 'هنوز هزینه‌ای در این پروژه ثبت نشده است.'}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {recentExpenses.map((exp) => (
+                  <div
+                    key={exp.id}
+                    className="p-2 px-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0"></span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                        {exp.title || exp.category || 'هزینه عمومی'}
+                      </span>
+                      {exp.category && exp.title && (
+                        <span className="text-[10px] text-slate-400 bg-white dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                          {exp.category}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ms-2">
+                      <span className="font-bold text-slate-900 dark:text-white font-mono">
+                        {formatAmount(exp.amount, currency)} <span className="text-[10px] font-normal text-slate-400">{getCurrencySymbol(currency, language)}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {exp.date?.slice(5) || ''}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      {/* Project Tasks & Work Schedule Section (بخش تسک‌ها به جای خلاصه مالی) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/20 flex-shrink-0">
+              <ListTodo className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>{language === 'ku' ? 'ئەرکەکان و بەرنامەی کاری پڕۆژە' : 'تسک‌ها و برنامه کاری پروژه'}</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300">
+                  {language === 'ku' ? 'بەم زووانە' : 'به‌زودی'}
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {language === 'ku' 
+                  ? 'ئەم بەشە لە داهاتوودا تەواو دەکرێت و بەستراوەتەوە بە ساڵنامەی کارەکانی پڕۆژە.'
+                  : 'این بخش در ادامه تکمیل خواهد شد و تقویم کارهایی است که قرار است در پروژه انجام شود.'}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 block">{t('totalPaidAll')} ({selectedMonth})</span>
-            <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
-              {formatAmount(financialSummary.totalMonthPaid, currency)} <span className="text-xs font-normal">{getCurrencySymbol(currency, language)}</span>
-            </span>
+        <div className="py-8 px-4 text-center space-y-2">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center">
+            <CalendarCheck className="w-7 h-7" />
           </div>
-
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
-
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 block">{t('totalOutstandingPayable')}</span>
-            <span className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 font-mono">
-              {formatAmount(financialSummary.totalWorkshopOutstanding, currency)} <span className="text-xs font-normal">{getCurrencySymbol(currency, language)}</span>
-            </span>
-          </div>
-
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
-
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 block">{t('settlementStatus')}</span>
-            <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-              {financialSummary.settledCount} <span className="text-xs font-normal text-slate-400">/ {financialSummary.totalWorkers} {t('settledBadge')}</span>
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('financials')}
-            className="w-full sm:w-auto px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-1.5 active:scale-95 ms-auto"
-          >
-            <span>{t('goToFinancialsBtn')}</span>
-            <ArrowUpRight className="w-4 h-4" />
-          </button>
+          <h4 className="text-sm sm:text-base font-bold text-slate-700 dark:text-slate-300">
+            {language === 'ku' ? 'ئەرکەکان لێرە نیشان دەدرێن' : 'تسک‌ها اینجا نشان داده می‌شود'}
+          </h4>
+          <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+            {language === 'ku'
+              ? 'تەواوی ئەرکەکان، ئەولەویەتەکان و پلانی ڕۆژانەی کارکردنی تیم لەم شوێنە بەڕێوە دەبرێن.'
+              : 'تمامی تسک‌ها، اولویت‌بندی‌ها و تقویم اقدامات اجرایی کارگاه به زودی در این قسمت قرار خواهد گرفت.'}
+          </p>
         </div>
       </div>
 
@@ -915,20 +1190,21 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             <table className="w-full text-right text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 text-xs">
                 <tr>
-                  <th className="px-4 py-3 text-start">{t('workerName')}</th>
-                  <th className="px-4 py-3 text-start">{t('workerRole')}</th>
-                  <th className="px-4 py-3 text-center">{t('normalDays')}</th>
-                  <th className="px-4 py-3 text-center">{t('halfDays')}</th>
-                  <th className="px-4 py-3 text-center">{t('overtimeHours')}</th>
-                  <th className="px-4 py-3 text-end">{t('basePay')} ({currency})</th>
-                  <th className="px-4 py-3 text-end">{t('overtimePay')} ({currency})</th>
-                  <th className="px-4 py-3 text-end font-bold text-sky-600 dark:text-sky-400">{t('netSalary')} ({currency})</th>
+                  <th className="px-3 sm:px-4 py-3 text-start">{t('workerName')}</th>
+                  <th className="px-3 sm:px-4 py-3 text-start">{t('workerRole')}</th>
+                  <th className="px-2 sm:px-3 py-3 text-center">{t('normalDays')}</th>
+                  <th className="px-2 sm:px-3 py-3 text-center">{t('halfDays')}</th>
+                  <th className="px-2 sm:px-3 py-3 text-center">{t('overtimeHours')}</th>
+                  <th className="px-3 sm:px-4 py-3 text-end font-bold text-slate-800 dark:text-slate-200">{language === 'ku' ? 'کۆی کارکرد' : 'کل کارکرد'} ({currency})</th>
+                  <th className="px-3 sm:px-4 py-3 text-end font-bold text-emerald-600 dark:text-emerald-400">{language === 'ku' ? 'دراو (یەکلایی)' : 'تسویه شده'} ({currency})</th>
+                  <th className="px-3 sm:px-4 py-3 text-end font-bold text-amber-600 dark:text-amber-400">{language === 'ku' ? 'ماوە (معوق)' : 'مانده معوق'} ({currency})</th>
+                  <th className="px-3 sm:px-4 py-3 text-center">{t('status') || 'وضعیت'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {workerSummaries.map((w) => {
                   const statusInfo = workerFinancialStatusMap.get(w.id);
-                  const isWorkerSettled = statusInfo?.isSettled;
+                  const isWorkerSettled = statusInfo?.isSettled || (w.totalPay > 0 && w.unsettledPay === 0);
 
                   return (
                     <tr 
@@ -937,72 +1213,79 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                         isWorkerSettled ? 'bg-emerald-50/15 dark:bg-emerald-950/10' : ''
                       } ${w.isActive === 0 ? 'opacity-60 bg-slate-50/40' : ''}`}
                     >
-                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white text-start">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`w-2 h-2 rounded-full ${w.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                          <span>{w.name}</span>
-                          {isWorkerSettled ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1 shadow-xs">
-                              <CheckCircle2 className="w-2.5 h-2.5" />
-                              <span>{t('settledBadge')}</span>
-                            </span>
-                          ) : w.totalPay > 0 ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 inline-flex items-center gap-1 shadow-xs">
-                              <Clock className="w-2.5 h-2.5" />
-                              <span>{t('pendingBadge')}</span>
-                            </span>
-                          ) : null}
+                      <td className="px-3 sm:px-4 py-3 font-semibold text-slate-900 dark:text-white text-start">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${w.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                          <span className="truncate">{w.name}</span>
                         </div>
                       </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs text-start">
-                      {w.role}
-                    </td>
-                    <td className="px-4 py-3 text-center font-medium text-slate-700 dark:text-slate-300">
-                      {w.fullDays}
-                    </td>
-                    <td className="px-4 py-3 text-center font-medium text-slate-700 dark:text-slate-300">
-                      {w.halfDays}
-                    </td>
-                    <td className="px-4 py-3 text-center font-medium text-amber-600 dark:text-amber-400">
-                      {w.otHours > 0 ? formatHoursAndMinutes(w.otHours, language) : '0'}
-                    </td>
-                    <td className="px-4 py-3 text-end text-slate-600 dark:text-slate-400 font-mono">
-                      {formatAmount(w.basePay, currency)}
-                    </td>
-                    <td className="px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-medium font-mono">
-                      {formatAmount(w.otPay, currency)}
-                    </td>
-                    <td className="px-4 py-3 text-end font-bold text-slate-900 dark:text-white">
-                      <span className="bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800/60 font-mono">
+                      <td className="px-3 sm:px-4 py-3 text-slate-500 dark:text-slate-400 text-xs text-start">
+                        {w.role}
+                      </td>
+                      <td className="px-2 sm:px-3 py-3 text-center font-medium text-slate-700 dark:text-slate-300">
+                        {w.fullDays}
+                      </td>
+                      <td className="px-2 sm:px-3 py-3 text-center font-medium text-slate-700 dark:text-slate-300">
+                        {w.halfDays}
+                      </td>
+                      <td className="px-2 sm:px-3 py-3 text-center font-medium text-amber-600 dark:text-amber-400">
+                        {w.otHours > 0 ? formatHoursAndMinutes(w.otHours, language) : '0'}
+                      </td>
+                      <td className="px-3 sm:px-4 py-3 text-end font-bold text-slate-900 dark:text-white font-mono">
                         {formatAmount(w.totalPay, currency)}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td className="px-3 sm:px-4 py-3 text-end text-emerald-600 dark:text-emerald-400 font-bold font-mono">
+                        {formatAmount(w.settledPay, currency)}
+                      </td>
+                      <td className="px-3 sm:px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-bold font-mono">
+                        {formatAmount(w.unsettledPay, currency)}
+                      </td>
+                      <td className="px-3 sm:px-4 py-3 text-center">
+                        {isWorkerSettled ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1 shadow-xs">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            <span>{t('settledBadge') || 'تسویه کامل'}</span>
+                          </span>
+                        ) : w.totalPay > 0 ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 inline-flex items-center gap-1 shadow-xs">
+                            <Clock className="w-2.5 h-2.5" />
+                            <span>{language === 'ku' ? 'معوق' : 'معوقه دارد'}</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 inline-block">
+                            {language === 'ku' ? 'بێ کارکرد' : 'بدون کارکرد'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot className="bg-slate-50 dark:bg-slate-800/80 font-bold text-slate-900 dark:text-white border-t-2 border-slate-200 dark:border-slate-700">
                 <tr>
-                  <td colSpan="2" className="px-4 py-3 text-start">
+                  <td colSpan="2" className="px-3 sm:px-4 py-3 text-start">
                     {t('aggregatedTotalPay')} ({selectedMonth})
                   </td>
-                  <td className="px-4 py-3 text-center text-slate-700 dark:text-slate-300">
+                  <td className="px-2 sm:px-3 py-3 text-center text-slate-700 dark:text-slate-300 font-mono">
                     {monthlyStats.totalNormalDays}
                   </td>
-                  <td className="px-4 py-3 text-center text-slate-700 dark:text-slate-300">
+                  <td className="px-2 sm:px-3 py-3 text-center text-slate-700 dark:text-slate-300 font-mono">
                     {monthlyStats.totalHalfDays}
                   </td>
-                  <td className="px-4 py-3 text-center text-amber-600 dark:text-amber-400">
+                  <td className="px-2 sm:px-3 py-3 text-center text-amber-600 dark:text-amber-400 font-mono">
                     {formatHoursAndMinutes(monthlyStats.totalOvertimeHours, language)}
                   </td>
-                  <td className="px-4 py-3 text-end font-mono">
-                    {formatAmount(logs.reduce((acc, l) => acc + (Number(l.calculatedDailyWage) || 0), 0), currency)}
-                  </td>
-                  <td className="px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-mono">
-                    {formatAmount(logs.reduce((acc, l) => acc + (Number(l.calculatedOvertimeWage) || 0), 0), currency)}
-                  </td>
-                  <td className="px-4 py-3 text-end text-sky-600 dark:text-sky-400 text-base font-black font-mono">
+                  <td className="px-3 sm:px-4 py-3 text-end text-slate-900 dark:text-white font-black font-mono">
                     {formatAmount(monthlyStats.totalPayroll, currency)}
+                  </td>
+                  <td className="px-3 sm:px-4 py-3 text-end text-emerald-600 dark:text-emerald-400 font-black font-mono">
+                    {formatAmount(monthlyStats.settledPayroll, currency)}
+                  </td>
+                  <td className="px-3 sm:px-4 py-3 text-end text-amber-600 dark:text-amber-400 font-black font-mono">
+                    {formatAmount(monthlyStats.unsettledPayroll, currency)}
+                  </td>
+                  <td className="px-3 sm:px-4 py-3 text-center text-xs font-normal text-slate-400">
+                    —
                   </td>
                 </tr>
               </tfoot>
