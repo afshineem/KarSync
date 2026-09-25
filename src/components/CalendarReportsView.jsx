@@ -42,6 +42,8 @@ import {
   PlusCircle, 
   Search, 
   ArrowUpDown, 
+  ArrowUpNarrowWide,
+  ArrowDownWideNarrow,
   ArrowDown01,
   ArrowDown10,
   CheckCircle2, 
@@ -797,17 +799,21 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                 <button
                   type="button"
                   onClick={toggleSortOrder}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-all border border-slate-200 dark:border-slate-700 shadow-xs active:scale-95"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-95 cursor-pointer ${
+                    sortAscending
+                      ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/50'
+                      : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50'
+                  }`}
                   title={sortAscending 
-                    ? (language === 'fa' ? 'مرتب‌سازی: صعودی (۱ به ۳۰)' : language === 'ku' ? 'ڕیزکردن: ۱ بۆ ۳۰' : 'Sort: 1 to 30')
-                    : (language === 'fa' ? 'مرتب‌سازی: نزولی (۳۰ به ۱)' : language === 'ku' ? 'ڕیزکردن: ۳۰ بۆ ۱' : 'Sort: 30 to 1')}
+                    ? (language === 'fa' ? 'مرتب‌سازی: صعودی (قدیمی به جدید)' : language === 'ku' ? 'ڕیزکردن: کۆن بۆ نوێ' : 'Sort: Oldest to Newest')
+                    : (language === 'fa' ? 'مرتب‌سازی: نزولی (جدید به قدیمی)' : language === 'ku' ? 'ڕیزکردن: نوێ بۆ کۆن' : 'Sort: Newest to Oldest')}
                 >
                   {sortAscending ? (
-                    <ArrowDown01 className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                    <ArrowUpNarrowWide className="w-4 h-4 text-sky-600 dark:text-sky-400 stroke-[2.2]" />
                   ) : (
-                    <ArrowDown10 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    <ArrowDownWideNarrow className="w-4 h-4 text-amber-600 dark:text-amber-400 stroke-[2.2]" />
                   )}
-                  <span>{sortAscending ? '۱ ⬅️ ۳۰' : '۳۰ ⬅️ ۱'}</span>
+                  <span>{sortAscending ? (language === 'ku' ? 'کۆن بۆ نوێ' : 'قدیمی به جدید') : (language === 'ku' ? 'نوێ بۆ کۆن' : 'جدید به قدیمی')}</span>
                 </button>
 
                 {/* Quick Add Log Button (Matching FAB) */}

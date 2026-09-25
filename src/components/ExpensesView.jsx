@@ -137,7 +137,7 @@ export function ExpensesView() {
   );
 }
 
-function AddExpenseModal({ onClose, expenseToEdit }) {
+export function AddExpenseModal({ onClose, expenseToEdit }) {
   const { currentProject } = useProject();
   const [formData, setFormData] = useState(
     expenseToEdit || {

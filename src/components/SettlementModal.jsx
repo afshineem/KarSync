@@ -27,7 +27,7 @@ import {
 export function SettlementModal({ 
   isOpen, 
   onClose, 
-  worker, 
+  worker: propWorker, 
   month = getCurrentYearMonth(),
   workerLogs = [],
   workerPayments = [],
@@ -45,6 +45,9 @@ export function SettlementModal({
   const { currentProject } = useProject();
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
+
+  const [localWorker, setLocalWorker] = useState(null);
+  const worker = localWorker || propWorker || (allWorkers.length > 0 ? (allWorkers.find(w => !w.deletedAt && !w.isArchived) || allWorkers[0]) : null);
 
   // Determine initial mode based on props or worker's role
   const [settlementMode, setSettlementMode] = useState(() => {
@@ -65,13 +68,27 @@ export function SettlementModal({
   // -------------------------------------------------------------
   // 1. INDIVIDUAL SETTLEMENT CALCULATIONS (with Double-Barrier Guard)
   // -------------------------------------------------------------
+  const effectiveWorkerLogs = useMemo(() => {
+    if (worker && allLogs.length > 0) {
+      return allLogs.filter((l) => String(l.workerId) === String(worker.id));
+    }
+    return workerLogs || [];
+  }, [worker, allLogs, workerLogs]);
+
+  const effectiveWorkerPayments = useMemo(() => {
+    if (worker && allPayments.length > 0) {
+      return allPayments.filter((p) => String(p.workerId) === String(worker.id));
+    }
+    return workerPayments || [];
+  }, [worker, allPayments, workerPayments]);
+
   const workerSettlements = useMemo(() => {
-    return (allPayments || workerPayments || []).filter((p) => 
+    return (allPayments || effectiveWorkerPayments || []).filter((p) => 
       !p.deletedAt && 
       (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled') &&
       (String(p.workerId) === String(worker?.id) || (worker?.groupId && p.groupId === worker.groupId))
     );
-  }, [allPayments, workerPayments, worker]);
+  }, [allPayments, effectiveWorkerPayments, worker]);
 
   const lastSettlementDate = useMemo(() => {
     const sorted = [...workerSettlements].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -99,16 +116,16 @@ export function SettlementModal({
   };
 
   const unsettledLogs = useMemo(() => {
-    return (workerLogs || [])
+    return (effectiveWorkerLogs || [])
       .filter((l) => !isLogSettled(l))
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [workerLogs, lastSettlementDate]);
+  }, [effectiveWorkerLogs, lastSettlementDate]);
 
   const unsettledPayments = useMemo(() => {
-    return (workerPayments || [])
+    return (effectiveWorkerPayments || [])
       .filter((p) => !isPaymentSettled(p) && (p.type === 'advance' || p.type === 'Advance_Payment'))
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [workerPayments, lastSettlementDate]);
+  }, [effectiveWorkerPayments, lastSettlementDate]);
 
   const individualCalculations = useMemo(() => {
     const grossEarnings = roundCurrency(
@@ -682,16 +699,45 @@ export function SettlementModal({
           /* ----------------------------------------------------------------- */
           <div className="space-y-3">
             
+            {/* Worker Selector Dropdown */}
+            {allWorkers.length > 1 && (
+              <div className="mt-2 space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  {language === 'ku' ? 'هەڵبژاردنی کرێکار بۆ پاکتاو:' : 'انتخاب پرسنل جهت تسویه حساب:'}
+                </label>
+                <select
+                  value={worker?.id || ''}
+                  onChange={(e) => {
+                    const found = allWorkers.find((w) => String(w.id) === String(e.target.value));
+                    if (found) {
+                      setLocalWorker(found);
+                      if (onSelectWorker) onSelectWorker(found);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-xs"
+                >
+                  {allWorkers.filter(w => !w.deletedAt && !w.isArchived).map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} {w.role ? `(${w.role})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Workers With Arrears Selector */}
             {arrearsList.length > 0 && onSelectWorker && (
-              <div className="mt-3.5 space-y-1.5">
+              <div className="mt-2 space-y-1.5">
                 <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">{t('workersWithArrears') || 'پرسنل دارای معوقه / مانده:'}</label>
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-2 px-2 hide-scrollbar">
                   {arrearsList.map((arrWorker) => (
                     <button
                       key={arrWorker.worker.id}
                       type="button"
-                      onClick={() => onSelectWorker(arrWorker.worker)}
+                      onClick={() => {
+                        setLocalWorker(arrWorker.worker);
+                        onSelectWorker(arrWorker.worker);
+                      }}
                       className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${
                         worker?.id === arrWorker.worker.id
                           ? 'bg-emerald-100 dark:bg-emerald-900/50 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 shadow-sm'

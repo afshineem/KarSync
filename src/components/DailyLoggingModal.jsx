@@ -32,7 +32,9 @@ import {
   Edit2,
   Users,
   ShieldAlert,
-  Layers
+  Layers,
+  Receipt,
+  CreditCard
 } from 'lucide-react';
 
 export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
@@ -1021,26 +1023,129 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 }
 
 /**
- * Persistent Floating Action Button (FAB - Google M3 Icon-Only)
+ * Persistent Multi-Action Floating Action Button (FAB)
+ * Speed-dial menu with:
+ * 1. ثبت کار روزانه (Daily Attendance)
+ * 2. ثبت تسویه (Settlement)
+ * 3. ثبت هزینه (Expense)
  */
-export function FloatingActionButton({ onClick }) {
-  const { t, direction } = useLanguage();
+export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onOpenExpense, onClick }) {
+  const { t, language, direction } = useLanguage();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleAction = (callback) => {
+    setIsOpen(false);
+    if (callback) {
+      callback();
+    } else if (onClick) {
+      onClick();
+    }
+  };
+
+  const isRtl = direction === 'rtl';
 
   return (
-    <div
-      className={`fixed bottom-24 md:bottom-8 ${
-        direction === 'rtl' ? 'left-4 sm:left-8' : 'right-4 sm:right-8'
-      } z-40 no-print`}
-    >
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={t('logDailyAttendance')}
-        title={t('logDailyAttendance')}
-        className="group relative flex items-center justify-center bg-gradient-to-tr from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl shadow-xl shadow-sky-600/35 ring-4 ring-sky-500/20 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+    <>
+      {/* Backdrop overlay when speed-dial is expanded */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/25 backdrop-blur-xs z-35 animate-in fade-in duration-150"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      <div
+        className={`fixed bottom-24 md:bottom-8 ${
+          isRtl ? 'left-4 sm:left-8' : 'right-4 sm:right-8'
+        } z-40 no-print flex flex-col items-center gap-2.5`}
+        onMouseLeave={() => setIsOpen(false)}
       >
-        <CalendarPlus className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
-      </button>
-    </div>
+        {/* Speed-dial Pop-up Actions */}
+        <div
+          className={`flex flex-col gap-2.5 transition-all duration-200 origin-bottom ${
+            isOpen
+              ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
+          }`}
+        >
+          {/* Action 3: ثبت هزینه پروژه */}
+          <button
+            type="button"
+            onClick={() => handleAction(onOpenExpense)}
+            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer"
+            title={language === 'ku' ? 'تۆمارکردنی خەرجی کارگە' : 'ثبت هزینه جدید پروژه'}
+          >
+            <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-rose-300 dark:group-hover:border-rose-700 ${
+              isRtl ? 'order-2' : 'order-1'
+            }`}>
+              {language === 'ku' ? 'تۆمارکردنی خەرجی' : 'ثبت هزینه'}
+            </span>
+            <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white flex items-center justify-center shadow-lg shadow-rose-600/35 ring-2 ring-rose-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
+              isRtl ? 'order-1' : 'order-2'
+            }`}>
+              <Receipt className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+            </div>
+          </button>
+
+          {/* Action 2: ثبت تسویه حساب */}
+          <button
+            type="button"
+            onClick={() => handleAction(onOpenSettlement)}
+            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer"
+            title={language === 'ku' ? 'تۆمارکردنی پاکتاوی حیساب' : 'ثبت تسویه حساب پرسنل / گروه'}
+          >
+            <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-emerald-300 dark:group-hover:border-emerald-700 ${
+              isRtl ? 'order-2' : 'order-1'
+            }`}>
+              {language === 'ku' ? 'تۆمارکردنی پاکتاو' : 'ثبت تسویه'}
+            </span>
+            <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white flex items-center justify-center shadow-lg shadow-emerald-600/35 ring-2 ring-emerald-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
+              isRtl ? 'order-1' : 'order-2'
+            }`}>
+              <CreditCard className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+            </div>
+          </button>
+
+          {/* Action 1: ثبت کار روزانه */}
+          <button
+            type="button"
+            onClick={() => handleAction(onOpenDailyLogging || onClick)}
+            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer"
+            title={language === 'ku' ? 'تۆمارکردنی ئامادەبوونی ڕۆژانە' : 'ثبت کارکرد روزانه پرسنل'}
+          >
+            <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-sky-300 dark:group-hover:border-sky-700 ${
+              isRtl ? 'order-2' : 'order-1'
+            }`}>
+              {language === 'ku' ? 'تۆماری کارکردی ڕۆژانە' : 'ثبت کار روزانه'}
+            </span>
+            <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white flex items-center justify-center shadow-lg shadow-sky-600/35 ring-2 ring-sky-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
+              isRtl ? 'order-1' : 'order-2'
+            }`}>
+              <CalendarPlus className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+            </div>
+          </button>
+        </div>
+
+        {/* Main Floating Trigger Button (+) */}
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          onMouseEnter={() => setIsOpen(true)}
+          aria-label={language === 'ku' ? 'کرداری خێرا' : 'عملیات سریع'}
+          title={language === 'ku' ? 'کرداری خێرا' : 'عملیات سریع (+)'}
+          className={`group relative flex items-center justify-center text-white w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer ${
+            isOpen
+              ? 'bg-gradient-to-tr from-slate-800 to-slate-700 dark:from-slate-700 dark:to-slate-600 shadow-slate-900/40 ring-4 ring-slate-400/20'
+              : 'bg-gradient-to-tr from-sky-600 via-sky-500 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 shadow-sky-600/35 ring-4 ring-sky-500/25'
+          }`}
+        >
+          <Plus 
+            className={`w-7 h-7 sm:w-8 sm:h-8 stroke-[2.6] transition-all duration-300 ${
+              isOpen ? 'rotate-45 text-rose-300' : 'rotate-0 group-hover:rotate-90 text-white'
+            }`} 
+          />
+        </button>
+      </div>
+    </>
   );
 }

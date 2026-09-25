@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider, useProject } from './context/ProjectContext';
-import { seedInitialDataIfEmpty, reconcileSettlementEpochs } from './db/db';
+import { db, seedInitialDataIfEmpty, reconcileSettlementEpochs } from './db/db';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { WorkersView } from './components/WorkersView';
 import { CalendarReportsView } from './components/CalendarReportsView';
 import { FinancialsView } from './components/FinancialsView';
-import { ExpensesView } from './components/ExpensesView';
+import { ExpensesView, AddExpenseModal } from './components/ExpensesView';
+import { SettlementModal } from './components/SettlementModal';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
@@ -26,10 +28,19 @@ function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
+  const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const [settlementWorker, setSettlementWorker] = useState(null);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
+
+  // Live queries for quick modals
+  const allWorkers = useLiveQuery(() => db.workers.toArray()) || [];
+  const allGroups = useLiveQuery(() => db.groups.toArray()) || [];
+  const allLogs = useLiveQuery(() => db.attendanceLogs.toArray()) || [];
+  const allPayments = useLiveQuery(() => db.payments.toArray()) || [];
 
   const handleOpenLoggingModal = (dateStr) => {
     setLoggingModalDate(dateStr || null);
@@ -141,10 +152,37 @@ function AppContent() {
         )}
       </main>
 
-      {/* Persistent Floating Action Button (FAB) */}
+      {/* Persistent Multi-Action Floating Action Button (FAB) */}
       <FloatingActionButton
+        onOpenDailyLogging={() => setIsLoggingModalOpen(true)}
+        onOpenSettlement={() => setIsSettlementModalOpen(true)}
+        onOpenExpense={() => setIsExpenseModalOpen(true)}
         onClick={() => setIsLoggingModalOpen(true)}
       />
+
+      {/* Quick Settlement Modal */}
+      {isSettlementModalOpen && (
+        <SettlementModal
+          isOpen={isSettlementModalOpen}
+          onClose={() => {
+            setIsSettlementModalOpen(false);
+            setSettlementWorker(null);
+          }}
+          worker={settlementWorker}
+          allWorkers={allWorkers}
+          allGroups={allGroups}
+          allLogs={allLogs}
+          allPayments={allPayments}
+          onSelectWorker={(w) => setSettlementWorker(w)}
+        />
+      )}
+
+      {/* Quick Add Expense Modal */}
+      {isExpenseModalOpen && (
+        <AddExpenseModal
+          onClose={() => setIsExpenseModalOpen(false)}
+        />
+      )}
 
       {/* Daily Attendance Logging Modal */}
       <DailyLoggingModal
