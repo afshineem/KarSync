@@ -20,6 +20,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 let isInitialized = false;
 let realtimeChannel = null;
+export const CLIENT_ID = 'client_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
 const PENDING_DELETED_WORKERS_KEY = 'workshop_pending_deleted_workers';
 const PENDING_DELETED_LOGS_KEY = 'workshop_pending_deleted_logs';
@@ -421,6 +422,10 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         const resolvedProjectId = w.project_id || localW?.projectId || projectMap[w.id] || DEFAULT_PROJECT_ID;
         const meta = cloudMetadata[w.id] || {};
 
+        const localTime = localW?.updatedAt ? new Date(localW.updatedAt).getTime() : 0;
+        const metaTime = meta.updatedAt ? new Date(meta.updatedAt).getTime() : 0;
+        const localIsNewer = localTime > metaTime;
+
         await db.workers.put({
           ...(localW || {}),
           id: w.id,
@@ -430,17 +435,27 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           dailyRate: Number(w.daily_rate) || 0,
           overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
           isActive: Number(w.is_active) === 0 ? 0 : 1,
-          defaultSectionId: meta.defaultSectionId !== undefined ? meta.defaultSectionId : (localW?.defaultSectionId || null),
-          groupId: meta.groupId !== undefined ? meta.groupId : (localW?.groupId || null),
-          teamRole: meta.teamRole || localW?.teamRole || 'Worker',
-          isArchived: meta.isArchived !== undefined ? meta.isArchived : (localW?.isArchived || false),
-          status: meta.status || localW?.status || (meta.isArchived ? 'archived' : 'active'),
+          defaultSectionId: (localIsNewer && localW?.defaultSectionId !== undefined)
+            ? localW.defaultSectionId
+            : (meta.defaultSectionId !== undefined ? meta.defaultSectionId : (localW?.defaultSectionId || null)),
+          groupId: (localIsNewer && localW?.groupId !== undefined)
+            ? localW.groupId
+            : (meta.groupId !== undefined ? meta.groupId : (localW?.groupId || null)),
+          teamRole: (localIsNewer && localW?.teamRole)
+            ? localW.teamRole
+            : (meta.teamRole || localW?.teamRole || 'Worker'),
+          isArchived: (localIsNewer && localW?.isArchived !== undefined)
+            ? localW.isArchived
+            : (meta.isArchived !== undefined ? meta.isArchived : (localW?.isArchived || false)),
+          status: (localIsNewer && localW?.status)
+            ? localW.status
+            : (meta.status || localW?.status || (meta.isArchived ? 'archived' : 'active')),
           username: meta.username || localW?.username || '',
           password: meta.password || localW?.password || '',
           projectId: resolvedProjectId,
           userId: w.user_id || w.userId || 'default_user',
           createdAt: w.created_at,
-          updatedAt: w.updated_at
+          updatedAt: (localIsNewer && localW?.updatedAt) ? localW.updatedAt : w.updated_at
         });
       }
     }
@@ -770,7 +785,11 @@ function subscribeToRealtime() {
       }
     })
     .on('broadcast', { event: 'workshop_sync' }, async ({ payload }) => {
-      console.log('⚡ Realtime Broadcast received:', payload);
+      if (payload?.senderId && payload.senderId === CLIENT_ID) {
+        // Ignore echo of broadcast sent by ourselves
+        return;
+      }
+      console.log('⚡ Realtime Broadcast received from peer:', payload);
       const syncType = payload?.type;
       if (syncType === 'projects' || syncType === 'all') {
         await pullProjectsLive(true);
@@ -861,7 +880,7 @@ export async function broadcastSyncEvent(type, extra = {}) {
     await realtimeChannel.send({
       type: 'broadcast',
       event: 'workshop_sync',
-      payload: { type, timestamp: Date.now(), ...extra }
+      payload: { type, senderId: CLIENT_ID, timestamp: Date.now(), ...extra }
     });
   } catch (err) {
     console.warn('Could not send realtime broadcast:', err);
@@ -1685,6 +1704,27 @@ export async function pullWorkerMetadataLive(force = false) {
       for (const w of localWorkers) {
         const meta = cloudMetadata[w.id];
         if (meta) {
+          const localTime = w.updatedAt ? new Date(w.updatedAt).getTime() : 0;
+          const cloudTime = meta.updatedAt ? new Date(meta.updatedAt).getTime() : 0;
+
+          // If local worker was updated more recently on this client, do NOT revert it!
+          // Instead, preserve local Dexie and queue update to cloud
+          if (localTime > cloudTime + 1000) {
+            cloudMetadata[w.id] = {
+              ...meta,
+              groupId: w.groupId || null,
+              teamRole: w.teamRole || 'Worker',
+              defaultSectionId: w.defaultSectionId || null,
+              isArchived: !!(w.isArchived || w.status === 'archived'),
+              status: w.status || (w.isArchived ? 'archived' : 'active'),
+              username: w.username || meta.username || '',
+              password: w.password || meta.password || '',
+              updatedAt: w.updatedAt || new Date().toISOString()
+            };
+            hasLocalChanges = true;
+            continue;
+          }
+
           let needsUpdate = false;
           const updates = {};
 
@@ -1733,9 +1773,10 @@ export async function pullWorkerMetadataLive(force = false) {
             teamRole: w.teamRole || 'Worker',
             defaultSectionId: w.defaultSectionId || null,
             isArchived: !!(w.isArchived || w.status === 'archived'),
-            status: w.status || 'active',
+            status: w.status || (w.isArchived ? 'archived' : 'active'),
             username: w.username || '',
-            password: w.password || ''
+            password: w.password || '',
+            updatedAt: w.updatedAt || new Date().toISOString()
           };
           hasLocalChanges = true;
         }
@@ -1788,15 +1829,17 @@ export async function pushWorkerMetadataLive(workerId, metadata) {
       } catch (_) {}
     }
 
+    const now = new Date().toISOString();
     cloudMetadata[workerId] = {
       ...(cloudMetadata[workerId] || {}),
-      ...metadata
+      ...metadata,
+      updatedAt: metadata.updatedAt || now
     };
 
     await supabase.from('settings').upsert({
       setting_key: 'app_worker_metadata',
       setting_value: JSON.stringify(cloudMetadata),
-      updated_at: new Date().toISOString()
+      updated_at: now
     });
   } catch (err) {
     console.warn('pushWorkerMetadataLive warning:', err);
@@ -1823,16 +1866,24 @@ export async function syncAllWorkerMetadataToCloud() {
     }
 
     for (const w of localWorkers) {
-      cloudMetadata[w.id] = {
-        ...(cloudMetadata[w.id] || {}),
-        groupId: w.groupId || null,
-        teamRole: w.teamRole || 'Worker',
-        defaultSectionId: w.defaultSectionId || null,
-        isArchived: !!(w.isArchived || w.status === 'archived'),
-        status: w.status || (w.isArchived ? 'archived' : 'active'),
-        username: w.username || cloudMetadata[w.id]?.username || '',
-        password: w.password || cloudMetadata[w.id]?.password || ''
-      };
+      const existingMeta = cloudMetadata[w.id] || {};
+      const localTime = w.updatedAt ? new Date(w.updatedAt).getTime() : 0;
+      const cloudTime = existingMeta.updatedAt ? new Date(existingMeta.updatedAt).getTime() : 0;
+
+      // Only update cloud if local worker is newer or equal, or if cloud has no timestamp
+      if (localTime >= cloudTime || !existingMeta.updatedAt) {
+        cloudMetadata[w.id] = {
+          ...existingMeta,
+          groupId: w.groupId || null,
+          teamRole: w.teamRole || 'Worker',
+          defaultSectionId: w.defaultSectionId || null,
+          isArchived: !!(w.isArchived || w.status === 'archived'),
+          status: w.status || (w.isArchived ? 'archived' : 'active'),
+          username: w.username || existingMeta.username || '',
+          password: w.password || existingMeta.password || '',
+          updatedAt: w.updatedAt || new Date().toISOString()
+        };
+      }
     }
 
     await supabase.from('settings').upsert({
@@ -1968,16 +2019,18 @@ export async function pushWorkerLive(w) {
     pushWorkerProjectMapLive(w.id, w.projectId).catch(console.warn);
   }
 
-  // Sync worker metadata
-  pushWorkerMetadataLive(w.id, {
+  // Sync worker metadata (await to ensure cloud metadata is updated before broadcasting)
+  const now = w.updatedAt || new Date().toISOString();
+  await pushWorkerMetadataLive(w.id, {
     groupId: w.groupId || null,
     teamRole: w.teamRole || 'Worker',
     defaultSectionId: w.defaultSectionId || null,
     isArchived: !!(w.isArchived || w.status === 'archived'),
     status: w.status || (w.isArchived ? 'archived' : 'active'),
     username: w.username || '',
-    password: w.password || ''
-  }).catch(console.warn);
+    password: w.password || '',
+    updatedAt: now
+  });
 
   if (w.username || w.password) {
     try {
@@ -1998,7 +2051,7 @@ export async function pushWorkerLive(w) {
     overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
     is_active: Number(w.isActive) === 0 ? 0 : 1,
     deleted_at: w.deletedAt || null,
-    updated_at: new Date().toISOString()
+    updated_at: now
   };
 
   try {

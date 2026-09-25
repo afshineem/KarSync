@@ -325,7 +325,7 @@ export function WorkersView() {
           updatedAt: new Date().toISOString()
         };
         await db.workers.update(editingWorker.id, updatedWorker);
-        pushWorkerLive(updatedWorker).catch(console.error);
+        await pushWorkerLive(updatedWorker);
 
         // Migrate past attendance records to the new section if default section was changed
         const oldSection = editingWorker.defaultSectionId;
@@ -369,7 +369,7 @@ export function WorkersView() {
           updatedAt: new Date().toISOString()
         };
         await db.workers.add(newWorker);
-        pushWorkerLive(newWorker).catch(console.error);
+        await pushWorkerLive(newWorker);
       }
 
       // Save portal credentials
