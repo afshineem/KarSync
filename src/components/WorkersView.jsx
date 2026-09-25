@@ -33,11 +33,16 @@ import {
   List,
   Layers,
   Archive,
-  RotateCcw
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 
 export function WorkersView() {
-  const { t, language } = useLanguage();
+  const { t, language, direction } = useLanguage();
   const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
@@ -54,6 +59,32 @@ export function WorkersView() {
   const handleSetLayoutMode = (mode) => {
     setLayoutMode(mode);
     localStorage.setItem('workshop_workers_view_mode', mode);
+  };
+
+  // Group accordion collapse state
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState(new Set());
+  const toggleGroupCollapse = (groupId) => {
+    setCollapsedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  // Sort state
+  const [sortBy, setSortBy] = useState('name'); // 'name' | 'dailyRate' | 'overtimeRate' | 'role' | 'status' | 'createdAt'
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
+  const handleSortChange = (newSortBy) => {
+    if (sortBy === newSortBy) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(newSortBy);
+      setSortOrder('asc');
+    }
   };
   
   // Modals state
@@ -213,7 +244,13 @@ export function WorkersView() {
   }, [workers, statusTab, searchTerm, filterActive, filterSection]);
 
   const groupedWorkers = useMemo(() => {
-    const groupsObj = { unassigned: { id: 'unassigned', name: 'پرسنل عمومی (بدون گروه)', workers: [] } };
+    const groupsObj = { 
+      unassigned: { 
+        id: 'unassigned', 
+        name: language === 'ku' ? 'کارمەندانی گشتی (بێ گرووپ)' : 'پرسنل عمومی (بدون گروه)', 
+        workers: [] 
+      } 
+    };
     
     // Initialize groups from DB
     (groups || []).forEach(g => {
@@ -229,10 +266,30 @@ export function WorkersView() {
       }
     });
 
-    // Sort workers inside groups (Masters first)
+    // Sort workers inside each group according to user's sortBy and sortOrder
     Object.values(groupsObj).forEach(g => {
-      if(g.workers) {
+      if (g.workers) {
         g.workers.sort((a, b) => {
+          let compare = 0;
+          if (sortBy === 'name') {
+            compare = (a.name || '').localeCompare(b.name || '', language === 'fa' ? 'fa' : 'ckb');
+          } else if (sortBy === 'dailyRate') {
+            compare = (Number(a.dailyRate) || 0) - (Number(b.dailyRate) || 0);
+          } else if (sortBy === 'overtimeRate') {
+            compare = (Number(a.overtimeHourlyRate) || 0) - (Number(b.overtimeHourlyRate) || 0);
+          } else if (sortBy === 'role') {
+            compare = (a.role || '').localeCompare(b.role || '');
+          } else if (sortBy === 'status') {
+            compare = (b.isActive || 0) - (a.isActive || 0);
+          } else if (sortBy === 'createdAt') {
+            compare = (a.createdAt || '').localeCompare(b.createdAt || '');
+          }
+
+          if (compare !== 0) {
+            return sortOrder === 'asc' ? compare : -compare;
+          }
+
+          // Fallback tie-breaker: Masters first, then name
           if (a.teamRole === 'Master' && b.teamRole !== 'Master') return -1;
           if (b.teamRole === 'Master' && a.teamRole !== 'Master') return 1;
           return (a.name || '').localeCompare(b.name || '');
@@ -241,7 +298,7 @@ export function WorkersView() {
     });
 
     return Object.values(groupsObj).filter(g => g.workers.length > 0);
-  }, [filteredWorkers, groups]);
+  }, [filteredWorkers, groups, sortBy, sortOrder, language]);
 
   // Open modal to add worker
   const handleOpenAddModal = () => {
@@ -641,6 +698,39 @@ export function WorkersView() {
             </div>
           )}
 
+          {/* Sort Dropdown & Order Toggle */}
+          <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+            <div className="flex items-center gap-1.5 ps-2 pe-1 text-slate-500 dark:text-slate-400">
+              <ArrowUpDown className="w-3.5 h-3.5" />
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="py-1 px-1 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+              title={language === 'ku' ? 'ڕیزکردن بەپێی' : 'مرتب‌سازی بر اساس'}
+            >
+              <option value="name" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'ناو (ئەلفوبێ)' : 'نام (الفبایی)'}</option>
+              <option value="dailyRate" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'حەقدەستی ڕۆژانە' : 'دستمزد روزانه'}</option>
+              <option value="overtimeRate" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'نرخی زیادەکاری' : 'نرخ اضافه‌کاری'}</option>
+              <option value="role" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'پیشە / تخصص' : 'سمت / مهارت'}</option>
+              <option value="status" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'دۆخی چالاکی' : 'وضعیت فعالیت'}</option>
+              <option value="createdAt" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'کاتی تۆمارکردن' : 'تاریخ ثبت'}</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              className="p-1.5 rounded-xl hover:bg-white/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+              title={sortOrder === 'asc' ? (language === 'ku' ? 'سەرووژێر (صعودی)' : 'صعودی (A-Z)') : (language === 'ku' ? 'ژێرسەروو (نزولی)' : 'نزولی (Z-A)')}
+              aria-label="Toggle sort order"
+            >
+              {sortOrder === 'asc' ? (
+                <ArrowUp className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              ) : (
+                <ArrowDown className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              )}
+            </button>
+          </div>
+
           {/* Grid vs List View Switcher */}
           <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
             <button
@@ -679,11 +769,31 @@ export function WorkersView() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {groupedWorkers.map((group) => (
             <React.Fragment key={group.id}>
-              <div className="col-span-full mt-4 flex items-center gap-2">
-                 <div className="font-bold text-lg text-slate-800 dark:text-slate-200">{group.name}</div>
-                 <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+              <div 
+                onClick={() => toggleGroupCollapse(group.id)}
+                className="col-span-full mt-4 flex items-center justify-between gap-2 cursor-pointer select-none bg-slate-100/70 dark:bg-slate-800/50 hover:bg-slate-200/70 dark:hover:bg-slate-800 p-2.5 rounded-2xl transition-colors border border-slate-200/60 dark:border-slate-700/60"
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`p-1 rounded-lg bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 transition-transform duration-200 ${collapsedGroupIds.has(group.id) ? (direction === 'rtl' ? 'rotate-90' : '-rotate-90') : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </span>
+                  <div className="font-black text-sm sm:text-base text-slate-800 dark:text-slate-200">{group.name}</div>
+                  {group.description && (
+                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400 hidden sm:inline max-w-sm truncate">
+                      — {group.description}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-600">
+                    {group.workers.length} {language === 'ku' ? 'کەس' : 'نفر'}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {collapsedGroupIds.has(group.id) ? (language === 'ku' ? 'کردنەوە' : 'باز کردن') : (language === 'ku' ? 'داخستن' : 'بستن')}
+                  </span>
+                </div>
               </div>
-              {group.workers.map((worker) => (
+              {!collapsedGroupIds.has(group.id) && group.workers.map((worker) => (
             <div
               key={worker.id}
               className={`bg-white dark:bg-slate-900 rounded-2xl p-5 border transition-all shadow-sm hover:shadow-md flex flex-col justify-between ${
@@ -922,124 +1032,205 @@ export function WorkersView() {
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold">
                 <tr>
-                  <th className="py-3 px-3 text-center w-12">{t('status')}</th>
-                  <th className="py-3 px-3.5">{t('fullName')}</th>
-                  <th className="py-3 px-3.5">{t('workerRole')}</th>
+                  <th 
+                    onClick={() => handleSortChange('status')}
+                    className="py-3 px-3 text-center w-12 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
+                    title={t('sortByStatus') || 'مرتب‌سازی بر اساس وضعیت'}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{t('status')}</span>
+                      {sortBy === 'status' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSortChange('name')}
+                    className="py-3 px-3.5 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
+                    title={t('sortByName') || 'مرتب‌سازی بر اساس نام'}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>{t('fullName')}</span>
+                      {sortBy === 'name' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSortChange('role')}
+                    className="py-3 px-3.5 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
+                    title={t('sortByRole') || 'مرتب‌سازی بر اساس نقش'}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>{t('workerRole')}</span>
+                      {sortBy === 'role' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
+                    </div>
+                  </th>
                   <th className="py-3 px-3.5">{t('section') || 'بخش'}</th>
                   <th className="py-3 px-3.5">{t('phoneNumber')}</th>
-                  <th className="py-3 px-3.5">{t('dailyRateLabel')}</th>
-                  <th className="py-3 px-3.5">{t('overtimeRateLabel')}</th>
+                  <th 
+                    onClick={() => handleSortChange('dailyRate')}
+                    className="py-3 px-3.5 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
+                    title={t('sortByDailyRate') || 'مرتب‌سازی بر اساس دستمزد'}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>{t('dailyRateLabel')}</span>
+                      {sortBy === 'dailyRate' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSortChange('overtimeRate')}
+                    className="py-3 px-3.5 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
+                    title={t('sortByOvertimeRate') || 'مرتب‌سازی بر اساس نرخ اضافه‌کاری'}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>{t('overtimeRateLabel')}</span>
+                      {sortBy === 'overtimeRate' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
+                    </div>
+                  </th>
                   <th className="py-3 px-3.5 text-center">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {groupedWorkers.map((group) => (
-                  <React.Fragment key={group.id}>
-                    <tr>
-                      <td colSpan="8" className="bg-slate-100 dark:bg-slate-800/50 py-2 px-4 font-bold text-slate-700 dark:text-slate-300">
-                        {group.name}
-                      </td>
-                    </tr>
-                    {group.workers.map((worker) => (
-                  <tr key={worker.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group">
-                    <td className="py-2.5 px-3 text-center">
-                      <span 
-                        className={`inline-block w-2.5 h-2.5 rounded-full ${
-                          worker.deletedAt
-                            ? 'bg-rose-500 ring-4 ring-rose-500/20'
-                            : worker.isArchived || worker.status === 'archived'
-                            ? 'bg-amber-500 ring-4 ring-amber-500/20'
-                            : worker.isActive === 1
-                            ? 'bg-emerald-500 ring-4 ring-emerald-500/20'
-                            : 'bg-slate-300 dark:bg-slate-600'
-                        }`}
-                        title={
-                          worker.deletedAt
-                            ? t('trash')
-                            : worker.isArchived
-                            ? t('archived')
-                            : worker.isActive === 1
-                            ? t('active')
-                            : t('inactive')
-                        }
-                      />
-                    </td>
-                    <td className="py-2.5 px-3.5 font-bold text-slate-900 dark:text-white">
-                      <span 
-                        className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
-                        onClick={() => statusTab === 'active' && setQuickAttendanceWorker(worker)}
+                {groupedWorkers.map((group) => {
+                  const isCollapsed = collapsedGroupIds.has(group.id);
+                  return (
+                    <React.Fragment key={group.id}>
+                      <tr 
+                        onClick={() => toggleGroupCollapse(group.id)}
+                        className="bg-slate-100/90 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/60 cursor-pointer transition-colors select-none"
                       >
-                        {worker.name}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400">
-                      {worker.role || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5">
-                      {worker.defaultSectionId && sectionMap[worker.defaultSectionId] ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/60">
-                          <Layers className="w-3 h-3 text-sky-500 flex-shrink-0" />
-                          <span>{sectionMap[worker.defaultSectionId].name}</span>
+                        <td colSpan="8" className="py-2.5 px-4 font-bold text-slate-700 dark:text-slate-200">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="p-1 rounded-md bg-white dark:bg-slate-700 shadow-xs text-slate-500">
+                                {isCollapsed ? (
+                                  <ChevronDown className="w-4 h-4" />
+                                ) : (
+                                  <ChevronUp className="w-4 h-4" />
+                                )}
+                              </span>
+                              <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{group.name}</span>
+                              {group.description && (
+                                <span className="text-xs text-slate-500 dark:text-slate-400 font-normal truncate max-w-xs">
+                                  — {group.description}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                              {group.workers.length} {t('workersCount') || 'نفر'}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {!isCollapsed && group.workers.map((worker) => (
+                    <tr key={worker.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group">
+                      <td className="py-2.5 px-3 text-center">
+                        <span 
+                          className={`inline-block w-2.5 h-2.5 rounded-full ${
+                            worker.deletedAt
+                              ? 'bg-rose-500 ring-4 ring-rose-500/20'
+                              : worker.isArchived || worker.status === 'archived'
+                              ? 'bg-amber-500 ring-4 ring-amber-500/20'
+                              : worker.isActive === 1
+                              ? 'bg-emerald-500 ring-4 ring-emerald-500/20'
+                              : 'bg-slate-300 dark:bg-slate-600'
+                          }`}
+                          title={
+                            worker.deletedAt
+                              ? t('trash')
+                              : worker.isArchived
+                              ? t('archived')
+                              : worker.isActive === 1
+                              ? t('active')
+                              : t('inactive')
+                          }
+                        />
+                      </td>
+                      <td className="py-2.5 px-3.5 font-bold text-slate-900 dark:text-white">
+                        <span 
+                          className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                          onClick={() => statusTab === 'active' && setQuickAttendanceWorker(worker)}
+                        >
+                          {worker.name}
                         </span>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">-</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 font-mono" dir="ltr">
-                      {worker.phone || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 font-bold font-mono text-slate-800 dark:text-slate-200">
-                      {formatCurrency(worker.dailyRate, currency, language)}
-                    </td>
-                    <td className="py-2.5 px-3.5 font-medium font-mono text-slate-700 dark:text-slate-300">
-                      {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
-                    </td>
-                    <td className="py-2.5 px-3.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {statusTab === 'active' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setQuickAttendanceWorker(worker)}
-                              title={t('quickMonthlyAttendance')}
-                              className="p-1.5 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/60 rounded-lg transition-colors"
-                            >
-                              <Calendar className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setHistoryWorker(worker)}
-                              title={t('history')}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                            >
-                              <History className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditModal(worker)}
-                              title={t('edit')}
-                              className="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleArchiveWorker(worker)}
-                              title={t('archive')}
-                              className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
-                            >
-                              <Archive className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleMoveToTrash(worker)}
-                              title={t('moveToTrash')}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
+                      </td>
+                      <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400">
+                        {worker.role || '-'}
+                      </td>
+                      <td className="py-2.5 px-3.5">
+                        {worker.defaultSectionId && sectionMap[worker.defaultSectionId] ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/60">
+                            <Layers className="w-3 h-3 text-sky-500 flex-shrink-0" />
+                            <span>{sectionMap[worker.defaultSectionId].name}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">-</span>
                         )}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 font-mono" dir="ltr">
+                        {worker.phone || '-'}
+                      </td>
+                      <td className="py-2.5 px-3.5 font-bold font-mono text-slate-800 dark:text-slate-200">
+                        {formatCurrency(worker.dailyRate, currency, language)}
+                      </td>
+                      <td className="py-2.5 px-3.5 font-medium font-mono text-slate-700 dark:text-slate-300">
+                        {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
+                      </td>
+                      <td className="py-2.5 px-3.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {statusTab === 'active' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleActive(worker)}
+                                className={`p-1.5 rounded-lg border transition-colors ${
+                                  worker.isActive === 1
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                }`}
+                                title={worker.isActive === 1 ? (t('deactivate') || 'غیرفعال‌سازی') : (t('activate') || 'فعال‌سازی')}
+                              >
+                                {worker.isActive === 1 ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setQuickAttendanceWorker(worker)}
+                                title={t('quickMonthlyAttendance')}
+                                className="p-1.5 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/60 rounded-lg transition-colors"
+                              >
+                                <Calendar className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setHistoryWorker(worker)}
+                                title={t('history')}
+                                className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(worker)}
+                                title={t('edit')}
+                                className="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleArchiveWorker(worker)}
+                                title={t('archive')}
+                                className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                              >
+                                <Archive className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMoveToTrash(worker)}
+                                title={t('moveToTrash')}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
 
                         {statusTab === 'archived' && (
                           <>
@@ -1097,7 +1288,8 @@ export function WorkersView() {
                   </tr>
                 ))}
                   </React.Fragment>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

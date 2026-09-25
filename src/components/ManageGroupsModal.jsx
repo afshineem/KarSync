@@ -14,6 +14,7 @@ import {
   Plus, 
   Trash2, 
   Archive, 
+  Edit2,
   CheckCircle2, 
   AlertCircle, 
   ShieldCheck, 
@@ -34,7 +35,12 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'active' | 'archived'
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newDeductFood, setNewDeductFood] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupDescription, setEditGroupDescription] = useState('');
+  const [editDeductFood, setEditDeductFood] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState(null);
@@ -117,6 +123,7 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
         id: 'grp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
         projectId: targetProjectId || DEFAULT_PROJECT_ID,
         name: newGroupName.trim(),
+        description: (newGroupDescription || '').trim(),
         deductFoodExpense: newDeductFood,
         isArchived: false,
         status: 'active',
@@ -128,10 +135,44 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
       await pushGroupLive(newGroup);
 
       setNewGroupName('');
+      setNewGroupDescription('');
       setNewDeductFood(false);
       setIsAddingNew(false);
     } catch (err) {
       console.error('Error creating group:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Open edit modal for group
+  const handleStartEdit = (group) => {
+    setEditingGroup(group);
+    setEditGroupName(group.name || '');
+    setEditGroupDescription(group.description || '');
+    setEditDeductFood(!!group.deductFoodExpense);
+  };
+
+  // Save edited group
+  const handleSaveEditGroup = async (e) => {
+    e.preventDefault();
+    if (!editingGroup || !editGroupName.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const updatedGroup = {
+        ...editingGroup,
+        name: editGroupName.trim(),
+        description: (editGroupDescription || '').trim(),
+        deductFoodExpense: editDeductFood,
+        updatedAt: new Date().toISOString()
+      };
+
+      await db.groups.put(updatedGroup);
+      await pushGroupLive(updatedGroup);
+      setEditingGroup(null);
+    } catch (err) {
+      console.error('Error updating group:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -307,7 +348,20 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
                     placeholder={language === 'ku' ? 'وەک: کونکریت، لاشه به‌رد، ئاسنگەری...' : 'مثلاً: سنگ‌کاری، کونکریت، اسکلت فلزی...'}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white shadow-xs"
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white shadow-xs font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {language === 'ku' ? 'پوختەی ئەرک و کاری گرووپ' : 'توضیحات / خلاصه وظایف گروه'}
+                  </label>
+                  <textarea
+                    rows="2"
+                    value={newGroupDescription}
+                    onChange={(e) => setNewGroupDescription(e.target.value)}
+                    placeholder={language === 'ku' ? 'ڕوونکردنەوە دەربارەی بەرپرسیارێتی و کاری ئەم گرووپە...' : 'خلاصه‌ای از وظایف محوله، مسئولیت‌ها یا حوزه کاری گروه...'}
+                    className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white shadow-xs resize-none"
                   />
                 </div>
 
@@ -446,10 +500,27 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
                           </span>
                         )}
                       </div>
+
+                      {/* Description / Tasks summary */}
+                      {g.description && (
+                        <p className="text-xs text-slate-600 dark:text-slate-300 pt-0.5 line-clamp-2">
+                          {g.description}
+                        </p>
+                      )}
                     </div>
 
                     {/* Right: Actions */}
                     <div className="flex items-center gap-2 self-end sm:self-center">
+                      {/* Edit Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(g)}
+                        title={language === 'ku' ? 'دەستکاریکردنی گرووپ' : 'ویرایش گروه'}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+
                       {/* Archive / Unarchive Button */}
                       <button
                         type="button"
@@ -644,6 +715,94 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Edit Group Modal Sub-dialog */}
+      {editingGroup && (
+        <div className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    {language === 'ku' ? 'دەستکاریکردنی گرووپ' : 'ویرایش گروه کاری'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {language === 'ku' ? 'گۆڕینی ناو، پێناسە و ڕێکخستنەکانی گرووپ' : 'ویرایش نام، توضیحات وظایف و تنظیمات گروه'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingGroup(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditGroup} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {language === 'ku' ? 'ناوی گرووپ' : 'نام گروه کاری'}
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={editGroupName}
+                  onChange={(e) => setEditGroupName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white font-bold shadow-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {language === 'ku' ? 'پوختەی ئەرک و کاری گرووپ' : 'توضیحات / خلاصه وظایف گروه'}
+                </label>
+                <textarea
+                  rows="3"
+                  value={editGroupDescription}
+                  onChange={(e) => setEditGroupDescription(e.target.value)}
+                  placeholder={language === 'ku' ? 'ڕوونکردنەوە دەربارەی بەرپرسیارێتی و کاری ئەم گرووپە...' : 'خلاصه‌ای از وظایف محوله، مسئولیت‌ها یا حوزه کاری گروه...'}
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white resize-none shadow-xs"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="editDeductFood"
+                  checked={editDeductFood}
+                  onChange={(e) => setEditDeductFood(e.target.checked)}
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <label htmlFor="editDeductFood" className="text-xs text-slate-600 dark:text-slate-400 font-semibold cursor-pointer">
+                  {language === 'ku' ? 'لێبڕینی خودکاری خەرجی خواردن (پێشگریمانە)' : 'کسر خودکار هزینه خوراک برای اعضای گروه'}
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !editGroupName.trim()}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20"
+                >
+                  {isSubmitting ? '...' : (language === 'ku' ? 'پاشەکەوتکردنی گۆڕانکارییەکان' : 'ذخیره تغییرات')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingGroup(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                >
+                  {language === 'ku' ? 'پاشگەزبوونەوە' : 'انصراف'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
