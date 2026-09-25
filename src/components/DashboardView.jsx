@@ -636,8 +636,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300">
                 {t('monthlyWorkingDays') || 'روزهای کاری ثبت‌شده'}
               </span>
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <Calendar className="w-4.5 h-4.5" />
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 flex-shrink-0">
+                <Calendar className="w-5.5 h-5.5" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -678,8 +678,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300">
                 {t('totalOvertimeHours') || 'مجموع اضافه‌کاری'}
               </span>
-              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <Clock className="w-4.5 h-4.5" />
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 flex-shrink-0">
+                <Clock className="w-5.5 h-5.5" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -720,8 +720,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               <span className="text-xs sm:text-sm font-bold text-sky-100">
                 {t('totalPayrollExpense') || 'کل دستمزد و حقوق'}
               </span>
-              <div className="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm">
-                <Coins className="w-4.5 h-4.5 text-amber-200" />
+              <div className="w-11 h-11 rounded-2xl bg-white/20 text-white flex items-center justify-center shadow-md shadow-sky-900/20 backdrop-blur-sm flex-shrink-0 border border-white/20">
+                <Coins className="w-5.5 h-5.5 text-amber-200" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -760,8 +760,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300">
                 {t('activeWorkersCount')}
               </span>
-              <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                <Users className="w-4.5 h-4.5" />
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/20 flex-shrink-0">
+                <Users className="w-5.5 h-5.5" />
               </div>
             </div>
             <div className="mt-3">
@@ -795,8 +795,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           
           {/* Side 1: مجموع هزینه‌های این ماه */}
           <div className="flex-1 flex items-center gap-4 bg-rose-50/50 dark:bg-rose-950/20 p-4 rounded-2xl border border-rose-100 dark:border-rose-900/30">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
-              <Receipt className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-md shadow-rose-500/20 flex-shrink-0">
+              <Receipt className="w-5.5 h-5.5" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
@@ -830,10 +830,14 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           {/* Side 2: لیست چند هزینه آخر */}
           <div className="flex-1 flex flex-col justify-center">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Banknote className="w-4 h-4 text-slate-400" />
-                <span>{language === 'ku' ? 'دوایین خەرجییە تۆمارکراوەکان' : 'چند هزینه آخر پروژه'}</span>
-              </span>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+                  <Banknote className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {language === 'ku' ? 'دوایین خەرجییە تۆمارکراوەکان' : 'چند هزینه آخر پروژه'}
+                </span>
+              </div>
               <button
                 onClick={() => setActiveTab('expenses')}
                 className="text-[11px] font-medium text-sky-600 dark:text-sky-400 hover:underline"
@@ -930,8 +934,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             {/* Header & Section Filter Tabs */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0">
-                  <Layers className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 flex-shrink-0">
+                  <Layers className="w-5.5 h-5.5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1175,15 +1179,20 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       })()}
 
       {/* Worker Summary Table / Card List */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              {t('workerSummaryTitle')}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {selectedMonth} • {workers.length} {t('workers')}
-            </p>
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/20 flex-shrink-0">
+              <Users className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                {t('workerSummaryTitle')}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {selectedMonth} • {workers.length} {t('workers')}
+              </p>
+            </div>
           </div>
 
           <button
@@ -1313,16 +1322,20 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
     
       {/* Recent Tasks & Work Notes Feed */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 sm:p-6">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 sm:p-6">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <FileText className="w-5 h-5 text-sky-500" />
-              <span>{t('recentTasksTitle')}</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {t('recentTasksDesc')}
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 flex-shrink-0">
+              <FileText className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                {t('recentTasksTitle')}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {t('recentTasksDesc')}
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setActiveTab('calendar')}
