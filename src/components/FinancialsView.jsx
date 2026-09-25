@@ -16,8 +16,9 @@ import {
 } from '../utils/formatters';
 import { SettlementModal } from './SettlementModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
-import { PaymentHistoryModal } from './PaymentHistoryModal';
+import { WorkerFinancialProfileModal } from './WorkerFinancialProfileModal';
 import { EditPaymentModal } from './EditPaymentModal';
+import { DateFilterComponent } from './DateFilterComponent';
 import { fullSyncBothDirections, pushPaymentsLive, recordPendingPaymentDeletion } from '../services/realtimeSync';
 import { 
   WalletCards, 
@@ -50,15 +51,14 @@ import {
 
 export function FinancialsView() {
   const { t, language, direction } = useLanguage();
-  const { currentProject } = useProject();
+  const { currentProject, dateFilter, setDateFilter } = useProject();
   const currency = currentProject?.currency || 'IQD';
 
   const [isSyncingLive, setIsSyncingLive] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState('');
 
-  // Filter mode: 'monthly' | 'range'
   const [filterMode, setFilterMode] = useState('monthly');
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
+  const selectedMonth = dateFilter.month || getCurrentYearMonth();
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
@@ -159,11 +159,24 @@ export function FinancialsView() {
         return wDaily + (otH * wOtRate);
       };
 
+      // Unsettled open records for this worker across entire history
+      const unsettledWorkerLogs = allWorkerLogs.filter((l) => !l.isSettled);
+      const unsettledWorkerPayments = allWorkerPayments.filter((p) => !p.isSettled);
+
+      const unsettledGross = roundCurrency(unsettledWorkerLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
+      const unsettledAdvances = roundCurrency(
+        unsettledWorkerPayments
+          .filter((p) => p.type === 'advance' || p.type === 'Advance_Payment')
+          .reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+        currency
+      );
+
+      // True open balance due is strictly unsettled work minus unsettled advances
+      const netBalanceDue = roundCurrency(unsettledGross - unsettledAdvances, currency);
+
       // Total All-Time Gross & Paid across entire database history
       const totalAllTimeGross = roundCurrency(allWorkerLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
       const totalAllTimePaid = roundCurrency(allWorkerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
-      // Removed Math.max(0, ...) so it can be negative if overpaid (worker in debt)
-      const netBalanceDue = roundCurrency(totalAllTimeGross - totalAllTimePaid, currency);
 
       // Determine period boundaries
       let currentLogs = [];
@@ -172,23 +185,31 @@ export function FinancialsView() {
       let priorPayments = [];
       let periodEndDate = '';
 
-      if (filterMode === 'monthly') {
+      if (dateFilter?.mode === 'unsettled_only') {
+        periodEndDate = getTodayDateString();
+        currentLogs = unsettledWorkerLogs;
+        priorLogs = [];
+        currentPayments = unsettledWorkerPayments;
+        priorPayments = [];
+      } else if (filterMode === 'monthly') {
         periodEndDate = `${selectedMonth}-31`;
         currentLogs = allWorkerLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
-        priorLogs = allWorkerLogs.filter((l) => l.date && l.date < selectedMonth);
+        // ONLY count prior logs that were NEVER settled as prior arrears!
+        priorLogs = allWorkerLogs.filter((l) => l.date && l.date < selectedMonth && !l.isSettled);
         currentPayments = allWorkerPayments.filter((p) => p.month === selectedMonth || (!p.month && p.date && p.date.startsWith(selectedMonth)));
-        priorPayments = allWorkerPayments.filter((p) => (p.month && p.month < selectedMonth) || (!p.month && p.date && p.date < selectedMonth));
+        priorPayments = allWorkerPayments.filter((p) => ((p.month && p.month < selectedMonth) || (!p.month && p.date && p.date < selectedMonth)) && !p.isSettled);
       } else {
         // Date range mode
         periodEndDate = toDate;
         currentLogs = allWorkerLogs.filter((l) => l.date && l.date >= fromDate && l.date <= toDate);
-        priorLogs = allWorkerLogs.filter((l) => l.date && l.date < fromDate);
+        priorLogs = allWorkerLogs.filter((l) => l.date && l.date < fromDate && !l.isSettled);
         currentPayments = allWorkerPayments.filter((p) => {
           if (p.date) return p.date >= fromDate && p.date <= toDate;
           if (p.month) return p.month >= fromDate.slice(0, 7) && p.month <= toDate.slice(0, 7);
           return false;
         });
         priorPayments = allWorkerPayments.filter((p) => {
+          if (p.isSettled) return false;
           if (p.date) return p.date < fromDate;
           if (p.month) return p.month < fromDate.slice(0, 7);
           return false;
@@ -293,7 +314,7 @@ export function FinancialsView() {
         currentPayments
       };
     });
-  }, [workers, allLogs, allPayments, filterMode, selectedMonth, fromDate, toDate, currency]);
+  }, [workers, allLogs, allPayments, filterMode, selectedMonth, fromDate, toDate, dateFilter, currency]);
 
   // Project sections financial distribution (concise & comprehensive matrix)
   const sectionFinancials = useMemo(() => {
@@ -612,44 +633,8 @@ export function FinancialsView() {
           
           {/* Row 1 on Mobile / Left on PC */}
           <div className="flex items-center justify-between sm:justify-start gap-2.5">
-            {/* Mode Switcher: Monthly vs Date Range */}
-            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
-              {[
-                { id: 'monthly', label: t('filterModeMonthly') || 'ماهانه', icon: CalendarDays },
-                { id: 'range', label: t('filterModeDateRange') || 'بازه دلخواه', icon: CalendarRange }
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isSelected = filterMode === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => {
-                      setFilterMode(tab.id);
-                      if (tab.id === 'range') {
-                        setTempFromDate(fromDate);
-                        setTempToDate(toDate);
-                        setIsDateRangeModalOpen(true);
-                      }
-                    }}
-                    aria-label={tab.label}
-                    title={tab.label}
-                    className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
-                      isSelected
-                        ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold py-2.5 px-3.5 sm:py-3 sm:px-4'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2.5 sm:p-3'
-                    }`}
-                  >
-                    <Icon className="w-5.5 h-5.5 flex-shrink-0" />
-                    {isSelected && (
-                      <span className="text-xs font-semibold whitespace-nowrap animate-fade-in">
-                        {tab.label}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Mode Switcher: Monthly vs Unsettled (Global DateFilterComponent) */}
+            <DateFilterComponent />
 
             {/* Quick Actions: Settlement + Add Advance */}
             <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
@@ -679,7 +664,12 @@ export function FinancialsView() {
           <div className="flex items-center gap-2.5 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 hide-scrollbar sm:ms-auto">
             
             {/* Date Selector */}
-            {filterMode === 'monthly' ? (
+            {dateFilter?.mode === 'unsettled_only' ? (
+              <div className="flex items-center gap-2 px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs font-bold text-emerald-700 dark:text-emerald-300 shadow-inner flex-shrink-0">
+                <Clock className="w-4 h-4" />
+                <span>{t('unsettledOnly') || 'از آخرین تسویه (تمامی کارکردهای باز)'}</span>
+              </div>
+            ) : filterMode === 'monthly' ? (
               <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
                 <button
                   type="button"
@@ -1618,14 +1608,15 @@ export function FinancialsView() {
         />
       )}
 
-      {/* Payment History & Ledger Modal */}
+      {/* Worker Financial Profile (replaces legacy Payment History) */}
       {historyTargetWorker && (
-        <PaymentHistoryModal
-          isOpen={!!historyTargetWorker}
-          onClose={() => setHistoryTargetWorker(null)}
+        <WorkerFinancialProfileModal
           worker={historyTargetWorker}
-          payments={allPayments.filter((p) => p.workerId === historyTargetWorker.id)}
-          month={filterMode === 'monthly' ? selectedMonth : null}
+          logs={allLogs.filter(l => String(l.workerId) === String(historyTargetWorker.id))}
+          payments={allPayments.filter(p => String(p.workerId) === String(historyTargetWorker.id))}
+          currency={currency}
+          onClose={() => setHistoryTargetWorker(null)}
+          onEditLog={() => {}} 
         />
       )}
 

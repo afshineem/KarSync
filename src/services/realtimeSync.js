@@ -370,6 +370,8 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
           isActive: Number(w.is_active) === 0 ? 0 : 1,
           defaultSectionId: w.default_section_id || w.defaultSectionId || localW?.defaultSectionId || null,
+          groupId: w.group_id || w.groupId || localW?.groupId || null,
+          teamRole: w.team_role || w.teamRole || localW?.teamRole || 'Worker',
           projectId: resolvedProjectId,
           userId: w.user_id || w.userId || 'default_user',
           createdAt: w.created_at,
@@ -430,6 +432,8 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
 
       let sectionId = l.section_id || null;
       let projectId = l.project_id || l.projectId || DEFAULT_PROJECT_ID;
+      let isSettled = l.is_settled || localLog?.isSettled || false;
+      let settlementReceiptId = l.settlement_receipt_id || localLog?.settlementReceiptId || null;
       let cleanNotes = l.notes || '';
       if (cleanNotes.includes('__META__')) {
         const parts = cleanNotes.split('__META__');
@@ -438,6 +442,8 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
             const meta = JSON.parse(parts[1]);
             if (meta.s) sectionId = meta.s;
             if (meta.p) projectId = meta.p;
+            if (meta.st) isSettled = true;
+            if (meta.rid) settlementReceiptId = meta.rid;
             cleanNotes = parts.slice(2).join('').trim();
           } catch (_) {}
         }
@@ -455,6 +461,8 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
         notes: cleanNotes,
         sectionId: sectionId,
         projectId: projectId,
+        isSettled: Boolean(isSettled),
+        settlementReceiptId: settlementReceiptId,
         userId: l.user_id || l.userId || 'default_user',
         createdAt: l.created_at,
         updatedAt: l.updated_at
@@ -520,6 +528,8 @@ export async function pushAllLocalToCloud() {
       overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
       is_active: Number(w.isActive) === 0 ? 0 : 1,
       default_section_id: w.defaultSectionId || null,
+      group_id: w.groupId || null,
+      team_role: w.teamRole || 'Worker',
       deleted_at: null,
       updated_at: w.updatedAt || new Date().toISOString()
     }));
@@ -607,6 +617,8 @@ function subscribeToRealtime() {
             overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
             isActive: Number(w.is_active) === 0 ? 0 : 1,
             defaultSectionId: w.default_section_id || w.defaultSectionId || localW?.defaultSectionId || null,
+            groupId: w.group_id || w.groupId || localW?.groupId || null,
+            teamRole: w.team_role || w.teamRole || localW?.teamRole || 'Worker',
             projectId: resolvedProjectId,
             userId: w.user_id || w.userId || 'default_user',
             createdAt: w.created_at,
@@ -649,6 +661,8 @@ function subscribeToRealtime() {
 
           let sectionId = l.section_id || null;
           let projectId = l.project_id || l.projectId || localLog?.projectId || DEFAULT_PROJECT_ID;
+          let isSettled = l.is_settled || localLog?.isSettled || false;
+          let settlementReceiptId = l.settlement_receipt_id || localLog?.settlementReceiptId || null;
           let cleanNotes = l.notes || '';
           if (cleanNotes.includes('__META__')) {
             const parts = cleanNotes.split('__META__');
@@ -657,6 +671,8 @@ function subscribeToRealtime() {
                 const meta = JSON.parse(parts[1]);
                 if (meta.s) sectionId = meta.s;
                 if (meta.p) projectId = meta.p;
+                if (meta.st) isSettled = true;
+                if (meta.rid) settlementReceiptId = meta.rid;
                 cleanNotes = parts.slice(2).join('').trim();
               } catch (_) {}
             }
@@ -674,6 +690,8 @@ function subscribeToRealtime() {
             notes: cleanNotes,
             sectionId: sectionId,
             projectId: projectId,
+            isSettled: Boolean(isSettled),
+            settlementReceiptId: settlementReceiptId,
             userId: l.user_id || l.userId || 'default_user',
             createdAt: l.created_at,
             updatedAt: l.updated_at
@@ -1352,10 +1370,12 @@ export async function pushLogsLive(logs) {
 
   const payload = logs.map(l => {
     let cleanNotes = (l.notes || '').trim();
-    if (l.sectionId || (l.projectId && l.projectId !== DEFAULT_PROJECT_ID)) {
+    if (l.sectionId || (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) || l.isSettled || l.settlementReceiptId) {
       const meta = {};
       if (l.sectionId) meta.s = l.sectionId;
       if (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) meta.p = l.projectId;
+      if (l.isSettled) meta.st = 1;
+      if (l.settlementReceiptId) meta.rid = l.settlementReceiptId;
       const metaStr = `__META__${JSON.stringify(meta)}__META__`;
       if (!cleanNotes.includes('__META__')) {
         cleanNotes = metaStr + (cleanNotes ? '\n' + cleanNotes : '');
@@ -1407,6 +1427,8 @@ export async function pushWorkerLive(w) {
     overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
     is_active: Number(w.isActive) === 0 ? 0 : 1,
     default_section_id: w.defaultSectionId || null,
+    group_id: w.groupId || null,
+    team_role: w.teamRole || 'Worker',
     deleted_at: null,
     updated_at: new Date().toISOString()
   };
@@ -1453,6 +1475,9 @@ export async function pushWorkersLive(workers) {
     daily_rate: Number(w.dailyRate) || 0,
     overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
     is_active: Number(w.isActive) === 0 ? 0 : 1,
+    default_section_id: w.defaultSectionId || null,
+    group_id: w.groupId || null,
+    team_role: w.teamRole || 'Worker',
     deleted_at: w.deletedAt || null,
     updated_at: new Date().toISOString()
   }));

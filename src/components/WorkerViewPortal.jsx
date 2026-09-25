@@ -468,11 +468,11 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <span>{t('myPaymentsLedger')}</span>
             </h3>
             <span className="text-xs text-slate-400">
-              {displayedPayments.length} {t('paymentRecordsCount')}
+              {monthlyPayments.length} {t('paymentRecordsCount')}
             </span>
           </div>
 
-          {displayedPayments.length === 0 ? (
+          {monthlyPayments.length === 0 ? (
             <div className="py-12 text-center text-slate-400 text-xs">
               {t('noPaymentsRecorded')}
             </div>
@@ -489,7 +489,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {displayedPayments.map((p) => {
+                  {monthlyPayments.map((p) => {
                     const paymentTime = p.time || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
                     return (
                       <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">

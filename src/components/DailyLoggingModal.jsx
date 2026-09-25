@@ -49,6 +49,15 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const [toastMessage, setToastMessage] = useState('');
   const [editingLog, setEditingLog] = useState(null);
 
+  const [entryMode, setEntryMode] = useState('individual'); // 'individual' | 'group'
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [groupConfig, setGroupConfig] = useState({
+    type: 'full',
+    overtimeHours: 0,
+    notes: '',
+    sectionId: ''
+  });
+
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
   // Fetch project sections for current project
@@ -56,6 +65,14 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     async () => {
       if (!targetProjectId) return [];
       return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
+    },
+    [targetProjectId]
+  ) || [];
+
+  const groups = useLiveQuery(
+    async () => {
+      if (!targetProjectId) return [];
+      return await db.groups.where('projectId').equals(targetProjectId).toArray();
     },
     [targetProjectId]
   ) || [];
@@ -269,9 +286,23 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   // Batch Save to IndexedDB
   const handleBatchSubmit = async (e) => {
     e.preventDefault();
-    const checkedWorkerIds = Object.keys(selectedWorkers).filter(
-      (id) => selectedWorkers[id]
-    );
+    let checkedWorkerIds = [];
+
+    if (entryMode === 'group') {
+      if (!selectedGroupId) {
+        alert('لطفا یک گروه انتخاب کنید');
+        return;
+      }
+      checkedWorkerIds = unloggedWorkers.filter(w => w.groupId === selectedGroupId).map(w => w.id);
+      if (checkedWorkerIds.length === 0) {
+        alert('تمام پرسنل این گروه قبلا در این تاریخ ثبت شده‌اند یا پرسنلی در گروه وجود ندارد.');
+        return;
+      }
+    } else {
+      checkedWorkerIds = Object.keys(selectedWorkers).filter(
+        (id) => selectedWorkers[id]
+      );
+    }
 
     if (checkedWorkerIds.length === 0) {
       alert(t('noWorkerSelectedError'));
@@ -294,7 +325,9 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           const worker = workers.find((w) => w.id === workerId);
           if (!worker) continue;
 
-          const cfg = workerConfigs[workerId] || { type: 'full', overtimeHours: 0, notes: '' };
+          const cfg = entryMode === 'group' 
+            ? { ...groupConfig, sectionId: groupConfig.sectionId || defaultSectionId || worker.defaultSectionId || null }
+            : workerConfigs[workerId] || { type: 'full', overtimeHours: 0, notes: '' };
           const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
           const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
           const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
@@ -408,6 +441,32 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           </div>
         )}
 
+        {/* Entry Mode Segemented Control */}
+        <div className="flex items-center gap-2 mt-4 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 max-w-sm mx-auto">
+          <button
+            type="button"
+            onClick={() => setEntryMode('individual')}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              entryMode === 'individual'
+                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <span>ثبت فردی</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEntryMode('group')}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              entryMode === 'group'
+                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <span>ثبت گروهی</span>
+          </button>
+        </div>
+
         {/* Date Selector & Quick Toggles */}
         <div className="mt-4 p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           
@@ -424,7 +483,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             />
           </div>
 
-          {projectSections.length > 0 && (
+          {entryMode === 'individual' && projectSections.length > 0 && (
             <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
               <Layers className="w-4 h-4 text-sky-500 flex-shrink-0" />
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
@@ -480,7 +539,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             </div>
           )}
 
-          {unloggedWorkers.length > 0 && (
+          {entryMode === 'individual' && unloggedWorkers.length > 0 && (
             <div className="flex items-center gap-2 self-end sm:self-auto text-xs font-medium">
               <button
                 type="button"
@@ -504,6 +563,77 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         {/* Scrollable Workers Selection List */}
         <div className="overflow-y-auto flex-1 my-4 pe-1 space-y-4">
           
+          {entryMode === 'group' && (
+            <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  انتخاب گروه کاری
+                </label>
+                <select
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
+                >
+                  <option value="">-- گروه را انتخاب کنید --</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedGroupId && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        {t('attendanceType')}
+                      </label>
+                      <select
+                        value={groupConfig.type}
+                        onChange={(e) => setGroupConfig({...groupConfig, type: e.target.value})}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      >
+                        <option value="full">{t('fullDayOption')}</option>
+                        <option value="half">{t('halfDayOption')}</option>
+                        <option value="hourly">{t('hourlyOnlyOption')}</option>
+                        <option value="absent">{t('absentOption')}</option>
+                      </select>
+                    </div>
+                    {groupConfig.type !== 'absent' && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          {t('overtime')} ({t('hoursShort')})
+                        </label>
+                        <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden text-sm">
+                          <button type="button" onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: Math.max(0, prev.overtimeHours - 1)}))} className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors font-bold">-</button>
+                          <div className="flex-1 text-center font-mono font-bold text-slate-900 dark:text-white">
+                            {formatHoursAndMinutes(groupConfig.overtimeHours, language)}
+                          </div>
+                          <button type="button" onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: prev.overtimeHours + 1}))} className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors font-bold">+</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {t('notesOptional')}
+                    </label>
+                    <input
+                      type="text"
+                      value={groupConfig.notes}
+                      onChange={(e) => setGroupConfig({...groupConfig, notes: e.target.value})}
+                      placeholder="توضیحات برای کل گروه..."
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                  <div className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/40 rounded-xl border border-sky-100 dark:border-sky-900/60 text-sm text-sky-800 dark:text-sky-300">
+                    این اطلاعات برای <strong>{unloggedWorkers.filter(w => w.groupId === selectedGroupId).length}</strong> پرسنل که امروز ثبت نشده‌اند، در نظر گرفته می‌شود.
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          
           {/* Case A: All active workers are already logged */}
           {unloggedWorkers.length === 0 && (
             <div className="p-4 sm:p-5 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-center space-y-2">
@@ -518,7 +648,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           )}
 
           {/* Section 1: Workers Available to Log */}
-          {unloggedWorkers.length > 0 && (
+          {entryMode === 'individual' && unloggedWorkers.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 px-1">
                 <span>{t('readyToLogCount', { count: filteredUnloggedWorkers.length })}:</span>
@@ -809,7 +939,11 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         {/* Modal Footer */}
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            {unloggedWorkers.length > 0 ? (
+            {entryMode === 'group' ? (
+              <span className="font-semibold text-sky-600 dark:text-sky-400">
+                گروه: {selectedGroupId ? unloggedWorkers.filter(w => w.groupId === selectedGroupId).length : 0} پرسنل
+              </span>
+            ) : unloggedWorkers.length > 0 ? (
               selectedCount > 0 ? (
                 <span className="font-semibold text-sky-600 dark:text-sky-400">
                   {selectedCount} {t('workers')} {t('active')}
@@ -837,7 +971,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
               <button
                 type="button"
                 onClick={handleBatchSubmit}
-                disabled={isSaving || selectedCount === 0}
+                disabled={isSaving || (entryMode === 'individual' && selectedCount === 0) || (entryMode === 'group' && !selectedGroupId)}
                 className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-400 text-white font-medium text-sm rounded-xl shadow-md shadow-sky-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Check className="w-4 h-4" />

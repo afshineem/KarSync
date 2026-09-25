@@ -29,6 +29,17 @@ db.version(5).stores({
   workers: 'id, projectId, defaultSectionId, userId, name, role, isActive, createdAt'
 });
 
+db.version(6).stores({
+  groups: 'id, projectId, name, deductFoodExpense, createdAt',
+  workers: 'id, projectId, defaultSectionId, groupId, userId, name, role, teamRole, isActive, createdAt',
+  attendanceLogs: 'id, projectId, sectionId, userId, workerId, date, type, isSettled, settlementReceiptId, [workerId+date], [projectId+workerId+date]',
+  payments: 'id, projectId, userId, workerId, groupId, date, month, type, status, isSettled, settlementReceiptId, createdAt'
+});
+
+db.version(7).stores({
+  projectExpenses: 'id, projectId, date, category, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -42,6 +53,11 @@ export function generateProjectId() {
 // Helper to generate Project Section IDs
 export function generateSectionId() {
   return 'sec_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+}
+
+// Helper to generate Group IDs
+export function generateGroupId() {
+  return 'grp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Payment / Settlement IDs
@@ -302,3 +318,61 @@ export async function cleanupDuplicateAttendanceLogs() {
     return { error: err.message };
   }
 }
+
+/**
+ * Reconciles and backfills isSettled flags for workers who have completed settlements.
+ * Ensures all attendance logs and advances prior to a recorded settlement are marked isSettled = true.
+ */
+export async function reconcileSettlementEpochs() {
+  try {
+    const allPayments = await db.payments.toArray();
+    const settlements = allPayments.filter(
+      (p) => !p.deletedAt && (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled')
+    );
+
+    if (settlements.length === 0) return;
+
+    for (const st of settlements) {
+      if (!st.workerId) continue;
+      const workerIdStr = String(st.workerId);
+      const stDate = st.date || (st.createdAt ? st.createdAt.slice(0, 10) : '9999-12-31');
+
+      // 1. Mark logs on or before settlement date as settled
+      const workerLogs = await db.attendanceLogs.where('workerId').equals(workerIdStr).toArray();
+      const logsToSettle = workerLogs.filter((l) => !l.isSettled && l.date <= stDate);
+
+      if (logsToSettle.length > 0) {
+        const updatedLogs = logsToSettle.map((l) => ({
+          ...l,
+          isSettled: true,
+          settlementReceiptId: l.settlementReceiptId || st.id,
+          updatedAt: l.updatedAt || new Date().toISOString()
+        }));
+        await db.attendanceLogs.bulkPut(updatedLogs);
+      }
+
+      // 2. Mark previous advances on or before settlement date as settled
+      const workerAdvances = allPayments.filter(
+        (p) => !p.deletedAt && 
+               String(p.workerId) === workerIdStr && 
+               p.id !== st.id && 
+               (p.type === 'advance' || p.type === 'Advance_Payment') && 
+               !p.isSettled && 
+               (p.date || '') <= stDate
+      );
+
+      if (workerAdvances.length > 0) {
+        const updatedAdvances = workerAdvances.map((p) => ({
+          ...p,
+          isSettled: true,
+          settlementReceiptId: p.settlementReceiptId || st.id,
+          updatedAt: p.updatedAt || new Date().toISOString()
+        }));
+        await db.payments.bulkPut(updatedAdvances);
+      }
+    }
+  } catch (err) {
+    console.warn('reconcileSettlementEpochs warning:', err);
+  }
+}
+

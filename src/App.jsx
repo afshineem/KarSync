@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider, useProject } from './context/ProjectContext';
-import { seedInitialDataIfEmpty } from './db/db';
+import { seedInitialDataIfEmpty, reconcileSettlementEpochs } from './db/db';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { WorkersView } from './components/WorkersView';
 import { CalendarReportsView } from './components/CalendarReportsView';
 import { FinancialsView } from './components/FinancialsView';
+import { ExpensesView } from './components/ExpensesView';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
@@ -68,7 +69,9 @@ function AppContent() {
 
   useEffect(() => {
     // Seed initial demo data if database is newly initialized
-    seedInitialDataIfEmpty();
+    seedInitialDataIfEmpty().then(() => {
+      reconcileSettlementEpochs();
+    });
     // Start automatic Real-Time Supabase Sync
     initRealtimeSync();
   }, []);
@@ -116,14 +119,18 @@ function AppContent() {
           <WorkersView />
         )}
 
-        {(activeTab === 'calendar' || activeTab === 'reports') && (
+        {activeTab === 'calendar' || activeTab === 'reports' ? (
           <CalendarReportsView
             onOpenLoggingModal={handleOpenLoggingModal}
           />
-        )}
+        ) : null}
 
         {activeTab === 'financials' && (
           <FinancialsView />
+        )}
+
+        {activeTab === 'expenses' && (
+          <ExpensesView />
         )}
       </main>
 

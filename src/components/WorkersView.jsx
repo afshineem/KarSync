@@ -8,6 +8,7 @@ import { useProject } from '../context/ProjectContext';
 import { formatCurrency, formatHoursAndMinutes, getCurrencySymbol } from '../utils/formatters';
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 import { EditRecordModal } from './EditRecordModal';
+import { WorkerFinancialProfileModal } from './WorkerFinancialProfileModal';
 import { 
   Users, 
   UserPlus, 
@@ -56,6 +57,7 @@ export function WorkersView() {
   
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState(null);
   const [historyWorker, setHistoryWorker] = useState(null);
   const [historyTab, setHistoryTab] = useState('logs'); // 'logs' | 'payments'
@@ -67,10 +69,14 @@ export function WorkersView() {
     name: '',
     phone: '',
     role: '',
-    dailyRate: '',
-    overtimeHourlyRate: '',
+    groupId: '',
+    teamRole: 'Worker',
+    dailyRate: '35000',
+    overtimeHourlyRate: '5000',
     defaultSectionId: '',
-    isActive: 1
+    isActive: 1,
+    username: '',
+    password: ''
   });
   const [formError, setFormError] = useState('');
 
@@ -98,6 +104,15 @@ export function WorkersView() {
     async () => {
       const list = await db.workers.toArray();
       return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+    },
+    [targetProjectId]
+  ) || [];
+
+  // Live query groups for current project
+  const groups = useLiveQuery(
+    async () => {
+      const list = await db.groups.toArray();
+      return list.filter((g) => (g.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
     },
     [targetProjectId]
   ) || [];
@@ -192,6 +207,37 @@ export function WorkersView() {
     });
   }, [workers, statusTab, searchTerm, filterActive, filterSection]);
 
+  const groupedWorkers = useMemo(() => {
+    const groupsObj = { unassigned: { id: 'unassigned', name: 'پرسنل عمومی (بدون گروه)', workers: [] } };
+    
+    // Initialize groups from DB
+    (groups || []).forEach(g => {
+      groupsObj[g.id] = { ...g, workers: [] };
+    });
+    
+    // Populate workers
+    filteredWorkers.forEach(w => {
+      if (w.groupId && groupsObj[w.groupId]) {
+        groupsObj[w.groupId].workers.push(w);
+      } else {
+        groupsObj.unassigned.workers.push(w);
+      }
+    });
+
+    // Sort workers inside groups (Masters first)
+    Object.values(groupsObj).forEach(g => {
+      if(g.workers) {
+        g.workers.sort((a, b) => {
+          if (a.teamRole === 'Master' && b.teamRole !== 'Master') return -1;
+          if (b.teamRole === 'Master' && a.teamRole !== 'Master') return 1;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+      }
+    });
+
+    return Object.values(groupsObj).filter(g => g.workers.length > 0);
+  }, [filteredWorkers, groups]);
+
   // Open modal to add worker
   const handleOpenAddModal = () => {
     setEditingWorker(null);
@@ -199,6 +245,8 @@ export function WorkersView() {
       name: '',
       phone: '',
       role: '',
+      groupId: '',
+      teamRole: 'Worker',
       dailyRate: '35000',
       overtimeHourlyRate: '5000',
       defaultSectionId: '',
@@ -218,6 +266,8 @@ export function WorkersView() {
       name: worker.name,
       phone: worker.phone || '',
       role: worker.role || '',
+      groupId: worker.groupId || '',
+      teamRole: worker.teamRole || 'Worker',
       dailyRate: String(worker.dailyRate),
       overtimeHourlyRate: String(worker.overtimeHourlyRate),
       defaultSectionId: worker.defaultSectionId || '',
@@ -259,6 +309,8 @@ export function WorkersView() {
           name: formData.name.trim(),
           phone: formData.phone.trim(),
           role: formData.role.trim(),
+          groupId: formData.groupId ? String(formData.groupId) : null,
+          teamRole: formData.teamRole || 'Worker',
           dailyRate: dailyRate,
           overtimeHourlyRate: overtimeRate,
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
@@ -300,6 +352,8 @@ export function WorkersView() {
           name: formData.name.trim(),
           phone: formData.phone.trim(),
           role: formData.role.trim(),
+          groupId: formData.groupId ? String(formData.groupId) : null,
+          teamRole: formData.teamRole || 'Worker',
           dailyRate: dailyRate,
           overtimeHourlyRate: overtimeRate,
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
@@ -474,6 +528,17 @@ export function WorkersView() {
             })()}
           </div>
 
+          {/* Action Button: Add Group */}
+          <button
+            type="button"
+            onClick={() => setIsAddGroupModalOpen(true)}
+            aria-label="افزودن گروه"
+            title="افزودن گروه کاری جدید"
+            className="p-2.5 sm:p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-md shadow-indigo-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-indigo-500/30 cursor-pointer group"
+          >
+            <Users className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
+          </button>
+
           {/* Action Button: Add Worker (always visible) */}
           <button
             type="button"
@@ -607,7 +672,13 @@ export function WorkersView() {
       {/* Workers View: Grid Mode vs List Mode */}
       {layoutMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredWorkers.map((worker) => (
+          {groupedWorkers.map((group) => (
+            <React.Fragment key={group.id}>
+              <div className="col-span-full mt-4 flex items-center gap-2">
+                 <div className="font-bold text-lg text-slate-800 dark:text-slate-200">{group.name}</div>
+                 <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+              </div>
+              {group.workers.map((worker) => (
             <div
               key={worker.id}
               className={`bg-white dark:bg-slate-900 rounded-2xl p-5 border transition-all shadow-sm hover:shadow-md flex flex-col justify-between ${
@@ -836,6 +907,8 @@ export function WorkersView() {
               </div>
             </div>
           ))}
+            </React.Fragment>
+          ))}
         </div>
       ) : (
         /* List Mode: High-Density Minimal Table */
@@ -855,7 +928,14 @@ export function WorkersView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredWorkers.map((worker) => (
+                {groupedWorkers.map((group) => (
+                  <React.Fragment key={group.id}>
+                    <tr>
+                      <td colSpan="8" className="bg-slate-100 dark:bg-slate-800/50 py-2 px-4 font-bold text-slate-700 dark:text-slate-300">
+                        {group.name}
+                      </td>
+                    </tr>
+                    {group.workers.map((worker) => (
                   <tr key={worker.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group">
                     <td className="py-2.5 px-3 text-center">
                       <span 
@@ -1011,6 +1091,8 @@ export function WorkersView() {
                     </td>
                   </tr>
                 ))}
+                  </React.Fragment>
+                ))}
               </tbody>
             </table>
           </div>
@@ -1116,6 +1198,38 @@ export function WorkersView() {
                   placeholder="0750 123 4567"
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>گروه کاری</span>
+                    <span className="text-[10px] text-slate-400 font-normal">(اختیاری)</span>
+                  </label>
+                  <select
+                    value={formData.groupId || ''}
+                    onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    <option value="">بدون گروه</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>نقش در گروه</span>
+                  </label>
+                  <select
+                    value={formData.teamRole || 'Worker'}
+                    onChange={(e) => setFormData({ ...formData, teamRole: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    <option value="Worker">کارگر (عادی)</option>
+                    <option value="Master">استادکار (سرپرست)</option>
+                  </select>
+                </div>
               </div>
 
               {projectSections.length > 0 && (
@@ -1237,172 +1351,14 @@ export function WorkersView() {
       />
 
       {/* Worker Attendance History Modal */}
-      {historyWorker && (
-        <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 print:p-0"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setHistoryWorker(null);
-          }}
-        >
-          <div 
-            className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 dark:border-slate-800 max-w-2xl w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] flex flex-col overflow-y-auto p-4 sm:p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <History className="w-5 h-5 text-sky-500" />
-                  <span>{t('history')} - {historyWorker.name}</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {historyWorker.role} • {formatCurrency(historyWorker.dailyRate, currency, language)} / day
-                </p>
-              </div>
-              <button
-                onClick={() => setHistoryWorker(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Tabs: Attendance Logs vs Payments History */}
-            <div className="flex items-center gap-2 mt-3 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
-              <button
-                type="button"
-                onClick={() => setHistoryTab('logs')}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  historyTab === 'logs'
-                    ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>{t('calendarLogs')} ({workerHistoryLogs.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoryTab('payments')}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  historyTab === 'payments'
-                    ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                <span>{t('paymentHistory')} ({workerPayments.length})</span>
-              </button>
-            </div>
-
-            {/* Scrollable history logs list */}
-            <div className="overflow-y-auto flex-1 mt-3 space-y-2 pe-1">
-              {historyTab === 'logs' ? (
-                workerHistoryLogs.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400 text-sm">
-                    {t('noDataForMonth')}
-                  </div>
-                ) : (
-                  workerHistoryLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <span>{log.date}</span>
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                            log.type === 'hourly'
-                              ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-400'
-                              : log.type === 'half'
-                              ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
-                              : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
-                          }`}>
-                            {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDayOption') : t('fullDayOption')}
-                          </span>
-                          {log.overtimeHours > 0 && (
-                            <span className="bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded text-[11px] font-medium">
-                              {log.type === 'hourly' ? '' : '+'}{formatHoursAndMinutes(log.overtimeHours, language)}
-                            </span>
-                          )}
-                        </div>
-                        {log.notes && (
-                          <p className="text-slate-500 dark:text-slate-400 mt-1">
-                            {log.notes}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="text-end font-bold text-sky-600 dark:text-sky-400 text-sm">
-                          {formatCurrency(log.totalDayPay, currency, language)}
-                        </div>
-                        <button
-                          onClick={() => setEditingLog(log)}
-                          className="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-sky-50 dark:hover:bg-sky-950/50 transition-colors"
-                          title={t('edit')}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )
-              ) : (
-                workerPayments.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400 text-sm">
-                    {t('noPaymentsRecorded')}
-                  </div>
-                ) : (
-                  workerPayments.map((p) => {
-                    const paymentTime = p.time || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
-                    return (
-                      <div
-                        key={p.id}
-                        className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
-                      >
-                        <div>
-                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <span className="font-mono">{p.date}</span>
-                            {paymentTime && (
-                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                                {paymentTime}
-                              </span>
-                            )}
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              p.type === 'settlement'
-                                ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
-                                : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
-                            }`}>
-                              {p.type === 'settlement' ? t('settlementType') : t('advanceType')}
-                            </span>
-                          </div>
-                          {(p.notes || p.referenceNumber) && (
-                            <p className="text-slate-500 dark:text-slate-400 mt-1">
-                              {p.notes} {p.referenceNumber ? `(#${p.referenceNumber})` : ''}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-end font-extrabold text-slate-900 dark:text-white text-sm font-mono">
-                          {formatCurrency(p.amount, currency, language)}
-                        </div>
-                      </div>
-                    );
-                  })
-                )
-              )}
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                onClick={() => setHistoryWorker(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                {t('cancel')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <WorkerFinancialProfileModal
+        worker={historyWorker}
+        logs={workerHistoryLogs}
+        payments={workerPayments}
+        currency={currency}
+        onClose={() => setHistoryWorker(null)}
+        onEditLog={setEditingLog}
+      />
 
       {/* Dedicated Edit Record Modal */}
       <EditRecordModal
@@ -1411,6 +1367,54 @@ export function WorkersView() {
         onClose={() => setEditingLog(null)}
       />
 
+      {/* Add Group Modal */}
+      {isAddGroupModalOpen && (
+        <AddGroupModal 
+          onClose={() => setIsAddGroupModalOpen(false)} 
+          targetProjectId={targetProjectId}
+        />
+      )}
+
+    </div>
+  );
+}
+
+function AddGroupModal({ onClose, targetProjectId }) {
+  const [name, setName] = useState('');
+  const [deductFood, setDeductFood] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    await db.groups.add({
+      id: 'grp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      projectId: targetProjectId,
+      name: name.trim(),
+      deductFoodExpense: deductFood,
+      createdAt: new Date().toISOString()
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 max-w-sm w-full rounded-3xl p-6 shadow-2xl">
+        <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-white">افزودن گروه کاری</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">نام گروه</label>
+            <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white" placeholder="مثلا: سنگ‌کاری"/>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <input type="checkbox" id="deductFood" checked={deductFood} onChange={e => setDeductFood(e.target.checked)} className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500"/>
+            <label htmlFor="deductFood" className="text-xs font-bold text-slate-700 dark:text-slate-300">کسر خودکار هزینه خوراک (پیش‌فرض)</label>
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold transition-colors">ثبت</button>
+            <button type="button" onClick={onClose} className="flex-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2.5 rounded-xl font-bold transition-colors">انصراف</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -24,6 +24,11 @@ export function ProjectProvider({ children }) {
   const [isProjectSettingsModalOpen, setIsProjectSettingsModalOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState(null);
 
+  const [dateFilter, setDateFilter] = useState({
+    mode: 'monthly', // 'monthly' | 'unsettled_only'
+    month: new Date().toISOString().substring(0, 7)
+  });
+
   const openProjectSettings = (projectId = null) => {
     setEditingProjectId(projectId || activeProjectId || DEFAULT_PROJECT_ID);
     setIsProjectSettingsModalOpen(true);
@@ -251,7 +256,9 @@ export function ProjectProvider({ children }) {
         setIsProjectSettingsModalOpen,
         editingProjectId,
         setEditingProjectId,
-        openProjectSettings
+        openProjectSettings,
+        dateFilter,
+        setDateFilter
       }}
     >
       {children}

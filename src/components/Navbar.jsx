@@ -8,7 +8,8 @@ import {
   Users, 
   CalendarDays, 
   Settings, 
-  WalletCards 
+  WalletCards,
+  Receipt
 } from 'lucide-react';
 
 export function Navbar({ 
@@ -29,6 +30,7 @@ export function Navbar({
     { id: 'workers', label: t('workers') || 'کرێکاران', icon: Users },
     { id: 'calendar', label: t('calendarLogs') || 'تەقویم', icon: CalendarDays },
     { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards },
+    { id: 'expenses', label: 'هزینه‌ها', icon: Receipt },
   ];
 
   return (

@@ -36,52 +36,50 @@ export function SettlementModal({
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
 
-  // Financial calculations for this worker: Prior months debt + Current month
+  // Separate into unsettled vs settled
+  const unsettledLogs = useMemo(() => {
+    return (workerLogs || [])
+      .filter((l) => !l.isSettled)
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [workerLogs]);
+
+  const unsettledPayments = useMemo(() => {
+    return (workerPayments || [])
+      .filter((p) => !p.isSettled && (p.type === 'advance' || p.type === 'Advance_Payment'))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [workerPayments]);
+
+  // Financial calculations for this worker: Strictly based on unsettled epoch records
   const calculations = useMemo(() => {
-    // 1. Prior months (before this month)
-    const priorGross = roundCurrency(workerLogs
-      .filter((l) => l.date && l.date < month)
-      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+    const grossEarnings = roundCurrency(
+      unsettledLogs.reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0),
+      currency
+    );
 
-    const priorPaid = roundCurrency(workerPayments
-      .filter((p) => (p.month && p.month < month) || (!p.month && p.date && p.date < month))
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
+    const advancesDeducted = roundCurrency(
+      unsettledPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+      currency
+    );
 
-    const priorBalance = roundCurrency(Math.max(0, priorGross - priorPaid), currency); // > 0: workshop owes worker from past months
+    const totalCumulativeDebt = roundCurrency(Math.max(0, grossEarnings - advancesDeducted), currency);
 
-    // 2. Current selected month
-    const currentMonthGross = roundCurrency(workerLogs
-      .filter((l) => l.date && l.date.startsWith(month))
-      .reduce((sum, l) => sum + (Number(l.totalDayPay) || 0), 0), currency);
+    const effectiveDays = unsettledLogs.reduce(
+      (sum, l) => sum + (l.type === 'half' ? 0.5 : l.type === 'hourly' ? 0 : 1),
+      0
+    );
 
-    const currentMonthAdvances = roundCurrency(workerPayments
-      .filter((p) => (p.month === month || (!p.month && p.date && p.date.startsWith(month))) && p.type === 'advance')
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
-
-    const currentMonthSettlements = roundCurrency(workerPayments
-      .filter((p) => (p.month === month || (!p.month && p.date && p.date.startsWith(month))) && p.type === 'settlement')
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
-
-    const currentMonthPaid = roundCurrency(currentMonthAdvances + currentMonthSettlements, currency);
-
-    // 3. All-time cumulative
-    const totalEarnings = roundCurrency(priorGross + currentMonthGross, currency);
-    const totalPaid = roundCurrency(priorPaid + currentMonthPaid, currency);
-    const totalCumulativeDebt = roundCurrency(Math.max(0, totalEarnings - totalPaid), currency);
+    const otHours = unsettledLogs.reduce((sum, l) => sum + (Number(l.overtimeHours) || 0), 0);
 
     return {
-      priorGross,
-      priorPaid,
-      priorBalance,
-      currentMonthGross,
-      currentMonthAdvances,
-      currentMonthSettlements,
-      currentMonthPaid,
-      totalEarnings,
-      totalPaid,
-      totalCumulativeDebt
+      unsettledLogs,
+      unsettledPayments,
+      grossEarnings,
+      advancesDeducted,
+      totalCumulativeDebt,
+      effectiveDays,
+      otHours
     };
-  }, [workerLogs, workerPayments, month, currency]);
+  }, [unsettledLogs, unsettledPayments, currency]);
 
   const [finalPaymentAmount, setFinalPaymentAmount] = useState('');
   const [settlementDate, setSettlementDate] = useState(getTodayDateString());
@@ -98,17 +96,17 @@ export function SettlementModal({
       setSettlementDate(getTodayDateString());
       setReferenceNumber('');
       const defaultNote = language === 'en' 
-        ? `Payroll settlement for ${month}` 
+        ? `Payroll settlement (${calculations.unsettledLogs.length} unsettled days)` 
         : language === 'ku' 
-          ? `تەسویەی حیساب بۆ مانگی ${month}` 
-          : `تسویه حساب حقوق ${month}`;
+          ? `تەسویەی حیساب (${calculations.unsettledLogs.length} ڕۆژی کارکرد)` 
+          : `تسویه حساب کارکرد (${calculations.unsettledLogs.length} روز کارکرد باز)`;
       setNotes(defaultNote);
       setMarkAsSettled(true);
       setFeedback({ type: '', message: '' });
       setCompletedPayment(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, calculations.totalCumulativeDebt, calculations.unsettledLogs.length]);
 
   if (!isOpen || !worker) return null;
 
@@ -141,17 +139,45 @@ export function SettlementModal({
         currency: currency,
         type: 'settlement',
         status: markAsSettled ? 'settled' : 'partial',
+        isSettled: true,
         referenceNumber: referenceNumber.trim() || null,
         notes: notes.trim() || null,
         remainingBalanceAfter: remainingAfter,
-        grossEarningsCalculated: calculations.totalEarnings,
-        priorBalanceDeducted: calculations.priorBalance,
-        advancesDeducted: calculations.currentMonthAdvances,
+        grossEarningsCalculated: calculations.grossEarnings,
+        priorBalanceDeducted: 0,
+        advancesDeducted: calculations.advancesDeducted,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString()
       };
 
       await db.payments.put(settlementRecord);
+
+      // If marked as settled, mark all these unsettled logs and advances as settled
+      if (markAsSettled) {
+        const logsToSettle = calculations.unsettledLogs.filter(l => (l.date || '') <= settlementDate);
+        if (logsToSettle.length > 0) {
+          const updatedLogs = logsToSettle.map(l => ({
+            ...l,
+            isSettled: true,
+            settlementReceiptId: settlementRecord.id,
+            updatedAt: now.toISOString()
+          }));
+          await db.attendanceLogs.bulkPut(updatedLogs);
+          pushPaymentsLive().catch(() => {});
+        }
+
+        const advancesToSettle = calculations.unsettledPayments.filter(p => (p.date || '') <= settlementDate);
+        if (advancesToSettle.length > 0) {
+          const updatedAdv = advancesToSettle.map(p => ({
+            ...p,
+            isSettled: true,
+            settlementReceiptId: settlementRecord.id,
+            updatedAt: now.toISOString()
+          }));
+          await db.payments.bulkPut(updatedAdv);
+        }
+      }
+
       pushPaymentsLive().catch(() => {});
 
       if (onSettlementComplete) {
@@ -178,7 +204,7 @@ export function SettlementModal({
       }}
     >
       <div 
-        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-5 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
+        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-5 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white h-[100dvh] sm:h-auto sm:max-h-[85vh] flex flex-col overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -193,7 +219,7 @@ export function SettlementModal({
                 {t('settlementModalTitle')}
               </h3>
               <p className="text-xs text-slate-400">
-                {worker.name} • {month}
+                {worker.name} • {t('unsettledOnly') || 'روزهای تسویه نشده'}
               </p>
             </div>
           </div>
@@ -249,54 +275,44 @@ export function SettlementModal({
           </div>
         )}
 
-        {/* Calculation Breakdown Card */}
+        {/* Calculation Breakdown Card: Strictly for Unsettled Days */}
         <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 space-y-2.5">
           
-          {/* Prior Months Debt (if any) */}
-          {calculations.priorBalance !== 0 && (
-            <div className={`flex items-center justify-between text-xs ${
-              calculations.priorBalance > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
-            }`}>
-              <span className="font-semibold">{t('priorBalanceDue')}:</span>
-              <span className="font-bold font-mono">
-                {calculations.priorBalance > 0 ? '+' : ''}{formatAmount(calculations.priorBalance, currency)} {getCurrencySymbol(currency, language)}
-              </span>
-            </div>
-          )}
-
-          {/* This Month's Gross Earnings */}
+          {/* Unsettled Days Count & Effective Days */}
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 dark:text-slate-400">{t('thisMonthGross')} ({month}):</span>
+            <span className="text-slate-600 dark:text-slate-300 font-bold flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-sky-500" />
+              <span>کارکرد جدید در انتظار تسویه:</span>
+            </span>
             <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
-              {formatAmount(calculations.currentMonthGross, currency)} {getCurrencySymbol(currency, language)}
+              {calculations.unsettledLogs.length} روز ({calculations.effectiveDays} روز کاری)
+              {calculations.otHours > 0 && ` + ${calculations.otHours}h اضافه‌کاری`}
             </span>
           </div>
 
-          {/* This Month's Advances */}
-          {calculations.currentMonthAdvances > 0 && (
+          {/* Gross Earnings for Unsettled Days */}
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500 dark:text-slate-400">ناخالص کارکرد تسویه نشده:</span>
+            <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
+              {formatAmount(calculations.grossEarnings, currency)} {getCurrencySymbol(currency, language)}
+            </span>
+          </div>
+
+          {/* Unsettled Advances Deduction */}
+          {calculations.advancesDeducted > 0 && (
             <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400">
-              <span>(-) {t('thisMonthAdvances')}:</span>
+              <span>(-) مساعده‌های تسویه نشده:</span>
               <span className="font-bold font-mono">
-                {formatAmount(calculations.currentMonthAdvances, currency)} {getCurrencySymbol(currency, language)}
+                {formatAmount(calculations.advancesDeducted, currency)} {getCurrencySymbol(currency, language)}
               </span>
             </div>
           )}
 
-          {/* Previous settlements in this month */}
-          {calculations.currentMonthSettlements > 0 && (
-            <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
-              <span>(-) {t('previousSettlementsInMonth')}</span>
-              <span className="font-bold font-mono">
-                {formatAmount(calculations.currentMonthSettlements, currency)} {getCurrencySymbol(currency, language)}
-              </span>
-            </div>
-          )}
-
-          {/* Total Cumulative Debt */}
+          {/* Total Net Due */}
           <div className="pt-2.5 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-sm">
             <span className="font-black text-slate-900 dark:text-white flex items-center gap-1.5">
               <Calculator className="w-4 h-4 text-emerald-500" />
-              <span>{t('totalCumulativeDebt')}:</span>
+              <span>مبلغ قابل پرداخت این تسویه:</span>
             </span>
             <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-base sm:text-lg">
               {formatAmount(calculations.totalCumulativeDebt, currency)} {getCurrencySymbol(currency, language)}
@@ -304,8 +320,54 @@ export function SettlementModal({
           </div>
           
           <p className="text-[10px] text-slate-400 leading-tight">
-            {t('cumulativeOutstandingNotice')}
+            * تنها روزهایی که تاکنون تسویه نشده‌اند در این محاسبه لحاظ گردیده‌اند.
           </p>
+        </div>
+
+        {/* Detailed List of Unsettled Days */}
+        <div className="mt-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+            <span className="flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-sky-500" />
+              <span>ریز روزهای کارکرد در انتظار تسویه:</span>
+            </span>
+            <span className="text-[11px] text-slate-400 font-normal">
+              {calculations.unsettledLogs.length} روز ثبت‌شده
+            </span>
+          </div>
+
+          {calculations.unsettledLogs.length === 0 ? (
+            <div className="py-4 text-center text-xs text-slate-400 font-medium">
+              تمامی روزهای کارکرد قبلی تسویه شده‌اند و روز تسویه‌نشده‌ای وجود ندارد.
+            </div>
+          ) : (
+            <div className="max-h-36 overflow-y-auto space-y-1.5 pe-1 hide-scrollbar">
+              {calculations.unsettledLogs.map((l) => (
+                <div key={l.id || l.date} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{l.date}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                      l.type === 'hourly' 
+                        ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300' 
+                        : l.type === 'half'
+                        ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
+                        : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
+                    }`}>
+                      {l.type === 'half' ? 'نیم‌روز' : l.type === 'hourly' ? 'ساعتی' : 'کامل'}
+                    </span>
+                    {l.overtimeHours > 0 && (
+                      <span className="text-[10px] text-sky-600 dark:text-sky-400 font-mono font-bold">
+                        +{l.overtimeHours}h
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">
+                    {formatAmount(l.totalDayPay, currency)} {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Form */}
