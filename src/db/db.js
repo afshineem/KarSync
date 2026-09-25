@@ -2,6 +2,11 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('WorkshopAttendanceDB');
 
+// Request persistent storage so the browser/OS never evicts IndexedDB
+if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
 // Define tables and indexes
 db.version(1).stores({
   workers: 'id, name, role, isActive, createdAt',
