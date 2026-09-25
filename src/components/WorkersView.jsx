@@ -9,6 +9,7 @@ import { formatCurrency, formatHoursAndMinutes, getCurrencySymbol } from '../uti
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 import { EditRecordModal } from './EditRecordModal';
 import { WorkerFinancialProfileModal } from './WorkerFinancialProfileModal';
+import { ManageGroupsModal } from './ManageGroupsModal';
 import { 
   Users, 
   UserPlus, 
@@ -57,7 +58,7 @@ export function WorkersView() {
   
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
+  const [isManageGroupsModalOpen, setIsManageGroupsModalOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState(null);
   const [historyWorker, setHistoryWorker] = useState(null);
   const [historyTab, setHistoryTab] = useState('logs'); // 'logs' | 'payments'
@@ -108,13 +109,17 @@ export function WorkersView() {
     [targetProjectId]
   ) || [];
 
-  // Live query groups for current project
+  // Live query groups for workshop
   const groups = useLiveQuery(
     async () => {
-      const list = await db.groups.toArray();
-      return list.filter((g) => (g.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      try {
+        const list = await db.groups.toArray();
+        return list.filter((g) => !g.deletedAt);
+      } catch (_) {
+        return [];
+      }
     },
-    [targetProjectId]
+    []
   ) || [];
 
   const rawWorkerHistoryLogs = useLiveQuery(
@@ -528,12 +533,12 @@ export function WorkersView() {
             })()}
           </div>
 
-          {/* Action Button: Add Group */}
+          {/* Action Button: Manage Groups */}
           <button
             type="button"
-            onClick={() => setIsAddGroupModalOpen(true)}
-            aria-label="افزودن گروه"
-            title="افزودن گروه کاری جدید"
+            onClick={() => setIsManageGroupsModalOpen(true)}
+            aria-label={language === 'ku' ? 'بەڕێوەبردنی گرووپەکان' : 'مدیریت گروه‌ها'}
+            title={language === 'ku' ? 'بەڕێوەبردنی گرووپەکان (بینین، زیادکردن، سڕینەوە و ئەرشیڤ)' : 'مدیریت گروه‌ها (مشاهده، ثبت، حذف و آرشیو)'}
             className="p-2.5 sm:p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-md shadow-indigo-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-indigo-500/30 cursor-pointer group"
           >
             <Users className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
@@ -1367,56 +1372,14 @@ export function WorkersView() {
         onClose={() => setEditingLog(null)}
       />
 
-      {/* Add Group Modal */}
-      {isAddGroupModalOpen && (
-        <AddGroupModal 
-          onClose={() => setIsAddGroupModalOpen(false)} 
+      {/* Manage Groups Modal */}
+      {isManageGroupsModalOpen && (
+        <ManageGroupsModal 
+          onClose={() => setIsManageGroupsModalOpen(false)} 
           targetProjectId={targetProjectId}
         />
       )}
 
-    </div>
-  );
-}
-
-function AddGroupModal({ onClose, targetProjectId }) {
-  const [name, setName] = useState('');
-  const [deductFood, setDeductFood] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    const newGroup = {
-      id: 'grp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      projectId: targetProjectId,
-      name: name.trim(),
-      deductFoodExpense: deductFood,
-      createdAt: new Date().toISOString()
-    };
-    await db.groups.add(newGroup);
-    pushGroupLive(newGroup).catch(console.error);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 max-w-sm w-full rounded-3xl p-6 shadow-2xl">
-        <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-white">افزودن گروه کاری</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">نام گروه</label>
-            <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white" placeholder="مثلا: سنگ‌کاری"/>
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <input type="checkbox" id="deductFood" checked={deductFood} onChange={e => setDeductFood(e.target.checked)} className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500"/>
-            <label htmlFor="deductFood" className="text-xs font-bold text-slate-700 dark:text-slate-300">کسر خودکار هزینه خوراک (پیش‌فرض)</label>
-          </div>
-          <div className="flex gap-3 mt-6">
-            <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold transition-colors">ثبت</button>
-            <button type="button" onClick={onClose} className="flex-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2.5 rounded-xl font-bold transition-colors">انصراف</button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }

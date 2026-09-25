@@ -26,7 +26,31 @@ const PENDING_DELETED_LOGS_KEY = 'workshop_pending_deleted_logs';
 const PENDING_DELETED_PAYMENTS_KEY = 'workshop_pending_deleted_payments';
 const PENDING_DELETED_PROJECTS_KEY = 'workshop_pending_deleted_projects';
 const PENDING_DELETED_SECTIONS_KEY = 'workshop_pending_deleted_sections';
+const PENDING_DELETED_GROUPS_KEY = 'workshop_pending_deleted_groups';
 export const WORKER_PROJECTS_STORAGE_KEY = 'workshop_worker_projects';
+
+export function getPendingDeletedGroups() {
+  try {
+    const raw = localStorage.getItem(PENDING_DELETED_GROUPS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingGroupDeletion(groupId) {
+  if (!groupId) return;
+  const list = getPendingDeletedGroups();
+  if (!list.includes(groupId)) {
+    list.push(groupId);
+    localStorage.setItem(PENDING_DELETED_GROUPS_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingGroupDeletion(groupId) {
+  const list = getPendingDeletedGroups().filter((id) => id !== groupId);
+  localStorage.setItem(PENDING_DELETED_GROUPS_KEY, JSON.stringify(list));
+}
 
 export function getWorkerProjectMap() {
   try {
@@ -220,6 +244,16 @@ export async function flushPendingDeletions() {
       await deleteProjectSectionLive(sectionId);
     } catch (err) {
       console.warn('Flush section deletion warning:', sectionId, err);
+    }
+  }
+
+  // Flush pending deleted groups
+  const pendingGroups = getPendingDeletedGroups();
+  for (const groupId of pendingGroups) {
+    try {
+      await deleteGroupLive(groupId);
+    } catch (err) {
+      console.warn('Flush group deletion warning:', groupId, err);
     }
   }
 }
@@ -1365,6 +1399,7 @@ export async function pullGroupsLive(force = false) {
   lastGroupsPullTime = now;
 
   try {
+    const pendingDeleted = new Set(getPendingDeletedGroups());
     let cloudGroups = [];
     const { data: sData, error: sErr } = await supabase
       .from('settings')
@@ -1379,40 +1414,50 @@ export async function pullGroupsLive(force = false) {
     }
 
     const localGroups = await db.groups.toArray();
-    const groupMap = new Map();
+    const cloudMap = new Map();
 
     if (Array.isArray(cloudGroups)) {
       for (const cg of cloudGroups) {
-        if (cg && cg.id) groupMap.set(cg.id, cg);
-      }
-    }
-
-    let hasLocalOnly = false;
-    for (const lg of localGroups) {
-      if (!groupMap.has(lg.id)) {
-        groupMap.set(lg.id, lg);
-        hasLocalOnly = true;
-      }
-    }
-
-    const mergedList = Array.from(groupMap.values());
-
-    if (mergedList.length > 0) {
-      await db.transaction('rw', db.groups, async () => {
-        for (const g of mergedList) {
-          await db.groups.put(g);
+        if (!cg || !cg.id) continue;
+        if (cg.deletedAt || cg.status === 'deleted' || pendingDeleted.has(cg.id)) {
+          // Group is deleted remotely or pending deletion: ensure it is wiped locally
+          await db.groups.delete(cg.id).catch(() => {});
+        } else {
+          cloudMap.set(cg.id, cg);
         }
-      });
-      window.dispatchEvent(new CustomEvent('workshop-groups-sync'));
+      }
     }
 
-    if (hasLocalOnly && mergedList.length > 0) {
-      await supabase.from('settings').upsert({
-        setting_key: 'app_groups',
-        setting_value: JSON.stringify(mergedList),
-        updated_at: new Date().toISOString()
-      });
+    // 1. Process local deletions / ghost groups
+    for (const lg of localGroups) {
+      if (pendingDeleted.has(lg.id) || lg.deletedAt || lg.status === 'deleted') {
+        await db.groups.delete(lg.id).catch(() => {});
+      } else if (!cloudMap.has(lg.id)) {
+        const isCloudDeleted = Array.isArray(cloudGroups) && cloudGroups.some(cg => cg && cg.id === lg.id && (cg.deletedAt || cg.status === 'deleted'));
+        const isRecent = lg.createdAt && (Date.now() - new Date(lg.createdAt).getTime() < 60000);
+        if (isCloudDeleted) {
+          // Marked as deleted in cloud tombstones: wipe locally!
+          await db.groups.delete(lg.id).catch(() => {});
+        } else if (!isRecent && cloudGroups.length > 0) {
+          // Deleted remotely on another device: remove from local Dexie!
+          await db.groups.delete(lg.id).catch(() => {});
+        } else if (isRecent) {
+          // Newly created locally: push to cloud
+          cloudMap.set(lg.id, lg);
+        }
+      }
     }
+
+    // 2. Put / update active cloud groups into Dexie
+    for (const cg of cloudMap.values()) {
+      if (cg.deletedAt || cg.status === 'deleted') {
+        await db.groups.delete(cg.id).catch(() => {});
+      } else {
+        await db.groups.put(cg);
+      }
+    }
+
+    window.dispatchEvent(new CustomEvent('workshop-groups-sync'));
   } catch (err) {
     console.warn('pullGroupsLive warning:', err);
   } finally {
@@ -1447,7 +1492,25 @@ export async function pushGroupLive(group) {
       } catch (_) {}
     }
 
-    mergedMap.set(group.id, group);
+    const pendingDeleted = new Set(getPendingDeletedGroups());
+    if (pendingDeleted.has(group.id) || group.deletedAt || group.status === 'deleted') {
+      mergedMap.set(group.id, {
+        ...group,
+        deletedAt: group.deletedAt || new Date().toISOString(),
+        status: 'deleted',
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      const existingCloud = mergedMap.get(group.id);
+      if (existingCloud?.deletedAt || existingCloud?.status === 'deleted') {
+        return; // Do not revive a deleted group
+      }
+      mergedMap.set(group.id, {
+        ...group,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
     const mergedList = Array.from(mergedMap.values());
 
     await supabase.from('settings').upsert({
@@ -1463,6 +1526,7 @@ export async function pushGroupLive(group) {
 
 export async function deleteGroupLive(groupId) {
   if (!groupId) return;
+  recordPendingGroupDeletion(groupId);
   try {
     await db.groups.delete(groupId);
     window.dispatchEvent(new CustomEvent('workshop-groups-sync'));
@@ -1483,15 +1547,56 @@ export async function deleteGroupLive(groupId) {
       } catch (_) {}
     }
 
-    const filtered = list.filter(g => g.id !== groupId);
+    const now = new Date().toISOString();
+    let found = false;
+    const updatedList = list.map(g => {
+      if (g.id === groupId) {
+        found = true;
+        return {
+          ...g,
+          deletedAt: now,
+          status: 'deleted',
+          updatedAt: now
+        };
+      }
+      return g;
+    });
+    if (!found) {
+      updatedList.push({
+        id: groupId,
+        deletedAt: now,
+        status: 'deleted',
+        updatedAt: now
+      });
+    }
+
     await supabase.from('settings').upsert({
       setting_key: 'app_groups',
-      setting_value: JSON.stringify(filtered),
-      updated_at: new Date().toISOString()
+      setting_value: JSON.stringify(updatedList),
+      updated_at: now
     });
     broadcastSyncEvent('groups');
   } catch (err) {
     console.warn('deleteGroupLive warning:', err);
+  }
+}
+
+export async function archiveGroupLive(groupId, isArchived = true) {
+  if (!groupId) return;
+  try {
+    const existing = await db.groups.get(groupId);
+    if (existing) {
+      const updated = {
+        ...existing,
+        isArchived: Boolean(isArchived),
+        status: isArchived ? 'archived' : 'active',
+        updatedAt: new Date().toISOString()
+      };
+      await db.groups.put(updated);
+      await pushGroupLive(updated);
+    }
+  } catch (err) {
+    console.warn('archiveGroupLive warning:', err);
   }
 }
 
@@ -1500,6 +1605,7 @@ export async function pushAllGroupsToCloud() {
   try {
     const localGroups = await db.groups.toArray();
     if (localGroups.length === 0) return;
+    const pendingDeleted = new Set(getPendingDeletedGroups());
 
     const { data } = await supabase
       .from('settings')
@@ -1520,6 +1626,15 @@ export async function pushAllGroupsToCloud() {
     }
 
     for (const lg of localGroups) {
+      if (pendingDeleted.has(lg.id) || lg.deletedAt || lg.status === 'deleted') {
+        continue;
+      }
+      const existingCloud = mergedMap.get(lg.id);
+      if (existingCloud?.deletedAt || existingCloud?.status === 'deleted') {
+        // Cloud already marked this group as deleted; wipe from Dexie and don't revive
+        await db.groups.delete(lg.id).catch(() => {});
+        continue;
+      }
       mergedMap.set(lg.id, lg);
     }
     const mergedList = Array.from(mergedMap.values());
@@ -1736,7 +1851,7 @@ let lastRemotePullTime = 0;
 /**
  * Background silent pull
  */
-async function pullRemoteChangesSilently(force = false) {
+export async function pullRemoteChangesSilently(force = false) {
   if (!navigator.onLine) return;
   const now = Date.now();
   if (isPullingRemote) return;

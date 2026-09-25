@@ -347,8 +347,8 @@ export async function reconcileSettlementEpochs() {
         workerIdsToSettle.push(String(st.workerId));
       }
 
-      // If settlement has groupId or note indicates group settlement, find all group members
-      if (st.groupId) {
+      // If settlement is explicitly an active group settlement, find all group members
+      if (st.isGroupSettlement && st.groupId) {
         const groupWorkers = await db.workers.filter((w) => w.groupId === st.groupId).toArray();
         groupWorkers.forEach((w) => {
           const wIdStr = String(w.id);
