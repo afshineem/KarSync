@@ -513,6 +513,62 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  // Update User Profile (Name, Avatar, Username)
+  const updateUserProfile = async ({ name, avatar, username }) => {
+    if (!user) return { success: false, error: 'noUser' };
+
+    const updatedUser = {
+      ...user,
+      name: name !== undefined ? name.trim() : user.name,
+      avatar: avatar !== undefined ? avatar : user.avatar,
+      username: username !== undefined ? username.trim() : user.username
+    };
+
+    setUser(updatedUser);
+    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updatedUser));
+
+    // Also update ADMIN_AUTH_KEY if admin
+    if (user.role === 'admin') {
+      const adminCreds = getAdminCredentials();
+      const updatedAdmin = {
+        ...adminCreds,
+        name: updatedUser.name,
+        avatar: updatedUser.avatar,
+        username: updatedUser.username || adminCreds.username
+      };
+      const serialized = JSON.stringify(updatedAdmin);
+      localStorage.setItem(ADMIN_AUTH_KEY, serialized);
+
+      if (navigator.onLine) {
+        try {
+          await supabase.from('settings').upsert({
+            setting_key: 'app_admin_credentials',
+            setting_value: serialized,
+            updated_at: new Date().toISOString()
+          });
+        } catch (err) {
+          console.warn('Admin profile cloud sync warning:', err);
+        }
+      }
+    }
+
+    // Also sync with Supabase profiles table if Supabase user
+    if (navigator.onLine && user.supabaseUser) {
+      try {
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          full_name: updatedUser.name,
+          avatar_url: updatedUser.avatar,
+          updated_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn('Supabase profile update warning:', err);
+      }
+    }
+
+    return { success: true, user: updatedUser };
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -528,6 +584,7 @@ export function AuthProvider({ children }) {
         resetPassword,
         completeOnboarding,
         changeAdminPassword,
+        updateUserProfile,
         setWorkerCredentials,
         getWorkerCredentialsMap,
         getAdminCredentials

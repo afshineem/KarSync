@@ -4,6 +4,7 @@ import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { EditRecordModal } from './EditRecordModal';
+import { UserProfileModal } from './UserProfileModal';
 import { useProject } from '../context/ProjectContext';
 import { 
   formatCurrency, 
@@ -54,6 +55,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
   const [selectedSectionId, setSelectedSectionId] = useState('all');
   const [editingLog, setEditingLog] = useState(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Fetch reactive data from Dexie scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
@@ -160,22 +162,30 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   }, []);
 
   const liveTimeString = useMemo(() => {
-    return currentDateTime.toLocaleTimeString(language === 'fa' ? 'fa-IR' : language === 'ku' ? 'ckb' : 'en-US', {
+    return currentDateTime.toLocaleTimeString('en-GB', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false
     });
-  }, [currentDateTime, language]);
+  }, [currentDateTime]);
 
   const liveDateString = useMemo(() => {
-    return currentDateTime.toLocaleDateString(language === 'fa' ? 'fa-IR' : language === 'ku' ? 'ckb' : 'en-US', {
+    return currentDateTime.toLocaleDateString('en-GB', {
       weekday: 'long',
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
     });
-  }, [currentDateTime, language]);
+  }, [currentDateTime]);
+
+  // Format hours float to digital HH:mm format with English digits (e.g. 42:16)
+  const formatDigitalHours = (hoursFloat) => {
+    const totalMins = Math.round(Math.max(0, Number(hoursFloat) || 0) * 60);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    return `${h}:${String(m).padStart(2, '0')}`;
+  };
 
   // Deduplicate logs in memory by workerId + date
   const logs = useMemo(() => {
@@ -533,16 +543,20 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       
       {/* Header with User Profile, Project Name, Live Clock & Month Navigator */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-3.5">
+        <div 
+          onClick={() => setIsProfileModalOpen(true)}
+          className="flex items-center gap-3.5 cursor-pointer group p-1.5 -m-1.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all select-none"
+          title={language === 'ku' ? 'ڕێکخستنەکانی پرۆفایلی بەکارھێنەر' : 'تنظیمات پروفایل کاربر'}
+        >
           <div className="relative flex-shrink-0">
             {user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url ? (
               <img
                 src={user.avatar || user.photo || user.supabaseUser.user_metadata.avatar_url}
                 alt={user?.name || 'کاربر'}
-                className="w-12 h-12 rounded-2xl object-cover border-2 border-sky-500/30 shadow-md"
+                className="w-12 h-12 rounded-2xl object-cover border-2 border-sky-500/30 shadow-md transition-transform group-hover:scale-105 group-hover:border-sky-500"
               />
             ) : (
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-sky-600/25 border border-white/20">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-sky-600/25 border border-white/20 transition-transform group-hover:scale-105">
                 {(user?.name ? user.name.slice(0, 1) : 'U').toUpperCase()}
               </div>
             )}
@@ -550,7 +564,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">
+              <span className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                 {user?.name || user?.email?.split('@')[0] || (language === 'ku' ? 'بەکارھێنەر' : 'مدیر سیستم')}
               </span>
               <span className="text-slate-300 dark:text-slate-600">•</span>
@@ -636,11 +650,11 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </div>
           </div>
 
-          {/* 2-Part Split: قبل از تسویه / بعد از تسویه */}
+          {/* 2-Part Split: تسویه نشده / تسویه شده */}
           <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs">
             <div className="bg-amber-50/60 dark:bg-amber-950/30 p-2 rounded-xl border border-amber-200/50 dark:border-amber-800/40">
               <span className="text-[10px] text-amber-700 dark:text-amber-400 block font-bold mb-0.5">
-                {language === 'ku' ? 'پێش یەکلایی (معوق)' : 'قبل از تسویه (معوق)'}
+                {language === 'ku' ? 'یەکلایی نەکراوە' : 'تسویه نشده'}
               </span>
               <span className="font-extrabold text-amber-700 dark:text-amber-300 font-mono text-sm">
                 {formatNumber(monthlyStats.unsettledDays)} <span className="text-[10px] font-normal">{language === 'ku' ? 'ڕۆژ' : 'روز'}</span>
@@ -648,7 +662,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </div>
             <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2 rounded-xl border border-emerald-200/50 dark:border-emerald-800/40">
               <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block font-bold mb-0.5">
-                {language === 'ku' ? 'دوای یەکلایی (تسویه)' : 'بعد از تسویه (تسویه‌شده)'}
+                {language === 'ku' ? 'یەکلایی کراوە' : 'تسویه شده'}
               </span>
               <span className="font-extrabold text-emerald-700 dark:text-emerald-300 font-mono text-sm">
                 {formatNumber(monthlyStats.settledDays)} <span className="text-[10px] font-normal">{language === 'ku' ? 'ڕۆژ' : 'روز'}</span>
@@ -670,7 +684,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono">
-                {formatHoursAndMinutes(monthlyStats.totalOvertimeHours, language)}
+                {formatDigitalHours(monthlyStats.totalOvertimeHours)}
               </span>
               <span className="text-xs text-slate-400">
                 {language === 'ku' ? 'کۆی گشتی' : 'مجموع'}
@@ -678,61 +692,61 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </div>
           </div>
 
-          {/* 2-Part Split: قبل از تسویه / بعد از تسویه */}
+          {/* 2-Part Split: تسویه نشده / تسویه شده */}
           <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs">
             <div className="bg-amber-50/60 dark:bg-amber-950/30 p-2 rounded-xl border border-amber-200/50 dark:border-amber-800/40">
               <span className="text-[10px] text-amber-700 dark:text-amber-400 block font-bold mb-0.5">
-                {language === 'ku' ? 'پێش یەکلایی' : 'قبل از تسویه'}
+                {language === 'ku' ? 'یەکلایی نەکراوە' : 'تسویه نشده'}
               </span>
-              <span className="font-extrabold text-amber-700 dark:text-amber-300 font-mono text-xs sm:text-sm">
-                {formatHoursAndMinutes(monthlyStats.unsettledOtHours, language)}
+              <span className="font-extrabold text-amber-700 dark:text-amber-300 font-mono text-sm">
+                {formatDigitalHours(monthlyStats.unsettledOtHours)}
               </span>
             </div>
             <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-2 rounded-xl border border-emerald-200/50 dark:border-emerald-800/40">
               <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block font-bold mb-0.5">
-                {language === 'ku' ? 'دوای یەکلایی' : 'بعد از تسویه'}
+                {language === 'ku' ? 'یەکلایی کراوە' : 'تسویه شده'}
               </span>
-              <span className="font-extrabold text-emerald-700 dark:text-emerald-300 font-mono text-xs sm:text-sm">
-                {formatHoursAndMinutes(monthlyStats.settledOtHours, language)}
+              <span className="font-extrabold text-emerald-700 dark:text-emerald-300 font-mono text-sm">
+                {formatDigitalHours(monthlyStats.settledOtHours)}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Card 3: Total Payroll with Settled vs Unsettled */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 text-white rounded-2xl p-5 border border-slate-700/60 shadow-lg relative overflow-hidden flex flex-col justify-between">
+        {/* Card 3: Total Payroll with Settled vs Unsettled (Primary Blue Gradient) */}
+        <div className="bg-gradient-to-br from-sky-500 via-sky-600 to-indigo-600 text-white rounded-2xl p-5 border border-sky-400/30 shadow-lg shadow-sky-600/25 relative overflow-hidden flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm font-bold text-slate-300">
+              <span className="text-xs sm:text-sm font-bold text-sky-100">
                 {t('totalPayrollExpense') || 'کل دستمزد و حقوق'}
               </span>
-              <div className="w-9 h-9 rounded-xl bg-white/10 text-white flex items-center justify-center backdrop-blur-sm">
-                <Coins className="w-4.5 h-4.5 text-amber-300" />
+              <div className="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm">
+                <Coins className="w-4.5 h-4.5 text-amber-200" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
                 {formatAmount(monthlyStats.totalPayroll, currency)}
               </span>
-              <span className="text-xs text-slate-300 font-medium">{getCurrencySymbol(currency, language)}</span>
+              <span className="text-xs text-sky-100 font-medium">{getCurrencySymbol(currency, language)}</span>
             </div>
           </div>
 
-          {/* 2-Part Split: قبل از تسویه (معوق) / بعد از تسویه (تسویه‌شده) */}
-          <div className="mt-4 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-amber-400/10 p-2 rounded-xl border border-amber-400/20">
-              <span className="text-[10px] text-amber-300 block font-bold mb-0.5">
-                {language === 'ku' ? 'پێش یەکلایی (معوق)' : 'تسویه نشده (معوق)'}
+          {/* 2-Part Split: تسویه نشده / تسویه شده */}
+          <div className="mt-4 pt-3 border-t border-white/20 grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-white/15 dark:bg-white/10 backdrop-blur-xs p-2 rounded-xl border border-white/20">
+              <span className="text-[10px] text-sky-100 block font-bold mb-0.5">
+                {language === 'ku' ? 'یەکلایی نەکراوە' : 'تسویه نشده'}
               </span>
-              <span className="font-extrabold text-amber-300 font-mono text-xs">
+              <span className="font-extrabold text-amber-200 font-mono text-xs">
                 {formatAmount(monthlyStats.unsettledPayroll, currency)} <span className="text-[9px] font-normal">{getCurrencySymbol(currency, language)}</span>
               </span>
             </div>
-            <div className="bg-emerald-400/10 p-2 rounded-xl border border-emerald-400/20">
-              <span className="text-[10px] text-emerald-300 block font-bold mb-0.5">
-                {language === 'ku' ? 'دوای یەکلایی (دراو)' : 'تسویه شده (پرداخت)'}
+            <div className="bg-white/15 dark:bg-white/10 backdrop-blur-xs p-2 rounded-xl border border-white/20">
+              <span className="text-[10px] text-sky-100 block font-bold mb-0.5">
+                {language === 'ku' ? 'یەکلایی کراوە' : 'تسویه شده'}
               </span>
-              <span className="font-extrabold text-emerald-300 font-mono text-xs">
+              <span className="font-extrabold text-emerald-200 font-mono text-xs">
                 {formatAmount(monthlyStats.settledPayroll, currency)} <span className="text-[9px] font-normal">{getCurrencySymbol(currency, language)}</span>
               </span>
             </div>
@@ -1071,7 +1085,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                     <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-white/60 dark:border-slate-800">
                       <span className="text-[10px] text-slate-400 block font-medium">{t('overtime') || 'اضافه‌کاری'}</span>
                       <span className="text-sm font-extrabold text-amber-600 dark:text-amber-400 font-mono">
-                        {formatHoursAndMinutes(activeSection.otHours, language)}
+                        {formatDigitalHours(activeSection.otHours)}
                       </span>
                     </div>
 
@@ -1106,7 +1120,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                               {worker.name}
                             </span>
                             <span className="text-[11px] text-slate-400">
-                              {worker.role || 'پرسنل'} • {days} روز کارکرد {otHours > 0 ? `(+${formatHoursAndMinutes(otHours, language)})` : ''}
+                              {worker.role || 'پرسنل'} • {days} روز کارکرد {otHours > 0 ? `(+${formatDigitalHours(otHours)})` : ''}
                             </span>
                           </div>
                           <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
@@ -1196,8 +1210,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                   <th className="px-2 sm:px-3 py-3 text-center">{t('halfDays')}</th>
                   <th className="px-2 sm:px-3 py-3 text-center">{t('overtimeHours')}</th>
                   <th className="px-3 sm:px-4 py-3 text-end font-bold text-slate-800 dark:text-slate-200">{language === 'ku' ? 'کۆی کارکرد' : 'کل کارکرد'} ({currency})</th>
-                  <th className="px-3 sm:px-4 py-3 text-end font-bold text-emerald-600 dark:text-emerald-400">{language === 'ku' ? 'دراو (یەکلایی)' : 'تسویه شده'} ({currency})</th>
-                  <th className="px-3 sm:px-4 py-3 text-end font-bold text-amber-600 dark:text-amber-400">{language === 'ku' ? 'ماوە (معوق)' : 'مانده معوق'} ({currency})</th>
+                  <th className="px-3 sm:px-4 py-3 text-end font-bold text-emerald-600 dark:text-emerald-400">{language === 'ku' ? 'یەکلایی کراوە' : 'تسویه شده'} ({currency})</th>
+                  <th className="px-3 sm:px-4 py-3 text-end font-bold text-amber-600 dark:text-amber-400">{language === 'ku' ? 'یەکلایی نەکراوە' : 'تسویه نشده'} ({currency})</th>
                   <th className="px-3 sm:px-4 py-3 text-center">{t('status') || 'وضعیت'}</th>
                 </tr>
               </thead>
@@ -1228,8 +1242,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                       <td className="px-2 sm:px-3 py-3 text-center font-medium text-slate-700 dark:text-slate-300">
                         {w.halfDays}
                       </td>
-                      <td className="px-2 sm:px-3 py-3 text-center font-medium text-amber-600 dark:text-amber-400">
-                        {w.otHours > 0 ? formatHoursAndMinutes(w.otHours, language) : '0'}
+                      <td className="px-2 sm:px-3 py-3 text-center font-medium text-amber-600 dark:text-amber-400 font-mono">
+                        {w.otHours > 0 ? formatDigitalHours(w.otHours) : '0:00'}
                       </td>
                       <td className="px-3 sm:px-4 py-3 text-end font-bold text-slate-900 dark:text-white font-mono">
                         {formatAmount(w.totalPay, currency)}
@@ -1244,12 +1258,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                         {isWorkerSettled ? (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1 shadow-xs">
                             <CheckCircle2 className="w-2.5 h-2.5" />
-                            <span>{t('settledBadge') || 'تسویه کامل'}</span>
+                            <span>{language === 'ku' ? 'یەکلایی کراوە' : 'تسویه شده'}</span>
                           </span>
                         ) : w.totalPay > 0 ? (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 inline-flex items-center gap-1 shadow-xs">
                             <Clock className="w-2.5 h-2.5" />
-                            <span>{language === 'ku' ? 'معوق' : 'معوقه دارد'}</span>
+                            <span>{language === 'ku' ? 'یەکلایی نەکراوە' : 'تسویه نشده'}</span>
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 inline-block">
@@ -1273,7 +1287,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                     {monthlyStats.totalHalfDays}
                   </td>
                   <td className="px-2 sm:px-3 py-3 text-center text-amber-600 dark:text-amber-400 font-mono">
-                    {formatHoursAndMinutes(monthlyStats.totalOvertimeHours, language)}
+                    {formatDigitalHours(monthlyStats.totalOvertimeHours)}
                   </td>
                   <td className="px-3 sm:px-4 py-3 text-end text-slate-900 dark:text-white font-black font-mono">
                     {formatAmount(monthlyStats.totalPayroll, currency)}
@@ -1350,8 +1364,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                   <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between text-[11px] text-slate-400">
                     <span>{log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDayOption') : t('fullDayOption')}</span>
                     {log.overtimeHours > 0 && (
-                      <span className="text-amber-500 font-bold">
-                        {log.type === 'hourly' ? '' : '+'}{formatHoursAndMinutes(log.overtimeHours, language)}
+                      <span className="text-amber-500 font-bold font-mono">
+                        {log.type === 'hourly' ? '' : '+'}{formatDigitalHours(log.overtimeHours)}
                       </span>
                     )}
                   </div>
@@ -1367,6 +1381,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         log={editingLog}
         isOpen={!!editingLog}
         onClose={() => setEditingLog(null)}
+      />
+
+      {/* User Profile Settings Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
 
     </div>
