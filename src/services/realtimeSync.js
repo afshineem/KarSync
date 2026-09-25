@@ -2128,6 +2128,14 @@ export async function deleteLogLive(logId) {
       console.warn(`[SAFETY] Refusing live delete for settled attendance log: ${logId}`);
       return;
     }
+    if (!local && navigator.onLine) {
+      const { data: cloudRec } = await supabase.from('attendance_logs').select('is_settled, settlement_receipt_id, notes').eq('id', logId).maybeSingle();
+      if (cloudRec && (cloudRec.is_settled || cloudRec.settlement_receipt_id || (cloudRec.notes && cloudRec.notes.includes('"st":1')))) {
+        console.warn(`[SAFETY] Refusing cloud delete for settled log: ${logId}`);
+        clearPendingLogDeletion(logId);
+        return;
+      }
+    }
   } catch (_) {}
 
   recordPendingLogDeletion(logId);

@@ -28,7 +28,8 @@ import {
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
-  Layers
+  Layers,
+  Lock
 } from 'lucide-react';
 
 const MONTH_NAMES = {
@@ -101,6 +102,15 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     [worker?.id, selectedMonth, isOpen]
   ) || [];
 
+  // Set of dates that are already settled (locked)
+  const settledDatesSet = useMemo(() => {
+    return new Set(
+      existingLogs
+        .filter((l) => l.isSettled || l.settlementReceiptId)
+        .map((l) => l.date)
+    );
+  }, [existingLogs]);
+
   // When existing logs or month changes, populate dayConfigs
   useEffect(() => {
     if (!isOpen || !worker) return;
@@ -165,6 +175,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Direct 1-Click Day Tile Toggle:
   const handleDayTileClick = (dateStr) => {
+    if (settledDatesSet.has(dateStr)) {
+      alert(language === 'fa' 
+        ? 'این روز قبلاً در امور مالی تسویه شده و کاملاً قفل است. امکان تغییر یا حذف آن وجود ندارد.' 
+        : 'This day is settled and locked. It cannot be modified or removed.');
+      return;
+    }
+
     const current = dayConfigs[dateStr];
     if (!current) {
       setRemovedDates((prev) => {
@@ -212,6 +229,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Adjust overtime hours for an active day
   const handleOvertimeChange = (dateStr, delta) => {
+    if (settledDatesSet.has(dateStr)) {
+      alert(language === 'fa' 
+        ? 'این روز قبلاً در امور مالی تسویه شده و قفل است.' 
+        : 'This day is settled and locked.');
+      return;
+    }
+
     setSelectedDayDate(dateStr);
     setDayConfigs((prev) => {
       const current = prev[dateStr] || { 
@@ -231,7 +255,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Quick increment/decrement minutes for the currently selected day in the inspector
   const addMinutesToSelectedDay = (delta) => {
-    if (!selectedDayDate) return;
+    if (!selectedDayDate || settledDatesSet.has(selectedDayDate)) return;
     setDayConfigs((prev) => {
       const cur = prev[selectedDayDate] || { 
         type: 'full', 
@@ -324,10 +348,22 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   const handleClearAll = () => {
     setRemovedDates((prev) => {
       const next = new Set(prev);
-      Object.keys(dayConfigs).forEach((d) => next.add(d));
+      Object.keys(dayConfigs).forEach((d) => {
+        if (!settledDatesSet.has(d)) {
+          next.add(d);
+        }
+      });
       return next;
     });
-    setDayConfigs({});
+    setDayConfigs((prev) => {
+      const remaining = {};
+      Object.entries(prev).forEach(([d, cfg]) => {
+        if (settledDatesSet.has(d)) {
+          remaining[d] = cfg;
+        }
+      });
+      return remaining;
+    });
     setSelectedDayDate(null);
   };
 
@@ -671,6 +707,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                   const isFull = cfg && cfg.type === 'full';
                   const isHalf = cfg && cfg.type === 'half';
                   const isHourly = cfg && cfg.type === 'hourly';
+                  const isDaySettled = settledDatesSet.has(day.dateStr);
                   const isActive = !!cfg;
                   const isSelected = selectedDayDate === day.dateStr;
 
@@ -682,7 +719,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                           ? 'ring-2 ring-sky-500 ring-offset-1 dark:ring-offset-slate-900 z-10 scale-[1.02]'
                           : ''
                       } ${
-                        isActive
+                        isDaySettled
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 shadow-xs'
+                          : isActive
                           ? 'bg-sky-50 dark:bg-sky-900/40 border-sky-400 dark:border-sky-500 shadow-xs'
                           : day.isFriday
                           ? 'bg-rose-50/40 dark:bg-rose-900/20 border-rose-200 dark:border-rose-900/40 text-rose-500'
@@ -694,13 +733,20 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                       <div className="flex-1 flex flex-col justify-between">
                     <div className="flex items-center justify-between">
                       <span className={`text-sm font-extrabold ${
-                        isActive ? 'text-sky-600 dark:text-sky-400' : 'text-slate-600 dark:text-slate-400'
+                        isDaySettled
+                          ? 'text-emerald-700 dark:text-emerald-300'
+                          : isActive ? 'text-sky-600 dark:text-sky-400' : 'text-slate-600 dark:text-slate-400'
                       }`}>
                         {day.dayNumber}
                       </span>
 
                       <div className="flex items-center gap-1">
-                        {isFull && (
+                        {isDaySettled && (
+                          <span className="p-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center" title={language === 'fa' ? 'تسویه شده (قفل)' : 'Settled (Locked)'}>
+                            <Lock className="w-3 h-3" />
+                          </span>
+                        )}
+                        {isFull && !isDaySettled && (
                           <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">
                             ✓
                           </span>
@@ -817,8 +863,10 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 const isHourly = activeCfg.type === 'hourly';
                 const isHalf = activeCfg.type === 'half';
                 const isFull = activeCfg.type === 'full';
+                const isInspectorSettled = settledDatesSet.has(selectedDayDate);
 
                 const updateActiveCfg = (updates) => {
+                  if (isInspectorSettled) return;
                   setDayConfigs((prev) => ({
                     ...prev,
                     [selectedDayDate]: {
@@ -868,6 +916,16 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         </button>
                       </div>
                     </div>
+
+                    {/* Settled Lock Banner */}
+                    {isInspectorSettled && (
+                      <div className="p-2.5 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 animate-in fade-in">
+                        <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>{language === 'fa' ? 'این روز قبلاً در برگه تسویه ثبت شده و کاملاً قفل است (امکان تغییر نوع یا ساعت وجود ندارد).' : 'This day is settled and locked.'}</span>
+                      </div>
+                    )}
+
+                    <fieldset disabled={isInspectorSettled} className={`space-y-3 ${isInspectorSettled ? 'opacity-60 pointer-events-none select-none' : ''}`}>
 
                     {/* Row 2: Status Tabs (Full, Half, Hourly, Remove) + Section Selector */}
                     <div className="flex-wrap items-center justify-between gap-2 pt-2 border-t border-sky-200/60 dark:border-sky-800/60">
@@ -1068,6 +1126,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         <span>{language === 'fa' ? 'ثبت روز' : 'Done'}</span>
                       </button>
                     </div>
+
+                    </fieldset>
                   </div>
                 );
               })()}

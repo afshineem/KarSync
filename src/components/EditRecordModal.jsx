@@ -28,7 +28,9 @@ import {
   ChevronDown, 
   RotateCcw,
   Edit3,
-  Layers
+  Layers,
+  Lock,
+  Eye
 } from 'lucide-react';
 import { DEFAULT_PROJECT_ID } from '../db/db';
 
@@ -52,6 +54,8 @@ export function EditRecordModal({ log, isOpen, onClose }) {
     () => (log?.workerId ? db.workers.get(log.workerId) : null),
     [log?.workerId]
   );
+
+  const isSettled = Boolean(log?.isSettled || log?.settlementReceiptId);
 
   const [type, setType] = useState('full');
   const [hours, setHours] = useState(0);
@@ -117,6 +121,10 @@ export function EditRecordModal({ log, isOpen, onClose }) {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!log) return;
+    if (isSettled) {
+      alert(language === 'fa' ? 'این رکورد در امور مالی تسویه شده و قفل است. امکان ویرایش آن وجود ندارد.' : 'This record is settled and locked. It cannot be edited.');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -163,6 +171,10 @@ export function EditRecordModal({ log, isOpen, onClose }) {
 
   const handleDelete = async () => {
     if (!log) return;
+    if (isSettled) {
+      alert(language === 'fa' ? 'این رکورد در امور مالی تسویه شده و قفل است. امکان حذف آن وجود ندارد.' : 'This record is settled and locked. It cannot be deleted.');
+      return;
+    }
     if (window.confirm(t('deleteLogConfirm'))) {
       try {
         await db.attendanceLogs.delete(log.id);
@@ -226,8 +238,17 @@ export function EditRecordModal({ log, isOpen, onClose }) {
           </div>
         </div>
 
+        {/* Settled Lock Banner */}
+        {isSettled && (
+          <div className="mt-3 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-2.5 text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-300 animate-in fade-in">
+            <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{language === 'fa' ? 'این رکورد در برگه تسویه نهایی ثبت شده و کاملاً قفل است (غیرقابل ویرایش و حذف).' : 'This record is settled and permanently locked (read-only).'}</span>
+          </div>
+        )}
+
         {/* Form Body */}
         <form onSubmit={handleSave} className="mt-4 space-y-4">
+          <fieldset disabled={isSettled} className={`space-y-4 ${isSettled ? 'opacity-70 pointer-events-none select-none' : ''}`}>
           
           {/* Day Type Selection */}
           <div>
@@ -449,16 +470,25 @@ export function EditRecordModal({ log, isOpen, onClose }) {
             </div>
           )}
 
+          </fieldset>
+
           {/* Modal Footer Actions */}
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="px-3 py-2 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors flex items-center gap-1.5"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{t('delete')}</span>
-            </button>
+            {!isSettled ? (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="px-3 py-2 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{t('delete')}</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold px-2 py-1 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg">
+                <Lock className="w-3.5 h-3.5" />
+                <span>{language === 'fa' ? 'تسویه شده' : 'Settled'}</span>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -468,20 +498,31 @@ export function EditRecordModal({ log, isOpen, onClose }) {
               >
                 {t('cancel')}
               </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="px-5 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-sm shadow-sky-600/20 flex items-center gap-1.5 transition-all"
-              >
-                {isSaving ? (
-                  <span>{t('savingAttendance')}</span>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>{t('saveChanges')}</span>
-                  </>
-                )}
-              </button>
+              {!isSettled ? (
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-5 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-sm shadow-sky-600/20 flex items-center gap-1.5 transition-all"
+                >
+                  {isSaving ? (
+                    <span>{t('savingAttendance')}</span>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>{t('saveChanges')}</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-not-allowed opacity-80"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>{language === 'fa' ? 'غیرقابل ویرایش (قفل)' : 'Locked'}</span>
+                </button>
+              )}
             </div>
           </div>
 
