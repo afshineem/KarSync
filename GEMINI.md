@@ -11,6 +11,6 @@
 
 2. **Strict Approval Before Any GitHub / Vercel Push:**
    - Present the changes to the user clearly in Persian.
-   - **NEVER** run `push_to_github.js` or push commits to GitHub/Vercel automatically.
-   - **ALWAYS** wait for the user's explicit confirmation and approval (e.g. «تایید شد»، «پوش کن»، «اوکیه») before pushing.
+   - **NEVER** run `git commit` or `git push` automatically.
+   - **The user must test first personally.** Only the user decides when to commit/push, or will explicitly say "کامیت و پوش کن".
    - This rule is permanent across all sessions, restarts, and prompts.

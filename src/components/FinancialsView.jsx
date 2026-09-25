@@ -52,7 +52,7 @@ import {
 
 export function FinancialsView() {
   const { t, language, direction } = useLanguage();
-  const { currentProject, dateFilter, setDateFilter } = useProject();
+  const { currentProject, dateFilter, setDateFilter, openWorkerProfile } = useProject();
   const currency = currentProject?.currency || 'IQD';
 
   const [isSyncingLive, setIsSyncingLive] = useState(false);
@@ -1009,7 +1009,11 @@ export function FinancialsView() {
                                       className="p-2.5 bg-slate-50 dark:bg-slate-800/70 rounded-lg border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs"
                                     >
                                       <div>
-                                        <span className="font-bold text-slate-900 dark:text-white block">
+                                        <span 
+                                          onClick={() => openWorkerProfile(worker.id)}
+                                          className="font-bold text-slate-900 dark:text-white block cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                                          title="مشاهده پروفایل جامع پرسنل"
+                                        >
                                           {worker.name}
                                         </span>
                                         <span className="text-[10px] text-slate-400">
@@ -1293,7 +1297,13 @@ export function FinancialsView() {
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" title="نیروی فعال"></span>
                           <div>
-                            <span className="block font-black">{row.worker.name}</span>
+                            <span 
+                              onClick={() => openWorkerProfile(row.worker.id)}
+                              className="block font-black cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                              title="مشاهده پروفایل جامع پرسنل"
+                            >
+                              {row.worker.name}
+                            </span>
                             <span className="text-[10px] text-slate-400 font-normal block">
                               {row.worker.role || 'نیرو'}
                             </span>
@@ -1496,7 +1506,13 @@ export function FinancialsView() {
                           <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${row.worker.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="font-black">{row.worker.name}</span>
+                              <span 
+                                onClick={() => openWorkerProfile(row.worker.id)}
+                                className="font-black cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                                title="مشاهده پروفایل جامع پرسنل"
+                              >
+                                {row.worker.name}
+                              </span>
                               <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-bold ${
                                 row.worker.isActive === 1
                                   ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
@@ -1714,7 +1730,16 @@ export function FinancialsView() {
                       <div className="text-[10px] text-slate-400">{payment.time}</div>
                     </td>
                     <td className="px-4 py-2.5 font-bold whitespace-nowrap">
-                      {payment.workerName || workers.find(w => w.id === payment.workerId)?.name || 'Unknown'}
+                      <span
+                        onClick={() => {
+                          const wId = payment.workerId;
+                          if (wId) openWorkerProfile(wId);
+                        }}
+                        className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                        title="مشاهده پروفایل جامع پرسنل"
+                      >
+                        {payment.workerName || workers.find(w => w.id === payment.workerId)?.name || 'Unknown'}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold ${

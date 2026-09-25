@@ -1,5 +1,6 @@
 import { pushLogsLive } from '../services/realtimeSync';
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getAttendanceLogId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -39,7 +40,7 @@ import {
 
 export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const { t, language } = useLanguage();
-  const { currentProject } = useProject();
+  const { currentProject, openWorkerProfile } = useProject();
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
   const standardHours = currentProject?.standardWorkHours || 8;
@@ -59,6 +60,16 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     notes: '',
     sectionId: ''
   });
+
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -426,20 +437,13 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 print:p-0"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden"
     >
-      <div 
-        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] animate-in fade-in zoom-in-95 duration-200 h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        
-        {/* Modal Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+      {/* Modal Header */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs">
+        <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center">
               <UserCheck className="w-5 h-5" />
@@ -456,10 +460,16 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="بستن (ESC)"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+      </div>
+
+      {/* Main Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
         {/* Success Toast Banner */}
         {toastMessage && (
@@ -719,7 +729,14 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openWorkerProfile(worker.id);
+                              }}
+                              className="font-bold text-sm sm:text-base text-slate-900 dark:text-white cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                              title="مشاهده پروفایل جامع پرسنل"
+                            >
                               {worker.name}
                             </span>
                             {projectSections.length > 0 && cfg.sectionId && (
@@ -918,7 +935,14 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                     className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-800 flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
                   >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                      <span 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openWorkerProfile(worker.id);
+                        }}
+                        className="font-bold text-slate-800 dark:text-slate-200 text-sm cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                        title="مشاهده پروفایل جامع پرسنل"
+                      >
                         {worker.name}
                       </span>
                       <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
@@ -963,9 +987,12 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           )}
 
         </div>
+        </div>
+      </div>
 
-        {/* Modal Footer */}
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+      {/* Modal Footer */}
+      <div className="border-t border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 shadow-xs">
+        <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 text-xs">
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {entryMode === 'group' ? (
               <span className="font-semibold text-sky-600 dark:text-sky-400">
@@ -991,16 +1018,16 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
+              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm rounded-xl transition-colors"
             >
-              {t('cancel')}
+              {t('cancel')} (ESC)
             </button>
             {unloggedWorkers.length > 0 && (
               <button
                 type="button"
                 onClick={handleBatchSubmit}
                 disabled={isSaving || (entryMode === 'individual' && selectedCount === 0) || (entryMode === 'group' && !selectedGroupId)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-400 text-white font-medium text-sm rounded-xl shadow-md shadow-sky-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-400 text-white font-medium text-sm rounded-xl shadow-md shadow-sky-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Check className="w-4 h-4" />
                 <span>{isSaving ? t('savingAttendance') : t('saveBatchAttendance')}</span>
@@ -1008,7 +1035,6 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             )}
           </div>
         </div>
-
       </div>
 
       {/* Dedicated Edit Record Modal */}
@@ -1020,6 +1046,8 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 /**

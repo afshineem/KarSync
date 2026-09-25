@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { db, generatePaymentId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
@@ -64,6 +65,16 @@ export function SettlementModal({
   });
 
   const [selectedSupervisorId, setSelectedSupervisorId] = useState('');
+
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   // -------------------------------------------------------------
   // 1. INDIVIDUAL SETTLEMENT CALCULATIONS (with Double-Barrier Guard)
@@ -467,81 +478,82 @@ export function SettlementModal({
     }
   };
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex no-print animate-in fade-in duration-150 items-center justify-center p-0 sm:p-4 print:p-0"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white"
     >
-      <div 
-        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-xl w-full p-5 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        
-        {/* Header with Mode Toggle */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-              settlementMode === 'group'
-                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-            }`}>
-              {settlementMode === 'group' ? <Users className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-bold">
-                {settlementMode === 'group' ? 'تسویه حساب گروهی با سرپرست' : t('settlementModalTitle')}
-              </h3>
-              <p className="text-xs text-slate-400">
-                {settlementMode === 'group' 
-                  ? `${activeGroup?.name || 'گروه کاری'} • سرپرست: ${supervisorWorker?.name || 'تعریف‌نشده'}`
-                  : `${worker?.name || 'نیرو'} • روزهای تسویه نشده`}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Mode Switcher Tabs */}
-        {allGroups.length > 0 && (
-          <div className="mt-3.5 flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/60 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setSettlementMode('individual')}
-              className={`flex-1 py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                settlementMode === 'individual'
-                  ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>تسویه فردی (نیرو)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSettlementMode('group')}
-              className={`flex-1 py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+      {/* Header with Mode Toggle */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs">
+        <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between pb-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
                 settlementMode === 'group'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              }`}>
+                {settlementMode === 'group' ? <Users className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold">
+                  {settlementMode === 'group' ? 'تسویه حساب گروهی با سرپرست' : t('settlementModalTitle')}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {settlementMode === 'group' 
+                    ? `${activeGroup?.name || 'گروه کاری'} • سرپرست: ${supervisorWorker?.name || 'تعریف‌نشده'}`
+                    : `${worker?.name || 'نیرو'} • روزهای تسویه نشده`}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="بستن (ESC)"
             >
-              <Crown className="w-3.5 h-3.5 text-amber-300" />
-              <span>تسویه با سرپرست گروه</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-mono">
-                {allGroups.length}
-              </span>
+              <X className="w-5 h-5" />
             </button>
           </div>
-        )}
+
+          {/* Mode Switcher Tabs */}
+          {allGroups.length > 0 && (
+            <div className="mt-2 flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/60 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setSettlementMode('individual')}
+                className={`flex-1 py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  settlementMode === 'individual'
+                    ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>تسویه فردی (نیرو)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettlementMode('group')}
+                className={`flex-1 py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  settlementMode === 'group'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <Crown className="w-3.5 h-3.5 text-amber-300" />
+                <span>تسویه با سرپرست گروه</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-mono">
+                  {allGroups.length}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
         {/* Feedback Alert */}
         {feedback.message && (
@@ -976,7 +988,10 @@ export function SettlementModal({
 
         </form>
 
+        </div>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

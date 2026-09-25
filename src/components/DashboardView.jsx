@@ -48,7 +48,7 @@ import {
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const { t, language, direction } = useLanguage();
   const { user } = useAuth();
-  const { currentProject } = useProject();
+  const { currentProject, openWorkerProfile } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -1120,7 +1120,11 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                           className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs"
                         >
                           <div>
-                            <span className="font-bold text-slate-900 dark:text-white block">
+                            <span 
+                              onClick={() => openWorkerProfile(worker.id)}
+                              className="font-bold text-slate-900 dark:text-white block cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                              title="مشاهده پروفایل جامع پرسنل"
+                            >
                               {worker.name}
                             </span>
                             <span className="text-[11px] text-slate-400">
@@ -1359,7 +1363,13 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                   <div>
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-900 dark:text-white">{worker.name}</span>
+                        <span 
+                          onClick={() => openWorkerProfile(log.workerId)}
+                          className="font-bold text-slate-900 dark:text-white cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                          title="مشاهده پروفایل جامع پرسنل"
+                        >
+                          {worker.name}
+                        </span>
                         <span className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">({log.date})</span>
                       </div>
                       <button

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useProject } from '../context/ProjectContext';
-import { Receipt, PlusCircle, Calendar, Tags, CreditCard, ShoppingBag, Edit2, Trash2 } from 'lucide-react';
+import { Receipt, PlusCircle, Calendar, Tags, CreditCard, ShoppingBag, Edit2, Trash2, X } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export function ExpensesView() {
@@ -174,44 +175,75 @@ export function AddExpenseModal({ onClose, expenseToEdit }) {
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 print:p-0">
-      <div className="bg-white dark:bg-slate-900 max-w-md w-full rounded-none sm:rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 h-[100dvh] sm:h-auto overflow-y-auto">
-        <h2 className="text-xl font-bold mb-6 text-slate-800 dark:text-slate-100 flex items-center gap-2">
-           <PlusCircle className="text-rose-500"/> {expenseToEdit ? 'ویرایش هزینه' : 'ثبت هزینه جدید'}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">عنوان هزینه</label>
-            <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none transition-all text-slate-900 dark:text-white" placeholder="مثلا: خرید سیمان"/>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+  // Close on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const modalContent = (
+    <div className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white">
+      {/* Header */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs">
+        <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <PlusCircle className="text-rose-500 w-5 h-5"/>
+            <span>{expenseToEdit ? 'ویرایش هزینه' : 'ثبت هزینه جدید'}</span>
+          </h2>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="بستن (ESC)"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Scrollable Form */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto w-full p-4 sm:p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">مبلغ</label>
-              <input required type="number" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono focus:ring-2 focus:ring-rose-500 outline-none text-slate-900 dark:text-white" placeholder="0"/>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">عنوان هزینه</label>
+              <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none transition-all text-slate-900 dark:text-white" placeholder="مثلا: خرید سیمان"/>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">مبلغ</label>
+                <input required type="number" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono focus:ring-2 focus:ring-rose-500 outline-none text-slate-900 dark:text-white" placeholder="0"/>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">تاریخ</label>
+                <input required type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none text-slate-900 dark:text-white" />
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">تاریخ</label>
-              <input required type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none text-slate-900 dark:text-white" />
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">دسته‌بندی</label>
+              <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none text-slate-900 dark:text-white cursor-pointer">
+                <option value="مصالح">مصالح و مواد</option>
+                <option value="تجهیزات">تجهیزات و ابزار</option>
+                <option value="خوراک">خوراک گروهی</option>
+                <option value="متفرقه">متفرقه</option>
+              </select>
             </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">دسته‌بندی</label>
-            <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none text-slate-900 dark:text-white">
-              <option value="مصالح">مصالح و مواد</option>
-              <option value="تجهیزات">تجهیزات و ابزار</option>
-              <option value="خوراک">خوراک گروهی</option>
-              <option value="متفرقه">متفرقه</option>
-            </select>
-          </div>
-          <div className="flex gap-3 mt-6 pt-2">
-            <button type="submit" className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-rose-500/30 transition-colors">
-              {expenseToEdit ? 'ذخیره تغییرات' : 'ثبت هزینه'}
-            </button>
-            <button type="button" onClick={onClose} className="flex-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors">انصراف</button>
-          </div>
-        </form>
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <button type="button" onClick={onClose} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-colors">
+                انصراف (ESC)
+              </button>
+              <button type="submit" className="px-6 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-500/30 transition-colors">
+                {expenseToEdit ? 'ذخیره تغییرات' : 'ثبت هزینه'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

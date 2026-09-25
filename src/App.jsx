@@ -20,12 +20,14 @@ import { WorkerViewPortal } from './components/WorkerViewPortal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { NewProjectModal } from './components/NewProjectModal';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
+import { WorkerProfileModal } from './components/WorkerProfileModal';
 import { performSyncUnified, getSyncConfig } from './services/syncService';
 import { initRealtimeSync, pushLogsLive, pushPaymentsLive } from './services/realtimeSync';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
+  const { profileWorkerId, closeWorkerProfile } = useProject();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
@@ -217,6 +219,15 @@ function AppContent() {
         isOpen={isAboutModalOpen}
         onClose={() => setIsAboutModalOpen(false)}
       />
+
+      {/* Global Comprehensive Worker Profile Modal */}
+      {profileWorkerId && (
+        <WorkerProfileModal
+          workerId={profileWorkerId}
+          isOpen={Boolean(profileWorkerId)}
+          onClose={closeWorkerProfile}
+        />
+      )}
     </div>
   );
 }

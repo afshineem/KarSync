@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -14,7 +15,7 @@ import {
   Plus, 
   Trash2, 
   Archive, 
-  Edit2,
+  Edit2, 
   CheckCircle2, 
   AlertCircle, 
   ShieldCheck, 
@@ -45,6 +46,27 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState(null);
   const [accessDeniedGroup, setAccessDeniedGroup] = useState(null);
+
+  // Escape key handler to close modal or sub-dialogs
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (editingGroup) {
+          setEditingGroup(null);
+        } else if (groupToDelete) {
+          setGroupToDelete(null);
+        } else if (accessDeniedGroup) {
+          setAccessDeniedGroup(null);
+        } else if (isAddingNew) {
+          setIsAddingNew(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingGroup, groupToDelete, accessDeniedGroup, isAddingNew, onClose]);
 
   // Live queries from Dexie
   const allDbGroups = useLiveQuery(() => db.groups.toArray()) || [];
@@ -222,14 +244,14 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200" dir={direction}>
-      
-      {/* Modal Dialog Card (Fullscreen on mobile, max-height on desktop) */}
-      <div className="bg-white dark:bg-slate-900 w-full h-full sm:h-auto sm:max-h-[90vh] max-w-2xl rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200/80 dark:border-slate-800">
-        
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900 sticky top-0 z-10">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden" 
+      dir={direction}
+    >
+      {/* Header */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4 flex-shrink-0">
+        <div className="max-w-2xl mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
               <Users className="w-5 h-5" />
@@ -250,13 +272,16 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
             type="button"
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            title="بستن (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+      </div>
 
-        {/* Modal Controls Bar */}
-        <div className="p-3 sm:p-4 bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+      {/* Modal Controls Bar */}
+      <div className="bg-slate-50/90 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3 shrink-0">
+        <div className="max-w-2xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-3">
           
           {/* Tab Filter Pills */}
           <div className="inline-flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800 p-1 rounded-2xl text-xs font-bold w-full sm:w-auto justify-center">
@@ -325,9 +350,11 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
           </button>
 
         </div>
+      </div>
 
-        {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      {/* Scrollable Body */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="max-w-2xl mx-auto w-full space-y-4">
           
           {/* Expandable New Group Form */}
           {isAddingNew && (
@@ -560,20 +587,23 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
               })}
             </div>
           )}
-
         </div>
+      </div>
 
-        {/* Footer */}
-        <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex justify-end shrink-0">
+      {/* Footer */}
+      <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4 flex-shrink-0">
+        <div className="max-w-2xl mx-auto w-full flex items-center justify-between gap-3">
+          <span className="text-xs text-slate-400 hidden sm:inline">
+            {language === 'ku' ? 'کلیلی' : 'کلید'} <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-mono">Esc</kbd> {language === 'ku' ? 'بۆ داخستن' : 'برای بستن'}
+          </span>
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors"
+            className="ms-auto w-full sm:w-auto px-5 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors"
           >
             {language === 'ku' ? 'داخستن' : 'بستن'}
           </button>
         </div>
-
       </div>
 
       {/* Delete Confirmation Modal Sub-dialog (Only for groups without data) */}
@@ -809,4 +839,6 @@ export function ManageGroupsModal({ onClose, targetProjectId }) {
 
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

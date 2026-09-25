@@ -20,7 +20,7 @@ import { useProject } from '../context/ProjectContext';
 
 export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [] }) {
   const { language, t } = useLanguage();
-  const { currentProject, currency = 'IQD' } = useProject();
+  const { currentProject, currency = 'IQD', openWorkerProfile } = useProject();
 
   const [deletedLogs, setDeletedLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -318,7 +318,11 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                       <div className="w-7 h-7 rounded-lg bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-bold flex items-center justify-center text-xs shrink-0">
                         {worker?.name ? worker.name.charAt(0) : <User className="w-3.5 h-3.5" />}
                       </div>
-                      <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                      <span 
+                        onClick={() => worker?.id && openWorkerProfile(worker.id)}
+                        className="font-bold text-sm text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                        title="مشاهده پروفایل جامع پرسنل"
+                      >
                         {worker?.name || (language === 'fa' ? 'پرسنل نامشخص' : 'Unknown Worker')}
                       </span>
 

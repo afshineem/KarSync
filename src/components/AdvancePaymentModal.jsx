@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { db, generatePaymentId } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
@@ -50,6 +51,16 @@ export function AdvancePaymentModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -110,20 +121,13 @@ export function AdvancePaymentModal({
 
   const selectedWorker = workers.find((w) => w.id === workerId);
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex no-print animate-in fade-in duration-150 flex items-center justify-center p-0 sm:p-4 print:p-0"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white"
     >
-      <div 
-        className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-5 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white h-[100dvh] sm:h-auto sm:max-h-[85vh] flex-col overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800">
+      {/* Header */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs">
+        <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
               <Banknote className="w-5 h-5" />
@@ -141,10 +145,16 @@ export function AdvancePaymentModal({
             type="button"
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="بستن (ESC)"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+      </div>
+
+      {/* Main Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
         {/* Feedback Alert */}
         {feedback.message && (
@@ -260,19 +270,19 @@ export function AdvancePaymentModal({
           </div>
 
           {/* Submit Button */}
-          <div className="pt-2 flex items-center gap-2">
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="w-1/3 py-2.5 px-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-colors"
+              className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-colors"
             >
-              {t('cancel')}
+              {t('cancel')} (ESC)
             </button>
 
             <button
               type="submit"
               disabled={isSubmitting || !amount}
-              className="w-2/3 py-2.5 px-3 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-400 text-white font-bold text-xs rounded-xl shadow-md shadow-amber-600/20 transition-all flex items-center justify-center gap-1.5"
+              className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-400 text-white font-bold text-xs rounded-xl shadow-md shadow-amber-600/20 transition-all flex items-center justify-center gap-1.5"
             >
               <Coins className="w-4 h-4" />
               <span>{isSubmitting ? 'در حال ثبت...' : t('addAdvanceBtn')}</span>
@@ -281,7 +291,10 @@ export function AdvancePaymentModal({
 
         </form>
 
+        </div>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

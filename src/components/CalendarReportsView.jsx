@@ -61,7 +61,7 @@ const CALENDAR_VIEW_MODE_KEY = 'karsync_calendar_view_mode';
 
 export function CalendarReportsView({ onOpenLoggingModal }) {
   const { t, language, direction } = useLanguage();
-  const { currentProject } = useProject();
+  const { currentProject, openWorkerProfile } = useProject();
   const currency = currentProject?.currency || 'IQD';
 
   // Primary view mode: 'timeline' (لیست تفکیک روزانه) | 'calendar' (تقویم شبکه‌ای) | 'logs' (گزارش‌ها)
@@ -980,7 +980,11 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                                   className="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 text-slate-800 dark:text-slate-200 hover:border-sky-300 dark:hover:border-sky-600 transition-colors"
                                 >
                                   {/* Worker name */}
-                                  <span className="font-bold text-slate-900 dark:text-white">
+                                  <span 
+                                    onClick={() => openWorkerProfile(log.workerId)}
+                                    className="font-bold text-slate-900 dark:text-white cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                                    title="مشاهده پروفایل جامع پرسنل"
+                                  >
                                     {worker.name}
                                   </span>
 
@@ -1535,7 +1539,13 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         <tr key={row.workerId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                           <td className="px-4 py-3.5">
                             <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
-                              <span>{row.worker.name}</span>
+                              <span 
+                                onClick={() => openWorkerProfile(row.workerId)}
+                                className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                                title="مشاهده پروفایل جامع پرسنل"
+                              >
+                                {row.worker.name}
+                              </span>
                               {row.worker.groupId && groupMap[row.worker.groupId] && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
                                   <Users className="w-2.5 h-2.5" />
@@ -1644,7 +1654,13 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                             </td>
                             <td className="px-4 py-3">
                               <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
-                                <span>{worker.name}</span>
+                                <span 
+                                  onClick={() => openWorkerProfile(log.workerId)}
+                                  className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                                  title="مشاهده پروفایل جامع پرسنل"
+                                >
+                                  {worker.name}
+                                </span>
                                 {worker.groupId && groupMap[worker.groupId] && (
                                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
                                     <Users className="w-2.5 h-2.5" />
@@ -1799,7 +1815,13 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                   return (
                     <div key={log.id} className="py-3 flex items-center justify-between gap-3">
                       <div>
-                        <span className="font-bold text-slate-900 dark:text-white block">{worker.name}</span>
+                        <span 
+                          onClick={() => openWorkerProfile(log.workerId)}
+                          className="font-bold text-slate-900 dark:text-white block cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                          title="مشاهده پروفایل جامع پرسنل"
+                        >
+                          {worker.name}
+                        </span>
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
                             log.type === 'hourly'

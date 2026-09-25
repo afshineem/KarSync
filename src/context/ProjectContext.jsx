@@ -29,6 +29,14 @@ export function ProjectProvider({ children }) {
     month: new Date().toISOString().substring(0, 7)
   });
 
+  const [profileWorkerId, setProfileWorkerId] = useState(null);
+  const openWorkerProfile = (workerId) => {
+    if (workerId) setProfileWorkerId(workerId);
+  };
+  const closeWorkerProfile = () => {
+    setProfileWorkerId(null);
+  };
+
   const openProjectSettings = (projectId = null) => {
     setEditingProjectId(projectId || activeProjectId || DEFAULT_PROJECT_ID);
     setIsProjectSettingsModalOpen(true);
@@ -258,7 +266,10 @@ export function ProjectProvider({ children }) {
         setEditingProjectId,
         openProjectSettings,
         dateFilter,
-        setDateFilter
+        setDateFilter,
+        profileWorkerId,
+        openWorkerProfile,
+        closeWorkerProfile
       }}
     >
       {children}
