@@ -106,6 +106,8 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
 
   // Filters for reporting
   const [selectedWorkerId, setSelectedWorkerId] = useState('all');
+  const [selectedGroupId, setSelectedGroupId] = useState('all');
+  const [selectedSettlementStatus, setSelectedSettlementStatus] = useState('all'); // 'all' | 'current' | 'settled'
   const [selectedType, setSelectedType] = useState('all');
   const [selectedSectionId, setSelectedSectionId] = useState('all');
   
@@ -196,6 +198,119 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
     });
     return map;
   }, [workers]);
+
+  // Live query groups for current project with fallback for legacy/unscoped records
+  const groups = useLiveQuery(
+    async () => {
+      try {
+        const [allDbGroups, allDbWorkers] = await Promise.all([
+          db.groups.toArray(),
+          db.workers.toArray()
+        ]);
+        const projectWorkerGroupIds = new Set(
+          allDbWorkers
+            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && w.groupId)
+            .map((w) => String(w.groupId))
+        );
+        let list = allDbGroups.filter((g) => 
+          !targetProjectId || 
+          !g.projectId || 
+          String(g.projectId) === String(targetProjectId) ||
+          (g.projectId || DEFAULT_PROJECT_ID) === targetProjectId ||
+          projectWorkerGroupIds.has(String(g.id))
+        );
+        if (list.length === 0 && allDbGroups.length > 0) {
+          list = allDbGroups;
+        }
+        return list;
+      } catch (err) {
+        console.error('Error fetching groups in CalendarReportsView:', err);
+        return [];
+      }
+    },
+    [targetProjectId]
+  ) || [];
+
+  // Group options combining db.groups and any group referenced by workers
+  const groupOptions = useMemo(() => {
+    const list = [...groups];
+    const existingIds = new Set(list.map((g) => String(g.id)));
+    workers.forEach((w) => {
+      if (w.groupId && !existingIds.has(String(w.groupId))) {
+        list.push({
+          id: w.groupId,
+          name: w.groupName || w.groupId,
+          projectId: targetProjectId
+        });
+        existingIds.add(String(w.groupId));
+      }
+    });
+    return list;
+  }, [groups, workers, targetProjectId]);
+
+  const groupMap = useMemo(() => {
+    const map = {};
+    groupOptions.forEach((g) => {
+      map[g.id] = g;
+      map[String(g.id)] = g;
+    });
+    return map;
+  }, [groupOptions]);
+
+  // Live query payments to track settlement receipts & dates
+  const allPayments = useLiveQuery(
+    async () => {
+      const [list, wList] = await Promise.all([
+        db.payments.toArray(),
+        db.workers.toArray()
+      ]);
+      const projectWorkerIds = new Set(
+        wList
+          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+          .map((w) => String(w.id))
+      );
+      return list.filter((p) => 
+        (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
+        projectWorkerIds.has(String(p.workerId))
+      );
+    },
+    [targetProjectId]
+  ) || [];
+
+  const workerLastSettlementMap = useMemo(() => {
+    const map = {};
+    workers.forEach((w) => {
+      const settlementReceipts = allPayments.filter((p) => 
+        !p.deletedAt &&
+        (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled') &&
+        (String(p.workerId) === String(w.id) || (w.groupId && p.groupId === w.groupId))
+      );
+      const sortedSettlements = [...settlementReceipts].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      let lastSettlementDate = sortedSettlements[0]?.date || sortedSettlements[0]?.createdAt?.slice(0, 10) || null;
+      if (sortedSettlements[0]?.createdAt && sortedSettlements[0].createdAt.startsWith('2026-09') && sortedSettlements[0].createdAt <= '2026-09-22') {
+        if (!lastSettlementDate || lastSettlementDate < '2026-09-20') lastSettlementDate = '2026-09-20';
+      }
+      map[String(w.id)] = lastSettlementDate;
+    });
+    return map;
+  }, [workers, allPayments]);
+
+  const isLogSettled = (log) => {
+    if (log.isSettled) return true;
+    if (log.settlementReceiptId) return true;
+    const lastDate = workerLastSettlementMap[String(log.workerId)];
+    if (lastDate && log.date && log.date <= lastDate) return true;
+    return false;
+  };
+
+  // Filter workers list for worker dropdown when a group is selected (both summary & detailed)
+  const workersForSelect = useMemo(() => {
+    if (selectedGroupId === 'all') return workers;
+    if (selectedGroupId === 'unassigned') {
+      return workers.filter((w) => !w.groupId);
+    }
+    return workers.filter((w) => String(w.groupId) === String(selectedGroupId));
+  }, [workers, selectedGroupId]);
 
   // ========================================================
   // 1. MONTHLY TIMELINE DATA (Day-by-Day Detailed Breakdown)
@@ -349,7 +464,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
   const filteredLogs = useMemo(() => {
     return allLogs
       .filter((log) => {
-        if (selectedWorkerId !== 'all' && log.workerId !== selectedWorkerId) return false;
+        if (selectedWorkerId !== 'all' && String(log.workerId) !== String(selectedWorkerId)) return false;
         if (selectedType !== 'all' && log.type !== selectedType) return false;
         if (selectedSectionId !== 'all') {
           if (selectedSectionId === 'unassigned') {
@@ -358,12 +473,26 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
             return false;
           }
         }
+        // Filters for Group and Settlement Status (applies to both Summary and Detailed reports)
+        if (selectedGroupId !== 'all') {
+          const w = workerMap[String(log.workerId)];
+          if (selectedGroupId === 'unassigned') {
+            if (w?.groupId) return false;
+          } else {
+            if (!w || String(w.groupId) !== String(selectedGroupId)) return false;
+          }
+        }
+        if (selectedSettlementStatus === 'current') {
+          if (isLogSettled(log)) return false;
+        } else if (selectedSettlementStatus === 'settled') {
+          if (!isLogSettled(log)) return false;
+        }
         if (dateFrom && log.date < dateFrom) return false;
         if (dateTo && log.date > dateTo) return false;
         return true;
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [allLogs, selectedWorkerId, selectedType, selectedSectionId, dateFrom, dateTo]);
+  }, [allLogs, selectedWorkerId, selectedType, selectedSectionId, selectedGroupId, selectedSettlementStatus, dateFrom, dateTo, workerMap, workerLastSettlementMap]);
 
   // Project section breakdown in reporting
   const sectionBreakdown = useMemo(() => {
@@ -1044,30 +1173,51 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
           <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 no-print">
             {/* Format Toggle: Summary vs Detailed */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('reports')}:</span>
-                <div className="inline-flex rounded-xl p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+                  {/* Summary Report (گزارش مجموع) */}
                   <button
+                    type="button"
                     onClick={() => setReportFormat('summary')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    title={t('summaryReport')}
+                    aria-label={t('summaryReport')}
+                    className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
                       reportFormat === 'summary'
-                        ? 'bg-sky-600 text-white shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
                     }`}
                   >
-                    <PieChart className="w-3.5 h-3.5" />
-                    <span>{t('summaryReport')}</span>
+                    <PieChart className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${
+                      reportFormat === 'summary' ? 'scale-105' : 'group-hover:scale-110'
+                    }`} />
+                    {reportFormat === 'summary' && (
+                      <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200">
+                        {t('summaryReport')}
+                      </span>
+                    )}
                   </button>
+
+                  {/* Detailed Report (گزارش با جزییات) */}
                   <button
+                    type="button"
                     onClick={() => setReportFormat('detailed')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    title={t('detailedReport')}
+                    aria-label={t('detailedReport')}
+                    className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
                       reportFormat === 'detailed'
-                        ? 'bg-sky-600 text-white shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
                     }`}
                   >
-                    <TableProperties className="w-3.5 h-3.5" />
-                    <span>{t('detailedReport')}</span>
+                    <TableProperties className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${
+                      reportFormat === 'detailed' ? 'scale-105' : 'group-hover:scale-110'
+                    }`} />
+                    {reportFormat === 'detailed' && (
+                      <span className="whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200">
+                        {t('detailedReport')}
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1078,7 +1228,9 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
             </div>
 
             {/* Filter controls */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 ${projectSections.length > 0 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-3`}>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${
+              projectSections.length > 0 ? 'xl:grid-cols-7' : 'xl:grid-cols-6'
+            } gap-3`}>
               {/* Worker */}
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">{t('filterByWorker')}</label>
@@ -1088,11 +1240,52 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 >
                   <option value="all">{t('allWorkers')}</option>
-                  {workers.map((w) => (
+                  {workersForSelect.map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name} ({w.role})
                     </option>
                   ))}
+                </select>
+              </div>
+
+              {/* Group Filter (فیلد ۱: انتخاب گروه) */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                  <Users className="w-3 h-3 text-sky-500" />
+                  <span>{t('filterByGroup')}</span>
+                </label>
+                <select
+                  value={selectedGroupId}
+                  onChange={(e) => {
+                    setSelectedGroupId(e.target.value);
+                    setSelectedWorkerId('all');
+                  }}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+                >
+                  <option value="all">{t('allGroups')}</option>
+                  <option value="unassigned">{t('independentWorkers')}</option>
+                  {groupOptions.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Work & Settlement Status (فیلد ۲: انتخاب بین کارکرد پیشین و تسویه شده / کارکرد جاری) */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-sky-500" />
+                  <span>{t('settlementWorkStatus')}</span>
+                </label>
+                <select
+                  value={selectedSettlementStatus}
+                  onChange={(e) => setSelectedSettlementStatus(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+                >
+                  <option value="all">{t('allWorkStatus')}</option>
+                  <option value="current">{t('currentUnsettledWork')}</option>
+                  <option value="settled">{t('pastSettledWork')}</option>
                 </select>
               </div>
 
@@ -1142,8 +1335,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                >
-                </input>
+                />
               </div>
 
               {/* To Date */}
@@ -1291,7 +1483,15 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                       {summaryGroupedData.map((row) => (
                         <tr key={row.workerId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                           <td className="px-4 py-3.5">
-                            <div className="font-bold text-slate-900 dark:text-white">{row.worker.name}</div>
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                              <span>{row.worker.name}</span>
+                              {row.worker.groupId && groupMap[row.worker.groupId] && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                                  <Users className="w-2.5 h-2.5" />
+                                  <span>{groupMap[row.worker.groupId].name}</span>
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-slate-400">{row.worker.role}</div>
                           </td>
                           <td className="px-4 py-3.5 text-center">
@@ -1376,6 +1576,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         {projectSections.length > 0 && (
                           <th className="px-4 py-3.5 text-center">{t('section') || 'بخش'}</th>
                         )}
+                        <th className="px-4 py-3.5 text-center">{t('settlementStatusColumn') || 'وضعیت تسویه'}</th>
                         <th className="px-4 py-3.5 text-start">{t('notesColumn')}</th>
                         <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
                         <th className="px-4 py-3.5 text-center no-print">{t('actions')}</th>
@@ -1384,13 +1585,22 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {filteredLogs.map((log) => {
                         const worker = workerMap[log.workerId] || { name: 'Unknown', role: '' };
+                        const logSettled = isLogSettled(log);
                         return (
                           <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                             <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                               {log.date}
                             </td>
                             <td className="px-4 py-3">
-                              <div className="font-bold text-slate-900 dark:text-white">{worker.name}</div>
+                              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                                <span>{worker.name}</span>
+                                {worker.groupId && groupMap[worker.groupId] && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                                    <Users className="w-2.5 h-2.5" />
+                                    <span>{groupMap[worker.groupId].name}</span>
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-xs text-slate-400">{worker.role}</div>
                             </td>
                             <td className="px-4 py-3 text-center">
@@ -1414,6 +1624,19 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                                 </span>
                               </td>
                             )}
+                            <td className="px-4 py-3 text-center whitespace-nowrap">
+                              {logSettled ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                  <CheckCircle2 className="w-3 h-3 text-slate-500" />
+                                  <span>{t('settledStatusBadge')}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                  <Clock className="w-3 h-3 text-sky-500" />
+                                  <span>{t('currentStatusBadge')}</span>
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 max-w-xs truncate">
                               {log.notes || '-'}
                             </td>

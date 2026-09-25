@@ -541,12 +541,16 @@ export async function pushAllLocalToCloud() {
   if (activeLogs.length > 0) {
     const logPayload = activeLogs.map(l => {
       let cleanNotes = (l.notes || '').trim();
-      if (l.sectionId || (l.projectId && l.projectId !== DEFAULT_PROJECT_ID)) {
+      if (l.sectionId || (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) || l.isSettled || l.settlementReceiptId) {
         const meta = {};
         if (l.sectionId) meta.s = l.sectionId;
         if (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) meta.p = l.projectId;
+        if (l.isSettled) meta.st = 1;
+        if (l.settlementReceiptId) meta.rid = l.settlementReceiptId;
         const metaStr = `__META__${JSON.stringify(meta)}__META__`;
-        if (!cleanNotes.includes('__META__')) {
+        if (cleanNotes.includes('__META__')) {
+          cleanNotes = cleanNotes.replace(/__META__[\s\S]*?__META__/, metaStr);
+        } else {
           cleanNotes = metaStr + (cleanNotes ? '\n' + cleanNotes : '');
         }
       }
@@ -1377,7 +1381,9 @@ export async function pushLogsLive(logs) {
       if (l.isSettled) meta.st = 1;
       if (l.settlementReceiptId) meta.rid = l.settlementReceiptId;
       const metaStr = `__META__${JSON.stringify(meta)}__META__`;
-      if (!cleanNotes.includes('__META__')) {
+      if (cleanNotes.includes('__META__')) {
+        cleanNotes = cleanNotes.replace(/__META__[\s\S]*?__META__/, metaStr);
+      } else {
         cleanNotes = metaStr + (cleanNotes ? '\n' + cleanNotes : '');
       }
     }

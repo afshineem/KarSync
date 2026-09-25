@@ -148,8 +148,8 @@ export function Navbar({
       </header>
 
       {/* Floating Bottom Navigation Bar for Mobile (Apple Liquid Glass Dock) */}
-      <nav className="md:hidden fixed bottom-3 inset-x-3 z-40 no-print">
-        <div className="bg-white/55 dark:bg-slate-950/55 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/50 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.25),inset_0_1px_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.15)] p-2 flex items-center justify-around gap-1">
+      <nav className="md:hidden fixed bottom-3 inset-x-3 max-w-md mx-auto z-40 no-print">
+        <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/60 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.15)] p-1.5 sm:p-2 flex items-center justify-between gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -158,17 +158,16 @@ export function Navbar({
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 aria-label={item.label}
-                className={`relative flex items-center gap-2 rounded-2xl transition-all duration-200 ${
+                title={item.label}
+                className={`relative flex-1 flex items-center justify-center py-2.5 rounded-2xl transition-all duration-200 active:scale-95 ${
                   isActive
-                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 font-bold py-2 px-3.5 scale-102 border border-sky-400/30'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white p-2.5 hover:bg-white/40 dark:hover:bg-white/10'
+                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 scale-105'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/10'
                 }`}
               >
-                <Icon className="w-5.5 h-5.5 flex-shrink-0" />
+                <Icon className="w-6 h-6 sm:w-6.5 sm:h-6.5 flex-shrink-0" />
                 {isActive && (
-                  <span className="text-xs font-bold whitespace-nowrap animate-fade-in tracking-tight">
-                    {item.label}
-                  </span>
+                  <span className="absolute -bottom-1 w-1.5 h-1.5 bg-white rounded-full shadow-xs" />
                 )}
               </button>
             );

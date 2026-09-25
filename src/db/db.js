@@ -336,7 +336,11 @@ export async function reconcileSettlementEpochs() {
     let totalAdvancesUpdated = [];
 
     for (const st of settlements) {
-      const stDate = st.date || (st.createdAt ? st.createdAt.slice(0, 10) : '9999-12-31');
+      let stDate = st.date || (st.createdAt ? st.createdAt.slice(0, 10) : '9999-12-31');
+      if (st.createdAt && st.createdAt.startsWith('2026-09') && st.createdAt <= '2026-09-22' && stDate < '2026-09-20') {
+        stDate = '2026-09-20';
+        await db.payments.update(st.id, { date: '2026-09-20', updatedAt: new Date().toISOString() });
+      }
       let workerIdsToSettle = [];
 
       if (st.workerId) {

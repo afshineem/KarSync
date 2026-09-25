@@ -71,8 +71,31 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
   const groups = useLiveQuery(
     async () => {
-      if (!targetProjectId) return [];
-      return await db.groups.where('projectId').equals(targetProjectId).toArray();
+      try {
+        const [allDbGroups, allDbWorkers] = await Promise.all([
+          db.groups.toArray(),
+          db.workers.toArray()
+        ]);
+        const projectWorkerGroupIds = new Set(
+          allDbWorkers
+            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && w.groupId)
+            .map((w) => String(w.groupId))
+        );
+        let list = allDbGroups.filter((g) => 
+          !targetProjectId || 
+          !g.projectId || 
+          String(g.projectId) === String(targetProjectId) ||
+          (g.projectId || DEFAULT_PROJECT_ID) === targetProjectId ||
+          projectWorkerGroupIds.has(String(g.id))
+        );
+        if (list.length === 0 && allDbGroups.length > 0) {
+          list = allDbGroups;
+        }
+        return list;
+      } catch (err) {
+        console.error('Error fetching groups in DailyLoggingModal:', err);
+        return [];
+      }
     },
     [targetProjectId]
   ) || [];
