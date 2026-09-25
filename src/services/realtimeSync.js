@@ -318,10 +318,24 @@ export async function autoInitialSync() {
 
   // Case B: Reconcile Cloud data into local IndexedDB
   await pullWorkerProjectsLive(true);
+  await pullGroupsLive(true);
+  await pullWorkerMetadataLive(true);
   await reconcileCloudIntoLocal(cloudWorkers, cloudLogs);
   await pullPaymentsLive(true);
   await pullProjectsLive(true);
   await pullProjectSectionsLive(true);
+
+  // Auto-detect and push any local workers missing in cloud (Mohammad, Mostafa, etc.)
+  const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
+  const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt);
+  if (missingWorkers.length > 0) {
+    console.log(`Pushing ${missingWorkers.length} missing local workers to cloud...`);
+    for (const mw of missingWorkers) {
+      await pushWorkerLive(mw);
+    }
+  }
+  await pushAllGroupsToCloud();
+  await syncAllWorkerMetadataToCloud();
 }
 
 /**
@@ -333,6 +347,18 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
   const pendingLogs = new Set(getPendingDeletedLogs());
 
   await purgeDummySeedWorkers();
+
+  let cloudMetadata = {};
+  try {
+    const { data: sData } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_worker_metadata')
+      .maybeSingle();
+    if (sData?.setting_value) {
+      cloudMetadata = JSON.parse(sData.setting_value) || {};
+    }
+  } catch (_) {}
 
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
     // 1. Reconcile Workers
@@ -359,19 +385,24 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
 
         const projectMap = getWorkerProjectMap();
         const resolvedProjectId = w.project_id || localW?.projectId || projectMap[w.id] || DEFAULT_PROJECT_ID;
+        const meta = cloudMetadata[w.id] || {};
 
         await db.workers.put({
           ...(localW || {}),
           id: w.id,
           name: w.name,
           phone: w.phone || '',
-          role: w.role,
+          role: w.role || 'کارگر',
           dailyRate: Number(w.daily_rate) || 0,
           overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
           isActive: Number(w.is_active) === 0 ? 0 : 1,
-          defaultSectionId: w.default_section_id || w.defaultSectionId || localW?.defaultSectionId || null,
-          groupId: w.group_id || w.groupId || localW?.groupId || null,
-          teamRole: w.team_role || w.teamRole || localW?.teamRole || 'Worker',
+          defaultSectionId: meta.defaultSectionId !== undefined ? meta.defaultSectionId : (localW?.defaultSectionId || null),
+          groupId: meta.groupId !== undefined ? meta.groupId : (localW?.groupId || null),
+          teamRole: meta.teamRole || localW?.teamRole || 'Worker',
+          isArchived: meta.isArchived !== undefined ? meta.isArchived : (localW?.isArchived || false),
+          status: meta.status || localW?.status || (meta.isArchived ? 'archived' : 'active'),
+          username: meta.username || localW?.username || '',
+          password: meta.password || localW?.password || '',
           projectId: resolvedProjectId,
           userId: w.user_id || w.userId || 'default_user',
           createdAt: w.created_at,
@@ -523,20 +554,21 @@ export async function pushAllLocalToCloud() {
       id: w.id,
       name: w.name,
       phone: w.phone || null,
-      role: w.role,
+      role: w.role || 'کارگر',
       daily_rate: Number(w.dailyRate) || 0,
       overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
       is_active: Number(w.isActive) === 0 ? 0 : 1,
-      default_section_id: w.defaultSectionId || null,
-      group_id: w.groupId || null,
-      team_role: w.teamRole || 'Worker',
-      deleted_at: null,
+      deleted_at: w.deletedAt || null,
       updated_at: w.updatedAt || new Date().toISOString()
     }));
 
     const { error } = await supabase.from('workers').upsert(workerPayload);
     if (error) console.error('Error uploading local workers to Supabase:', error);
+
+    await syncAllWorkerMetadataToCloud();
   }
+
+  await pushAllGroupsToCloud();
 
   if (activeLogs.length > 0) {
     const logPayload = activeLogs.map(l => {
@@ -713,13 +745,18 @@ function subscribeToRealtime() {
         await pullProjectSectionsLive(true);
       } else if (syncType === 'payments') {
         await pullPaymentsLive(true);
+      } else if (syncType === 'groups') {
+        await pullGroupsLive(true);
       } else if (syncType === 'workers') {
         await pullWorkerProjectsLive(true);
+        await pullWorkerMetadataLive(true);
       } else {
         await pullProjectsLive(true);
         await pullProjectSectionsLive(true);
         await pullPaymentsLive(true);
         await pullWorkerProjectsLive(true);
+        await pullGroupsLive(true);
+        await pullWorkerMetadataLive(true);
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
@@ -728,6 +765,8 @@ function subscribeToRealtime() {
       await pullProjectsLive(true);
       await pullProjectSectionsLive(true);
       await pullWorkerProjectsLive(true);
+      await pullGroupsLive(true);
+      await pullWorkerMetadataLive(true);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
       console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
@@ -1311,6 +1350,386 @@ export async function syncAllWorkerProjectsToCloud() {
   }
 }
 
+// ========================================================
+// GROUPS SYNC (Stored in Supabase settings: app_groups)
+// ========================================================
+let isPullingGroups = false;
+let lastGroupsPullTime = 0;
+
+export async function pullGroupsLive(force = false) {
+  if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingGroups) return;
+  if (!force && now - lastGroupsPullTime < 2500) return;
+  isPullingGroups = true;
+  lastGroupsPullTime = now;
+
+  try {
+    let cloudGroups = [];
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_groups')
+      .maybeSingle();
+
+    if (!sErr && sData?.setting_value) {
+      try {
+        cloudGroups = JSON.parse(sData.setting_value) || [];
+      } catch (_) {}
+    }
+
+    const localGroups = await db.groups.toArray();
+    const groupMap = new Map();
+
+    if (Array.isArray(cloudGroups)) {
+      for (const cg of cloudGroups) {
+        if (cg && cg.id) groupMap.set(cg.id, cg);
+      }
+    }
+
+    let hasLocalOnly = false;
+    for (const lg of localGroups) {
+      if (!groupMap.has(lg.id)) {
+        groupMap.set(lg.id, lg);
+        hasLocalOnly = true;
+      }
+    }
+
+    const mergedList = Array.from(groupMap.values());
+
+    if (mergedList.length > 0) {
+      await db.transaction('rw', db.groups, async () => {
+        for (const g of mergedList) {
+          await db.groups.put(g);
+        }
+      });
+      window.dispatchEvent(new CustomEvent('workshop-groups-sync'));
+    }
+
+    if (hasLocalOnly && mergedList.length > 0) {
+      await supabase.from('settings').upsert({
+        setting_key: 'app_groups',
+        setting_value: JSON.stringify(mergedList),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('pullGroupsLive warning:', err);
+  } finally {
+    isPullingGroups = false;
+  }
+}
+
+export async function pushGroupLive(group) {
+  if (!group || !group.id) return;
+  try {
+    await db.groups.put(group);
+    window.dispatchEvent(new CustomEvent('workshop-groups-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_groups')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudGroups = JSON.parse(data.setting_value);
+        if (Array.isArray(cloudGroups)) {
+          for (const cg of cloudGroups) {
+            if (cg && cg.id) mergedMap.set(cg.id, cg);
+          }
+        }
+      } catch (_) {}
+    }
+
+    mergedMap.set(group.id, group);
+    const mergedList = Array.from(mergedMap.values());
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_groups',
+      setting_value: JSON.stringify(mergedList),
+      updated_at: new Date().toISOString()
+    });
+    broadcastSyncEvent('groups');
+  } catch (err) {
+    console.warn('pushGroupLive warning:', err);
+  }
+}
+
+export async function deleteGroupLive(groupId) {
+  if (!groupId) return;
+  try {
+    await db.groups.delete(groupId);
+    window.dispatchEvent(new CustomEvent('workshop-groups-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_groups')
+      .maybeSingle();
+
+    let list = [];
+    if (data?.setting_value) {
+      try {
+        list = JSON.parse(data.setting_value) || [];
+      } catch (_) {}
+    }
+
+    const filtered = list.filter(g => g.id !== groupId);
+    await supabase.from('settings').upsert({
+      setting_key: 'app_groups',
+      setting_value: JSON.stringify(filtered),
+      updated_at: new Date().toISOString()
+    });
+    broadcastSyncEvent('groups');
+  } catch (err) {
+    console.warn('deleteGroupLive warning:', err);
+  }
+}
+
+export async function pushAllGroupsToCloud() {
+  if (!navigator.onLine) return;
+  try {
+    const localGroups = await db.groups.toArray();
+    if (localGroups.length === 0) return;
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_groups')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudGroups = JSON.parse(data.setting_value);
+        if (Array.isArray(cloudGroups)) {
+          for (const cg of cloudGroups) {
+            if (cg && cg.id) mergedMap.set(cg.id, cg);
+          }
+        }
+      } catch (_) {}
+    }
+
+    for (const lg of localGroups) {
+      mergedMap.set(lg.id, lg);
+    }
+    const mergedList = Array.from(mergedMap.values());
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_groups',
+      setting_value: JSON.stringify(mergedList),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('pushAllGroupsToCloud warning:', err);
+  }
+}
+
+// ========================================================
+// WORKER METADATA SYNC (Stored in Supabase settings: app_worker_metadata)
+// ========================================================
+let isPullingWorkerMetadata = false;
+let lastWorkerMetadataPullTime = 0;
+
+export async function pullWorkerMetadataLive(force = false) {
+  if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingWorkerMetadata) return;
+  if (!force && now - lastWorkerMetadataPullTime < 2500) return;
+  isPullingWorkerMetadata = true;
+  lastWorkerMetadataPullTime = now;
+
+  try {
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_worker_metadata')
+      .maybeSingle();
+
+    let cloudMetadata = {};
+    if (!sErr && sData?.setting_value) {
+      try {
+        cloudMetadata = JSON.parse(sData.setting_value) || {};
+      } catch (_) {}
+    }
+
+    const localWorkers = await db.workers.toArray();
+    let hasLocalChanges = false;
+    const credsMap = {};
+
+    await db.transaction('rw', db.workers, async () => {
+      for (const w of localWorkers) {
+        const meta = cloudMetadata[w.id];
+        if (meta) {
+          let needsUpdate = false;
+          const updates = {};
+
+          if (meta.groupId !== undefined && w.groupId !== meta.groupId) {
+            updates.groupId = meta.groupId;
+            needsUpdate = true;
+          }
+          if (meta.teamRole && w.teamRole !== meta.teamRole) {
+            updates.teamRole = meta.teamRole;
+            needsUpdate = true;
+          }
+          if (meta.defaultSectionId !== undefined && w.defaultSectionId !== meta.defaultSectionId) {
+            updates.defaultSectionId = meta.defaultSectionId;
+            needsUpdate = true;
+          }
+          if (meta.isArchived !== undefined && w.isArchived !== meta.isArchived) {
+            updates.isArchived = meta.isArchived;
+            needsUpdate = true;
+          }
+          if (meta.status && w.status !== meta.status) {
+            updates.status = meta.status;
+            needsUpdate = true;
+          }
+          if (meta.username && w.username !== meta.username) {
+            updates.username = meta.username;
+            needsUpdate = true;
+          }
+          if (meta.password && w.password !== meta.password) {
+            updates.password = meta.password;
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            await db.workers.update(w.id, updates);
+          }
+
+          if (meta.username || meta.password) {
+            credsMap[w.id] = {
+              username: meta.username || w.username || '',
+              password: meta.password || w.password || ''
+            };
+          }
+        } else if (w.groupId || w.teamRole !== 'Worker' || w.defaultSectionId || w.username || w.password || w.isArchived) {
+          cloudMetadata[w.id] = {
+            groupId: w.groupId || null,
+            teamRole: w.teamRole || 'Worker',
+            defaultSectionId: w.defaultSectionId || null,
+            isArchived: !!(w.isArchived || w.status === 'archived'),
+            status: w.status || 'active',
+            username: w.username || '',
+            password: w.password || ''
+          };
+          hasLocalChanges = true;
+        }
+
+        if (w.username || w.password) {
+          credsMap[w.id] = {
+            username: w.username || '',
+            password: w.password || ''
+          };
+        }
+      }
+    });
+
+    if (Object.keys(credsMap).length > 0) {
+      try {
+        const existingCreds = JSON.parse(localStorage.getItem('workshop_worker_credentials') || '{}');
+        localStorage.setItem('workshop_worker_credentials', JSON.stringify({ ...existingCreds, ...credsMap }));
+      } catch (_) {}
+    }
+
+    if (hasLocalChanges) {
+      await supabase.from('settings').upsert({
+        setting_key: 'app_worker_metadata',
+        setting_value: JSON.stringify(cloudMetadata),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('pullWorkerMetadataLive warning:', err);
+  } finally {
+    isPullingWorkerMetadata = false;
+  }
+}
+
+export async function pushWorkerMetadataLive(workerId, metadata) {
+  if (!workerId || !metadata) return;
+  if (!navigator.onLine) return;
+
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_worker_metadata')
+      .maybeSingle();
+
+    let cloudMetadata = {};
+    if (data?.setting_value) {
+      try {
+        cloudMetadata = JSON.parse(data.setting_value) || {};
+      } catch (_) {}
+    }
+
+    cloudMetadata[workerId] = {
+      ...(cloudMetadata[workerId] || {}),
+      ...metadata
+    };
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_worker_metadata',
+      setting_value: JSON.stringify(cloudMetadata),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('pushWorkerMetadataLive warning:', err);
+  }
+}
+
+export async function syncAllWorkerMetadataToCloud() {
+  if (!navigator.onLine) return;
+  try {
+    const localWorkers = await db.workers.toArray();
+    if (localWorkers.length === 0) return;
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_worker_metadata')
+      .maybeSingle();
+
+    let cloudMetadata = {};
+    if (data?.setting_value) {
+      try {
+        cloudMetadata = JSON.parse(data.setting_value) || {};
+      } catch (_) {}
+    }
+
+    for (const w of localWorkers) {
+      cloudMetadata[w.id] = {
+        ...(cloudMetadata[w.id] || {}),
+        groupId: w.groupId || null,
+        teamRole: w.teamRole || 'Worker',
+        defaultSectionId: w.defaultSectionId || null,
+        isArchived: !!(w.isArchived || w.status === 'archived'),
+        status: w.status || (w.isArchived ? 'archived' : 'active'),
+        username: w.username || cloudMetadata[w.id]?.username || '',
+        password: w.password || cloudMetadata[w.id]?.password || ''
+      };
+    }
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_worker_metadata',
+      setting_value: JSON.stringify(cloudMetadata),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('syncAllWorkerMetadataToCloud warning:', err);
+  }
+}
+
 let isPullingRemote = false;
 let lastRemotePullTime = 0;
 
@@ -1326,6 +1745,8 @@ async function pullRemoteChangesSilently(force = false) {
   lastRemotePullTime = now;
   try {
     await pullWorkerProjectsLive();
+    await pullGroupsLive();
+    await pullWorkerMetadataLive();
     const [wRes, lRes] = await Promise.all([
       supabase.from('workers').select('*'),
       supabase.from('attendance_logs').select('*')
@@ -1333,6 +1754,16 @@ async function pullRemoteChangesSilently(force = false) {
 
     if (!wRes.error && !lRes.error && (wRes.data || lRes.data)) {
       await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
+
+      // Auto-detect and push any local workers that are missing in cloud (Mohammad, Mostafa, etc.)
+      const cloudWorkerIds = new Set((wRes.data || []).map(w => w.id));
+      const localWorkers = await db.workers.toArray();
+      const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt);
+      if (missingWorkers.length > 0) {
+        for (const mw of missingWorkers) {
+          await pushWorkerLive(mw);
+        }
+      }
     }
     await pullPaymentsLive();
     await pullProjectsLive();
@@ -1422,20 +1853,36 @@ export async function pushWorkerLive(w) {
     pushWorkerProjectMapLive(w.id, w.projectId).catch(console.warn);
   }
 
+  // Sync worker metadata
+  pushWorkerMetadataLive(w.id, {
+    groupId: w.groupId || null,
+    teamRole: w.teamRole || 'Worker',
+    defaultSectionId: w.defaultSectionId || null,
+    isArchived: !!(w.isArchived || w.status === 'archived'),
+    status: w.status || (w.isArchived ? 'archived' : 'active'),
+    username: w.username || '',
+    password: w.password || ''
+  }).catch(console.warn);
+
+  if (w.username || w.password) {
+    try {
+      const credsMap = JSON.parse(localStorage.getItem('workshop_worker_credentials') || '{}');
+      credsMap[w.id] = { username: w.username || '', password: w.password || '' };
+      localStorage.setItem('workshop_worker_credentials', JSON.stringify(credsMap));
+    } catch (_) {}
+  }
+
   if (!navigator.onLine) return;
 
   const payload = {
     id: w.id,
     name: w.name,
     phone: w.phone || null,
-    role: w.role,
+    role: w.role || 'کارگر',
     daily_rate: Number(w.dailyRate) || 0,
     overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
     is_active: Number(w.isActive) === 0 ? 0 : 1,
-    default_section_id: w.defaultSectionId || null,
-    group_id: w.groupId || null,
-    team_role: w.teamRole || 'Worker',
-    deleted_at: null,
+    deleted_at: w.deletedAt || null,
     updated_at: new Date().toISOString()
   };
 
@@ -1471,19 +1918,18 @@ export async function pushWorkersLive(workers) {
     syncAllWorkerProjectsToCloud().catch(console.warn);
   }
 
+  syncAllWorkerMetadataToCloud().catch(console.warn);
+
   if (!navigator.onLine) return;
 
   const payload = workers.map(w => ({
     id: w.id,
     name: w.name,
     phone: w.phone || null,
-    role: w.role,
+    role: w.role || 'کارگر',
     daily_rate: Number(w.dailyRate) || 0,
     overtime_hourly_rate: Number(w.overtimeHourlyRate) || 0,
     is_active: Number(w.isActive) === 0 ? 0 : 1,
-    default_section_id: w.defaultSectionId || null,
-    group_id: w.groupId || null,
-    team_role: w.teamRole || 'Worker',
     deleted_at: w.deletedAt || null,
     updated_at: new Date().toISOString()
   }));
@@ -1675,10 +2121,14 @@ export async function pullPaymentsLive(force = false) {
 export async function fullSyncBothDirections() {
   await flushPendingDeletions();
   await pullWorkerProjectsLive();
+  await pullGroupsLive();
+  await pullWorkerMetadataLive();
   await pullRemoteChangesSilently();
   await pullPaymentsLive();
   await pullProjectsLive();
   await pullProjectSectionsLive();
   await pushAllLocalToCloud();
+  await pushAllGroupsToCloud();
+  await syncAllWorkerMetadataToCloud();
   await pushPaymentsLive();
 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -68,6 +68,8 @@ export function FinancialsView() {
   const [selectedWorkerId, setSelectedWorkerId] = useState('all');
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'settled' | 'overpaid'
   const [settlementViewTab, setSettlementViewTab] = useState('current'); // 'current' (جاری) | 'settled' (تسویه شده)
 
@@ -1199,81 +1201,71 @@ export function FinancialsView() {
         </div>
       )}
 
-      {/* Settlement View Mode Tabs (تب جاری vs تب تسویه شده) and Search Controls */}
-      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+      {/* Settlement View Mode Tabs (تب جاری vs تب تسویه شده), Status Filters & Expandable Search */}
+      <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center md:justify-start gap-3 sm:gap-4 flex-wrap">
         
-        {/* Main View Mode Tabs (Navbar-Style Liquid Dock) */}
-        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner w-full md:w-auto">
-          {/* Tab 1: Current Unsettled (تب جاری) */}
-          <button
-            type="button"
-            onClick={() => setSettlementViewTab('current')}
-            title={t('tabCurrentFinancials')}
-            aria-label={t('tabCurrentFinancials')}
-            className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-              settlementViewTab === 'current'
-                ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2.5 px-4 scale-102 flex-1 md:flex-none'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2.5'
-            }`}
-          >
-            <Clock className={`w-5.5 h-5.5 flex-shrink-0 transition-transform duration-300 ${
-              settlementViewTab === 'current' ? 'scale-105' : 'group-hover:scale-110'
-            }`} />
-            
-            {settlementViewTab === 'current' && (
-              <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200 flex items-center gap-2">
-                <span>{t('tabCurrentFinancials')}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/25 text-white shadow-xs">
-                  {currentActiveRows.length}
+        {/* Line 1 on mobile: Main View Mode Tabs (Centered, Not Full Width) */}
+        <div className="flex justify-center w-full md:w-auto">
+          <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+            {/* Tab 1: Current Unsettled (تب جاری) */}
+            <button
+              type="button"
+              onClick={() => setSettlementViewTab('current')}
+              title={t('tabCurrentFinancials')}
+              aria-label={t('tabCurrentFinancials')}
+              className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
+                settlementViewTab === 'current'
+                  ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2.5 px-4 scale-102 flex-none'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2.5'
+              }`}
+            >
+              <Clock className={`w-5.5 h-5.5 flex-shrink-0 transition-transform duration-300 ${
+                settlementViewTab === 'current' ? 'scale-105' : 'group-hover:scale-110'
+              }`} />
+              
+              {settlementViewTab === 'current' && (
+                <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200 flex items-center gap-2">
+                  <span>{t('tabCurrentFinancials')}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/25 text-white shadow-xs">
+                    {currentActiveRows.length}
+                  </span>
                 </span>
-              </span>
-            )}
-          </button>
+              )}
+            </button>
 
-          {/* Tab 2: Settled History (تب تسویه شده) */}
-          <button
-            type="button"
-            onClick={() => setSettlementViewTab('settled')}
-            title={t('tabSettledFinancials')}
-            aria-label={t('tabSettledFinancials')}
-            className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-              settlementViewTab === 'settled'
-                ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2.5 px-4 scale-102 flex-1 md:flex-none'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2.5'
-            }`}
-          >
-            <CheckCircle2 className={`w-5.5 h-5.5 flex-shrink-0 transition-transform duration-300 ${
-              settlementViewTab === 'settled' ? 'scale-105' : 'group-hover:scale-110'
-            }`} />
-            
-            {settlementViewTab === 'settled' && (
-              <span className="whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200 flex items-center gap-2">
-                <span>{t('tabSettledFinancials')}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/25 text-white shadow-xs">
-                  {settledHistoryRows.length}
+            {/* Tab 2: Settled History (تب تسویه شده) */}
+            <button
+              type="button"
+              onClick={() => setSettlementViewTab('settled')}
+              title={t('tabSettledFinancials')}
+              aria-label={t('tabSettledFinancials')}
+              className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
+                settlementViewTab === 'settled'
+                  ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2.5 px-4 scale-102 flex-none'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2.5'
+              }`}
+            >
+              <CheckCircle2 className={`w-5.5 h-5.5 flex-shrink-0 transition-transform duration-300 ${
+                settlementViewTab === 'settled' ? 'scale-105' : 'group-hover:scale-110'
+              }`} />
+              
+              {settlementViewTab === 'settled' && (
+                <span className="whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200 flex items-center gap-2">
+                  <span>{t('tabSettledFinancials')}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/25 text-white shadow-xs">
+                    {settledHistoryRows.length}
+                  </span>
                 </span>
-              </span>
-            )}
-          </button>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Search & Status Filters */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
-          {/* Search */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={t('searchWorkerPlaceholder')}
-              className="w-full ps-9 pe-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white shadow-xs"
-            />
-          </div>
-
+        {/* Line 2 on mobile: Status Filters & Search Controls (Centered, Not Full Width) */}
+        <div className="flex items-center justify-center flex-wrap gap-2 w-full md:w-auto">
           {/* Status Filter (Only in Current Tab: All, Pending Due, Overpaid) */}
           {settlementViewTab === 'current' && (
-            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner overflow-x-auto w-full sm:w-auto">
+            <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
               {[
                 { id: 'all', title: t('filterAll') || 'همه پرسنل معوقه', icon: Users, count: statusCounts.all },
                 { id: 'pending', title: t('filterPending') || 'دارای معوقه (طلبکار)', icon: Coins, count: statusCounts.pending },
@@ -1307,6 +1299,59 @@ export function FinancialsView() {
               })}
             </div>
           )}
+
+          {/* Expandable Search Input / Button with smooth animation */}
+          <div className="relative flex items-center">
+            {!(isSearchOpen || searchTerm) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSearchOpen(true);
+                  setTimeout(() => searchInputRef.current?.focus(), 150);
+                }}
+                title={t('searchWorkerPlaceholder') || 'جستجو بر اساس نام یا مهارت...'}
+                aria-label={t('searchWorkerPlaceholder') || 'جستجو'}
+                className="w-11 h-11 flex items-center justify-center rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/70 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-700/80 shadow-inner transition-all duration-200"
+              >
+                <Search className="w-5 h-5 flex-shrink-0 transition-transform hover:scale-110" />
+              </button>
+            ) : (
+              <div className="relative flex items-center transition-all duration-300 ease-out w-48 sm:w-60">
+                <Search className="w-4 h-4 text-slate-400 absolute start-3 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onBlur={() => {
+                    if (!searchTerm.trim()) {
+                      setIsSearchOpen(false);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setSearchTerm('');
+                      setIsSearchOpen(false);
+                    }
+                  }}
+                  placeholder={t('searchWorkerPlaceholder')}
+                  className="w-full ps-9 pe-8 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-sky-400/50 dark:border-sky-500/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white shadow-xs transition-all"
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setSearchTerm('');
+                    setIsSearchOpen(false);
+                  }}
+                  title="بستن جستجو"
+                  className="absolute end-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
       </div>

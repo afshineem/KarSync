@@ -1,4 +1,4 @@
-import { pushWorkerLive, deleteWorkerLive } from '../services/realtimeSync';
+import { pushWorkerLive, deleteWorkerLive, pushGroupLive, deleteGroupLive } from '../services/realtimeSync';
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateId, DEFAULT_PROJECT_ID } from '../db/db';
@@ -1386,13 +1386,15 @@ function AddGroupModal({ onClose, targetProjectId }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    await db.groups.add({
+    const newGroup = {
       id: 'grp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
       projectId: targetProjectId,
       name: name.trim(),
       deductFoodExpense: deductFood,
       createdAt: new Date().toISOString()
-    });
+    };
+    await db.groups.add(newGroup);
+    pushGroupLive(newGroup).catch(console.error);
     onClose();
   };
 

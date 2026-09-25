@@ -1,10 +1,34 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../db/db';
-import { supabase } from '../services/realtimeSync';
+import { supabase, pushWorkerMetadataLive } from '../services/realtimeSync';
 
 const AUTH_SESSION_KEY = 'workshop_auth_session';
 const ADMIN_AUTH_KEY = 'workshop_admin_auth';
 const WORKER_CREDS_KEY = 'workshop_worker_credentials';
+
+export function normalizeDigits(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/[۰٠]/g, '0')
+    .replace(/[۱١]/g, '1')
+    .replace(/[۲٢]/g, '2')
+    .replace(/[۳٣]/g, '3')
+    .replace(/[۴٤]/g, '4')
+    .replace(/[۵٥]/g, '5')
+    .replace(/[۶٦]/g, '6')
+    .replace(/[۷٧]/g, '7')
+    .replace(/[۸٨]/g, '8')
+    .replace(/[۹٩]/g, '9');
+}
+
+export function normalizeUsername(str) {
+  if (!str) return '';
+  return normalizeDigits(str)
+    .trim()
+    .toLowerCase()
+    .replace(/ي/g, 'ی')
+    .replace(/ك/g, 'ک');
+}
 
 const AuthContext = createContext(null);
 
@@ -170,13 +194,19 @@ export function AuthProvider({ children }) {
 
     if (navigator.onLine) {
       try {
-        await supabase
-          .from('settings')
-          .upsert({
-            setting_key: 'app_worker_credentials',
-            setting_value: serialized,
-            updated_at: new Date().toISOString()
-          });
+        await Promise.all([
+          supabase
+            .from('settings')
+            .upsert({
+              setting_key: 'app_worker_credentials',
+              setting_value: serialized,
+              updated_at: new Date().toISOString()
+            }),
+          pushWorkerMetadataLive(workerId, {
+            username: username ? username.trim() : '',
+            password: password ? password.trim() : ''
+          })
+        ]);
       } catch (err) {
         console.warn('Worker creds cloud save warning:', err);
       }
@@ -251,10 +281,10 @@ export function AuthProvider({ children }) {
   // Unified Login Handler (Supabase Auth for Admins + Access PIN for Workers + Offline Admin fallback)
   const login = async (usernameOrEmailInput, passwordInput) => {
     const rawInput = (usernameOrEmailInput || '').trim();
-    const trimmedUser = rawInput.toLowerCase();
-    const rawPass = (passwordInput || '').trim();
+    const cleanUser = normalizeUsername(rawInput);
+    const cleanPass = normalizeDigits(passwordInput).trim();
 
-    if (!trimmedUser || !rawPass) {
+    if (!cleanUser || !cleanPass) {
       return { success: false, error: 'invalidCredentials' };
     }
 
@@ -262,8 +292,8 @@ export function AuthProvider({ children }) {
     if (rawInput.includes('@')) {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: trimmedUser,
-          password: rawPass
+          email: rawInput.toLowerCase(),
+          password: (passwordInput || '').trim()
         });
 
         if (error) {
@@ -282,12 +312,12 @@ export function AuthProvider({ children }) {
 
     // 2. Check local/offline Admin credentials
     const adminCreds = getAdminCredentials();
-    const adminUser = (adminCreds.username || 'admin').toLowerCase();
-    const adminPass = adminCreds.password || 'admin';
+    const adminUser = normalizeUsername(adminCreds.username || 'admin');
+    const adminPass = normalizeDigits(adminCreds.password || 'admin').trim();
 
     if (
-      (trimmedUser === adminUser || trimmedUser === 'afshin' || trimmedUser === 'admin') &&
-      rawPass === adminPass
+      (cleanUser === adminUser || cleanUser === 'afshin' || cleanUser === 'admin') &&
+      cleanPass === adminPass
     ) {
       const sessionUser = {
         role: 'admin',
@@ -304,30 +334,100 @@ export function AuthProvider({ children }) {
       return { success: true, role: 'admin', user: sessionUser };
     }
 
-    // 3. Check Workers credentials (Worker Access Code / PIN portal)
-    const workers = await db.workers.toArray();
-    const workerCredsMap = getWorkerCredentialsMap();
+    // 3. Check Workers credentials locally
+    let workers = await db.workers.toArray();
+    let workerCredsMap = getWorkerCredentialsMap();
 
-    for (const w of workers) {
-      if (w.isActive === 0) continue;
+    const findMatchingWorker = (workersList, creds) => {
+      for (const w of workersList) {
+        if (w.deletedAt) continue;
 
-      const customCreds = workerCredsMap[w.id] || {};
-      const expectedUser = (customCreds.username || w.username || w.phone || '').trim().toLowerCase();
-      const expectedPass = (customCreds.password || w.password || '').trim();
+        const customCreds = creds[w.id] || {};
+        const expectedUser = normalizeUsername(customCreds.username || w.username || w.phone || '');
+        const expectedPass = normalizeDigits(customCreds.password || w.password || '').trim();
 
-      if (expectedUser && expectedPass && trimmedUser === expectedUser && rawPass === expectedPass) {
-        const sessionUser = {
-          role: 'worker',
-          id: w.id,
-          workerId: w.id,
-          name: w.name,
-          username: expectedUser,
-          roleTitle: w.role
-        };
-        setUser(sessionUser);
-        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
-        return { success: true, role: 'worker', user: sessionUser };
+        if (expectedUser && expectedPass && cleanUser === expectedUser && cleanPass === expectedPass) {
+          return w;
+        }
       }
+      return null;
+    };
+
+    let matchedWorker = findMatchingWorker(workers, workerCredsMap);
+
+    // 4. Cloud Fallback for Workers (Critical for mobile/fresh browser when local Dexie is empty!)
+    if (!matchedWorker && navigator.onLine) {
+      try {
+        const [credsRes, metaRes, wRes] = await Promise.all([
+          supabase.from('settings').select('setting_value').eq('setting_key', 'app_worker_credentials').maybeSingle(),
+          supabase.from('settings').select('setting_value').eq('setting_key', 'app_worker_metadata').maybeSingle(),
+          supabase.from('workers').select('*').is('deleted_at', null)
+        ]);
+
+        let cloudCreds = {};
+        if (credsRes?.data?.setting_value) {
+          try { cloudCreds = JSON.parse(credsRes.data.setting_value) || {}; } catch (_) {}
+        }
+        let cloudMeta = {};
+        if (metaRes?.data?.setting_value) {
+          try { cloudMeta = JSON.parse(metaRes.data.setting_value) || {}; } catch (_) {}
+        }
+
+        const mergedCreds = { ...cloudCreds };
+        Object.entries(cloudMeta).forEach(([wId, m]) => {
+          if (m.username || m.password) {
+            mergedCreds[wId] = {
+              username: m.username || mergedCreds[wId]?.username || '',
+              password: m.password || mergedCreds[wId]?.password || ''
+            };
+          }
+        });
+
+        const cloudWorkersList = (wRes?.data || []).map(cw => {
+          const meta = cloudMeta[cw.id] || {};
+          const cred = mergedCreds[cw.id] || {};
+          return {
+            id: cw.id,
+            name: cw.name,
+            phone: cw.phone,
+            role: cw.role,
+            dailyRate: Number(cw.daily_rate) || 0,
+            overtimeHourlyRate: Number(cw.overtime_hourly_rate) || 0,
+            isActive: Number(cw.is_active) === 0 ? 0 : 1,
+            groupId: meta.groupId || null,
+            teamRole: meta.teamRole || 'Worker',
+            defaultSectionId: meta.defaultSectionId || null,
+            isArchived: !!meta.isArchived,
+            status: meta.status || 'active',
+            username: cred.username || meta.username || '',
+            password: cred.password || meta.password || '',
+            projectId: 'prj_default_main'
+          };
+        });
+
+        matchedWorker = findMatchingWorker(cloudWorkersList, mergedCreds);
+
+        if (matchedWorker) {
+          await db.workers.put(matchedWorker);
+          localStorage.setItem(WORKER_CREDS_KEY, JSON.stringify(mergedCreds));
+        }
+      } catch (cloudErr) {
+        console.warn('Cloud worker login check error:', cloudErr);
+      }
+    }
+
+    if (matchedWorker) {
+      const sessionUser = {
+        role: 'worker',
+        id: matchedWorker.id,
+        workerId: matchedWorker.id,
+        name: matchedWorker.name,
+        username: cleanUser,
+        roleTitle: matchedWorker.role
+      };
+      setUser(sessionUser);
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+      return { success: true, role: 'worker', user: sessionUser };
     }
 
     return { success: false, error: 'invalidCredentials' };
