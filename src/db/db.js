@@ -364,8 +364,57 @@ export const DEFAULT_EXPENSE_CATEGORIES_TREE = [
   }
 ];
 
+export async function deduplicateExpenseCategories(projectId = null) {
+  try {
+    const list = await db.expenseCategories.toArray();
+    const filtered = projectId 
+      ? list.filter(c => !c.projectId || c.projectId === projectId || projectId === DEFAULT_PROJECT_ID)
+      : list;
+
+    const seen = new Map();
+    const idsToDelete = [];
+    const idRemap = new Map();
+
+    for (const cat of filtered) {
+      const key = `${cat.projectId || 'main'}_${cat.level || 1}_${cat.parentId || 'root'}_${(cat.name || '').trim().toLowerCase()}`;
+      if (seen.has(key)) {
+        const kept = seen.get(key);
+        idsToDelete.push(cat.id);
+        idRemap.set(cat.id, kept.id);
+      } else {
+        seen.set(key, cat);
+      }
+    }
+
+    if (idsToDelete.length > 0) {
+      for (const cat of filtered) {
+        if (cat.parentId && idRemap.has(cat.parentId)) {
+          await db.expenseCategories.update(cat.id, { parentId: idRemap.get(cat.parentId) });
+        }
+      }
+
+      const allExpenses = await db.expenses.toArray();
+      for (const exp of allExpenses) {
+        if (exp.categoryId && idRemap.has(exp.categoryId)) {
+          await db.expenses.update(exp.id, { categoryId: idRemap.get(exp.categoryId) });
+        }
+      }
+
+      for (const id of idsToDelete) {
+        await db.expenseCategories.delete(id);
+      }
+      console.log(`🧹 Cleaned up ${idsToDelete.length} duplicate expense categories.`);
+      return idsToDelete.length;
+    }
+  } catch (err) {
+    console.warn('deduplicateExpenseCategories warning:', err);
+  }
+  return 0;
+}
+
 export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_ID, userId = 'default_user') {
   try {
+    await deduplicateExpenseCategories(projectId);
     const existingCount = await db.expenseCategories.where('projectId').equals(projectId).count();
     if (existingCount > 0) return;
 
@@ -373,7 +422,7 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
     const now = new Date().toISOString();
 
     DEFAULT_EXPENSE_CATEGORIES_TREE.forEach((mainGroup, mainIdx) => {
-      const mainId = `cat_l1_${projectId.slice(-6)}_${mainIdx + 1}_${Date.now().toString(36)}`;
+      const mainId = `cat_l1_${projectId.slice(-6)}_${mainIdx + 1}`;
       categoriesToAdd.push({
         id: mainId,
         projectId,
@@ -385,7 +434,7 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
       });
 
       mainGroup.subcategories.forEach((subGroup, subIdx) => {
-        const subId = `cat_l2_${projectId.slice(-6)}_${mainIdx + 1}_${subIdx + 1}_${Date.now().toString(36)}`;
+        const subId = `cat_l2_${projectId.slice(-6)}_${mainIdx + 1}_${subIdx + 1}`;
         categoriesToAdd.push({
           id: subId,
           projectId,
@@ -397,7 +446,7 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
         });
 
         subGroup.items.forEach((item, itemIdx) => {
-          const itemId = `cat_l3_${projectId.slice(-6)}_${mainIdx + 1}_${subIdx + 1}_${itemIdx + 1}_${Date.now().toString(36)}`;
+          const itemId = `cat_l3_${projectId.slice(-6)}_${mainIdx + 1}_${subIdx + 1}_${itemIdx + 1}`;
           categoriesToAdd.push({
             id: itemId,
             projectId,

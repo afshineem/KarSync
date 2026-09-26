@@ -21,13 +21,21 @@ import { OnboardingModal } from './components/OnboardingModal';
 import { NewProjectModal } from './components/NewProjectModal';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { WorkerProfileModal } from './components/WorkerProfileModal';
+import GlobalSettingsModal from './components/GlobalSettingsModal';
 import { performSyncUnified, getSyncConfig } from './services/syncService';
 import { initRealtimeSync, pushLogsLive, pushPaymentsLive } from './services/realtimeSync';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
-  const { profileWorkerId, closeWorkerProfile } = useProject();
+  const { 
+    profileWorkerId, 
+    closeWorkerProfile,
+    isGlobalSettingsOpen,
+    globalSettingsTab,
+    openGlobalSettings,
+    closeGlobalSettings
+  } = useProject();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
@@ -95,6 +103,106 @@ function AppContent() {
     // Start automatic Real-Time Supabase Sync
     initRealtimeSync();
   }, []);
+
+  // Desktop Global Keyboard Shortcuts
+  useEffect(() => {
+    if (!user || isWorker) return;
+
+    const handleKeyDown = (e) => {
+      // 1. Settings shortcut (Ctrl+, or Cmd+,) can work even when typing
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        openGlobalSettings('general');
+        return;
+      }
+
+      // Check if user is typing in an input/textarea
+      const target = e.target;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+
+      // 2. Shortcuts help (? or Shift+/)
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        if (!isInput) {
+          e.preventDefault();
+          openGlobalSettings('shortcuts');
+          return;
+        }
+      }
+
+      if (isInput) return;
+
+      // Ignore if other control modifiers are active (like Alt or Ctrl/Meta)
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      // Tab navigation numbers: 1 to 5 (without Shift)
+      if (!e.shiftKey) {
+        if (e.key === '1') {
+          e.preventDefault();
+          setActiveTab('dashboard');
+          return;
+        }
+        if (e.key === '2') {
+          e.preventDefault();
+          setActiveTab('workers');
+          return;
+        }
+        if (e.key === '3') {
+          e.preventDefault();
+          setActiveTab('calendar');
+          return;
+        }
+        if (e.key === '4') {
+          e.preventDefault();
+          setActiveTab('financials');
+          return;
+        }
+        if (e.key === '5') {
+          e.preventDefault();
+          setActiveTab('expenses');
+          return;
+        }
+      }
+
+      const keyUpper = e.key.toUpperCase();
+
+      // Quick Actions (supports both 'L' and 'Shift+L', 'E' and 'Shift+E', etc.)
+      if (keyUpper === 'L' || (e.shiftKey && (keyUpper === 'L' || e.code === 'KeyL'))) {
+        e.preventDefault();
+        handleOpenLoggingModal();
+        return;
+      }
+
+      if (keyUpper === 'E' || (e.shiftKey && (keyUpper === 'E' || e.code === 'KeyE'))) {
+        e.preventDefault();
+        setIsExpenseModalOpen(true);
+        return;
+      }
+
+      if (keyUpper === 'S' || (e.shiftKey && (keyUpper === 'S' || e.code === 'KeyS'))) {
+        e.preventDefault();
+        setIsSettlementModalOpen(true);
+        return;
+      }
+
+      if (keyUpper === 'W' || (e.shiftKey && (keyUpper === 'W' || e.code === 'KeyW'))) {
+        e.preventDefault();
+        setActiveTab('workers');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('karsync-open-new-worker'));
+        }, 60);
+        return;
+      }
+
+      if (keyUpper === 'P' || (e.shiftKey && (keyUpper === 'P' || e.code === 'KeyP'))) {
+        e.preventDefault();
+        openGlobalSettings('projects');
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [user, isWorker, openGlobalSettings]);
 
   // 1. If not authenticated, render Login Screen
   if (!user) {
@@ -199,8 +307,17 @@ function AppContent() {
       {/* New Project Modal */}
       <NewProjectModal />
 
-      {/* Project Settings Modal */}
+      {/* Legacy Project Settings Modal (Fallback) */}
       <ProjectSettingsModal />
+
+      {/* Master Global Settings Hub Modal */}
+      {isGlobalSettingsOpen && (
+        <GlobalSettingsModal
+          isOpen={isGlobalSettingsOpen}
+          initialTab={globalSettingsTab}
+          onClose={closeGlobalSettings}
+        />
+      )}
 
       {/* Database Backup & Restore Modal */}
       <BackupModal

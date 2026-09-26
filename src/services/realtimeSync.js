@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID } from '../db/db';
+import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID, deduplicateExpenseCategories } from '../db/db';
 import { getSyncConfig, saveSyncConfig, setLastSyncTime, getLastSyncTime } from './syncService';
 import { roundCurrency } from '../utils/formatters';
 
@@ -2968,8 +2968,19 @@ export async function pullExpenseCategoriesLive() {
     if (sData?.setting_value) {
       try {
         const categories = JSON.parse(sData.setting_value) || [];
-        for (const c of categories) {
-          await db.expenseCategories.put(c);
+        if (Array.isArray(categories)) {
+          const cloudIds = new Set(categories.map(c => c.id));
+          for (const c of categories) {
+            await db.expenseCategories.put(c);
+          }
+          if (categories.length > 0) {
+            const localCats = await db.expenseCategories.toArray();
+            for (const lc of localCats) {
+              if (!cloudIds.has(lc.id)) {
+                await db.expenseCategories.delete(lc.id);
+              }
+            }
+          }
         }
       } catch (_) {}
     }
@@ -2991,7 +3002,62 @@ export async function pullExpenseCategoriesLive() {
         }
       }
     } catch (_) {}
+
+    await deduplicateExpenseCategories();
   } catch (err) {
     console.warn('pullExpenseCategoriesLive warning:', err);
   }
 }
+
+/**
+ * Push an expense category to Dexie and Supabase
+ */
+export async function pushExpenseCategoryLive(cat) {
+  if (!cat) return;
+  await db.expenseCategories.put(cat);
+  if (!navigator.onLine) return;
+  try {
+    const list = await db.expenseCategories.toArray();
+    await supabase.from('settings').upsert({
+      setting_key: 'app_expense_categories',
+      setting_value: JSON.stringify(list),
+      updated_at: new Date().toISOString()
+    });
+    try {
+      await supabase.from('expense_categories').upsert({
+        id: cat.id,
+        project_id: cat.projectId,
+        user_id: cat.userId,
+        name: cat.name,
+        parent_id: cat.parentId || null,
+        level: cat.level || 1,
+        updated_at: new Date().toISOString()
+      });
+    } catch (_) {}
+  } catch (err) {
+    console.warn('pushExpenseCategoryLive warning:', err);
+  }
+}
+
+/**
+ * Delete an expense category from Dexie and Supabase
+ */
+export async function deleteExpenseCategoryLive(catId) {
+  if (!catId) return;
+  await db.expenseCategories.delete(catId);
+  if (!navigator.onLine) return;
+  try {
+    const list = await db.expenseCategories.toArray();
+    await supabase.from('settings').upsert({
+      setting_key: 'app_expense_categories',
+      setting_value: JSON.stringify(list),
+      updated_at: new Date().toISOString()
+    });
+    try {
+      await supabase.from('expense_categories').delete().eq('id', catId);
+    } catch (_) {}
+  } catch (err) {
+    console.warn('deleteExpenseCategoryLive warning:', err);
+  }
+}
+

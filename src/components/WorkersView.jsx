@@ -333,6 +333,15 @@ export function WorkersView() {
     setIsFormModalOpen(true);
   };
 
+  // Listen for global shortcut event to open new worker modal
+  useEffect(() => {
+    const handleAddWorkerEvent = () => {
+      handleOpenAddModal();
+    };
+    window.addEventListener('karsync-open-new-worker', handleAddWorkerEvent);
+    return () => window.removeEventListener('karsync-open-new-worker', handleAddWorkerEvent);
+  }, []);
+
   // Open modal to edit worker
   const handleOpenEditModal = (worker) => {
     setEditingWorker(worker);

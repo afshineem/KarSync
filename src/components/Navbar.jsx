@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { ProjectSwitcher } from './ProjectSwitcher';
 import { SettingsDropdown } from './SettingsDropdown';
 import { useProject } from '../context/ProjectContext';
@@ -22,8 +23,21 @@ export function Navbar({
   onOpenAboutModal 
 }) {
   const { t } = useLanguage();
-  const { openProjectSettings } = useProject();
+  const { user } = useAuth();
+  const { openProjectSettings, openGlobalSettings } = useProject();
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
+
+  // Global keyboard shortcut: Ctrl + , or Cmd + , to open settings
+  useEffect(() => {
+    const handleGlobalKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        if (openGlobalSettings) openGlobalSettings('general');
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, [openGlobalSettings]);
 
   const navItems = [
     { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
@@ -113,20 +127,32 @@ export function Navbar({
               {/* SaaS Multi-Project Switcher */}
               <ProjectSwitcher />
 
-              {/* Minimal Settings Trigger Button */}
+              {/* User Avatar & Settings Trigger Button */}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
-                  title={t('settings')}
-                  aria-label={t('settings')}
-                  className={`p-2 sm:p-2.5 rounded-2xl border transition-all shadow-xs flex items-center justify-center group hover:scale-105 active:scale-95 ${
+                  title={user?.name || t('settings')}
+                  aria-label={user?.name || t('settings')}
+                  className={`relative p-0.5 sm:p-1 rounded-2xl border transition-all shadow-xs flex items-center justify-center group hover:scale-105 active:scale-95 ${
                     isSettingsDropdownOpen
-                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent shadow-md'
-                      : 'bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white border-white/60 dark:border-white/10 backdrop-blur-md'
+                      ? 'ring-2 ring-sky-500 shadow-md border-transparent'
+                      : 'bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border-white/60 dark:border-white/10 backdrop-blur-md'
                   }`}
                 >
-                  <Settings className={`w-5 h-5 transition-all duration-300 ${isSettingsDropdownOpen ? 'rotate-90' : 'group-hover:rotate-45'}`} />
+                  {user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url ? (
+                    <img 
+                      src={user.avatar || user.photo || user.supabaseUser?.user_metadata?.avatar_url} 
+                      alt={user?.name || 'User'} 
+                      className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover shadow-xs border border-white/40 dark:border-white/10" 
+                    />
+                  ) : (
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-xs">
+                      {user?.name ? user.name.slice(0, 2).toUpperCase() : 'AZ'}
+                    </div>
+                  )}
+                  {/* Active Online / Synced indicator badge */}
+                  <span className="absolute -bottom-0.5 -end-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-2xs" />
                 </button>
 
                 {/* Sleek Minimal Settings Dropdown */}
@@ -135,6 +161,7 @@ export function Navbar({
                   onClose={() => setIsSettingsDropdownOpen(false)}
                   theme={theme}
                   toggleTheme={toggleTheme}
+                  onOpenGlobalSettings={openGlobalSettings}
                   onOpenBackupModal={onOpenBackupModal}
                   onOpenChangePasswordModal={onOpenChangePasswordModal}
                   onOpenAboutModal={onOpenAboutModal}

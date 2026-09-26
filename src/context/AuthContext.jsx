@@ -58,12 +58,15 @@ export function AuthProvider({ children }) {
         console.warn('Could not fetch profile:', error.message);
       }
 
+      const adminCreds = getAdminCredentials();
       const sessionUser = {
         role: 'admin',
         id: supabaseUser.id,
         userId: supabaseUser.id,
         email: supabaseUser.email,
-        name: profile?.full_name || supabaseUser.user_metadata?.full_name || supabaseUser.email.split('@')[0],
+        name: profile?.full_name || supabaseUser.user_metadata?.full_name || adminCreds.name || supabaseUser.email.split('@')[0],
+        avatar: profile?.avatar || adminCreds.avatar || supabaseUser.user_metadata?.avatar_url || '',
+        title: profile?.title || adminCreds.title || 'مدیر ارشد کارگاه',
         companyName: profile?.company_name || 'کارگاه من',
         defaultCurrency: profile?.default_currency || 'IQD',
         onboardingCompleted: profile?.onboarding_completed ?? false,
@@ -514,14 +517,15 @@ export function AuthProvider({ children }) {
   };
 
   // Update User Profile (Name, Avatar, Username)
-  const updateUserProfile = async ({ name, avatar, username }) => {
+  const updateUserProfile = async ({ name, avatar, username, title }) => {
     if (!user) return { success: false, error: 'noUser' };
 
     const updatedUser = {
       ...user,
       name: name !== undefined ? name.trim() : user.name,
       avatar: avatar !== undefined ? avatar : user.avatar,
-      username: username !== undefined ? username.trim() : user.username
+      username: username !== undefined ? username.trim() : user.username,
+      title: title !== undefined ? title.trim() : (user.title || 'مدیر ارشد کارگاه')
     };
 
     setUser(updatedUser);
@@ -534,6 +538,7 @@ export function AuthProvider({ children }) {
         ...adminCreds,
         name: updatedUser.name,
         avatar: updatedUser.avatar,
+        title: updatedUser.title,
         username: updatedUser.username || adminCreds.username
       };
       const serialized = JSON.stringify(updatedAdmin);
@@ -559,6 +564,7 @@ export function AuthProvider({ children }) {
           id: user.id,
           full_name: updatedUser.name,
           avatar_url: updatedUser.avatar,
+          title: updatedUser.title,
           updated_at: new Date().toISOString()
         });
       } catch (err) {

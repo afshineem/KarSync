@@ -22,6 +22,8 @@ export function ProjectProvider({ children }) {
 
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isProjectSettingsModalOpen, setIsProjectSettingsModalOpen] = useState(false);
+  const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
+  const [globalSettingsTab, setGlobalSettingsTab] = useState('general');
   const [editingProjectId, setEditingProjectId] = useState(null);
 
   const [dateFilter, setDateFilter] = useState({
@@ -37,9 +39,18 @@ export function ProjectProvider({ children }) {
     setProfileWorkerId(null);
   };
 
+  const openGlobalSettings = (tab = 'general', projectId = null) => {
+    if (projectId) setEditingProjectId(projectId);
+    setGlobalSettingsTab(tab);
+    setIsGlobalSettingsOpen(true);
+  };
+
+  const closeGlobalSettings = () => {
+    setIsGlobalSettingsOpen(false);
+  };
+
   const openProjectSettings = (projectId = null) => {
-    setEditingProjectId(projectId || activeProjectId || DEFAULT_PROJECT_ID);
-    setIsProjectSettingsModalOpen(true);
+    openGlobalSettings('projects', projectId);
   };
 
   // Live query all projects from Dexie
@@ -265,6 +276,12 @@ export function ProjectProvider({ children }) {
         setIsNewProjectModalOpen,
         isProjectSettingsModalOpen,
         setIsProjectSettingsModalOpen,
+        isGlobalSettingsOpen,
+        setIsGlobalSettingsOpen,
+        globalSettingsTab,
+        setGlobalSettingsTab,
+        openGlobalSettings,
+        closeGlobalSettings,
         editingProjectId,
         setEditingProjectId,
         openProjectSettings,
