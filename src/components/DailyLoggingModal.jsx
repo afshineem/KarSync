@@ -1085,22 +1085,21 @@ export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onO
       <div
         className={`fixed bottom-24 md:bottom-8 ${
           isRtl ? 'left-4 sm:left-8' : 'right-4 sm:right-8'
-        } z-40 no-print flex flex-col items-center gap-2.5`}
-        onMouseLeave={() => setIsOpen(false)}
+        } z-40 no-print flex flex-col items-center gap-2.5 pointer-events-none`}
       >
         {/* Speed-dial Pop-up Actions */}
         <div
           className={`flex flex-col gap-2.5 transition-all duration-200 origin-bottom ${
             isOpen
-              ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
-              : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
+              ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto visible'
+              : 'opacity-0 scale-75 translate-y-4 pointer-events-none invisible h-0 overflow-hidden'
           }`}
         >
           {/* Action 3: ثبت هزینه پروژه */}
           <button
             type="button"
             onClick={() => handleAction(onOpenExpense)}
-            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer"
+            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
             title={language === 'ku' ? 'تۆمارکردنی خەرجی کارگە' : 'ثبت هزینه جدید پروژه'}
           >
             <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-rose-300 dark:group-hover:border-rose-700 ${
@@ -1119,7 +1118,7 @@ export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onO
           <button
             type="button"
             onClick={() => handleAction(onOpenSettlement)}
-            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer"
+            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
             title={language === 'ku' ? 'تۆمارکردنی پاکتاوی حیساب' : 'ثبت تسویه حساب پرسنل / گروه'}
           >
             <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-emerald-300 dark:group-hover:border-emerald-700 ${
@@ -1138,7 +1137,7 @@ export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onO
           <button
             type="button"
             onClick={() => handleAction(onOpenDailyLogging || onClick)}
-            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer"
+            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
             title={language === 'ku' ? 'تۆمارکردنی ئامادەبوونی ڕۆژانە' : 'ثبت کارکرد روزانه پرسنل'}
           >
             <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-sky-300 dark:group-hover:border-sky-700 ${
@@ -1158,10 +1157,9 @@ export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onO
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          onMouseEnter={() => setIsOpen(true)}
           aria-label={language === 'ku' ? 'کرداری خێرا' : 'عملیات سریع'}
           title={language === 'ku' ? 'کرداری خێرا' : 'عملیات سریع (+)'}
-          className={`group relative flex items-center justify-center text-white w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer ${
+          className={`group relative flex items-center justify-center text-white w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer pointer-events-auto ${
             isOpen
               ? 'bg-gradient-to-tr from-slate-800 to-slate-700 dark:from-slate-700 dark:to-slate-600 shadow-slate-900/40 ring-4 ring-slate-400/20'
               : 'bg-gradient-to-tr from-sky-600 via-sky-500 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 shadow-sky-600/35 ring-4 ring-sky-500/25'

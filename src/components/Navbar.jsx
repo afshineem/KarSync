@@ -30,7 +30,7 @@ export function Navbar({
     { id: 'workers', label: t('workers') || 'کرێکاران', icon: Users },
     { id: 'calendar', label: t('calendarLogs') || 'تەقویم', icon: CalendarDays },
     { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards },
-    { id: 'expenses', label: 'هزینه‌ها', icon: Receipt },
+    { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt },
   ];
 
   return (

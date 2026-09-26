@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, generateProjectId, ensureDefaultProjectExists, DEFAULT_PROJECT_ID } from '../db/db';
+import { db, generateProjectId, ensureDefaultProjectExists, seedDefaultExpenseCategories, DEFAULT_PROJECT_ID } from '../db/db';
 import { supabase, pullProjectsLive, pushProjectLive, deleteProjectLive } from '../services/realtimeSync';
 import { useAuth } from './AuthContext';
 
@@ -59,13 +59,16 @@ export function ProjectProvider({ children }) {
     async function initProjects() {
       try {
         await ensureDefaultProjectExists(userId);
+        if (activeProjectId) {
+          await seedDefaultExpenseCategories(activeProjectId, userId);
+        }
       } catch (err) {
         console.warn('Init projects warning:', err);
       }
     }
     initProjects();
     return () => { isMounted = false; };
-  }, [userId]);
+  }, [userId, activeProjectId]);
 
   // Pull initial projects on startup once
   useEffect(() => {

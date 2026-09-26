@@ -112,6 +112,30 @@ export function clearPendingSectionDeletion(sectionId) {
   localStorage.setItem(PENDING_DELETED_SECTIONS_KEY, JSON.stringify(list));
 }
 
+const PENDING_DELETED_EXPENSES_KEY = 'workshop_pending_deleted_expenses';
+
+export function getPendingDeletedExpenses() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_DELETED_EXPENSES_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingExpenseDeletion(expenseId) {
+  if (!expenseId) return;
+  const list = getPendingDeletedExpenses();
+  if (!list.includes(expenseId)) {
+    list.push(expenseId);
+    localStorage.setItem(PENDING_DELETED_EXPENSES_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingExpenseDeletion(expenseId) {
+  const list = getPendingDeletedExpenses().filter(id => id !== expenseId);
+  localStorage.setItem(PENDING_DELETED_EXPENSES_KEY, JSON.stringify(list));
+}
+
 export function getPendingDeletedWorkers() {
   try {
     return JSON.parse(localStorage.getItem(PENDING_DELETED_WORKERS_KEY) || '[]');
@@ -261,6 +285,16 @@ export async function flushPendingDeletions() {
       console.warn('Flush group deletion warning:', groupId, err);
     }
   }
+
+  // Flush pending deleted expenses
+  const pendingExpenses = getPendingDeletedExpenses();
+  for (const expId of pendingExpenses) {
+    try {
+      await deleteExpenseLive(expId);
+    } catch (err) {
+      console.warn('Flush expense deletion warning:', expId, err);
+    }
+  }
 }
 
 /**
@@ -363,6 +397,8 @@ export async function autoInitialSync() {
   await pullPaymentsLive(true);
   await pullProjectsLive(true);
   await pullProjectSectionsLive(true);
+  await pullExpensesLive(true);
+  await pullExpenseCategoriesLive(true);
 
   // Auto-detect and push any local workers missing in cloud (Mohammad, Mostafa, etc.)
   const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
@@ -375,6 +411,7 @@ export async function autoInitialSync() {
   }
   await pushAllGroupsToCloud();
   await syncAllWorkerMetadataToCloud();
+  await pushAllExpensesToCloud();
 }
 
 /**
@@ -805,6 +842,8 @@ function subscribeToRealtime() {
       } else if (syncType === 'workers') {
         await pullWorkerProjectsLive(true);
         await pullWorkerMetadataLive(true);
+      } else if (syncType === 'expenses') {
+        await pullExpensesLive(true);
       } else {
         await pullProjectsLive(true);
         await pullProjectSectionsLive(true);
@@ -812,6 +851,7 @@ function subscribeToRealtime() {
         await pullWorkerProjectsLive(true);
         await pullGroupsLive(true);
         await pullWorkerMetadataLive(true);
+        await pullExpensesLive(true);
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
@@ -822,6 +862,7 @@ function subscribeToRealtime() {
       await pullWorkerProjectsLive(true);
       await pullGroupsLive(true);
       await pullWorkerMetadataLive(true);
+      await pullExpensesLive(true);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
       console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
@@ -866,6 +907,57 @@ function subscribeToRealtime() {
           createdAt: s.created_at || s.createdAt,
           updatedAt: s.updated_at || s.updatedAt
         });
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_categories' }, async (payload) => {
+      console.log('⚡ Realtime Expense Category Change received:', payload.eventType, payload);
+      if (payload.eventType === 'DELETE') {
+        const idToDelete = payload.old?.id;
+        if (idToDelete) await db.expenseCategories.delete(idToDelete);
+      } else if (payload.new) {
+        const c = payload.new;
+        await db.expenseCategories.put({
+          id: c.id,
+          projectId: c.project_id,
+          userId: c.user_id,
+          name: c.name,
+          parentId: c.parent_id,
+          level: Number(c.level) || 1,
+          createdAt: c.created_at,
+          updatedAt: c.updated_at
+        });
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, async (payload) => {
+      console.log('⚡ Realtime Expense Change received:', payload.eventType, payload);
+      if (payload.eventType === 'DELETE') {
+        const idToDelete = payload.old?.id;
+        if (idToDelete) await db.expenses.delete(idToDelete);
+      } else if (payload.new) {
+        const exp = payload.new;
+        if (exp.deleted_at) {
+          await db.expenses.delete(exp.id);
+        } else {
+          await db.expenses.put({
+            id: exp.id,
+            projectId: exp.project_id,
+            userId: exp.user_id,
+            sectionId: exp.section_id,
+            categoryId: exp.category_id,
+            personId: exp.person_id,
+            personName: exp.person_name,
+            title: exp.title,
+            amount: Number(exp.amount) || 0,
+            currency: exp.currency || 'IQD',
+            paymentStatus: exp.payment_status || 'paid',
+            paymentMethod: exp.payment_method || 'cash',
+            receiptUrl: exp.receipt_url,
+            description: exp.description,
+            expenseDate: exp.expense_date,
+            createdAt: exp.created_at,
+            updatedAt: exp.updated_at
+          });
+        }
       }
     })
     .subscribe((status) => {
@@ -1936,6 +2028,7 @@ export async function pullRemoteChangesSilently(force = false) {
     await pullPaymentsLive();
     await pullProjectsLive();
     await pullProjectSectionsLive();
+    await pullExpensesLive();
   } catch (err) {
     console.warn('pullRemoteChangesSilently warning:', err);
   } finally {
@@ -2314,8 +2407,591 @@ export async function fullSyncBothDirections() {
   await pullPaymentsLive();
   await pullProjectsLive();
   await pullProjectSectionsLive();
+  await pullExpensesLive();
   await pushAllLocalToCloud();
   await pushAllGroupsToCloud();
   await syncAllWorkerMetadataToCloud();
   await pushPaymentsLive();
+}
+
+/**
+ * Upload receipt image to Supabase Storage bucket 'expense-receipts'
+ * Falls back safely to Base64 data URL if offline or storage issue
+ */
+export async function uploadExpenseReceipt(file) {
+  if (!file) return null;
+  const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${file.name?.split('.').pop() || 'jpg'}`;
+
+  // If online, attempt upload to Supabase Storage bucket 'expense-receipts'
+  if (navigator.onLine) {
+    try {
+      const { data, error } = await supabase.storage
+        .from('expense-receipts')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (!error && data?.path) {
+        const { data: publicUrlData } = supabase.storage
+          .from('expense-receipts')
+          .getPublicUrl(data.path);
+        if (publicUrlData?.publicUrl) {
+          return publicUrlData.publicUrl;
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase storage upload failed, falling back to base64:', err);
+    }
+  }
+
+  // Fallback to base64 Data URL (ensures image is NEVER lost offline)
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+let isPullingExpenses = false;
+let lastExpensesPullTime = 0;
+
+/**
+ * Pull all expenses from Supabase with safe merge and deletion reconciliation
+ */
+export async function pullExpensesLive(force = false) {
+  if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingExpenses) return;
+  if (!force && now - lastExpensesPullTime < 2000) return;
+  isPullingExpenses = true;
+  lastExpensesPullTime = now;
+
+  try {
+    let cloudExpenses = [];
+
+    // Layer A: Universal sync via Supabase 'settings' key 'app_expenses'
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_expenses')
+      .maybeSingle();
+
+    if (!sErr && sData?.setting_value) {
+      try {
+        cloudExpenses = JSON.parse(sData.setting_value) || [];
+      } catch (_) {}
+    }
+
+    // Layer B: Also check 'expenses' table if schema exists
+    try {
+      const { data: tblData, error: tblErr } = await supabase
+        .from('expenses')
+        .select('*');
+
+      if (!tblErr && Array.isArray(tblData) && tblData.length > 0) {
+        const cloudMap = new Map();
+        for (const ce of cloudExpenses) cloudMap.set(ce.id, ce);
+        for (const te of tblData) {
+          cloudMap.set(te.id, {
+            id: te.id,
+            projectId: te.project_id,
+            userId: te.user_id,
+            sectionId: te.section_id,
+            categoryId: te.category_id,
+            personId: te.person_id,
+            personName: te.person_name,
+            title: te.title,
+            amount: Number(te.amount) || 0,
+            currency: te.currency || 'IQD',
+            paymentStatus: te.payment_status || 'paid',
+            paymentMethod: te.payment_method || 'cash',
+            receiptUrl: te.receipt_url,
+            description: te.description,
+            expenseDate: te.expense_date,
+            deletedAt: te.deleted_at || null,
+            isArchived: Boolean(te.is_archived),
+            archivedAt: te.archived_at || null,
+            createdAt: te.created_at,
+            updatedAt: te.updated_at
+          });
+        }
+        cloudExpenses = Array.from(cloudMap.values());
+      }
+    } catch (_) {}
+
+    if (Array.isArray(cloudExpenses)) {
+      const pendingDeleted = new Set(getPendingDeletedExpenses());
+      const validCloudExpenses = cloudExpenses.filter(e => !pendingDeleted.has(e.id));
+      const validCloudIds = new Set(validCloudExpenses.map(e => e.id));
+
+      await db.transaction('rw', db.expenses, async () => {
+        for (const e of validCloudExpenses) {
+          const localE = await db.expenses.get(e.id);
+          if (localE && localE.updatedAt && (e.updatedAt || e.updated_at)) {
+            const localTime = new Date(localE.updatedAt).getTime();
+            const cloudTime = new Date(e.updatedAt || e.updated_at).getTime();
+            if (localTime > cloudTime) {
+              continue;
+            }
+          }
+
+          await db.expenses.put({
+            ...(localE || {}),
+            ...e,
+            id: e.id,
+            projectId: e.projectId || e.project_id,
+            sectionId: e.sectionId || e.section_id || null,
+            categoryId: e.categoryId || e.category_id || null,
+            personId: e.personId || e.person_id || null,
+            personName: e.personName || e.person_name || '',
+            title: e.title,
+            amount: Number(e.amount) || 0,
+            currency: e.currency || 'IQD',
+            paymentStatus: e.paymentStatus || e.payment_status || 'paid',
+            paymentMethod: e.paymentMethod || e.payment_method || 'cash',
+            receiptUrl: e.receiptUrl || e.receipt_url || null,
+            description: e.description || '',
+            expenseDate: e.expenseDate || e.expense_date || new Date().toISOString().slice(0, 10),
+            deletedAt: e.deletedAt || e.deleted_at || null,
+            isArchived: Boolean(e.isArchived || e.is_archived),
+            archivedAt: e.archivedAt || e.archived_at || null,
+            createdAt: e.createdAt || e.created_at || new Date().toISOString(),
+            updatedAt: e.updatedAt || e.updated_at || new Date().toISOString()
+          });
+        }
+
+        // Reconcile deleted expenses
+        if (validCloudExpenses.length > 0 || (sData?.setting_value && cloudExpenses.length === 0)) {
+          const localList = await db.expenses.toArray();
+          for (const le of localList) {
+            if (!validCloudIds.has(le.id) && !pendingDeleted.has(le.id)) {
+              const isRecent = le.createdAt && (Date.now() - new Date(le.createdAt).getTime() < 10000);
+              if (!isRecent) {
+                await db.expenses.delete(le.id);
+              }
+            }
+          }
+        }
+      });
+
+      window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+    }
+  } catch (err) {
+    console.warn('pullExpensesLive warning:', err);
+  } finally {
+    isPullingExpenses = false;
+  }
+}
+
+/**
+ * Push an expense record to Supabase (Universal + Table)
+ */
+export async function pushExpenseLive(expense) {
+  if (!expense) return;
+  await db.expenses.put(expense);
+
+  if (!navigator.onLine) return;
+  try {
+    const localExpenses = await db.expenses.toArray();
+    const pendingDeleted = new Set(getPendingDeletedExpenses());
+    const filteredLocal = localExpenses.filter(e => !pendingDeleted.has(e.id));
+
+    // Layer A: Update Supabase 'settings' key 'app_expenses'
+    const { data: sData } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_expenses')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (sData?.setting_value) {
+      try {
+        const cloudExpenses = JSON.parse(sData.setting_value) || [];
+        for (const ce of cloudExpenses) {
+          if (!pendingDeleted.has(ce.id)) {
+            mergedMap.set(ce.id, ce);
+          }
+        }
+      } catch (_) {}
+    }
+
+    for (const le of filteredLocal) {
+      const existing = mergedMap.get(le.id);
+      if (!existing || !existing.updatedAt || !le.updatedAt || new Date(le.updatedAt) >= new Date(existing.updatedAt)) {
+        mergedMap.set(le.id, le);
+      }
+    }
+
+    if (expense && !pendingDeleted.has(expense.id)) {
+      mergedMap.set(expense.id, expense);
+    }
+
+    const mergedList = Array.from(mergedMap.values());
+    await supabase.from('settings').upsert({
+      setting_key: 'app_expenses',
+      setting_value: JSON.stringify(mergedList),
+      updated_at: new Date().toISOString()
+    });
+
+    // Layer B: Also attempt upsert to 'expenses' table if available
+    try {
+      const payload = {
+        id: expense.id,
+        project_id: expense.projectId,
+        user_id: expense.userId || (await supabase.auth.getUser()).data.user?.id || null,
+        section_id: expense.sectionId || null,
+        category_id: expense.categoryId || null,
+        person_id: expense.personId || null,
+        person_name: expense.personName || null,
+        title: expense.title,
+        amount: Number(expense.amount) || 0,
+        currency: expense.currency || 'IQD',
+        payment_status: expense.paymentStatus || 'paid',
+        payment_method: expense.paymentMethod || 'cash',
+        receipt_url: expense.receiptUrl || null,
+        description: expense.description || null,
+        deleted_at: expense.deletedAt || null,
+        is_archived: Boolean(expense.isArchived),
+        archived_at: expense.archivedAt || null,
+        expense_date: expense.expenseDate || new Date().toISOString().slice(0, 10),
+        updated_at: new Date().toISOString()
+      };
+      await supabase.from('expenses').upsert(payload);
+    } catch (_) {}
+
+    // Broadcast instant sync notification to all active clients (PC & Mobile)
+    await broadcastSyncEvent('expenses', { id: expense.id });
+    window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+  } catch (err) {
+    console.warn('pushExpenseLive warning:', err);
+  }
+}
+
+/**
+ * Soft delete an expense record (Move to Trash)
+ */
+export async function softDeleteExpenseLive(expenseId) {
+  if (!expenseId) return;
+  const now = new Date().toISOString();
+  try {
+    await db.expenses.update(expenseId, { deletedAt: now, updatedAt: now });
+
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+      return;
+    }
+
+    // Layer A: Update in 'settings' app_expenses
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_expenses')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        const expenses = JSON.parse(data.setting_value) || [];
+        const updated = expenses.map(e => e.id === expenseId ? { ...e, deletedAt: now, updatedAt: now } : e);
+        await supabase.from('settings').upsert({
+          setting_key: 'app_expenses',
+          setting_value: JSON.stringify(updated),
+          updated_at: now
+        });
+      } catch (_) {}
+    }
+
+    // Layer B: Also update 'expenses' table if available
+    try {
+      await supabase
+        .from('expenses')
+        .update({ deleted_at: now, updated_at: now })
+        .eq('id', expenseId);
+    } catch (_) {}
+
+    await broadcastSyncEvent('expenses', { id: expenseId, softDeleted: true });
+    window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+  } catch (err) {
+    console.warn('softDeleteExpenseLive warning:', err);
+  }
+}
+
+/**
+ * Restore an expense record from Trash back to active list
+ */
+export async function restoreExpenseLive(expenseId) {
+  if (!expenseId) return;
+  const now = new Date().toISOString();
+  try {
+    await db.expenses.update(expenseId, { deletedAt: null, updatedAt: now });
+    clearPendingExpenseDeletion(expenseId);
+
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+      return;
+    }
+
+    // Layer A: Update in 'settings' app_expenses
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_expenses')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        const expenses = JSON.parse(data.setting_value) || [];
+        const updated = expenses.map(e => e.id === expenseId ? { ...e, deletedAt: null, updatedAt: now } : e);
+        await supabase.from('settings').upsert({
+          setting_key: 'app_expenses',
+          setting_value: JSON.stringify(updated),
+          updated_at: now
+        });
+      } catch (_) {}
+    }
+
+    // Layer B: Also update 'expenses' table if available
+    try {
+      await supabase
+        .from('expenses')
+        .update({ deleted_at: null, updated_at: now })
+        .eq('id', expenseId);
+    } catch (_) {}
+
+    await broadcastSyncEvent('expenses', { id: expenseId, restored: true });
+    window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+  } catch (err) {
+    console.warn('restoreExpenseLive warning:', err);
+  }
+}
+
+/**
+ * Archive or Unarchive an expense record
+ */
+export async function archiveExpenseLive(expenseId, isArchived = true) {
+  if (!expenseId) return;
+  const now = new Date().toISOString();
+  try {
+    await db.expenses.update(expenseId, {
+      isArchived: Boolean(isArchived),
+      archivedAt: isArchived ? now : null,
+      updatedAt: now
+    });
+
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+      return;
+    }
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_expenses')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        const expenses = JSON.parse(data.setting_value) || [];
+        const updated = expenses.map(e => e.id === expenseId ? {
+          ...e,
+          isArchived: Boolean(isArchived),
+          archivedAt: isArchived ? now : null,
+          updatedAt: now
+        } : e);
+        await supabase.from('settings').upsert({
+          setting_key: 'app_expenses',
+          setting_value: JSON.stringify(updated),
+          updated_at: now
+        });
+      } catch (_) {}
+    }
+
+    try {
+      await supabase
+        .from('expenses')
+        .update({
+          is_archived: Boolean(isArchived),
+          archived_at: isArchived ? now : null,
+          updated_at: now
+        })
+        .eq('id', expenseId);
+    } catch (_) {}
+
+    await broadcastSyncEvent('expenses', { id: expenseId, isArchived });
+    window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+  } catch (err) {
+    console.warn('archiveExpenseLive warning:', err);
+  }
+}
+
+/**
+ * Permanently delete an expense record from Dexie and Cloud
+ */
+export async function permanentDeleteExpenseLive(expenseId) {
+  if (!expenseId) return;
+  try {
+    recordPendingExpenseDeletion(expenseId);
+    await db.expenses.delete(expenseId);
+
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+      return;
+    }
+
+    // Layer A: Remove from 'settings' app_expenses
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_expenses')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        const expenses = JSON.parse(data.setting_value) || [];
+        const filtered = expenses.filter(e => e.id !== expenseId);
+        await supabase.from('settings').upsert({
+          setting_key: 'app_expenses',
+          setting_value: JSON.stringify(filtered),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    // Layer B: Also delete from 'expenses' table if available
+    try {
+      await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', expenseId);
+    } catch (_) {}
+
+    clearPendingExpenseDeletion(expenseId);
+    await broadcastSyncEvent('expenses', { id: expenseId, permanentDeleted: true });
+    window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+  } catch (err) {
+    console.warn('permanentDeleteExpenseLive warning:', err);
+  }
+}
+
+/**
+ * Empty all deleted expenses from Recycle Bin for a project
+ */
+export async function emptyExpensesTrashLive(projectId) {
+  try {
+    const list = await db.expenses.toArray();
+    const trashList = list.filter(e => e.deletedAt && (!projectId || e.projectId === projectId || projectId === 'prj_default_main'));
+    for (const exp of trashList) {
+      await permanentDeleteExpenseLive(exp.id);
+    }
+  } catch (err) {
+    console.warn('emptyExpensesTrashLive warning:', err);
+  }
+}
+
+/**
+ * Batch restore multiple expenses from Recycle Bin
+ */
+export async function restoreAllExpensesLive(expenseIds = []) {
+  try {
+    for (const id of expenseIds) {
+      await restoreExpenseLive(id);
+    }
+  } catch (err) {
+    console.warn('restoreAllExpensesLive warning:', err);
+  }
+}
+
+/**
+ * Default deleteExpenseLive now uses soft delete (Trash Bin)
+ */
+export async function deleteExpenseLive(expenseId) {
+  return await softDeleteExpenseLive(expenseId);
+}
+
+/**
+ * Push all local expenses to Supabase
+ */
+export async function pushAllExpensesToCloud() {
+  if (!navigator.onLine) return;
+  try {
+    const localExpenses = await db.expenses.toArray();
+    if (!localExpenses || localExpenses.length === 0) return;
+
+    const pendingDeleted = new Set(getPendingDeletedExpenses());
+    const filteredLocal = localExpenses.filter(e => !pendingDeleted.has(e.id));
+    if (filteredLocal.length === 0) return;
+
+    const { data: sData } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_expenses')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (sData?.setting_value) {
+      try {
+        const cloudExpenses = JSON.parse(sData.setting_value) || [];
+        for (const ce of cloudExpenses) {
+          if (!pendingDeleted.has(ce.id)) mergedMap.set(ce.id, ce);
+        }
+      } catch (_) {}
+    }
+
+    for (const le of filteredLocal) {
+      mergedMap.set(le.id, le);
+    }
+
+    const mergedList = Array.from(mergedMap.values());
+    await supabase.from('settings').upsert({
+      setting_key: 'app_expenses',
+      setting_value: JSON.stringify(mergedList),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('pushAllExpensesToCloud warning:', err);
+  }
+}
+
+/**
+ * Pull expense categories from Supabase
+ */
+export async function pullExpenseCategoriesLive() {
+  if (!navigator.onLine) return;
+  try {
+    const { data: sData } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_expense_categories')
+      .maybeSingle();
+
+    if (sData?.setting_value) {
+      try {
+        const categories = JSON.parse(sData.setting_value) || [];
+        for (const c of categories) {
+          await db.expenseCategories.put(c);
+        }
+      } catch (_) {}
+    }
+
+    try {
+      const { data: tblData } = await supabase.from('expense_categories').select('*');
+      if (Array.isArray(tblData) && tblData.length > 0) {
+        for (const c of tblData) {
+          await db.expenseCategories.put({
+            id: c.id,
+            projectId: c.project_id,
+            userId: c.user_id,
+            name: c.name,
+            parentId: c.parent_id,
+            level: Number(c.level) || 1,
+            createdAt: c.created_at,
+            updatedAt: c.updated_at
+          });
+        }
+      }
+    } catch (_) {}
+  } catch (err) {
+    console.warn('pullExpenseCategoriesLive warning:', err);
+  }
 }

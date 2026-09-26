@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { EditRecordModal } from './EditRecordModal';
 import { UserProfileModal } from './UserProfileModal';
 import { useProject } from '../context/ProjectContext';
+import { pullExpensesLive } from '../services/realtimeSync';
 import { 
   formatCurrency, 
   formatAmount, 
@@ -132,17 +133,42 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     [targetProjectId]
   ) || [];
 
-  // Live query for project expenses
+  // Live query for project expenses (reading modern db.expenses and fallback db.projectExpenses)
   const projectExpenses = useLiveQuery(
     async () => {
-      const list = await db.projectExpenses.toArray();
-      return list.filter((e) => !targetProjectId || (e.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      const [listA, listB] = await Promise.all([
+        db.expenses.toArray(),
+        db.projectExpenses.toArray()
+      ]);
+      const combinedMap = new Map();
+      listB.forEach((e) => {
+        combinedMap.set(e.id, {
+          ...e,
+          expenseDate: e.date || e.expenseDate || e.createdAt?.slice(0, 10),
+          title: e.title || e.category || 'هزینه عمومی'
+        });
+      });
+      listA.forEach((e) => {
+        combinedMap.set(e.id, {
+          ...e,
+          date: e.expenseDate || e.date,
+          expenseDate: e.expenseDate || e.date || e.createdAt?.slice(0, 10)
+        });
+      });
+      const list = Array.from(combinedMap.values());
+      return list.filter((e) => 
+        !e.deletedAt && 
+        (!targetProjectId || (e.projectId || DEFAULT_PROJECT_ID) === targetProjectId || targetProjectId === DEFAULT_PROJECT_ID)
+      );
     },
     [targetProjectId]
   ) || [];
 
   const monthlyExpenses = useMemo(() => {
-    return projectExpenses.filter((e) => e.date && e.date.startsWith(selectedMonth));
+    return projectExpenses.filter((e) => {
+      const d = e.expenseDate || e.date || e.createdAt?.slice(0, 10) || '';
+      return d.startsWith(selectedMonth);
+    });
   }, [projectExpenses, selectedMonth]);
 
   const monthlyExpensesTotal = useMemo(() => {
@@ -150,8 +176,26 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   }, [monthlyExpenses]);
 
   const recentExpenses = useMemo(() => {
-    return [...projectExpenses].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 4);
+    return [...projectExpenses].sort((a, b) => {
+      const dateA = a.expenseDate || a.date || a.createdAt || '';
+      const dateB = b.expenseDate || b.date || b.createdAt || '';
+      return dateB.localeCompare(dateA);
+    }).slice(0, 5);
   }, [projectExpenses]);
+
+  // Pull latest cloud expenses when dashboard mounts or project changes
+  useEffect(() => {
+    pullExpensesLive().catch(() => {});
+    const onSync = () => {
+      pullExpensesLive().catch(() => {});
+    };
+    window.addEventListener('workshop-expenses-sync', onSync);
+    window.addEventListener('focus', onSync);
+    return () => {
+      window.removeEventListener('workshop-expenses-sync', onSync);
+      window.removeEventListener('focus', onSync);
+    };
+  }, [targetProjectId]);
 
   // Live ticking Clock & Date
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
@@ -873,7 +917,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                         {formatAmount(exp.amount, currency)} <span className="text-[10px] font-normal text-slate-400">{getCurrencySymbol(currency, language)}</span>
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono">
-                        {exp.date?.slice(5) || ''}
+                        {(exp.expenseDate || exp.date || '').slice(5)}
                       </span>
                     </div>
                   </div>
