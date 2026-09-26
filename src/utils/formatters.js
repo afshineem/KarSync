@@ -287,3 +287,219 @@ export function formatTileHours(decimalHours, isHourly = false, lang = 'fa') {
   const minStr = String(minutes).padStart(2, '0');
   return `${prefix}${hours}:${minStr}`;
 }
+
+/**
+ * Common regional timezones list with Persian, Kurdish, and English labels
+ */
+export const TIMEZONE_OPTIONS = [
+  {
+    id: 'auto',
+    name: { fa: 'تشخیص خودکار دستگاه (سیستم)', ku: 'خۆکار بەپێی ئامێر', en: 'Automatic (Device System)' },
+    sub: 'Device Timezone'
+  },
+  {
+    id: 'Asia/Tehran',
+    name: { fa: 'تهران - ایران (UTC+3:30)', ku: 'تاران - ئێران (UTC+3:30)', en: 'Tehran - Iran (UTC+3:30)' },
+    sub: 'IRST / IRDT'
+  },
+  {
+    id: 'Asia/Baghdad',
+    name: { fa: 'بغداد - عراق (UTC+3:00)', ku: 'بەغدا - عێراق (UTC+3:00)', en: 'Baghdad - Iraq (UTC+3:00)' },
+    sub: 'AST'
+  },
+  {
+    id: 'Asia/Erbil',
+    name: { fa: 'اربیل / هه‌ولێر - اقلیم کردستان (UTC+3:00)', ku: 'هەولێر - هەرێمی کوردستان (UTC+3:00)', en: 'Erbil - Kurdistan (UTC+3:00)' },
+    sub: 'Kurdistan Standard Time'
+  },
+  {
+    id: 'Asia/Dubai',
+    name: { fa: 'دبی - امارات (UTC+4:00)', ku: 'دوبەی - ئیمارات (UTC+4:00)', en: 'Dubai - UAE (UTC+4:00)' },
+    sub: 'GST'
+  },
+  {
+    id: 'Asia/Istanbul',
+    name: { fa: 'استانبول - ترکیه (UTC+3:00)', ku: 'ئیستەنبوڵ - تورکیا (UTC+3:00)', en: 'Istanbul - Turkey (UTC+3:00)' },
+    sub: 'TRT'
+  },
+  {
+    id: 'UTC',
+    name: { fa: 'ساعت هماهنگ جهانی (UTC / گرینویچ)', ku: 'کاتی گەردوونی (UTC)', en: 'Universal Coordinated Time (UTC)' },
+    sub: 'GMT / UTC'
+  }
+];
+
+/**
+ * Calendar system options
+ */
+export const CALENDAR_OPTIONS = [
+  {
+    id: 'auto',
+    name: { fa: 'خودکار (هماهنگ با زبان و سیستم)', ku: 'خۆکار بەپێی زمان و ئامێر', en: 'Automatic (System & Language)' },
+    sub: 'fa -> شمسی | ku/en -> میلادی'
+  },
+  {
+    id: 'jalali',
+    name: { fa: 'تقویم شمسی (خورشیدی)', ku: 'تەقویمی کۆچی هەتاوی (کوردی / ئێرانی)', en: 'Solar Hijri (Jalali)' },
+    sub: 'فروردین تا اسفند (Jalali)'
+  },
+  {
+    id: 'gregorian',
+    name: { fa: 'تقویم میلادی (گریگوری)', ku: 'تەقویمی زاینی (گریگۆری)', en: 'Gregorian Calendar' },
+    sub: 'January - December'
+  }
+];
+
+/**
+ * Number Digits formatting options
+ */
+export const NUMBER_FORMAT_OPTIONS = [
+  {
+    id: 'latin',
+    name: { fa: 'انگلیسی / لاتین (0, 1, 2, 3)', ku: 'ئینگلیزی / لاتینی (0, 1, 2, 3)', en: 'English / Latin (0, 1, 2, 3)' },
+    sub: '123,456'
+  },
+  {
+    id: 'fa',
+    name: { fa: 'فارسی (۰، ۱، ۲، ۳)', ku: 'فارسی (۰، ۱، ۲، ۳)', en: 'Persian (۰, ۱, ۲, ۳)' },
+    sub: '۱۲۳,۴۵۶'
+  },
+  {
+    id: 'ar',
+    name: { fa: 'عربی / شرقی (٠، ١، ٢، ٣)', ku: 'عەرەبی / ڕۆژهەڵاتی (٠، ١، ٢، ٣)', en: 'Arabic-Indic (٠, ١, ٢, ٣)' },
+    sub: '١٢٣,٤٥٦'
+  }
+];
+
+/**
+ * Universal Digits Converter
+ */
+export function convertDigits(input, format = 'latin') {
+  if (input === undefined || input === null) return '';
+  const str = String(input);
+  if (format === 'latin' || format === 'en') {
+    return str
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632));
+  }
+  if (format === 'fa') {
+    const latinToFa = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    return str
+      .replace(/[٠-٩]/g, (d) => latinToFa[d.charCodeAt(0) - 1632])
+      .replace(/[0-9]/g, (d) => latinToFa[Number(d)]);
+  }
+  if (format === 'ar') {
+    const latinToAr = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    return str
+      .replace(/[۰-۹]/g, (d) => latinToAr[d.charCodeAt(0) - 1776])
+      .replace(/[0-9]/g, (d) => latinToAr[Number(d)]);
+  }
+  return str;
+}
+
+/**
+ * Universal Time Formatter taking format and timezone settings into account
+ */
+export function formatTime(date = new Date(), options = {}) {
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (!d || isNaN(d.getTime())) return '';
+
+  const timeFormat = options.timeFormat || localStorage.getItem('karsync_time_format') || '24h';
+  const timeZone = options.timeZone || localStorage.getItem('karsync_timezone') || 'auto';
+  const numberFormat = options.numberFormat || localStorage.getItem('karsync_number_format') || 'latin';
+  const incSec = options.includeSeconds !== undefined ? options.includeSeconds : true;
+
+  const opts = {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: timeFormat === '12h'
+  };
+  if (incSec) opts.second = '2-digit';
+  if (timeZone && timeZone !== 'auto') {
+    try {
+      opts.timeZone = timeZone;
+    } catch (_) {}
+  }
+
+  let result = '';
+  try {
+    if (options.digits === 'en' || numberFormat === 'latin') {
+      result = new Intl.DateTimeFormat('en-GB', opts).format(d);
+    } else {
+      const loc = options.lang === 'fa' ? 'fa-IR' : options.lang === 'ku' ? 'ckb' : 'en-GB';
+      result = new Intl.DateTimeFormat(loc, opts).format(d);
+    }
+  } catch (_) {
+    result = d.toLocaleTimeString('en-GB', opts);
+  }
+
+  if (options.digits !== 'en' && numberFormat && numberFormat !== 'latin') {
+    return convertDigits(result, numberFormat);
+  }
+  return result;
+}
+
+/**
+ * Universal Date Formatter supporting Jalali and Gregorian calendars with timezone and digit conversion
+ */
+export function formatDate(date = new Date(), options = {}) {
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (!d || isNaN(d.getTime())) return '';
+
+  const cal = options.calendarType || localStorage.getItem('karsync_calendar_type') || 'auto';
+  const tz = options.timeZone || localStorage.getItem('karsync_timezone') || 'auto';
+  const numFmt = options.numberFormat || localStorage.getItem('karsync_number_format') || 'latin';
+  const lang = options.lang || localStorage.getItem('workshop_lang') || 'fa';
+
+  let isJalali = false;
+  if (cal === 'jalali') {
+    isJalali = true;
+  } else if (cal === 'gregorian') {
+    isJalali = false;
+  } else {
+    try {
+      const sysCal = new Intl.DateTimeFormat().resolvedOptions().calendar;
+      if (sysCal === 'persian') {
+        isJalali = true;
+      } else if (lang === 'fa') {
+        isJalali = true;
+      } else {
+        isJalali = false;
+      }
+    } catch {
+      isJalali = lang === 'fa';
+    }
+  }
+
+  const tzOpt = tz && tz !== 'auto' ? { timeZone: tz } : {};
+  let formatted = '';
+
+  if (isJalali) {
+    try {
+      formatted = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        ...tzOpt
+      }).format(d);
+    } catch {
+      formatted = d.toLocaleDateString('fa-IR', tzOpt);
+    }
+  } else {
+    const loc = lang === 'fa' ? 'fa-IR-u-ca-gregory' : lang === 'ku' ? 'ckb-u-ca-gregory' : 'en-GB';
+    try {
+      formatted = new Intl.DateTimeFormat(loc, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        ...tzOpt
+      }).format(d);
+    } catch {
+      formatted = d.toLocaleDateString('en-GB', tzOpt);
+    }
+  }
+
+  return convertDigits(formatted, numFmt);
+}

@@ -47,9 +47,9 @@ import {
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, timeFormat, timeZone, calendarType, numberFormat, formatTime, formatDate } = useLanguage();
   const { user } = useAuth();
-  const { currentProject, openWorkerProfile } = useProject();
+  const { currentProject, openWorkerProfile, openGlobalSettings } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -206,22 +206,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   }, []);
 
   const liveTimeString = useMemo(() => {
-    return currentDateTime.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-  }, [currentDateTime]);
+    return formatTime(currentDateTime, { includeSeconds: true });
+  }, [currentDateTime, formatTime, timeFormat, timeZone, numberFormat]);
 
   const liveDateString = useMemo(() => {
-    return currentDateTime.toLocaleDateString('en-GB', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  }, [currentDateTime]);
+    return formatDate(currentDateTime);
+  }, [currentDateTime, formatDate, language, calendarType, timeZone, numberFormat]);
 
   // Format hours float to digital HH:mm format with English digits (e.g. 42:16)
   const formatDigitalHours = (hoursFloat) => {
@@ -587,41 +577,55 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       
       {/* Header with User Profile, Project Name, Live Clock & Month Navigator */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div 
-          onClick={() => setIsProfileModalOpen(true)}
-          className="flex items-center gap-3.5 cursor-pointer group p-1.5 -m-1.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all select-none"
-          title={language === 'ku' ? 'ڕێکخستنەکانی پرۆفایلی بەکارھێنەر' : 'تنظیمات پروفایل کاربر'}
-        >
-          <div className="relative flex-shrink-0">
+        <div className="flex items-center gap-3.5 select-none">
+          {/* User Profile Avatar -> opens Account Settings */}
+          <button
+            type="button"
+            onClick={() => openGlobalSettings('account')}
+            className="relative flex-shrink-0 cursor-pointer group/avatar p-0.5 rounded-2xl hover:ring-2 hover:ring-sky-500/50 transition-all"
+            title={language === 'fa' ? 'حساب کاربری و امنیت (ویرایش مشخصات و عکس)' : language === 'ku' ? 'ڕێکخستنەکانی هەژمار و وێنە' : 'Account & Security Settings'}
+          >
             {user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url ? (
               <img
                 src={user.avatar || user.photo || user.supabaseUser.user_metadata.avatar_url}
                 alt={user?.name || 'کاربر'}
-                className="w-12 h-12 rounded-2xl object-cover border-2 border-sky-500/30 shadow-md transition-transform group-hover:scale-105 group-hover:border-sky-500"
+                className="w-12 h-12 rounded-2xl object-cover border-2 border-sky-500/30 shadow-md transition-transform group-hover/avatar:scale-105 group-hover/avatar:border-sky-500"
               />
             ) : (
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-sky-600/25 border border-white/20 transition-transform group-hover:scale-105">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-sky-600/25 border border-white/20 transition-transform group-hover/avatar:scale-105">
                 {(user?.name ? user.name.slice(0, 1) : 'U').toUpperCase()}
               </div>
             )}
             <span className="absolute -bottom-1 -end-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 ring-2 ring-emerald-500/20" title="آنلاین"></span>
-          </div>
+          </button>
+
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+              <button
+                type="button"
+                onClick={() => openGlobalSettings('account')}
+                className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 transition-colors cursor-pointer text-start"
+              >
                 {user?.name || user?.email?.split('@')[0] || (language === 'ku' ? 'بەکارھێنەر' : 'مدیر سیستم')}
-              </span>
+              </button>
               <span className="text-slate-300 dark:text-slate-600">•</span>
               <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                 {currentProject?.name || (language === 'ku' ? 'پڕۆژەی کارگە' : 'پروژه کارگاه')}
               </span>
             </div>
-            <div className="flex items-center gap-2 mt-1 text-xs font-medium text-slate-600 dark:text-slate-300 font-mono">
-              <Clock className="w-3.5 h-3.5 text-sky-500 animate-pulse" />
+
+            {/* Clickable Date & Clock -> opens General & Formats Settings */}
+            <button
+              type="button"
+              onClick={() => openGlobalSettings('general')}
+              className="flex items-center gap-2 mt-1 text-xs font-medium text-slate-600 dark:text-slate-300 font-mono hover:text-sky-600 dark:hover:text-sky-400 transition-colors p-1 -m-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer group/clock text-start"
+              title={language === 'fa' ? 'تنظیمات فرمت ساعت، تقویم و ارقام' : language === 'ku' ? 'ڕێکخستنی کات، بەروار و ژمارەکان' : 'Clock, Calendar & Number Settings'}
+            >
+              <Clock className="w-3.5 h-3.5 text-sky-500 animate-pulse group-hover/clock:scale-110 transition-transform" />
               <span className="font-bold">{liveTimeString}</span>
               <span className="text-slate-300 dark:text-slate-600">|</span>
-              <span>{liveDateString}</span>
-            </div>
+              <span className="underline decoration-dotted decoration-slate-400/60 underline-offset-4">{liveDateString}</span>
+            </button>
           </div>
         </div>
 

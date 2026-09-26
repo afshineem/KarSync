@@ -14,6 +14,7 @@ import {
   deleteExpenseCategoryLive
 } from '../services/realtimeSync';
 import { exportDatabaseToJSON, importDatabaseFromJSON, resetDatabaseWithSeed } from '../db/backup';
+import { TIMEZONE_OPTIONS, CALENDAR_OPTIONS, NUMBER_FORMAT_OPTIONS } from '../utils/formatters';
 import {
   Settings,
   X,
@@ -56,8 +57,31 @@ import {
 } from 'lucide-react';
 
 export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
-  const { language, changeLanguage, t, direction } = useLanguage();
+  const { 
+    language, 
+    changeLanguage, 
+    t, 
+    direction, 
+    timeFormat, 
+    setTimeFormat, 
+    timeZone, 
+    setTimeZone, 
+    calendarType,
+    setCalendarType,
+    numberFormat,
+    setNumberFormat,
+    formatTime,
+    formatDate
+  } = useLanguage();
   const isRtl = direction === 'rtl';
+
+  // Live ticking clock for settings preview
+  const [modalClock, setModalClock] = useState(() => new Date());
+  useEffect(() => {
+    if (!isOpen) return;
+    const interval = setInterval(() => setModalClock(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
   const { user, logout, changeAdminPassword, updateUserProfile } = useAuth();
   const {
     projects,
@@ -303,18 +327,55 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupMsg, setBackupMsg] = useState({ type: '', text: '' });
 
-  // DB Record Counts
+  // DB Record Counts with precise filtering (active, archived, trash)
   const dbCounts = useLiveQuery(async () => {
-    const [workers, logs, payments, expenses, categories, projectsCount] = await Promise.all([
-      db.workers.count(),
-      db.attendanceLogs.count(),
-      db.payments.count(),
-      db.expenses.count(),
-      db.expenseCategories.count(),
-      db.projects.count()
-    ]);
-    return { workers, logs, payments, expenses, categories, projects: projectsCount };
-  }, [], { workers: 0, logs: 0, payments: 0, expenses: 0, categories: 0, projects: 0 });
+    try {
+      const [
+        allWorkers,
+        allLogs,
+        allPayments,
+        allExpenses,
+        allCategories,
+        allSections,
+        allGroups,
+        allProjects
+      ] = await Promise.all([
+        db.workers.toArray(),
+        db.attendanceLogs.toArray(),
+        db.payments.toArray(),
+        db.expenses.toArray(),
+        db.expenseCategories.toArray(),
+        db.projectSections.toArray(),
+        db.groups.toArray(),
+        db.projects.toArray()
+      ]);
+
+      const activeWorkers = (allWorkers || []).filter(w => !w.deletedAt && !w.isArchived && w.status !== 'archived').length;
+      const totalWorkers = (allWorkers || []).filter(w => !w.deletedAt).length;
+      const logsCount = (allLogs || []).filter(l => !l.deletedAt).length;
+      const paymentsCount = (allPayments || []).filter(p => !p.deletedAt).length;
+      const activeExpenses = (allExpenses || []).filter(e => !e.deletedAt).length;
+      const categoriesCount = (allCategories || []).length;
+      const sectionsCount = (allSections || []).filter(s => !s.deletedAt && s.status !== 'deleted').length;
+      const groupsCount = (allGroups || []).filter(g => !g.deletedAt && g.status !== 'deleted').length;
+      const projectsCount = (allProjects || []).filter(p => p.status !== 'deleted').length;
+
+      return {
+        workers: activeWorkers,
+        totalWorkers,
+        logs: logsCount,
+        payments: paymentsCount,
+        expenses: activeExpenses,
+        categories: categoriesCount,
+        sections: sectionsCount,
+        groups: groupsCount,
+        projects: projectsCount
+      };
+    } catch (e) {
+      console.warn('Error computing db counts:', e);
+      return { workers: 0, totalWorkers: 0, logs: 0, payments: 0, expenses: 0, categories: 0, sections: 0, groups: 0, projects: 0 };
+    }
+  }, [], { workers: 0, totalWorkers: 0, logs: 0, payments: 0, expenses: 0, categories: 0, sections: 0, groups: 0, projects: 0 });
 
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -763,25 +824,176 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                   </div>
                 </div>
 
-                <div className="border-t border-slate-200/80 dark:border-slate-800 pt-6">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {language === 'fa' ? 'تقویم و فرمت زمان' : 'تەقویم و بەروار'}
-                  </h3>
-                  <div className="mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-sky-500" />
+                <div className="border-t border-slate-200/80 dark:border-slate-800 pt-6 space-y-5">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-sky-500" />
+                      <span>{language === 'fa' ? 'فرمت زمان، ساعت و منطقه زمانی' : language === 'ku' ? 'شێوازی کات و ناوچەی کاتی' : 'Time Format & Time Zone'}</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {language === 'fa'
+                        ? 'تنظیم نحوه نمایش ساعت (۱۲ یا ۲۴ ساعته) و منطقه زمانی استاندارد جهت هماهنگی دقیق لاگ‌ها و ترددها:'
+                        : 'دیاریکردنی شێوازی کاتژمێر (١٢ یان ٢٤) و ناوچەی کاتی بۆ هاوکاتکردنی دروستی تۆمارەکان:'}
+                    </p>
+                  </div>
+
+                  {/* Live Clock & Calendar Preview Card */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-purple-500/10 border border-sky-500/20 dark:border-sky-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-md shadow-sky-500/25 flex-shrink-0">
+                        <Clock className="w-6 h-6 animate-pulse" />
+                      </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'سیستم تقویم شمسی و میلادی' : 'تەقویمی کوردی / زاینی'}
+                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          {language === 'fa' ? 'پیش‌نمایش زنده ساعت و تاریخ برنامه' : 'پێشبینینی ڕاستەوخۆی کات و بەروار'}
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'پشتیبانی خودکار بر اساس زبان انتخابی' : 'پشتیوانی بەپێی زمانی بەرنامە'}
+                        <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white tracking-tight mt-0.5">
+                          {formatTime(modalClock, { includeSeconds: true })}
                         </div>
                       </div>
                     </div>
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono">
-                      Active
-                    </span>
+
+                    <div className="self-start sm:self-center flex flex-col sm:items-end text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping" />
+                        <span className="font-bold text-sky-600 dark:text-sky-400">
+                          {TIMEZONE_OPTIONS.find(tz => tz.id === timeZone)?.name[language] || timeZone}
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-800 dark:text-slate-200 font-bold mt-1">
+                        {formatDate(modalClock)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 1. Time Format Selection (24h vs 12h) */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      {language === 'fa' ? '۱. فرمت نمایش ساعت (Time Format):' : '١. شێوازی کاتژمێر:'}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setTimeFormat('24h')}
+                        className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all ${
+                          timeFormat === '24h'
+                            ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
+                            : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="text-xs font-bold">{language === 'fa' ? '۲۴ ساعته (استاندارد / نظامی)' : '٢٤ کاتژمێری (ستاندارد)'}</div>
+                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">{language === 'fa' ? 'مثال: ۱۴:۳۰ (14:30)' : 'وەک: 14:30'}</div>
+                        </div>
+                        {timeFormat === '24h' && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTimeFormat('12h')}
+                        className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all ${
+                          timeFormat === '12h'
+                            ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
+                            : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="text-xs font-bold">{language === 'fa' ? '۱۲ ساعته (با ق.ظ / ب.ظ - AM/PM)' : '١٢ کاتژمێری (بەیانی / ئێوارە)'}</div>
+                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">{language === 'fa' ? 'مثال: ۰۲:۳۰ ب.ظ (02:30 PM)' : 'وەک: 02:30 PM'}</div>
+                        </div>
+                        {timeFormat === '12h' && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Timezone Selection */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      {language === 'fa' ? '۲. منطقه زمانی (Time Zone):' : '٢. ناوچەی کاتی:'}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {TIMEZONE_OPTIONS.map((tz) => {
+                        const isSelected = timeZone === tz.id;
+                        return (
+                          <button
+                            key={tz.id}
+                            type="button"
+                            onClick={() => setTimeZone(tz.id)}
+                            className={`p-3 rounded-2xl border text-start flex items-center justify-between transition-all ${
+                              isSelected
+                                ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
+                                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="text-xs truncate">{tz.name[language] || tz.name.en}</div>
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">{tz.sub}</div>
+                            </div>
+                            {isSelected && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400 flex-shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 3. Calendar System (Active Selection) */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      {language === 'fa' ? '۳. سیستم تقویم کاری (Calendar System):' : '٣. سیستەمی ڕۆژمێر:'}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {CALENDAR_OPTIONS.map((cal) => {
+                        const isSelected = calendarType === cal.id;
+                        return (
+                          <button
+                            key={cal.id}
+                            type="button"
+                            onClick={() => setCalendarType(cal.id)}
+                            className={`p-3 rounded-2xl border text-start flex items-center justify-between transition-all ${
+                              isSelected
+                                ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
+                                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="text-xs font-bold">{cal.name[language] || cal.name.en}</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">{cal.sub}</div>
+                            </div>
+                            {isSelected && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400 flex-shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 4. Number Digits Formatting */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      {language === 'fa' ? '۴. فرمت نمایش ارقام و اعداد (Number Digits):' : '٤. شێوازی پیشاندانی ژمارەکان:'}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {NUMBER_FORMAT_OPTIONS.map((num) => {
+                        const isSelected = numberFormat === num.id;
+                        return (
+                          <button
+                            key={num.id}
+                            type="button"
+                            onClick={() => setNumberFormat(num.id)}
+                            className={`p-3 rounded-2xl border text-start flex items-center justify-between transition-all ${
+                              isSelected
+                                ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
+                                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="text-xs font-bold">{num.name[language] || num.name.en}</div>
+                              <div className="text-xs font-mono text-sky-600 dark:text-sky-400 font-black mt-0.5">{num.sub}</div>
+                            </div>
+                            {isSelected && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400 flex-shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1307,30 +1519,101 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <span>{language === 'fa' ? 'آمار داده‌های محلی (IndexedDB Cache)' : 'ئاماری داتاکانی ئامێر'}</span>
                   </h4>
                   
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="text-[11px] text-slate-400">{language === 'fa' ? 'پرسنل' : 'کرێکاران'}</div>
-                      <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.workers}</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {/* 1. Workers */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-sky-500/40">
+                      <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'پرسنل فعال' : 'کرێکارانی چالاک'}</span>
+                        <Users2 className="w-3.5 h-3.5 text-sky-500" />
+                      </div>
+                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.workers}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'fa' ? `از کل ${dbCounts.totalWorkers} پرسنل` : `لە کۆی ${dbCounts.totalWorkers}`}
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="text-[11px] text-slate-400">{language === 'fa' ? 'لاگ‌های تردد' : 'تۆماری ئامادەبوون'}</div>
-                      <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.logs}</div>
+
+                    {/* 2. Attendance Logs */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-emerald-500/40">
+                      <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'لاگ‌های تردد' : 'تۆماری ئامادەبوون'}</span>
+                        <Calendar className="w-3.5 h-3.5 text-emerald-500" />
+                      </div>
+                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.logs}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'fa' ? 'ثبت‌های حضور و غیاب' : 'تۆمارە ڕۆژانەکان'}
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="text-[11px] text-slate-400">{language === 'fa' ? 'پرداخت و مساعده' : 'پێشەکی و پارەدان'}</div>
-                      <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.payments}</div>
+
+                    {/* 3. Payments */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-amber-500/40">
+                      <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'پرداخت و مساعده' : 'پێشەکی و پارەدان'}</span>
+                        <Wallet className="w-3.5 h-3.5 text-amber-500" />
+                      </div>
+                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.payments}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'fa' ? 'رسید و تسویه‌ها' : 'پسووڵەی پارەدان'}
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="text-[11px] text-slate-400">{language === 'fa' ? 'فاکتورهای هزینه' : 'خەرجییەکان'}</div>
-                      <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.expenses}</div>
+
+                    {/* 4. Expenses */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-rose-500/40">
+                      <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'فاکتورهای هزینه' : 'خەرجییەکان'}</span>
+                        <Receipt className="w-3.5 h-3.5 text-rose-500" />
+                      </div>
+                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.expenses}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'fa' ? 'فاکتورهای جاری' : 'پسووڵەی خەرجی'}
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="text-[11px] text-slate-400">{language === 'fa' ? 'سرفصل‌های هزینه‌ها' : 'سەردێڕەکان'}</div>
-                      <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.categories}</div>
+
+                    {/* 5. Expense Categories */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-purple-500/40">
+                      <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'سرفصل‌های هزینه‌ها' : 'سەردێڕەکان'}</span>
+                        <Layers className="w-3.5 h-3.5 text-purple-500" />
+                      </div>
+                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.categories}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'fa' ? 'طبقه‌بندی ۳ سطحی' : 'سەردێڕی خەرجی'}
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="text-[11px] text-slate-400">{language === 'fa' ? 'پروژه‌ها' : 'پڕۆژەکان'}</div>
-                      <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.projects}</div>
+
+                    {/* 6. Project Sections */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-indigo-500/40">
+                      <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'بخش‌های پروژه' : 'بەشەکانی پڕۆژە'}</span>
+                        <Building className="w-3.5 h-3.5 text-indigo-500" />
+                      </div>
+                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.sections}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'fa' ? 'فازها و زون‌های کاری' : 'زۆن و بەشەکان'}
+                      </div>
+                    </div>
+
+                    {/* 7. Working Groups */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-cyan-500/40">
+                      <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'گروه‌های کاری' : 'گرووپەکان'}</span>
+                        <Users2 className="w-3.5 h-3.5 text-cyan-500" />
+                      </div>
+                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.groups}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'fa' ? 'دسته‌های استادکار/کارگر' : 'گرووپی کارمەندان'}
+                      </div>
+                    </div>
+
+                    {/* 8. Projects */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-blue-500/40">
+                      <div className="flex items-center justify-between text-slate-400 mb-1">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'پروژه‌ها' : 'پڕۆژەکان'}</span>
+                        <FolderKanban className="w-3.5 h-3.5 text-blue-500" />
+                      </div>
+                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.projects}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'fa' ? 'محیط‌های کاری فعال' : 'پڕۆژەی چالاک'}
+                      </div>
                     </div>
                   </div>
                 </div>
