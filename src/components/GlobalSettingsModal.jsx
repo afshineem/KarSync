@@ -2122,11 +2122,11 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* ---------------------------------------------------- */}
             {activeTab === 'about' && (
               <div className="space-y-6 max-w-xl text-center mx-auto py-4 animate-in fade-in duration-150">
-                <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-700/80 p-1 mx-auto flex items-center justify-center shadow-md overflow-hidden">
+                <div className="w-16 h-16 mx-auto flex items-center justify-center flex-shrink-0">
                   <img
                     src="/karsync-icon.png"
                     alt="KarSync"
-                    className="w-full h-full object-contain rounded-xl"
+                    className="w-full h-full object-contain drop-shadow-md"
                   />
                 </div>
 

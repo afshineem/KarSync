@@ -512,7 +512,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             <img 
               src="/karsync-icon.png" 
               alt="KarSync" 
-              className="w-10 h-10 object-contain rounded-xl shadow-sm transition-all" 
+              className="w-10 h-10 object-contain drop-shadow-sm transition-transform hover:scale-105" 
             />
             <div>
               <div className="flex items-center gap-2 flex-wrap">

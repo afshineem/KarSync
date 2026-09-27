@@ -59,11 +59,11 @@ export function Navbar({
             
             {/* Logo & Brand */}
             <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900 border border-slate-700/60 flex items-center justify-center shadow-md p-1 flex-shrink-0 overflow-hidden">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center flex-shrink-0">
                 <img 
                   src="/karsync-icon.png" 
                   alt="KarSync" 
-                  className="w-full h-full object-contain rounded-xl" 
+                  className="w-full h-full object-contain drop-shadow-sm transition-transform duration-200 hover:scale-105" 
                 />
               </div>
               

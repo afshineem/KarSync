@@ -117,11 +117,11 @@ export function SettingsModal({
         {/* Modal Header: KarSync */}
         <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-700/60 flex items-center justify-center p-1 flex-shrink-0 overflow-hidden shadow-sm">
+            <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
               <img 
                 src="/karsync-icon.png" 
                 alt="KarSync" 
-                className="w-full h-full object-contain rounded-xl transition-all" 
+                className="w-full h-full object-contain drop-shadow-sm transition-transform" 
               />
             </div>
             <div>
