@@ -20,7 +20,8 @@ export function Navbar({
   toggleTheme, 
   onOpenBackupModal, 
   onOpenChangePasswordModal, 
-  onOpenAboutModal 
+  onOpenAboutModal,
+  onOpenInstallModal
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -166,6 +167,7 @@ export function Navbar({
                   onOpenChangePasswordModal={onOpenChangePasswordModal}
                   onOpenAboutModal={onOpenAboutModal}
                   onOpenProjectSettings={openProjectSettings}
+                  onOpenInstallModal={onOpenInstallModal}
                 />
               </div>
             </div>

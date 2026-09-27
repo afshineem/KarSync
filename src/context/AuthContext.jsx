@@ -1,10 +1,15 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { db } from '../db/db';
 import { supabase, pushWorkerMetadataLive } from '../services/realtimeSync';
+import { hashPassword, verifyPassword, evaluatePasswordStrength } from '../utils/passwordSecurity';
+import { verifyTOTPCode, verifyAndConsumeBackupCode, generateBackupCodes } from '../utils/totpSecurity';
 
 const AUTH_SESSION_KEY = 'workshop_auth_session';
 const ADMIN_AUTH_KEY = 'workshop_admin_auth';
 const WORKER_CREDS_KEY = 'workshop_worker_credentials';
+const ADMIN_2FA_KEY = 'workshop_2fa_config';
+const LOGIN_ATTEMPTS_KEY = 'workshop_login_attempts';
+const AUTO_LOCK_MINUTES_KEY = 'workshop_auto_lock_minutes';
 
 export function normalizeDigits(str) {
   if (!str) return '';
@@ -43,6 +48,114 @@ export function AuthProvider({ children }) {
   });
 
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  // Inactivity Auto-Lock settings & state
+  const [autoLockMinutes, setAutoLockMinutesState] = useState(() => {
+    try {
+      const saved = localStorage.getItem(AUTO_LOCK_MINUTES_KEY);
+      return saved !== null ? Number(saved) : 30; // default: 30 minutes
+    } catch {
+      return 30;
+    }
+  });
+  const [isScreenLocked, setIsScreenLocked] = useState(false);
+  const lastActivityRef = useRef(Date.now());
+
+  const setAutoLockMinutes = (minutes) => {
+    const val = Number(minutes);
+    setAutoLockMinutesState(val);
+    localStorage.setItem(AUTO_LOCK_MINUTES_KEY, String(val));
+  };
+
+  const lockScreen = () => {
+    if (user) {
+      setIsScreenLocked(true);
+    }
+  };
+
+  const unlockScreen = async (passwordInput) => {
+    if (!user) return { success: false, error: 'noUser' };
+    const cleanPass = normalizeDigits(passwordInput).trim();
+
+    if (user.role === 'admin') {
+      const adminCreds = getAdminCredentials();
+      const isValid = await verifyPassword(cleanPass, adminCreds.password || 'admin');
+      if (isValid) {
+        setIsScreenLocked(false);
+        lastActivityRef.current = Date.now();
+        return { success: true };
+      }
+    } else if (user.role === 'worker') {
+      const workerCreds = getWorkerCredentialsMap()[user.id] || {};
+      const expectedPass = normalizeDigits(workerCreds.password || '').trim();
+      if (expectedPass && cleanPass === expectedPass) {
+        setIsScreenLocked(false);
+        lastActivityRef.current = Date.now();
+        return { success: true };
+      }
+    }
+    return { success: false, error: 'wrongPassword' };
+  };
+
+  // Activity tracking for auto-lock
+  useEffect(() => {
+    if (!user || autoLockMinutes <= 0 || isScreenLocked) return;
+
+    const updateActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    const interval = setInterval(() => {
+      const elapsedMinutes = (Date.now() - lastActivityRef.current) / (1000 * 60);
+      if (elapsedMinutes >= autoLockMinutes) {
+        setIsScreenLocked(true);
+      }
+    }, 15000); // Check every 15s
+
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((ev) => window.addEventListener(ev, updateActivity, { passive: true }));
+
+    return () => {
+      clearInterval(interval);
+      events.forEach((ev) => window.removeEventListener(ev, updateActivity));
+    };
+  }, [user, autoLockMinutes, isScreenLocked]);
+
+  // Rate Limiting (Brute-Force Protection)
+  const getLoginLockStatus = () => {
+    try {
+      const data = JSON.parse(localStorage.getItem(LOGIN_ATTEMPTS_KEY) || '{}');
+      if (!data.attempts) return { isLocked: false, remainingSeconds: 0, attempts: 0 };
+
+      if (data.lockUntil && Date.now() < data.lockUntil) {
+        const remainingSeconds = Math.ceil((data.lockUntil - Date.now()) / 1000);
+        return { isLocked: true, remainingSeconds, attempts: data.attempts };
+      }
+      return { isLocked: false, remainingSeconds: 0, attempts: data.attempts };
+    } catch {
+      return { isLocked: false, remainingSeconds: 0, attempts: 0 };
+    }
+  };
+
+  const recordFailedLogin = () => {
+    try {
+      const current = getLoginLockStatus();
+      const newAttempts = current.attempts + 1;
+      let lockUntil = null;
+      if (newAttempts >= 5) {
+        // Lock for 5 minutes (300 seconds)
+        lockUntil = Date.now() + 300 * 1000;
+      }
+      localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify({ attempts: newAttempts, lockUntil }));
+      return { isLocked: newAttempts >= 5, remainingSeconds: newAttempts >= 5 ? 300 : 0 };
+    } catch {
+      return { isLocked: false, remainingSeconds: 0 };
+    }
+  };
+
+  const resetLoginAttempts = () => {
+    localStorage.removeItem(LOGIN_ATTEMPTS_KEY);
+  };
 
   // Sync profile data from Supabase for a given user ID
   const fetchUserProfile = async (supabaseUser) => {
@@ -105,12 +218,9 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
-      console.log('🔔 Supabase Auth Event:', event);
-
       if (session?.user) {
         await fetchUserProfile(session.user);
       } else if (event === 'SIGNED_OUT') {
-        // If logged in as supabase user and signed out, reset
         if (user?.supabaseUser) {
           setUser(null);
           localStorage.removeItem(AUTH_SESSION_KEY);
@@ -124,7 +234,7 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // Sync legacy worker/admin settings for offline/local credentials
+  // Sync settings (credentials, 2FA) from cloud
   useEffect(() => {
     async function syncAuthFromCloud() {
       try {
@@ -132,7 +242,7 @@ export function AuthProvider({ children }) {
         const { data } = await supabase
           .from('settings')
           .select('setting_key, setting_value')
-          .in('setting_key', ['app_admin_credentials', 'app_worker_credentials']);
+          .in('setting_key', ['app_admin_credentials', 'app_worker_credentials', 'app_admin_2fa']);
 
         if (data && data.length > 0) {
           for (const item of data) {
@@ -141,6 +251,9 @@ export function AuthProvider({ children }) {
             }
             if (item.setting_key === 'app_worker_credentials' && item.setting_value) {
               localStorage.setItem(WORKER_CREDS_KEY, item.setting_value);
+            }
+            if (item.setting_key === 'app_admin_2fa' && item.setting_value) {
+              localStorage.setItem(ADMIN_2FA_KEY, item.setting_value);
             }
           }
         }
@@ -163,6 +276,68 @@ export function AuthProvider({ children }) {
       password: 'admin',
       name: 'افشین زارعی'
     };
+  };
+
+  // 2FA Configuration
+  const getTwoFactorConfig = () => {
+    try {
+      const saved = localStorage.getItem(ADMIN_2FA_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return {
+      enabled: false,
+      secret: '',
+      backupCodes: []
+    };
+  };
+
+  const enableTwoFactor = async ({ secret, backupCodes }) => {
+    const config = {
+      enabled: true,
+      secret,
+      backupCodes: backupCodes || generateBackupCodes(8),
+      enabledAt: new Date().toISOString()
+    };
+    const serialized = JSON.stringify(config);
+    localStorage.setItem(ADMIN_2FA_KEY, serialized);
+
+    if (navigator.onLine) {
+      try {
+        await supabase.from('settings').upsert({
+          setting_key: 'app_admin_2fa',
+          setting_value: serialized,
+          updated_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn('2FA cloud sync error:', err);
+      }
+    }
+    return { success: true, config };
+  };
+
+  const disableTwoFactor = async (currentPassword) => {
+    const adminCreds = getAdminCredentials();
+    const isPassValid = await verifyPassword(currentPassword, adminCreds.password || 'admin');
+    if (!isPassValid) {
+      return { success: false, error: 'wrongPassword' };
+    }
+
+    const config = { enabled: false, secret: '', backupCodes: [] };
+    const serialized = JSON.stringify(config);
+    localStorage.setItem(ADMIN_2FA_KEY, serialized);
+
+    if (navigator.onLine) {
+      try {
+        await supabase.from('settings').upsert({
+          setting_key: 'app_admin_2fa',
+          setting_value: serialized,
+          updated_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn('2FA cloud sync error:', err);
+      }
+    }
+    return { success: true };
   };
 
   // Get worker credentials dictionary: { [workerId]: { username, password } }
@@ -216,7 +391,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Official Supabase Sign Up (Commercial Multi-Tenant SaaS)
+  // Supabase Sign Up
   const signUp = async (email, password, metadata = {}) => {
     const trimmedEmail = (email || '').trim().toLowerCase();
     const trimmedPass = (password || '').trim();
@@ -244,7 +419,6 @@ export function AuthProvider({ children }) {
       }
 
       if (data?.user) {
-        // Attempt creating profile record immediately
         try {
           await supabase.from('profiles').upsert({
             id: data.user.id,
@@ -281,8 +455,17 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Unified Login Handler (Supabase Auth for Admins + Access PIN for Workers + Offline Admin fallback)
+  // Unified Login Handler with Brute-Force Rate Limiting & 2FA
   const login = async (usernameOrEmailInput, passwordInput) => {
+    const lockStatus = getLoginLockStatus();
+    if (lockStatus.isLocked) {
+      return {
+        success: false,
+        error: 'rateLimited',
+        remainingSeconds: lockStatus.remainingSeconds
+      };
+    }
+
     const rawInput = (usernameOrEmailInput || '').trim();
     const cleanUser = normalizeUsername(rawInput);
     const cleanPass = normalizeDigits(passwordInput).trim();
@@ -291,7 +474,7 @@ export function AuthProvider({ children }) {
       return { success: false, error: 'invalidCredentials' };
     }
 
-    // 1. If it's an email address, prioritize official Supabase Auth
+    // 1. Supabase Auth if email
     if (rawInput.includes('@')) {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -300,11 +483,12 @@ export function AuthProvider({ children }) {
         });
 
         if (error) {
-          console.warn('Supabase Auth signIn failed:', error.message);
+          recordFailedLogin();
           return { success: false, error: error.message };
         }
 
         if (data?.user) {
+          resetLoginAttempts();
           const sessionUser = await fetchUserProfile(data.user);
           return { success: true, role: 'admin', user: sessionUser };
         }
@@ -313,31 +497,48 @@ export function AuthProvider({ children }) {
       }
     }
 
-    // 2. Check local/offline Admin credentials
+    // 2. Check local Admin credentials
     const adminCreds = getAdminCredentials();
     const adminUser = normalizeUsername(adminCreds.username || 'admin');
-    const adminPass = normalizeDigits(adminCreds.password || 'admin').trim();
 
-    if (
-      (cleanUser === adminUser || cleanUser === 'afshin' || cleanUser === 'admin') &&
-      cleanPass === adminPass
-    ) {
-      const sessionUser = {
-        role: 'admin',
-        id: 'admin_local',
-        userId: 'admin_local',
-        name: adminCreds.name || 'افشین زارعی',
-        username: adminCreds.username || 'admin',
-        companyName: 'کارگاه مرکزی',
-        defaultCurrency: 'IQD',
-        onboardingCompleted: true
-      };
-      setUser(sessionUser);
-      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
-      return { success: true, role: 'admin', user: sessionUser };
+    const isUserMatch = cleanUser === adminUser || cleanUser === 'afshin' || cleanUser === 'admin';
+    if (isUserMatch) {
+      const isPassValid = await verifyPassword(cleanPass, adminCreds.password || 'admin');
+      if (isPassValid) {
+        const twoFactor = getTwoFactorConfig();
+
+        if (twoFactor?.enabled) {
+          // Requires second factor verification!
+          return {
+            success: true,
+            requires2FA: true,
+            role: 'admin',
+            tempUser: {
+              username: adminCreds.username || 'admin',
+              name: adminCreds.name || 'افشین زارعی'
+            }
+          };
+        }
+
+        // Direct login success
+        resetLoginAttempts();
+        const sessionUser = {
+          role: 'admin',
+          id: 'admin_local',
+          userId: 'admin_local',
+          name: adminCreds.name || 'افشین زارعی',
+          username: adminCreds.username || 'admin',
+          companyName: 'کارگاه مرکزی',
+          defaultCurrency: 'IQD',
+          onboardingCompleted: true
+        };
+        setUser(sessionUser);
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+        return { success: true, role: 'admin', user: sessionUser };
+      }
     }
 
-    // 3. Check Workers credentials locally
+    // 3. Check Workers credentials
     let workers = await db.workers.toArray();
     let workerCredsMap = getWorkerCredentialsMap();
 
@@ -358,7 +559,7 @@ export function AuthProvider({ children }) {
 
     let matchedWorker = findMatchingWorker(workers, workerCredsMap);
 
-    // 4. Cloud Fallback for Workers (Critical for mobile/fresh browser when local Dexie is empty!)
+    // 4. Cloud Fallback for Workers
     if (!matchedWorker && navigator.onLine) {
       try {
         const [credsRes, metaRes, wRes] = await Promise.all([
@@ -386,7 +587,7 @@ export function AuthProvider({ children }) {
           }
         });
 
-        const cloudWorkersList = (wRes?.data || []).map(cw => {
+        const cloudWorkersList = (wRes?.data || []).map((cw) => {
           const meta = cloudMeta[cw.id] || {};
           const cred = mergedCreds[cw.id] || {};
           return {
@@ -420,6 +621,7 @@ export function AuthProvider({ children }) {
     }
 
     if (matchedWorker) {
+      resetLoginAttempts();
       const sessionUser = {
         role: 'worker',
         id: matchedWorker.id,
@@ -433,7 +635,68 @@ export function AuthProvider({ children }) {
       return { success: true, role: 'worker', user: sessionUser };
     }
 
-    return { success: false, error: 'invalidCredentials' };
+    // Record failure
+    const rec = recordFailedLogin();
+    return {
+      success: false,
+      error: rec.isLocked ? 'rateLimited' : 'invalidCredentials',
+      remainingSeconds: rec.remainingSeconds
+    };
+  };
+
+  // Complete 2FA login verification
+  const completeTwoFactorLogin = async (codeOrBackup) => {
+    const twoFactor = getTwoFactorConfig();
+    if (!twoFactor?.enabled) return { success: false, error: '2faNotActive' };
+
+    const cleanInput = String(codeOrBackup || '').trim();
+
+    // Check 1: 6-digit TOTP code
+    let isTotpValid = false;
+    if (/^\d{6}$/.test(cleanInput)) {
+      isTotpValid = await verifyTOTPCode(cleanInput, twoFactor.secret);
+    }
+
+    // Check 2: Emergency backup code
+    let isBackupValid = false;
+    if (!isTotpValid) {
+      const backupRes = verifyAndConsumeBackupCode(cleanInput, twoFactor.backupCodes);
+      if (backupRes.valid) {
+        isBackupValid = true;
+        // Save remaining backup codes
+        const updatedConfig = { ...twoFactor, backupCodes: backupRes.remainingCodes };
+        const serialized = JSON.stringify(updatedConfig);
+        localStorage.setItem(ADMIN_2FA_KEY, serialized);
+        if (navigator.onLine) {
+          supabase.from('settings').upsert({
+            setting_key: 'app_admin_2fa',
+            setting_value: serialized,
+            updated_at: new Date().toISOString()
+          }).catch(() => {});
+        }
+      }
+    }
+
+    if (isTotpValid || isBackupValid) {
+      resetLoginAttempts();
+      const adminCreds = getAdminCredentials();
+      const sessionUser = {
+        role: 'admin',
+        id: 'admin_local',
+        userId: 'admin_local',
+        name: adminCreds.name || 'افشین زارعی',
+        username: adminCreds.username || 'admin',
+        companyName: 'کارگاه مرکزی',
+        defaultCurrency: 'IQD',
+        onboardingCompleted: true
+      };
+      setUser(sessionUser);
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+      return { success: true, role: 'admin', user: sessionUser };
+    }
+
+    recordFailedLogin();
+    return { success: false, error: 'invalid2FACode' };
   };
 
   // Complete Onboarding Wizard
@@ -474,6 +737,7 @@ export function AuthProvider({ children }) {
       await supabase.auth.signOut();
     } catch (_) {}
     setUser(null);
+    setIsScreenLocked(false);
     localStorage.removeItem(AUTH_SESSION_KEY);
   };
 
@@ -488,15 +752,23 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Change Admin Password (local)
+  // Change Admin Password (with SHA-256 Hashing & Strength Validation)
   const changeAdminPassword = async (currentPassword, newPassword) => {
     const adminCreds = getAdminCredentials();
-    if (currentPassword !== adminCreds.password) {
+    const isCurrentValid = await verifyPassword(currentPassword, adminCreds.password || 'admin');
+    if (!isCurrentValid) {
       return { success: false, error: 'currentPasswordWrong' };
     }
+
+    const strength = evaluatePasswordStrength(newPassword);
+    if (!strength.isAcceptable) {
+      return { success: false, error: 'passwordTooWeak' };
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
     const updated = {
       ...adminCreds,
-      password: newPassword
+      password: hashedPassword
     };
     const serialized = JSON.stringify(updated);
     localStorage.setItem(ADMIN_AUTH_KEY, serialized);
@@ -531,7 +803,6 @@ export function AuthProvider({ children }) {
     setUser(updatedUser);
     localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updatedUser));
 
-    // Also update ADMIN_AUTH_KEY if admin
     if (user.role === 'admin') {
       const adminCreds = getAdminCredentials();
       const updatedAdmin = {
@@ -557,7 +828,6 @@ export function AuthProvider({ children }) {
       }
     }
 
-    // Also sync with Supabase profiles table if Supabase user
     if (navigator.onLine && user.supabaseUser) {
       try {
         await supabase.from('profiles').upsert({
@@ -584,7 +854,17 @@ export function AuthProvider({ children }) {
         isAdmin: user?.role === 'admin',
         isWorker: user?.role === 'worker',
         onboardingCompleted: user?.onboardingCompleted ?? true,
+        isScreenLocked,
+        autoLockMinutes,
+        setAutoLockMinutes,
+        lockScreen,
+        unlockScreen,
         login,
+        completeTwoFactorLogin,
+        getLoginLockStatus,
+        getTwoFactorConfig,
+        enableTwoFactor,
+        disableTwoFactor,
         signUp,
         logout,
         resetPassword,

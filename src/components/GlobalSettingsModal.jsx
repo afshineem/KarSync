@@ -53,8 +53,14 @@ import {
   Clock,
   ExternalLink,
   Keyboard,
-  Command
+  Command,
+  Smartphone,
+  Shield,
+  ShieldAlert
 } from 'lucide-react';
+import { TwoFactorModal } from './TwoFactorModal';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 
 export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
   const { 
@@ -82,7 +88,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     const interval = setInterval(() => setModalClock(new Date()), 1000);
     return () => clearInterval(interval);
   }, [isOpen]);
-  const { user, logout, changeAdminPassword, updateUserProfile } = useAuth();
+  const { 
+    user, 
+    logout, 
+    changeAdminPassword, 
+    updateUserProfile, 
+    getTwoFactorConfig, 
+    autoLockMinutes, 
+    setAutoLockMinutes 
+  } = useAuth();
+  const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
+  const twoFactorConfig = getTwoFactorConfig();
   const {
     projects,
     activeProjects,
@@ -522,10 +538,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
       });
       return;
     }
-    if (newPass.length < 6) {
+    const strength = evaluatePasswordStrength(newPass);
+    if (!strength.isAcceptable) {
       setPassMsg({
         type: 'error',
-        text: language === 'fa' ? 'رمز عبور باید حداقل ۶ کاراکتر باشد' : 'وشەی نهێنی دەبێت لانیکەم ٦ پیت بێت'
+        text: language === 'fa' 
+          ? 'رمز عبور جدید بسیار ضعیف است. لطفاً حداقل ۸ کاراکتر شامل حروف و اعداد انتخاب کنید.' 
+          : 'Password is too weak. Please use a stronger password with letters, digits or symbols.'
       });
       return;
     }
@@ -2078,6 +2097,12 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     </div>
                   </div>
 
+                  {newPass && (
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <PasswordStrengthMeter password={newPass} showChecks={true} />
+                    </div>
+                  )}
+
                   {passMsg.text && (
                     <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
                       passMsg.type === 'success'
@@ -2099,6 +2124,117 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     </button>
                   </div>
                 </form>
+
+                {/* Two-Factor Authentication (2FA) & High Security Hardening */}
+                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/50 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>{language === 'fa' ? 'تایید هویت دو مرحله‌ای (2FA)' : 'پشتڕاستکردنەوەی دوو قۆناغی'}</span>
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {language === 'fa' ? 'اتصال به Google Authenticator یا Microsoft Authenticator' : 'Google / Microsoft Authenticator'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
+                      twoFactorConfig?.enabled
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                    }`}>
+                      {twoFactorConfig?.enabled
+                        ? (language === 'fa' ? 'فعال و محافظت‌شده' : 'چالاکە')
+                        : (language === 'fa' ? 'غیرفعال' : 'ناچالاکە')}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {language === 'fa'
+                      ? 'با فعال‌سازی ۲FA، در هر بار ورود به برنامه علاوه‌بر رمز عبور، کد ۶ رقمی تولیدشده در گوشی همراه شما درخواست خواهد شد که امنیت داده‌های مالی را به حداکثر می‌رساند.'
+                      : 'With 2FA enabled, a 6-digit code from your authenticator app is required upon login.'}
+                  </p>
+
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIs2FAModalOpen(true)}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-md shadow-sky-600/20 flex items-center gap-2"
+                    >
+                      <Shield className="w-4 h-4" />
+                      <span>
+                        {twoFactorConfig?.enabled
+                          ? (language === 'fa' ? 'مدیریت و مشاهده کدهای بازیابی ۲FA' : 'Manage 2FA & Backup Codes')
+                          : (language === 'fa' ? 'راه‌اندازی و فعال‌سازی ۲FA' : 'Setup Two-Factor Authentication')}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Auto-Lock Screen on Inactivity */}
+                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-indigo-500" />
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                      {language === 'fa' ? 'قفل خودکار صفحه بر اثر بی‌حرکتی' : 'قفڵکردنی خۆکاری شاشە'}
+                    </h4>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {language === 'fa'
+                      ? 'جهت جلوگیری از دسترسی افراد غیرمجاز در محیط کارگاه، برنامه پس از مدت زمان مشخصی بی‌حرکتی قفل می‌شود.'
+                      : 'Automatically locks the app after inactivity to prevent unauthorized access in the workshop.'}
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    {[
+                      { minutes: 0, label: { fa: 'غیرفعال', en: 'Disabled' } },
+                      { minutes: 15, label: { fa: '۱۵ دقیقه', en: '15 min' } },
+                      { minutes: 30, label: { fa: '۳۰ دقیقه', en: '30 min' } },
+                      { minutes: 60, label: { fa: '۱ ساعت', en: '60 min' } }
+                    ].map((opt) => {
+                      const isSelected = autoLockMinutes === opt.minutes;
+                      return (
+                        <button
+                          key={opt.minutes}
+                          type="button"
+                          onClick={() => setAutoLockMinutes(opt.minutes)}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
+                          }`}
+                        >
+                          {opt.label[language === 'fa' ? 'fa' : 'en']}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Security Audit & Status Badges */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                    <span>{language === 'fa' ? 'وضعیت سپرهای امنیتی فعال KarSync' : 'Active Security Layers'}</span>
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>HTTPS Enforced</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>SHA-256 + Salt</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Brute-Force Guard</span>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Logout Button */}
                 <div className="border-t border-slate-200/80 dark:border-slate-800 pt-4">
@@ -2157,6 +2293,12 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
           </main>
         </div>
+
+        {/* 2FA Security Modal */}
+        <TwoFactorModal
+          isOpen={is2FAModalOpen}
+          onClose={() => setIs2FAModalOpen(false)}
+        />
       </div>,
       document.body
     );

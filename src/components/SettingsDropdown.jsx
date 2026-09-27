@@ -12,7 +12,7 @@ import {
   ChevronLeft,
   Settings,
   Sparkles,
-  ShieldCheck,
+  Download,
   User
 } from 'lucide-react';
 
@@ -22,7 +22,8 @@ export function SettingsDropdown({
   theme, 
   toggleTheme, 
   onOpenGlobalSettings,
-  onOpenAboutModal
+  onOpenAboutModal,
+  onOpenInstallModal
 }) {
   const { language, t, direction } = useLanguage();
   const isRtl = direction === 'rtl';
@@ -196,6 +197,24 @@ export function SettingsDropdown({
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-sky-500' : ''}`} />
             )}
           </div>
+        </button>
+
+        {/* PWA Install Quick Action */}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            if (onOpenInstallModal) onOpenInstallModal();
+          }}
+          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-800 dark:text-slate-200"
+        >
+          <div className="flex items-center gap-2.5">
+            <Download className="w-4 h-4 text-amber-500" />
+            <span>{language === 'fa' ? 'نصب اپلیکیشن KarSync' : 'Install KarSync App'}</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">
+            PWA
+          </span>
         </button>
       </div>
 

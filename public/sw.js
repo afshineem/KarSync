@@ -1,15 +1,19 @@
-const CACHE_NAME = 'karsync-cache-v9';
+const CACHE_NAME = 'karsync-cache-v12';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/karsync-icon.png'
+  '/karsync-icon.png',
+  '/karsync-icon-192.png',
+  '/karsync-logo.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await Promise.allSettled(
+        ASSETS_TO_CACHE.map((url) => cache.add(url))
+      );
     })
   );
   self.skipWaiting();

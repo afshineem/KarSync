@@ -4,10 +4,13 @@
  * Bi-directional REST & Sync API for Offline-First PWA
  */
 
-// Handle Cross-Origin Resource Sharing (CORS)
+// Handle Cross-Origin Resource Sharing (CORS) & Security Headers
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Key");
+header("X-Content-Type-Options: nosniff");
+header("X-Frame-Options: SAMEORIGIN");
+header("Referrer-Policy: strict-origin-when-cross-origin");
 
 // Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -18,9 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/config.php';
 
 // ------------------------------------------------------------------------
-// Authentication Check
+// Hardened Authentication Check
 // ------------------------------------------------------------------------
 function verifyAuthentication() {
+    // Block access if secret key has not been configured securely
+    if (empty(API_SECRET_KEY) || API_SECRET_KEY === 'Workshop_Secret_Key_2026_ChangeMe') {
+        sendJsonError('Security Warning: API_SECRET_KEY must be configured in config.php before accessing data.', 403);
+    }
+
     $providedKey = null;
 
     // 1. Check HTTP Authorization header: Bearer <key>
@@ -35,19 +43,11 @@ function verifyAuthentication() {
         $providedKey = trim($_SERVER['HTTP_X_API_KEY']);
     }
 
-    // 3. Check query param: ?key=<key>
-    if (!$providedKey && !empty($_GET['key'])) {
-        $providedKey = trim($_GET['key']);
-    }
-
-    // If API_SECRET_KEY is empty or default, allow for first setup check
-    if (API_SECRET_KEY === '' || API_SECRET_KEY === 'Workshop_Secret_Key_2026_ChangeMe') {
-        return true;
-    }
-
-    if ($providedKey !== API_SECRET_KEY) {
+    // Disallow query parameter keys to prevent credential leakage in logs
+    if (empty($providedKey) || !hash_equals(API_SECRET_KEY, $providedKey)) {
         sendJsonError('Unauthorized: Invalid or missing API security key.', 401);
     }
+
     return true;
 }
 

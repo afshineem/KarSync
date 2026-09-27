@@ -2,7 +2,9 @@
 <html lang="ku" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: data: blob: ws: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src *;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src *; upgrade-insecure-requests;" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0284c7" />
     <meta name="description" content="KarSync - Workshop Attendance, Task Logging & Financial Settlement (Local Offline PWA)" />
@@ -11,20 +13,69 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>KarSync | سیستم مدیریت و تسویه حساب کارگاه</title>
     
-    <link rel="icon" type="image/png" href="/karsync-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/karsync-icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/karsync-icon.png" />
+    <link rel="apple-touch-icon" href="/karsync-icon.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/karsync-icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/karsync-icon.png" />
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Google Fonts: Vazirmatn & Inter for Kurdish, Persian & English -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+      @keyframes karsyncPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.72; transform: scale(0.96); }
+      }
+    </style>
+
+    <script>
+      // Self-heal mechanism: If an outdated cached JS/CSS chunk fails to load in Chrome or any browser,
+      // unregister stale service worker, purge cache, and reload immediately with latest build.
+      window.addEventListener('error', function(e) {
+        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+          console.warn('KarSync resource load failed, attempting auto recovery:', e.target.src || e.target.href);
+          if ('serviceWorker' in navigator && !sessionStorage.getItem('karsync_reloaded_on_err')) {
+            sessionStorage.setItem('karsync_reloaded_on_err', '1');
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              for (var reg of regs) { reg.unregister(); }
+              if ('caches' in window) {
+                caches.keys().then(function(keys) {
+                  Promise.all(keys.map(function(k) { return caches.delete(k); })).then(function() {
+                    window.location.reload();
+                  });
+                });
+              } else {
+                window.location.reload();
+              }
+            });
+          }
+        }
+      }, true);
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen antialiased selection:bg-sky-500 selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #0f172a; color: #f8fafc; font-family: 'Vazirmatn', system-ui, sans-serif;">
+        <img src="/karsync-logo.png?v=2" alt="KarSync" style="width: 80px; height: 80px; object-fit: contain; animation: karsyncPulse 1.8s ease-in-out infinite;" />
+        <h1 style="margin-top: 14px; font-size: 19px; font-weight: 800; letter-spacing: -0.025em; color: #ffffff;">KarSync</h1>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
       // Register service worker for offline local-first PWA with proactive updates
       if ('serviceWorker' in navigator) {
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').then((reg) => {
             console.log('PWA ServiceWorker registered with scope:', reg.scope);

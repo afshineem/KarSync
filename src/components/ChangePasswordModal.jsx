@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { Lock, KeyRound, Eye, EyeOff, X, Check, AlertCircle } from 'lucide-react';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 
 export function ChangePasswordModal({ isOpen, onClose }) {
   const { t, language } = useLanguage();
@@ -29,10 +31,15 @@ export function ChangePasswordModal({ isOpen, onClose }) {
       });
       return;
     }
-    if (newPass.length < 6) {
+    const strength = evaluatePasswordStrength(newPass);
+    if (!strength.isAcceptable) {
       setStatus({
         type: 'error',
-        message: language === 'fa' ? 'رمز عبور باید حداقل ۶ کاراکتر باشد' : language === 'ku' ? 'تێپەڕەوشە دەبێت لانیکەم ٦ پیت بێت' : 'Password must be at least 6 characters'
+        message: language === 'fa' 
+          ? 'رمز عبور جدید بسیار ضعیف است. لطفاً حداقل ۸ کاراکتر شامل حروف، اعداد یا نمادها انتخاب کنید.' 
+          : language === 'ku' 
+          ? 'وشەی نهێنی زۆر لاوازە. تکایە وشەیەکی بەهێزتر هەڵبژێرە.' 
+          : 'Password is too weak. Please include at least 8 characters with letters, numbers or symbols.'
       });
       return;
     }
@@ -176,6 +183,13 @@ export function ChangePasswordModal({ isOpen, onClose }) {
               />
             </div>
           </div>
+
+          {/* Password Strength Indicator */}
+          {newPass && (
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <PasswordStrengthMeter password={newPass} showChecks={true} />
+            </div>
+          )}
 
           <div className="pt-2 flex items-center justify-end gap-2">
             <button

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { 
   Lock, 
   User, 
@@ -14,19 +16,31 @@ import {
   Check,
   Sun,
   Moon,
-  Sparkles
+  Smartphone,
+  KeyRound,
+  ShieldCheck,
+  Clock,
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 
 export function LoginView({ theme, toggleTheme }) {
-  const { login, signUp } = useAuth();
+  const { login, signUp, completeTwoFactorLogin, getLoginLockStatus } = useAuth();
   const { t, language, changeLanguage, direction } = useLanguage();
 
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup'
+  const isRtl = direction === 'rtl';
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+
+  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup' | '2fa'
 
   // Sign In Form State
-  const [identifier, setIdentifier] = useState(''); // email or username or worker code
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // 2FA Challenge State
+  const [totpCode, setTotpCode] = useState('');
+  const [isUsingBackup, setIsUsingBackup] = useState(false);
 
   // Sign Up Form State
   const [signupEmail, setSignupEmail] = useState('');
@@ -38,10 +52,51 @@ export function LoginView({ theme, toggleTheme }) {
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Rate Limiting Lock Countdown
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+
+  useEffect(() => {
+    const status = getLoginLockStatus();
+    if (status.isLocked) {
+      setRemainingSeconds(status.remainingSeconds);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (remainingSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [remainingSeconds]);
+
+  const formatLockTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   const handleSignIn = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
+
+    if (remainingSeconds > 0) {
+      setErrorMessage(
+        langKey === 'fa'
+          ? `حساب موقتاً قفل است. لطفاً ${formatLockTime(remainingSeconds)} دیگر صبر کنید.`
+          : langKey === 'ku'
+          ? `هەژمارەکە قفڵ کراوە. تکایە ${formatLockTime(remainingSeconds)} چاوەڕێ بکە.`
+          : `Account locked. Please wait ${formatLockTime(remainingSeconds)}.`
+      );
+      return;
+    }
 
     if (!identifier.trim() || !password.trim()) {
       setErrorMessage(t('invalidCredentials') || 'لطفاً نام کاربری/ایمیل و رمز عبور را وارد کنید');
@@ -52,14 +107,64 @@ export function LoginView({ theme, toggleTheme }) {
     try {
       const res = await login(identifier, password);
       if (!res.success) {
-        setErrorMessage(
-          res.error === 'invalidCredentials'
-            ? (t('invalidCredentials') || 'مشخصات ورود اشتباه است')
-            : res.error
-        );
+        if (res.error === 'rateLimited') {
+          setRemainingSeconds(res.remainingSeconds || 300);
+          setErrorMessage(
+            langKey === 'fa'
+              ? 'تعداد تلاش‌های ناموفق بیش از حد مجاز بود. حساب به مدت ۵ دقیقه قفل شد.'
+              : langKey === 'ku'
+              ? 'هەوڵی هەڵەی زۆر درا. بۆ ماوەی ٥ خولەک قفڵ کرا.'
+              : 'Too many failed attempts. Login locked for 5 minutes.'
+          );
+        } else {
+          setErrorMessage(
+            res.error === 'invalidCredentials'
+              ? (t('invalidCredentials') || 'مشخصات ورود اشتباه است')
+              : res.error
+          );
+        }
+      } else if (res.requires2FA) {
+        // Switch to 2FA view
+        setAuthMode('2fa');
+        setTotpCode('');
+        setIsUsingBackup(false);
       }
     } catch (err) {
       setErrorMessage(err.message || t('invalidCredentials'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerify2FASubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (!totpCode.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await completeTwoFactorLogin(totpCode);
+      if (!res.success) {
+        if (res.error === 'rateLimited') {
+          setRemainingSeconds(300);
+          setErrorMessage(
+            langKey === 'fa'
+              ? 'به دلیل تلاش‌های ناموفق مکرر، ورود قفل شد.'
+              : 'Too many attempts. Account locked.'
+          );
+        } else {
+          setErrorMessage(
+            langKey === 'fa'
+              ? 'کد تایید یا کد پشتیبان نامعتبر است. لطفاً دوباره امتحان کنید.'
+              : langKey === 'ku'
+              ? 'کۆدی پشتڕاستکردنەوە هەڵەیە.'
+              : 'Invalid verification or backup code.'
+          );
+        }
+      }
+    } catch (err) {
+      setErrorMessage(err.message || '2FA Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -75,8 +180,15 @@ export function LoginView({ theme, toggleTheme }) {
       return;
     }
 
-    if (signupPassword.length < 6) {
-      setErrorMessage(t('passwordMinLength') || 'رمز عبور باید حداقل ۶ کاراکتر باشد');
+    const strength = evaluatePasswordStrength(signupPassword);
+    if (!strength.isAcceptable) {
+      setErrorMessage(
+        langKey === 'fa'
+          ? 'رمز عبور انتخاب شده ضعیف است. لطفاً از رمز قوی‌تر شامل حروف، اعداد یا نمادها استفاده کنید.'
+          : langKey === 'ku'
+          ? 'وشەی نهێنی لاوازە. تکایە وشەیەکی بەهێزتر بەکاربهێنە.'
+          : 'Password is too weak. Please use a stronger password with letters, digits or symbols.'
+      );
       return;
     }
 
@@ -110,7 +222,6 @@ export function LoginView({ theme, toggleTheme }) {
       className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center p-4 selection:bg-sky-500 selection:text-white transition-colors duration-200"
       dir={direction}
     >
-      
       {/* Top Controls Bar */}
       <div className="w-full max-w-md flex items-center justify-between mb-3">
         {toggleTheme ? (
@@ -149,55 +260,64 @@ export function LoginView({ theme, toggleTheme }) {
           <img 
             src="/karsync-logo.png" 
             alt="KarSync" 
-            className="h-20 w-20 object-contain drop-shadow-md transition-transform hover:scale-105 mb-3" 
+            className="w-16 h-16 object-contain mb-3 drop-shadow-md hover:scale-105 transition-transform"
           />
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             KarSync
-            <span className="text-[10px] px-2 py-0.5 font-bold rounded-md bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-              SaaS
-            </span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
-            {t('appSubtitle')}
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {langKey === 'fa' ? 'سیستم مدیریت حضور، کارکرد و تسویه حساب' : langKey === 'ku' ? 'سیستەمی بەڕێوەبردنی ئامادەبوون و مووچە' : 'Workshop Attendance & Financial Manager'}
           </p>
         </div>
 
-        {/* Mode Switcher Tabs */}
-        <div className="flex p-1 bg-slate-100 dark:bg-slate-800/70 rounded-2xl mb-5 border border-slate-200 dark:border-slate-700/60">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode('signin');
-              setErrorMessage('');
-              setSuccessMessage('');
-            }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              authMode === 'signin'
-                ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>{t('signInTab') || 'ورود به حساب'}</span>
-          </button>
+        {/* Tab Switcher (Only in signin/signup modes) */}
+        {authMode !== '2fa' && (
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl mb-5">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('signin');
+                setErrorMessage('');
+              }}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                authMode === 'signin'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>{t('signInTab') || 'ورود به حساب'}</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode('signup');
-              setErrorMessage('');
-              setSuccessMessage('');
-            }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              authMode === 'signup'
-                ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>{t('signUpTab') || 'ثبت‌نام مدیر جدید'}</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('signup');
+                setErrorMessage('');
+              }}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                authMode === 'signup'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>{t('signUpTab') || 'ثبت‌نام جدید'}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Lockout Warning */}
+        {remainingSeconds > 0 && (
+          <div className="mb-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
+            <Clock className="w-4 h-4 shrink-0 animate-spin" />
+            <span>
+              {langKey === 'fa'
+                ? `ورود به سیستم قفل است. زمان باقیمانده: ${formatLockTime(remainingSeconds)}`
+                : `Login temporarily locked. Remaining: ${formatLockTime(remainingSeconds)}`}
+            </span>
+          </div>
+        )}
 
         {/* Alerts */}
         {errorMessage && (
@@ -214,7 +334,9 @@ export function LoginView({ theme, toggleTheme }) {
           </div>
         )}
 
+        {/* ----------------------------------------------------------- */}
         {/* 1. Sign In Form */}
+        {/* ----------------------------------------------------------- */}
         {authMode === 'signin' && (
           <form onSubmit={handleSignIn} className="space-y-4">
             <div>
@@ -260,7 +382,7 @@ export function LoginView({ theme, toggleTheme }) {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || remainingSeconds > 0}
               className="w-full mt-2 py-3 px-4 bg-sky-600 hover:bg-sky-500 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl shadow-md shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmitting ? (
@@ -275,7 +397,102 @@ export function LoginView({ theme, toggleTheme }) {
           </form>
         )}
 
-        {/* 2. Sign Up Form */}
+        {/* ----------------------------------------------------------- */}
+        {/* 2. Two-Factor Authentication (2FA) Challenge Screen */}
+        {/* ----------------------------------------------------------- */}
+        {authMode === '2fa' && (
+          <form onSubmit={handleVerify2FASubmit} className="space-y-4 animate-in fade-in duration-150">
+            <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 text-center">
+              <div className="w-10 h-10 mx-auto rounded-2xl bg-sky-600 text-white flex items-center justify-center shadow-md shadow-sky-600/30 mb-2">
+                <Smartphone className="w-5 h-5" />
+              </div>
+              <h4 className="text-sm font-bold text-sky-950 dark:text-sky-200">
+                {langKey === 'fa' ? 'تایید هویت دو مرحله‌ای (2FA)' : 'Two-Factor Authentication'}
+              </h4>
+              <p className="text-xs text-sky-800/80 dark:text-sky-300/80 mt-1 leading-relaxed">
+                {isUsingBackup
+                  ? (langKey === 'fa' ? 'یکی از کدهای بازیابی ۸ رقمی خود را وارد کنید:' : 'Enter one of your 8-character emergency backup codes:')
+                  : (langKey === 'fa' ? 'کد ۶ رقمی نمایش داده شده در Google/Microsoft Authenticator را وارد کنید:' : 'Enter the 6-digit code from your Authenticator app:')}
+              </p>
+            </div>
+
+            <div>
+              {isUsingBackup ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                  placeholder="XXXX-XXXX"
+                  required
+                  className="w-full text-center tracking-widest font-mono text-lg font-bold px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500 uppercase"
+                />
+              ) : (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  autoFocus
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  required
+                  className="w-full text-center tracking-[0.4em] font-mono text-2xl font-black px-3.5 py-3 bg-slate-50 dark:bg-slate-800/80 border-2 border-sky-500/40 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500 shadow-inner"
+                />
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !totpCode.trim()}
+              className="w-full py-3 px-4 bg-sky-600 hover:bg-sky-500 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl shadow-md shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{langKey === 'fa' ? 'تایید و ورود به سیستم' : 'Verify & Sign In'}</span>
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsUsingBackup(!isUsingBackup);
+                  setTotpCode('');
+                  setErrorMessage('');
+                }}
+                className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>
+                  {isUsingBackup
+                    ? (langKey === 'fa' ? 'ورود با اپلیکیشن Authenticator' : 'Use Authenticator app')
+                    : (langKey === 'fa' ? 'استفاده از کد بازیابی اضطراری' : 'Use emergency backup code')}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signin');
+                  setErrorMessage('');
+                }}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              >
+                {langKey === 'fa' ? 'بازگشت' : 'Back'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ----------------------------------------------------------- */}
+        {/* 3. Sign Up Form */}
+        {/* ----------------------------------------------------------- */}
         {authMode === 'signup' && (
           <form onSubmit={handleSignUp} className="space-y-3.5">
             <div>
@@ -304,9 +521,11 @@ export function LoginView({ theme, toggleTheme }) {
                 required
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
-                placeholder="•••••••• (حداقل ۶ کاراکتر)"
+                placeholder="••••••••"
                 className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
               />
+              {/* Password Strength Meter */}
+              <PasswordStrengthMeter password={signupPassword} showChecks={true} />
             </div>
 
             <div>

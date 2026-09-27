@@ -1,18 +1,43 @@
 {
-  "short_name": "KarSync",
   "name": "KarSync - Workshop Attendance & Payroll Manager",
-  "description": "Local-first offline Attendance, Daily Logging and Payroll Management in Iraqi Dinars (IQD)",
-  "icons": [
-    {
-      "src": "/karsync-icon.png",
-      "type": "image/png",
-      "sizes": "192x192 512x512",
-      "purpose": "any maskable"
-    }
-  ],
-  "start_url": "/",
+  "short_name": "KarSync",
+  "description": "سیستم مدیریت حضور و غیاب، تسویه حساب و امور مالی کارگاه (KarSync)",
+  "id": "/?source=pwa",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#0f172a",
   "theme_color": "#0284c7",
-  "display": "standalone",
-  "orientation": "portrait-primary"
+  "dir": "rtl",
+  "lang": "fa",
+  "categories": ["business", "finance", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/karsync-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/karsync-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/karsync-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/karsync-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }

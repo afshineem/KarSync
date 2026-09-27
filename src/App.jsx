@@ -25,6 +25,8 @@ import GlobalSettingsModal from './components/GlobalSettingsModal';
 import { performSyncUnified, getSyncConfig } from './services/syncService';
 import { initRealtimeSync, pushLogsLive, pushPaymentsLive } from './services/realtimeSync';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { LockScreenModal } from './components/LockScreenModal';
+import { InstallPwaModal } from './components/InstallPwaModal';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
@@ -44,7 +46,19 @@ function AppContent() {
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
+
+  // Catch PWA beforeinstallprompt event globally
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      window.karsyncDeferredInstallPrompt = e;
+      window.dispatchEvent(new CustomEvent('karsync-install-ready'));
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
 
   // Live queries for quick modals
   const allWorkers = useLiveQuery(() => db.workers.toArray()) || [];
@@ -232,6 +246,7 @@ function AppContent() {
         onOpenBackupModal={() => setIsBackupModalOpen(true)}
         onOpenChangePasswordModal={() => setIsChangePasswordModalOpen(true)}
         onOpenAboutModal={() => setIsAboutModalOpen(true)}
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
       />
 
       {/* Main Content View */}
@@ -345,6 +360,15 @@ function AppContent() {
           onClose={closeWorkerProfile}
         />
       )}
+
+      {/* Auto-Lock Screen Inactivity Protection Modal */}
+      <LockScreenModal />
+
+      {/* PWA Direct Installation & Guidance Modal */}
+      <InstallPwaModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
     </div>
   );
 }

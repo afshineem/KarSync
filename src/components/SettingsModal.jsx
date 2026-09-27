@@ -19,8 +19,13 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  LogOut
+  LogOut,
+  Smartphone,
+  Shield
 } from 'lucide-react';
+import { TwoFactorModal } from './TwoFactorModal';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 
 export function SettingsModal({ 
   isOpen, 
@@ -30,9 +35,11 @@ export function SettingsModal({
   onOpenBackupModal
 }) {
   const { language, changeLanguage, t, direction } = useLanguage();
-  const { changeAdminPassword, logout } = useAuth();
+  const { changeAdminPassword, logout, getTwoFactorConfig } = useAuth();
   const [isSyncingLive, setIsSyncingLive] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState('');
+  const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
+  const twoFactorConfig = getTwoFactorConfig();
 
   // Admin password change form state
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -52,6 +59,16 @@ export function SettingsModal({
     if (!currentPassInput || !newPassInput) return;
     if (newPassInput !== confirmPassInput) {
       setPasswordStatus({ type: 'error', message: t('passwordMismatch') });
+      return;
+    }
+    const strength = evaluatePasswordStrength(newPassInput);
+    if (!strength.isAcceptable) {
+      setPasswordStatus({
+        type: 'error',
+        message: language === 'fa' 
+          ? 'رمز عبور جدید بسیار ضعیف است. لطفاً حداقل ۸ کاراکتر شامل حروف و اعداد انتخاب کنید.' 
+          : 'Password is too weak. Please use a stronger password with letters, digits or symbols.'
+      });
       return;
     }
     setIsChangingPass(true);
@@ -359,6 +376,12 @@ export function SettingsModal({
                   </div>
                 </div>
 
+                {newPassInput && (
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <PasswordStrengthMeter password={newPassInput} showChecks={true} />
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={isChangingPass || !currentPassInput || !newPassInput}
@@ -373,6 +396,46 @@ export function SettingsModal({
                 {language === 'en' ? 'Secure admin account access and update password anytime.' : language === 'ku' ? 'پاراستنی هەژماری بەڕێوەبەر و گۆڕینی تێپەڕەوشە لە هەر کاتێکدا.' : 'تغییر رمز عبور ورود ادمین به برنامه جهت حفظ امنیت داده‌ها.'}
               </p>
             )}
+          </div>
+
+          {/* Section 4.5: Two-Factor Authentication (2FA) */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-sky-500" />
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {language === 'fa' ? 'تایید دو مرحله‌ای (Google Authenticator)' : language === 'ku' ? 'پشتڕاستکردنەوەی دوو قۆناغی' : 'Two-Factor Authentication (2FA)'}
+                </h4>
+              </div>
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                twoFactorConfig?.enabled
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : 'bg-slate-200/60 dark:bg-slate-700/60 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-600'
+              }`}>
+                {twoFactorConfig?.enabled
+                  ? (language === 'fa' ? 'فعال' : language === 'ku' ? 'چالاکە' : 'Active')
+                  : (language === 'fa' ? 'غیرفعال' : language === 'ku' ? 'ناچالاکە' : 'Disabled')}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+              {language === 'fa'
+                ? 'ورود با اپلیکیشن‌های احراز هویت مانند Google Authenticator یا Microsoft Authenticator برای بالاترین سطح امنیت داده‌های کارگاه.'
+                : 'Protect your account using standard TOTP authenticator apps like Google or Microsoft Authenticator.'}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setIs2FAModalOpen(true)}
+              className="w-full py-2 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+            >
+              <Shield className="w-3.5 h-3.5 text-sky-500" />
+              <span>
+                {twoFactorConfig?.enabled
+                  ? (language === 'fa' ? 'مدیریت و مشاهده کدهای بازیابی ۲FA' : 'Manage 2FA & Backup Codes')
+                  : (language === 'fa' ? 'فعال‌سازی تایید دو مرحله‌ای' : 'Enable Two-Factor Authentication')}
+              </span>
+            </button>
           </div>
 
           {/* Section 4: Database Backup & Restore */}
@@ -471,6 +534,12 @@ export function SettingsModal({
         </div>
 
       </div>
+
+      {/* Two-Factor Authentication Management Modal */}
+      <TwoFactorModal
+        isOpen={is2FAModalOpen}
+        onClose={() => setIs2FAModalOpen(false)}
+      />
     </div>
   );
 }
