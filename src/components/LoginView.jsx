@@ -149,7 +149,7 @@ export function LoginView({ theme, toggleTheme }) {
           <img 
             src="/karsync-logo.png" 
             alt="KarSync" 
-            className="h-16 sm:h-20 w-auto object-contain dark:brightness-0 dark:invert transition-all mb-2" 
+            className="h-20 w-20 object-contain rounded-2xl shadow-md transition-all mb-3" 
           />
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
             KarSync

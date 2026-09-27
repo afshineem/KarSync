@@ -28,11 +28,11 @@ export function AboutModal({ isOpen, onClose }) {
         </button>
 
         {/* Brand Icon */}
-        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center p-2.5 shadow-sm mt-2">
+        <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-700/60 flex items-center justify-center p-1.5 shadow-md mt-2 overflow-hidden">
           <img 
             src="/karsync-icon.png" 
             alt="KarSync" 
-            className="w-full h-full object-contain dark:brightness-0 dark:invert transition-all" 
+            className="w-full h-full object-contain rounded-xl transition-all" 
           />
         </div>
 
