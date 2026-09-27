@@ -10,7 +10,8 @@ import {
   CalendarDays, 
   Settings, 
   WalletCards,
-  Receipt
+  Receipt,
+  Landmark
 } from 'lucide-react';
 
 export function Navbar({ 
@@ -46,6 +47,7 @@ export function Navbar({
     { id: 'calendar', label: t('calendarLogs') || 'تەقویم', icon: CalendarDays },
     { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards },
     { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt },
+    { id: 'accounting', label: t('accountingTab') || 'حسابداری و خزانه‌داری', icon: Landmark },
   ];
 
   return (

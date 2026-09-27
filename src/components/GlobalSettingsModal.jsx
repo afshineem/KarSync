@@ -56,11 +56,14 @@ import {
   Command,
   Smartphone,
   Shield,
-  ShieldAlert
+  ShieldAlert,
+  Landmark
 } from 'lucide-react';
 import { TwoFactorModal } from './TwoFactorModal';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { evaluatePasswordStrength } from '../utils/passwordSecurity';
+import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
+import { useAccounting } from '../hooks/useAccounting';
 
 export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
   const { 
@@ -109,6 +112,14 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     setEditingProjectId,
     setIsNewProjectModalOpen
   } = useProject();
+
+  const {
+    financialAccounts,
+    addAccount,
+    updateAccount,
+    setDefaultAccount,
+    deleteAccount
+  } = useAccounting();
 
   const [activeTab, setActiveTab] = useState(initialTab || 'general');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -597,6 +608,12 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
       label: language === 'fa' ? 'سرفصل‌های هزینه‌ها' : language === 'ku' ? 'سەردێڕی خەرجییەکان' : 'Expense Categories',
       icon: Receipt,
       color: 'text-rose-500'
+    },
+    {
+      id: 'accounting_accounts',
+      label: language === 'fa' ? 'حساب‌ها و کارت‌های بانکی' : language === 'ku' ? 'حیساب و کارتەکان' : 'Financial Accounts',
+      icon: Landmark,
+      color: 'text-emerald-500'
     },
     {
       id: 'sync_data',
@@ -1489,6 +1506,23 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             )}
 
             {/* ---------------------------------------------------- */}
+            {/* TAB: FINANCIAL ACCOUNTS & CASH BOXES */}
+            {/* ---------------------------------------------------- */}
+            {activeTab === 'accounting_accounts' && (
+              <div className="max-w-4xl animate-in fade-in duration-150">
+                <AccountsSettingsTab
+                  accounts={financialAccounts}
+                  onAddAccount={addAccount}
+                  onUpdateAccount={updateAccount}
+                  onSetDefaultAccount={setDefaultAccount}
+                  onDeleteAccount={deleteAccount}
+                  currency={currentProject?.currency || 'IQD'}
+                  language={language}
+                />
+              </div>
+            )}
+
+            {/* ---------------------------------------------------- */}
             {/* TAB 4: DATA, CLOUD SYNC & BACKUP */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'sync_data' && (
@@ -1862,11 +1896,18 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">4</kbd>
                     </div>
 
-                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2 sm:col-span-2 lg:col-span-1">
+                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
                         {language === 'fa' ? 'مدیریت هزینه‌ها' : 'خەرجییەکان'}
                       </div>
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">5</kbd>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {language === 'fa' ? 'حسابداری و خزانه‌داری' : 'ژمێریاری و خەزێنەداری'}
+                      </div>
+                      <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">6</kbd>
                     </div>
                   </div>
                 </div>

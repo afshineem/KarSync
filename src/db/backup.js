@@ -8,9 +8,12 @@ export async function exportDatabaseToJSON() {
   const attendanceLogs = await db.attendanceLogs.toArray();
   const settings = await db.settings.toArray();
   const payments = await db.payments.toArray();
+  const treasuryIncomes = db.treasuryIncomes ? await db.treasuryIncomes.toArray() : [];
+  const expenses = db.expenses ? await db.expenses.toArray() : [];
+  const financialAccounts = db.financialAccounts ? await db.financialAccounts.toArray() : [];
 
   const backupData = {
-    version: 2,
+    version: 4,
     appName: 'KarSync',
     exportedAt: new Date().toISOString(),
     currency: 'IQD',
@@ -18,7 +21,10 @@ export async function exportDatabaseToJSON() {
       workers,
       attendanceLogs,
       settings,
-      payments
+      payments,
+      treasuryIncomes,
+      expenses,
+      financialAccounts
     }
   };
 
@@ -54,27 +60,49 @@ export async function importDatabaseFromJSON(jsonText, mode = 'replace') {
     throw new Error('Invalid backup schema / داتای یەدەگ نادروستە / ساختار فایل پشتیبان صحیح نیست');
   }
 
-  const { workers, attendanceLogs = [], settings = [], payments = [] } = parsed.data;
+  const { 
+    workers = [], 
+    attendanceLogs = [], 
+    settings = [], 
+    payments = [],
+    treasuryIncomes = [],
+    expenses = [],
+    financialAccounts = []
+  } = parsed.data;
+
+  const tablesToTransact = [db.workers, db.attendanceLogs, db.settings, db.payments];
+  if (db.treasuryIncomes) tablesToTransact.push(db.treasuryIncomes);
+  if (db.expenses) tablesToTransact.push(db.expenses);
+  if (db.financialAccounts) tablesToTransact.push(db.financialAccounts);
 
   if (mode === 'replace') {
-    await db.transaction('rw', db.workers, db.attendanceLogs, db.settings, db.payments, async () => {
+    await db.transaction('rw', tablesToTransact, async () => {
       await db.workers.clear();
       await db.attendanceLogs.clear();
       await db.settings.clear();
       await db.payments.clear();
+      if (db.treasuryIncomes) await db.treasuryIncomes.clear();
+      if (db.expenses) await db.expenses.clear();
+      if (db.financialAccounts) await db.financialAccounts.clear();
 
       if (workers.length > 0) await db.workers.bulkPut(workers);
       if (attendanceLogs.length > 0) await db.attendanceLogs.bulkPut(attendanceLogs);
       if (settings.length > 0) await db.settings.bulkPut(settings);
       if (payments.length > 0) await db.payments.bulkPut(payments);
+      if (db.treasuryIncomes && treasuryIncomes.length > 0) await db.treasuryIncomes.bulkPut(treasuryIncomes);
+      if (db.expenses && expenses.length > 0) await db.expenses.bulkPut(expenses);
+      if (db.financialAccounts && financialAccounts.length > 0) await db.financialAccounts.bulkPut(financialAccounts);
     });
   } else {
     // Merge mode
-    await db.transaction('rw', db.workers, db.attendanceLogs, db.settings, db.payments, async () => {
+    await db.transaction('rw', tablesToTransact, async () => {
       if (workers.length > 0) await db.workers.bulkPut(workers);
       if (attendanceLogs.length > 0) await db.attendanceLogs.bulkPut(attendanceLogs);
       if (settings.length > 0) await db.settings.bulkPut(settings);
       if (payments.length > 0) await db.payments.bulkPut(payments);
+      if (db.treasuryIncomes && treasuryIncomes.length > 0) await db.treasuryIncomes.bulkPut(treasuryIncomes);
+      if (db.expenses && expenses.length > 0) await db.expenses.bulkPut(expenses);
+      if (db.financialAccounts && financialAccounts.length > 0) await db.financialAccounts.bulkPut(financialAccounts);
     });
   }
 

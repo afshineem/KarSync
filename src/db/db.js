@@ -50,6 +50,14 @@ db.version(8).stores({
   expenses: 'id, projectId, sectionId, categoryId, personId, paymentStatus, paymentMethod, currency, expenseDate, createdAt'
 });
 
+db.version(9).stores({
+  treasuryIncomes: 'id, projectId, date, accountType, createdAt'
+});
+
+db.version(10).stores({
+  financialAccounts: 'id, projectId, type, isDefault, isActive, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -83,6 +91,16 @@ export function generateExpenseId() {
 // Helper to generate Expense Category IDs
 export function generateCategoryId() {
   return 'cat_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+}
+
+// Helper to generate Treasury Income IDs
+export function generateTreasuryIncomeId() {
+  return 'inc_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+}
+
+// Helper to generate Financial Account IDs (Bank card / Cash box)
+export function generateAccountId() {
+  return 'acc_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Canonical deterministic ID for attendance logs to prevent duplicate entries per worker per day
@@ -238,6 +256,43 @@ db.expenseCategories.hook('creating', function (primKey, obj) {
 db.expenseCategories.hook('updating', function (modifications, primKey, obj) {
   if ('projectId' in modifications && !modifications.projectId) {
     modifications.projectId = DEFAULT_PROJECT_ID;
+  }
+});
+
+// Treasury Incomes Hooks
+db.treasuryIncomes.hook('creating', function (primKey, obj) {
+  if (obj.id !== undefined) obj.id = String(obj.id);
+  if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
+  if (!obj.userId) obj.userId = 'default_user';
+  if (obj.amount !== undefined) obj.amount = Number(String(obj.amount).replace(/,/g, '')) || 0;
+  if (!obj.accountType) obj.accountType = 'bank';
+  if (!obj.date) obj.date = new Date().toISOString().slice(0, 10);
+});
+db.treasuryIncomes.hook('updating', function (modifications, primKey, obj) {
+  if ('projectId' in modifications && !modifications.projectId) {
+    modifications.projectId = DEFAULT_PROJECT_ID;
+  }
+  if ('amount' in modifications && modifications.amount !== undefined) {
+    modifications.amount = Number(String(modifications.amount).replace(/,/g, '')) || 0;
+  }
+});
+
+// Financial Accounts (Bank Cards / Cash Boxes) Hooks
+db.financialAccounts.hook('creating', function (primKey, obj) {
+  if (obj.id !== undefined) obj.id = String(obj.id);
+  if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
+  if (!obj.userId) obj.userId = 'default_user';
+  if (!obj.type) obj.type = 'bank';
+  if (obj.isDefault === undefined) obj.isDefault = false;
+  if (obj.isActive === undefined) obj.isActive = true;
+  if (obj.initialBalance !== undefined) obj.initialBalance = Number(String(obj.initialBalance).replace(/,/g, '')) || 0;
+});
+db.financialAccounts.hook('updating', function (modifications, primKey, obj) {
+  if ('projectId' in modifications && !modifications.projectId) {
+    modifications.projectId = DEFAULT_PROJECT_ID;
+  }
+  if ('initialBalance' in modifications && modifications.initialBalance !== undefined) {
+    modifications.initialBalance = Number(String(modifications.initialBalance).replace(/,/g, '')) || 0;
   }
 });
 
@@ -503,11 +558,179 @@ export async function migrateLegacyProjectExpenses() {
   }
 }
 
+// Seed default cash box and bank card if empty
+export async function seedDefaultFinancialAccounts(projectId = DEFAULT_PROJECT_ID, userId = 'default_user') {
+  try {
+    if (!db.financialAccounts) return;
+    const count = await db.financialAccounts.count();
+    if (count === 0) {
+      const now = new Date().toISOString();
+      await db.financialAccounts.bulkAdd([
+        {
+          id: 'acc_default_cash',
+          projectId: projectId || DEFAULT_PROJECT_ID,
+          userId: userId || 'default_user',
+          name: 'صندوق نقدی کارگاه',
+          type: 'cash',
+          keeperName: 'سرپرست کارگاه',
+          initialBalance: 0,
+          isDefault: true,
+          isActive: true,
+          color: 'amber',
+          notes: 'صندوق نقدی پیش‌فرض جهت پرداخت‌ها و مخارج روزمره کارگاه',
+          createdAt: now,
+          updatedAt: now
+        },
+        {
+          id: 'acc_default_bank',
+          projectId: projectId || DEFAULT_PROJECT_ID,
+          userId: userId || 'default_user',
+          name: 'کارت بانکی تنخواه کارگاه',
+          type: 'bank',
+          bankName: 'بانک ملت',
+          holderName: 'کارفرما',
+          cardNumber: '',
+          accountNumber: '',
+          initialBalance: 0,
+          isDefault: false,
+          isActive: true,
+          color: 'sky',
+          notes: 'کارت بانکی تنخواه جهت واریزی‌های کارفرما و پرداخت‌های آنلاین',
+          createdAt: now,
+          updatedAt: now
+        }
+      ]);
+      console.log('✅ Initialized default financial accounts (Cash box & Bank card).');
+    }
+  } catch (err) {
+    console.warn('seedDefaultFinancialAccounts error:', err);
+  }
+}
+
+/**
+ * migrateClosedTransactionsToCashBox
+ * انتساب تمام تراکنش‌های بسته شده قبلی (هزینه‌های پرداخت شده، تسویه‌ها و مساعده‌های پرسنل)
+ * به حساب صندوق نقدی کارگاه
+ */
+export async function migrateClosedTransactionsToCashBox(projectId = DEFAULT_PROJECT_ID, forceAll = false) {
+  try {
+    if (!db.financialAccounts) return { success: false, updatedPaymentsCount: 0, updatedExpensesCount: 0 };
+
+    // اطمینان از وجود حساب‌های پایه
+    await seedDefaultFinancialAccounts(projectId);
+
+    // یافتن حساب صندوق نقدی
+    let cashAccount = await db.financialAccounts.where('type').equals('cash').first();
+    if (!cashAccount) {
+      cashAccount = await db.financialAccounts.get('acc_default_cash');
+    }
+    if (!cashAccount) {
+      cashAccount = {
+        id: 'acc_default_cash',
+        name: 'صندوق نقدی کارگاه',
+        type: 'cash'
+      };
+    }
+
+    const cashId = cashAccount.id || 'acc_default_cash';
+    const cashName = cashAccount.name || 'صندوق نقدی کارگاه';
+
+    let updatedPaymentsCount = 0;
+    let updatedExpensesCount = 0;
+
+    // ۱. پرداختی‌های پرسنل (تسویه‌ها و مساعده‌های بسته شده)
+    if (db.payments) {
+      const allPayments = await db.payments.toArray();
+      const paymentsToUpdate = [];
+
+      for (const p of allPayments) {
+        const isClosed = p.isSettled || p.status === 'settled' || p.type === 'settlement' || p.type === 'advance';
+        const needsUpdate = forceAll || !p.accountId || !p.accountType || (p.paymentMethod === 'cash' && p.accountId !== cashId);
+        
+        if (isClosed && needsUpdate) {
+          paymentsToUpdate.push({
+            ...p,
+            accountId: cashId,
+            accountName: cashName,
+            accountType: 'cash',
+            paymentMethod: 'cash',
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+
+      if (paymentsToUpdate.length > 0) {
+        await db.payments.bulkPut(paymentsToUpdate);
+        updatedPaymentsCount = paymentsToUpdate.length;
+        console.log(`✅ Migrated ${updatedPaymentsCount} closed payments to cash box.`);
+      }
+    }
+
+    // ۲. هزینه‌های کارگاه که پرداخت شده‌اند
+    if (db.expenses) {
+      const allExpenses = await db.expenses.toArray();
+      const expensesToUpdate = [];
+
+      for (const exp of allExpenses) {
+        const isPaid = exp.paymentStatus === 'paid' || !exp.paymentStatus;
+        const needsUpdate = forceAll || !exp.accountId || !exp.accountType || (exp.paymentMethod === 'cash' && exp.accountId !== cashId);
+
+        if (isPaid && needsUpdate) {
+          expensesToUpdate.push({
+            ...exp,
+            accountId: cashId,
+            accountName: cashName,
+            accountType: 'cash',
+            paymentMethod: 'cash',
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+
+      if (expensesToUpdate.length > 0) {
+        await db.expenses.bulkPut(expensesToUpdate);
+        updatedExpensesCount = expensesToUpdate.length;
+        console.log(`✅ Migrated ${updatedExpensesCount} paid expenses to cash box.`);
+      }
+    }
+
+    // ۳. ورودی‌های تنخواه نقدی بدون حساب
+    if (db.treasuryIncomes) {
+      const allIncomes = await db.treasuryIncomes.toArray();
+      const incomesToUpdate = [];
+      for (const inc of allIncomes) {
+        if (inc.accountType === 'cash' && !inc.accountId) {
+          incomesToUpdate.push({
+            ...inc,
+            accountId: cashId,
+            accountName: cashName,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+      if (incomesToUpdate.length > 0) {
+        await db.treasuryIncomes.bulkPut(incomesToUpdate);
+      }
+    }
+
+    return {
+      success: true,
+      updatedPaymentsCount,
+      updatedExpensesCount,
+      cashAccount
+    };
+  } catch (err) {
+    console.error('migrateClosedTransactionsToCashBox error:', err);
+    return { success: false, error: err, updatedPaymentsCount: 0, updatedExpensesCount: 0 };
+  }
+}
+
 // Seed initial settings only (NO fake or dummy workers or logs)
 export async function seedInitialDataIfEmpty(userId = 'default_user') {
   await purgeDummySeedWorkers();
   await ensureDefaultProjectExists(userId);
   await seedDefaultExpenseCategories(DEFAULT_PROJECT_ID, userId);
+  await seedDefaultFinancialAccounts(DEFAULT_PROJECT_ID, userId);
   await migrateLegacyProjectExpenses();
 
   const settingsCount = await db.settings.count();

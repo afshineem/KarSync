@@ -268,6 +268,7 @@ export const translations = {
     // Financials & Settlement (دارایی و تەسویە)
     financialsTab: 'دارایی و تەسویە',
     expensesTab: 'خەرجییەکان',
+    accountingTab: 'حیسابداری و خەزێنەداری',
     expenseManagement: 'بەڕێوەبردنی خەرجییەکان',
     addExpense: 'تۆمارکردنی خەرجی نوێ',
     financialDashboard: 'داشبۆردی دارایی و تەسویەی حساب',
@@ -847,6 +848,7 @@ export const translations = {
     // Financials & Settlement (مالی و تسویه حساب)
     financialsTab: 'مالی و تسویه',
     expensesTab: 'مدیریت هزینه‌ها',
+    accountingTab: 'حسابداری و خزانه‌داری',
     expenseManagement: 'مدیریت هزینه‌ها و فاکتورها',
     addExpense: 'ثبت هزینه جدید',
     financialDashboard: 'داشبورد مالی و تسویه حساب پرسنل',
@@ -1426,6 +1428,7 @@ export const translations = {
     // Financials & Settlement
     financialsTab: 'Financials',
     expensesTab: 'Expenses',
+    accountingTab: 'Accounting & Treasury',
     expenseManagement: 'Expense Management',
     addExpense: 'Add Expense',
     financialDashboard: 'Financials & Settlement Dashboard',

@@ -66,6 +66,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     sectionId: '',
     paymentStatus: 'paid', // 'paid' | 'pending'
     paymentMethod: 'cash', // 'cash' | 'bank' | 'petty_cash'
+    accountId: '',
+    accountName: '',
     receiptUrl: '',
     receiptFile: null,
     expenseDate: new Date().toISOString().slice(0, 10),
@@ -77,6 +79,20 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Financial Accounts live query
+  const financialAccounts = useLiveQuery(
+    async () => {
+      if (!db.financialAccounts) return [];
+      const list = await db.financialAccounts.toArray();
+      return list.filter((a) => !a.deletedAt && a.isActive);
+    },
+    []
+  ) || [];
+
+  const defaultAccount = useMemo(() => {
+    return financialAccounts.find((a) => a.isDefault) || financialAccounts[0] || null;
+  }, [financialAccounts]);
 
   // New Category inline creation state
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
@@ -133,6 +149,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         sectionId: expenseToEdit.sectionId || '',
         paymentStatus: expenseToEdit.paymentStatus || 'paid',
         paymentMethod: expenseToEdit.paymentMethod || 'cash',
+        accountId: expenseToEdit.accountId || '',
+        accountName: expenseToEdit.accountName || '',
         receiptUrl: expenseToEdit.receiptUrl || '',
         receiptFile: null,
         expenseDate: expenseToEdit.expenseDate || new Date().toISOString().slice(0, 10),
@@ -147,12 +165,16 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         setCustomPayeeActive(true);
       }
     } else {
-      // Default to first main category if available
-      if (mainCategories.length > 0 && !formData.mainCategoryId) {
-        setFormData((prev) => ({ ...prev, currency: projectCurrency }));
-      }
+      // Default to first main category if available and default account
+      setFormData((prev) => ({
+        ...prev,
+        currency: projectCurrency,
+        accountId: prev.accountId || defaultAccount?.id || '',
+        accountName: prev.accountName || defaultAccount?.name || '',
+        paymentMethod: prev.paymentMethod || (defaultAccount?.type === 'bank' ? 'bank' : 'cash')
+      }));
     }
-  }, [expenseToEdit, allCategories, projectCurrency]);
+  }, [expenseToEdit, allCategories, projectCurrency, defaultAccount]);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -271,6 +293,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         currency: formData.currency || projectCurrency,
         paymentStatus: formData.paymentStatus,
         paymentMethod: formData.paymentMethod,
+        accountId: formData.accountId || null,
+        accountName: formData.accountName || '',
         receiptUrl: finalReceiptUrl || null,
         description: formData.description?.trim() || '',
         expenseDate: formData.expenseDate || new Date().toISOString().slice(0, 10),
@@ -634,17 +658,51 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
 
             {/* Payment Method / Account */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'محل / روش پرداخت' : 'شێوازی پارەدان'}
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span>{language === 'fa' ? 'محل / حساب پرداخت' : 'شێوازی پارەدان'}</span>
+                {defaultAccount && (
+                  <span className="text-[10px] text-amber-500 font-bold">
+                    پیش‌فرض: {defaultAccount.name}
+                  </span>
+                )}
               </label>
               <select
-                value={formData.paymentMethod}
-                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                value={formData.accountId || formData.paymentMethod}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const acc = financialAccounts.find((a) => a.id === val);
+                  if (acc) {
+                    setFormData({
+                      ...formData,
+                      accountId: acc.id,
+                      accountName: acc.name,
+                      paymentMethod: acc.type === 'bank' ? 'bank' : 'cash'
+                    });
+                  } else {
+                    setFormData({
+                      ...formData,
+                      accountId: '',
+                      accountName: '',
+                      paymentMethod: val
+                    });
+                  }
+                }}
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
               >
-                <option value="cash">{language === 'fa' ? 'صندوق اصلی کارگاه (نقدی)' : 'سندوقی سەرەکی (کاش)'}</option>
-                <option value="bank">{language === 'fa' ? 'حساب بانکی / کارت به کارت' : 'حسابی بانکی / کارت'}</option>
-                <option value="petty_cash">{language === 'fa' ? 'تنخواه سرپرست / مدیر کارگاه' : 'تەنخوای سەرپەرشتیار'}</option>
+                {financialAccounts.length > 0 ? (
+                  financialAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.type === 'bank' ? '💳 کارت بانکی: ' : '🪙 صندوق نقدی: '}
+                      {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} {acc.isDefault ? '⭐ [پیش‌فرض]' : ''}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="cash">{language === 'fa' ? 'صندوق اصلی کارگاه (نقدی)' : 'سندوقی سەرەکی (کاش)'}</option>
+                    <option value="bank">{language === 'fa' ? 'حساب بانکی / کارت به کارت' : 'حسابی بانکی / کارت'}</option>
+                    <option value="petty_cash">{language === 'fa' ? 'تنخواه سرپرست / مدیر کارگاه' : 'تەنخوای سەرپەرشتیار'}</option>
+                  </>
+                )}
               </select>
             </div>
           </div>

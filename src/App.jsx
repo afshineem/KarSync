@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider, useProject } from './context/ProjectContext';
-import { db, seedInitialDataIfEmpty, reconcileSettlementEpochs } from './db/db';
+import { db, seedInitialDataIfEmpty, reconcileSettlementEpochs, migrateClosedTransactionsToCashBox } from './db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
@@ -10,6 +10,7 @@ import { WorkersView } from './components/WorkersView';
 import { CalendarReportsView } from './components/CalendarReportsView';
 import { FinancialsView } from './components/FinancialsView';
 import { ExpensesView, AddExpenseModal } from './components/ExpensesView';
+import { AccountingView } from './components/AccountingView';
 import { SettlementModal } from './components/SettlementModal';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
@@ -23,7 +24,7 @@ import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { WorkerProfileModal } from './components/WorkerProfileModal';
 import GlobalSettingsModal from './components/GlobalSettingsModal';
 import { performSyncUnified, getSyncConfig } from './services/syncService';
-import { initRealtimeSync, pushLogsLive, pushPaymentsLive } from './services/realtimeSync';
+import { initRealtimeSync, pushLogsLive, pushPaymentsLive, pushAllExpensesToCloud } from './services/realtimeSync';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LockScreenModal } from './components/LockScreenModal';
 import { InstallPwaModal } from './components/InstallPwaModal';
@@ -106,6 +107,15 @@ function AppContent() {
   useEffect(() => {
     // Seed initial demo data if database is newly initialized
     seedInitialDataIfEmpty().then(async () => {
+      // Migrate all closed past transactions (settlements, advances, paid expenses) to the cash box
+      const migRes = await migrateClosedTransactionsToCashBox();
+      if (migRes?.updatedPaymentsCount > 0) {
+        pushPaymentsLive().catch(() => {});
+      }
+      if (migRes?.updatedExpensesCount > 0) {
+        pushAllExpensesToCloud().catch(() => {});
+      }
+
       const res = await reconcileSettlementEpochs();
       if (res?.totalLogsUpdated?.length) {
         pushLogsLive(res.totalLogsUpdated).catch(() => {});
@@ -173,6 +183,11 @@ function AppContent() {
         if (e.key === '5') {
           e.preventDefault();
           setActiveTab('expenses');
+          return;
+        }
+        if (e.key === '6') {
+          e.preventDefault();
+          setActiveTab('accounting');
           return;
         }
       }
@@ -274,6 +289,10 @@ function AppContent() {
 
         {activeTab === 'expenses' && (
           <ExpensesView />
+        )}
+
+        {activeTab === 'accounting' && (
+          <AccountingView />
         )}
       </main>
 
