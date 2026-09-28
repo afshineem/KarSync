@@ -304,6 +304,19 @@ db.financialAccounts.hook('updating', function (modifications, primKey, obj) {
   }
 });
 
+// Strict Immutability: Deleting Hooks for Approved Financial Records & Expenses
+db.payments.hook('deleting', function (primKey, obj) {
+  if (obj && (obj.status === 'approved' || obj.approval_status === 'approved')) {
+    throw new Error('403 Forbidden: اسناد مالی تایید نهایی شده به جهت الزامات مالیاتی و تعادل حسابداری غیرقابل حذف هستند.');
+  }
+});
+
+db.expenses.hook('deleting', function (primKey, obj) {
+  if (obj && (obj.status === 'approved' || obj.approval_status === 'approved')) {
+    throw new Error('403 Forbidden: هزینه‌های کارگاه با سند تایید نهایی شده به جهت الزامات مالیاتی غیرقابل حذف هستند.');
+  }
+});
+
 // Ensure at least one active project exists and migrate legacy records to it
 export async function ensureDefaultProjectExists(userId = 'default_user') {
   try {
@@ -933,14 +946,80 @@ export async function reconcileSettlementEpochs() {
 }
 
 /**
+ * بررسی تایید نهایی بودن سند
+ */
+export function isRecordApproved(record) {
+  if (!record) return false;
+  return record.status === 'approved' || record.approval_status === 'approved';
+}
+
+/**
+ * بررسی امکان حذف پرسنل (Worker Deletion Protection)
+ * شروط منع قطعی حذف:
+ * ۱. داشتن حتی ۱ ساعت سابقه ثبت کارکرد در attendanceLogs
+ * ۲. داشتن هرگونه سند مالی موقت یا غیرموقت در payments (مساعده، تسویه)
+ * پرسنل در این شرایط تحت هیچ عنوانی نباید قابل حذف باشند، اما قابلیت بایگانی (آرشیو) برقرار است.
+ */
+export async function canDeleteWorker(workerId) {
+  if (!workerId) return { canDelete: true };
+  const strId = String(workerId);
+
+  // ۱. بررسی سوابق حضور و غیاب / کارکرد
+  const logsCount = await db.attendanceLogs
+    .where('workerId')
+    .equals(strId)
+    .count();
+
+  if (logsCount > 0) {
+    return {
+      canDelete: false,
+      reason: 'attendance',
+      count: logsCount,
+      message: 'این نیرو دارای سابقه ثبت کارکرد در پروژه است و طبق استانداردهای حسابداری و مقررات مالیاتی تحت هیچ شرایطی قابل حذف نیست. می‌توانید وضعیت ایشان را به «بایگانی» تغییر دهید.'
+    };
+  }
+
+  // ۲. بررسی اسناد مالی (مساعده، تسویه حساب موقت یا دائم)
+  const paymentsCount = await db.payments
+    .where('workerId')
+    .equals(strId)
+    .count();
+
+  if (paymentsCount > 0) {
+    return {
+      canDelete: false,
+      reason: 'financial',
+      count: paymentsCount,
+      message: 'برای این نیرو اسناد مالی (مساعده یا تسویه حساب) ثبت شده است و جهت حفظ یکپارچگی دفاتر حسابداری قابل حذف نیست. می‌توانید وضعیت ایشان را به «بایگانی» تغییر دهید.'
+    };
+  }
+
+  // ۳. بررسی اسناد هزینه و مخارج منتسب به شخص
+  const expensesCount = await db.expenses
+    .where('personId')
+    .equals(strId)
+    .count();
+
+  if (expensesCount > 0) {
+    return {
+      canDelete: false,
+      reason: 'expense',
+      count: expensesCount,
+      message: 'برای این نیرو اسناد هزینه و مخارج ثبت شده است و جهت حفظ یکپارچگی دفاتر مالی قابل حذف نیست. می‌توانید وضعیت ایشان را به «بایگانی» تغییر دهید.'
+    };
+  }
+
+  return { canDelete: true };
+}
+
+/**
  * بررسی عدم تغییرپذیری سند تایید شده (Immutability Check)
- * اگر وضعیت سند 'approved' باشد، اجازه ویرایش یا حذف داده نمی‌شود.
+ * اگر وضعیت سند 'approved' باشد، اجازه ویرایش، آرشیو یا حذف داده نمی‌شود.
  */
 export function assertRecordMutable(record) {
   if (!record) return;
-  const isApproved = record.status === 'approved' || record.approval_status === 'approved';
-  if (isApproved) {
-    const error = new Error('403 Forbidden: این سند قبلاً تایید نهایی شده است و غیرقابل ویرایش یا حذف می‌باشد.');
+  if (isRecordApproved(record)) {
+    const error = new Error('403 Forbidden: این سند تایید نهایی شده است و به دلایل حفظ نظم حسابداری و مقررات مالیاتی غیرقابل ویرایش، آرشیو یا حذف می‌باشد. در صورت نیاز از صدور اصلاحیه استفاده نمایید.');
     error.statusCode = 403;
     error.code = 'RECORD_IMMUTABLE';
     throw error;

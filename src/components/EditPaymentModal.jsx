@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Calendar, Banknote, FileText, Hash, Check } from 'lucide-react';
+import { X, Save, Trash2, Calendar, Banknote, FileText, Hash, Check, Lock } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { db } from '../db/db';
@@ -29,9 +29,16 @@ export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
 
   if (!isOpen || !payment) return null;
 
+  const isApproved = payment?.status === 'approved' || payment?.approval_status === 'approved';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFeedback({ type: '', message: '' });
+
+    if (isApproved) {
+      setFeedback({ type: 'error', message: 'این سند تایید نهایی شده و قفل است. طبق موازین مالیاتی، تغییر مستقیم آن مجاز نبوده و تعدیل تنها با صدور اصلاحیه در تب حسابداری امکان‌پذیر است.' });
+      return;
+    }
 
     const numAmount = Number(amount);
     if (isNaN(numAmount) || numAmount < 0) {
@@ -69,6 +76,10 @@ export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
   };
 
   const handleDelete = async () => {
+    if (isApproved) {
+      alert('اسناد مالی تایید نهایی شده به دلیل قوانین مالیاتی غیرقابل حذف هستند.');
+      return;
+    }
     if (window.confirm(t('moveToTrash') || 'انتقال به سطل آشغال؟')) {
       try {
         setIsSubmitting(true);
@@ -197,23 +208,32 @@ export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
             </div>
           </div>
 
+          {isApproved && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+              <Lock className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>این سند تایید نهایی شده و قفل است. طبق موازین مالیاتی، حذف یا ویرایش مستقیم آن مجاز نبوده و تعدیل صرفاً از طریق صدور اصلاحیه در تب حسابداری امکان‌پذیر است.</span>
+            </div>
+          )}
+
           <div className="pt-2 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={isSubmitting}
-              className="p-2.5 text-rose-500 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 rounded-xl transition-colors flex-shrink-0"
-              title={t('delete')}
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
+            {!isApproved && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isSubmitting}
+                className="p-2.5 text-rose-500 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 rounded-xl transition-colors flex-shrink-0"
+                title={t('delete')}
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-md shadow-sky-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-70"
+              disabled={isSubmitting || isApproved}
+              className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-md shadow-sky-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              <span>{isSubmitting ? '...' : (t('save') || 'ثبت تغییرات')}</span>
+              <span>{isApproved ? 'سند تایید شده و غیرقابل تغییر' : (isSubmitting ? '...' : (t('save') || 'ثبت تغییرات'))}</span>
             </button>
           </div>
         </form>

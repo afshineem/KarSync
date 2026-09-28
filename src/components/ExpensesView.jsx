@@ -454,6 +454,11 @@ export function ExpensesView() {
 
   const handlePermanentDelete = async () => {
     if (!itemToPermanentDelete) return;
+    if (itemToPermanentDelete.status === 'approved' || itemToPermanentDelete.approval_status === 'approved') {
+      alert(language === 'fa' ? 'این سند هزینه تایید نهایی شده است و به جهت الزامات مالیاتی غیرقابل حذف قطعی می‌باشد.' : 'بەڵگەنامەی پەسەندکراو ناسڕدرێتەوە.');
+      setItemToPermanentDelete(null);
+      return;
+    }
     try {
       await permanentDeleteExpenseLive(itemToPermanentDelete.id);
       setItemToPermanentDelete(null);
@@ -1122,13 +1127,15 @@ export function ExpensesView() {
                                   <RotateCcw className="w-4 h-4" />
                                   <span className="hidden xl:inline">{language === 'fa' ? 'بازیابی' : 'گێڕانەوە'}</span>
                                 </button>
-                                <button
-                                  onClick={() => setItemToPermanentDelete(exp)}
-                                  className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
-                                  title={language === 'fa' ? 'حذف دائمی' : 'سڕینەوەی یەکجاری'}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
+                                  <button
+                                    onClick={() => setItemToPermanentDelete(exp)}
+                                    className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                                    title={language === 'fa' ? 'حذف دائمی' : 'سڕینەوەی یەکجاری'}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                               </>
                             ) : currentViewTab === 'archived' ? (
                               <>
@@ -1140,13 +1147,15 @@ export function ExpensesView() {
                                   <RotateCcw className="w-4 h-4" />
                                   <span className="hidden xl:inline">{language === 'fa' ? 'خروج از آرشیو' : 'دەرهێنان'}</span>
                                 </button>
-                                <button
-                                  onClick={() => setExpenseToDelete(exp)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
-                                  title={language === 'fa' ? 'انتقال به سطل زباله' : 'بردن بۆ سەبەتە'}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
+                                  <button
+                                    onClick={() => setExpenseToDelete(exp)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                                    title={language === 'fa' ? 'انتقال به سطل زباله' : 'بردن بۆ سەبەتە'}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                               </>
                             ) : (
                               <>
@@ -1300,13 +1309,15 @@ export function ExpensesView() {
                             <RotateCcw className="w-4 h-4" />
                             <span>{language === 'fa' ? 'بازیابی' : 'گێڕانەوە'}</span>
                           </button>
-                          <button
-                            onClick={() => setItemToPermanentDelete(exp)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg"
-                            title={language === 'fa' ? 'حذف دائمی' : 'سڕینەوەی یەکجاری'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
+                            <button
+                              onClick={() => setItemToPermanentDelete(exp)}
+                              className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg"
+                              title={language === 'fa' ? 'حذف دائمی' : 'سڕینەوەی یەکجاری'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       ) : currentViewTab === 'archived' ? (
                         <>
@@ -1318,13 +1329,15 @@ export function ExpensesView() {
                             <RotateCcw className="w-4 h-4" />
                             <span>{language === 'fa' ? 'خروج از آرشیو' : 'دەرهێنان'}</span>
                           </button>
-                          <button
-                            onClick={() => setExpenseToDelete(exp)}
-                            className="p-1.5 text-slate-500 hover:text-rose-500 rounded-lg"
-                            title={language === 'fa' ? 'انتقال به سطل زباله' : 'بردن بۆ سەبەتە'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
+                            <button
+                              onClick={() => setExpenseToDelete(exp)}
+                              className="p-1.5 text-slate-500 hover:text-rose-500 rounded-lg"
+                              title={language === 'fa' ? 'انتقال به سطل زباله' : 'بردن بۆ سەبەتە'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       ) : (
                         <>

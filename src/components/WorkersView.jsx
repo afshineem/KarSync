@@ -39,8 +39,10 @@ import {
   ChevronUp,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Lock
 } from 'lucide-react';
+import { canDeleteWorker } from '../db/db';
 
 export function WorkersView() {
   const { t, language, direction } = useLanguage();
@@ -165,6 +167,27 @@ export function WorkersView() {
     },
     []
   ) || [];
+
+  // پرسنلی که دارای سابقه کارکرد یا اسناد مالی هستند تحت هیچ شرایطی نباید قابل حذف باشند
+  const undeletableWorkerIds = useLiveQuery(
+    async () => {
+      const logs = await db.attendanceLogs.toArray();
+      const payments = await db.payments.toArray();
+      const expenses = await db.expenses.toArray();
+      const set = new Set();
+      logs.forEach((l) => {
+        if (l.workerId) set.add(String(l.workerId));
+      });
+      payments.forEach((p) => {
+        if (p.workerId) set.add(String(p.workerId));
+      });
+      expenses.forEach((e) => {
+        if (e.personId) set.add(String(e.personId));
+      });
+      return set;
+    },
+    []
+  ) || new Set();
 
   const rawWorkerHistoryLogs = useLiveQuery(
     async () => {
@@ -509,8 +532,14 @@ export function WorkersView() {
     pushWorkerLive(updated).catch(console.error);
   };
 
-  // Move worker to Trash (Soft Delete)
+  // Move worker to Trash (Soft Delete) - ممنوعیت حذف در صورت داشتن کارکرد یا سند مالی
   const handleMoveToTrash = async (worker) => {
+    if (undeletableWorkerIds.has(String(worker.id))) {
+      alert(language === 'fa' 
+        ? 'این پرسنل به دلیل داشتن سابقه کارکرد یا اسناد مالی در سیستم، به جهت حفظ یکپارچگی حسابداری و قوانین مالیاتی تحت هیچ شرایطی قابل حذف نیست. شما می‌توانید وضعیت ایشان را به "بایگانی" تغییر دهید.' 
+        : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری کار یان بەڵگەنامەی دارایی ناتوانرێت بسڕدرێتەوە. دەتوانیت ئەرشیفی بکەیت.');
+      return;
+    }
     const updated = {
       ...worker,
       deletedAt: new Date().toISOString(),
@@ -537,22 +566,33 @@ export function WorkersView() {
     pushWorkerLive(updated).catch(console.error);
   };
 
-  // Permanent Delete
+  // Permanent Delete - ممنوعیت حذف قطعی برای پرسنل دارای گردش کارکرد یا مالی
   const handlePermanentDeleteWorker = async (worker) => {
-    if (window.confirm(t('confirmPermanentDelete') || 'آیا از حذف دائمی این پرسنل اطمینان دارید؟ تمامی سوابق حضور و غیاب وی پاک خواهند شد.')) {
+    if (undeletableWorkerIds.has(String(worker.id))) {
+      alert(language === 'fa' 
+        ? 'این پرسنل دارای سوابق رسمی کارکرد یا اسناد مالی است و حذف دائمی آن غیرقانونی است. لطفاً پرسنل را بازیابی و بایگانی نمایید.' 
+        : 'ئەم کارمەندە ناتوانرێت بسڕدرێتەوە.');
+      return;
+    }
+    if (window.confirm(t('confirmPermanentDelete') || 'آیا از حذف دائمی این پرسنل اطمینان دارید؟')) {
       await db.workers.delete(worker.id);
-      await db.attendanceLogs.where('workerId').equals(worker.id).delete();
       deleteWorkerLive(worker.id).catch(console.error);
     }
   };
 
-  // Empty Trash for workers
+  // Empty Trash for workers (تنها پرسنل بدون سابقه قابل تخلیه قطعی هستند)
   const handleEmptyWorkersTrash = async () => {
     if (trashWorkersList.length === 0) return;
-    if (window.confirm(t('confirmEmptyTrash') || 'آیا از خالی کردن سطل آشغال و حذف قطعی تمام موارد اطمینان دارید؟')) {
-      for (const w of trashWorkersList) {
+    const deletableTrash = trashWorkersList.filter(w => !undeletableWorkerIds.has(String(w.id)));
+    if (deletableTrash.length === 0) {
+      alert(language === 'fa' 
+        ? 'پرسنل موجود در سطل آشغال دارای سوابق کارکرد یا سند مالی هستند و طبق قوانین مالیاتی امکان حذف قطعی آن‌ها وجود ندارد. لطفاً آن‌ها را بازیابی و بایگانی فرمایید.' 
+        : 'کارمەندەکان ناتوانرێن بسڕدرێنەوە.');
+      return;
+    }
+    if (window.confirm(t('confirmEmptyTrash') || 'آیا از خالی کردن سطل آشغال و حذف قطعی پرسنل مجاز اطمینان دارید؟')) {
+      for (const w of deletableTrash) {
         await db.workers.delete(w.id);
-        await db.attendanceLogs.where('workerId').equals(w.id).delete();
         deleteWorkerLive(w.id).catch(console.error);
       }
     }
@@ -970,14 +1010,29 @@ export function WorkersView() {
                       >
                         <Archive className="w-4 h-4" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMoveToTrash(worker)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        title={t('moveToTrash') || 'انتقال به سطل آشغال'}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {undeletableWorkerIds.has(String(worker.id)) ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            alert(language === 'fa' 
+                              ? 'این پرسنل دارای گردش کارکرد یا اسناد مالی است و طبق قوانین مالیاتی غیرقابل حذف می‌باشد. در صورت پایان همکاری، وضعیت ایشان را به «بایگانی» تغییر دهید.' 
+                              : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری دارایی یان کار ناتوانرێت بسڕدرێتەوە. تکایە ئەرشیفی بکە.');
+                          }}
+                          className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
+                          title={language === 'fa' ? 'غیرقابل حذف (دارای کارکرد یا سند مالی) - امکان بایگانی در دسترس است' : 'سڕینەوە قەدەغەیە'}
+                        >
+                          <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleMoveToTrash(worker)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          title={t('moveToTrash') || 'انتقال به سطل آشغال'}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
@@ -1003,14 +1058,29 @@ export function WorkersView() {
                         <Archive className="w-3.5 h-3.5" />
                         <span>{t('unarchive') || 'خروج از بایگانی'}</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMoveToTrash(worker)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        title={t('moveToTrash') || 'انتقال به سطل آشغال'}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {undeletableWorkerIds.has(String(worker.id)) ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            alert(language === 'fa' 
+                              ? 'این پرسنل دارای گردش کارکرد یا اسناد مالی است و طبق قوانین مالیاتی غیرقابل حذف می‌باشد.' 
+                              : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری دارایی یان کار ناتوانرێت بسڕدرێتەوە.');
+                          }}
+                          className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
+                          title={language === 'fa' ? 'غیرقابل حذف (دارای کارکرد یا سند مالی)' : 'سڕینەوە قەدەغەیە'}
+                        >
+                          <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleMoveToTrash(worker)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          title={t('moveToTrash') || 'انتقال به سطل آشغال'}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
@@ -1031,14 +1101,29 @@ export function WorkersView() {
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>{t('restore') || 'بازیابی'}</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handlePermanentDeleteWorker(worker)}
-                        className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg transition-colors"
-                        title={t('permanentDelete') || 'حذف دائمی'}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {undeletableWorkerIds.has(String(worker.id)) ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            alert(language === 'fa' 
+                              ? 'این پرسنل دارای سوابق رسمی کارکرد یا اسناد مالی است و حذف قطعی آن غیرقانونی است. لطفاً پرسنل را بازیابی و بایگانی نمایید.' 
+                              : 'سڕینەوەی یەکجاری قەدەغەیە.');
+                          }}
+                          className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
+                          title="غیرقابل حذف قطعی (دارای سوابق رسمی) - بازیابی و بایگانی فرمایید"
+                        >
+                          <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handlePermanentDeleteWorker(worker)}
+                          className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg transition-colors"
+                          title={t('permanentDelete') || 'حذف دائمی'}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
@@ -1245,14 +1330,29 @@ export function WorkersView() {
                               >
                                 <Archive className="w-4 h-4" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleMoveToTrash(worker)}
-                                title={t('moveToTrash')}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {undeletableWorkerIds.has(String(worker.id)) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    alert(language === 'fa' 
+                                      ? 'این پرسنل دارای گردش کارکرد یا اسناد مالی است و طبق قوانین مالیاتی غیرقابل حذف می‌باشد. در صورت پایان همکاری، وضعیت ایشان را به «بایگانی» تغییر دهید.' 
+                                      : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری دارایی یان کار ناتوانرێت بسڕدرێتەوە.');
+                                  }}
+                                  className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
+                                  title={language === 'fa' ? 'غیرقابل حذف (دارای کارکرد یا سند مالی) - امکان بایگانی در دسترس است' : 'سڕینەوە قەدەغەیە'}
+                                >
+                                  <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveToTrash(worker)}
+                                  title={t('moveToTrash')}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </>
                           )}
 
@@ -1275,14 +1375,29 @@ export function WorkersView() {
                               <Archive className="w-3.5 h-3.5" />
                               <span>{t('unarchive')}</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleMoveToTrash(worker)}
-                              title={t('moveToTrash')}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {undeletableWorkerIds.has(String(worker.id)) ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  alert(language === 'fa' 
+                                    ? 'این پرسنل دارای گردش کارکرد یا اسناد مالی است و طبق قوانین مالیاتی غیرقابل حذف می‌باشد.' 
+                                    : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری دارایی یان کار ناتوانرێت بسڕدرێتەوە.');
+                                }}
+                                className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
+                                title={language === 'fa' ? 'غیرقابل حذف (دارای کارکرد یا سند مالی)' : 'سڕینەوە قەدەغەیە'}
+                              >
+                                <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveToTrash(worker)}
+                                title={t('moveToTrash')}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
 
@@ -1297,14 +1412,29 @@ export function WorkersView() {
                               <RotateCcw className="w-3.5 h-3.5" />
                               <span>{t('restore')}</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePermanentDeleteWorker(worker)}
-                              title={t('permanentDelete')}
-                              className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {undeletableWorkerIds.has(String(worker.id)) ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  alert(language === 'fa' 
+                                    ? 'این پرسنل دارای سوابق رسمی کارکرد یا اسناد مالی است و حذف قطعی آن غیرقانونی است. لطفاً پرسنل را بازیابی و بایگانی نمایید.' 
+                                    : 'سڕینەوەی یەکجاری قەدەغەیە.');
+                                }}
+                                className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
+                                title="غیرقابل حذف قطعی (دارای سوابق رسمی) - بازیابی و بایگانی فرمایید"
+                              >
+                                <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handlePermanentDeleteWorker(worker)}
+                                title={t('permanentDelete')}
+                                className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>

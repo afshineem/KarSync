@@ -15,7 +15,8 @@ import {
   Banknote, 
   CheckCircle2, 
   FileText,
-  Clock
+  Clock,
+  Lock
 } from 'lucide-react';
 
 export function PaymentHistoryModal({ 
@@ -52,6 +53,13 @@ export function PaymentHistoryModal({
   const totalAllPaid = roundCurrency(totalAdvances + totalSettlements, currency);
 
   const handleDelete = async (paymentId) => {
+    const target = displayedPayments.find((p) => p.id === paymentId);
+    if (target && (target.status === 'approved' || target.approval_status === 'approved')) {
+      alert(language === 'fa' 
+        ? 'اسناد مالی تایید نهایی شده به دلیل الزامات قانونی و مالیاتی غیرقابل حذف هستند. در صورت نیاز به تعدیل، از تب حسابداری اصلاحیه صادر نمایید.' 
+        : 'بەڵگەنامەی پەسەندکراو ناسڕدرێتەوە.');
+      return;
+    }
     if (window.confirm(t('paymentDeleteConfirm'))) {
       recordPendingPaymentDeletion(paymentId);
       await db.payments.delete(paymentId);
@@ -221,14 +229,23 @@ export function PaymentHistoryModal({
                         {p.notes || '-'}
                       </td>
                       <td className="px-3 py-2.5 text-center no-print whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(p.id)}
-                          className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
-                          title={t('delete')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {p.status === 'approved' || p.approval_status === 'approved' ? (
+                          <span 
+                            className="inline-flex items-center gap-1 p-1 text-emerald-600 dark:text-emerald-400"
+                            title={language === 'fa' ? `سند رسمی تایید نهایی شده (توسط: ${p.approvedBy || 'مدیر سیستم'}) - غیرقابل حذف` : 'پەسەندکراو'}
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(p.id)}
+                            className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                            title={t('delete')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

@@ -186,6 +186,11 @@ export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
 
   const handlePermanentDelete = async () => {
     if (!itemToDeletePermanently) return;
+    if (itemToDeletePermanently.status === 'approved' || itemToDeletePermanently.approval_status === 'approved') {
+      alert(language === 'fa' ? 'این سند هزینه تایید نهایی شده و حذف دائمی آن غیرمجاز است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناسڕدرێتەوە.');
+      setItemToDeletePermanently(null);
+      return;
+    }
     setIsProcessing(true);
     try {
       await permanentDeleteExpenseLive(itemToDeletePermanently.id);
@@ -489,14 +494,16 @@ export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
                             <span className="hidden sm:inline">{language === 'fa' ? 'بازیابی' : 'گێڕانەوە'}</span>
                           </button>
 
-                          <button
-                            onClick={() => setItemToDeletePermanently(exp)}
-                            disabled={isProcessing}
-                            className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-1 transition-colors"
-                            title={language === 'fa' ? 'حذف دائمی و قطعی' : 'سڕینەوەی یەکجاری'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
+                            <button
+                              onClick={() => setItemToDeletePermanently(exp)}
+                              disabled={isProcessing}
+                              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-1 transition-colors"
+                              title={language === 'fa' ? 'حذف دائمی و قطعی' : 'سڕینەوەی یەکجاری'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       ) : (
                         <>
@@ -510,17 +517,19 @@ export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
                             <span className="hidden sm:inline">{language === 'fa' ? 'خروج از بایگانی' : 'دەرهێنان لە ئەرشیف'}</span>
                           </button>
 
-                          <button
-                            onClick={async () => {
-                              await restoreExpenseLive(exp.id);
-                              await permanentDeleteExpenseLive(exp.id);
-                            }}
-                            disabled={isProcessing}
-                            className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 transition-colors"
-                            title={language === 'fa' ? 'انتقال به سطل زباله' : 'سڕینەوە'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
+                            <button
+                              onClick={async () => {
+                                await restoreExpenseLive(exp.id);
+                                await permanentDeleteExpenseLive(exp.id);
+                              }}
+                              disabled={isProcessing}
+                              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 transition-colors"
+                              title={language === 'fa' ? 'انتقال به سطل زباله' : 'سڕینەوە'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>

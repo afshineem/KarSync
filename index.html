@@ -2,7 +2,7 @@
 <html lang="ku" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src *; upgrade-insecure-requests;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src *;" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -33,11 +33,12 @@
     </style>
 
     <script>
-      // Self-heal mechanism: If an outdated cached JS/CSS chunk fails to load in Chrome or any browser,
-      // unregister stale service worker, purge cache, and reload immediately with latest build.
+      // Self-heal & error feedback mechanism
       window.addEventListener('error', function(e) {
+        var msg = (e.message || '') + (e.filename ? ' (' + e.filename + ':' + e.lineno + ')' : '');
         if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
-          console.warn('KarSync resource load failed, attempting auto recovery:', e.target.src || e.target.href);
+          msg = 'بارگذاری ناموفق فایل: ' + (e.target.src || e.target.href);
+          console.warn(msg);
           if ('serviceWorker' in navigator && !sessionStorage.getItem('karsync_reloaded_on_err')) {
             sessionStorage.setItem('karsync_reloaded_on_err', '1');
             navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -53,6 +54,13 @@
               }
             });
           }
+        }
+        if (msg && !document.getElementById('karsync-mobile-err') && document.body) {
+          var box = document.createElement('div');
+          box.id = 'karsync-mobile-err';
+          box.style = 'position:fixed;bottom:12px;left:12px;right:12px;background:#e11d48;color:#fff;padding:12px;border-radius:14px;font-size:11px;z-index:999999;box-shadow:0 10px 25px rgba(0,0,0,0.5);line-height:1.5;direction:rtl;';
+          box.innerHTML = '<div>⚠️ <b>خطا در لود برنامه:</b> ' + msg + '</div>';
+          document.body.appendChild(box);
         }
       }, true);
     </script>

@@ -5,7 +5,9 @@ import {
   approveRecord as dbApproveRecord, 
   batchApproveRecords as dbBatchApproveRecords,
   amendRecord as dbAmendRecord,
-  assertRecordMutable 
+  assertRecordMutable,
+  isRecordApproved,
+  canDeleteWorker
 } from '../db/db';
 import { pushExpenseLive, pushPaymentsLive, pushLogsLive } from '../services/realtimeSync';
 
@@ -131,6 +133,8 @@ export function useTwoStageApproval() {
     canApprove,
     canModifyRecord,
     assertRecordMutable,
+    isRecordApproved,
+    canDeleteWorker,
     approveRecord,
     batchApproveRecords,
     amendRecord,

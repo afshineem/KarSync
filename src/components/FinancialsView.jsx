@@ -47,7 +47,8 @@ import {
   ChevronUp,
   Archive,
   RotateCcw,
-  Crown
+  Crown,
+  Lock
 } from 'lucide-react';
 
 export function FinancialsView() {
@@ -503,6 +504,12 @@ export function FinancialsView() {
   }, [transactionTab, activePayments, archivedPayments, trashPayments]);
 
   const handleArchivePayment = async (payment) => {
+    if (payment.status === 'approved' || payment.approval_status === 'approved') {
+      alert(language === 'fa' 
+        ? 'این سند مالی تایید نهایی شده است و به دلایل حفظ نظم حسابداری و مقررات مالیاتی غیرقابل آرشیو می‌باشد. در صورت نیاز به تغییر، از بخش حسابداری اصلاحیه صادر نمایید.' 
+        : 'ئەم بەڵگەنامەیە پەسەندکراوە و ئەرشیف ناکرێت.');
+      return;
+    }
     try {
       await db.payments.update(payment.id, {
         isArchived: true,
@@ -527,6 +534,12 @@ export function FinancialsView() {
   };
 
   const handleMovePaymentToTrash = async (payment) => {
+    if (payment.status === 'approved' || payment.approval_status === 'approved') {
+      alert(language === 'fa' 
+        ? 'این سند مالی تایید نهایی شده است و به دلایل حفظ نظم حسابداری و مقررات مالیاتی غیرقابل حذف می‌باشد. در صورت نیاز به تغییر، از بخش حسابداری اصلاحیه صادر نمایید.' 
+        : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناسڕدرێتەوە.');
+      return;
+    }
     const desc = payment.workerName || payment.notes || formatAmount(payment.amount, currency);
     if (window.confirm((t('moveToTrash') || 'انتقال به سطل آشغال') + `: ${desc}؟`)) {
       try {
@@ -554,6 +567,12 @@ export function FinancialsView() {
   };
 
   const handlePermanentDeletePayment = async (payment) => {
+    if (payment.status === 'approved' || payment.approval_status === 'approved') {
+      alert(language === 'fa' 
+        ? 'اسناد مالی تایید نهایی شده به جهت الزامات مالیاتی غیرقابل حذف دائمی هستند.' 
+        : 'بەڵگەنامەی پەسەندکراو ناسڕدرێتەوە.');
+      return;
+    }
     if (window.confirm(t('permanentDeleteConfirm') || 'آیا از حذف دائمی این تراکنش مطمئن هستید؟ این عملیات غیرقابل بازگشت است.')) {
       try {
         recordPendingPaymentDeletion(payment.id);
@@ -567,9 +586,16 @@ export function FinancialsView() {
 
   const handleEmptyPaymentsTrash = async () => {
     if (trashPayments.length === 0) return;
-    if (window.confirm(t('emptyTrashConfirm') || 'آیا از حذف دائمی تمام موارد موجود در سطل آشغال مطمئن هستید؟')) {
+    const deletableTrash = trashPayments.filter(p => p.status !== 'approved' && p.approval_status !== 'approved');
+    if (deletableTrash.length === 0) {
+      alert(language === 'fa' 
+        ? 'اسناد موجود در سطل آشغال تایید نهایی شده‌اند و طبق مقررات مالیاتی غیرقابل حذف قطعی هستند.' 
+        : 'بەڵگەنامە پەسەندکراوەکان ناسڕدرێنەوە.');
+      return;
+    }
+    if (window.confirm(t('emptyTrashConfirm') || 'آیا از حذف دائمی موارد مجاز در سطل آشغال مطمئن هستید؟')) {
       try {
-        for (const p of trashPayments) {
+        for (const p of deletableTrash) {
           recordPendingPaymentDeletion(p.id);
           await db.payments.delete(p.id);
         }
@@ -1759,32 +1785,42 @@ export function FinancialsView() {
                     <td className="px-4 py-2.5 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1">
                         {transactionTab === 'active' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setEditingPayment(payment)}
-                              className="p-1.5 text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/50 rounded-lg transition-colors"
-                              title={t('edit') || 'ویرایش'}
+                          payment.status === 'approved' || payment.approval_status === 'approved' ? (
+                            <span 
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80"
+                              title={language === 'fa' ? `سند رسمی تایید نهایی شده (توسط: ${payment.approvedBy || 'مدیر سیستم'}) - غیرقابل ویرایش، آرشیو یا حذف` : 'پەسەندکراو'}
                             >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleArchivePayment(payment)}
-                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-colors"
-                              title={t('archive') || 'بایگانی'}
-                            >
-                              <Archive className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleMovePaymentToTrash(payment)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
-                              title={t('moveToTrash') || 'انتقال به سطل آشغال'}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
+                              <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                              <span>{language === 'fa' ? 'تایید نهایی' : 'پەسەندکراو'}</span>
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setEditingPayment(payment)}
+                                className="p-1.5 text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/50 rounded-lg transition-colors"
+                                title={t('edit') || 'ویرایش'}
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleArchivePayment(payment)}
+                                className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-colors"
+                                title={t('archive') || 'بایگانی'}
+                              >
+                                <Archive className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMovePaymentToTrash(payment)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
+                                title={t('moveToTrash') || 'انتقال به سطل آشغال'}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )
                         )}
 
                         {transactionTab === 'archived' && (
@@ -1798,14 +1834,16 @@ export function FinancialsView() {
                               <Archive className="w-3.5 h-3.5" />
                               <span>{t('unarchive') || 'خروج از بایگانی'}</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleMovePaymentToTrash(payment)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
-                              title={t('moveToTrash') || 'انتقال به سطل آشغال'}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {!(payment.status === 'approved' || payment.approval_status === 'approved') && (
+                              <button
+                                type="button"
+                                onClick={() => handleMovePaymentToTrash(payment)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
+                                title={t('moveToTrash') || 'انتقال به سطل آشغال'}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
 
@@ -1820,14 +1858,16 @@ export function FinancialsView() {
                               <RotateCcw className="w-3.5 h-3.5" />
                               <span>{t('restore') || 'بازیابی'}</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePermanentDeletePayment(payment)}
-                              className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition-colors"
-                              title={t('permanentDelete') || 'حذف دائمی'}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {!(payment.status === 'approved' || payment.approval_status === 'approved') && (
+                              <button
+                                type="button"
+                                onClick={() => handlePermanentDeletePayment(payment)}
+                                className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition-colors"
+                                title={t('permanentDelete') || 'حذف دائمی'}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>

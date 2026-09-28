@@ -2674,8 +2674,14 @@ export async function pushExpenseLive(expense) {
  */
 export async function softDeleteExpenseLive(expenseId) {
   if (!expenseId) return;
-  const now = new Date().toISOString();
   try {
+    const localExp = await db.expenses.get(expenseId);
+    if (localExp && (localExp.status === 'approved' || localExp.approval_status === 'approved')) {
+      console.warn('softDeleteExpenseLive rejected: expense is approved:', expenseId);
+      return;
+    }
+
+    const now = new Date().toISOString();
     await db.expenses.update(expenseId, { deletedAt: now, updatedAt: now });
 
     if (!navigator.onLine) {
@@ -2771,8 +2777,14 @@ export async function restoreExpenseLive(expenseId) {
  */
 export async function archiveExpenseLive(expenseId, isArchived = true) {
   if (!expenseId) return;
-  const now = new Date().toISOString();
   try {
+    const localExp = await db.expenses.get(expenseId);
+    if (localExp && (localExp.status === 'approved' || localExp.approval_status === 'approved')) {
+      console.warn('archiveExpenseLive rejected: expense is approved:', expenseId);
+      return;
+    }
+
+    const now = new Date().toISOString();
     await db.expenses.update(expenseId, {
       isArchived: Boolean(isArchived),
       archivedAt: isArchived ? now : null,
@@ -2831,6 +2843,12 @@ export async function archiveExpenseLive(expenseId, isArchived = true) {
 export async function permanentDeleteExpenseLive(expenseId) {
   if (!expenseId) return;
   try {
+    const localExp = await db.expenses.get(expenseId);
+    if (localExp && (localExp.status === 'approved' || localExp.approval_status === 'approved')) {
+      console.warn('permanentDeleteExpenseLive rejected: expense is approved:', expenseId);
+      return;
+    }
+
     recordPendingExpenseDeletion(expenseId);
     await db.expenses.delete(expenseId);
 
@@ -2880,7 +2898,7 @@ export async function permanentDeleteExpenseLive(expenseId) {
 export async function emptyExpensesTrashLive(projectId) {
   try {
     const list = await db.expenses.toArray();
-    const trashList = list.filter(e => e.deletedAt && (!projectId || e.projectId === projectId || projectId === 'prj_default_main'));
+    const trashList = list.filter(e => e.deletedAt && e.status !== 'approved' && e.approval_status !== 'approved' && (!projectId || e.projectId === projectId || projectId === 'prj_default_main'));
     for (const exp of trashList) {
       await permanentDeleteExpenseLive(exp.id);
     }
