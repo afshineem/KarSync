@@ -28,6 +28,8 @@ import {
   Star,
   CreditCard
 } from 'lucide-react';
+import { useAccounting } from '../hooks/useAccounting';
+import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 
 export function SettlementModal({ 
   isOpen, 
@@ -346,6 +348,9 @@ export function SettlementModal({
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [completedPayment, setCompletedPayment] = useState(null);
 
+  const { checkAccountOverdraft } = useAccounting();
+  const [overdraftPromptData, setOverdraftPromptData] = useState(null);
+
   // Financial accounts live query
   const financialAccounts = useLiveQuery(
     async () => {
@@ -389,11 +394,8 @@ export function SettlementModal({
 
   if (!isOpen) return null;
 
-  // -------------------------------------------------------------
-  // SUBMISSION HANDLER (Handles Individual AND Group Settlement)
-  // -------------------------------------------------------------
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, bypassOverdraft = false) => {
+    if (e && e.preventDefault) e.preventDefault();
     setFeedback({ type: '', message: '' });
 
     const payAmount = roundCurrency(Number(finalPaymentAmount), currency);
@@ -405,6 +407,28 @@ export function SettlementModal({
     if (settlementMode === 'group' && !supervisorWorker) {
       setFeedback({ type: 'error', message: 'لطفاً سرپرست گروه را جهت دریافت و تسویه مشخص کنید.' });
       return;
+    }
+
+    if (payAmount > 0 && !bypassOverdraft) {
+      const overdraftCheck = checkAccountOverdraft(selectedAccountId, payAmount);
+      if (!overdraftCheck.hasSufficientFunds) {
+        if (overdraftCheck.effectivePolicy === 'never_allow') {
+          setFeedback({
+            type: 'error',
+            message: language === 'fa'
+              ? `موجودی حساب انتخابی (${overdraftCheck.account?.name || 'صندوق/بانک'}) برای پرداخت این تسویه‌حساب کافی نیست و بر اساس سیاست تعیین شده، برداشت بیش از موجودی غیرمجاز است.`
+              : 'باڵانسی حیساب بەش ناکات و کەمبوون قەدەغەیە.'
+          });
+          return;
+        } else if (overdraftCheck.effectivePolicy === 'ask_each_time') {
+          setOverdraftPromptData({
+            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            currentBalance: overdraftCheck.currentBalance,
+            requestedAmount: payAmount
+          });
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -1047,6 +1071,20 @@ export function SettlementModal({
 
         </div>
       </div>
+
+      {/* مودال تایید اضافه برداشت برای تسویه حساب */}
+      {overdraftPromptData && (
+        <OverdraftConfirmModal
+          isOpen={Boolean(overdraftPromptData)}
+          onClose={() => setOverdraftPromptData(null)}
+          onConfirm={() => handleSubmit(null, true)}
+          accountName={overdraftPromptData.accountName}
+          currentBalance={overdraftPromptData.currentBalance}
+          requestedAmount={overdraftPromptData.requestedAmount}
+          currency={currency}
+          language={language}
+        />
+      )}
     </div>
   );
 

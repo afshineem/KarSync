@@ -12,7 +12,9 @@ import {
   AlertCircle,
   Palette,
   FileText,
-  Landmark
+  Landmark,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 
 /**
@@ -37,6 +39,7 @@ export function AddEditAccountModal({
   const [initialBalance, setInitialBalance] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [color, setColor] = useState('sky');
+  const [overdraftPolicy, setOverdraftPolicy] = useState('global'); // 'global' | 'always_allow' | 'ask_each_time' | 'never_allow'
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,6 +81,7 @@ export function AddEditAccountModal({
       setInitialBalance(initialData.initialBalance ? String(initialData.initialBalance) : '');
       setIsDefault(Boolean(initialData.isDefault));
       setColor(initialData.color || (initialData.type === 'bank' ? 'sky' : 'amber'));
+      setOverdraftPolicy(initialData.overdraftPolicy || 'global');
       setNotes(initialData.notes || '');
     } else {
       setType('bank');
@@ -90,6 +94,7 @@ export function AddEditAccountModal({
       setInitialBalance('');
       setIsDefault(false);
       setColor('sky');
+      setOverdraftPolicy('global');
       setNotes('');
     }
     setErrorMsg('');
@@ -130,6 +135,7 @@ export function AddEditAccountModal({
         keeperName: keeperName.trim(),
         initialBalance: initialBalance ? Number(initialBalance.replace(/,/g, '')) : 0,
         isDefault,
+        overdraftPolicy,
         color,
         notes: notes.trim()
       });
@@ -399,6 +405,29 @@ export function AddEditAccountModal({
               onChange={(e) => setIsDefault(e.target.checked)}
               className="w-5 h-5 rounded-lg text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600 cursor-pointer"
             />
+          </div>
+
+          {/* سیاست اضافه برداشت (کسری موجودی) این حساب */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
+              <span>{language === 'fa' ? 'سیاست برداشت در صورت کسری موجودی' : 'سیاسەتی کەمبوونی باڵانس'}</span>
+            </label>
+            <select
+              value={overdraftPolicy}
+              onChange={(e) => setOverdraftPolicy(e.target.value)}
+              className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+            >
+              <option value="global">{language === 'fa' ? '⚙️ پیروی از تنظیمات سراسری کارگاه (پیش‌فرض)' : 'پەیڕەوکردنی ڕێکخستنی گشتی'}</option>
+              <option value="ask_each_time">{language === 'fa' ? '⚠️ هر بار پرسیده شود (هشدار کسری و تایید کاربر)' : 'هەموو جارێک پرسیار بکرێت'}</option>
+              <option value="always_allow">{language === 'fa' ? '✅ همیشه مجاز (ثبت پرداخت حتی با مانده منفی)' : 'هەمیشە ڕێگەپێدراو'}</option>
+              <option value="never_allow">{language === 'fa' ? '⛔ همیشه نامجاز (قفل و جلوگیری از برداشت بیش از موجودی)' : 'هەمیشە قەدەغە'}</option>
+            </select>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+              {language === 'fa' 
+                ? 'تعیین می‌کند اگر مبلغ پرداختی بیشتر از موجودی این حساب باشد، چه رفتاری انجام شود.' 
+                : 'دیاریکردنی هەڵسوکەوتی سیستەم کاتێک باڵانس بەش ناکات.'}
+            </p>
           </div>
 
           {/* یادداشت / توضیحات */}

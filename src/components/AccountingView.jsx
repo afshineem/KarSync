@@ -8,6 +8,8 @@ import { IncomeManagementSection } from './accounting/IncomeManagementSection';
 import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
 import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
+import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
+import { AccountSubsidiaryLedgerSection } from './accounting/AccountSubsidiaryLedgerSection';
 import { 
   Landmark, 
   Plus, 
@@ -38,6 +40,8 @@ export function AccountingView() {
 
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [isAccountsModalOpen, setIsAccountsModalOpen] = useState(false);
+  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState(null);
+  const [quickDepositAccount, setQuickDepositAccount] = useState(null);
 
   // فراخوانی هوک اختصاصی حسابداری جهت مدیریت State و محاسبات زنده
   const {
@@ -45,6 +49,10 @@ export function AccountingView() {
     dashboardStats,
     treasuryIncomes,
     financialAccounts,
+    accountBalances,
+    accountBalancesList,
+    globalOverdraftPolicy,
+    updateGlobalOverdraftPolicy,
     addAccount,
     updateAccount,
     setDefaultAccount,
@@ -118,67 +126,104 @@ export function AccountingView() {
         </div>
       </div>
 
-      {/* ۱. ماژول داشبورد تراز مالی (۴ کارت خلاصه وضعیت) */}
-      <section aria-label="Financial Balance Dashboard">
-        <FinancialBalanceCards
-          stats={dashboardStats}
-          currency={currency}
-          language={language}
-        />
-      </section>
+      {selectedAccountForLedger ? (
+        /* بخش مخصوص و دفتر معین حساب انتخاب شده */
+        <section aria-label="Dedicated Account Subsidiary Ledger">
+          <AccountSubsidiaryLedgerSection
+            account={selectedAccountForLedger}
+            accountData={accountBalances.get(String(selectedAccountForLedger.id))}
+            currency={currency}
+            language={language}
+            allAccounts={financialAccounts}
+            onSelectAccount={(acc) => setSelectedAccountForLedger(acc)}
+            onBack={() => setSelectedAccountForLedger(null)}
+            onQuickDeposit={(acc) => {
+              setQuickDepositAccount(acc);
+              setIsQuickAddModalOpen(true);
+            }}
+          />
+        </section>
+      ) : (
+        <>
+          {/* ۱. ماژول داشبورد تراز مالی (۴ کارت خلاصه وضعیت) */}
+          <section aria-label="Financial Balance Dashboard">
+            <FinancialBalanceCards
+              stats={dashboardStats}
+              currency={currency}
+              language={language}
+            />
+          </section>
 
-      {/* ۴. نمودار جریان نقدینگی (Cash Flow Chart) */}
-      <section aria-label="Cash Flow Chart">
-        <CashFlowChart
-          chartData={cashFlowChartData}
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
-          currency={currency}
-          language={language}
-        />
-      </section>
+          {/* ۲. کاشی‌های اعلام موجودی کارت‌ها و صندوق‌های وجه نقد */}
+          <section aria-label="Accounts and Cash Boxes Balance Tiles">
+            <AccountBalanceTiles
+              accounts={financialAccounts}
+              accountBalances={accountBalances}
+              currency={currency}
+              language={language}
+              selectedAccountId={selectedAccountForLedger?.id}
+              onSelectAccount={(acc) => setSelectedAccountForLedger(acc)}
+            />
+          </section>
 
-      {/* ۲. ماژول مدیریت ورودی‌ها و تنخواه (Income & Petty Cash) */}
-      <section aria-label="Income and Petty Cash Management">
-        <IncomeManagementSection
-          incomes={treasuryIncomes}
-          onAddIncome={addIncome}
-          onUpdateIncome={updateIncome}
-          onDeleteIncome={deleteIncome}
-          currency={currency}
-          language={language}
-        />
-      </section>
+          {/* ۳. نمودار جریان نقدینگی (Cash Flow Chart) */}
+          <section aria-label="Cash Flow Chart">
+            <CashFlowChart
+              chartData={cashFlowChartData}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              currency={currency}
+              language={language}
+            />
+          </section>
 
-      {/* ۳. ماژول دفتر کل تراکنش‌ها (General Ledger) */}
-      <section aria-label="General Ledger Table">
-        <GeneralLedgerTable
-          ledgerItems={filteredLedgerItems}
-          financialAccounts={financialAccounts}
-          dateFilterMode={dateFilterMode}
-          setDateFilterMode={setDateFilterMode}
-          customStartDate={customStartDate}
-          setCustomStartDate={setCustomStartDate}
-          customEndDate={customEndDate}
-          setCustomEndDate={setCustomEndDate}
-          categoryFilter={categoryFilter}
-          setCategoryFilter={setCategoryFilter}
-          accountTypeFilter={accountTypeFilter}
-          setAccountTypeFilter={setAccountTypeFilter}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          currency={currency}
-          language={language}
-          projectName={currentProject?.name || 'KarSync'}
-        />
-      </section>
+          {/* ۴. ماژول مدیریت ورودی‌ها و تنخواه (Income & Petty Cash) */}
+          <section aria-label="Income and Petty Cash Management">
+            <IncomeManagementSection
+              incomes={treasuryIncomes}
+              onAddIncome={addIncome}
+              onUpdateIncome={updateIncome}
+              onDeleteIncome={deleteIncome}
+              currency={currency}
+              language={language}
+            />
+          </section>
+
+          {/* ۵. ماژول دفتر کل تراکنش‌ها (General Ledger) */}
+          <section aria-label="General Ledger Table">
+            <GeneralLedgerTable
+              ledgerItems={filteredLedgerItems}
+              financialAccounts={financialAccounts}
+              dateFilterMode={dateFilterMode}
+              setDateFilterMode={setDateFilterMode}
+              customStartDate={customStartDate}
+              setCustomStartDate={setCustomStartDate}
+              customEndDate={customEndDate}
+              setCustomEndDate={setCustomEndDate}
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
+              accountTypeFilter={accountTypeFilter}
+              setAccountTypeFilter={setAccountTypeFilter}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              currency={currency}
+              language={language}
+              projectName={currentProject?.name || 'KarSync'}
+            />
+          </section>
+        </>
+      )}
 
       {/* مودال سریع ثبت واریزی */}
       {isQuickAddModalOpen && (
         <AddEditIncomeModal
           isOpen={isQuickAddModalOpen}
-          onClose={() => setIsQuickAddModalOpen(false)}
+          onClose={() => {
+            setIsQuickAddModalOpen(false);
+            setQuickDepositAccount(null);
+          }}
           onSave={addIncome}
+          initialData={quickDepositAccount ? { accountId: quickDepositAccount.id, accountType: quickDepositAccount.type } : null}
           currency={currency}
           language={language}
         />
@@ -213,6 +258,9 @@ export function AccountingView() {
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               <AccountsSettingsTab
                 accounts={financialAccounts}
+                accountBalances={accountBalances}
+                globalOverdraftPolicy={globalOverdraftPolicy}
+                onUpdateGlobalOverdraftPolicy={updateGlobalOverdraftPolicy}
                 onAddAccount={addAccount}
                 onUpdateAccount={updateAccount}
                 onSetDefaultAccount={setDefaultAccount}

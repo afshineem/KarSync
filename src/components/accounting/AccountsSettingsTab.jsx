@@ -16,7 +16,14 @@ import {
   Layers,
   Sparkles,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  HelpCircle,
+  Ban,
+  ArrowDownRight,
+  ArrowUpRight
 } from 'lucide-react';
 import { migrateClosedTransactionsToCashBox } from '../../db/db';
 import { pushPaymentsLive, pushAllExpensesToCloud } from '../../services/realtimeSync';
@@ -28,6 +35,9 @@ import { pushPaymentsLive, pushAllExpensesToCloud } from '../../services/realtim
  */
 export function AccountsSettingsTab({
   accounts = [],
+  accountBalances = null,
+  globalOverdraftPolicy = 'ask_each_time',
+  onUpdateGlobalOverdraftPolicy,
   onAddAccount,
   onUpdateAccount,
   onSetDefaultAccount,
@@ -185,6 +195,125 @@ export function AccountsSettingsTab({
         </button>
       </div>
 
+      {/* ۲.۱ کارت تنظیم سیاست اضافه برداشت (کسری موجودی) سراسری */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                {language === 'fa' ? 'سیاست سراسری اضافه برداشت و کسری موجودی' : 'سیاسەتی گشتی کەمبوونی باڵانس'}
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {language === 'fa' 
+                  ? 'تعیین رفتار سیستم در زمان ثبت فاکتور یا پرداختی پرسنل با مبلغی بیشتر از موجودی صندوق یا کارت'
+                  : 'دیاریکردنی هەڵسوکەوتی سیستەم کاتێک باڵانس بەش ناکات'}
+              </p>
+            </div>
+          </div>
+
+          <span className="text-[11px] px-2.5 py-1 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+            {globalOverdraftPolicy === 'always_allow' 
+              ? (language === 'fa' ? 'همیشه مجاز' : 'هەمیشە ڕێگەپێدراو')
+              : globalOverdraftPolicy === 'never_allow'
+                ? (language === 'fa' ? 'همیشه نامجاز' : 'هەمیشە قەدەغە')
+                : (language === 'fa' ? 'هر بار پرسیده شود (پیش‌فرض)' : 'پرسیار لە هەر جارێکدا')}
+          </span>
+        </div>
+
+        {/* ۳ گزینه انتخابی: همیشه مجاز / هر بار پرسیده شود / همیشه نامجاز */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          {/* گزینه الف: همیشه مجاز */}
+          <div
+            onClick={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('always_allow')}
+            className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
+              globalOverdraftPolicy === 'always_allow'
+                ? 'bg-white dark:bg-slate-800 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20'
+                : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <CheckCircle2 className={`w-4 h-4 ${globalOverdraftPolicy === 'always_allow' ? 'text-emerald-500' : 'text-slate-400'}`} />
+                <span>{language === 'fa' ? 'الف: همیشه مجاز' : 'هەمیشە ڕێگەپێدراو'}</span>
+              </span>
+              <input
+                type="radio"
+                name="globalOverdraftPolicy"
+                checked={globalOverdraftPolicy === 'always_allow'}
+                onChange={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('always_allow')}
+                className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {language === 'fa' 
+                ? 'برداشت‌ها و هزینه‌ها بدون هیچ مانعی ثبت شده و تراز حساب می‌تواند منفی شود.' 
+                : 'پارەدان بێ بەربەست ئەنجام دەدرێت و باڵانس دەتوانێت نێگەتیڤ بێت.'}
+            </p>
+          </div>
+
+          {/* گزینه ب: هر بار پرسیده شود */}
+          <div
+            onClick={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('ask_each_time')}
+            className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
+              globalOverdraftPolicy === 'ask_each_time'
+                ? 'bg-white dark:bg-slate-800 border-amber-500 shadow-sm ring-2 ring-amber-500/20'
+                : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <HelpCircle className={`w-4 h-4 ${globalOverdraftPolicy === 'ask_each_time' ? 'text-amber-500' : 'text-slate-400'}`} />
+                <span>{language === 'fa' ? 'ب: هر بار پرسیده شود' : 'پرسیار لە هەر جارێکدا'}</span>
+              </span>
+              <input
+                type="radio"
+                name="globalOverdraftPolicy"
+                checked={globalOverdraftPolicy === 'ask_each_time'}
+                onChange={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('ask_each_time')}
+                className="w-4 h-4 text-amber-600 focus:ring-amber-500 cursor-pointer"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {language === 'fa' 
+                ? 'در صورت ناکافی بودن موجودی، مودال هشدار باز شده و پس از تایید کاربر، ثبت می‌شود.' 
+                : 'ئاگاداری دەدرێت و دوای پەسەندکردنی بەکارهێنەر تۆمار دەکرێت.'}
+            </p>
+          </div>
+
+          {/* گزینه ج: همیشه نامجاز */}
+          <div
+            onClick={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('never_allow')}
+            className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
+              globalOverdraftPolicy === 'never_allow'
+                ? 'bg-white dark:bg-slate-800 border-rose-500 shadow-sm ring-2 ring-rose-500/20'
+                : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Ban className={`w-4 h-4 ${globalOverdraftPolicy === 'never_allow' ? 'text-rose-500' : 'text-slate-400'}`} />
+                <span>{language === 'fa' ? 'ج: همیشه نامجاز' : 'هەمیشە قەدەغە'}</span>
+              </span>
+              <input
+                type="radio"
+                name="globalOverdraftPolicy"
+                checked={globalOverdraftPolicy === 'never_allow'}
+                onChange={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('never_allow')}
+                className="w-4 h-4 text-rose-600 focus:ring-rose-500 cursor-pointer"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {language === 'fa' 
+                ? 'در صورت کسری موجودی، از ثبت تراکنش و برداشت اکیداً ممانعت به عمل می‌آید.' 
+                : 'ئەگەر باڵانس بەش نەکات ڕێگە بە هیچ مامەڵەیەک نادرێت.'}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* فیلتر تب‌ها (همه، کارت‌ها، صندوق‌ها) */}
       <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-2">
         <button
@@ -261,6 +390,11 @@ export function AccountsSettingsTab({
           {filteredAccounts.map((account) => {
             const isBank = account.type === 'bank';
             const isDefault = Boolean(account.isDefault);
+            const bal = accountBalances?.get(String(account.id));
+            const currentBalance = bal ? bal.currentBalance : (Number(account.initialBalance) || 0);
+            const totalInflow = bal ? bal.totalInflow : 0;
+            const totalOutflow = bal ? bal.totalOutflow : 0;
+            const isNegative = currentBalance < 0;
 
             return (
               <div
@@ -313,8 +447,58 @@ export function AccountsSettingsTab({
                   </div>
                 </div>
 
+                {/* پنل میانی: موجودی زنده، ورودی و خروجی و سیاست کسری */}
+                <div className="p-3.5 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+                  {/* ردیف موجودی زنده */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      {language === 'fa' ? 'موجودی زنده فعلی:' : 'باڵانسی ئێستا:'}
+                    </span>
+                    <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-lg ${
+                      isNegative 
+                        ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400' 
+                        : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300'
+                    }`} dir="ltr">
+                      {formatAmount(currentBalance, currency)}
+                    </span>
+                  </div>
+
+                  {/* ردیف جریان نقدینگی حساب */}
+                  <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px]">
+                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                      <span className="flex items-center gap-0.5">
+                        <ArrowUpRight className="w-3 h-3" />
+                        <span>{language === 'fa' ? 'واریزی:' : 'هاتوو:'}</span>
+                      </span>
+                      <span className="font-mono font-bold" dir="ltr">{formatAmount(totalInflow, currency)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-rose-500 dark:text-rose-400">
+                      <span className="flex items-center gap-0.5">
+                        <ArrowDownRight className="w-3 h-3" />
+                        <span>{language === 'fa' ? 'برداشت:' : 'ڕۆیشتوو:'}</span>
+                      </span>
+                      <span className="font-mono font-bold" dir="ltr">{formatAmount(totalOutflow, currency)}</span>
+                    </div>
+                  </div>
+
+                  {/* برچسب سیاست کسری اختصاصی این حساب */}
+                  <div className="flex items-center justify-between text-[10px] pt-1 text-slate-400 dark:text-slate-500">
+                    <span>{language === 'fa' ? 'سیاست کسری:' : 'سیاسەتی کەمبوون:'}</span>
+                    <span className="font-bold text-slate-600 dark:text-slate-300">
+                      {account.overdraftPolicy === 'always_allow'
+                        ? (language === 'fa' ? '✅ همیشه مجاز' : 'هەمیشە ڕێگەپێدراو')
+                        : account.overdraftPolicy === 'never_allow'
+                          ? (language === 'fa' ? '⛔ همیشه نامجاز' : 'هەمیشە قەدەغە')
+                          : account.overdraftPolicy === 'ask_each_time'
+                            ? (language === 'fa' ? '⚠️ هر بار پرسش' : 'پرسیار لە هەر جار')
+                            : (language === 'fa' ? '⚙️ سراسری' : 'سەرتاسەری')}
+                    </span>
+                  </div>
+                </div>
+
                 {/* پنل عملیات و دکمه‌ها در پایین */}
-                <div className="p-3.5 bg-slate-50/60 dark:bg-slate-800/30 flex items-center justify-between gap-2 text-xs">
+                <div className="p-3 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 text-xs">
                   {/* دکمه تنظیم به عنوان پیش‌فرض */}
                   {!isDefault ? (
                     <button

@@ -286,6 +286,7 @@ db.financialAccounts.hook('creating', function (primKey, obj) {
   if (obj.isDefault === undefined) obj.isDefault = false;
   if (obj.isActive === undefined) obj.isActive = true;
   if (obj.initialBalance !== undefined) obj.initialBalance = Number(String(obj.initialBalance).replace(/,/g, '')) || 0;
+  if (!obj.overdraftPolicy) obj.overdraftPolicy = 'global';
 });
 db.financialAccounts.hook('updating', function (modifications, primKey, obj) {
   if ('projectId' in modifications && !modifications.projectId) {
@@ -738,8 +739,41 @@ export async function seedInitialDataIfEmpty(userId = 'default_user') {
     await db.settings.bulkAdd([
       { key: 'workshop_name', value: 'کارگەی ئاسنگەری و دارتاشی (Central Workshop)' },
       { key: 'default_currency', value: 'IQD' },
-      { key: 'language', value: 'ku' }
+      { key: 'language', value: 'ku' },
+      { key: 'global_overdraft_policy', value: 'ask_each_time' }
     ]);
+  } else {
+    const existing = await db.settings.get('global_overdraft_policy');
+    if (!existing) {
+      await db.settings.put({ key: 'global_overdraft_policy', value: 'ask_each_time' });
+    }
+  }
+}
+
+/**
+ * دریافت سیاست سراسری برداشت در صورت کسری موجودی
+ * @returns {'always_allow' | 'ask_each_time' | 'never_allow'}
+ */
+export async function getGlobalOverdraftPolicy() {
+  try {
+    const s = await db.settings.get('global_overdraft_policy');
+    return s?.value || 'ask_each_time';
+  } catch {
+    return 'ask_each_time';
+  }
+}
+
+/**
+ * ذخیره سیاست سراسری برداشت در صورت کسری موجودی
+ * @param {'always_allow' | 'ask_each_time' | 'never_allow'} policy
+ */
+export async function setGlobalOverdraftPolicy(policy) {
+  try {
+    await db.settings.put({ key: 'global_overdraft_policy', value: policy });
+    return true;
+  } catch (err) {
+    console.error('setGlobalOverdraftPolicy error:', err);
+    return false;
   }
 }
 

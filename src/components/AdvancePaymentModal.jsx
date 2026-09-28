@@ -15,12 +15,14 @@ import {
   Coins, 
   FileText, 
   Hash, 
-  Check, 
+  Check,
   AlertCircle,
   Landmark,
   Star,
   CreditCard
 } from 'lucide-react';
+import { useAccounting } from '../hooks/useAccounting';
+import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 
 export function AdvancePaymentModal({ 
   isOpen, 
@@ -43,6 +45,8 @@ export function AdvancePaymentModal({
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
+  const { checkAccountOverdraft } = useAccounting();
+  const [overdraftPromptData, setOverdraftPromptData] = useState(null);
 
   // Financial accounts live query
   const financialAccounts = useLiveQuery(
@@ -84,8 +88,8 @@ export function AdvancePaymentModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, bypassOverdraft = false) => {
+    if (e && e.preventDefault) e.preventDefault();
     setFeedback({ type: '', message: '' });
 
     const numAmount = roundCurrency(Number(amount), currency);
@@ -96,6 +100,28 @@ export function AdvancePaymentModal({
     if (isNaN(numAmount) || numAmount <= 0) {
       setFeedback({ type: 'error', message: t('pleaseEnterValidAmount') });
       return;
+    }
+
+    if (!bypassOverdraft) {
+      const overdraftCheck = checkAccountOverdraft(selectedAccountId, numAmount);
+      if (!overdraftCheck.hasSufficientFunds) {
+        if (overdraftCheck.effectivePolicy === 'never_allow') {
+          setFeedback({
+            type: 'error',
+            message: language === 'fa'
+              ? `موجودی حساب انتخابی (${overdraftCheck.account?.name || 'صندوق/بانک'}) برای پرداخت این مساعده کافی نیست و سیاست کارگاه بر روی «همیشه نامجاز» تنظیم شده است.`
+              : 'باڵانسی حیساب بەش ناکات و کەمبوون قەدەغەیە.'
+          });
+          return;
+        } else if (overdraftCheck.effectivePolicy === 'ask_each_time') {
+          setOverdraftPromptData({
+            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            currentBalance: overdraftCheck.currentBalance,
+            requestedAmount: numAmount
+          });
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -350,6 +376,20 @@ export function AdvancePaymentModal({
 
         </div>
       </div>
+
+      {/* مودال تایید کسری موجودی حساب برای مساعده */}
+      {overdraftPromptData && (
+        <OverdraftConfirmModal
+          isOpen={Boolean(overdraftPromptData)}
+          onClose={() => setOverdraftPromptData(null)}
+          onConfirm={() => handleSubmit(null, true)}
+          accountName={overdraftPromptData.accountName}
+          currentBalance={overdraftPromptData.currentBalance}
+          requestedAmount={overdraftPromptData.requestedAmount}
+          currency={currency}
+          language={language}
+        />
+      )}
     </div>
   );
 

@@ -1,6 +1,15 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, DEFAULT_PROJECT_ID, generateTreasuryIncomeId, generateAccountId, seedDefaultFinancialAccounts, migrateClosedTransactionsToCashBox } from '../db/db';
+import { 
+  db, 
+  DEFAULT_PROJECT_ID, 
+  generateTreasuryIncomeId, 
+  generateAccountId, 
+  seedDefaultFinancialAccounts, 
+  migrateClosedTransactionsToCashBox,
+  getGlobalOverdraftPolicy,
+  setGlobalOverdraftPolicy
+} from '../db/db';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { getCurrentYearMonth, getTodayDateString, roundCurrency } from '../utils/formatters';
@@ -132,6 +141,19 @@ export function useAccounting(options = {}) {
     return map;
   }, [financialAccounts]);
 
+  // سیاست سراسری اضافه برداشت (Overdraft Policy)
+  const globalOverdraftSetting = useLiveQuery(
+    async () => {
+      return await getGlobalOverdraftPolicy();
+    },
+    []
+  );
+  const globalOverdraftPolicy = globalOverdraftSetting || 'ask_each_time';
+
+  const updateGlobalOverdraftPolicy = useCallback(async (newPolicy) => {
+    await setGlobalOverdraftPolicy(newPolicy);
+  }, []);
+
   // ----------------------------------------------------
   // ۲. توابع کمکی تاریخ برای اعمال بازه‌های فیلتر
   // ----------------------------------------------------
@@ -163,9 +185,158 @@ export function useAccounting(options = {}) {
   }, [dateFilterMode, currentMonthPrefix, lastMonthPrefix, customStartDate, customEndDate]);
 
   // ----------------------------------------------------
-  // ۳. تجمیع کلان مبالغ برای داشبورد ۴گانه تراز مالی
+  // ۲.۵ محاسبه زنده موجودی و دفتر معین تک‌تک حساب‌ها و صندوق‌ها
+  // ----------------------------------------------------
+  const accountBalances = useMemo(() => {
+    const defaultCash = financialAccounts.find((a) => a.type === 'cash' && a.isDefault) || financialAccounts.find((a) => a.type === 'cash');
+    const defaultBank = financialAccounts.find((a) => a.type === 'bank' && a.isDefault) || financialAccounts.find((a) => a.type === 'bank');
+    const defaultCashId = defaultCash ? String(defaultCash.id) : null;
+    const defaultBankId = defaultBank ? String(defaultBank.id) : null;
+
+    const map = new Map();
+
+    financialAccounts.forEach((acc) => {
+      map.set(String(acc.id), {
+        account: acc,
+        initialBalance: Number(acc.initialBalance) || 0,
+        totalInflow: 0,
+        totalOutflow: 0,
+        currentBalance: Number(acc.initialBalance) || 0,
+        inflowsCount: 0,
+        outflowsCount: 0,
+        transactions: []
+      });
+    });
+
+    // ۱. ورودی‌های تنخواه و واریزی‌ها
+    treasuryIncomes.forEach((inc) => {
+      const amt = Number(inc.amount) || 0;
+      let targetId = inc.accountId ? String(inc.accountId) : (inc.accountType === 'bank' ? defaultBankId : defaultCashId);
+      if (targetId && map.has(targetId)) {
+        const entry = map.get(targetId);
+        entry.totalInflow += amt;
+        entry.inflowsCount += 1;
+        entry.transactions.push({
+          id: inc.id,
+          rawDate: (inc.date || inc.createdAt || '').slice(0, 10),
+          time: inc.time || (inc.createdAt ? inc.createdAt.slice(11, 16) : ''),
+          createdAt: inc.createdAt || (inc.date ? `${inc.date}T00:00:00Z` : ''),
+          type: 'inflow',
+          category: 'petty_cash',
+          categoryLabel: 'شارژ تنخواه / واریزی',
+          title: inc.title || 'واریز تنخواه کارگاه',
+          description: inc.description || (inc.payer ? `واریزکننده: ${inc.payer}` : ''),
+          personName: inc.payer || '',
+          inflowAmount: amt,
+          outflowAmount: 0,
+          amount: amt,
+          isSystem: false,
+          rawItem: inc
+        });
+      }
+    });
+
+    // ۲. پرداختی‌های پرسنل (مساعده و تسویه دستمزد)
+    payments.forEach((p) => {
+      const amt = Number(p.amount) || 0;
+      let targetId = p.accountId ? String(p.accountId) : (p.paymentMethod === 'bank' || p.accountType === 'bank' ? defaultBankId : defaultCashId);
+      if (targetId && map.has(targetId)) {
+        const entry = map.get(targetId);
+        entry.totalOutflow += amt;
+        entry.outflowsCount += 1;
+        const isAdvance = p.type === 'advance';
+        const workerName = p.workerName || workerMap.get(String(p.workerId)) || 'پرسنل';
+        entry.transactions.push({
+          id: p.id,
+          rawDate: (p.date || p.createdAt || '').slice(0, 10),
+          time: p.time || (p.createdAt ? p.createdAt.slice(11, 16) : ''),
+          createdAt: p.createdAt || (p.date ? `${p.date}T00:00:00Z` : ''),
+          type: 'outflow',
+          category: isAdvance ? 'advance_payment' : 'worker_settlement',
+          categoryLabel: isAdvance ? 'مساعده پرسنل' : 'تسویه دستمزد پرسنل',
+          title: isAdvance ? `پرداخت مساعده به ${workerName}` : `تسویه حساب نهایی ${workerName}`,
+          description: p.notes || (p.referenceNumber ? `کد رهگیری: ${p.referenceNumber}` : ''),
+          personName: workerName,
+          inflowAmount: 0,
+          outflowAmount: amt,
+          amount: amt,
+          isSystem: true,
+          rawItem: p
+        });
+      }
+    });
+
+    // ۳. هزینه‌ها و فاکتورهای کارگاه
+    expenses.forEach((e) => {
+      const amt = Number(e.amount) || 0;
+      let targetId = e.accountId ? String(e.accountId) : (e.paymentMethod === 'bank' || e.accountType === 'bank' ? defaultBankId : defaultCashId);
+      if (targetId && map.has(targetId)) {
+        const entry = map.get(targetId);
+        entry.totalOutflow += amt;
+        entry.outflowsCount += 1;
+        entry.transactions.push({
+          id: e.id,
+          rawDate: (e.expenseDate || e.createdAt || '').slice(0, 10),
+          time: e.time || (e.createdAt ? e.createdAt.slice(11, 16) : ''),
+          createdAt: e.createdAt || (e.expenseDate ? `${e.expenseDate}T00:00:00Z` : ''),
+          type: 'outflow',
+          category: 'workshop_expense',
+          categoryLabel: 'هزینه کارگاه (فاکتور)',
+          title: e.title || 'هزینه کارگاه',
+          description: e.personName ? `طرف‌حساب: ${e.personName}` : (e.description || ''),
+          personName: e.personName || '',
+          inflowAmount: 0,
+          outflowAmount: amt,
+          amount: amt,
+          isSystem: true,
+          rawItem: e
+        });
+      }
+    });
+
+    // محاسبه موجودی زنده و مانده تجمعی (Running Balance) برای هر حساب
+    map.forEach((entry) => {
+      entry.currentBalance = entry.initialBalance + entry.totalInflow - entry.totalOutflow;
+
+      entry.transactions.sort((a, b) => {
+        if (a.rawDate !== b.rawDate) return a.rawDate.localeCompare(b.rawDate);
+        return (a.createdAt || '').localeCompare(b.createdAt || '');
+      });
+
+      let running = entry.initialBalance;
+      entry.transactions = entry.transactions.map((tx, idx) => {
+        if (tx.type === 'inflow') {
+          running += tx.amount;
+        } else {
+          running -= tx.amount;
+        }
+        return {
+          ...tx,
+          rowNumber: idx + 1,
+          runningBalance: running
+        };
+      });
+    });
+
+    return map;
+  }, [financialAccounts, treasuryIncomes, payments, expenses, workerMap]);
+
+  const accountBalancesList = useMemo(() => {
+    return Array.from(accountBalances.values());
+  }, [accountBalances]);
+
+  // ----------------------------------------------------
+  // ۳. تجمیع کلان مبالغ برای داشبورد ۴گانه تراز مالی با احتساب موجودی اولیه
   // ----------------------------------------------------
   const dashboardStats = useMemo(() => {
+    // موجودی‌های اولیه تمام حساب‌های فعال
+    let totalInitialBalances = 0;
+    financialAccounts.forEach((acc) => {
+      if (acc.isActive !== false) {
+        totalInitialBalances += Number(acc.initialBalance) || 0;
+      }
+    });
+
     // ۱. کل بودجه دریافتی (ورودی‌ها): مجموع تمام مبالغ تنخواه و بودجه واریز شده
     let totalInflow = 0;
     let cashInflow = 0;
@@ -200,16 +371,18 @@ export function useAccounting(options = {}) {
       totalExpenses += amt;
     });
 
-    // ۴. موجودی فعلی صندوق (تراز جاری): فرمول: کل ورودی‌ها - (پرداختی پرسنل + هزینه‌های کارگاه)
-    const currentTreasuryBalance = totalInflow - (totalPersonnel + totalExpenses);
-
-    // محاسبه درصدهای مصرفی برای نمایش هوشمند در کارت‌ها
+    // ۴. موجودی کل خزانه = کل منابع در دسترس (موجودی اولیه حساب‌ها + ورودی‌های جدید) - کل مصارف
     const totalOutflow = totalPersonnel + totalExpenses;
-    const personnelRatio = totalInflow > 0 ? Math.round((totalPersonnel / totalInflow) * 100) : 0;
-    const expenseRatio = totalInflow > 0 ? Math.round((totalExpenses / totalInflow) * 100) : 0;
-    const burnRatio = totalInflow > 0 ? Math.round((totalOutflow / totalInflow) * 100) : 0;
+    const totalFundsAvailable = totalInitialBalances + totalInflow;
+    const currentTreasuryBalance = totalFundsAvailable - totalOutflow;
+
+    const personnelRatio = totalFundsAvailable > 0 ? Math.round((totalPersonnel / totalFundsAvailable) * 100) : 0;
+    const expenseRatio = totalFundsAvailable > 0 ? Math.round((totalExpenses / totalFundsAvailable) * 100) : 0;
+    const burnRatio = totalFundsAvailable > 0 ? Math.round((totalOutflow / totalFundsAvailable) * 100) : 0;
 
     return {
+      totalInitialBalances: roundCurrency(totalInitialBalances, currency),
+      totalFundsAvailable: roundCurrency(totalFundsAvailable, currency),
       totalInflow: roundCurrency(totalInflow, currency),
       cashInflow: roundCurrency(cashInflow, currency),
       bankInflow: roundCurrency(bankInflow, currency),
@@ -230,7 +403,7 @@ export function useAccounting(options = {}) {
       personnelRatio,
       expenseRatio
     };
-  }, [treasuryIncomes, payments, expenses, currency]);
+  }, [financialAccounts, treasuryIncomes, payments, expenses, currency]);
 
   // ----------------------------------------------------
   // ۴. ساخت دفتر کل تراکنش‌ها (General Ledger) با Running Balance
@@ -589,6 +762,39 @@ export function useAccounting(options = {}) {
     return await migrateClosedTransactionsToCashBox(projectId, forceAll);
   }, [projectId]);
 
+  // بررسی اضافه برداشت بر اساس سیاست حساب و سراسری
+  const checkAccountOverdraft = useCallback((accountId, amount) => {
+    const numAmount = Number(amount) || 0;
+    const acc = financialAccounts.find((a) => String(a.id) === String(accountId)) || defaultAccount;
+    if (!acc) {
+      return {
+        hasSufficientFunds: true,
+        account: null,
+        currentBalance: 0,
+        requestedAmount: numAmount,
+        shortfall: 0,
+        effectivePolicy: globalOverdraftPolicy
+      };
+    }
+
+    const accBalanceData = accountBalances.get(String(acc.id));
+    const currentBalance = accBalanceData ? accBalanceData.currentBalance : (Number(acc.initialBalance) || 0);
+    const hasSufficientFunds = currentBalance >= numAmount;
+    const shortfall = Math.max(0, numAmount - currentBalance);
+    const effectivePolicy = (acc.overdraftPolicy && acc.overdraftPolicy !== 'global') 
+      ? acc.overdraftPolicy 
+      : globalOverdraftPolicy;
+
+    return {
+      hasSufficientFunds,
+      account: acc,
+      currentBalance,
+      requestedAmount: numAmount,
+      shortfall,
+      effectivePolicy
+    };
+  }, [financialAccounts, defaultAccount, accountBalances, globalOverdraftPolicy]);
+
   return {
     projectId,
     currency,
@@ -602,6 +808,11 @@ export function useAccounting(options = {}) {
     financialAccounts,
     defaultAccount,
     accountMap,
+    accountBalances,
+    accountBalancesList,
+    globalOverdraftPolicy,
+    updateGlobalOverdraftPolicy,
+    checkAccountOverdraft,
     addAccount,
     updateAccount,
     setDefaultAccount,

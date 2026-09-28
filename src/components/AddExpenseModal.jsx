@@ -27,6 +27,8 @@ import {
   Sparkles,
   Image as ImageIcon
 } from 'lucide-react';
+import { useAccounting } from '../hooks/useAccounting';
+import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 
 export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, onSuccess }) {
   const { currentProject } = useProject();
@@ -79,6 +81,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const { checkAccountOverdraft } = useAccounting();
+  const [overdraftPromptData, setOverdraftPromptData] = useState(null);
 
   // Financial Accounts live query
   const financialAccounts = useLiveQuery(
@@ -241,8 +246,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   };
 
   // Form Submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, bypassOverdraft = false) => {
+    if (e && e.preventDefault) e.preventDefault();
     setErrorMessage('');
 
     if (!formData.title.trim()) {
@@ -254,6 +259,28 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     if (!numericAmount || numericAmount <= 0) {
       setErrorMessage(language === 'fa' ? 'لطفاً مبلغ معتبری وارد کنید.' : 'تکایە بڕە پارەیەکی دروست بنووسە.');
       return;
+    }
+
+    // بررسی اضافه برداشت از حساب در صورتی که پرداخت شده باشد
+    if (formData.paymentStatus === 'paid' && !bypassOverdraft) {
+      const overdraftCheck = checkAccountOverdraft(formData.accountId, numericAmount);
+      if (!overdraftCheck.hasSufficientFunds) {
+        if (overdraftCheck.effectivePolicy === 'never_allow') {
+          setErrorMessage(
+            language === 'fa'
+              ? `موجودی حساب انتخابی (${overdraftCheck.account?.name || 'صندوق/بانک'}) کافی نیست و بر اساس سیاست تعیین شده، برداشت بیش از موجودی غیرمجاز است.`
+              : 'باڵانسی حیساب بەش ناکات و کەمبوون ڕێگەپێدراو نییە.'
+          );
+          return;
+        } else if (overdraftCheck.effectivePolicy === 'ask_each_time') {
+          setOverdraftPromptData({
+            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            currentBalance: overdraftCheck.currentBalance,
+            requestedAmount: numericAmount
+          });
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -845,6 +872,20 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
           </button>
         </div>
       </div>
+
+      {/* مودال تایید کسری موجودی حساب (در صورت انتخاب سیاست پرسش در هر بار) */}
+      {overdraftPromptData && (
+        <OverdraftConfirmModal
+          isOpen={Boolean(overdraftPromptData)}
+          onClose={() => setOverdraftPromptData(null)}
+          onConfirm={() => handleSubmit(null, true)}
+          accountName={overdraftPromptData.accountName}
+          currentBalance={overdraftPromptData.currentBalance}
+          requestedAmount={overdraftPromptData.requestedAmount}
+          currency={formData.currency || projectCurrency}
+          language={language}
+        />
+      )}
     </div>
   );
 

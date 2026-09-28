@@ -115,6 +115,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
   const {
     financialAccounts,
+    accountBalances,
+    globalOverdraftPolicy,
+    updateGlobalOverdraftPolicy,
     addAccount,
     updateAccount,
     setDefaultAccount,
@@ -1512,6 +1515,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
               <div className="max-w-4xl animate-in fade-in duration-150">
                 <AccountsSettingsTab
                   accounts={financialAccounts}
+                  accountBalances={accountBalances}
+                  globalOverdraftPolicy={globalOverdraftPolicy}
+                  onUpdateGlobalOverdraftPolicy={updateGlobalOverdraftPolicy}
                   onAddAccount={addAccount}
                   onUpdateAccount={updateAccount}
                   onSetDefaultAccount={setDefaultAccount}

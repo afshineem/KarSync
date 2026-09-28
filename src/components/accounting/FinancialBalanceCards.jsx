@@ -35,10 +35,10 @@ export function FinancialBalanceCards({ stats, currency, language = 'fa' }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">
-              {language === 'fa' ? 'کل بودجه دریافتی (ورودی‌ها)' : 'کۆی گشتی بودجە و داهات'}
+              {language === 'fa' ? 'کل نقدینگی و بودجه (ورودی‌ها)' : 'کۆی گشتی بودجە و داهات'}
             </span>
             <div className="text-xl sm:text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-              {formatCurrency(stats.totalInflow, currency, language)}
+              {formatCurrency(stats.totalFundsAvailable || stats.totalInflow, currency, language)}
             </div>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0 border border-emerald-200/60 dark:border-emerald-800/60 shadow-xs">
@@ -50,11 +50,11 @@ export function FinancialBalanceCards({ stats, currency, language = 'fa' }) {
         <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <span className="flex items-center gap-1">
             <Coins className="w-3.5 h-3.5 text-amber-500" />
-            <span>نقد: {formatCurrency(stats.cashInflow, currency, language)}</span>
+            <span>اولیه: {formatCurrency(stats.totalInitialBalances || 0, currency, language)}</span>
           </span>
           <span className="flex items-center gap-1">
-            <CreditCard className="w-3.5 h-3.5 text-sky-500" />
-            <span>بانک: {formatCurrency(stats.bankInflow, currency, language)}</span>
+            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-500" />
+            <span>تنخواه: {formatCurrency(stats.totalInflow, currency, language)}</span>
           </span>
         </div>
       </div>
