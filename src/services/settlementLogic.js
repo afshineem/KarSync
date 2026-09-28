@@ -139,7 +139,10 @@ export async function executeGroupSettlement(groupId, masterWorkerId, projectId)
       groupId: groupId,
       amount: invoice.netPayable, // Could be negative if deductions > gross!
       type: 'Settlement',
-      status: 'completed',
+      status: 'draft',
+      approval_status: 'draft',
+      settlement_status: 'completed',
+      created_by: 'admin',
       date: now.split('T')[0],
       month: now.substring(0, 7),
       isSettled: true,

@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateExpenseId, generateCategoryId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { pushExpenseLive, uploadExpenseReceipt } from '../services/realtimeSync';
 import { 
   PlusCircle, 
@@ -18,6 +19,7 @@ import {
   Layers, 
   FolderTree, 
   CreditCard, 
+  Lock, 
   FileText,
   DollarSign,
   Wallet,
@@ -33,6 +35,8 @@ import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, onSuccess }) {
   const { currentProject } = useProject();
   const { t, language, direction } = useLanguage();
+  const { user } = useAuth();
+  const isApprovedAndLocked = expenseToEdit?.status === 'approved';
   const isRtl = direction === 'rtl';
   const fileInputRef = useRef(null);
 
@@ -250,6 +254,11 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     if (e && e.preventDefault) e.preventDefault();
     setErrorMessage('');
 
+    if (isApprovedAndLocked) {
+      setErrorMessage(language === 'fa' ? 'این هزینه قبلاً تایید نهایی شده است و غیرقابل ویرایش می‌باشد.' : 'Approved documents cannot be edited.');
+      return;
+    }
+
     if (!formData.title.trim()) {
       setErrorMessage(language === 'fa' ? 'لطفاً عنوان هزینه را وارد کنید.' : 'تکایە ناونیشانی خەرجی بنووسە.');
       return;
@@ -325,6 +334,13 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         receiptUrl: finalReceiptUrl || null,
         description: formData.description?.trim() || '',
         expenseDate: formData.expenseDate || new Date().toISOString().slice(0, 10),
+        status: expenseToEdit?.status || 'draft',
+        created_by: expenseToEdit?.created_by || user?.id || user?.userId || 'admin',
+        createdBy: expenseToEdit?.createdBy || user?.name || 'مدیر سیستم',
+        approved_by: expenseToEdit?.approved_by || null,
+        approvedBy: expenseToEdit?.approvedBy || null,
+        approved_at: expenseToEdit?.approved_at || null,
+        approvedAt: expenseToEdit?.approvedAt || null,
         updatedAt: new Date().toISOString()
       };
 
@@ -410,6 +426,20 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs sm:text-sm font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {isApprovedAndLocked && (
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-bold flex items-center gap-3">
+              <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div>
+                <div>{language === 'fa' ? 'سند تایید نهایی شده (قفل و غیرقابل تغییر)' : 'بەڵگەنامەی پەسەندکراو (داخراو)'}</div>
+                <div className="text-[11px] font-normal text-amber-700 dark:text-amber-300 mt-0.5">
+                  {language === 'fa' 
+                    ? `این هزینه توسط «${expenseToEdit.approvedBy || 'مدیر ارشد'}» ${expenseToEdit.approvedAt ? `در تاریخ ${expenseToEdit.approvedAt.slice(0, 10)}` : ''} تایید نهایی گردیده و طبق اصول حسابداری غیرقابل ویرایش یا حذف است.`
+                    : 'ئەم بەڵگەنامەیە پەسەندکراوە و دەستکاری ناکرێت.'}
+                </div>
+              </div>
             </div>
           )}
 
@@ -851,8 +881,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
           <button
             type="submit"
             form="expense-form"
-            disabled={isSubmitting}
-            className="px-6 py-2.5 rounded-2xl text-xs font-bold bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-lg shadow-rose-500/25 transition-transform active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+            disabled={isSubmitting || isApprovedAndLocked}
+            className="px-6 py-2.5 rounded-2xl text-xs font-bold bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-lg shadow-rose-500/25 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
           >
             {isSubmitting ? (
               <>

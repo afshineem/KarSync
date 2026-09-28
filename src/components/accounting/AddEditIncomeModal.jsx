@@ -16,8 +16,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Star,
-  Landmark
+  Landmark,
+  Lock
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * AddEditIncomeModal
@@ -41,6 +43,8 @@ export function AddEditIncomeModal({
   const [description, setDescription] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
+  const isApprovedAndLocked = Boolean(initialData && initialData.status === 'approved');
 
   // واکشی حساب‌های مالی ثبت شده (کارت‌ها و صندوق‌ها)
   const financialAccounts = useLiveQuery(
@@ -100,6 +104,11 @@ export function AddEditIncomeModal({
     e.preventDefault();
     setErrorMsg('');
 
+    if (isApprovedAndLocked) {
+      setErrorMsg(language === 'fa' ? 'این سند واریزی تایید شده و قفل است و امکان تغییر آن وجود ندارد.' : 'ئەم بەڵگەنامەیە قفڵ کراوە.');
+      return;
+    }
+
     const numAmount = Number(String(amount).replace(/,/g, ''));
     if (!numAmount || numAmount <= 0) {
       setErrorMsg(language === 'fa' ? 'لطفاً مبلغ واریزی معتبری وارد کنید.' : 'تکایە بڕە پارەیەکی دروست بنووسە.');
@@ -123,7 +132,8 @@ export function AddEditIncomeModal({
         accountName: matchedAcc?.name || (accountType === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
         accountType: matchedAcc?.type || accountType,
         payer: payer.trim(),
-        description: description.trim()
+        description: description.trim(),
+        ...(initialData ? {} : { status: 'draft', created_by: user?.id || 'admin' })
       });
       onClose();
     } catch (err) {
@@ -172,6 +182,13 @@ export function AddEditIncomeModal({
 
         {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+          {isApprovedAndLocked && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <span>{language === 'fa' ? 'این سند واریزی تایید نهایی شده و قفل است. امکان ویرایش اطلاعات آن وجود ندارد.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و قفڵ کراوە.'}</span>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-400">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -348,8 +365,8 @@ export function AddEditIncomeModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/25 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              disabled={isSubmitting || isApprovedAndLocked}
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/25 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{initialData ? (language === 'fa' ? 'ثبت تغییرات' : 'پاشەکەوتکردن') : (language === 'fa' ? 'ثبت واریزی تنخواه' : 'تۆمارکردن')}</span>

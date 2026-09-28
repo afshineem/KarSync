@@ -41,11 +41,37 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem(AUTH_SESSION_KEY);
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed.role) parsed.role = 'admin';
+        return parsed;
+      }
+      return {
+        id: 'admin',
+        userId: 'admin',
+        role: 'admin',
+        name: 'مدیر ارشد کارگاه',
+        title: 'مدیر ارشد کارگاه'
+      };
     } catch {
-      return null;
+      return {
+        id: 'admin',
+        userId: 'admin',
+        role: 'admin',
+        name: 'مدیر ارشد کارگاه',
+        title: 'مدیر ارشد کارگاه'
+      };
     }
   });
+
+  const setUserRole = (newRole) => {
+    if (!['admin', 'operator', 'viewer'].includes(newRole)) return;
+    setUser((prev) => {
+      const updated = prev ? { ...prev, role: newRole } : { role: newRole, id: 'admin', name: 'کاربر سیستم' };
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
@@ -851,8 +877,9 @@ export function AuthProvider({ children }) {
         user,
         isLoadingAuth,
         isAuthenticated: !!user,
-        isAdmin: user?.role === 'admin',
+        isAdmin: (user?.role || 'admin') === 'admin',
         isWorker: user?.role === 'worker',
+        setUserRole,
         onboardingCompleted: user?.onboardingCompleted ?? true,
         isScreenLocked,
         autoLockMinutes,

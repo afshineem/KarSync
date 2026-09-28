@@ -58,6 +58,13 @@ db.version(10).stores({
   financialAccounts: 'id, projectId, type, isDefault, isActive, createdAt'
 });
 
+db.version(11).stores({
+  expenses: 'id, projectId, sectionId, categoryId, personId, paymentStatus, paymentMethod, currency, expenseDate, status, created_by, approved_by, createdAt',
+  payments: 'id, projectId, userId, workerId, groupId, date, month, type, status, isSettled, settlementReceiptId, approval_status, created_by, approved_by, createdAt',
+  treasuryIncomes: 'id, projectId, date, accountType, status, created_by, approved_by, createdAt',
+  attendanceLogs: 'id, projectId, sectionId, userId, workerId, date, type, isSettled, status, created_by, approved_by, settlementReceiptId, [workerId+date], [projectId+workerId+date]'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -923,5 +930,177 @@ export async function reconcileSettlementEpochs() {
     console.warn('reconcileSettlementEpochs warning:', err);
     return { totalLogsUpdated: [], totalAdvancesUpdated: [] };
   }
+}
+
+/**
+ * بررسی عدم تغییرپذیری سند تایید شده (Immutability Check)
+ * اگر وضعیت سند 'approved' باشد، اجازه ویرایش یا حذف داده نمی‌شود.
+ */
+export function assertRecordMutable(record) {
+  if (!record) return;
+  const isApproved = record.status === 'approved' || record.approval_status === 'approved';
+  if (isApproved) {
+    const error = new Error('403 Forbidden: این سند قبلاً تایید نهایی شده است و غیرقابل ویرایش یا حذف می‌باشد.');
+    error.statusCode = 403;
+    error.code = 'RECORD_IMMUTABLE';
+    throw error;
+  }
+}
+
+/**
+ * متد تایید نهایی سند و اعمال سیستم دو مرحله‌ای (Two-Stage Verification)
+ * همراه با چک نقش کاربر (تنها کاربر ادمین اجازه تایید دارد)
+ */
+export async function approveRecord(tableName, recordId, currentUser = null) {
+  const role = currentUser?.role || 'admin';
+  if (role !== 'admin') {
+    const error = new Error('403 Forbidden: تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به تایید نهایی اسناد هستند.');
+    error.statusCode = 403;
+    error.code = 'ROLE_UNAUTHORIZED';
+    throw error;
+  }
+
+  const table = db.table(tableName);
+  if (!table) {
+    throw new Error(`Table ${tableName} not found in database.`);
+  }
+
+  const record = await table.get(recordId);
+  if (!record) {
+    throw new Error(`Record ${recordId} not found in ${tableName}.`);
+  }
+
+  const now = new Date().toISOString();
+  const userId = currentUser?.id || currentUser?.userId || 'admin';
+  const userName = currentUser?.name || currentUser?.title || 'مدیر سیستم';
+
+  const updatePayload = {
+    status: 'approved',
+    approval_status: 'approved', // سازگاری با payments
+    approved_by: userId,
+    approvedBy: userName,
+    approved_at: now,
+    approvedAt: now,
+    updatedAt: now
+  };
+
+  await table.update(recordId, updatePayload);
+  return { ...record, ...updatePayload };
+}
+
+/**
+ * تایید نهایی گروهی اسناد (Batch / Bulk Approval)
+ * @param {Array<{ tableName: string, recordId: string | number }>} items
+ * @param {object} currentUser
+ */
+export async function batchApproveRecords(items, currentUser = null) {
+  const role = currentUser?.role || 'admin';
+  if (role !== 'admin') {
+    const error = new Error('403 Forbidden: تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به تایید نهایی اسناد هستند.');
+    error.statusCode = 403;
+    error.code = 'ROLE_UNAUTHORIZED';
+    throw error;
+  }
+
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  const now = new Date().toISOString();
+  const userId = currentUser?.id || currentUser?.userId || 'admin';
+  const userName = currentUser?.name || currentUser?.title || 'مدیر سیستم';
+
+  const updatePayload = {
+    status: 'approved',
+    approval_status: 'approved',
+    approved_by: userId,
+    approvedBy: userName,
+    approved_at: now,
+    approvedAt: now,
+    updatedAt: now
+  };
+
+  const results = [];
+  for (const item of items) {
+    const { tableName, recordId } = item;
+    const table = db.table(tableName);
+    if (table) {
+      await table.update(recordId, updatePayload);
+      results.push({ tableName, recordId, success: true });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * صدور سند اصلاحیه برای سند تایید نهایی شده (Amendment / Adjustment)
+ * با حفظ کامل تاریخچه حسابداری و پیوند به سند اولیه
+ * @param {string} tableName - 'payments' | 'expenses' | 'treasuryIncomes'
+ * @param {string|number} recordId
+ * @param {object} amendmentData - { amount, reason, notes, date }
+ * @param {object} currentUser
+ */
+export async function amendRecord(tableName, recordId, amendmentData, currentUser = null) {
+  const role = currentUser?.role || 'admin';
+  if (role !== 'admin') {
+    const error = new Error('403 Forbidden: تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به صدور اصلاحیه اسناد هستند.');
+    error.statusCode = 403;
+    error.code = 'ROLE_UNAUTHORIZED';
+    throw error;
+  }
+
+  const table = db.table(tableName);
+  if (!table) {
+    throw new Error(`Table ${tableName} not found in database.`);
+  }
+
+  const record = await table.get(recordId);
+  if (!record) {
+    throw new Error(`Record ${recordId} not found in ${tableName}.`);
+  }
+
+  const now = new Date().toISOString();
+  const userId = currentUser?.id || currentUser?.userId || 'admin';
+  const userName = currentUser?.name || currentUser?.title || 'مدیر سیستم';
+
+  const prevAmount = Number(record.amount) || 0;
+  const newAmount = Number(amendmentData.amount !== undefined ? amendmentData.amount : prevAmount);
+
+  const historyEntry = {
+    previousAmount: prevAmount,
+    newAmount: newAmount,
+    diffAmount: newAmount - prevAmount,
+    reason: amendmentData.reason || 'اصلاحیه مشخصات یا مبلغ سند',
+    notes: amendmentData.notes || '',
+    amendedBy: userName,
+    amended_by: userId,
+    amendedAt: now
+  };
+
+  const existingHistory = Array.isArray(record.amendmentHistory) ? record.amendmentHistory : [];
+
+  const updatePayload = {
+    amount: newAmount,
+    isAmended: true,
+    originalAmount: record.originalAmount !== undefined ? record.originalAmount : prevAmount,
+    previousAmount: prevAmount,
+    amendmentReason: amendmentData.reason || 'اصلاحیه مشخصات یا مبلغ سند',
+    amendedBy: userName,
+    amended_by: userId,
+    amendedAt: now,
+    amendmentHistory: [...existingHistory, historyEntry],
+    updatedAt: now
+  };
+
+  if (amendmentData.date) {
+    if (tableName === 'expenses') updatePayload.expenseDate = amendmentData.date;
+    else updatePayload.date = amendmentData.date;
+  }
+
+  if (amendmentData.notes) {
+    updatePayload.notes = amendmentData.notes;
+  }
+
+  await table.update(recordId, updatePayload);
+  return { ...record, ...updatePayload };
 }
 

@@ -21,7 +21,9 @@ import {
   Building2,
   Calendar,
   CreditCard,
-  X
+  X,
+  Clock,
+  ChevronLeft
 } from 'lucide-react';
 
 /**
@@ -59,6 +61,9 @@ export function AccountingView() {
     deleteAccount,
     ledgerItems,
     filteredLedgerItems,
+    ledgerStats,
+    approvalStatusFilter,
+    setApprovalStatusFilter,
     dateFilterMode,
     setDateFilterMode,
     customStartDate,
@@ -126,6 +131,41 @@ export function AccountingView() {
         </div>
       </div>
 
+      {/* پیام اعلان اسناد نیازمند تایید مدیر */}
+      {ledgerStats?.draft > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-amber-500/10 dark:from-amber-950/40 dark:via-amber-900/40 dark:to-amber-950/40 border border-amber-300/80 dark:border-amber-700/60 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-950 dark:text-amber-200">
+                {language === 'fa' 
+                  ? `تعداد ${ledgerStats.draft} سند مالی موقت (پیش‌نویس) در انتظار تایید نهایی هستند.` 
+                  : `${ledgerStats.draft} بەڵگەنامەی ڕەشنووس چاوەڕوانی پەسەندکردنن.`}
+              </h4>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                {language === 'fa' 
+                  ? 'تسویه‌حساب‌ها و هزینه‌های ثبت شده تا زمان تایید نهایی مدیر، وضعیت پیش‌نویس دارند و از بخش دفتر کل قابل تایید تکی یا گروهی هستند.' 
+                  : 'بەڵگەنامەکان تا پەسەندکردنی کۆتایی ڕەشنووسن.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setApprovalStatusFilter?.('draft');
+              const el = document.getElementById('general-ledger-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 self-start sm:self-center transition-all active:scale-95"
+          >
+            <span>{language === 'fa' ? 'مشاهده و تایید اسناد' : 'بینین و پەسەندکردن'}</span>
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {selectedAccountForLedger ? (
         /* بخش مخصوص و دفتر معین حساب انتخاب شده */
         <section aria-label="Dedicated Account Subsidiary Ledger">
@@ -190,10 +230,13 @@ export function AccountingView() {
           </section>
 
           {/* ۵. ماژول دفتر کل تراکنش‌ها (General Ledger) */}
-          <section aria-label="General Ledger Table">
+          <section id="general-ledger-section" aria-label="General Ledger Table">
             <GeneralLedgerTable
               ledgerItems={filteredLedgerItems}
               financialAccounts={financialAccounts}
+              ledgerStats={ledgerStats}
+              approvalStatusFilter={approvalStatusFilter}
+              setApprovalStatusFilter={setApprovalStatusFilter}
               dateFilterMode={dateFilterMode}
               setDateFilterMode={setDateFilterMode}
               customStartDate={customStartDate}

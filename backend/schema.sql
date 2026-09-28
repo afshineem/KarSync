@@ -28,7 +28,20 @@ CREATE TABLE IF NOT EXISTS `workers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------
--- 2. Table: attendance_logs (ثبت کارکرد روزانه / دەوامی ڕۆژانە)
+-- 2. Table: users (کاربران سیستم و نقش‌ها / RBAC Users)
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` VARCHAR(64) NOT NULL,
+  `username` VARCHAR(100) NOT NULL UNIQUE,
+  `name` VARCHAR(255) NOT NULL,
+  `role` ENUM('admin', 'operator') NOT NULL DEFAULT 'admin',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------------
+-- 3. Table: attendance_logs (ثبت کارکرد روزانه / دەوامی ڕۆژانە)
 -- ------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `attendance_logs` (
   `id` VARCHAR(64) NOT NULL,
@@ -40,19 +53,68 @@ CREATE TABLE IF NOT EXISTS `attendance_logs` (
   `calculated_overtime_wage` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
   `total_day_pay` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
   `notes` TEXT DEFAULT NULL,
+  `status` ENUM('draft', 'approved') NOT NULL DEFAULT 'draft',
+  `created_by` VARCHAR(64) DEFAULT NULL,
+  `approved_by` VARCHAR(64) DEFAULT NULL,
+  `approved_at` DATETIME DEFAULT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` DATETIME DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_logs_date` (`date`),
   KEY `idx_logs_worker_id` (`worker_id`),
+  KEY `idx_logs_status` (`status`),
   KEY `idx_logs_updated` (`updated_at`),
   KEY `idx_logs_deleted` (`deleted_at`),
   CONSTRAINT `fk_logs_worker` FOREIGN KEY (`worker_id`) REFERENCES `workers` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------
--- 3. Table: settings (تنظیمات کارگاه / ڕێکخستنەکان)
+-- 4. Table: expenses (فاکتورها و هزینه‌ها / Documents)
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `expenses` (
+  `id` VARCHAR(64) NOT NULL,
+  `project_id` VARCHAR(64) DEFAULT NULL,
+  `title` VARCHAR(255) NOT NULL,
+  `amount` DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+  `currency` VARCHAR(10) NOT NULL DEFAULT 'IQD',
+  `expense_date` DATE NOT NULL,
+  `status` ENUM('draft', 'approved') NOT NULL DEFAULT 'draft',
+  `created_by` VARCHAR(64) DEFAULT NULL,
+  `approved_by` VARCHAR(64) DEFAULT NULL,
+  `approved_at` DATETIME DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_exp_date` (`expense_date`),
+  KEY `idx_exp_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------------
+-- 5. Table: payments (مساعده و تسویه‌حساب‌ها / Financial Records)
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `payments` (
+  `id` VARCHAR(64) NOT NULL,
+  `project_id` VARCHAR(64) DEFAULT NULL,
+  `worker_id` VARCHAR(64) NOT NULL,
+  `date` DATE NOT NULL,
+  `amount` DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+  `currency` VARCHAR(10) NOT NULL DEFAULT 'IQD',
+  `type` VARCHAR(32) NOT NULL DEFAULT 'advance',
+  `status` ENUM('draft', 'approved') NOT NULL DEFAULT 'draft',
+  `created_by` VARCHAR(64) DEFAULT NULL,
+  `approved_by` VARCHAR(64) DEFAULT NULL,
+  `approved_at` DATETIME DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_pay_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------------
+-- 6. Table: settings (تنظیمات کارگاه / ڕێکخستنەکان)
 -- ------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `settings` (
   `setting_key` VARCHAR(128) NOT NULL,

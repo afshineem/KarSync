@@ -48,8 +48,13 @@ import {
   ChevronDown,
   Tag,
   Archive,
-  RotateCcw
+  RotateCcw,
+  Lock,
+  CheckCheck,
+  ShieldCheck
 } from 'lucide-react';
+import { VerificationBadge } from './common/VerificationBadge';
+import { useTwoStageApproval } from '../hooks/useTwoStageApproval';
 
 export { AddExpenseModal, ExpenseRecycleBinModal, ExpenseAnalyticsModal };
 
@@ -57,6 +62,8 @@ export function ExpensesView() {
   const { currentProject } = useProject();
   const { t, language, direction } = useLanguage();
   const isRtl = direction === 'rtl';
+  const { canApprove, canModifyRecord, approveRecord } = useTwoStageApproval();
+  const [approvingExpenseId, setApprovingExpenseId] = useState(null);
 
   const projectId = currentProject?.id || 'prj_default_main';
   const currency = currentProject?.base_currency || currentProject?.currency || 'IQD';
@@ -154,6 +161,7 @@ export function ExpensesView() {
   const [selectedPerson, setSelectedPerson] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all'); // 'all' | 'paid' | 'pending'
   const [selectedMethod, setSelectedMethod] = useState('all'); // 'all' | 'cash' | 'bank' | 'petty_cash'
+  const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('all'); // 'all' | 'approved' | 'draft'
   const [isFilterPanelExpanded, setIsFilterPanelExpanded] = useState(false);
 
   // Quick helper to resolve full category hierarchy breadcrumbs
@@ -294,6 +302,12 @@ export function ExpensesView() {
         return false;
       }
 
+      // 8. Approval Status (Two-Stage Verification)
+      if (selectedApprovalStatus !== 'all') {
+        const itemStatus = exp.status || 'draft';
+        if (itemStatus !== selectedApprovalStatus) return false;
+      }
+
       return true;
     });
   }, [
@@ -305,6 +319,7 @@ export function ExpensesView() {
     selectedPerson,
     selectedStatus,
     selectedMethod,
+    selectedApprovalStatus,
     categoryMap,
     workerMap
   ]);
@@ -366,13 +381,40 @@ export function ExpensesView() {
   }, [activeExpenses, sectionMap, language]);
 
   // Actions
+  const handleApproveExpense = async (exp) => {
+    if (!canApprove) {
+      alert(language === 'fa' ? 'فقط مدیر سیستم مجاز به تایید نهایی اسناد است.' : 'تەنها بەڕێوەبەر دەتوانێت بەڵگەنامە پەسەند بکات.');
+      return;
+    }
+    try {
+      setApprovingExpenseId(exp.id);
+      await approveRecord('expenses', exp.id);
+      setToastMsg(language === 'fa' ? 'سند هزینه با موفقیت تایید نهایی و قفل گردید.' : 'بەڵگەنامەی خەرجی پەسەندکرا و قفڵکرا.');
+      setTimeout(() => setToastMsg(''), 3000);
+    } catch (err) {
+      console.error('Approve expense error:', err);
+      alert(err.message || 'خطا در تایید سند');
+    } finally {
+      setApprovingExpenseId(null);
+    }
+  };
+
   const handleEdit = (exp) => {
+    if (!canModifyRecord(exp)) {
+      alert(language === 'fa' ? 'این سند تایید نهایی شده و غیرقابل تغییر است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناگۆڕدرێت.');
+      return;
+    }
     setEditingExpense(exp);
     setIsAddModalOpen(true);
   };
 
   const confirmDelete = async () => {
     if (!expenseToDelete) return;
+    if (!canModifyRecord(expenseToDelete)) {
+      alert(language === 'fa' ? 'این سند تایید نهایی شده و غیرقابل حذف است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناسڕدرێتەوە.');
+      setExpenseToDelete(null);
+      return;
+    }
     try {
       await softDeleteExpenseLive(expenseToDelete.id);
       setToastMsg(language === 'fa' ? 'هزینه به سطل زباله منتقل شد.' : 'خەرجی بۆ سەبەتەی سڕینەوە گوێزرایەوە.');
@@ -394,6 +436,11 @@ export function ExpensesView() {
   };
 
   const handleArchive = async (expId, isArchived = true) => {
+    const targetExp = expenses.find(e => e.id === expId);
+    if (targetExp && !canModifyRecord(targetExp)) {
+      alert(language === 'fa' ? 'این سند تایید نهایی شده و وضعیت آن غیرقابل تغییر است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناگۆڕدرێت.');
+      return;
+    }
     try {
       await archiveExpenseLive(expId, isArchived);
       setToastMsg(isArchived 
@@ -806,7 +853,7 @@ export function ExpensesView() {
           <button
             onClick={() => setIsFilterPanelExpanded(!isFilterPanelExpanded)}
             className={`px-3.5 py-2.5 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
-              isFilterPanelExpanded || selectedSection !== 'all' || selectedCategory !== 'all' || selectedPerson !== 'all' || selectedStatus !== 'all'
+              isFilterPanelExpanded || selectedSection !== 'all' || selectedCategory !== 'all' || selectedPerson !== 'all' || selectedStatus !== 'all' || selectedApprovalStatus !== 'all'
                 ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400'
                 : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
             }`}
@@ -819,7 +866,7 @@ export function ExpensesView() {
 
         {/* Expanded Filters Drawer */}
         {isFilterPanelExpanded && (
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-150">
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 animate-in fade-in duration-150">
             {/* Filter by Section */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-1">
@@ -887,6 +934,22 @@ export function ExpensesView() {
                 <option value="pending">{language === 'fa' ? 'پرداخت نشده (نسیه)' : 'قەرز'}</option>
               </select>
             </div>
+
+            {/* Filter by Approval Status */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                {language === 'fa' ? 'وضعیت تایید و قفل' : 'دۆخی پەسەندکردن'}
+              </label>
+              <select
+                value={selectedApprovalStatus}
+                onChange={(e) => setSelectedApprovalStatus(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none"
+              >
+                <option value="all">{language === 'fa' ? 'همه اسناد' : 'هەموو'}</option>
+                <option value="approved">{language === 'fa' ? 'تایید شده (قفل)' : 'پەسەندکراو'}</option>
+                <option value="draft">{language === 'fa' ? 'پیش‌نویس' : 'ڕەشنووس'}</option>
+              </select>
+            </div>
           </div>
         )}
       </div>
@@ -914,6 +977,7 @@ export function ExpensesView() {
                 setSelectedCategory('all');
                 setSelectedPerson('all');
                 setSelectedStatus('all');
+                setSelectedApprovalStatus('all');
               }}
               className="mt-4 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200"
             >
@@ -936,6 +1000,7 @@ export function ExpensesView() {
                     <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'بخش پروژه' : 'بەش'}</th>
                     <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'مبلغ' : 'بڕە پارە'}</th>
                     <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'وضعیت تسویه' : 'دۆخ'}</th>
+                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'وضعیت تایید' : 'دۆخی پەسەندکردن'}</th>
                     <th className="py-3.5 px-4 text-center">{language === 'fa' ? 'رسید' : 'پسوولە'}</th>
                     <th className="py-3.5 px-4 text-end">{language === 'fa' ? 'عملیات' : 'کردار'}</th>
                   </tr>
@@ -1012,6 +1077,16 @@ export function ExpensesView() {
                           </span>
                         </td>
 
+                        {/* Verification Status (Draft vs Approved) */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <VerificationBadge
+                            status={exp.status}
+                            approvedBy={exp.approvedBy}
+                            approvedAt={exp.approvedAt}
+                            showDetails={true}
+                          />
+                        </td>
+
                         {/* Receipt Thumbnail / Eye */}
                         <td className="py-3.5 px-4 text-center">
                           {exp.receiptUrl ? (
@@ -1075,27 +1150,59 @@ export function ExpensesView() {
                               </>
                             ) : (
                               <>
-                                <button
-                                  onClick={() => handleArchive(exp.id, true)}
-                                  className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition-colors"
-                                  title={language === 'fa' ? 'بایگانی کردن هزینه' : 'ئەرشیفکردن'}
-                                >
-                                  <Archive className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleEdit(exp)}
-                                  className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-xl transition-colors"
-                                  title="ویرایش"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => setExpenseToDelete(exp)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
-                                  title={language === 'fa' ? 'انتقال به سطل زباله' : 'سڕینەوە'}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                {/* Two-Stage Approval: Approve button for Admin on drafts */}
+                                {exp.status !== 'approved' && canApprove && (
+                                  <button
+                                    onClick={() => handleApproveExpense(exp)}
+                                    disabled={approvingExpenseId === exp.id}
+                                    className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl transition-all flex items-center gap-1 font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+                                    title={language === 'fa' ? 'تایید نهایی سند و قفل‌سازی' : 'پەسەندکردنی کۆتایی'}
+                                  >
+                                    {approvingExpenseId === exp.id ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    )}
+                                    <span className="hidden xl:inline">{language === 'fa' ? 'تایید نهایی' : 'پەسەندکردن'}</span>
+                                  </button>
+                                )}
+
+                                {/* If Approved: Document is Locked */}
+                                {exp.status === 'approved' ? (
+                                  <div 
+                                    className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center gap-1.5 text-xs font-semibold border border-slate-200/60 dark:border-slate-700/60"
+                                    title={language === 'fa' ? 'این سند تایید شده و غیرقابل تغییر یا حذف است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و قفڵ کراوە.'}
+                                  >
+                                    <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                                      {language === 'fa' ? 'سند قفل' : 'قفڵکراو'}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => handleArchive(exp.id, true)}
+                                      className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition-colors"
+                                      title={language === 'fa' ? 'بایگانی کردن هزینه' : 'ئەرشیفکردن'}
+                                    >
+                                      <Archive className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleEdit(exp)}
+                                      className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-xl transition-colors"
+                                      title="ویرایش"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setExpenseToDelete(exp)}
+                                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                                      title={language === 'fa' ? 'انتقال به سطل زباله' : 'سڕینەوە'}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
@@ -1140,17 +1247,20 @@ export function ExpensesView() {
                       </div>
                     </div>
 
-                    <div className="text-end">
+                    <div className="text-end flex flex-col items-end gap-1">
                       <div className="font-black font-mono text-base text-slate-900 dark:text-white">
                         {formatCurrency(exp.amount, exp.currency)}
                       </div>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-1 ${
-                        isPaid 
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' 
-                          : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
-                      }`}>
-                        {isPaid ? (language === 'fa' ? 'تسویه' : 'دراو') : (language === 'fa' ? 'معوق' : 'قەرز')}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                          isPaid 
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' 
+                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
+                        }`}>
+                          {isPaid ? (language === 'fa' ? 'تسویه' : 'دراو') : (language === 'fa' ? 'معوق' : 'قەرز')}
+                        </span>
+                        <VerificationBadge status={exp.status} approvedBy={exp.approvedBy} approvedAt={exp.approvedAt} />
+                      </div>
                     </div>
                   </div>
 
@@ -1218,27 +1328,59 @@ export function ExpensesView() {
                         </>
                       ) : (
                         <>
-                          <button
-                            onClick={() => handleArchive(exp.id, true)}
-                            className="p-1.5 text-slate-500 hover:text-amber-500 rounded-lg"
-                            title={language === 'fa' ? 'بایگانی کردن هزینه' : 'ئەرشیفکردن'}
-                          >
-                            <Archive className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(exp)}
-                            className="p-1.5 text-slate-500 hover:text-sky-500 rounded-lg"
-                            title="ویرایش"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setExpenseToDelete(exp)}
-                            className="p-1.5 text-slate-500 hover:text-rose-500 rounded-lg"
-                            title={language === 'fa' ? 'انتقال به سطل زباله' : 'سڕینەوە'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {/* Final Approval for Admin */}
+                          {exp.status !== 'approved' && canApprove && (
+                            <button
+                              onClick={() => handleApproveExpense(exp)}
+                              disabled={approvingExpenseId === exp.id}
+                              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-1 font-bold text-[11px] shadow-xs cursor-pointer disabled:opacity-50"
+                              title={language === 'fa' ? 'تایید نهایی' : 'پەسەندکردن'}
+                            >
+                              {approvingExpenseId === exp.id ? (
+                                <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              )}
+                              <span>{language === 'fa' ? 'تایید نهایی' : 'پەسەندکردن'}</span>
+                            </button>
+                          )}
+
+                          {/* Locked Badge if approved */}
+                          {exp.status === 'approved' ? (
+                            <div 
+                              className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg flex items-center gap-1 text-[11px] font-medium"
+                              title={language === 'fa' ? 'این سند تایید شده و قفل است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و قفڵ کراوە.'}
+                            >
+                              <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                                {language === 'fa' ? 'سند قفل' : 'قفڵکراو'}
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleArchive(exp.id, true)}
+                                className="p-1.5 text-slate-500 hover:text-amber-500 rounded-lg"
+                                title={language === 'fa' ? 'بایگانی کردن هزینه' : 'ئەرشیفکردن'}
+                              >
+                                <Archive className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEdit(exp)}
+                                className="p-1.5 text-slate-500 hover:text-sky-500 rounded-lg"
+                                title="ویرایش"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setExpenseToDelete(exp)}
+                                className="p-1.5 text-slate-500 hover:text-rose-500 rounded-lg"
+                                title={language === 'fa' ? 'انتقال به سطل زباله' : 'سڕینەوە'}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </>
                       )}
                     </div>

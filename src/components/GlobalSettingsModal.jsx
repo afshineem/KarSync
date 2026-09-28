@@ -98,7 +98,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     updateUserProfile, 
     getTwoFactorConfig, 
     autoLockMinutes, 
-    setAutoLockMinutes 
+    setAutoLockMinutes,
+    setUserRole,
+    isAdmin
   } = useAuth();
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const twoFactorConfig = getTwoFactorConfig();
@@ -2095,6 +2097,86 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     </button>
                   </div>
                 </form>
+
+                {/* RBAC & Two-Stage Verification Role Switcher */}
+                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 bg-slate-50/50 dark:bg-slate-800/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800/60">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'نقش کاربری و سطح دسترسی (RBAC)' : 'ڕۆڵی بەکارهێنەر'}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {language === 'fa' 
+                            ? 'کنترل سطح دسترسی جهت تایید دو مرحله‌ای اسناد مالی و فاکتورها' 
+                            : 'کۆنترۆڵی دەسەڵاتەکانی پەسەندکردنی بەڵگەنامەکان'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                      (user?.role || 'admin') === 'admin' 
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                    }`}>
+                      {(user?.role || 'admin') === 'admin' 
+                        ? (language === 'fa' ? '👑 مدیر ارشد' : '👑 بەڕێوەبەر') 
+                        : (language === 'fa' ? '✍️ اپراتور ثبت داده' : '✍️ تۆمارکار')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setUserRole('admin')}
+                      className={`p-3 rounded-xl border text-start transition-all cursor-pointer ${
+                        (user?.role || 'admin') === 'admin'
+                          ? 'bg-white dark:bg-slate-800 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20'
+                          : 'bg-white/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'مدیر سیستم (Admin)' : 'بەڕێوەبەر'}
+                        </span>
+                        {(user?.role || 'admin') === 'admin' && (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {language === 'fa' 
+                          ? 'دسترسی کامل: امکان تایید نهایی اسناد پیش‌نویس، قفل‌سازی و دسترسی به تمام ماژول‌ها.' 
+                          : 'دەسەڵاتی تەواو بۆ پەسەندکردنی کۆتایی و قفڵکردنی بەڵگەنامەکان.'}
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setUserRole('operator')}
+                      className={`p-3 rounded-xl border text-start transition-all cursor-pointer ${
+                        user?.role === 'operator'
+                          ? 'bg-white dark:bg-slate-800 border-amber-500 shadow-sm ring-2 ring-amber-500/20'
+                          : 'bg-white/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'اپراتور ثبت داده (Operator)' : 'تۆمارکار'}
+                        </span>
+                        {user?.role === 'operator' && (
+                          <Check className="w-3.5 h-3.5 text-amber-500" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {language === 'fa' 
+                          ? 'ثبت‌کننده اسناد پیش‌نویس: عدم امکان تایید نهایی، عدم امکان ویرایش یا حذف اسناد تایید شده.' 
+                          : 'تەنها تۆمارکردنی ڕەشنووسەکان؛ بەبێ مافی پەسەندکردن یان دەستکاریکردنی بەڵگەنامەی قفڵکراو.'}
+                      </p>
+                    </button>
+                  </div>
+                </div>
 
                 {/* Change Password Form */}
                 <form onSubmit={handleChangePassword} className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">

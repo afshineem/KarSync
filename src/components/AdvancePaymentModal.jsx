@@ -149,7 +149,10 @@ export function AdvancePaymentModal({
         accountType: financialAccounts.find((a) => a.id === selectedAccountId)?.type || 'cash',
         referenceNumber: referenceNumber.trim() || null,
         notes: notes.trim() || null,
-        status: 'partial',
+        status: 'draft',
+        approval_status: 'draft',
+        settlement_status: 'partial',
+        created_by: user?.id || 'admin',
         createdAt: now.toISOString(),
         updatedAt: now.toISOString()
       };

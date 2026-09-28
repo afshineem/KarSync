@@ -40,6 +40,7 @@ export function useAccounting(options = {}) {
   const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | 'petty_cash' | 'worker_settlement' | 'advance_payment' | 'workshop_expense'
   const [searchQuery, setSearchQuery] = useState('');
   const [accountTypeFilter, setAccountTypeFilter] = useState('all'); // 'all' | 'cash' | 'bank'
+  const [approvalStatusFilter, setApprovalStatusFilter] = useState('all'); // 'all' | 'draft' | 'approved' | 'amended'
 
   // ----------------------------------------------------
   // ۱. فراخوانی زنده داده‌ها از IndexedDB (Real-time Live Queries)
@@ -428,6 +429,16 @@ export function useAccounting(options = {}) {
         accountName: acc?.name || (inc.accountType === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
         title: inc.title || 'واریز تنخواه کارگاه',
         description: inc.description || inc.payer ? `واریزکننده: ${inc.payer || ''}` : '',
+        tableName: 'treasuryIncomes',
+        status: inc.status || 'draft',
+        approvedBy: inc.approvedBy || inc.approved_by_name || null,
+        approvedAt: inc.approvedAt || inc.approved_at || null,
+        isAmended: Boolean(inc.isAmended),
+        originalAmount: inc.originalAmount,
+        amendmentReason: inc.amendmentReason,
+        amendedBy: inc.amendedBy,
+        amendedAt: inc.amendedAt,
+        amendmentHistory: inc.amendmentHistory || [],
         isSystem: false, // قابل ویرایش و حذف مستقیم
         rawItem: inc
       });
@@ -454,7 +465,17 @@ export function useAccounting(options = {}) {
         title: isAdvance ? `پرداخت مساعده به ${workerName}` : `تسویه حساب نهایی ${workerName}`,
         description: p.notes || (p.referenceNumber ? `کد رهگیری: ${p.referenceNumber}` : ''),
         personName: workerName,
-        isSystem: true, // فقط‌خواندنی
+        tableName: 'payments',
+        status: p.approval_status || (p.status === 'approved' ? 'approved' : 'draft'),
+        approvedBy: p.approvedBy || p.approved_by_name || null,
+        approvedAt: p.approvedAt || p.approved_at || null,
+        isAmended: Boolean(p.isAmended),
+        originalAmount: p.originalAmount,
+        amendmentReason: p.amendmentReason,
+        amendedBy: p.amendedBy,
+        amendedAt: p.amendedAt,
+        amendmentHistory: p.amendmentHistory || [],
+        isSystem: false,
         systemSource: 'financials',
         rawItem: p
       });
@@ -479,7 +500,17 @@ export function useAccounting(options = {}) {
         title: e.title || 'هزینه کارگاه',
         description: e.personName ? `طرف‌حساب: ${e.personName}` : (e.description || ''),
         personName: e.personName || '',
-        isSystem: true, // فقط‌خواندنی
+        tableName: 'expenses',
+        status: e.status || 'draft',
+        approvedBy: e.approvedBy || e.approved_by_name || null,
+        approvedAt: e.approvedAt || e.approved_at || null,
+        isAmended: Boolean(e.isAmended),
+        originalAmount: e.originalAmount,
+        amendmentReason: e.amendmentReason,
+        amendedBy: e.amendedBy,
+        amendedAt: e.amendedAt,
+        amendmentHistory: e.amendmentHistory || [],
+        isSystem: false,
         systemSource: 'expenses',
         rawItem: e
       });
@@ -517,6 +548,15 @@ export function useAccounting(options = {}) {
       // فیلتر دسته‌بندی
       if (categoryFilter !== 'all' && tx.category !== categoryFilter) return false;
 
+      // فیلتر وضعیت تایید (پیش‌نویس، تایید نهایی، اصلاحیه)
+      if (approvalStatusFilter === 'draft') {
+        if (tx.status === 'approved') return false;
+      } else if (approvalStatusFilter === 'approved') {
+        if (tx.status !== 'approved') return false;
+      } else if (approvalStatusFilter === 'amended') {
+        if (!tx.isAmended) return false;
+      }
+
       // فیلتر حساب یا نوع حساب (صندوق / بانک / حساب خاص)
       if (accountTypeFilter !== 'all') {
         if (accountTypeFilter === 'cash' && tx.accountType !== 'cash') return false;
@@ -551,7 +591,29 @@ export function useAccounting(options = {}) {
       ledgerItems: ledgerWithBalances,
       filteredLedgerItems: filtered
     };
-  }, [treasuryIncomes, payments, expenses, workerMap, accountMap, checkDateMatch, categoryFilter, accountTypeFilter, searchQuery]);
+  }, [treasuryIncomes, payments, expenses, workerMap, accountMap, checkDateMatch, categoryFilter, accountTypeFilter, searchQuery, approvalStatusFilter]);
+
+  // آمار وضعیت اسناد دفتر کل (کل، پیش‌نویس، تایید نهایی، اصلاحیه)
+  const ledgerStats = useMemo(() => {
+    let total = 0;
+    let draft = 0;
+    let approved = 0;
+    let amended = 0;
+
+    (ledgerItems || []).forEach((tx) => {
+      total++;
+      if (tx.isAmended) {
+        amended++;
+      }
+      if (tx.status === 'approved') {
+        approved++;
+      } else {
+        draft++;
+      }
+    });
+
+    return { total, draft, approved, amended };
+  }, [ledgerItems]);
 
   // ----------------------------------------------------
   // ۵. تجمیع روزانه جریان نقدینگی (Cash Flow Chart Data)
@@ -821,6 +883,9 @@ export function useAccounting(options = {}) {
     // دفتر کل و فیلترها
     ledgerItems,
     filteredLedgerItems,
+    ledgerStats,
+    approvalStatusFilter,
+    setApprovalStatusFilter,
     dateFilterMode,
     setDateFilterMode,
     customStartDate,

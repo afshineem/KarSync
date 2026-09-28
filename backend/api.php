@@ -51,6 +51,28 @@ function verifyAuthentication() {
     return true;
 }
 
+// ------------------------------------------------------------------------
+// RBAC Middleware Placeholder
+// ------------------------------------------------------------------------
+function getCurrentUserRole() {
+    if (!empty($_SERVER['HTTP_X_USER_ROLE'])) {
+        $role = strtolower(trim($_SERVER['HTTP_X_USER_ROLE']));
+        if (in_array($role, ['admin', 'operator', 'viewer'])) {
+            return $role;
+        }
+    }
+    // Default active user is admin
+    return 'admin';
+}
+
+function requireRole($requiredRole = 'admin') {
+    $currentRole = getCurrentUserRole();
+    if ($currentRole !== $requiredRole) {
+        sendJsonError("403 Forbidden: This action requires '{$requiredRole}' role permissions.", 403);
+    }
+    return true;
+}
+
 // Route action
 $action = isset($_GET['action']) ? trim($_GET['action']) : '';
 
@@ -260,6 +282,61 @@ if ($action === 'sync') {
             'workers' => $serverWorkers,
             'logs'    => $serverLogs
         ]
+    ]);
+}
+
+// ------------------------------------------------------------------------
+// Action: approve_record (Two-Stage Verification: Draft -> Approved)
+// ------------------------------------------------------------------------
+if ($action === 'approve_record') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        sendJsonError('Approval requires HTTP POST method.', 405);
+    }
+
+    // Role-check middleware placeholder: only admin can approve
+    requireRole('admin');
+
+    $rawInput = file_get_contents('php://input');
+    $payload = json_decode($rawInput, true);
+
+    $recordId = !empty($payload['recordId']) ? trim($payload['recordId']) : '';
+    $recordType = !empty($payload['recordType']) ? trim($payload['recordType']) : 'attendance_logs';
+    $userId = !empty($payload['userId']) ? trim($payload['userId']) : 'admin';
+
+    if (!$recordId) {
+        sendJsonError('recordId is required for approval.', 422);
+    }
+
+    $validTables = ['attendance_logs', 'expenses', 'payments'];
+    if (!in_array($recordType, $validTables)) {
+        sendJsonError('Invalid recordType specified.', 422);
+    }
+
+    $now = date('Y-m-d H:i:s');
+    $stmt = $db->prepare("
+        UPDATE {$recordType} 
+        SET status = 'approved', approved_by = :approved_by, approved_at = :approved_at, updated_at = :updated_at 
+        WHERE id = :id AND deleted_at IS NULL
+    ");
+    $stmt->execute([
+        ':approved_by' => $userId,
+        ':approved_at' => $now,
+        ':updated_at'  => $now,
+        ':id'          => $recordId
+    ]);
+
+    if ($stmt->rowCount() === 0) {
+        sendJsonError('Record not found or already approved/deleted.', 404);
+    }
+
+    sendJsonResponse([
+        'success'     => true,
+        'message'     => 'Record has been successfully approved.',
+        'recordId'    => $recordId,
+        'recordType'  => $recordType,
+        'status'      => 'approved',
+        'approvedBy'  => $userId,
+        'approvedAt'  => $now
     ]);
 }
 
