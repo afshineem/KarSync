@@ -69,32 +69,51 @@ export function AddEditIncomeModal({
     'سایر واریزی‌ها'
   ];
 
+  const prevIsOpenRef = React.useRef(false);
+
   useEffect(() => {
-    if (initialData) {
-      setAmount(initialData.amount ? String(initialData.amount) : '');
-      setDate(initialData.date ? initialData.date.slice(0, 10) : getTodayDateString());
-      setTitle(initialData.title || '');
-      setSelectedAccountId(initialData.accountId || '');
-      setAccountType(initialData.accountType || 'bank');
-      setPayer(initialData.payer || '');
-      setDescription(initialData.description || '');
-    } else {
-      setAmount('');
-      setDate(getTodayDateString());
-      setTitle('');
-      setSelectedAccountId(defaultAccount?.id || '');
-      setAccountType(defaultAccount?.type || 'bank');
-      setPayer('');
-      setDescription('');
+    if (isOpen && !prevIsOpenRef.current) {
+      const defaultAccId = defaultAccount?.id || (financialAccounts[0]?.id || '');
+      if (initialData) {
+        setAmount(initialData.amount ? Number(initialData.amount).toLocaleString('en-US') : '');
+        setDate(initialData.date ? initialData.date.slice(0, 10) : getTodayDateString());
+        setTitle(initialData.title || '');
+        const initialAccId = initialData.accountId || defaultAccId;
+        setSelectedAccountId(initialAccId);
+        const matched = financialAccounts.find(a => String(a.id) === String(initialAccId));
+        setAccountType(initialData.accountType || matched?.type || defaultAccount?.type || 'bank');
+        setPayer(initialData.payer || '');
+        setDescription(initialData.description || '');
+      } else {
+        setAmount('');
+        setDate(getTodayDateString());
+        setTitle('');
+        setSelectedAccountId(defaultAccId);
+        const matched = financialAccounts.find(a => String(a.id) === String(defaultAccId));
+        setAccountType(matched?.type || defaultAccount?.type || 'bank');
+        setPayer('');
+        setDescription('');
+      }
+      setErrorMsg('');
     }
-    setErrorMsg('');
-  }, [initialData, isOpen, defaultAccount]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, initialData]);
+
+  // فقط در صورت خالی بودن انتخاب حساب پس از لود شدن حساب‌ها، حساب پیش‌فرض را برگزین (بدون دستکاری مبلغ)
+  useEffect(() => {
+    if (isOpen && !selectedAccountId && financialAccounts.length > 0) {
+      const defId = defaultAccount?.id || financialAccounts[0].id;
+      setSelectedAccountId(defId);
+      const matched = financialAccounts.find(a => String(a.id) === String(defId));
+      if (matched) setAccountType(matched.type);
+    }
+  }, [isOpen, selectedAccountId, financialAccounts, defaultAccount]);
 
   if (!isOpen) return null;
 
   const handleAccountChange = (accId) => {
     setSelectedAccountId(accId);
-    const target = financialAccounts.find((a) => a.id === accId);
+    const target = financialAccounts.find((a) => String(a.id) === String(accId));
     if (target) {
       setAccountType(target.type);
     }
@@ -115,20 +134,16 @@ export function AddEditIncomeModal({
       return;
     }
 
-    if (!title.trim()) {
-      setErrorMsg(language === 'fa' ? 'لطفاً عنوان واریزی را وارد کنید.' : 'تکایە ناونیشانی پارەکە بنووسە.');
-      return;
-    }
-
-    const matchedAcc = financialAccounts.find((a) => a.id === selectedAccountId);
+    const matchedAcc = financialAccounts.find((a) => String(a.id) === String(selectedAccountId)) || defaultAccount;
+    const finalTitle = title.trim() || (matchedAcc?.name ? `افزایش موجودی ${matchedAcc.name}` : (language === 'fa' ? 'واریز وجه / افزایش موجودی' : 'زیادکردنی باڵانس'));
 
     try {
       setIsSubmitting(true);
       await onSave({
         amount: numAmount,
         date,
-        title: title.trim(),
-        accountId: selectedAccountId || null,
+        title: finalTitle,
+        accountId: matchedAcc?.id || selectedAccountId || null,
         accountName: matchedAcc?.name || (accountType === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
         accountType: matchedAcc?.type || accountType,
         payer: payer.trim(),
@@ -298,15 +313,13 @@ export function AddEditIncomeModal({
           {/* فیلد عنوان با پیشنهادات سریع */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              <span>{language === 'fa' ? 'عنوان واریزی' : 'ناونیشانی واریز'}</span>
-              <span className="text-rose-500 mx-1">*</span>
+              <span>{language === 'fa' ? 'بابت / عنوان واریزی (اختیاری)' : 'ناونیشانی واریز (ئارەزوومەندانە)'}</span>
             </label>
             <input
               type="text"
-              required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="مثلاً: شارژ تنخواه توسط کارفرما"
+              placeholder={language === 'fa' ? 'مثلاً: شارژ تنخواه یا افزایش موجودی' : 'بۆ نموونە: تەنخوا یان زیادکردنی باڵانس'}
               className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
             {/* چیپ‌های انتخاب سریع */}

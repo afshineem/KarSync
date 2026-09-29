@@ -6,7 +6,8 @@ import { useProject } from '../context/ProjectContext';
 import { 
   formatCurrency,
   formatAmount, 
-  formatHoursAndMinutes, 
+  formatHoursAndMinutes,
+  formatHoursDigital, 
   getCurrentYearMonth, 
   getTodayDateString, 
   roundCurrency,
@@ -1345,8 +1346,8 @@ export function FinancialsView() {
                               {row.effectiveDays} {t('daysCountUnit')}
                             </span>
                             {row.otHours > 0 && (
-                              <span className="text-[10px] text-sky-600 dark:text-sky-400 block font-semibold">
-                                +{formatHoursAndMinutes(row.otHours, language)}
+                              <span className="text-[10px] text-sky-600 dark:text-sky-400 block font-semibold font-mono">
+                                +{formatHoursDigital(row.otHours)}
                               </span>
                             )}
                             <span className="text-[9px] text-slate-400 block mt-0.5 font-normal">
@@ -1560,8 +1561,8 @@ export function FinancialsView() {
                           {row.effectiveDays} {t('daysCountUnit')}
                         </span>
                         {row.otHours > 0 && (
-                          <span className="text-[10px] text-sky-600 dark:text-sky-400 block font-semibold">
-                            +{formatHoursAndMinutes(row.otHours, language)}
+                          <span className="text-[10px] text-sky-600 dark:text-sky-400 block font-semibold font-mono">
+                            +{formatHoursDigital(row.otHours)}
                           </span>
                         )}
                         <span className="text-[9px] text-slate-400 block mt-0.5 font-normal">

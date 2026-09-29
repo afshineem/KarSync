@@ -65,9 +65,18 @@ db.version(11).stores({
   attendanceLogs: 'id, projectId, sectionId, userId, workerId, date, type, isSettled, status, created_by, approved_by, settlementReceiptId, [workerId+date], [projectId+workerId+date]'
 });
 
+db.version(12).stores({
+  accountTransfers: 'id, projectId, fromAccountId, toAccountId, date, status, created_by, approved_by, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+}
+
+// Helper to generate Transfer IDs
+export function generateTransferId() {
+  return 'trf_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Project IDs
@@ -579,49 +588,79 @@ export async function migrateLegacyProjectExpenses() {
   }
 }
 
-// Seed default cash box and bank card if empty
+// Seed default cash box and bank card if missing
 export async function seedDefaultFinancialAccounts(projectId = DEFAULT_PROJECT_ID, userId = 'default_user') {
   try {
     if (!db.financialAccounts) return;
-    const count = await db.financialAccounts.count();
-    if (count === 0) {
-      const now = new Date().toISOString();
-      await db.financialAccounts.bulkAdd([
-        {
-          id: 'acc_default_cash',
-          projectId: projectId || DEFAULT_PROJECT_ID,
-          userId: userId || 'default_user',
-          name: 'صندوق نقدی کارگاه',
-          type: 'cash',
-          keeperName: 'سرپرست کارگاه',
-          initialBalance: 0,
-          isDefault: true,
-          isActive: true,
-          color: 'amber',
-          notes: 'صندوق نقدی پیش‌فرض جهت پرداخت‌ها و مخارج روزمره کارگاه',
-          createdAt: now,
-          updatedAt: now
-        },
-        {
-          id: 'acc_default_bank',
-          projectId: projectId || DEFAULT_PROJECT_ID,
-          userId: userId || 'default_user',
-          name: 'کارت بانکی تنخواه کارگاه',
-          type: 'bank',
-          bankName: 'بانک ملت',
-          holderName: 'کارفرما',
-          cardNumber: '',
-          accountNumber: '',
-          initialBalance: 0,
-          isDefault: false,
-          isActive: true,
-          color: 'sky',
-          notes: 'کارت بانکی تنخواه جهت واریزی‌های کارفرما و پرداخت‌های آنلاین',
-          createdAt: now,
-          updatedAt: now
-        }
-      ]);
-      console.log('✅ Initialized default financial accounts (Cash box & Bank card).');
+    const now = new Date().toISOString();
+    const allAccounts = await db.financialAccounts.toArray();
+    const activeCash = allAccounts.find((a) => a.type === 'cash' && !a.deletedAt && a.status !== 'deleted');
+    const activeBank = allAccounts.find((a) => a.type === 'bank' && !a.deletedAt && a.status !== 'deleted');
+
+    let changed = false;
+
+    if (!activeCash) {
+      const existingCash = await db.financialAccounts.get('acc_default_cash');
+      const cashRecord = {
+        id: 'acc_default_cash',
+        projectId: projectId || DEFAULT_PROJECT_ID,
+        userId: userId || 'default_user',
+        name: 'صندوق نقدی کارگاه',
+        type: 'cash',
+        keeperName: 'سرپرست کارگاه',
+        initialBalance: existingCash?.initialBalance || 0,
+        isDefault: true,
+        isActive: true,
+        color: 'amber',
+        notes: 'صندوق نقدی پیش‌فرض جهت پرداخت‌ها و مخارج روزمره کارگاه',
+        deletedAt: null,
+        status: 'active',
+        createdAt: existingCash?.createdAt || now,
+        updatedAt: now
+      };
+      await db.financialAccounts.put(cashRecord);
+      changed = true;
+      console.log('✅ Restored/seeded default cash box (acc_default_cash).');
+    }
+
+    if (!activeBank) {
+      const existingBank = await db.financialAccounts.get('acc_default_bank');
+      const bankRecord = {
+        id: 'acc_default_bank',
+        projectId: projectId || DEFAULT_PROJECT_ID,
+        userId: userId || 'default_user',
+        name: 'کارت بانکی تنخواه کارگاه',
+        type: 'bank',
+        bankName: 'بانک ملت',
+        holderName: 'کارفرما',
+        cardNumber: '',
+        accountNumber: '',
+        initialBalance: existingBank?.initialBalance || 0,
+        isDefault: activeCash ? false : true,
+        isActive: true,
+        color: 'sky',
+        notes: 'کارت بانکی تنخواه جهت واریزی‌های کارفرما و پرداخت‌های آنلاین',
+        deletedAt: null,
+        status: 'active',
+        createdAt: existingBank?.createdAt || now,
+        updatedAt: now
+      };
+      await db.financialAccounts.put(bankRecord);
+      changed = true;
+      console.log('✅ Restored/seeded default bank card (acc_default_bank).');
+    }
+
+    // اطمینان از وجود حداقل یک حساب پیش‌فرض فعال
+    const currentList = await db.financialAccounts.toArray();
+    const hasDefault = currentList.some((a) => a.isDefault && !a.deletedAt && a.status !== 'deleted');
+    if (!hasDefault && currentList.length > 0) {
+      const targetDefault = currentList.find((a) => a.type === 'cash' && !a.deletedAt) || currentList[0];
+      await db.financialAccounts.update(targetDefault.id, { isDefault: true, updatedAt: now });
+      changed = true;
+    }
+
+    if (changed && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
     }
   } catch (err) {
     console.warn('seedDefaultFinancialAccounts error:', err);

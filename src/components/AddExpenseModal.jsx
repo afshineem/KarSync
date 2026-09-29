@@ -6,6 +6,7 @@ import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { pushExpenseLive, uploadExpenseReceipt } from '../services/realtimeSync';
+import { formatCurrency } from '../utils/formatters';
 import { 
   PlusCircle, 
   X, 
@@ -14,6 +15,10 @@ import {
   Trash2, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle,
+  ShieldAlert,
+  Ban,
+  HelpCircle,
   Calendar, 
   User, 
   Layers, 
@@ -86,7 +91,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   const [toastMessage, setToastMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const { checkAccountOverdraft } = useAccounting();
+  const { checkAccountOverdraft, accountBalances } = useAccounting();
   const [overdraftPromptData, setOverdraftPromptData] = useState(null);
 
   // Financial Accounts live query
@@ -102,6 +107,13 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   const defaultAccount = useMemo(() => {
     return financialAccounts.find((a) => a.isDefault) || financialAccounts[0] || null;
   }, [financialAccounts]);
+
+  const currentOverdraft = useMemo(() => {
+    if (formData.paymentStatus !== 'paid' || !formData.accountId) return null;
+    const numericAmount = Number(String(formData.amount || 0).replace(/,/g, '')) || 0;
+    if (numericAmount <= 0) return null;
+    return checkAccountOverdraft(formData.accountId, numericAmount);
+  }, [formData.paymentStatus, formData.accountId, formData.amount, checkAccountOverdraft]);
 
   // New Category inline creation state
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
@@ -275,6 +287,13 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
       const overdraftCheck = checkAccountOverdraft(formData.accountId, numericAmount);
       if (!overdraftCheck.hasSufficientFunds) {
         if (overdraftCheck.effectivePolicy === 'never_allow') {
+          setOverdraftPromptData({
+            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            currentBalance: overdraftCheck.currentBalance,
+            requestedAmount: numericAmount,
+            shortfall: overdraftCheck.shortfall,
+            isBlocked: true
+          });
           setErrorMessage(
             language === 'fa'
               ? `موجودی حساب انتخابی (${overdraftCheck.account?.name || 'صندوق/بانک'}) کافی نیست و بر اساس سیاست تعیین شده، برداشت بیش از موجودی غیرمجاز است.`
@@ -285,7 +304,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
           setOverdraftPromptData({
             accountName: overdraftCheck.account?.name || 'حساب انتخابی',
             currentBalance: overdraftCheck.currentBalance,
-            requestedAmount: numericAmount
+            requestedAmount: numericAmount,
+            shortfall: overdraftCheck.shortfall,
+            isBlocked: false
           });
           return;
         }
@@ -355,18 +376,34 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
       pushExpenseLive(expenseRecord).catch(console.warn);
 
       // Show success feedback
-      setToastMessage(
-        expenseToEdit 
-          ? (language === 'fa' ? 'هزینه با موفقیت ویرایش شد.' : 'خەرجی بە سەرکەوتوویی دەستکاری کرا.') 
-          : (language === 'fa' ? 'هزینه جدید با موفقیت ثبت شد.' : 'خەرجی نوێ بە سەرکەوتوویی تۆمارکرا.')
-      );
+      const finalCheck = (formData.paymentStatus === 'paid')
+        ? checkAccountOverdraft(formData.accountId, numericAmount)
+        : null;
+
+      if (finalCheck && !finalCheck.hasSufficientFunds) {
+        const resultingNeg = Math.abs(finalCheck.currentBalance - numericAmount);
+        setToastMessage({
+          type: 'warning',
+          text: language === 'fa'
+            ? `هزینه ثبت شد. توجه: موجودی حساب «${finalCheck.account?.name || 'صندوق'}» به منفی ${formatCurrency(resultingNeg, formData.currency || projectCurrency, language)} رسید.`
+            : 'خەرجی تۆمارکرا. باڵانسی حیساب بووە بە نێگەتیڤ.'
+        });
+      } else {
+        setToastMessage({
+          type: 'success',
+          text: expenseToEdit 
+            ? (language === 'fa' ? 'هزینه با موفقیت ویرایش شد.' : 'خەرجی بە سەرکەوتوویی دەستکاری کرا.') 
+            : (language === 'fa' ? 'هزینه جدید با موفقیت ثبت شد.' : 'خەرجی نوێ بە سەرکەوتوویی تۆمارکرا.')
+        });
+      }
 
       if (onSuccess) onSuccess(expenseRecord);
 
+      const delay = (finalCheck && !finalCheck.hasSufficientFunds) ? 2000 : 700;
       setTimeout(() => {
         setIsSubmitting(false);
         onClose();
-      }, 700);
+      }, delay);
 
     } catch (err) {
       console.error('Error saving expense:', err);
@@ -382,9 +419,13 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     >
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[110] bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-sm font-bold animate-in fade-in slide-in-from-top-4 duration-200">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-          <span>{toastMessage}</span>
+        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[260] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-sm font-bold animate-in fade-in slide-in-from-top-4 duration-200 ${
+          typeof toastMessage === 'object' && toastMessage.type === 'warning'
+            ? 'bg-amber-600 text-white shadow-amber-600/30'
+            : 'bg-emerald-600 text-white shadow-emerald-600/30'
+        }`}>
+          {typeof toastMessage === 'object' && toastMessage.type === 'warning' ? <AlertTriangle className="w-5 h-5 flex-shrink-0" /> : <CheckCircle2 className="w-5 h-5 flex-shrink-0" />}
+          <span>{typeof toastMessage === 'object' ? toastMessage.text : toastMessage}</span>
         </div>
       )}
 
@@ -747,12 +788,15 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
               >
                 {financialAccounts.length > 0 ? (
-                  financialAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.type === 'bank' ? '💳 کارت بانکی: ' : '🪙 صندوق نقدی: '}
-                      {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} {acc.isDefault ? '⭐ [پیش‌فرض]' : ''}
-                    </option>
-                  ))
+                  financialAccounts.map((acc) => {
+                    const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
+                    return (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.type === 'bank' ? '💳 کارت بانکی: ' : '🪙 صندوق نقدی: '}
+                        {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} - موجودی: {formatCurrency(b, formData.currency || projectCurrency, language)} {acc.isDefault ? '⭐ [پیش‌فرض]' : ''}
+                      </option>
+                    );
+                  })
                 ) : (
                   <>
                     <option value="cash">{language === 'fa' ? 'صندوق اصلی کارگاه (نقدی)' : 'سندوقی سەرەکی (کاش)'}</option>
@@ -761,6 +805,37 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                   </>
                 )}
               </select>
+
+              {/* هشدار زنده اضافه برداشت در فرم */}
+              {currentOverdraft && !currentOverdraft.hasSufficientFunds && (
+                <div className={`mt-2 p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
+                  currentOverdraft.effectivePolicy === 'never_allow'
+                    ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300'
+                    : 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300'
+                }`}>
+                  {currentOverdraft.effectivePolicy === 'never_allow' ? (
+                    <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  )}
+                  <div className="space-y-0.5">
+                    <div className="font-bold">
+                      {currentOverdraft.effectivePolicy === 'never_allow'
+                        ? 'کسری موجودی - ثبت غیرمجاز'
+                        : currentOverdraft.effectivePolicy === 'always_allow'
+                          ? 'هشدار کسری موجودی (مجاز در تنظیمات سیستم)'
+                          : 'هشدار کسری موجودی حساب'}
+                    </div>
+                    <div className="text-[11px] leading-relaxed opacity-90">
+                      {currentOverdraft.effectivePolicy === 'never_allow'
+                        ? `موجودی حساب انتخابی (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) کافی نیست (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}). بر اساس تنظیمات سیستم، ثبت با موجودی منفی «غیرمجاز» است.`
+                        : currentOverdraft.effectivePolicy === 'always_allow'
+                          ? `مبلغ هزینه از موجودی فعلی حساب (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}). با توجه به تنظیم بودن بر روی «همیشه مجاز»، این تراکنش با مانده منفی ثبت خواهد شد.`
+                          : `مبلغ هزینه از موجودی حساب (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}). هنگام کلیک بر روی ثبت، پنجره تأیید کسر موجودی نمایش داده می‌شود.`}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -870,36 +945,56 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
 
       {/* Sticky Bottom Actions Bar */}
       <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3.5 shrink-0 shadow-xs">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
-            {language === 'fa' ? 'انصراف (ESC)' : 'پاشگەزبوونەوە'}
-          </button>
-          <button
-            type="submit"
-            form="expense-form"
-            disabled={isSubmitting || isApprovedAndLocked}
-            className="px-6 py-2.5 rounded-2xl text-xs font-bold bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-lg shadow-rose-500/25 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>{language === 'fa' ? 'در حال ثبت...' : 'تۆماردەکرێت...'}</span>
-              </>
-            ) : (
-              <>
-                <PlusCircle className="w-4 h-4" />
-                <span>
-                  {expenseToEdit 
-                    ? (language === 'fa' ? 'ذخیره تغییرات' : 'پاشەکەوتکردنی گۆڕانکاری') 
-                    : (language === 'fa' ? 'ثبت فاکتور هزینه' : 'تۆمارکردنی خەرجی')}
-                </span>
-              </>
-            )}
-          </button>
+        <div className="max-w-4xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {errorMessage ? (
+            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              {language === 'fa' ? 'انصراف (ESC)' : 'پاشگەزبوونەوە'}
+            </button>
+            <button
+              type="submit"
+              form="expense-form"
+              disabled={isSubmitting || isApprovedAndLocked}
+              className={`px-6 py-2.5 rounded-2xl text-xs font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer shadow-lg ${
+                currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow'
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/25'
+                  : 'bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-rose-500/25'
+              }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>{language === 'fa' ? 'در حال ثبت...' : 'تۆماردەکرێت...'}</span>
+                </>
+              ) : currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow' ? (
+                <>
+                  <Ban className="w-4 h-4" />
+                  <span>کسری موجودی (غیرمجاز)</span>
+                </>
+              ) : (
+                <>
+                  <PlusCircle className="w-4 h-4" />
+                  <span>
+                    {expenseToEdit 
+                      ? (language === 'fa' ? 'ذخیره تغییرات' : 'پاشەکەوتکردنی گۆڕانکاری') 
+                      : (language === 'fa' ? 'ثبت فاکتور هزینه' : 'تۆمارکردنی خەرجی')}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -914,6 +1009,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
           requestedAmount={overdraftPromptData.requestedAmount}
           currency={formData.currency || projectCurrency}
           language={language}
+          isBlocked={Boolean(overdraftPromptData.isBlocked)}
         />
       )}
     </div>

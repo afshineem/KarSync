@@ -6,12 +6,12 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { pushPaymentsLive, pushLogsLive } from '../services/realtimeSync';
-import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol, formatHoursAndMinutes } from '../utils/formatters';
+import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol, formatHoursAndMinutes, formatCurrency } from '../utils/formatters';
 import { 
   CheckCircle2, 
   X, 
   User, 
-  Users,
+  Users, 
   Calendar, 
   Coins, 
   FileText, 
@@ -19,14 +19,18 @@ import {
   Printer, 
   Check, 
   AlertCircle,
-  Calculator,
-  ArrowDownRight,
-  Shield,
-  Layers,
-  Crown,
-  Landmark,
-  Star,
-  CreditCard
+  AlertTriangle,
+  ShieldAlert,
+  Ban,
+  HelpCircle, 
+  Calculator, 
+  ArrowDownRight, 
+  Shield, 
+  Layers, 
+  Crown, 
+  Landmark, 
+  Star, 
+  CreditCard 
 } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
 import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
@@ -347,8 +351,9 @@ export function SettlementModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [completedPayment, setCompletedPayment] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
 
-  const { checkAccountOverdraft } = useAccounting();
+  const { checkAccountOverdraft, accountBalances } = useAccounting();
   const [overdraftPromptData, setOverdraftPromptData] = useState(null);
 
   // Financial accounts live query
@@ -365,12 +370,20 @@ export function SettlementModal({
     return financialAccounts.find((a) => a.isDefault) || financialAccounts[0] || null;
   }, [financialAccounts]);
 
+  const effectiveAccountId = selectedAccountId || defaultAccount?.id || (financialAccounts[0]?.id ? String(financialAccounts[0].id) : '');
+
+  const currentOverdraft = useMemo(() => {
+    const payAmount = roundCurrency(Number(finalPaymentAmount), currency);
+    if (isNaN(payAmount) || payAmount <= 0 || !effectiveAccountId) return null;
+    return checkAccountOverdraft(effectiveAccountId, payAmount);
+  }, [finalPaymentAmount, effectiveAccountId, currency, checkAccountOverdraft]);
+
   // Sync form defaults whenever mode or calculations change
   useEffect(() => {
     if (isOpen) {
       setFinalPaymentAmount(targetPayableAmount > 0 ? String(targetPayableAmount) : '0');
       setSettlementDate(getTodayDateString());
-      setSelectedAccountId(defaultAccount?.id || '');
+      setSelectedAccountId(effectiveAccountId);
       setReferenceNumber('');
 
       if (settlementMode === 'group') {
@@ -413,6 +426,13 @@ export function SettlementModal({
       const overdraftCheck = checkAccountOverdraft(selectedAccountId, payAmount);
       if (!overdraftCheck.hasSufficientFunds) {
         if (overdraftCheck.effectivePolicy === 'never_allow') {
+          setOverdraftPromptData({
+            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            currentBalance: overdraftCheck.currentBalance,
+            requestedAmount: payAmount,
+            shortfall: overdraftCheck.shortfall,
+            isBlocked: true
+          });
           setFeedback({
             type: 'error',
             message: language === 'fa'
@@ -424,7 +444,9 @@ export function SettlementModal({
           setOverdraftPromptData({
             accountName: overdraftCheck.account?.name || 'حساب انتخابی',
             currentBalance: overdraftCheck.currentBalance,
-            requestedAmount: payAmount
+            requestedAmount: payAmount,
+            shortfall: overdraftCheck.shortfall,
+            isBlocked: false
           });
           return;
         }
@@ -512,11 +534,23 @@ export function SettlementModal({
 
       pushPaymentsLive().catch(console.warn);
 
-      if (onSettlementComplete) {
-        onSettlementComplete(settlementRecord);
+      const finalCheck = checkAccountOverdraft(selectedAccountId, payAmount);
+      if (payAmount > 0 && !finalCheck.hasSufficientFunds) {
+        const resultingNeg = Math.abs(finalCheck.currentBalance - payAmount);
+        setToastMessage({
+          type: 'warning',
+          text: language === 'fa'
+            ? `تسویه حساب ثبت شد. توجه: موجودی حساب «${finalCheck.account?.name || 'صندوق'}» به منفی ${formatCurrency(resultingNeg, currency, language)} رسید.`
+            : `مامەڵە تۆمارکرا. باڵانسی حیساب بووە بە نێگەتیڤ.`
+        });
+        setTimeout(() => {
+          if (onSettlementComplete) onSettlementComplete(settlementRecord);
+          onClose();
+        }, 2000);
+      } else {
+        if (onSettlementComplete) onSettlementComplete(settlementRecord);
+        onClose();
       }
-
-      onClose();
     } catch (err) {
       console.error('Settlement save error:', err);
       setFeedback({
@@ -532,6 +566,17 @@ export function SettlementModal({
     <div 
       className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white"
     >
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[260] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-sm font-bold animate-in fade-in slide-in-from-top-4 duration-200 ${
+          toastMessage.type === 'warning'
+            ? 'bg-amber-600 text-white shadow-amber-600/30'
+            : 'bg-emerald-600 text-white shadow-emerald-600/30'
+        }`}>
+          {toastMessage.type === 'warning' ? <AlertTriangle className="w-5 h-5 shrink-0" /> : <CheckCircle2 className="w-5 h-5 shrink-0" />}
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
       {/* Header with Mode Toggle */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs">
         <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-4">
@@ -925,7 +970,7 @@ export function SettlementModal({
                 <input
                   type="number"
                   min="0"
-                  step={currency === 'IQD' ? '250' : '1'}
+                  step="any"
                   value={finalPaymentAmount}
                   onChange={(e) => setFinalPaymentAmount(e.target.value)}
                   onBlur={() => {
@@ -980,16 +1025,50 @@ export function SettlementModal({
                 onChange={(e) => setSelectedAccountId(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white cursor-pointer font-medium"
               >
-                {financialAccounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.type === 'bank' ? '💳 کارت بانکی: ' : '🪙 صندوق نقدی: '}
-                    {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} {acc.isDefault ? '⭐ [پیش‌فرض]' : ''}
-                  </option>
-                ))}
+                {financialAccounts.map((acc) => {
+                  const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
+                  return (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.type === 'bank' ? '💳 کارت بانکی: ' : '🪙 صندوق نقدی: '}
+                      {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} - موجودی: {formatCurrency(b, currency, language)} {acc.isDefault ? '⭐ [پیش‌فرض]' : ''}
+                    </option>
+                  );
+                })}
               </select>
             ) : (
               <div className="text-[11px] text-slate-400 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                 صندوق نقدی کارگاه
+              </div>
+            )}
+
+            {/* هشدار زنده اضافه برداشت در فرم */}
+            {currentOverdraft && !currentOverdraft.hasSufficientFunds && (
+              <div className={`mt-2 p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
+                currentOverdraft.effectivePolicy === 'never_allow'
+                  ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300'
+                  : 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300'
+              }`}>
+                {currentOverdraft.effectivePolicy === 'never_allow' ? (
+                  <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                )}
+                <div className="space-y-0.5">
+                  <div className="font-bold">
+                    {currentOverdraft.effectivePolicy === 'never_allow'
+                      ? 'کسری موجودی - ثبت غیرمجاز'
+                      : currentOverdraft.effectivePolicy === 'always_allow'
+                        ? 'هشدار کسری موجودی (مجاز در تنظیمات سیستم)'
+                        : 'هشدار کسری موجودی حساب'}
+                  </div>
+                  <div className="text-[11px] leading-relaxed opacity-90">
+                    {currentOverdraft.effectivePolicy === 'never_allow'
+                      ? `موجودی حساب انتخابی (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) کافی نیست (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). بر اساس تنظیمات سیستم، ثبت با موجودی منفی «غیرمجاز» است.`
+                      : currentOverdraft.effectivePolicy === 'always_allow'
+                        ? `مبلغ تسویه از موجودی فعلی حساب (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). با توجه به تنظیم بودن بر روی «همیشه مجاز»، این تراکنش با مانده منفی ثبت خواهد شد.`
+                        : `مبلغ تسویه از موجودی حساب (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). هنگام کلیک بر روی ثبت، پنجره تأیید کسر موجودی نمایش داده می‌شود.`}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -1040,6 +1119,18 @@ export function SettlementModal({
             </span>
           </label>
 
+          {/* بازخورد خطا یا هشدار نزدیک دکمه ثبت */}
+          {feedback.message && (
+            <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+              feedback.type === 'error'
+                ? 'bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                : 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+            }`}>
+              {feedback.type === 'error' ? <AlertCircle className="w-4 h-4 flex-shrink-0" /> : <Check className="w-4 h-4 flex-shrink-0" />}
+              <span>{feedback.message}</span>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="pt-2 flex items-center gap-2">
             <button
@@ -1054,19 +1145,30 @@ export function SettlementModal({
               type="submit"
               disabled={isSubmitting}
               className={`w-2/3 py-2.5 px-3 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 ${
-                settlementMode === 'group'
+                currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow'
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/25'
+                  : settlementMode === 'group'
                   ? 'bg-amber-600 hover:bg-amber-500 disabled:bg-amber-400 text-white shadow-amber-600/20'
                   : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white shadow-emerald-600/20'
               }`}
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>
-                {isSubmitting
-                  ? 'در حال ثبت...'
-                  : settlementMode === 'group'
-                  ? `ثبت تسویه گروهی با سرپرست (${groupMembers.length} نفر)`
-                  : t('settleBtn')}
-              </span>
+              {currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow' ? (
+                <>
+                  <Ban className="w-4 h-4" />
+                  <span>کسری موجودی (غیرمجاز)</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>
+                    {isSubmitting
+                      ? 'در حال ثبت...'
+                      : settlementMode === 'group'
+                      ? `ثبت تسویه گروهی با سرپرست (${groupMembers.length} نفر)`
+                      : t('settleBtn')}
+                  </span>
+                </>
+              )}
             </button>
           </div>
 
@@ -1086,6 +1188,7 @@ export function SettlementModal({
           requestedAmount={overdraftPromptData.requestedAmount}
           currency={currency}
           language={language}
+          isBlocked={Boolean(overdraftPromptData.isBlocked)}
         />
       )}
     </div>

@@ -1,15 +1,30 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   db, 
   DEFAULT_PROJECT_ID, 
   generateTreasuryIncomeId, 
   generateAccountId, 
+  generateTransferId,
   seedDefaultFinancialAccounts, 
   migrateClosedTransactionsToCashBox,
   getGlobalOverdraftPolicy,
   setGlobalOverdraftPolicy
 } from '../db/db';
+import { 
+  pushFinancialAccountLive, 
+  deleteFinancialAccountLive, 
+  pushTreasuryIncomeLive, 
+  deleteTreasuryIncomeLive, 
+  pushAccountTransferLive,
+  deleteAccountTransferLive,
+  pushGlobalOverdraftPolicyLive, 
+  pullFinancialAccountsLive, 
+  pullTreasuryIncomesLive, 
+  pullAccountTransfersLive,
+  pullGlobalOverdraftPolicyLive,
+  syncFinancialDataLive
+} from '../services/realtimeSync';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { getCurrentYearMonth, getTodayDateString, roundCurrency } from '../utils/formatters';
@@ -19,11 +34,11 @@ import { getCurrentYearMonth, getTodayDateString, roundCurrency } from '../utils
  * هوک اختصاصی مدیریت داده‌های مالی، خزانه‌داری، تراز و دفتر کل KarSync
  * 
  * وظایف اصلی:
- * ۱. خواندن زنده و یکپارچه داده‌های تنخواه، پرداختی‌های پرسنل و هزینه‌های کارگاه از Dexie IndexedDB
+ * ۱. خواندن زنده و یکپارچه داده‌های تنخواه، پرداختی‌های پرسنل، هزینه‌ها و انتقالات از Dexie IndexedDB
  * ۲. محاسبه زنده کارت‌های ۴گانه داشبورد تراز مالی (ورودی‌ها، خروجی پرسنل، خروجی فاکتورها، مانده صندوق)
  * ۳. ساخت دفتر کل تراکنش‌ها (General Ledger) با محاسبه خودکار «موجودی پس از تراکنش» (Running Balance)
  * ۴. تجمیع روزانه جریان نقدینگی (Cash Flow) جهت رسم نمودار میله‌ای دوگانه
- * ۵. ارائه توابع ثبت، ویرایش و حذف واریزی‌ها و تنخواه
+ * ۵. ارائه توابع ثبت، ویرایش، انتقال و حذف واریزی‌ها و تنخواه
  */
 export function useAccounting(options = {}) {
   const { currentProject } = useProject();
@@ -37,10 +52,33 @@ export function useAccounting(options = {}) {
   const [dateFilterMode, setDateFilterMode] = useState('all'); // 'all' | 'this_month' | 'last_month' | 'custom'
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | 'petty_cash' | 'worker_settlement' | 'advance_payment' | 'workshop_expense'
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | 'petty_cash' | 'worker_settlement' | 'advance_payment' | 'workshop_expense' | 'account_transfer'
   const [searchQuery, setSearchQuery] = useState('');
   const [accountTypeFilter, setAccountTypeFilter] = useState('all'); // 'all' | 'cash' | 'bank'
   const [approvalStatusFilter, setApprovalStatusFilter] = useState('all'); // 'all' | 'draft' | 'approved' | 'amended'
+
+  const [syncTick, setSyncTick] = useState(0);
+
+  // گوش دادن به رویدادهای همگام‌سازی ابری و بارگذاری اولیه داده‌های مالی
+  useEffect(() => {
+    const handleSync = () => {
+      setSyncTick((t) => t + 1);
+    };
+    window.addEventListener('workshop-accounts-sync', handleSync);
+    window.addEventListener('workshop-incomes-sync', handleSync);
+    window.addEventListener('workshop-transfers-sync', handleSync);
+
+    pullFinancialAccountsLive().catch(console.warn);
+    pullTreasuryIncomesLive().catch(console.warn);
+    pullAccountTransfersLive().catch(console.warn);
+    pullGlobalOverdraftPolicyLive().catch(console.warn);
+
+    return () => {
+      window.removeEventListener('workshop-accounts-sync', handleSync);
+      window.removeEventListener('workshop-incomes-sync', handleSync);
+      window.removeEventListener('workshop-transfers-sync', handleSync);
+    };
+  }, []);
 
   // ----------------------------------------------------
   // ۱. فراخوانی زنده داده‌ها از IndexedDB (Real-time Live Queries)
@@ -72,7 +110,7 @@ export function useAccounting(options = {}) {
         .filter((inc) => !inc.deletedAt && (!inc.projectId || inc.projectId === projectId || projectId === DEFAULT_PROJECT_ID))
         .sort((a, b) => (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || ''));
     },
-    [projectId]
+    [projectId, syncTick]
   ) || [];
 
   // ج) پرداختی‌های مالی به پرسنل (مساعده + تسویه حساب‌ها)
@@ -93,7 +131,7 @@ export function useAccounting(options = {}) {
         })
         .sort((a, b) => (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || ''));
     },
-    [projectId, workers]
+    [projectId, workers, syncTick]
   ) || [];
 
   // د) هزینه‌های کارگاه (فاکتورها و ماشین‌آلات)
@@ -111,7 +149,7 @@ export function useAccounting(options = {}) {
         })
         .sort((a, b) => (b.expenseDate || b.createdAt || '').localeCompare(a.expenseDate || a.createdAt || ''));
     },
-    [projectId]
+    [projectId, syncTick]
   ) || [];
 
   // ه) حساب‌های مالی (کارت‌های بانکی و صندوق‌های نقدی)
@@ -119,15 +157,16 @@ export function useAccounting(options = {}) {
     async () => {
       if (!db.financialAccounts) return [];
       let list = await db.financialAccounts.toArray();
-      list = list.filter((acc) => !acc.deletedAt && (!acc.projectId || acc.projectId === projectId || projectId === DEFAULT_PROJECT_ID));
-      if (list.length === 0) {
+      const hasActiveCash = list.some((acc) => acc.type === 'cash' && !acc.deletedAt && acc.status !== 'deleted');
+      const hasActiveBank = list.some((acc) => acc.type === 'bank' && !acc.deletedAt && acc.status !== 'deleted');
+      if (!hasActiveCash || !hasActiveBank) {
         await seedDefaultFinancialAccounts(projectId, user?.id);
         list = await db.financialAccounts.toArray();
-        list = list.filter((acc) => !acc.deletedAt && (!acc.projectId || acc.projectId === projectId || projectId === DEFAULT_PROJECT_ID));
       }
+      list = list.filter((acc) => !acc.deletedAt && (!acc.projectId || acc.projectId === projectId || projectId === DEFAULT_PROJECT_ID));
       return list.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
     },
-    [projectId, user]
+    [projectId, user, syncTick]
   ) || [];
 
   const defaultAccount = useMemo(() => {
@@ -142,6 +181,18 @@ export function useAccounting(options = {}) {
     return map;
   }, [financialAccounts]);
 
+  // و) تراکنش‌های انتقال وجه بین حساب‌ها (کارت به کارت / صندوق به بانک)
+  const accountTransfers = useLiveQuery(
+    async () => {
+      if (!db.accountTransfers) return [];
+      const list = await db.accountTransfers.toArray();
+      return list
+        .filter((trf) => !trf.deletedAt && (!trf.projectId || trf.projectId === projectId || projectId === DEFAULT_PROJECT_ID))
+        .sort((a, b) => (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || ''));
+    },
+    [projectId, syncTick]
+  ) || [];
+
   // سیاست سراسری اضافه برداشت (Overdraft Policy)
   const globalOverdraftSetting = useLiveQuery(
     async () => {
@@ -153,6 +204,7 @@ export function useAccounting(options = {}) {
 
   const updateGlobalOverdraftPolicy = useCallback(async (newPolicy) => {
     await setGlobalOverdraftPolicy(newPolicy);
+    pushGlobalOverdraftPolicyLive(newPolicy).catch(console.warn);
   }, []);
 
   // ----------------------------------------------------
@@ -295,6 +347,66 @@ export function useAccounting(options = {}) {
       }
     });
 
+    // ۴. تراکنش‌های انتقال وجه بین حساب‌ها (کارت به کارت / صندوق به بانک)
+    accountTransfers.forEach((trf) => {
+      const amt = Number(trf.amount) || 0;
+      const rawDate = (trf.date || trf.createdAt || '').slice(0, 10);
+      const time = trf.time || (trf.createdAt ? trf.createdAt.slice(11, 16) : '');
+      const createdAt = trf.createdAt || (trf.date ? `${trf.date}T00:00:00Z` : '');
+
+      // خروجی از حساب مبدأ
+      if (trf.fromAccountId && map.has(String(trf.fromAccountId))) {
+        const fromEntry = map.get(String(trf.fromAccountId));
+        fromEntry.totalOutflow += amt;
+        fromEntry.outflowsCount += 1;
+        fromEntry.transactions.push({
+          id: `${trf.id}_out`,
+          transferId: trf.id,
+          rawDate,
+          time,
+          createdAt,
+          type: 'outflow',
+          category: 'account_transfer',
+          categoryLabel: 'انتقال وجه بین حساب‌ها',
+          title: `انتقال به ${trf.toAccountName || 'حساب مقصد'}`,
+          description: trf.description || (trf.reference ? `پیگیری: ${trf.reference}` : ''),
+          personName: trf.toAccountName || '',
+          inflowAmount: 0,
+          outflowAmount: amt,
+          amount: amt,
+          isSystem: false,
+          isTransfer: true,
+          rawItem: trf
+        });
+      }
+
+      // ورودی به حساب مقصد
+      if (trf.toAccountId && map.has(String(trf.toAccountId))) {
+        const toEntry = map.get(String(trf.toAccountId));
+        toEntry.totalInflow += amt;
+        toEntry.inflowsCount += 1;
+        toEntry.transactions.push({
+          id: `${trf.id}_in`,
+          transferId: trf.id,
+          rawDate,
+          time,
+          createdAt,
+          type: 'inflow',
+          category: 'account_transfer',
+          categoryLabel: 'انتقال وجه بین حساب‌ها',
+          title: `دریافت از ${trf.fromAccountName || 'حساب مبدأ'}`,
+          description: trf.description || (trf.reference ? `پیگیری: ${trf.reference}` : ''),
+          personName: trf.fromAccountName || '',
+          inflowAmount: amt,
+          outflowAmount: 0,
+          amount: amt,
+          isSystem: false,
+          isTransfer: true,
+          rawItem: trf
+        });
+      }
+    });
+
     // محاسبه موجودی زنده و مانده تجمعی (Running Balance) برای هر حساب
     map.forEach((entry) => {
       entry.currentBalance = entry.initialBalance + entry.totalInflow - entry.totalOutflow;
@@ -320,7 +432,7 @@ export function useAccounting(options = {}) {
     });
 
     return map;
-  }, [financialAccounts, treasuryIncomes, payments, expenses, workerMap]);
+  }, [financialAccounts, treasuryIncomes, payments, expenses, accountTransfers, workerMap]);
 
   const accountBalancesList = useMemo(() => {
     return Array.from(accountBalances.values());
@@ -516,6 +628,64 @@ export function useAccounting(options = {}) {
       });
     });
 
+    // ۴. تراکنش‌های انتقال وجه بین حساب‌ها (کارت به کارت / صندوق به بانک)
+    accountTransfers.forEach((trf) => {
+      const dateStr = (trf.date || trf.createdAt || '').slice(0, 10);
+      const createdAt = trf.createdAt || `${dateStr}T00:00:00Z`;
+
+      rawTransactions.push({
+        id: `${trf.id}_out`,
+        transferId: trf.id,
+        rawDate: dateStr,
+        createdAt,
+        type: 'outflow',
+        category: 'account_transfer',
+        categoryLabel: 'انتقال وجه بین حساب‌ها',
+        amount: Number(trf.amount) || 0,
+        accountType: trf.fromAccountType || 'bank',
+        accountId: trf.fromAccountId,
+        accountName: trf.fromAccountName,
+        targetAccountName: trf.toAccountName,
+        title: `انتقال به ${trf.toAccountName || 'حساب مقصد'}`,
+        description: trf.description || (trf.reference ? `شماره ارجاع: ${trf.reference}` : ''),
+        personName: trf.toAccountName || '',
+        tableName: 'accountTransfers',
+        status: trf.status || 'approved',
+        approvedBy: trf.approvedBy || trf.approved_by_name || 'مدیر سیستم',
+        approvedAt: trf.createdAt,
+        isSystem: false,
+        isTransfer: true,
+        transferDirection: 'out',
+        rawItem: trf
+      });
+
+      rawTransactions.push({
+        id: `${trf.id}_in`,
+        transferId: trf.id,
+        rawDate: dateStr,
+        createdAt,
+        type: 'inflow',
+        category: 'account_transfer',
+        categoryLabel: 'انتقال وجه بین حساب‌ها',
+        amount: Number(trf.amount) || 0,
+        accountType: trf.toAccountType || 'bank',
+        accountId: trf.toAccountId,
+        accountName: trf.toAccountName,
+        sourceAccountName: trf.fromAccountName,
+        title: `دریافت از ${trf.fromAccountName || 'حساب مبدأ'}`,
+        description: trf.description || (trf.reference ? `شماره ارجاع: ${trf.reference}` : ''),
+        personName: trf.fromAccountName || '',
+        tableName: 'accountTransfers',
+        status: trf.status || 'approved',
+        approvedBy: trf.approvedBy || trf.approved_by_name || 'مدیر سیستم',
+        approvedAt: trf.createdAt,
+        isSystem: false,
+        isTransfer: true,
+        transferDirection: 'in',
+        rawItem: trf
+      });
+    });
+
     // مرتب‌سازی صعودی جهت محاسبه دقیق موجودی پس از هر تراکنش (Running Balance)
     rawTransactions.sort((a, b) => {
       if (a.rawDate !== b.rawDate) {
@@ -591,7 +761,7 @@ export function useAccounting(options = {}) {
       ledgerItems: ledgerWithBalances,
       filteredLedgerItems: filtered
     };
-  }, [treasuryIncomes, payments, expenses, workerMap, accountMap, checkDateMatch, categoryFilter, accountTypeFilter, searchQuery, approvalStatusFilter]);
+  }, [treasuryIncomes, payments, expenses, accountTransfers, workerMap, accountMap, checkDateMatch, categoryFilter, accountTypeFilter, searchQuery, approvalStatusFilter]);
 
   // آمار وضعیت اسناد دفتر کل (کل، پیش‌نویس، تایید نهایی، اصلاحیه)
   const ledgerStats = useMemo(() => {
@@ -699,14 +869,13 @@ export function useAccounting(options = {}) {
   // ----------------------------------------------------
   // ۶. متدهای CRUD برای مدیریت واریزی‌ها، شارژ تنخواه و حساب‌ها
   // ----------------------------------------------------
-  const addIncome = useCallback(async ({ amount, date, title, accountType, accountId, accountName, description, payer }) => {
+  const addIncome = useCallback(async ({ amount, date, title, accountType, accountId, accountName, description, payer, status }) => {
     const numAmount = Number(String(amount).replace(/,/g, ''));
     if (!numAmount || numAmount <= 0) {
       throw new Error('مبلغ واریزی باید بزرگتر از صفر باشد');
     }
-    if (!title || !title.trim()) {
-      throw new Error('عنوان واریزی الزامی است');
-    }
+
+    const fallbackTitle = (title && title.trim()) ? title.trim() : `افزایش موجودی ${accountName || (accountType === 'bank' ? 'کارت بانکی' : 'صندوق')}`;
 
     const now = new Date();
     const newRecord = {
@@ -715,17 +884,21 @@ export function useAccounting(options = {}) {
       userId: user?.id || 'default_user',
       amount: numAmount,
       date: date || getTodayDateString(),
-      title: title.trim(),
+      title: fallbackTitle,
       accountId: accountId || null,
       accountName: accountName || '',
       accountType: accountType || 'bank', // 'cash' | 'bank'
       payer: payer ? payer.trim() : '',
       description: description ? description.trim() : '',
+      status: status || 'approved',
+      created_by: user?.id || 'admin',
+      approved_by: user?.id || 'admin',
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
     };
 
     await db.treasuryIncomes.add(newRecord);
+    pushTreasuryIncomeLive(newRecord).catch(console.warn);
     return newRecord;
   }, [projectId, user]);
 
@@ -744,11 +917,15 @@ export function useAccounting(options = {}) {
     }
 
     await db.treasuryIncomes.update(id, cleanMods);
+    const updated = await db.treasuryIncomes.get(id);
+    if (updated) {
+      pushTreasuryIncomeLive(updated).catch(console.warn);
+    }
   }, []);
 
   const deleteIncome = useCallback(async (id) => {
     if (!id) throw new Error('شناسه واریزی الزامی است');
-    await db.treasuryIncomes.delete(id);
+    await deleteTreasuryIncomeLive(id).catch(console.warn);
   }, []);
 
   // متدهای مدیریت حساب‌های بانکی و صندوق‌ها
@@ -770,6 +947,7 @@ export function useAccounting(options = {}) {
       keeperName: accountData.keeperName?.trim() || '',
       initialBalance: Number(String(accountData.initialBalance || 0).replace(/,/g, '')) || 0,
       isDefault: Boolean(accountData.isDefault || isFirst),
+      overdraftPolicy: accountData.overdraftPolicy || 'global',
       isActive: true,
       color: accountData.color || (accountData.type === 'bank' ? 'sky' : 'amber'),
       notes: accountData.notes?.trim() || '',
@@ -787,6 +965,7 @@ export function useAccounting(options = {}) {
     }
 
     await db.financialAccounts.add(record);
+    pushFinancialAccountLive(record).catch(console.warn);
     return record;
   }, [projectId, user, financialAccounts.length]);
 
@@ -804,6 +983,10 @@ export function useAccounting(options = {}) {
     }
 
     await db.financialAccounts.update(id, cleanMods);
+    const updated = await db.financialAccounts.get(id);
+    if (updated) {
+      pushFinancialAccountLive(updated).catch(console.warn);
+    }
   }, [projectId]);
 
   const setDefaultAccount = useCallback(async (id) => {
@@ -813,16 +996,77 @@ export function useAccounting(options = {}) {
       .filter((a) => a.projectId === projectId)
       .map((a) => db.financialAccounts.update(a.id, { isDefault: a.id === id }));
     await Promise.all(promises);
+    const updatedList = await db.financialAccounts.toArray();
+    for (const acc of updatedList) {
+      pushFinancialAccountLive(acc).catch(console.warn);
+    }
   }, [projectId]);
 
+  // حذف ایمن حساب با اعتبارسنجی جامع گردش‌های مالی و قوانین حسابداری
   const deleteAccount = useCallback(async (id) => {
     if (!id) return;
-    await db.financialAccounts.delete(id);
-  }, []);
+    const strId = String(id);
 
-  const migrateClosedTransactions = useCallback(async (forceAll = false) => {
-    return await migrateClosedTransactionsToCashBox(projectId, forceAll);
-  }, [projectId]);
+    // ۰. حساب‌های اصلی سیستمی به هیچ عنوان نباید حذف شوند
+    if (strId === 'acc_default_cash' || strId === 'acc_default_bank') {
+      throw new Error('صندوق نقدی و کارت بانکی اصلی سیستم غیرقابل حذف می‌باشند.');
+    }
+
+    const targetAcc = financialAccounts.find(a => String(a.id) === strId);
+    if (targetAcc?.isDefault) {
+      throw new Error('حساب یا صندوق پیش‌فرض سیستم قابل حذف نمی‌باشد. در صورت تمایل ابتدا حساب دیگری را به عنوان پیش‌فرض تعیین کنید.');
+    }
+
+    if (targetAcc) {
+      const activeSameType = financialAccounts.filter(a => a.type === targetAcc.type && !a.deletedAt && a.status !== 'deleted');
+      if (activeSameType.length <= 1) {
+        throw new Error(`حذف آخرین ${targetAcc.type === 'cash' ? 'صندوق نقدی' : 'حساب بانکی'} مجاز نمی‌باشد. حداقل یک ${targetAcc.type === 'cash' ? 'صندوق' : 'حساب'} باید در سیستم فعال باشد.`);
+      }
+    }
+
+    // ۱. بررسی گردش‌های مالی در آبجکت محاسباتی مانده حساب
+    const balanceData = accountBalances.get(strId);
+    if (balanceData && balanceData.transactions && balanceData.transactions.length > 0) {
+      throw new Error(`حساب «${balanceData.account?.name || targetAcc?.name || ''}» دارای ${balanceData.transactions.length} گردش مالی و سند ثبت‌شده است و طبق مقررات حسابداری امکان حذف آن وجود ندارد.`);
+    }
+
+    // ۲. بررسی استفاده در پرداخت‌ها یا تسویه‌حساب‌ها (استفاده از toArray جهت عدم وابستگی به ایندکس دکسی)
+    const allPayments = await db.payments.toArray();
+    const isDefaultCash = targetAcc?.isDefault && targetAcc?.type === 'cash';
+    const usedInPayments = allPayments.some(p => !p.deletedAt && (String(p.accountId) === strId || (isDefaultCash && (p.paymentMethod !== 'bank' && !p.accountId))));
+    if (usedInPayments) {
+      throw new Error('این حساب در پرداخت‌ها یا تسویه‌حساب‌های پرسنل استفاده شده است و امکان حذف آن وجود ندارد.');
+    }
+
+    // ۳. بررسی استفاده در هزینه‌های کارگاه
+    if (db.expenses) {
+      const allExpenses = await db.expenses.toArray();
+      const usedInExpenses = allExpenses.some(e => !e.deletedAt && (String(e.accountId) === strId || (isDefaultCash && (e.paymentMethod !== 'bank' && !e.accountId))));
+      if (usedInExpenses) {
+        throw new Error('این حساب در هزینه‌های ثبت‌شده کارگاه استفاده شده است و امکان حذف آن وجود ندارد.');
+      }
+    }
+
+    // ۴. بررسی استفاده در واریزی‌ها یا تنخواه
+    if (db.treasuryIncomes) {
+      const allIncomes = await db.treasuryIncomes.toArray();
+      const usedInIncomes = allIncomes.some(inc => !inc.deletedAt && (String(inc.accountId) === strId || (isDefaultCash && (inc.accountType === 'cash' && !inc.accountId))));
+      if (usedInIncomes) {
+        throw new Error('این حساب در واریزی‌ها یا تنخواه کارگاه استفاده شده است و امکان حذف آن وجود ندارد.');
+      }
+    }
+
+    // ۵. بررسی استفاده در انتقالات حساب به حساب
+    if (db.accountTransfers) {
+      const allTransfers = await db.accountTransfers.toArray();
+      const usedInTransfers = allTransfers.some(t => !t.deletedAt && (String(t.fromAccountId) === strId || String(t.toAccountId) === strId));
+      if (usedInTransfers) {
+        throw new Error('این حساب در تراکنش‌های انتقال وجه بین حساب‌ها استفاده شده است و امکان حذف آن وجود ندارد.');
+      }
+    }
+
+    await deleteFinancialAccountLive(id).catch(console.warn);
+  }, [financialAccounts, accountBalances]);
 
   // بررسی اضافه برداشت بر اساس سیاست حساب و سراسری
   const checkAccountOverdraft = useCallback((accountId, amount) => {
@@ -856,6 +1100,82 @@ export function useAccounting(options = {}) {
       effectivePolicy
     };
   }, [financialAccounts, defaultAccount, accountBalances, globalOverdraftPolicy]);
+
+  // متد انتقال وجه بین حساب‌ها (کارت به کارت / صندوق به بانک)
+  const transferBetweenAccounts = useCallback(async ({
+    fromAccountId,
+    toAccountId,
+    amount,
+    date,
+    reference,
+    description
+  }) => {
+    const numAmount = Number(String(amount).replace(/,/g, ''));
+    if (!numAmount || numAmount <= 0) {
+      throw new Error('مبلغ انتقال باید بزرگتر از صفر باشد');
+    }
+    if (!fromAccountId || !toAccountId) {
+      throw new Error('حساب مبدأ و مقصد هر دو باید مشخص شوند');
+    }
+    if (String(fromAccountId) === String(toAccountId)) {
+      throw new Error('حساب مبدأ و مقصد نمی‌تواند یکسان باشد');
+    }
+
+    const fromAcc = financialAccounts.find(a => String(a.id) === String(fromAccountId));
+    const toAcc = financialAccounts.find(a => String(a.id) === String(toAccountId));
+
+    if (!fromAcc || !toAcc) {
+      throw new Error('حساب انتخاب‌شده نامعتبر است');
+    }
+
+    // بررسی اضافه برداشت بر اساس سیاست حساب مبدأ
+    const overdraftCheck = checkAccountOverdraft(fromAccountId, numAmount);
+    if (!overdraftCheck.hasSufficientFunds && overdraftCheck.effectivePolicy === 'never_allow') {
+      throw new Error(`موجودی حساب ${fromAcc.name} برای این انتقال ناکافی است و اضافه برداشت مجاز نمی‌باشد.`);
+    }
+
+    const now = new Date();
+    const newTransfer = {
+      id: generateTransferId(),
+      projectId,
+      userId: user?.id || 'default_user',
+      fromAccountId: String(fromAcc.id),
+      fromAccountName: fromAcc.name,
+      fromAccountType: fromAcc.type,
+      toAccountId: String(toAcc.id),
+      toAccountName: toAcc.name,
+      toAccountType: toAcc.type,
+      amount: numAmount,
+      date: date || getTodayDateString(),
+      time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      reference: reference ? reference.trim() : '',
+      description: description ? description.trim() : '',
+      status: 'approved',
+      created_by: user?.id || 'admin',
+      approved_by: user?.id || 'admin',
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    };
+
+    if (db.accountTransfers) {
+      await db.accountTransfers.add(newTransfer);
+    }
+    pushAccountTransferLive(newTransfer).catch(console.warn);
+    return newTransfer;
+  }, [projectId, user, financialAccounts, checkAccountOverdraft]);
+
+  const deleteTransfer = useCallback(async (transferId) => {
+    if (!transferId) return;
+    await deleteAccountTransferLive(transferId).catch(console.warn);
+  }, []);
+
+  const syncFinancialAccounts = useCallback(async () => {
+    return await syncFinancialDataLive();
+  }, []);
+
+  const migrateClosedTransactions = useCallback(async (forceAll = false) => {
+    return await migrateClosedTransactionsToCashBox(projectId, forceAll);
+  }, [projectId]);
 
   return {
     projectId,
@@ -905,6 +1225,12 @@ export function useAccounting(options = {}) {
     // متدهای CRUD واریزی‌ها
     addIncome,
     updateIncome,
-    deleteIncome
+    deleteIncome,
+    // متدهای انتقال بین حساب‌ها (حساب به حساب)
+    accountTransfers,
+    transferBetweenAccounts,
+    deleteTransfer,
+    // همگام‌سازی فوری حساب‌ها
+    syncFinancialAccounts
   };
 }

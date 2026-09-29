@@ -11,9 +11,10 @@ export async function exportDatabaseToJSON() {
   const treasuryIncomes = db.treasuryIncomes ? await db.treasuryIncomes.toArray() : [];
   const expenses = db.expenses ? await db.expenses.toArray() : [];
   const financialAccounts = db.financialAccounts ? await db.financialAccounts.toArray() : [];
+  const accountTransfers = db.accountTransfers ? await db.accountTransfers.toArray() : [];
 
   const backupData = {
-    version: 4,
+    version: 5,
     appName: 'KarSync',
     exportedAt: new Date().toISOString(),
     currency: 'IQD',
@@ -24,7 +25,8 @@ export async function exportDatabaseToJSON() {
       payments,
       treasuryIncomes,
       expenses,
-      financialAccounts
+      financialAccounts,
+      accountTransfers
     }
   };
 
@@ -67,13 +69,15 @@ export async function importDatabaseFromJSON(jsonText, mode = 'replace') {
     payments = [],
     treasuryIncomes = [],
     expenses = [],
-    financialAccounts = []
+    financialAccounts = [],
+    accountTransfers = []
   } = parsed.data;
 
   const tablesToTransact = [db.workers, db.attendanceLogs, db.settings, db.payments];
   if (db.treasuryIncomes) tablesToTransact.push(db.treasuryIncomes);
   if (db.expenses) tablesToTransact.push(db.expenses);
   if (db.financialAccounts) tablesToTransact.push(db.financialAccounts);
+  if (db.accountTransfers) tablesToTransact.push(db.accountTransfers);
 
   if (mode === 'replace') {
     await db.transaction('rw', tablesToTransact, async () => {
@@ -84,6 +88,7 @@ export async function importDatabaseFromJSON(jsonText, mode = 'replace') {
       if (db.treasuryIncomes) await db.treasuryIncomes.clear();
       if (db.expenses) await db.expenses.clear();
       if (db.financialAccounts) await db.financialAccounts.clear();
+      if (db.accountTransfers) await db.accountTransfers.clear();
 
       if (workers.length > 0) await db.workers.bulkPut(workers);
       if (attendanceLogs.length > 0) await db.attendanceLogs.bulkPut(attendanceLogs);
@@ -92,6 +97,7 @@ export async function importDatabaseFromJSON(jsonText, mode = 'replace') {
       if (db.treasuryIncomes && treasuryIncomes.length > 0) await db.treasuryIncomes.bulkPut(treasuryIncomes);
       if (db.expenses && expenses.length > 0) await db.expenses.bulkPut(expenses);
       if (db.financialAccounts && financialAccounts.length > 0) await db.financialAccounts.bulkPut(financialAccounts);
+      if (db.accountTransfers && accountTransfers.length > 0) await db.accountTransfers.bulkPut(accountTransfers);
     });
   } else {
     // Merge mode
@@ -103,6 +109,7 @@ export async function importDatabaseFromJSON(jsonText, mode = 'replace') {
       if (db.treasuryIncomes && treasuryIncomes.length > 0) await db.treasuryIncomes.bulkPut(treasuryIncomes);
       if (db.expenses && expenses.length > 0) await db.expenses.bulkPut(expenses);
       if (db.financialAccounts && financialAccounts.length > 0) await db.financialAccounts.bulkPut(financialAccounts);
+      if (db.accountTransfers && accountTransfers.length > 0) await db.accountTransfers.bulkPut(accountTransfers);
     });
   }
 

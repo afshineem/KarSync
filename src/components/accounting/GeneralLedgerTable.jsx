@@ -23,7 +23,8 @@ import {
   AlertCircle,
   X,
   Check,
-  ChevronLeft
+  ChevronLeft,
+  Layers
 } from 'lucide-react';
 import { VerificationBadge } from '../common/VerificationBadge';
 import { useTwoStageApproval } from '../../hooks/useTwoStageApproval';
@@ -226,7 +227,7 @@ export function GeneralLedgerTable({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-black text-slate-900 dark:text-white">
-                {language === 'fa' ? 'دفتر کل و اسناد مالی (General Ledger)' : 'دەفتەری گشتی مامەڵە دارایییەکان'}
+                {language === 'fa' ? 'دفتر کل و اسناد مالی' : 'دەفتەری گشتی مامەڵە دارایییەکان'}
               </h2>
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
                 {ledgerItems.length} {language === 'fa' ? 'تراکنش' : 'مامەڵە'}
@@ -266,71 +267,81 @@ export function GeneralLedgerTable({
         </div>
       </div>
 
-      {/* تب‌های دسترسی سریع به وضعیت تایید اسناد */}
-      <div className="px-4 sm:px-5 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-2 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setApprovalStatusFilter?.('all')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-            approvalStatusFilter === 'all'
-              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-          }`}
-        >
-          <span>📑 {language === 'fa' ? 'همه اسناد' : 'هەموو'}</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-mono">
-            {ledgerStats?.total || 0}
-          </span>
-        </button>
+      {/* تب‌های دسترسی سریع به وضعیت تایید اسناد (با زبان طراحی یکدست Navbar Liquid Glass) */}
+      <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-2 overflow-x-auto">
+        {[
+          {
+            id: 'all',
+            label: language === 'fa' ? 'همه اسناد' : 'هەموو',
+            icon: Layers,
+            count: ledgerStats?.total || 0
+          },
+          {
+            id: 'draft',
+            label: language === 'fa' ? 'اسناد موقت' : 'ڕەشنووسەکان',
+            icon: Clock,
+            count: ledgerStats?.draft || 0
+          },
+          {
+            id: 'approved',
+            label: language === 'fa' ? 'تایید نهایی' : 'پەسەندکراو',
+            icon: ShieldCheck,
+            count: ledgerStats?.approved || 0
+          },
+          {
+            id: 'amended',
+            label: language === 'fa' ? 'اصلاحیه‌ها' : 'دەستکاریکراوەکان',
+            icon: History,
+            count: ledgerStats?.amended || 0
+          }
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = approvalStatusFilter === tab.id;
+          return (
+            <div key={tab.id} className="relative group">
+              <button
+                type="button"
+                onClick={() => setApprovalStatusFilter?.(tab.id)}
+                className={`relative p-2.5 rounded-2xl transition-all duration-200 flex items-center gap-2 ${
+                  isActive
+                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/25 scale-105 font-bold border border-sky-400/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80'
+                }`}
+              >
+                <Icon className="w-5 h-5 transition-transform group-hover:scale-110 shrink-0" />
+                
+                {/* نمایش نام فقط در تب فعال */}
+                {isActive && (
+                  <span className="text-xs font-bold px-1 whitespace-nowrap animate-in fade-in duration-200">
+                    {tab.label}
+                  </span>
+                )}
 
-        <button
-          type="button"
-          onClick={() => setApprovalStatusFilter?.('draft')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-            approvalStatusFilter === 'draft'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
-          }`}
-        >
-          <span>⏳ {language === 'fa' ? 'اسناد موقت / پیش‌نویس' : 'ڕەشنووسەکان'}</span>
-          {(ledgerStats?.draft || 0) > 0 && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-600 text-white font-mono animate-pulse">
-              {ledgerStats.draft}
-            </span>
-          )}
-        </button>
+                {/* شمارنده وضعیت */}
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full leading-none transition-colors ${
+                  isActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}>
+                  {tab.count}
+                </span>
 
-        <button
-          type="button"
-          onClick={() => setApprovalStatusFilter?.('approved')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-            approvalStatusFilter === 'approved'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-          }`}
-        >
-          <span>✅ {language === 'fa' ? 'تایید نهایی شده' : 'پەسەندکراو'}</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-mono">
-            {ledgerStats?.approved || 0}
-          </span>
-        </button>
+                {/* نقطه نشانگر فعال */}
+                {isActive && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs"></span>
+                )}
+              </button>
 
-        <button
-          type="button"
-          onClick={() => setApprovalStatusFilter?.('amended')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-            approvalStatusFilter === 'amended'
-              ? 'bg-purple-600 text-white shadow-sm'
-              : 'text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
-          }`}
-        >
-          <span>📝 {language === 'fa' ? 'اصلاحیه‌ها' : 'دەستکاریکراوەکان'}</span>
-          {(ledgerStats?.amended || 0) > 0 && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 font-mono">
-              {ledgerStats.amended}
-            </span>
-          )}
-        </button>
+              {/* تولتیپ در حالت غیرفعال */}
+              {!isActive && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                  {tab.label}
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* پیام بازخورد موقت */}

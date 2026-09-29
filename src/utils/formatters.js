@@ -266,6 +266,17 @@ export function formatHoursAndMinutes(decimalHours, lang = 'fa') {
 }
 
 /**
+ * Format decimal hours into digital clock format "H:MM"
+ * e.g., 1.3833 -> "1:23"
+ */
+export function formatHoursDigital(decimalHours) {
+  if (!decimalHours || Number(decimalHours) <= 0) return '0:00';
+  const { hours, minutes } = fromDecimalHours(decimalHours);
+  const minStr = String(minutes).padStart(2, '0');
+  return `${hours}:${minStr}`;
+}
+
+/**
  * Compact hour formatting for small calendar tiles
  * e.g., 1.7333 -> "+1:44" or "1:44"
  * 2 -> "+2س" / "+2ک" / "+2h"

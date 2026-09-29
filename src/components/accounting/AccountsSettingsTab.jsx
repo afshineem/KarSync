@@ -23,7 +23,8 @@ import {
   HelpCircle,
   Ban,
   ArrowDownRight,
-  ArrowUpRight
+  ArrowUpRight,
+  ArrowLeftRight
 } from 'lucide-react';
 import { migrateClosedTransactionsToCashBox } from '../../db/db';
 import { pushPaymentsLive, pushAllExpensesToCloud } from '../../services/realtimeSync';
@@ -42,6 +43,8 @@ export function AccountsSettingsTab({
   onUpdateAccount,
   onSetDefaultAccount,
   onDeleteAccount,
+  onQuickDeposit = null,
+  onQuickTransfer = null,
   currency = 'IQD',
   language = 'fa'
 }) {
@@ -49,8 +52,79 @@ export function AccountsSettingsTab({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
   const [accountToDelete, setAccountToDelete] = useState(null);
+  const [accountBlockedFromDelete, setAccountBlockedFromDelete] = useState(null);
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState(null);
+
+  const handleInitiateDelete = (account) => {
+    const balData = accountBalances?.get(String(account.id));
+    const txCount = balData?.transactions?.length || 0;
+
+    // ۱. بررسی حساب‌های سیستمی اصلی
+    if (account.id === 'acc_default_cash' || account.id === 'acc_default_bank') {
+      setAccountBlockedFromDelete({
+        account,
+        reason: 'system_core',
+        title: language === 'fa' ? 'صندوق نقدی اصلی سیستم غیرقابل حذف است' : 'سڕینەوەی سندووقی سەرەکی ڕێگەپێنەدراوە',
+        message: language === 'fa'
+          ? 'این صندوق یا کارت بانکی، حساب اصلی و پایه‌ای سیستم KarSync است و برای ثبت تمامی تسویه‌ها، تنخواه‌ها و مخارج نقدی کارگاه مورد نیاز است.'
+          : 'ئەم حیسابە بنەڕەتییە و ناسڕدرێتەوە.',
+        txCount,
+        currentBalance: balData?.currentBalance ?? 0
+      });
+      return;
+    }
+
+    // ۲. بررسی حساب پیش‌فرض
+    if (account.isDefault) {
+      setAccountBlockedFromDelete({
+        account,
+        reason: 'is_default',
+        title: language === 'fa' ? 'حساب پیش‌فرض سیستم غیرقابل حذف است' : 'حیسابی سەرەکی ناسڕدرێتەوە',
+        message: language === 'fa'
+          ? 'این حساب در حال حاضر به عنوان حساب پیش‌فرض سیستم تعیین شده است. برای حذف آن، ابتدا باید حساب دیگری را از لیست به عنوان پیش‌فرض فعال فرمایید (و این حساب باید فاقد گردش مالی باشد).'
+          : 'تکایە سەرەتا حیسابێکی تر بکە بە سەرەکی.',
+        txCount,
+        currentBalance: balData?.currentBalance ?? 0
+      });
+      return;
+    }
+
+    // ۳. بررسی حداقل یک حساب از هر نوع
+    const activeSameType = accounts.filter(a => a.type === account.type && !a.deletedAt && a.status !== 'deleted');
+    if (activeSameType.length <= 1) {
+      setAccountBlockedFromDelete({
+        account,
+        reason: 'last_account',
+        title: language === 'fa' 
+          ? `امکان حذف تنها ${account.type === 'cash' ? 'صندوق نقدی' : 'حساب بانکی'} وجود ندارد`
+          : 'کەمترین یەک حیساب پێویستە',
+        message: language === 'fa'
+          ? `سیستم همواره به حداقل یک ${account.type === 'cash' ? 'صندوق نقدی' : 'حساب بانکی'} فعال برای ثبت اسناد مالی نیاز دارد.`
+          : 'پێویستە لانیکەم یەک حیساب هەبێت.',
+        txCount,
+        currentBalance: balData?.currentBalance ?? 0
+      });
+      return;
+    }
+
+    // ۴. بررسی وجود هرگونه تراکنش و سند مالی
+    if (txCount > 0) {
+      setAccountBlockedFromDelete({
+        account,
+        reason: 'has_transactions',
+        title: language === 'fa' ? 'امکان حذف حساب دارای گردش مالی و سند وجود ندارد' : 'حیسابی خاوەن دارایی ناسڕدرێتەوە',
+        message: language === 'fa' 
+          ? `این حساب در حال حاضر دارای ${txCount} تراکنش و سند مالی ثبت‌شده (تسویه حساب پرسنل، مساعده، فاکتور هزینه، واریزی یا انتقال وجه) می‌باشد و برای حفظ تعادل دفاتر کل و سوابق مالی، غیرقابل حذف است.`
+          : `ئەم حیسابە خاوەنی ${txCount} تۆماری داراییە و ناسڕدرێتەوە.`,
+        txCount,
+        currentBalance: balData?.currentBalance ?? 0
+      });
+      return;
+    }
+
+    setAccountToDelete(account);
+  };
 
   const handleMigratePastTransactions = async () => {
     try {
@@ -237,7 +311,7 @@ export function AccountsSettingsTab({
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <CheckCircle2 className={`w-4 h-4 ${globalOverdraftPolicy === 'always_allow' ? 'text-emerald-500' : 'text-slate-400'}`} />
-                <span>{language === 'fa' ? 'الف: همیشه مجاز' : 'هەمیشە ڕێگەپێدراو'}</span>
+                <span>{language === 'fa' ? 'همیشه مجاز' : 'هەمیشە ڕێگەپێدراو'}</span>
               </span>
               <input
                 type="radio"
@@ -254,7 +328,7 @@ export function AccountsSettingsTab({
             </p>
           </div>
 
-          {/* گزینه ب: هر بار پرسیده شود */}
+          {/* هر بار پرسیده شود */}
           <div
             onClick={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('ask_each_time')}
             className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
@@ -266,7 +340,7 @@ export function AccountsSettingsTab({
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <HelpCircle className={`w-4 h-4 ${globalOverdraftPolicy === 'ask_each_time' ? 'text-amber-500' : 'text-slate-400'}`} />
-                <span>{language === 'fa' ? 'ب: هر بار پرسیده شود' : 'پرسیار لە هەر جارێکدا'}</span>
+                <span>{language === 'fa' ? 'هر بار پرسیده شود' : 'پرسیار لە هەر جارێکدا'}</span>
               </span>
               <input
                 type="radio"
@@ -283,7 +357,7 @@ export function AccountsSettingsTab({
             </p>
           </div>
 
-          {/* گزینه ج: همیشه نامجاز */}
+          {/* همیشه نامجاز */}
           <div
             onClick={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('never_allow')}
             className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
@@ -295,7 +369,7 @@ export function AccountsSettingsTab({
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <Ban className={`w-4 h-4 ${globalOverdraftPolicy === 'never_allow' ? 'text-rose-500' : 'text-slate-400'}`} />
-                <span>{language === 'fa' ? 'ج: همیشه نامجاز' : 'هەمیشە قەدەغە'}</span>
+                <span>{language === 'fa' ? 'همیشه نامجاز' : 'هەمیشە قەدەغە'}</span>
               </span>
               <input
                 type="radio"
@@ -504,36 +578,76 @@ export function AccountsSettingsTab({
                     <button
                       type="button"
                       onClick={() => onSetDefaultAccount(account.id)}
-                      className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                      className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 text-[11px] font-bold flex items-center gap-1.5 transition-colors"
                     >
                       <Star className="w-3.5 h-3.5" />
-                      <span>{language === 'fa' ? 'تنظیم پیش‌فرض' : 'دانان وەک سەرەکی'}</span>
+                      <span>{language === 'fa' ? 'پیش‌فرض' : 'سەرەکی'}</span>
                     </button>
                   ) : (
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-1 rounded-xl">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>پیش‌فرض فعال</span>
                     </span>
                   )}
 
-                  {/* دکمه‌های ویرایش و حذف */}
+                  {/* دکمه‌های عملیات سریع و ویرایش/حذف */}
                   <div className="flex items-center gap-1">
+                    {onQuickDeposit && (
+                      <button
+                        type="button"
+                        onClick={() => onQuickDeposit(account)}
+                        title={language === 'fa' ? 'افزایش موجودی این حساب' : 'زیادکردنی بودجە'}
+                        className="p-1.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
+                      >
+                        <Plus className="w-4 h-4 text-emerald-500" />
+                      </button>
+                    )}
+                    {onQuickTransfer && (
+                      <button
+                        type="button"
+                        onClick={() => onQuickTransfer(account)}
+                        title={language === 'fa' ? 'انتقال وجه از این حساب' : 'گواستنەوەی پارە'}
+                        className="p-1.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 text-indigo-500" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setEditingAccount(account)}
-                      title={language === 'fa' ? 'ویرایش حساب' : 'دەستکاری'}
+                      title={language === 'fa' ? 'ویرایش مشخصات حساب' : 'دەستکاری'}
                       className="p-1.5 rounded-xl text-slate-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/50 transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setAccountToDelete(account)}
-                      title={language === 'fa' ? 'حذف حساب' : 'سڕینەوە'}
-                      className="p-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {(() => {
+                      const isCore = account.id === 'acc_default_cash' || account.id === 'acc_default_bank';
+                      const isDef = Boolean(account.isDefault);
+                      const tx = accountBalances?.get(String(account.id))?.transactions?.length || 0;
+                      const isBlocked = isCore || isDef || tx > 0;
+                      const blockTooltip = isCore
+                        ? (language === 'fa' ? 'صندوق نقدی اصلی سیستم (غیرقابل حذف)' : 'سندووقی سەرەکی')
+                        : isDef
+                          ? (language === 'fa' ? 'حساب پیش‌فرض سیستم (غیرقابل حذف)' : 'حیسابی سەرەکی')
+                          : tx > 0
+                            ? (language === 'fa' ? `حساب دارای ${tx} گردش مالی و سند (غیرقابل حذف)` : `خاوەن ${tx} تۆماری دارایی`)
+                            : (language === 'fa' ? 'حذف حساب' : 'سڕینەوە');
+
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => handleInitiateDelete(account)}
+                          title={blockTooltip}
+                          className={`p-1.5 rounded-xl transition-all ${
+                            isBlocked
+                              ? 'text-slate-300 dark:text-slate-600 hover:text-rose-500 hover:bg-rose-50/50 dark:hover:bg-rose-950/30'
+                              : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50'
+                          }`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -567,7 +681,7 @@ export function AccountsSettingsTab({
 
       {/* دیالوگ تأیید حذف حساب */}
       {accountToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center mb-3">
               <AlertTriangle className="w-6 h-6" />
@@ -592,6 +706,55 @@ export function AccountsSettingsTab({
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20"
               >
                 {language === 'fa' ? 'حذف قطعی' : 'سڕینەوە'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* دیالوگ اخطار عدم امکان حذف حساب دارای گردش مالی */}
+      {accountBlockedFromDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl text-center space-y-4">
+            <div className="w-14 h-14 rounded-3xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center border border-rose-200 dark:border-rose-900 shadow-sm">
+              <Ban className="w-7 h-7" />
+            </div>
+            
+            <div className="space-y-1">
+              <h4 className="text-base font-black text-slate-900 dark:text-white">
+                {accountBlockedFromDelete.title || (language === 'fa' ? 'امکان حذف این حساب وجود ندارد' : 'سڕینەوەی ئەم حیسابە ڕێگەپێنەدراوە')}
+              </h4>
+              <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                {accountBlockedFromDelete.account?.name}
+              </p>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 text-start space-y-2">
+              <p className="leading-relaxed font-medium">
+                {accountBlockedFromDelete.message || (language === 'fa' 
+                  ? `این حساب در حال حاضر دارای ${accountBlockedFromDelete.txCount} گردش مالی و تراکنش ثبت‌شده (تسویه حساب پرسنل، مساعده، فاکتور هزینه یا واریزی) می‌باشد.`
+                  : `ئەم حیسابە خاوەنی ${accountBlockedFromDelete.txCount} تۆماری داراییە.`)}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                {language === 'fa' 
+                  ? 'طبق استانداردهای مالی و برای حفظ تعادل دفاتر کل، حسابی که سند خورده است و در تسویه‌ها مورد استفاده قرار گرفته، غیرقابل حذف می‌باشد. در صورت نیاز می‌توانید اطلاعات آن را ویرایش نمایید.'
+                  : 'بۆ پاراستنی هاوسەنگی دەفتەری دارایی ناتوانرێت بسڕدرێتەوە.'}
+              </p>
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] font-bold">
+                <span>{language === 'fa' ? 'موجودی فعلی حساب:' : 'باڵانس:'}</span>
+                <span className="font-mono text-emerald-600 dark:text-emerald-400" dir="ltr">
+                  {formatCurrency(accountBlockedFromDelete.currentBalance, currency, language)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-center pt-1">
+              <button
+                type="button"
+                onClick={() => setAccountBlockedFromDelete(null)}
+                className="px-6 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-md transition-all active:scale-95"
+              >
+                {language === 'fa' ? 'متوجه شدم' : 'تێگەیشتم'}
               </button>
             </div>
           </div>

@@ -28,7 +28,55 @@ const PENDING_DELETED_PAYMENTS_KEY = 'workshop_pending_deleted_payments';
 const PENDING_DELETED_PROJECTS_KEY = 'workshop_pending_deleted_projects';
 const PENDING_DELETED_SECTIONS_KEY = 'workshop_pending_deleted_sections';
 const PENDING_DELETED_GROUPS_KEY = 'workshop_pending_deleted_groups';
+const PENDING_DELETED_ACCOUNTS_KEY = 'workshop_pending_deleted_accounts';
+const PENDING_DELETED_INCOMES_KEY = 'workshop_pending_deleted_incomes';
 export const WORKER_PROJECTS_STORAGE_KEY = 'workshop_worker_projects';
+
+export function getPendingDeletedAccounts() {
+  try {
+    const raw = localStorage.getItem(PENDING_DELETED_ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingAccountDeletion(accountId) {
+  if (!accountId) return;
+  const list = getPendingDeletedAccounts();
+  if (!list.includes(accountId)) {
+    list.push(accountId);
+    localStorage.setItem(PENDING_DELETED_ACCOUNTS_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingAccountDeletion(accountId) {
+  const list = getPendingDeletedAccounts().filter((id) => id !== accountId);
+  localStorage.setItem(PENDING_DELETED_ACCOUNTS_KEY, JSON.stringify(list));
+}
+
+export function getPendingDeletedIncomes() {
+  try {
+    const raw = localStorage.getItem(PENDING_DELETED_INCOMES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingIncomeDeletion(incomeId) {
+  if (!incomeId) return;
+  const list = getPendingDeletedIncomes();
+  if (!list.includes(incomeId)) {
+    list.push(incomeId);
+    localStorage.setItem(PENDING_DELETED_INCOMES_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingIncomeDeletion(incomeId) {
+  const list = getPendingDeletedIncomes().filter((id) => id !== incomeId);
+  localStorage.setItem(PENDING_DELETED_INCOMES_KEY, JSON.stringify(list));
+}
 
 export function getPendingDeletedGroups() {
   try {
@@ -295,6 +343,26 @@ export async function flushPendingDeletions() {
       console.warn('Flush expense deletion warning:', expId, err);
     }
   }
+
+  // Flush pending deleted financial accounts
+  const pendingAccounts = getPendingDeletedAccounts();
+  for (const accId of pendingAccounts) {
+    try {
+      await deleteFinancialAccountLive(accId);
+    } catch (err) {
+      console.warn('Flush account deletion warning:', accId, err);
+    }
+  }
+
+  // Flush pending deleted treasury incomes
+  const pendingIncomes = getPendingDeletedIncomes();
+  for (const incId of pendingIncomes) {
+    try {
+      await deleteTreasuryIncomeLive(incId);
+    } catch (err) {
+      console.warn('Flush income deletion warning:', incId, err);
+    }
+  }
 }
 
 /**
@@ -399,6 +467,10 @@ export async function autoInitialSync() {
   await pullProjectSectionsLive(true);
   await pullExpensesLive(true);
   await pullExpenseCategoriesLive(true);
+  await pullFinancialAccountsLive(true);
+  await pullTreasuryIncomesLive(true);
+  await pullAccountTransfersLive(true);
+  await pullGlobalOverdraftPolicyLive();
 
   // Auto-detect and push any local workers missing in cloud (Mohammad, Mostafa, etc.)
   const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
@@ -412,6 +484,9 @@ export async function autoInitialSync() {
   await pushAllGroupsToCloud();
   await syncAllWorkerMetadataToCloud();
   await pushAllExpensesToCloud();
+  await pushAllFinancialAccountsToCloud();
+  await pushAllTreasuryIncomesToCloud();
+  await pushAllAccountTransfersToCloud();
 }
 
 /**
@@ -698,6 +773,9 @@ export async function pushAllLocalToCloud() {
     if (error) console.error('Error uploading local logs to Supabase:', error);
   }
 
+  await pushAllFinancialAccountsToCloud();
+  await pushAllTreasuryIncomesToCloud();
+
   const now = new Date().toISOString();
   setLastSyncTime(now);
   console.log('✅ Local data uploaded to Supabase successfully!');
@@ -844,6 +922,14 @@ function subscribeToRealtime() {
         await pullWorkerMetadataLive(true);
       } else if (syncType === 'expenses') {
         await pullExpensesLive(true);
+      } else if (syncType === 'accounts') {
+        await pullFinancialAccountsLive(true);
+      } else if (syncType === 'incomes') {
+        await pullTreasuryIncomesLive(true);
+      } else if (syncType === 'transfers') {
+        await pullAccountTransfersLive(true);
+      } else if (syncType === 'settings') {
+        await pullGlobalOverdraftPolicyLive();
       } else {
         await pullProjectsLive(true);
         await pullProjectSectionsLive(true);
@@ -852,6 +938,10 @@ function subscribeToRealtime() {
         await pullGroupsLive(true);
         await pullWorkerMetadataLive(true);
         await pullExpensesLive(true);
+        await pullFinancialAccountsLive(true);
+        await pullTreasuryIncomesLive(true);
+        await pullAccountTransfersLive(true);
+        await pullGlobalOverdraftPolicyLive();
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
@@ -863,6 +953,10 @@ function subscribeToRealtime() {
       await pullGroupsLive(true);
       await pullWorkerMetadataLive(true);
       await pullExpensesLive(true);
+      await pullFinancialAccountsLive(true);
+      await pullTreasuryIncomesLive(true);
+      await pullAccountTransfersLive(true);
+      await pullGlobalOverdraftPolicyLive();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
       console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
@@ -958,6 +1052,25 @@ function subscribeToRealtime() {
             updatedAt: exp.updated_at
           });
         }
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
+      const key = payload.new?.setting_key || payload.old?.setting_key;
+      console.log('⚡ Realtime Settings table change detected:', key);
+      if (key === 'app_financial_accounts') {
+        await pullFinancialAccountsLive(true);
+      } else if (key === 'app_treasury_incomes') {
+        await pullTreasuryIncomesLive(true);
+      } else if (key === 'app_account_transfers') {
+        await pullAccountTransfersLive(true);
+      } else if (key === 'app_global_overdraft_policy') {
+        await pullGlobalOverdraftPolicyLive();
+      } else if (key === 'app_projects') {
+        await pullProjectsLive(true);
+      } else if (key === 'app_project_sections') {
+        await pullProjectSectionsLive(true);
+      } else if (key === 'app_groups') {
+        await pullGroupsLive(true);
       }
     })
     .subscribe((status) => {
@@ -2029,6 +2142,10 @@ export async function pullRemoteChangesSilently(force = false) {
     await pullProjectsLive();
     await pullProjectSectionsLive();
     await pullExpensesLive();
+    await pullFinancialAccountsLive();
+    await pullTreasuryIncomesLive();
+    await pullAccountTransfersLive();
+    await pullGlobalOverdraftPolicyLive();
   } catch (err) {
     console.warn('pullRemoteChangesSilently warning:', err);
   } finally {
@@ -2408,10 +2525,13 @@ export async function fullSyncBothDirections() {
   await pullProjectsLive();
   await pullProjectSectionsLive();
   await pullExpensesLive();
+  await pullExpenseCategoriesLive(true);
   await pushAllLocalToCloud();
   await pushAllGroupsToCloud();
   await syncAllWorkerMetadataToCloud();
   await pushPaymentsLive();
+  await pushAllExpensesToCloud();
+  await syncFinancialDataLive();
 }
 
 /**
@@ -3076,6 +3196,755 @@ export async function deleteExpenseCategoryLive(catId) {
     } catch (_) {}
   } catch (err) {
     console.warn('deleteExpenseCategoryLive warning:', err);
+  }
+}
+
+let isPullingAccounts = false;
+let lastAccountsPullTime = 0;
+
+/**
+ * Pull financial accounts (bank cards and cash boxes) from Supabase settings
+ */
+export async function pullFinancialAccountsLive(force = false) {
+  if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingAccounts) return;
+  if (!force && now - lastAccountsPullTime < 2000) return;
+  isPullingAccounts = true;
+  lastAccountsPullTime = now;
+
+  try {
+    clearPendingAccountDeletion('acc_default_cash');
+    clearPendingAccountDeletion('acc_default_bank');
+    const pendingDeleted = new Set(getPendingDeletedAccounts());
+    pendingDeleted.delete('acc_default_cash');
+    pendingDeleted.delete('acc_default_bank');
+    pendingDeleted.add('acc_mull5f7l_itlwl');
+    await db.financialAccounts.delete('acc_mull5f7l_itlwl').catch(() => {});
+    let cloudAccounts = null;
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_financial_accounts')
+      .maybeSingle();
+
+    if (!sErr && sData?.setting_value) {
+      try {
+        cloudAccounts = JSON.parse(sData.setting_value);
+      } catch (_) {}
+    }
+
+    const localAccounts = await db.financialAccounts.toArray();
+
+    // If cloud setting has never been seeded or is null, push our local accounts to initialize it
+    if (cloudAccounts === null || !Array.isArray(cloudAccounts)) {
+      if (localAccounts.length > 0) {
+        await pushAllFinancialAccountsToCloud();
+      }
+      return;
+    }
+
+    const cloudMap = new Map();
+    const cloudDeletedIds = new Set();
+    for (const ca of cloudAccounts) {
+      if (!ca || !ca.id) continue;
+      // Core system accounts (acc_default_cash, acc_default_bank) are permanent and never deleted
+      if (ca.id === 'acc_default_cash' || ca.id === 'acc_default_bank') {
+        ca.deletedAt = null;
+        ca.status = 'active';
+        ca.isActive = true;
+      }
+      if (ca.deletedAt || ca.status === 'deleted' || pendingDeleted.has(ca.id)) {
+        if (ca.id !== 'acc_default_cash' && ca.id !== 'acc_default_bank') {
+          cloudDeletedIds.add(ca.id);
+          await db.financialAccounts.delete(ca.id).catch(() => {});
+          continue;
+        }
+      }
+      cloudMap.set(ca.id, ca);
+    }
+
+    // Ensure acc_default_cash is always in cloudMap
+    let needPushLocal = false;
+    if (!cloudMap.has('acc_default_cash')) {
+      const now = new Date().toISOString();
+      cloudMap.set('acc_default_cash', {
+        id: 'acc_default_cash',
+        projectId: DEFAULT_PROJECT_ID,
+        userId: 'default_user',
+        name: 'صندوق نقدی کارگاه',
+        type: 'cash',
+        keeperName: 'سرپرست کارگاه',
+        initialBalance: 0,
+        isDefault: true,
+        isActive: true,
+        color: 'amber',
+        notes: 'صندوق نقدی پیش‌فرض جهت پرداخت‌ها و مخارج روزمره کارگاه',
+        deletedAt: null,
+        status: 'active',
+        createdAt: now,
+        updatedAt: now
+      });
+      needPushLocal = true;
+    }
+
+    // 1. Reconcile local accounts:
+    for (const la of localAccounts) {
+      if (pendingDeleted.has(la.id) || cloudDeletedIds.has(la.id) || la.deletedAt || la.status === 'deleted') {
+        await db.financialAccounts.delete(la.id).catch(() => {});
+      } else if (!cloudMap.has(la.id)) {
+        // Local account is active and not marked deleted. Add to cloudMap and sync to cloud!
+        cloudMap.set(la.id, la);
+        needPushLocal = true;
+      }
+    }
+
+    // 2. Put cloud accounts into local Dexie
+    for (const ca of cloudMap.values()) {
+      if (ca.deletedAt || ca.status === 'deleted' || pendingDeleted.has(ca.id) || cloudDeletedIds.has(ca.id)) {
+        await db.financialAccounts.delete(ca.id).catch(() => {});
+      } else {
+        const local = await db.financialAccounts.get(ca.id);
+        if (!local || !local.updatedAt || !ca.updatedAt || new Date(ca.updatedAt) >= new Date(local.updatedAt)) {
+          await db.financialAccounts.put(ca);
+        }
+      }
+    }
+
+    if (needPushLocal) {
+      await pushAllFinancialAccountsToCloud();
+    }
+
+    window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
+  } catch (err) {
+    console.warn('pullFinancialAccountsLive warning:', err);
+  } finally {
+    isPullingAccounts = false;
+  }
+}
+
+/**
+ * Push an individual financial account to Dexie and Supabase
+ */
+export async function pushFinancialAccountLive(account) {
+  if (!account || !account.id) return;
+  try {
+    await db.financialAccounts.put(account);
+    window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_financial_accounts')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudAccounts = JSON.parse(data.setting_value) || [];
+        for (const ca of cloudAccounts) {
+          if (ca && ca.id) mergedMap.set(ca.id, ca);
+        }
+      } catch (_) {}
+    }
+
+    const pendingDeleted = new Set(getPendingDeletedAccounts());
+    if (pendingDeleted.has(account.id) || account.deletedAt || account.status === 'deleted') {
+      mergedMap.set(account.id, {
+        ...account,
+        deletedAt: new Date().toISOString(),
+        status: 'deleted'
+      });
+    } else {
+      mergedMap.set(account.id, {
+        ...account,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_financial_accounts',
+      setting_value: JSON.stringify(Array.from(mergedMap.values())),
+      updated_at: new Date().toISOString()
+    });
+
+    broadcastSyncEvent('accounts');
+  } catch (err) {
+    console.warn('pushFinancialAccountLive warning:', err);
+  }
+}
+
+/**
+ * Delete a financial account from Dexie and Supabase with tombstone
+ */
+export async function deleteFinancialAccountLive(accountId) {
+  if (!accountId || accountId === 'acc_default_cash' || accountId === 'acc_default_bank') {
+    console.warn('Cannot delete core system financial account:', accountId);
+    return;
+  }
+  recordPendingAccountDeletion(accountId);
+  try {
+    await db.financialAccounts.delete(accountId);
+    window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_financial_accounts')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        let cloudAccounts = JSON.parse(data.setting_value) || [];
+        let found = false;
+        cloudAccounts = cloudAccounts.map((ca) => {
+          if (ca && ca.id === accountId) {
+            found = true;
+            return { ...ca, deletedAt: new Date().toISOString(), status: 'deleted' };
+          }
+          return ca;
+        });
+        if (!found) {
+          cloudAccounts.push({ id: accountId, deletedAt: new Date().toISOString(), status: 'deleted' });
+        }
+        await supabase.from('settings').upsert({
+          setting_key: 'app_financial_accounts',
+          setting_value: JSON.stringify(cloudAccounts),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    broadcastSyncEvent('accounts');
+  } catch (err) {
+    console.warn('deleteFinancialAccountLive warning:', err);
+  }
+}
+
+/**
+ * Push all active local financial accounts to Supabase
+ */
+export async function pushAllFinancialAccountsToCloud() {
+  if (!navigator.onLine) return;
+  try {
+    clearPendingAccountDeletion('acc_default_cash');
+    clearPendingAccountDeletion('acc_default_bank');
+    const list = await db.financialAccounts.toArray();
+    const pendingDeleted = new Set(getPendingDeletedAccounts());
+    pendingDeleted.delete('acc_default_cash');
+    pendingDeleted.delete('acc_default_bank');
+    pendingDeleted.add('acc_mull5f7l_itlwl');
+    const active = list.filter(a => !pendingDeleted.has(a.id) && !a.deletedAt && a.status !== 'deleted' && a.id !== 'acc_mull5f7l_itlwl');
+
+    const { data: sData } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_financial_accounts')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (sData?.setting_value) {
+      try {
+        const cloudAccounts = JSON.parse(sData.setting_value) || [];
+        for (const ca of cloudAccounts) {
+          if (ca && ca.id) mergedMap.set(ca.id, ca);
+        }
+      } catch (_) {}
+    }
+
+    for (const a of active) {
+      mergedMap.set(a.id, a);
+    }
+
+    for (const dId of pendingDeleted) {
+      if (mergedMap.has(dId)) {
+        mergedMap.set(dId, { ...mergedMap.get(dId), deletedAt: new Date().toISOString(), status: 'deleted' });
+      } else {
+        mergedMap.set(dId, { id: dId, deletedAt: new Date().toISOString(), status: 'deleted' });
+      }
+    }
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_financial_accounts',
+      setting_value: JSON.stringify(Array.from(mergedMap.values())),
+      updated_at: new Date().toISOString()
+    });
+    broadcastSyncEvent('accounts');
+  } catch (err) {
+    console.warn('pushAllFinancialAccountsToCloud warning:', err);
+  }
+}
+
+let isPullingIncomes = false;
+let lastIncomesPullTime = 0;
+
+/**
+ * Pull treasury incomes from Supabase settings
+ */
+export async function pullTreasuryIncomesLive(force = false) {
+  if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingIncomes) return;
+  if (!force && now - lastIncomesPullTime < 2000) return;
+  isPullingIncomes = true;
+  lastIncomesPullTime = now;
+
+  try {
+    const pendingDeleted = new Set(getPendingDeletedIncomes());
+    let cloudIncomes = null;
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_treasury_incomes')
+      .maybeSingle();
+
+    if (!sErr && sData?.setting_value) {
+      try {
+        cloudIncomes = JSON.parse(sData.setting_value);
+      } catch (_) {}
+    }
+
+    const localIncomes = await db.treasuryIncomes.toArray();
+
+    if (cloudIncomes === null || !Array.isArray(cloudIncomes)) {
+      if (localIncomes.length > 0) {
+        await pushAllTreasuryIncomesToCloud();
+      }
+      return;
+    }
+
+    const cloudMap = new Map();
+    const cloudDeletedIds = new Set();
+    for (const ci of cloudIncomes) {
+      if (!ci || !ci.id) continue;
+      if (ci.deletedAt || ci.status === 'deleted' || pendingDeleted.has(ci.id)) {
+        cloudDeletedIds.add(ci.id);
+        await db.treasuryIncomes.delete(ci.id).catch(() => {});
+      } else {
+        cloudMap.set(ci.id, ci);
+      }
+    }
+
+    let needPushIncomes = false;
+    for (const li of localIncomes) {
+      if (pendingDeleted.has(li.id) || cloudDeletedIds.has(li.id) || li.deletedAt || li.status === 'deleted') {
+        await db.treasuryIncomes.delete(li.id).catch(() => {});
+      } else if (!cloudMap.has(li.id)) {
+        cloudMap.set(li.id, li);
+        needPushIncomes = true;
+      }
+    }
+
+    for (const ci of cloudMap.values()) {
+      if (ci.deletedAt || ci.status === 'deleted' || pendingDeleted.has(ci.id) || cloudDeletedIds.has(ci.id)) {
+        await db.treasuryIncomes.delete(ci.id).catch(() => {});
+      } else {
+        const local = await db.treasuryIncomes.get(ci.id);
+        if (!local || !local.updatedAt || !ci.updatedAt || new Date(ci.updatedAt) >= new Date(local.updatedAt)) {
+          await db.treasuryIncomes.put(ci);
+        }
+      }
+    }
+
+    if (needPushIncomes) {
+      await pushAllTreasuryIncomesToCloud();
+    }
+
+    window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
+  } catch (err) {
+    console.warn('pullTreasuryIncomesLive warning:', err);
+  } finally {
+    isPullingIncomes = false;
+  }
+}
+
+/**
+ * Push an individual treasury income to Dexie and Supabase
+ */
+export async function pushTreasuryIncomeLive(income) {
+  if (!income || !income.id) return;
+  try {
+    await db.treasuryIncomes.put(income);
+    window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_treasury_incomes')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudIncomes = JSON.parse(data.setting_value) || [];
+        for (const ci of cloudIncomes) {
+          if (ci && ci.id) mergedMap.set(ci.id, ci);
+        }
+      } catch (_) {}
+    }
+
+    const pendingDeleted = new Set(getPendingDeletedIncomes());
+    if (pendingDeleted.has(income.id) || income.deletedAt || income.status === 'deleted') {
+      mergedMap.set(income.id, {
+        ...income,
+        deletedAt: new Date().toISOString(),
+        status: 'deleted'
+      });
+    } else {
+      mergedMap.set(income.id, {
+        ...income,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_treasury_incomes',
+      setting_value: JSON.stringify(Array.from(mergedMap.values())),
+      updated_at: new Date().toISOString()
+    });
+
+    broadcastSyncEvent('incomes');
+  } catch (err) {
+    console.warn('pushTreasuryIncomeLive warning:', err);
+  }
+}
+
+/**
+ * Delete a treasury income from Dexie and Supabase with tombstone
+ */
+export async function deleteTreasuryIncomeLive(incomeId) {
+  if (!incomeId) return;
+  recordPendingIncomeDeletion(incomeId);
+  try {
+    await db.treasuryIncomes.delete(incomeId);
+    window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_treasury_incomes')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        let cloudIncomes = JSON.parse(data.setting_value) || [];
+        cloudIncomes = cloudIncomes.map((ci) => {
+          if (ci && ci.id === incomeId) {
+            return { ...ci, deletedAt: new Date().toISOString(), status: 'deleted' };
+          }
+          return ci;
+        });
+        await supabase.from('settings').upsert({
+          setting_key: 'app_treasury_incomes',
+          setting_value: JSON.stringify(cloudIncomes),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    broadcastSyncEvent('incomes');
+  } catch (err) {
+    console.warn('deleteTreasuryIncomeLive warning:', err);
+  }
+}
+
+/**
+ * Push all active local treasury incomes to Supabase
+ */
+export async function pushAllTreasuryIncomesToCloud() {
+  if (!navigator.onLine) return;
+  try {
+    const list = await db.treasuryIncomes.toArray();
+    const pendingDeleted = new Set(getPendingDeletedIncomes());
+    const active = list.filter(i => !pendingDeleted.has(i.id) && !i.deletedAt);
+    await supabase.from('settings').upsert({
+      setting_key: 'app_treasury_incomes',
+      setting_value: JSON.stringify(active),
+      updated_at: new Date().toISOString()
+    });
+    broadcastSyncEvent('incomes');
+  } catch (err) {
+    console.warn('pushAllTreasuryIncomesToCloud warning:', err);
+  }
+}
+
+/**
+ * Push global overdraft policy to Dexie and Supabase
+ */
+export async function pushGlobalOverdraftPolicyLive(policy) {
+  if (!policy) return;
+  try {
+    await db.settings.put({ key: 'global_overdraft_policy', value: policy });
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    await supabase.from('settings').upsert({
+      setting_key: 'app_global_overdraft_policy',
+      setting_value: JSON.stringify({ policy, updatedAt: new Date().toISOString() }),
+      updated_at: new Date().toISOString()
+    });
+    broadcastSyncEvent('settings');
+  } catch (err) {
+    console.warn('pushGlobalOverdraftPolicyLive warning:', err);
+  }
+}
+
+/**
+ * Pull global overdraft policy from Supabase settings
+ */
+export async function pullGlobalOverdraftPolicyLive() {
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_global_overdraft_policy')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      const parsed = JSON.parse(data.setting_value);
+      if (parsed?.policy) {
+        await db.settings.put({ key: 'global_overdraft_policy', value: parsed.policy });
+      }
+    }
+  } catch (err) {
+    console.warn('pullGlobalOverdraftPolicyLive warning:', err);
+  }
+}
+
+let isPullingTransfers = false;
+let lastTransfersPullTime = 0;
+
+/**
+ * Pull account transfers from Supabase settings
+ */
+export async function pullAccountTransfersLive(force = false) {
+  if (!navigator.onLine) return;
+  const now = Date.now();
+  if (isPullingTransfers) return;
+  if (!force && now - lastTransfersPullTime < 2000) return;
+  isPullingTransfers = true;
+  lastTransfersPullTime = now;
+
+  try {
+    let cloudTransfers = null;
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_account_transfers')
+      .maybeSingle();
+
+    if (!sErr && sData?.setting_value) {
+      try {
+        cloudTransfers = JSON.parse(sData.setting_value);
+      } catch (_) {}
+    }
+
+    if (!db.accountTransfers) return;
+    const localTransfers = await db.accountTransfers.toArray();
+
+    if (cloudTransfers === null || !Array.isArray(cloudTransfers)) {
+      if (localTransfers.length > 0) {
+        await pushAllAccountTransfersToCloud();
+      }
+      return;
+    }
+
+    const cloudMap = new Map();
+    const cloudDeletedIds = new Set();
+    for (const ct of cloudTransfers) {
+      if (!ct || !ct.id) continue;
+      if (ct.deletedAt || ct.status === 'deleted') {
+        cloudDeletedIds.add(ct.id);
+        await db.accountTransfers.delete(ct.id).catch(() => {});
+      } else {
+        cloudMap.set(ct.id, ct);
+      }
+    }
+
+    let needPushLocal = false;
+    for (const lt of localTransfers) {
+      if (cloudDeletedIds.has(lt.id) || lt.deletedAt || lt.status === 'deleted') {
+        await db.accountTransfers.delete(lt.id).catch(() => {});
+      } else if (!cloudMap.has(lt.id)) {
+        cloudMap.set(lt.id, lt);
+        needPushLocal = true;
+      }
+    }
+
+    for (const ct of cloudMap.values()) {
+      if (ct.deletedAt || ct.status === 'deleted' || cloudDeletedIds.has(ct.id)) {
+        await db.accountTransfers.delete(ct.id).catch(() => {});
+      } else {
+        const local = await db.accountTransfers.get(ct.id);
+        if (!local || !local.updatedAt || !ct.updatedAt || new Date(ct.updatedAt) >= new Date(local.updatedAt)) {
+          await db.accountTransfers.put(ct);
+        }
+      }
+    }
+
+    if (needPushLocal) {
+      await pushAllAccountTransfersToCloud();
+    }
+
+    window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+  } catch (err) {
+    console.warn('pullAccountTransfersLive warning:', err);
+  } finally {
+    isPullingTransfers = false;
+  }
+}
+
+/**
+ * Push an individual account transfer to Dexie and Supabase
+ */
+export async function pushAccountTransferLive(transfer) {
+  if (!transfer || !transfer.id) return;
+  try {
+    if (db.accountTransfers) {
+      await db.accountTransfers.put(transfer);
+    }
+    window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_account_transfers')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudTransfers = JSON.parse(data.setting_value) || [];
+        for (const ct of cloudTransfers) {
+          if (ct && ct.id) mergedMap.set(ct.id, ct);
+        }
+      } catch (_) {}
+    }
+
+    if (transfer.deletedAt || transfer.status === 'deleted') {
+      mergedMap.set(transfer.id, {
+        ...transfer,
+        deletedAt: new Date().toISOString(),
+        status: 'deleted'
+      });
+    } else {
+      mergedMap.set(transfer.id, {
+        ...transfer,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_account_transfers',
+      setting_value: JSON.stringify(Array.from(mergedMap.values())),
+      updated_at: new Date().toISOString()
+    });
+
+    broadcastSyncEvent('transfers');
+  } catch (err) {
+    console.warn('pushAccountTransferLive warning:', err);
+  }
+}
+
+/**
+ * Delete an account transfer from Dexie and Supabase
+ */
+export async function deleteAccountTransferLive(transferId) {
+  if (!transferId) return;
+  try {
+    if (db.accountTransfers) {
+      await db.accountTransfers.delete(transferId);
+    }
+    window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_account_transfers')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        let cloudTransfers = JSON.parse(data.setting_value) || [];
+        cloudTransfers = cloudTransfers.map((ct) => {
+          if (ct && ct.id === transferId) {
+            return { ...ct, deletedAt: new Date().toISOString(), status: 'deleted' };
+          }
+          return ct;
+        });
+        await supabase.from('settings').upsert({
+          setting_key: 'app_account_transfers',
+          setting_value: JSON.stringify(cloudTransfers),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    broadcastSyncEvent('transfers');
+  } catch (err) {
+    console.warn('deleteAccountTransferLive warning:', err);
+  }
+}
+
+/**
+ * Push all active local account transfers to Supabase
+ */
+export async function pushAllAccountTransfersToCloud() {
+  if (!navigator.onLine || !db.accountTransfers) return;
+  try {
+    const list = await db.accountTransfers.toArray();
+    const active = list.filter((t) => !t.deletedAt && t.status !== 'deleted');
+    await supabase.from('settings').upsert({
+      setting_key: 'app_account_transfers',
+      setting_value: JSON.stringify(active),
+      updated_at: new Date().toISOString()
+    });
+    broadcastSyncEvent('transfers');
+  } catch (err) {
+    console.warn('pushAllAccountTransfersToCloud warning:', err);
+  }
+}
+
+/**
+ * Universal Financial Data Sync
+ * Pulls and pushes financial accounts, incomes, transfers, and overdraft policies
+ */
+export async function syncFinancialDataLive() {
+  try {
+    await pullFinancialAccountsLive(true);
+    await pullTreasuryIncomesLive(true);
+    await pullAccountTransfersLive(true);
+    await pullGlobalOverdraftPolicyLive();
+    await pushAllFinancialAccountsToCloud();
+    await pushAllTreasuryIncomesToCloud();
+    await pushAllAccountTransfersToCloud();
+    window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
+    window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
+    window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+    return { success: true };
+  } catch (err) {
+    console.warn('syncFinancialDataLive warning:', err);
+    return { success: false, error: err.message };
   }
 }
 

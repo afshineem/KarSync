@@ -1,4 +1,4 @@
-const CACHE_NAME = 'karsync-cache-v13';
+const CACHE_NAME = 'karsync-cache-v16';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

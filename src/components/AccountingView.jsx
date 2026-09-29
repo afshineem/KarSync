@@ -10,6 +10,7 @@ import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
 import { AccountSubsidiaryLedgerSection } from './accounting/AccountSubsidiaryLedgerSection';
+import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { 
   Landmark, 
   Plus, 
@@ -23,7 +24,10 @@ import {
   CreditCard,
   X,
   Clock,
-  ChevronLeft
+  ChevronLeft,
+  ArrowLeftRight,
+  RefreshCw,
+  Check
 } from 'lucide-react';
 
 /**
@@ -42,8 +46,12 @@ export function AccountingView() {
 
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [isAccountsModalOpen, setIsAccountsModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [initialTransferSourceId, setInitialTransferSourceId] = useState(null);
   const [selectedAccountForLedger, setSelectedAccountForLedger] = useState(null);
   const [quickDepositAccount, setQuickDepositAccount] = useState(null);
+  const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState(null);
 
   // فراخوانی هوک اختصاصی حسابداری جهت مدیریت State و محاسبات زنده
   const {
@@ -81,8 +89,31 @@ export function AccountingView() {
     cashFlowChartData,
     addIncome,
     updateIncome,
-    deleteIncome
+    deleteIncome,
+    accountTransfers,
+    transferBetweenAccounts,
+    syncFinancialAccounts
   } = useAccounting();
+
+  const handleSyncAccounts = async () => {
+    try {
+      setIsSyncingAccounts(true);
+      await syncFinancialAccounts();
+      setSyncFeedback({
+        type: 'success',
+        message: language === 'fa' ? 'حساب‌ها و مانده‌ها با موفقیت همگام شدند.' : 'حیسابەکان هاوکات کران.'
+      });
+      setTimeout(() => setSyncFeedback(null), 3500);
+    } catch (err) {
+      setSyncFeedback({
+        type: 'error',
+        message: err.message || (language === 'fa' ? 'خطا در همگام‌سازی حساب‌ها' : 'هەڵە لە هاوکاتکردن')
+      });
+      setTimeout(() => setSyncFeedback(null), 4000);
+    } finally {
+      setIsSyncingAccounts(false);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-200">
@@ -109,27 +140,76 @@ export function AccountingView() {
           </div>
         </div>
 
-        {/* عملیات‌های سریع */}
-        <div className="flex items-center gap-2 self-start md:self-center">
-          <button
-            type="button"
-            onClick={() => setIsAccountsModalOpen(true)}
-            className="px-3.5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition-all active:scale-95"
-          >
-            <CreditCard className="w-4 h-4 text-emerald-500" />
-            <span>{language === 'fa' ? 'حساب‌ها و کارت‌ها' : 'حیساب و کارتەکان'}</span>
-          </button>
+        {/* عملیات‌های سریع با زبان طراحی آیکون و دکمه‌های تاکتایل برنامه */}
+        <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
+          {/* Dock Pill Container */}
+          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
+            {/* دکمه مدیریت حساب‌ها و کارت‌ها */}
+            <button
+              type="button"
+              onClick={() => setIsAccountsModalOpen(true)}
+              aria-label={language === 'fa' ? 'حساب‌ها و کارت‌ها' : 'حیساب و کارتەکان'}
+              title={language === 'fa' ? 'مدیریت حساب‌ها و کارت‌های بانکی' : 'حیساب و کارتەکان'}
+              className="p-2 sm:px-3 sm:py-2 text-slate-600 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-300 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 flex items-center gap-1.5 text-xs font-bold active:scale-95"
+            >
+              <CreditCard className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <span className="hidden sm:inline">{language === 'fa' ? 'حساب‌ها و کارت‌ها' : 'حیساب و کارتەکان'}</span>
+            </button>
 
+            {/* دکمه انتقال بین حساب‌ها (کارت به کارت / صندوق به بانک) */}
+            <button
+              type="button"
+              onClick={() => {
+                setInitialTransferSourceId(null);
+                setIsTransferModalOpen(true);
+              }}
+              aria-label={language === 'fa' ? 'انتقال بین حساب‌ها' : 'گواستنەوەی پارە'}
+              title={language === 'fa' ? 'انتقال وجه بین حساب‌ها (کارت به کارت / صندوق به بانک)' : 'گواستنەوەی پارە'}
+              className="p-2 sm:px-3 sm:py-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/60 rounded-xl transition-all duration-200 flex items-center gap-1.5 text-xs font-bold active:scale-95"
+            >
+              <ArrowLeftRight className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">{language === 'fa' ? 'انتقال بین حساب‌ها' : 'گواستنەوەی نێوان حیساب'}</span>
+            </button>
+
+            {/* دکمه همگام‌سازی فوری حساب‌ها */}
+            <button
+              type="button"
+              onClick={handleSyncAccounts}
+              disabled={isSyncingAccounts}
+              aria-label={language === 'fa' ? 'همگام‌سازی حساب‌ها' : 'هاوکاتکردنی حیسابەکان'}
+              title={language === 'fa' ? 'همگام‌سازی ابری و زنده حساب‌ها و موجودی' : 'هاوکاتکردنی حیسابەکان'}
+              className="p-2 sm:p-2 text-slate-500 hover:text-sky-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95"
+            >
+              <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isSyncingAccounts ? 'animate-spin text-sky-500' : ''}`} />
+            </button>
+          </div>
+
+          {/* دکمه برجسته افزایش موجودی / واریز جدید */}
           <button
             type="button"
-            onClick={() => setIsQuickAddModalOpen(true)}
-            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/25 flex items-center gap-1.5 transition-all active:scale-95"
+            onClick={() => {
+              setQuickDepositAccount(null);
+              setIsQuickAddModalOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/25 flex items-center gap-1.5 transition-all active:scale-95 flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>{language === 'fa' ? 'ثبت واریزی جدید' : 'تۆماری داهاتی نوێ'}</span>
+            <span>{language === 'fa' ? 'افزایش موجودی' : 'زیادکردنی باڵانس'}</span>
           </button>
         </div>
       </div>
+
+      {/* پیام اعلان همگام‌سازی فوری */}
+      {syncFeedback && (
+        <div className={`p-3 rounded-2xl text-xs font-bold flex items-center gap-2 animate-in slide-in-from-top duration-200 ${
+          syncFeedback.type === 'success'
+            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+            : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+        }`}>
+          {syncFeedback.type === 'success' ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <X className="w-4 h-4 text-rose-500 shrink-0" />}
+          <span>{syncFeedback.message}</span>
+        </div>
+      )}
 
       {/* پیام اعلان اسناد نیازمند تایید مدیر */}
       {ledgerStats?.draft > 0 && (
@@ -203,6 +283,14 @@ export function AccountingView() {
               language={language}
               selectedAccountId={selectedAccountForLedger?.id}
               onSelectAccount={(acc) => setSelectedAccountForLedger(acc)}
+              onQuickDeposit={(acc) => {
+                setQuickDepositAccount(acc);
+                setIsQuickAddModalOpen(true);
+              }}
+              onQuickTransfer={(acc) => {
+                setInitialTransferSourceId(acc?.id || null);
+                setIsTransferModalOpen(true);
+              }}
             />
           </section>
 
@@ -308,12 +396,40 @@ export function AccountingView() {
                 onUpdateAccount={updateAccount}
                 onSetDefaultAccount={setDefaultAccount}
                 onDeleteAccount={deleteAccount}
+                onQuickDeposit={(acc) => {
+                  setIsAccountsModalOpen(false);
+                  setQuickDepositAccount(acc);
+                  setIsQuickAddModalOpen(true);
+                }}
+                onQuickTransfer={(acc) => {
+                  setIsAccountsModalOpen(false);
+                  setInitialTransferSourceId(acc?.id || null);
+                  setIsTransferModalOpen(true);
+                }}
                 currency={currency}
                 language={language}
               />
             </div>
           </div>
         </div>
+      )}
+
+      {/* مودال انتقال وجه بین حساب‌ها (کارت به کارت / صندوق به بانک) */}
+      {isTransferModalOpen && (
+        <AccountTransferModal
+          isOpen={isTransferModalOpen}
+          onClose={() => {
+            setIsTransferModalOpen(false);
+            setInitialTransferSourceId(null);
+          }}
+          onTransfer={transferBetweenAccounts}
+          accounts={financialAccounts}
+          accountBalances={accountBalances}
+          globalOverdraftPolicy={globalOverdraftPolicy}
+          initialFromAccountId={initialTransferSourceId}
+          currency={currency}
+          language={language}
+        />
       )}
     </div>
   );

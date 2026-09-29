@@ -13,7 +13,9 @@ import {
   CheckCircle2,
   TrendingDown,
   TrendingUp,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Plus,
+  ArrowLeftRight
 } from 'lucide-react';
 
 /**
@@ -23,7 +25,7 @@ import {
  * ویژگی‌ها:
  * - نمایش تفکیکی و زنده موجودی فعلی تمام کارت‌های بانکی و صندوق‌ها
  * - نمایش موجودی اولیه، مجموع ورودی‌ها و مجموع خروجی‌ها
- * - رنگ‌بندی داینامیک مثبت/منفی برای مانده
+ * - دکمه‌های سریع واریز (افزایش موجودی) و انتقال وجه روی هر کارت
  * - با کلیک روی هر کاشی، به بخش مخصوص و دفتر معین آن حساب هدایت می‌شود
  */
 export function AccountBalanceTiles({
@@ -32,7 +34,9 @@ export function AccountBalanceTiles({
   currency = 'IQD',
   language = 'fa',
   selectedAccountId = null,
-  onSelectAccount
+  onSelectAccount,
+  onQuickDeposit = null,
+  onQuickTransfer = null
 }) {
   const isRtl = language === 'fa' || language === 'ku';
 
@@ -181,17 +185,42 @@ export function AccountBalanceTiles({
                 </div>
               </div>
 
-              {/* پاورقی کارت با دکمه دسترسی به معین */}
-              <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                <span className="flex items-center gap-1">
+              {/* پاورقی کارت با دکمه‌های عملیات سریع و دسترسی به معین */}
+              <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold">
+                <span className="flex items-center gap-1 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors">
                   <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>{language === 'fa' ? 'دفتر معین و ریز' : 'دەفتەری معین'}</span>
+                  <span>{language === 'fa' ? 'دفتر معین' : 'دەفتەری معین'}</span>
+                  {isRtl ? (
+                    <ChevronLeft className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  )}
                 </span>
-                {isRtl ? (
-                  <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                )}
+
+                {/* دکمه‌های آیکونی اقدام سریع روی همین کارت */}
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  {onQuickTransfer && (
+                    <button
+                      type="button"
+                      onClick={() => onQuickTransfer(account)}
+                      title={language === 'fa' ? `انتقال وجه از ${account.name}` : `گواستنەوەی پارە لە ${account.name}`}
+                      className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-400 transition-all active:scale-90"
+                    >
+                      <ArrowLeftRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  {onQuickDeposit && (
+                    <button
+                      type="button"
+                      onClick={() => onQuickDeposit(account)}
+                      title={language === 'fa' ? `افزایش موجودی ${account.name}` : `زیادکردنی باڵانسی ${account.name}`}
+                      className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 dark:text-emerald-400 transition-all active:scale-90"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
