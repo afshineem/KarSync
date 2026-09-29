@@ -90,6 +90,8 @@ export function AccountingView() {
     addIncome,
     updateIncome,
     deleteIncome,
+    deleteDraftLedgerItem,
+    batchDeleteDraftLedgerItems,
     accountTransfers,
     transferBetweenAccounts,
     syncFinancialAccounts
@@ -340,6 +342,8 @@ export function AccountingView() {
               currency={currency}
               language={language}
               projectName={currentProject?.name || 'KarSync'}
+              onDeleteDraftItem={deleteDraftLedgerItem}
+              onBatchDeleteDraftItems={batchDeleteDraftLedgerItems}
             />
           </section>
         </>

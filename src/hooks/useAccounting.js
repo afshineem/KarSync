@@ -23,7 +23,10 @@ import {
   pullTreasuryIncomesLive, 
   pullAccountTransfersLive,
   pullGlobalOverdraftPolicyLive,
-  syncFinancialDataLive
+  syncFinancialDataLive,
+  softDeleteExpenseLive,
+  recordPendingPaymentDeletion,
+  pushPaymentsLive
 } from '../services/realtimeSync';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
@@ -1177,6 +1180,62 @@ export function useAccounting(options = {}) {
     return await migrateClosedTransactionsToCashBox(projectId, forceAll);
   }, [projectId]);
 
+  const deleteDraftLedgerItem = useCallback(async (tx) => {
+    if (!tx) return;
+    if (tx.status === 'approved' || tx.approval_status === 'approved') {
+      throw new Error('اسناد مالی تایید نهایی شده به جهت الزامات مالی و حسابداری غیرقابل حذف هستند.');
+    }
+
+    const tbl = tx.tableName || (tx.type === 'inflow' ? 'treasuryIncomes' : 'payments');
+    if (tbl === 'accountTransfers') {
+      const trfId = tx.transferId || String(tx.id).replace(/_(in|out)$/, '');
+      await deleteAccountTransferLive(trfId);
+    } else if (tbl === 'treasuryIncomes') {
+      await deleteTreasuryIncomeLive(tx.id);
+    } else if (tbl === 'expenses') {
+      await softDeleteExpenseLive(tx.id);
+    } else if (tbl === 'payments') {
+      recordPendingPaymentDeletion(tx.id);
+      await db.payments.delete(tx.id);
+      pushPaymentsLive().catch(() => {});
+    }
+
+    setSyncTick((t) => t + 1);
+    window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
+  }, []);
+
+  const batchDeleteDraftLedgerItems = useCallback(async (txListOrIds) => {
+    if (!txListOrIds || txListOrIds.length === 0) return;
+    const processedTransfers = new Set();
+
+    for (const item of txListOrIds) {
+      let tx = item;
+      if (typeof item === 'string') {
+        tx = ledgerItems.find((li) => li.id === item);
+      }
+      if (!tx || tx.status === 'approved' || tx.approval_status === 'approved') continue;
+
+      const tbl = tx.tableName || (tx.type === 'inflow' ? 'treasuryIncomes' : 'payments');
+      if (tbl === 'accountTransfers') {
+        const trfId = tx.transferId || String(tx.id).replace(/_(in|out)$/, '');
+        if (processedTransfers.has(trfId)) continue;
+        processedTransfers.add(trfId);
+        await deleteAccountTransferLive(trfId).catch(console.warn);
+      } else if (tbl === 'treasuryIncomes') {
+        await deleteTreasuryIncomeLive(tx.id).catch(console.warn);
+      } else if (tbl === 'expenses') {
+        await softDeleteExpenseLive(tx.id).catch(console.warn);
+      } else if (tbl === 'payments') {
+        recordPendingPaymentDeletion(tx.id);
+        await db.payments.delete(tx.id).catch(console.warn);
+        pushPaymentsLive().catch(() => {});
+      }
+    }
+
+    setSyncTick((t) => t + 1);
+    window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
+  }, [ledgerItems]);
+
   return {
     projectId,
     currency,
@@ -1218,6 +1277,8 @@ export function useAccounting(options = {}) {
     setAccountTypeFilter,
     searchQuery,
     setSearchQuery,
+    deleteDraftLedgerItem,
+    batchDeleteDraftLedgerItems,
     // داده‌های نمودار جریان نقدینگی
     selectedMonth,
     setSelectedMonth,
