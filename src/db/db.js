@@ -792,6 +792,7 @@ export async function seedInitialDataIfEmpty(userId = 'default_user') {
   await seedDefaultExpenseCategories(DEFAULT_PROJECT_ID, userId);
   await seedDefaultFinancialAccounts(DEFAULT_PROJECT_ID, userId);
   await migrateLegacyProjectExpenses();
+  await purgeBankToBankTransfers();
 
   const settingsCount = await db.settings.count();
   if (settingsCount === 0) {
@@ -1066,13 +1067,51 @@ export function assertRecordMutable(record) {
 }
 
 /**
+ * پاکسازی اسناد انتقال بانک به بانک ایجاد شده قبلی از پایگاه داده محلی و ابری طبق درخواست کاربر
+ */
+export async function purgeBankToBankTransfers() {
+  try {
+    if (!db.accountTransfers) return;
+    const allTransfers = await db.accountTransfers.toArray();
+    if (!allTransfers || allTransfers.length === 0) return;
+
+    // شناسایی ۲ سند انتقال بانک به بانک ایجاد شده پیش از اصلاحیه
+    const toDelete = allTransfers.filter((trf) => {
+      const isBankToBank = (trf.fromAccountType === 'bank' && trf.toAccountType === 'bank');
+      const isLegacyAutoApproved = (trf.status === 'approved' && (trf.approved_by === 'admin' || !trf.approvedBy || trf.approvedBy === 'مدیر سیستم'));
+      return isBankToBank || isLegacyAutoApproved;
+    });
+
+    if (toDelete.length > 0) {
+      for (const item of toDelete) {
+        await db.accountTransfers.delete(item.id);
+      }
+      try {
+        const { deleteAccountTransferLive } = await import('../services/realtimeSync');
+        for (const item of toDelete) {
+          await deleteAccountTransferLive(item.id);
+        }
+      } catch (cloudErr) {
+        console.warn('Realtime cloud sync for purged transfers deferred:', cloudErr);
+      }
+      console.log(`✅ [KarSync DB] Successfully purged ${toDelete.length} bank-to-bank transfer documents.`);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+        window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
+      }
+    }
+  } catch (err) {
+    console.warn('purgeBankToBankTransfers notice:', err);
+  }
+}
+
+/**
  * متد تایید نهایی سند و اعمال سیستم دو مرحله‌ای (Two-Stage Verification)
- * همراه با چک نقش کاربر (تنها کاربر ادمین اجازه تایید دارد)
+ * همراه با چک دقیق نقش کاربر (تنها کاربر ادمین با هویت معتبر اجازه تایید دارد)
  */
 export async function approveRecord(tableName, recordId, currentUser = null) {
-  const role = currentUser?.role || 'admin';
-  if (role !== 'admin') {
-    const error = new Error('403 Forbidden: تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به تایید نهایی اسناد هستند.');
+  if (!currentUser || currentUser.role !== 'admin') {
+    const error = new Error('تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به تایید نهایی اسناد هستند.');
     error.statusCode = 403;
     error.code = 'ROLE_UNAUTHORIZED';
     throw error;
@@ -1083,26 +1122,32 @@ export async function approveRecord(tableName, recordId, currentUser = null) {
     throw new Error(`Table ${tableName} not found in database.`);
   }
 
-  const record = await table.get(recordId);
+  // اصلاح شناسه اسناد انتقال وجه در صورتی که پسوند جهت جریان داشته باشند
+  const cleanRecordId = tableName === 'accountTransfers' 
+    ? String(recordId).replace(/_(in|out)$/, '') 
+    : recordId;
+
+  const record = await table.get(cleanRecordId);
   if (!record) {
-    throw new Error(`Record ${recordId} not found in ${tableName}.`);
+    throw new Error(`Record ${cleanRecordId} not found in ${tableName}.`);
   }
 
   const now = new Date().toISOString();
   const userId = currentUser?.id || currentUser?.userId || 'admin';
-  const userName = currentUser?.name || currentUser?.title || 'مدیر سیستم';
+  const userName = currentUser?.name || currentUser?.title || currentUser?.email || 'مدیر';
 
   const updatePayload = {
     status: 'approved',
     approval_status: 'approved', // سازگاری با payments
     approved_by: userId,
     approvedBy: userName,
+    approved_by_name: userName,
     approved_at: now,
     approvedAt: now,
     updatedAt: now
   };
 
-  await table.update(recordId, updatePayload);
+  await table.update(cleanRecordId, updatePayload);
   return { ...record, ...updatePayload };
 }
 
@@ -1112,9 +1157,8 @@ export async function approveRecord(tableName, recordId, currentUser = null) {
  * @param {object} currentUser
  */
 export async function batchApproveRecords(items, currentUser = null) {
-  const role = currentUser?.role || 'admin';
-  if (role !== 'admin') {
-    const error = new Error('403 Forbidden: تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به تایید نهایی اسناد هستند.');
+  if (!currentUser || currentUser.role !== 'admin') {
+    const error = new Error('تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به تایید نهایی اسناد هستند.');
     error.statusCode = 403;
     error.code = 'ROLE_UNAUTHORIZED';
     throw error;
@@ -1124,21 +1168,29 @@ export async function batchApproveRecords(items, currentUser = null) {
 
   const now = new Date().toISOString();
   const userId = currentUser?.id || currentUser?.userId || 'admin';
-  const userName = currentUser?.name || currentUser?.title || 'مدیر سیستم';
+  const userName = currentUser?.name || currentUser?.title || currentUser?.email || 'مدیر';
 
   const updatePayload = {
     status: 'approved',
     approval_status: 'approved',
     approved_by: userId,
     approvedBy: userName,
+    approved_by_name: userName,
     approved_at: now,
     approvedAt: now,
     updatedAt: now
   };
 
   const results = [];
+  const processedTransfers = new Set();
   for (const item of items) {
-    const { tableName, recordId } = item;
+    const { tableName } = item;
+    let { recordId } = item;
+    if (tableName === 'accountTransfers') {
+      recordId = String(recordId).replace(/_(in|out)$/, '');
+      if (processedTransfers.has(recordId)) continue;
+      processedTransfers.add(recordId);
+    }
     const table = db.table(tableName);
     if (table) {
       await table.update(recordId, updatePayload);
@@ -1158,9 +1210,8 @@ export async function batchApproveRecords(items, currentUser = null) {
  * @param {object} currentUser
  */
 export async function amendRecord(tableName, recordId, amendmentData, currentUser = null) {
-  const role = currentUser?.role || 'admin';
-  if (role !== 'admin') {
-    const error = new Error('403 Forbidden: تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به صدور اصلاحیه اسناد هستند.');
+  if (!currentUser || currentUser.role !== 'admin') {
+    const error = new Error('تنها کاربران با نقش «مدیر ارشد (Admin)» مجاز به صدور اصلاحیه اسناد هستند.');
     error.statusCode = 403;
     error.code = 'ROLE_UNAUTHORIZED';
     throw error;
@@ -1171,14 +1222,18 @@ export async function amendRecord(tableName, recordId, amendmentData, currentUse
     throw new Error(`Table ${tableName} not found in database.`);
   }
 
-  const record = await table.get(recordId);
+  const cleanRecordId = tableName === 'accountTransfers' 
+    ? String(recordId).replace(/_(in|out)$/, '') 
+    : recordId;
+
+  const record = await table.get(cleanRecordId);
   if (!record) {
-    throw new Error(`Record ${recordId} not found in ${tableName}.`);
+    throw new Error(`Record ${cleanRecordId} not found in ${tableName}.`);
   }
 
   const now = new Date().toISOString();
   const userId = currentUser?.id || currentUser?.userId || 'admin';
-  const userName = currentUser?.name || currentUser?.title || 'مدیر سیستم';
+  const userName = currentUser?.name || currentUser?.title || currentUser?.email || 'مدیر';
 
   const prevAmount = Number(record.amount) || 0;
   const newAmount = Number(amendmentData.amount !== undefined ? amendmentData.amount : prevAmount);
@@ -1218,7 +1273,8 @@ export async function amendRecord(tableName, recordId, amendmentData, currentUse
     updatePayload.notes = amendmentData.notes;
   }
 
-  await table.update(recordId, updatePayload);
+  await table.update(cleanRecordId, updatePayload);
   return { ...record, ...updatePayload };
 }
+
 

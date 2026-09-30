@@ -166,15 +166,58 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   const [themeMode, setThemeMode] = useState(isDarkMode ? 'dark' : 'light');
 
-  const handleToggleTheme = (mode) => {
-    setThemeMode(mode);
-    if (mode === 'dark') {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+  // Draft state for General Tab (allows Save / Cancel workflow)
+  const [draftLanguage, setDraftLanguage] = useState(language);
+  const [draftTheme, setDraftTheme] = useState(isDarkMode ? 'dark' : 'light');
+  const [draftTimeFormat, setDraftTimeFormat] = useState(timeFormat);
+  const [draftTimeZone, setDraftTimeZone] = useState(timeZone);
+  const [draftCalendarType, setDraftCalendarType] = useState(calendarType);
+  const [draftNumberFormat, setDraftNumberFormat] = useState(numberFormat);
+  const [generalSaveSuccess, setGeneralSaveSuccess] = useState(false);
+
+  // Initialize draft when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setDraftLanguage(language);
+      const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+      setDraftTheme(isDark ? 'dark' : 'light');
+      setDraftTimeFormat(timeFormat);
+      setDraftTimeZone(timeZone);
+      setDraftCalendarType(calendarType);
+      setDraftNumberFormat(numberFormat);
+      setGeneralSaveSuccess(false);
     }
+  }, [isOpen, language, timeFormat, timeZone, calendarType, numberFormat]);
+
+  const handleSaveGeneralSettings = () => {
+    if (draftLanguage !== language) changeLanguage(draftLanguage);
+    if (draftTheme !== themeMode) {
+      setThemeMode(draftTheme);
+      if (draftTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+    }
+    if (draftTimeFormat !== timeFormat) setTimeFormat(draftTimeFormat);
+    if (draftTimeZone !== timeZone) setTimeZone(draftTimeZone);
+    if (draftCalendarType !== calendarType) setCalendarType(draftCalendarType);
+    if (draftNumberFormat !== numberFormat) setNumberFormat(draftNumberFormat);
+
+    setGeneralSaveSuccess(true);
+    setTimeout(() => setGeneralSaveSuccess(false), 2500);
+  };
+
+  const handleCancelGeneralSettings = () => {
+    setDraftLanguage(language);
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    setDraftTheme(isDark ? 'dark' : 'light');
+    setDraftTimeFormat(timeFormat);
+    setDraftTimeZone(timeZone);
+    setDraftCalendarType(calendarType);
+    setDraftNumberFormat(numberFormat);
   };
 
   // ----------------------------------------------------
@@ -606,25 +649,25 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
       id: 'projects',
       label: language === 'fa' ? 'پروژه‌ها و بخش‌ها' : language === 'ku' ? 'پڕۆژەکان و بەشەکان' : 'Projects & Structure',
       icon: FolderKanban,
-      color: 'text-indigo-500'
+      color: 'text-sky-500'
     },
     {
       id: 'categories',
       label: language === 'fa' ? 'سرفصل‌های هزینه‌ها' : language === 'ku' ? 'سەردێڕی خەرجییەکان' : 'Expense Categories',
       icon: Receipt,
-      color: 'text-rose-500'
+      color: 'text-sky-500'
     },
     {
       id: 'accounting_accounts',
       label: language === 'fa' ? 'حساب‌ها و کارت‌های بانکی' : language === 'ku' ? 'حیساب و کارتەکان' : 'Financial Accounts',
       icon: Landmark,
-      color: 'text-emerald-500'
+      color: 'text-sky-500'
     },
     {
       id: 'sync_data',
       label: language === 'fa' ? 'داده‌ها و همگام‌سازی' : language === 'ku' ? 'داتاکان و هاوکاتکردن' : 'Data & Cloud Sync',
       icon: Cloud,
-      color: 'text-emerald-500'
+      color: 'text-sky-500'
     },
     {
       id: 'shortcuts',
@@ -636,13 +679,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
       id: 'account',
       label: language === 'fa' ? 'حساب کاربری و امنیت' : language === 'ku' ? 'هەژمار و ئاسایش' : 'Account & Security',
       icon: User,
-      color: 'text-amber-500'
+      color: 'text-sky-500'
     },
     {
       id: 'about',
       label: language === 'fa' ? 'درباره و نسخه' : language === 'ku' ? 'دەربارە و وەشان' : 'About & Version',
       icon: Info,
-      color: 'text-purple-500'
+      color: 'text-sky-500'
     }
   ];
 
@@ -669,7 +712,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
           </div>
           <div>
             <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <span>{language === 'fa' ? 'تنظیمات پیشرفته سیستم' : language === 'ku' ? 'ڕێکخستنی پێشکەوتووی سیستەم' : 'System Settings'}</span>
+              <span>{language === 'fa' ? 'تنظیمات' : language === 'ku' ? 'ڕێکخستنەکان' : 'Settings'}</span>
               <span className="hidden md:inline-flex text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold border border-sky-200/60 dark:border-sky-800/60">
                 KarSync v1.2.0
               </span>
@@ -786,254 +829,193 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB 1: GENERAL & THEME */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'general' && (
-              <div className="space-y-6 max-w-2xl animate-in fade-in duration-150">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {language === 'fa' ? 'زبان برنامه (Application Language)' : 'زمانی بەرنامە'}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {language === 'fa' ? 'زبان و جهت چیدمان راست‌چین یا چپ‌چین نرم‌افزار را انتخاب کنید:' : 'زمانی دڵخوازی خۆت هەڵبژێرە:'}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-                    {languagesList.map((lang) => {
-                      const isSelected = language === lang.code;
-                      return (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => changeLanguage(lang.code)}
-                          className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all ${
-                            isSelected
-                              ? 'bg-sky-50/80 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
-                              : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          <div>
-                            <div className="text-sm">{lang.label}</div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">{lang.sub}</div>
-                          </div>
-                          {isSelected && <Check className="w-5 h-5 text-sky-600 dark:text-sky-400" />}
-                        </button>
-                      );
-                    })}
+              <div className="space-y-6 max-w-3xl animate-in fade-in duration-150">
+                
+                {/* Header card with Live Clock & Date */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-md shadow-sky-500/20 flex-shrink-0">
+                      <Clock className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider">
+                        {language === 'fa' ? 'پیش‌نمایش زنده ساعت و تاریخ برنامه' : 'پێشبینینی کات و بەروار'}
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white tracking-tight mt-0.5">
+                        {formatTime(modalClock, { timeFormat: draftTimeFormat, timeZone: draftTimeZone, numberFormat: draftNumberFormat, includeSeconds: true })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="self-start sm:self-center flex flex-col sm:items-end text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping" />
+                      <span className="font-bold text-sky-600 dark:text-sky-400">
+                        {TIMEZONE_OPTIONS.find(tz => tz.id === draftTimeZone)?.name[language] || draftTimeZone}
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-800 dark:text-slate-200 font-bold mt-1">
+                      {formatDate(modalClock, { calendarType: draftCalendarType, numberFormat: draftNumberFormat })}
+                    </span>
                   </div>
                 </div>
 
-                <div className="border-t border-slate-200/80 dark:border-slate-800 pt-6">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {language === 'fa' ? 'پوسته و ظاهر (Appearance Mode)' : 'ڕووکار و دۆخی دەرکەوتن'}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {language === 'fa' ? 'انتخاب حالت روز (روشن) یا حالت شب (تاریک):' : 'دۆخی ڕووناک یان تاریک دیاریبکە:'}
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleTheme('light')}
-                      className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
-                        themeMode === 'light'
-                          ? 'bg-amber-500/10 border-amber-500 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/20 font-bold'
-                          : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md">
-                        <Sun className="w-5 h-5" />
-                      </div>
-                      <div className="text-start">
-                        <div className="text-sm">{language === 'fa' ? 'حالت روز (روشن)' : 'دۆخی ڕۆژ (ڕووناک)'}</div>
-                        <div className="text-[11px] text-slate-400">Light Mode</div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleToggleTheme('dark')}
-                      className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
-                        themeMode === 'dark'
-                          ? 'bg-indigo-500/15 border-indigo-500 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/20 font-bold'
-                          : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
-                        <Moon className="w-5 h-5" />
-                      </div>
-                      <div className="text-start">
-                        <div className="text-sm">{language === 'fa' ? 'حالت شب (تاریک)' : 'دۆخی شەو (تاریک)'}</div>
-                        <div className="text-[11px] text-slate-400">Dark Mode</div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-200/80 dark:border-slate-800 pt-6 space-y-5">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-sky-500" />
-                      <span>{language === 'fa' ? 'فرمت زمان، ساعت و منطقه زمانی' : language === 'ku' ? 'شێوازی کات و ناوچەی کاتی' : 'Time Format & Time Zone'}</span>
-                    </h3>
+                {/* Unified Dropdown Form Settings Grid */}
+                <div className="p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 space-y-5">
+                  <div className="border-b border-slate-200/60 dark:border-slate-800/80 pb-3">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Settings className="w-4 h-4 text-sky-500" />
+                      <span>{language === 'fa' ? 'تنظیمات زبان، ظاهر و ارقام' : 'ڕێکخستنی زمان، ڕووکار و ژمارەکان'}</span>
+                    </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       {language === 'fa'
-                        ? 'تنظیم نحوه نمایش ساعت (۱۲ یا ۲۴ ساعته) و منطقه زمانی استاندارد جهت هماهنگی دقیق لاگ‌ها و ترددها:'
-                        : 'دیاریکردنی شێوازی کاتژمێر (١٢ یان ٢٤) و ناوچەی کاتی بۆ هاوکاتکردنی دروستی تۆمارەکان:'}
+                        ? 'تمام تنظیمات ظاهری، زبان، تم و تقویم از طریق منوهای آبشاری زیر قابل انتخاب هستند.'
+                        : 'هەموو ڕێکخستنەکان لەم لیستە داگرتووانەی خوارەوە بەردەستن.'}
                     </p>
                   </div>
 
-                  {/* Live Clock & Calendar Preview Card */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-purple-500/10 border border-sky-500/20 dark:border-sky-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-md shadow-sky-500/25 flex-shrink-0">
-                        <Clock className="w-6 h-6 animate-pulse" />
-                      </div>
-                      <div>
-                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          {language === 'fa' ? 'پیش‌نمایش زنده ساعت و تاریخ برنامه' : 'پێشبینینی ڕاستەوخۆی کات و بەروار'}
-                        </div>
-                        <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white tracking-tight mt-0.5">
-                          {formatTime(modalClock, { includeSeconds: true })}
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* 1. Language Dropdown */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <Languages className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{language === 'fa' ? 'زبان برنامه (Language)' : 'زمانی بەرنامە'}</span>
+                      </label>
+                      <select
+                        value={draftLanguage}
+                        onChange={(e) => setDraftLanguage(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                      >
+                        {languagesList.map((lang) => (
+                          <option key={lang.code} value={lang.code}>
+                            {lang.label} ({lang.sub})
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    <div className="self-start sm:self-center flex flex-col sm:items-end text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping" />
-                        <span className="font-bold text-sky-600 dark:text-sky-400">
-                          {TIMEZONE_OPTIONS.find(tz => tz.id === timeZone)?.name[language] || timeZone}
+                    {/* 2. Theme Mode Dropdown */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        {draftTheme === 'dark' ? <Moon className="w-3.5 h-3.5 text-sky-500" /> : <Sun className="w-3.5 h-3.5 text-sky-500" />}
+                        <span>{language === 'fa' ? 'پوسته و تم (Theme)' : 'ڕووکار و دۆخ'}</span>
+                      </label>
+                      <select
+                        value={draftTheme}
+                        onChange={(e) => setDraftTheme(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                      >
+                        <option value="light">☀️ {language === 'fa' ? 'حالت روز (روشن) - Light Mode' : 'دۆخی ڕۆژ (ڕووناک)'}</option>
+                        <option value="dark">🌙 {language === 'fa' ? 'حالت شب (تاریک) - Dark Mode' : 'دۆخی شەو (تاریک)'}</option>
+                      </select>
+                    </div>
+
+                    {/* 3. Time Format Dropdown */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{language === 'fa' ? 'فرمت نمایش ساعت (Time Format)' : 'شێوازی کاتژمێر'}</span>
+                      </label>
+                      <select
+                        value={draftTimeFormat}
+                        onChange={(e) => setDraftTimeFormat(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                      >
+                        <option value="24h">
+                          {language === 'fa' ? '۲۴ ساعته (استاندارد / نظامی - ۱۴:۳۰)' : '٢٤ کاتژمێری (ستاندارد)'}
+                        </option>
+                        <option value="12h">
+                          {language === 'fa' ? '۱۲ ساعته (با ق.ظ / ب.ظ - ۰۲:۳۰ ب.ظ)' : '١٢ کاتژمێری (بەیانی / ئێوارە)'}
+                        </option>
+                      </select>
+                    </div>
+
+                    {/* 4. Time Zone Dropdown */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{language === 'fa' ? 'منطقه زمانی (Time Zone)' : 'ناوچەی کاتی'}</span>
+                      </label>
+                      <select
+                        value={draftTimeZone}
+                        onChange={(e) => setDraftTimeZone(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                      >
+                        {TIMEZONE_OPTIONS.map((tz) => (
+                          <option key={tz.id} value={tz.id}>
+                            {tz.name[language] || tz.name.en} ({tz.sub})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 5. Calendar System Dropdown */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{language === 'fa' ? 'سیستم تقویم کاری (Calendar System)' : 'سیستەمی ڕۆژمێر'}</span>
+                      </label>
+                      <select
+                        value={draftCalendarType}
+                        onChange={(e) => setDraftCalendarType(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                      >
+                        {CALENDAR_OPTIONS.map((cal) => (
+                          <option key={cal.id} value={cal.id}>
+                            {cal.name[language] || cal.name.en} ({cal.sub})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 6. Number Format Dropdown */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="text-sky-500 font-mono font-black text-xs">#</span>
+                        <span>{language === 'fa' ? 'فرمت نمایش ارقام و اعداد (Number Digits)' : 'شێوازی پیشاندانی ژمارەکان'}</span>
+                      </label>
+                      <select
+                        value={draftNumberFormat}
+                        onChange={(e) => setDraftNumberFormat(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                      >
+                        {NUMBER_FORMAT_OPTIONS.map((num) => (
+                          <option key={num.id} value={num.id}>
+                            {num.name[language] || num.name.en} — ({num.sub})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Save / Cancel Action Bar for General Settings */}
+                  <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      {generalSaveSuccess && (
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 animate-in fade-in">
+                          <Check className="w-4 h-4" />
+                          <span>{language === 'fa' ? 'تنظیمات با موفقیت ذخیره شد' : 'ڕێکخستنەکان پاشەکەوت کران'}</span>
                         </span>
-                      </div>
-                      <span className="text-xs text-slate-800 dark:text-slate-200 font-bold mt-1">
-                        {formatDate(modalClock)}
-                      </span>
+                      )}
                     </div>
-                  </div>
 
-                  {/* 1. Time Format Selection (24h vs 12h) */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      {language === 'fa' ? '۱. فرمت نمایش ساعت (Time Format):' : '١. شێوازی کاتژمێر:'}
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
                       <button
                         type="button"
-                        onClick={() => setTimeFormat('24h')}
-                        className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all ${
-                          timeFormat === '24h'
-                            ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
-                            : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
-                        }`}
+                        onClick={handleCancelGeneralSettings}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
                       >
-                        <div>
-                          <div className="text-xs font-bold">{language === 'fa' ? '۲۴ ساعته (استاندارد / نظامی)' : '٢٤ کاتژمێری (ستاندارد)'}</div>
-                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">{language === 'fa' ? 'مثال: ۱۴:۳۰ (14:30)' : 'وەک: 14:30'}</div>
-                        </div>
-                        {timeFormat === '24h' && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400" />}
+                        {language === 'fa' ? 'انصراف / بازنشانی' : 'پاشگەزبوونەوە'}
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => setTimeFormat('12h')}
-                        className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all ${
-                          timeFormat === '12h'
-                            ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
-                            : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
-                        }`}
+                        onClick={handleSaveGeneralSettings}
+                        className="px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-md shadow-sky-600/20 transition-all"
                       >
-                        <div>
-                          <div className="text-xs font-bold">{language === 'fa' ? '۱۲ ساعته (با ق.ظ / ب.ظ - AM/PM)' : '١٢ کاتژمێری (بەیانی / ئێوارە)'}</div>
-                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">{language === 'fa' ? 'مثال: ۰۲:۳۰ ب.ظ (02:30 PM)' : 'وەک: 02:30 PM'}</div>
-                        </div>
-                        {timeFormat === '12h' && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400" />}
+                        <Check className="w-4 h-4" />
+                        <span>{language === 'fa' ? 'ذخیره تنظیمات' : 'پاشەکەوتکردن'}</span>
                       </button>
-                    </div>
-                  </div>
-
-                  {/* 2. Timezone Selection */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      {language === 'fa' ? '۲. منطقه زمانی (Time Zone):' : '٢. ناوچەی کاتی:'}
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {TIMEZONE_OPTIONS.map((tz) => {
-                        const isSelected = timeZone === tz.id;
-                        return (
-                          <button
-                            key={tz.id}
-                            type="button"
-                            onClick={() => setTimeZone(tz.id)}
-                            className={`p-3 rounded-2xl border text-start flex items-center justify-between transition-all ${
-                              isSelected
-                                ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
-                                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
-                            }`}
-                          >
-                            <div className="min-w-0 pr-2">
-                              <div className="text-xs truncate">{tz.name[language] || tz.name.en}</div>
-                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">{tz.sub}</div>
-                            </div>
-                            {isSelected && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400 flex-shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 3. Calendar System (Active Selection) */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      {language === 'fa' ? '۳. سیستم تقویم کاری (Calendar System):' : '٣. سیستەمی ڕۆژمێر:'}
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      {CALENDAR_OPTIONS.map((cal) => {
-                        const isSelected = calendarType === cal.id;
-                        return (
-                          <button
-                            key={cal.id}
-                            type="button"
-                            onClick={() => setCalendarType(cal.id)}
-                            className={`p-3 rounded-2xl border text-start flex items-center justify-between transition-all ${
-                              isSelected
-                                ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
-                                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
-                            }`}
-                          >
-                            <div className="min-w-0 pr-2">
-                              <div className="text-xs font-bold">{cal.name[language] || cal.name.en}</div>
-                              <div className="text-[10px] text-slate-400 mt-0.5">{cal.sub}</div>
-                            </div>
-                            {isSelected && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400 flex-shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 4. Number Digits Formatting */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      {language === 'fa' ? '۴. فرمت نمایش ارقام و اعداد (Number Digits):' : '٤. شێوازی پیشاندانی ژمارەکان:'}
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      {NUMBER_FORMAT_OPTIONS.map((num) => {
-                        const isSelected = numberFormat === num.id;
-                        return (
-                          <button
-                            key={num.id}
-                            type="button"
-                            onClick={() => setNumberFormat(num.id)}
-                            className={`p-3 rounded-2xl border text-start flex items-center justify-between transition-all ${
-                              isSelected
-                                ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/20 font-bold'
-                                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
-                            }`}
-                          >
-                            <div className="min-w-0 pr-2">
-                              <div className="text-xs font-bold">{num.name[language] || num.name.en}</div>
-                              <div className="text-xs font-mono text-sky-600 dark:text-sky-400 font-black mt-0.5">{num.sub}</div>
-                            </div>
-                            {isSelected && <Check className="w-4 h-4 text-sky-600 dark:text-sky-400 flex-shrink-0" />}
-                          </button>
-                        );
-                      })}
                     </div>
                   </div>
                 </div>
@@ -1696,7 +1678,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       type="button"
                       onClick={handleDownloadBackup}
                       disabled={backupLoading}
-                      className="flex-1 py-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 transition-colors shadow-sm"
+                      className="flex-1 py-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center justify-center gap-2 transition-colors shadow-sm"
                     >
                       <Download className="w-4 h-4" />
                       <span>{language === 'fa' ? 'دانلود فایل پشتیبان (Export JSON)' : 'داگرتنی فایلی یەدەگ'}</span>
@@ -1708,27 +1690,48 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       {language === 'fa' ? 'بازیابی از فایل پشتیبان (Restore):' : 'گەڕاندنەوە لە فایلی یەدەگ:'}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <input
-                        type="file"
-                        accept=".json"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            setBackupFile(e.target.files[0]);
-                          }
-                        }}
-                        className="flex-1 text-xs text-slate-500 file:me-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-300 hover:file:bg-slate-200"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="sm:col-span-1">
+                        <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                          {language === 'fa' ? 'حالت بازیابی:' : 'دۆخی گەڕاندنەوە:'}
+                        </label>
+                        <select
+                          value={restoreMode}
+                          onChange={(e) => setRestoreMode(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                        >
+                          <option value="replace">{language === 'fa' ? 'جایگزینی کامل (Clean Replace)' : 'جێگرتنەوەی تەواو'}</option>
+                          <option value="merge">{language === 'fa' ? 'ادغام با داده‌های موجود (Merge)' : 'تێکەڵکردنی داتا'}</option>
+                        </select>
+                      </div>
 
-                      <button
-                        type="button"
-                        onClick={handleImportBackup}
-                        disabled={!backupFile || backupLoading}
-                        className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                      >
-                        <Upload className="w-4 h-4" />
-                        <span>{language === 'fa' ? 'شروع بازیابی' : 'هێنانەوەی داتا'}</span>
-                      </button>
+                      <div className="sm:col-span-2 flex flex-col sm:flex-row gap-2 items-end">
+                        <div className="w-full flex-1">
+                          <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'انتخاب فایل پشتیبان JSON:' : 'فایلی JSON:'}
+                          </label>
+                          <input
+                            type="file"
+                            accept=".json"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setBackupFile(e.target.files[0]);
+                              }
+                            }}
+                            className="w-full text-xs text-slate-500 file:me-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-300 hover:file:bg-slate-200"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleImportBackup}
+                          disabled={!backupFile || backupLoading}
+                          className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-colors shadow-sm flex-shrink-0"
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span>{language === 'fa' ? 'شروع بازیابی' : 'هێنانەوەی داتا'}</span>
+                        </button>
+                      </div>
                     </div>
 
                     {backupMsg.text && (
@@ -2127,54 +2130,23 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setUserRole('admin')}
-                      className={`p-3 rounded-xl border text-start transition-all cursor-pointer ${
-                        (user?.role || 'admin') === 'admin'
-                          ? 'bg-white dark:bg-slate-800 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20'
-                          : 'bg-white/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                      }`}
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-sky-500" />
+                      <span>{language === 'fa' ? 'انتخاب نقش کاربری (User Role)' : 'دیاریکردنی ڕۆڵ'}</span>
+                    </label>
+                    <select
+                      value={user?.role || 'admin'}
+                      onChange={(e) => setUserRole(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'مدیر سیستم (Admin)' : 'بەڕێوەبەر'}
-                        </span>
-                        {(user?.role || 'admin') === 'admin' && (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {language === 'fa' 
-                          ? 'دسترسی کامل: امکان تایید نهایی اسناد پیش‌نویس، قفل‌سازی و دسترسی به تمام ماژول‌ها.' 
-                          : 'دەسەڵاتی تەواو بۆ پەسەندکردنی کۆتایی و قفڵکردنی بەڵگەنامەکان.'}
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setUserRole('operator')}
-                      className={`p-3 rounded-xl border text-start transition-all cursor-pointer ${
-                        user?.role === 'operator'
-                          ? 'bg-white dark:bg-slate-800 border-amber-500 shadow-sm ring-2 ring-amber-500/20'
-                          : 'bg-white/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'اپراتور ثبت داده (Operator)' : 'تۆمارکار'}
-                        </span>
-                        {user?.role === 'operator' && (
-                          <Check className="w-3.5 h-3.5 text-amber-500" />
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {language === 'fa' 
-                          ? 'ثبت‌کننده اسناد پیش‌نویس: عدم امکان تایید نهایی، عدم امکان ویرایش یا حذف اسناد تایید شده.' 
-                          : 'تەنها تۆمارکردنی ڕەشنووسەکان؛ بەبێ مافی پەسەندکردن یان دەستکاریکردنی بەڵگەنامەی قفڵکراو.'}
-                      </p>
-                    </button>
+                      <option value="admin">
+                        {language === 'fa' ? '👑 مدیر سیستم (Admin) — دسترسی کامل و تایید نهایی اسناد' : '👑 بەڕێوەبەر (Admin)'}
+                      </option>
+                      <option value="operator">
+                        {language === 'fa' ? '✍️ اپراتور ثبت داده (Operator) — فقط ثبت پیش‌نویس بدون تایید' : '✍️ تۆمارکار (Operator)'}
+                      </option>
+                    </select>
                   </div>
                 </div>
 
@@ -2317,29 +2289,21 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       ? 'جهت جلوگیری از دسترسی افراد غیرمجاز در محیط کارگاه، برنامه پس از مدت زمان مشخصی بی‌حرکتی قفل می‌شود.'
                       : 'Automatically locks the app after inactivity to prevent unauthorized access in the workshop.'}
                   </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                    {[
-                      { minutes: 0, label: { fa: 'غیرفعال', en: 'Disabled' } },
-                      { minutes: 15, label: { fa: '۱۵ دقیقه', en: '15 min' } },
-                      { minutes: 30, label: { fa: '۳۰ دقیقه', en: '30 min' } },
-                      { minutes: 60, label: { fa: '۱ ساعت', en: '60 min' } }
-                    ].map((opt) => {
-                      const isSelected = autoLockMinutes === opt.minutes;
-                      return (
-                        <button
-                          key={opt.minutes}
-                          type="button"
-                          onClick={() => setAutoLockMinutes(opt.minutes)}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
-                            isSelected
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
-                          }`}
-                        >
-                          {opt.label[language === 'fa' ? 'fa' : 'en']}
-                        </button>
-                      );
-                    })}
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-sky-500" />
+                      <span>{language === 'fa' ? 'مدت زمان بی‌حرکتی پیش از قفل شدن:' : 'ماوەی ناچالاکی بۆ قفڵکردن:'}</span>
+                    </label>
+                    <select
+                      value={autoLockMinutes}
+                      onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                    >
+                      <option value={0}>{language === 'fa' ? 'غیرفعال (عدم قفل خودکار)' : 'ناچالاک'}</option>
+                      <option value={15}>{language === 'fa' ? '۱۵ دقیقه بی‌حرکتی' : '١٥ خولەک'}</option>
+                      <option value={30}>{language === 'fa' ? '۳۰ دقیقه بی‌حرکتی' : '٣٠ خولەک'}</option>
+                      <option value={60}>{language === 'fa' ? '۱ ساعت بی‌حرکتی' : '١ کاتژمێر'}</option>
+                    </select>
                   </div>
                 </div>
 
@@ -2421,6 +2385,58 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             )}
 
           </main>
+        </div>
+
+        {/* Global Modal Footer Bar (Save / Cancel / Close) */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">
+              {language === 'fa' 
+                ? 'تنظیمات فعال: ' + (tabs.find((t) => t.id === activeTab)?.label || '')
+                : 'ڕێکخستنەکان: ' + (tabs.find((t) => t.id === activeTab)?.label || '')}
+            </span>
+            {generalSaveSuccess && (
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 animate-in fade-in">
+                <Check className="w-4 h-4" />
+                <span>{language === 'fa' ? 'ذخیره شد' : 'پاشەکەوتکرا'}</span>
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTab === 'general') {
+                  handleCancelGeneralSettings();
+                }
+                onClose();
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+            >
+              {language === 'fa' ? 'انصراف و بستن' : 'پاشگەزبوونەوە و داخستن'}
+            </button>
+
+            {activeTab === 'general' ? (
+              <button
+                type="button"
+                onClick={handleSaveGeneralSettings}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-md shadow-sky-600/20 transition-all"
+              >
+                <Check className="w-4 h-4" />
+                <span>{language === 'fa' ? 'ذخیره تنظیمات' : 'پاشەکەوتکردن'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-md shadow-sky-600/20 transition-all"
+              >
+                <Check className="w-4 h-4" />
+                <span>{language === 'fa' ? 'تایید و بستن' : 'پەسەندکردن و داخستن'}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 2FA Security Modal */}

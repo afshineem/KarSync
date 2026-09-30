@@ -232,7 +232,7 @@ export function PaymentHistoryModal({
                         {p.status === 'approved' || p.approval_status === 'approved' ? (
                           <span 
                             className="inline-flex items-center gap-1 p-1 text-emerald-600 dark:text-emerald-400"
-                            title={language === 'fa' ? `سند رسمی تایید نهایی شده (توسط: ${p.approvedBy || 'مدیر سیستم'}) - غیرقابل حذف` : 'پەسەندکراو'}
+                            title={language === 'fa' ? `سند رسمی تایید نهایی شده (توسط: ${p.approvedBy || 'مدیر'}) - غیرقابل حذف` : 'پەسەندکراو'}
                           >
                             <Lock className="w-3.5 h-3.5" />
                           </span>

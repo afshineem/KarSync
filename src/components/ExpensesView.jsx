@@ -383,7 +383,7 @@ export function ExpensesView() {
   // Actions
   const handleApproveExpense = async (exp) => {
     if (!canApprove) {
-      alert(language === 'fa' ? 'فقط مدیر سیستم مجاز به تایید نهایی اسناد است.' : 'تەنها بەڕێوەبەر دەتوانێت بەڵگەنامە پەسەند بکات.');
+      alert(language === 'fa' ? 'فقط مدیر ارشد (Admin) مجاز به تایید نهایی اسناد است.' : 'تەنها بەڕێوەبەر دەتوانێت بەڵگەنامە پەسەند بکات.');
       return;
     }
     try {

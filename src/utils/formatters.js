@@ -51,26 +51,38 @@ export function getCurrencySymbol(currency = 'IQD', lang = 'ku') {
   }
 }
 
+export function getStoredNumberFormat() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('karsync_number_format') || 'latin';
+    }
+  } catch (_) {}
+  return 'latin';
+}
+
 /**
  * Universal Currency Formatter for SaaS multi-currency projects
  */
-export function formatCurrency(amount, currency = 'IQD', lang = 'ku') {
+export function formatCurrency(amount, currency = 'IQD', lang = 'ku', numFormat = null) {
   if (amount === undefined || amount === null || isNaN(amount)) {
     amount = 0;
   }
+  const format = numFormat || getStoredNumberFormat();
   const rounded = roundCurrency(amount, currency);
   const symbol = getCurrencySymbol(currency, lang);
 
+  let result = '';
   if (currency === 'USD') {
     const formatted = rounded.toLocaleString('en-US', {
       minimumFractionDigits: rounded % 1 === 0 ? 0 : 2,
       maximumFractionDigits: 2
     });
-    return lang === 'fa' ? `${formatted} دلار` : `$${formatted}`;
+    result = lang === 'fa' ? `${formatted} دلار` : `$${formatted}`;
+  } else {
+    const formattedNumber = rounded.toLocaleString('en-US');
+    result = `${formattedNumber} ${symbol}`;
   }
-
-  const formattedNumber = rounded.toLocaleString('en-US');
-  return `${formattedNumber} ${symbol}`;
+  return convertDigits(result, format);
 }
 
 /**
@@ -81,17 +93,19 @@ export const formatIQD = (amount, lang = 'ku') => formatCurrency(amount, 'IQD', 
 /**
  * Format numbers with comma separators (pure digits, e.g. 35,000)
  */
-export function formatNumber(num) {
-  if (num === undefined || num === null || isNaN(num)) return '0';
-  return Number(num).toLocaleString('en-US');
+export function formatNumber(num, numFormat = null) {
+  const format = numFormat || getStoredNumberFormat();
+  if (num === undefined || num === null || isNaN(num)) return convertDigits('0', format);
+  return convertDigits(Number(num).toLocaleString('en-US'), format);
 }
 
 /**
  * Clean currency amount formatter without symbol, rounded appropriately (e.g. 417,250)
  */
-export function formatAmount(amount, currency = 'IQD') {
-  if (amount === undefined || amount === null || isNaN(amount)) return '0';
-  return roundCurrency(amount, currency).toLocaleString('en-US');
+export function formatAmount(amount, currency = 'IQD', numFormat = null) {
+  const format = numFormat || getStoredNumberFormat();
+  if (amount === undefined || amount === null || isNaN(amount)) return convertDigits('0', format);
+  return convertDigits(roundCurrency(amount, currency).toLocaleString('en-US'), format);
 }
 
 /**
@@ -118,18 +132,19 @@ export function getCurrentYearMonth() {
 /**
  * Format date nicely for display YYYY/MM/DD
  */
-export function formatDateDisplay(dateStr, lang = 'ku') {
+export function formatDateDisplay(dateStr, lang = 'ku', numFormat = null) {
   if (!dateStr) return '';
+  const format = numFormat || getStoredNumberFormat();
   const parts = dateStr.split('-');
-  if (parts.length !== 3) return dateStr;
-  return `${parts[0]}/${parts[1]}/${parts[2]}`;
+  if (parts.length !== 3) return convertDigits(dateStr, format);
+  return convertDigits(`${parts[0]}/${parts[1]}/${parts[2]}`, format);
 }
 
 /**
  * Format full date with weekday name in Kurdish, Persian, or English
  * e.g., "سه‌شنبه، ۱ سپتامبر ۲۰۲۶" or "Tuesday, 1 September 2026"
  */
-export function formatFullDateWithWeekday(dateStr, lang = 'ku') {
+export function formatFullDateWithWeekday(dateStr, lang = 'ku', numFormat = null) {
   if (!dateStr) return '';
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
@@ -158,13 +173,15 @@ export function formatFullDateWithWeekday(dateStr, lang = 'ku') {
   const wName = wList[dayOfWeek];
   const mName = mList[m - 1];
 
+  let result = '';
   if (lang === 'en') {
-    return `${wName}, ${d} ${mName} ${y}`;
+    result = `${wName}, ${d} ${mName} ${y}`;
   } else if (lang === 'ku') {
-    return `${wName}، ${d}ی ${mName} ${y}`;
+    result = `${wName}، ${d}ی ${mName} ${y}`;
   } else {
-    return `${wName}، ${d} ${mName} ${y}`;
+    result = `${wName}، ${d} ${mName} ${y}`;
   }
+  return convertDigits(result, numFormat || getStoredNumberFormat());
 }
 
 /**
@@ -173,7 +190,7 @@ export function formatFullDateWithWeekday(dateStr, lang = 'ku') {
  * @param {string} lang 'fa' | 'ku' | 'en'
  * @returns {string}
  */
-export function formatDayMonth(dateStr, lang = 'fa') {
+export function formatDayMonth(dateStr, lang = 'fa', numFormat = null) {
   if (!dateStr) return '';
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
@@ -190,7 +207,7 @@ export function formatDayMonth(dateStr, lang = 'fa') {
   const mList = months[lang] || months.fa;
   const mName = mList[m - 1] || '';
 
-  return `${d} ${mName}`;
+  return convertDigits(`${d} ${mName}`, numFormat || getStoredNumberFormat());
 }
 
 /**
@@ -246,34 +263,40 @@ export function fromDecimalHours(decimal) {
  * Format decimal hours into human readable text (hours and minutes)
  * e.g., 1.7333 -> "۱ ساعت و ۴۴ دقیقه" or "1h 44m"
  */
-export function formatHoursAndMinutes(decimalHours, lang = 'fa') {
-  if (!decimalHours || Number(decimalHours) <= 0) return '0';
+export function formatHoursAndMinutes(decimalHours, lang = 'fa', numFormat = null) {
+  const format = numFormat || getStoredNumberFormat();
+  if (!decimalHours || Number(decimalHours) <= 0) return convertDigits('0', format);
   const { hours, minutes } = fromDecimalHours(decimalHours);
 
+  let result = '';
   if (hours > 0 && minutes > 0) {
-    if (lang === 'fa') return `${hours} ساعت و ${minutes} دقیقه`;
-    if (lang === 'ku') return `${hours} کاتژمێر و ${minutes} خولەک`;
-    return `${hours}h ${minutes}m`;
+    if (lang === 'fa') result = `${hours} ساعت و ${minutes} دقیقه`;
+    else if (lang === 'ku') result = `${hours} کاتژمێر و ${minutes} خولەک`;
+    else result = `${hours}h ${minutes}m`;
+  } else if (hours > 0) {
+    if (lang === 'fa') result = `${hours} ساعت`;
+    else if (lang === 'ku') result = `${hours} کاتژمێر`;
+    else result = `${hours}h`;
+  } else if (lang === 'fa') {
+    result = `${minutes} دقیقه`;
+  } else if (lang === 'ku') {
+    result = `${minutes} خولەک`;
+  } else {
+    result = `${minutes}m`;
   }
-  if (hours > 0) {
-    if (lang === 'fa') return `${hours} ساعت`;
-    if (lang === 'ku') return `${hours} کاتژمێر`;
-    return `${hours}h`;
-  }
-  if (lang === 'fa') return `${minutes} دقیقه`;
-  if (lang === 'ku') return `${minutes} خولەک`;
-  return `${minutes}m`;
+  return convertDigits(result, format);
 }
 
 /**
  * Format decimal hours into digital clock format "H:MM"
  * e.g., 1.3833 -> "1:23"
  */
-export function formatHoursDigital(decimalHours) {
-  if (!decimalHours || Number(decimalHours) <= 0) return '0:00';
+export function formatHoursDigital(decimalHours, numFormat = null) {
+  const format = numFormat || getStoredNumberFormat();
+  if (!decimalHours || Number(decimalHours) <= 0) return convertDigits('0:00', format);
   const { hours, minutes } = fromDecimalHours(decimalHours);
   const minStr = String(minutes).padStart(2, '0');
-  return `${hours}:${minStr}`;
+  return convertDigits(`${hours}:${minStr}`, format);
 }
 
 /**
@@ -281,22 +304,25 @@ export function formatHoursDigital(decimalHours) {
  * e.g., 1.7333 -> "+1:44" or "1:44"
  * 2 -> "+2س" / "+2ک" / "+2h"
  */
-export function formatTileHours(decimalHours, isHourly = false, lang = 'fa') {
+export function formatTileHours(decimalHours, isHourly = false, lang = 'fa', numFormat = null) {
+  const format = numFormat || getStoredNumberFormat();
   const val = Number(decimalHours) || 0;
   if (val <= 0) {
-    return isHourly ? '0h' : '';
+    return isHourly ? convertDigits('0h', format) : '';
   }
   const { hours, minutes } = fromDecimalHours(val);
   const prefix = isHourly ? '' : '+';
 
+  let result = '';
   if (minutes === 0) {
-    if (lang === 'fa') return `${prefix}${hours}س`;
-    if (lang === 'ku') return `${prefix}${hours}ک`;
-    return `${prefix}${hours}h`;
+    if (lang === 'fa') result = `${prefix}${hours}س`;
+    else if (lang === 'ku') result = `${prefix}${hours}ک`;
+    else result = `${prefix}${hours}h`;
+  } else {
+    const minStr = String(minutes).padStart(2, '0');
+    result = `${prefix}${hours}:${minStr}`;
   }
-
-  const minStr = String(minutes).padStart(2, '0');
-  return `${prefix}${hours}:${minStr}`;
+  return convertDigits(result, format);
 }
 
 /**
@@ -385,21 +411,22 @@ export const NUMBER_FORMAT_OPTIONS = [
 /**
  * Universal Digits Converter
  */
-export function convertDigits(input, format = 'latin') {
+export function convertDigits(input, format = null) {
   if (input === undefined || input === null) return '';
   const str = String(input);
-  if (format === 'latin' || format === 'en') {
+  const targetFormat = format || getStoredNumberFormat();
+  if (targetFormat === 'latin' || targetFormat === 'en') {
     return str
       .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
       .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632));
   }
-  if (format === 'fa') {
+  if (targetFormat === 'fa') {
     const latinToFa = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
     return str
       .replace(/[٠-٩]/g, (d) => latinToFa[d.charCodeAt(0) - 1632])
       .replace(/[0-9]/g, (d) => latinToFa[Number(d)]);
   }
-  if (format === 'ar') {
+  if (targetFormat === 'ar') {
     const latinToAr = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     return str
       .replace(/[۰-۹]/g, (d) => latinToAr[d.charCodeAt(0) - 1776])
@@ -415,9 +442,9 @@ export function formatTime(date = new Date(), options = {}) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
   if (!d || isNaN(d.getTime())) return '';
 
-  const timeFormat = options.timeFormat || localStorage.getItem('karsync_time_format') || '24h';
-  const timeZone = options.timeZone || localStorage.getItem('karsync_timezone') || 'auto';
-  const numberFormat = options.numberFormat || localStorage.getItem('karsync_number_format') || 'latin';
+  const timeFormat = options.timeFormat || (typeof localStorage !== 'undefined' ? localStorage.getItem('karsync_time_format') : null) || '24h';
+  const timeZone = options.timeZone || (typeof localStorage !== 'undefined' ? localStorage.getItem('karsync_timezone') : null) || 'auto';
+  const numberFormat = options.numberFormat || getStoredNumberFormat();
   const incSec = options.includeSeconds !== undefined ? options.includeSeconds : true;
 
   const opts = {
@@ -434,20 +461,12 @@ export function formatTime(date = new Date(), options = {}) {
 
   let result = '';
   try {
-    if (options.digits === 'en' || numberFormat === 'latin') {
-      result = new Intl.DateTimeFormat('en-GB', opts).format(d);
-    } else {
-      const loc = options.lang === 'fa' ? 'fa-IR' : options.lang === 'ku' ? 'ckb' : 'en-GB';
-      result = new Intl.DateTimeFormat(loc, opts).format(d);
-    }
+    result = new Intl.DateTimeFormat('en-GB', opts).format(d);
   } catch (_) {
     result = d.toLocaleTimeString('en-GB', opts);
   }
 
-  if (options.digits !== 'en' && numberFormat && numberFormat !== 'latin') {
-    return convertDigits(result, numberFormat);
-  }
-  return result;
+  return convertDigits(result, numberFormat);
 }
 
 /**
@@ -457,10 +476,10 @@ export function formatDate(date = new Date(), options = {}) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
   if (!d || isNaN(d.getTime())) return '';
 
-  const cal = options.calendarType || localStorage.getItem('karsync_calendar_type') || 'auto';
-  const tz = options.timeZone || localStorage.getItem('karsync_timezone') || 'auto';
-  const numFmt = options.numberFormat || localStorage.getItem('karsync_number_format') || 'latin';
-  const lang = options.lang || localStorage.getItem('workshop_lang') || 'fa';
+  const cal = options.calendarType || (typeof localStorage !== 'undefined' ? localStorage.getItem('karsync_calendar_type') : null) || 'auto';
+  const tz = options.timeZone || (typeof localStorage !== 'undefined' ? localStorage.getItem('karsync_timezone') : null) || 'auto';
+  const numFmt = options.numberFormat || getStoredNumberFormat();
+  const lang = options.lang || (typeof localStorage !== 'undefined' ? localStorage.getItem('workshop_lang') : null) || 'fa';
 
   let isJalali = false;
   if (cal === 'jalali') {

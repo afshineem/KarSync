@@ -94,9 +94,15 @@ export function LanguageProvider({ children }) {
     window.dispatchEvent(new CustomEvent('karsync-time-settings-changed', { detail: { calendarType: type } }));
   };
 
+  useEffect(() => {
+    localStorage.setItem('karsync_number_format', numberFormat);
+    document.documentElement.setAttribute('data-number-format', numberFormat);
+  }, [numberFormat]);
+
   const setNumberFormat = (format) => {
     setNumberFormatState(format);
     localStorage.setItem('karsync_number_format', format);
+    document.documentElement.setAttribute('data-number-format', format);
     window.dispatchEvent(new CustomEvent('karsync-time-settings-changed', { detail: { numberFormat: format } }));
   };
 
@@ -123,20 +129,12 @@ export function LanguageProvider({ children }) {
 
     let result = '';
     try {
-      if (options.digits === 'en' || numFmt === 'latin') {
-        result = new Intl.DateTimeFormat('en-GB', opts).format(d);
-      } else {
-        const loc = language === 'fa' ? 'fa-IR' : language === 'ku' ? 'ckb' : 'en-GB';
-        result = new Intl.DateTimeFormat(loc, opts).format(d);
-      }
+      result = new Intl.DateTimeFormat('en-GB', opts).format(d);
     } catch (_) {
       result = d.toLocaleTimeString('en-GB', opts);
     }
 
-    if (options.digits !== 'en' && numFmt && numFmt !== 'latin') {
-      return convertDigits(result, numFmt);
-    }
-    return result;
+    return convertDigits(result, numFmt);
   };
 
   const formatDate = (date = new Date(), options = {}) => {
@@ -218,7 +216,8 @@ export function LanguageProvider({ children }) {
       setNumberFormat,
       formatTime,
       formatDate,
-      convertDigits
+      convertDigits,
+      formatDigits: (val) => convertDigits(val, numberFormat)
     }}>
       {children}
     </LanguageContext.Provider>

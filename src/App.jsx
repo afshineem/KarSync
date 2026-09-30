@@ -31,6 +31,7 @@ import { InstallPwaModal } from './components/InstallPwaModal';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
+  const { numberFormat } = useLanguage();
   const { 
     profileWorkerId, 
     closeWorkerProfile,
@@ -265,7 +266,7 @@ function AppContent() {
       />
 
       {/* Main Content View */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <main key={numberFormat} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {activeTab === 'dashboard' && (
           <DashboardView
             onOpenLoggingModal={handleOpenLoggingModal}

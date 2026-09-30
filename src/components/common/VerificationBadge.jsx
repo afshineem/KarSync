@@ -45,7 +45,7 @@ export function VerificationBadge({
             className={`inline-flex items-center rounded-xl font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 shadow-xs transition-colors ${currentSizeClass}`}
             title={
               approvedBy || approvedAt
-                ? `تایید شده توسط: ${approvedBy || 'مدیر سیستم'} ${approvedAt ? `در ${approvedAt.slice(0, 10)}` : ''}`
+                ? `تایید شده توسط: ${approvedBy || 'مدیر'} ${approvedAt ? `در ${approvedAt.slice(0, 10)}` : ''}`
                 : (language === 'fa' ? 'سند تایید نهایی شده' : 'پەسەندکراوی کۆتایی')
             }
           >
@@ -67,7 +67,7 @@ export function VerificationBadge({
         {showDetails && (
           <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium inline-flex items-center gap-1">
             <span className="text-emerald-600 dark:text-emerald-400">👤</span>
-            <span className="truncate max-w-[120px]">{approvedBy || (language === 'fa' ? 'مدیر سیستم' : 'بەڕێوەبەر')}</span>
+            <span className="truncate max-w-[120px]">{approvedBy || (language === 'fa' ? 'مدیر' : 'بەڕێوەبەر')}</span>
           </span>
         )}
       </div>

@@ -148,7 +148,7 @@ export function SettingsDropdown({
           </div>
           <div className="text-start">
             <div className="text-xs font-bold leading-tight">
-              {language === 'fa' ? 'تنظیمات پیشرفته سیستم' : language === 'ku' ? 'ڕێکخستنی پێشکەوتووی سیستەم' : 'System Settings Hub'}
+              {language === 'fa' ? 'تنظیمات' : language === 'ku' ? 'ڕێکخستنەکان' : 'Settings'}
             </div>
             <div className="text-[10px] text-sky-600/70 dark:text-sky-400/70 mt-0.5">
               {language === 'fa' ? 'پروژه‌ها، سرفصل‌ها، تم و دیتابیس' : 'پڕۆژەکان، ڕووکار و بنکەدراوە'}

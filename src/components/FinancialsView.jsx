@@ -1789,7 +1789,7 @@ export function FinancialsView() {
                           payment.status === 'approved' || payment.approval_status === 'approved' ? (
                             <span 
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80"
-                              title={language === 'fa' ? `سند رسمی تایید نهایی شده (توسط: ${payment.approvedBy || 'مدیر سیستم'}) - غیرقابل ویرایش، آرشیو یا حذف` : 'پەسەندکراو'}
+                              title={language === 'fa' ? `سند رسمی تایید نهایی شده (توسط: ${payment.approvedBy || 'مدیر'}) - غیرقابل ویرایش، آرشیو یا حذف` : 'پەسەندکراو'}
                             >
                               <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                               <span>{language === 'fa' ? 'تایید نهایی' : 'پەسەندکراو'}</span>

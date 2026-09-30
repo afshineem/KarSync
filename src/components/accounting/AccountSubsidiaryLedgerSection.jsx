@@ -492,7 +492,7 @@ export function AccountSubsidiaryLedgerSection({
                   ثبت موجودی اولیه هنگام افتتاح حساب در سیستم
                 </td>
                 <td className="py-3 px-3.5 text-slate-500">
-                  {account?.keeperName || account?.holderName || 'مدیر سیستم'}
+                  {account?.keeperName || account?.holderName || 'سرپرست'}
                 </td>
                 <td className="py-3 px-3.5 font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
                   {initialBalance > 0 ? `+${formatAmount(initialBalance, currency)}` : '-'}

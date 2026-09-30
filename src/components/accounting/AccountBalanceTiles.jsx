@@ -49,7 +49,7 @@ export function AccountBalanceTiles({
       {/* عنوان بخش کاشی‌ها */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <Landmark className="w-4 h-4 text-emerald-500" />
+          <Landmark className="w-4 h-4 text-sky-500" />
           <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
             {language === 'fa' 
               ? 'موجودی کارت‌های بانکی و صندوق‌های نقدینگی' 
@@ -90,26 +90,20 @@ export function AccountBalanceTiles({
               onClick={() => onSelectAccount && onSelectAccount(account)}
               className={`group relative p-4 rounded-3xl border transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between ${
                 isSelected
-                  ? 'ring-2 ring-emerald-500 bg-white dark:bg-slate-900 shadow-md border-emerald-500/40'
+                  ? 'ring-2 ring-sky-500 bg-white dark:bg-slate-900 shadow-md border-sky-500/40'
                   : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md'
               }`}
             >
-              {/* پس‌زمینه رنگی خیلی ملایم در بالای کارت */}
+              {/* نشانگر ظریف در بالای کارت */}
               <div 
-                className={`absolute top-0 inset-x-0 h-1.5 ${
-                  isBank ? 'bg-gradient-to-r from-sky-400 to-indigo-500' : 'bg-gradient-to-r from-amber-400 to-amber-600'
-                }`} 
+                className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-sky-500 to-indigo-600" 
               />
 
               <div>
                 {/* ردیف بالا: آیکون، نام حساب و نشان پیش‌فرض */}
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
-                      isBank 
-                        ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/60'
-                        : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60'
-                    }`}>
+                    <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/60">
                       {isBank ? <CreditCard className="w-4 h-4 stroke-[2.2]" /> : <Coins className="w-4 h-4 stroke-[2.2]" />}
                     </div>
 
@@ -187,7 +181,7 @@ export function AccountBalanceTiles({
 
               {/* پاورقی کارت با دکمه‌های عملیات سریع و دسترسی به معین */}
               <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold">
-                <span className="flex items-center gap-1 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors">
+                <span className="flex items-center gap-1 text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400 transition-colors">
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>{language === 'fa' ? 'دفتر معین' : 'دەفتەری معین'}</span>
                   {isRtl ? (
@@ -198,13 +192,13 @@ export function AccountBalanceTiles({
                 </span>
 
                 {/* دکمه‌های آیکونی اقدام سریع روی همین کارت */}
-                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60" onClick={(e) => e.stopPropagation()}>
                   {onQuickTransfer && (
                     <button
                       type="button"
                       onClick={() => onQuickTransfer(account)}
                       title={language === 'fa' ? `انتقال وجه از ${account.name}` : `گواستنەوەی پارە لە ${account.name}`}
-                      className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-400 transition-all active:scale-90"
+                      className="p-1 rounded-lg text-slate-600 hover:text-sky-600 hover:bg-white dark:text-slate-300 dark:hover:text-sky-400 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center"
                     >
                       <ArrowLeftRight className="w-3.5 h-3.5" />
                     </button>
@@ -215,7 +209,7 @@ export function AccountBalanceTiles({
                       type="button"
                       onClick={() => onQuickDeposit(account)}
                       title={language === 'fa' ? `افزایش موجودی ${account.name}` : `زیادکردنی باڵانسی ${account.name}`}
-                      className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 dark:text-emerald-400 transition-all active:scale-90"
+                      className="p-1 rounded-lg text-slate-600 hover:text-sky-600 hover:bg-white dark:text-slate-300 dark:hover:text-sky-400 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>

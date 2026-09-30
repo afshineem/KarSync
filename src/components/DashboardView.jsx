@@ -47,7 +47,7 @@ import {
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
-  const { t, language, direction, timeFormat, timeZone, calendarType, numberFormat, formatTime, formatDate } = useLanguage();
+  const { t, language, direction, timeFormat, timeZone, calendarType, numberFormat, formatTime, formatDate, convertDigits } = useLanguage();
   const { user } = useAuth();
   const { currentProject, openWorkerProfile, openGlobalSettings } = useProject();
   const currency = currentProject?.currency || 'IQD';
@@ -213,12 +213,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     return formatDate(currentDateTime);
   }, [currentDateTime, formatDate, language, calendarType, timeZone, numberFormat]);
 
-  // Format hours float to digital HH:mm format with English digits (e.g. 42:16)
+  // Format hours float to digital HH:mm format respecting numberFormat (e.g. 42:16 or ۴۲:۱۶)
   const formatDigitalHours = (hoursFloat) => {
     const totalMins = Math.round(Math.max(0, Number(hoursFloat) || 0) * 60);
     const h = Math.floor(totalMins / 60);
     const m = totalMins % 60;
-    return `${h}:${String(m).padStart(2, '0')}`;
+    return convertDigits(`${h}:${String(m).padStart(2, '0')}`, numberFormat);
   };
 
   // Deduplicate logs in memory by workerId + date

@@ -124,7 +124,11 @@ export function GeneralLedgerTable({
     setApprovingId(tx.id);
     try {
       const tableName = tx.tableName || (tx.type === 'inflow' ? 'treasuryIncomes' : 'payments');
-      await approveRecord(tableName, tx.id);
+      const targetId = tx.tableName === 'accountTransfers'
+        ? (tx.transferId || String(tx.id).replace(/_(in|out)$/, ''))
+        : tx.id;
+
+      await approveRecord(tableName, targetId);
       
       setSelectedIds((prev) => {
         if (prev.has(tx.id)) {
@@ -138,7 +142,7 @@ export function GeneralLedgerTable({
       setFeedbackMsg({
         type: 'success',
         text: language === 'fa' 
-          ? `سند «${tx.title}» با موفقیت توسط ${user?.name || 'مدیر سیستم'} تایید نهایی شد.` 
+          ? `سند «${tx.title}» با موفقیت توسط ${user?.name || user?.email || 'مدیر'} تایید نهایی شد.` 
           : 'بەڵگەنامە پەسەند کرا.'
       });
       setTimeout(() => setFeedbackMsg(null), 3500);
@@ -161,12 +165,20 @@ export function GeneralLedgerTable({
     setIsBatchApproving(true);
     try {
       const itemsToApprove = [];
+      const processedTransfers = new Set();
       selectedIds.forEach((id) => {
         const found = ledgerItems.find((item) => item.id === id);
         if (found) {
+          const tbl = found.tableName || (found.type === 'inflow' ? 'treasuryIncomes' : 'payments');
+          let recId = found.id;
+          if (tbl === 'accountTransfers') {
+            recId = found.transferId || String(found.id).replace(/_(in|out)$/, '');
+            if (processedTransfers.has(recId)) return;
+            processedTransfers.add(recId);
+          }
           itemsToApprove.push({
-            tableName: found.tableName || (found.type === 'inflow' ? 'treasuryIncomes' : 'payments'),
-            recordId: found.id
+            tableName: tbl,
+            recordId: recId
           });
         }
       });
@@ -270,7 +282,7 @@ export function GeneralLedgerTable({
       'حساب': item.accountName || (item.accountType === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
       'عنوان و طرف‌حساب': item.title,
       'وضعیت تایید': item.status === 'approved' 
-        ? `تایید نهایی (${item.approvedBy || 'مدیر سیستم'})` 
+        ? `تایید نهایی (${item.approvedBy || 'مدیر'})` 
         : 'پیش‌نویس موقت',
       'تاریخ تایید': item.approvedAt || '',
       'اصلاحیه خورده': item.isAmended ? 'بله' : 'خیر',
@@ -291,7 +303,7 @@ export function GeneralLedgerTable({
       {/* هدر دفتر کل */}
       <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-200/60 dark:border-sky-800/60 shrink-0">
             <TableIcon className="w-5 h-5 stroke-[2.2]" />
           </div>
           <div>
@@ -299,7 +311,7 @@ export function GeneralLedgerTable({
               <h2 className="text-base font-black text-slate-900 dark:text-white">
                 {language === 'fa' ? 'دفتر کل و اسناد مالی' : 'دەفتەری گشتی مامەڵە دارایییەکان'}
               </h2>
-              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
+              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
                 {ledgerItems.length} {language === 'fa' ? 'تراکنش' : 'مامەڵە'}
               </span>
             </div>
@@ -311,27 +323,27 @@ export function GeneralLedgerTable({
           </div>
         </div>
 
-        {/* دکمه‌های کنترل و خروجی */}
-        <div className="flex items-center gap-2 self-end sm:self-center">
+        {/* دکمه‌های کنترل و خروجی در قالب داک یکپارچه */}
+        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0 self-end sm:self-center">
           <button
             type="button"
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
               isFilterOpen || dateFilterMode !== 'all' || categoryFilter !== 'all' || accountTypeFilter !== 'all'
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
-                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                ? 'bg-sky-50 dark:bg-sky-950/60 border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 shadow-2xs'
+                : 'border border-transparent text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
             }`}
           >
-            <Filter className="w-3.5 h-3.5" />
+            <Filter className="w-3.5 h-3.5 text-sky-500" />
             <span>{language === 'fa' ? 'فیلترها' : 'فلتەرەکان'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleExportExcel}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 border border-transparent text-xs font-bold flex items-center gap-1.5 transition-colors"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>{language === 'fa' ? 'خروجی اکسل' : 'هەناردەی ئێکسڵ'}</span>
           </button>
         </div>
@@ -437,7 +449,7 @@ export function GeneralLedgerTable({
 
       {/* نوار عملیات گروهی (تایید یا حذف گروهی اسناد موقت) */}
       {selectedIds.size > 0 && (
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-3.5 px-5 flex flex-wrap items-center justify-between gap-3 shadow-md animate-in slide-in-from-top duration-200">
+        <div className="bg-gradient-to-r from-sky-600 via-indigo-600 to-sky-700 text-white p-3.5 px-5 flex flex-wrap items-center justify-between gap-3 shadow-md animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm text-white">
               {selectedIds.size}
@@ -448,7 +460,7 @@ export function GeneralLedgerTable({
                   ? `تعداد ${selectedIds.size} سند پیش‌نویس انتخاب شد` 
                   : `${selectedIds.size} بەڵگەنامە دیاریکراوە`}
               </p>
-              <p className="text-[11px] text-emerald-100">
+              <p className="text-[11px] text-sky-100">
                 {language === 'fa' 
                   ? `امکان تایید نهایی رسمی یا حذف گروهی اسناد موقت انتخابی وجود دارد.` 
                   : 'دەتوانیت پەسەندیان بکەیت یان بەکۆمەڵ بیسڕیتەوە'}
@@ -1188,7 +1200,7 @@ function AmendmentHistoryModal({ tx, currency, language, onClose }) {
                     </div>
                   )}
                   <div className="text-[10px] text-slate-400 pt-1 border-t border-purple-100 dark:border-purple-900/40">
-                    توسط: <span className="font-medium text-slate-600 dark:text-slate-300">{entry.amendedBy || 'مدیر سیستم'}</span>
+                    توسط: <span className="font-medium text-slate-600 dark:text-slate-300">{entry.amendedBy || 'مدیر'}</span>
                   </div>
                 </div>
               ))}

@@ -90,7 +90,7 @@ export function IncomeManagementSection({
       {/* هدر بخش و دکمه ثبت واریزی */}
       <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/60 dark:border-emerald-800/60">
+          <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-200/60 dark:border-sky-800/60">
             <ArrowDownLeft className="w-5 h-5 stroke-[2.2]" />
           </div>
           <div>
@@ -98,7 +98,7 @@ export function IncomeManagementSection({
               <h2 className="text-base font-black text-slate-900 dark:text-white">
                 {language === 'fa' ? 'مدیریت ورودی‌ها و تنخواه دریافتی' : 'بەڕێوەبردنی داهات و تەنخوا'}
               </h2>
-              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
+              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
                 {incomes.length} {language === 'fa' ? 'مورد' : 'تۆمار'}
               </span>
             </div>
@@ -113,7 +113,7 @@ export function IncomeManagementSection({
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/25 flex items-center gap-1.5 transition-all active:scale-95"
+            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-1.5 transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>{language === 'fa' ? 'ثبت واریزی جدید' : 'تۆماری داهاتی نوێ'}</span>
@@ -129,7 +129,7 @@ export function IncomeManagementSection({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={language === 'fa' ? 'جستجو در عنوان، واریزکننده یا مبلغ...' : 'گەڕان لە داهاتەکان...'}
-            className="w-full h-9 ps-8 pe-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            className="w-full h-9 ps-8 pe-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
           />
           <Search className="w-4 h-4 text-slate-400 absolute start-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -267,12 +267,12 @@ export function IncomeManagementSection({
                             </span>
                           </div>
                         ) : (
-                          <>
+                          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
                             <button
                               type="button"
                               onClick={() => setEditingIncome(inc)}
                               title={language === 'fa' ? 'ویرایش واریزی' : 'دەستکاری'}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/50 transition-colors"
+                              className="p-1 rounded-lg text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -280,11 +280,11 @@ export function IncomeManagementSection({
                               type="button"
                               onClick={() => setIncomeToDelete(inc)}
                               title={language === 'fa' ? 'حذف واریزی' : 'سڕینەوە'}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                              className="p-1 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                          </>
+                          </div>
                         )}
                       </div>
                     </td>

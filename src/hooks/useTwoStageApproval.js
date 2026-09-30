@@ -9,7 +9,15 @@ import {
   isRecordApproved,
   canDeleteWorker
 } from '../db/db';
-import { pushExpenseLive, pushPaymentsLive, pushLogsLive } from '../services/realtimeSync';
+import { 
+  pushExpenseLive, 
+  pushPaymentsLive, 
+  pushLogsLive,
+  pushAccountTransferLive,
+  pushAllAccountTransfersToCloud,
+  pushTreasuryIncomeLive,
+  pushAllTreasuryIncomesToCloud
+} from '../services/realtimeSync';
 
 /**
  * useTwoStageApproval
@@ -17,7 +25,7 @@ import { pushExpenseLive, pushPaymentsLive, pushLogsLive } from '../services/rea
  */
 export function useTwoStageApproval() {
   const { user, isAdmin, setUserRole } = useAuth();
-  const currentRole = user?.role || 'admin';
+  const currentRole = user?.role || null;
 
   /**
    * آیا سند قابل ویرایش و حذف است؟
@@ -31,26 +39,30 @@ export function useTwoStageApproval() {
 
   /**
    * آیا کاربر جاری دسترسی تایید اسناد یا صدور اصلاحیه را دارد؟
-   * در معماری RBAC تنها نقش 'admin' مجاز به تایید نهایی و صدور اصلاحیه است.
+   * تنها کاربران لاگین‌شده با نقش 'admin' مجاز به تایید نهایی و صدور اصلاحیه هستند.
    */
-  const canApprove = Boolean(isAdmin || currentRole === 'admin');
+  const canApprove = Boolean(user && (isAdmin || currentRole === 'admin'));
 
   /**
    * تایید نهایی سند و تغییر وضعیت از پیش‌نویس (draft) به تایید شده (approved)
    * 
-   * @param {string} tableName - 'expenses' | 'payments' | 'attendanceLogs' | 'treasuryIncomes'
+   * @param {string} tableName - 'expenses' | 'payments' | 'attendanceLogs' | 'treasuryIncomes' | 'accountTransfers'
    * @param {string} recordId - شناسه سند
    * @returns {Promise<object>} سند به‌روزرسانی شده
    */
   const approveRecord = useCallback(async (tableName, recordId) => {
-    if (!canApprove) {
-      const err = new Error('403 Forbidden: تنها کاربران دارای نقش «مدیر ارشد» مجاز به تایید نهایی اسناد هستند.');
+    if (!canApprove || !user) {
+      const err = new Error('تنها کاربران دارای نقش «مدیر ارشد (Admin)» مجاز به تایید نهایی اسناد هستند.');
       err.statusCode = 403;
       err.code = 'ROLE_UNAUTHORIZED';
       throw err;
     }
 
-    const updated = await dbApproveRecord(tableName, recordId, user);
+    const cleanRecordId = tableName === 'accountTransfers'
+      ? String(recordId).replace(/_(in|out)$/, '')
+      : recordId;
+
+    const updated = await dbApproveRecord(tableName, cleanRecordId, user);
 
     try {
       if (tableName === 'expenses') {
@@ -62,7 +74,14 @@ export function useTwoStageApproval() {
       } else if (tableName === 'attendanceLogs') {
         await pushLogsLive();
         window.dispatchEvent(new CustomEvent('workshop-logs-sync'));
+      } else if (tableName === 'accountTransfers') {
+        await pushAccountTransferLive(updated);
+        window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+      } else if (tableName === 'treasuryIncomes') {
+        await pushTreasuryIncomeLive(updated);
+        window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
       }
+      window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
     } catch (cloudErr) {
       console.warn('Realtime cloud sync deferred after approval:', cloudErr);
     }
@@ -75,8 +94,8 @@ export function useTwoStageApproval() {
    * @param {Array<{ tableName: string, recordId: string | number }>} items
    */
   const batchApproveRecords = useCallback(async (items) => {
-    if (!canApprove) {
-      const err = new Error('403 Forbidden: تنها کاربران دارای نقش «مدیر ارشد» مجاز به تایید نهایی اسناد هستند.');
+    if (!canApprove || !user) {
+      const err = new Error('تنها کاربران دارای نقش «مدیر ارشد (Admin)» مجاز به تایید نهایی اسناد هستند.');
       err.statusCode = 403;
       err.code = 'ROLE_UNAUTHORIZED';
       throw err;
@@ -85,9 +104,16 @@ export function useTwoStageApproval() {
     const results = await dbBatchApproveRecords(items, user);
 
     try {
-      await pushPaymentsLive();
+      await Promise.allSettled([
+        pushPaymentsLive(),
+        pushAllAccountTransfersToCloud(),
+        pushAllTreasuryIncomesToCloud()
+      ]);
       window.dispatchEvent(new CustomEvent('workshop-payments-sync'));
       window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+      window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+      window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
+      window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
     } catch (cloudErr) {
       console.warn('Realtime cloud sync deferred after batch approval:', cloudErr);
     }
@@ -97,19 +123,23 @@ export function useTwoStageApproval() {
 
   /**
    * صدور سند اصلاحیه برای سند تایید شده (Amendment / Adjustment)
-   * @param {string} tableName - 'payments' | 'expenses' | 'treasuryIncomes'
+   * @param {string} tableName - 'payments' | 'expenses' | 'treasuryIncomes' | 'accountTransfers'
    * @param {string|number} recordId
    * @param {object} amendmentData - { amount, reason, notes, date }
    */
   const amendRecord = useCallback(async (tableName, recordId, amendmentData) => {
-    if (!canApprove) {
-      const err = new Error('403 Forbidden: تنها کاربران دارای نقش «مدیر ارشد» مجاز به صدور اصلاحیه اسناد هستند.');
+    if (!canApprove || !user) {
+      const err = new Error('تنها کاربران دارای نقش «مدیر ارشد (Admin)» مجاز به صدور اصلاحیه اسناد هستند.');
       err.statusCode = 403;
       err.code = 'ROLE_UNAUTHORIZED';
       throw err;
     }
 
-    const updated = await dbAmendRecord(tableName, recordId, amendmentData, user);
+    const cleanRecordId = tableName === 'accountTransfers'
+      ? String(recordId).replace(/_(in|out)$/, '')
+      : recordId;
+
+    const updated = await dbAmendRecord(tableName, cleanRecordId, amendmentData, user);
 
     try {
       if (tableName === 'expenses') {
@@ -118,7 +148,14 @@ export function useTwoStageApproval() {
       } else if (tableName === 'payments') {
         await pushPaymentsLive();
         window.dispatchEvent(new CustomEvent('workshop-payments-sync'));
+      } else if (tableName === 'accountTransfers') {
+        await pushAccountTransferLive(updated);
+        window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+      } else if (tableName === 'treasuryIncomes') {
+        await pushTreasuryIncomeLive(updated);
+        window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
       }
+      window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
     } catch (cloudErr) {
       console.warn('Realtime cloud sync deferred after amendment:', cloudErr);
     }

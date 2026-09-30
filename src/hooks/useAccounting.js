@@ -7,6 +7,7 @@ import {
   generateAccountId, 
   generateTransferId,
   seedDefaultFinancialAccounts, 
+  purgeBankToBankTransfers,
   migrateClosedTransactionsToCashBox,
   getGlobalOverdraftPolicy,
   setGlobalOverdraftPolicy
@@ -75,6 +76,7 @@ export function useAccounting(options = {}) {
     pullTreasuryIncomesLive().catch(console.warn);
     pullAccountTransfersLive().catch(console.warn);
     pullGlobalOverdraftPolicyLive().catch(console.warn);
+    purgeBankToBankTransfers().catch(console.warn);
 
     return () => {
       window.removeEventListener('workshop-accounts-sync', handleSync);
@@ -653,9 +655,9 @@ export function useAccounting(options = {}) {
         description: trf.description || (trf.reference ? `شماره ارجاع: ${trf.reference}` : ''),
         personName: trf.toAccountName || '',
         tableName: 'accountTransfers',
-        status: trf.status || 'approved',
-        approvedBy: trf.approvedBy || trf.approved_by_name || 'مدیر سیستم',
-        approvedAt: trf.createdAt,
+        status: trf.status || trf.approval_status || 'draft',
+        approvedBy: trf.approvedBy || trf.approved_by_name || null,
+        approvedAt: trf.approvedAt || trf.approved_at || null,
         isSystem: false,
         isTransfer: true,
         transferDirection: 'out',
@@ -679,9 +681,9 @@ export function useAccounting(options = {}) {
         description: trf.description || (trf.reference ? `شماره ارجاع: ${trf.reference}` : ''),
         personName: trf.fromAccountName || '',
         tableName: 'accountTransfers',
-        status: trf.status || 'approved',
-        approvedBy: trf.approvedBy || trf.approved_by_name || 'مدیر سیستم',
-        approvedAt: trf.createdAt,
+        status: trf.status || trf.approval_status || 'draft',
+        approvedBy: trf.approvedBy || trf.approved_by_name || null,
+        approvedAt: trf.approvedAt || trf.approved_at || null,
         isSystem: false,
         isTransfer: true,
         transferDirection: 'in',
@@ -884,7 +886,7 @@ export function useAccounting(options = {}) {
     const newRecord = {
       id: generateTreasuryIncomeId(),
       projectId,
-      userId: user?.id || 'default_user',
+      userId: user?.id || user?.userId || 'default_user',
       amount: numAmount,
       date: date || getTodayDateString(),
       title: fallbackTitle,
@@ -893,9 +895,14 @@ export function useAccounting(options = {}) {
       accountType: accountType || 'bank', // 'cash' | 'bank'
       payer: payer ? payer.trim() : '',
       description: description ? description.trim() : '',
-      status: status || 'approved',
-      created_by: user?.id || 'admin',
-      approved_by: user?.id || 'admin',
+      status: 'draft',
+      approval_status: 'draft',
+      created_by: user?.id || user?.userId || 'user',
+      createdBy: user?.name || user?.title || user?.email || '',
+      approved_by: null,
+      approvedBy: null,
+      approved_at: null,
+      approvedAt: null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
     };
@@ -907,6 +914,11 @@ export function useAccounting(options = {}) {
 
   const updateIncome = useCallback(async (id, modifications) => {
     if (!id) throw new Error('شناسه واریزی الزامی است');
+
+    const existing = await db.treasuryIncomes.get(id);
+    if (existing && (existing.status === 'approved' || existing.approval_status === 'approved')) {
+      throw new Error('اسناد مالی تایید نهایی شده به جهت الزامات حسابداری غیرقابل ویرایش مستقیم هستند.');
+    }
 
     const cleanMods = { ...modifications, updatedAt: new Date().toISOString() };
     if ('amount' in cleanMods) {
@@ -1141,7 +1153,7 @@ export function useAccounting(options = {}) {
     const newTransfer = {
       id: generateTransferId(),
       projectId,
-      userId: user?.id || 'default_user',
+      userId: user?.id || user?.userId || 'default_user',
       fromAccountId: String(fromAcc.id),
       fromAccountName: fromAcc.name,
       fromAccountType: fromAcc.type,
@@ -1153,9 +1165,14 @@ export function useAccounting(options = {}) {
       time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
       reference: reference ? reference.trim() : '',
       description: description ? description.trim() : '',
-      status: 'approved',
-      created_by: user?.id || 'admin',
-      approved_by: user?.id || 'admin',
+      status: 'draft',
+      approval_status: 'draft',
+      created_by: user?.id || user?.userId || 'user',
+      createdBy: user?.name || user?.title || user?.email || '',
+      approved_by: null,
+      approvedBy: null,
+      approved_at: null,
+      approvedAt: null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
     };

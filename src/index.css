@@ -9,6 +9,19 @@
   html[dir="ltr"] {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
+
+  /* Support global digits conversion via OpenType font features for Persian digits */
+  html[data-number-format="fa"] {
+    font-feature-settings: "ss01" 1;
+  }
+  html[data-number-format="latin"] {
+    font-feature-settings: "ss01" 0;
+  }
+
+  /* Keep input fields and mono blocks clean for inputting numbers */
+  input, textarea, select, .font-mono, [data-latin-digits] {
+    font-feature-settings: "ss01" 0 !important;
+  }
 }
 
 /* Custom smooth scrollbars */
