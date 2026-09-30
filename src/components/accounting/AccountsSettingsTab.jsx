@@ -270,10 +270,10 @@ export function AccountsSettingsTab({
       </div>
 
       {/* ۲.۱ کارت تنظیم سیاست اضافه برداشت (کسری موجودی) سراسری */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-800/30 border border-slate-200/80 dark:border-slate-800 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 border border-sky-200/50 dark:border-sky-800/50">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
@@ -287,155 +287,60 @@ export function AccountsSettingsTab({
               </p>
             </div>
           </div>
-
-          <span className="text-[11px] px-2.5 py-1 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
-            {globalOverdraftPolicy === 'always_allow' 
-              ? (language === 'fa' ? 'همیشه مجاز' : 'هەمیشە ڕێگەپێدراو')
-              : globalOverdraftPolicy === 'never_allow'
-                ? (language === 'fa' ? 'همیشه نامجاز' : 'هەمیشە قەدەغە')
-                : (language === 'fa' ? 'هر بار پرسیده شود (پیش‌فرض)' : 'پرسیار لە هەر جارێکدا')}
-          </span>
         </div>
 
-        {/* ۳ گزینه انتخابی: همیشه مجاز / هر بار پرسیده شود / همیشه نامجاز */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-          {/* گزینه الف: همیشه مجاز */}
-          <div
-            onClick={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('always_allow')}
-            className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
-              globalOverdraftPolicy === 'always_allow'
-                ? 'bg-white dark:bg-slate-800 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20'
-                : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
+        {/* منوی دراپ‌داون سیاست اضافه برداشت سراسری */}
+        <div className="pt-1">
+          <select
+            value={globalOverdraftPolicy}
+            onChange={(e) => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy(e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <CheckCircle2 className={`w-4 h-4 ${globalOverdraftPolicy === 'always_allow' ? 'text-emerald-500' : 'text-slate-400'}`} />
-                <span>{language === 'fa' ? 'همیشه مجاز' : 'هەمیشە ڕێگەپێدراو'}</span>
-              </span>
-              <input
-                type="radio"
-                name="globalOverdraftPolicy"
-                checked={globalOverdraftPolicy === 'always_allow'}
-                onChange={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('always_allow')}
-                className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            <option value="ask_each_time">
               {language === 'fa' 
-                ? 'برداشت‌ها و هزینه‌ها بدون هیچ مانعی ثبت شده و تراز حساب می‌تواند منفی شود.' 
-                : 'پارەدان بێ بەربەست ئەنجام دەدرێت و باڵانس دەتوانێت نێگەتیڤ بێت.'}
-            </p>
-          </div>
-
-          {/* هر بار پرسیده شود */}
-          <div
-            onClick={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('ask_each_time')}
-            className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
-              globalOverdraftPolicy === 'ask_each_time'
-                ? 'bg-white dark:bg-slate-800 border-amber-500 shadow-sm ring-2 ring-amber-500/20'
-                : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <HelpCircle className={`w-4 h-4 ${globalOverdraftPolicy === 'ask_each_time' ? 'text-amber-500' : 'text-slate-400'}`} />
-                <span>{language === 'fa' ? 'هر بار پرسیده شود' : 'پرسیار لە هەر جارێکدا'}</span>
-              </span>
-              <input
-                type="radio"
-                name="globalOverdraftPolicy"
-                checked={globalOverdraftPolicy === 'ask_each_time'}
-                onChange={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('ask_each_time')}
-                className="w-4 h-4 text-amber-600 focus:ring-amber-500 cursor-pointer"
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                ? '⚠️ هر بار پرسیده شود (پیش‌فرض) — نمایش هشدار در صورت کسری و اخذ تایید مجدد' 
+                : 'پرسیار لە هەر جارێکدا'}
+            </option>
+            <option value="always_allow">
               {language === 'fa' 
-                ? 'در صورت ناکافی بودن موجودی، مودال هشدار باز شده و پس از تایید کاربر، ثبت می‌شود.' 
-                : 'ئاگاداری دەدرێت و دوای پەسەندکردنی بەکارهێنەر تۆمار دەکرێت.'}
-            </p>
-          </div>
-
-          {/* همیشه نامجاز */}
-          <div
-            onClick={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('never_allow')}
-            className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
-              globalOverdraftPolicy === 'never_allow'
-                ? 'bg-white dark:bg-slate-800 border-rose-500 shadow-sm ring-2 ring-rose-500/20'
-                : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Ban className={`w-4 h-4 ${globalOverdraftPolicy === 'never_allow' ? 'text-rose-500' : 'text-slate-400'}`} />
-                <span>{language === 'fa' ? 'همیشه نامجاز' : 'هەمیشە قەدەغە'}</span>
-              </span>
-              <input
-                type="radio"
-                name="globalOverdraftPolicy"
-                checked={globalOverdraftPolicy === 'never_allow'}
-                onChange={() => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy('never_allow')}
-                className="w-4 h-4 text-rose-600 focus:ring-rose-500 cursor-pointer"
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                ? '✅ همیشه مجاز — ثبت فوری برداشت و هزینه بدون مانع (امکان منفی شدن تراز)' 
+                : 'هەمیشە ڕێگەپێدراو'}
+            </option>
+            <option value="never_allow">
               {language === 'fa' 
-                ? 'در صورت کسری موجودی، از ثبت تراکنش و برداشت اکیداً ممانعت به عمل می‌آید.' 
-                : 'ئەگەر باڵانس بەش نەکات ڕێگە بە هیچ مامەڵەیەک نادرێت.'}
-            </p>
-          </div>
+                ? '⛔ همیشه نامجاز — ممانعت کامل از ثبت تراکنش بیش از موجودی حساب' 
+                : 'هەمیشە قەدەغە'}
+            </option>
+          </select>
         </div>
       </div>
 
-      {/* فیلتر تب‌ها (همه، کارت‌ها، صندوق‌ها) */}
-      <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveFilter('all')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeFilter === 'all'
-              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <span>{language === 'fa' ? 'همه حساب‌ها' : 'هەموو'}</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 font-mono">
-            {accounts.length}
-          </span>
-        </button>
+      {/* منوی دراپ‌داون فیلتر حساب‌ها جهت مرتب‌سازی و عدم شلوغی */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+            {language === 'fa' ? 'فیلتر نمایش حساب‌ها:' : 'فلتەرکردن:'}
+          </label>
+          <select
+            value={activeFilter}
+            onChange={(e) => setActiveFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+          >
+            <option value="all">
+              {language === 'fa' ? `همه حساب‌ها (${accounts.length})` : `هەموو (${accounts.length})`}
+            </option>
+            <option value="bank">
+              {language === 'fa' ? `فقط کارت‌های بانکی (${bankAccountsCount})` : `تەنها کارتەکان (${bankAccountsCount})`}
+            </option>
+            <option value="cash">
+              {language === 'fa' ? `فقط صندوق‌های نقدی (${cashAccountsCount})` : `تەنها سندوقەکان (${cashAccountsCount})`}
+            </option>
+          </select>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveFilter('bank')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeFilter === 'bank'
-              ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/30'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <CreditCard className="w-3.5 h-3.5" />
-          <span>{language === 'fa' ? 'کارت‌های بانکی' : 'کارتەکان'}</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sky-100 dark:bg-sky-950 font-mono">
-            {bankAccountsCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveFilter('cash')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeFilter === 'cash'
-              ? 'bg-amber-500 text-white shadow-xs shadow-amber-500/30'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Coins className="w-3.5 h-3.5" />
-          <span>{language === 'fa' ? 'صندوق‌های نقدی' : 'سندوقەکان'}</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950 font-mono">
-            {cashAccountsCount}
-          </span>
-        </button>
+        <span className="text-[11px] font-medium text-slate-400">
+          {language === 'fa' ? `${filteredAccounts.length} حساب در دسترس` : `${filteredAccounts.length} حیساب`}
+        </span>
       </div>
 
       {/* لیست کارت‌ها و صندوق‌ها */}

@@ -192,44 +192,24 @@ export function AddEditAccountModal({
             </div>
           )}
 
-          {/* نوع حساب: کارت بانکی یا صندوق نقدی */}
+          {/* نوع حساب: کارت بانکی یا صندوق نقدی دراپ‌داون */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+              <Landmark className="w-3.5 h-3.5 text-sky-500" />
               <span>{language === 'fa' ? 'نوع حساب مالی' : 'جۆری حیساب'}</span>
             </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setType('bank');
-                  if (!initialData) setColor('sky');
-                }}
-                className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all ${
-                  type === 'bank'
-                    ? 'bg-sky-50 dark:bg-sky-950/60 border-sky-400 text-sky-700 dark:text-sky-300 shadow-xs ring-2 ring-sky-500/20'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>{language === 'fa' ? 'کارت / حساب بانکی' : 'کارتی بانکی'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setType('cash');
-                  if (!initialData) setColor('amber');
-                }}
-                className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all ${
-                  type === 'cash'
-                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 text-amber-700 dark:text-amber-300 shadow-xs ring-2 ring-amber-500/20'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Coins className="w-4 h-4" />
-                <span>{language === 'fa' ? 'صندوق نقدی کارگاه' : 'سندوقی کاش'}</span>
-              </button>
-            </div>
+            <select
+              value={type}
+              onChange={(e) => {
+                const nextType = e.target.value;
+                setType(nextType);
+                if (!initialData) setColor(nextType === 'bank' ? 'sky' : 'amber');
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+            >
+              <option value="bank">💳 {language === 'fa' ? 'کارت و حساب بانکی' : 'کارتی بانکی'}</option>
+              <option value="cash">🪙 {language === 'fa' ? 'صندوق نقدی و تنخواه کارگاه' : 'سندوقی کاش'}</option>
+            </select>
           </div>
 
           {/* عنوان حساب */}
@@ -327,25 +307,25 @@ export function AddEditAccountModal({
                 />
               </div>
 
-              {/* رنگ کارت */}
+              {/* رنگ کارت بانکی */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  <Palette className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-                  <span>{language === 'fa' ? 'رنگ تم کارت' : 'ڕەنگ'}</span>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-sky-500" />
+                  <span>{language === 'fa' ? 'رنگ و تم کارت بانکی' : 'ڕەنگ'}</span>
                 </label>
-                <div className="flex items-center gap-2">
-                  {colorOptions.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setColor(c.id)}
-                      className={`w-7 h-7 rounded-full ${c.bg} transition-all flex items-center justify-center ${
-                        color === c.id ? 'ring-2 ring-offset-2 ring-slate-900 dark:ring-white scale-110' : 'opacity-70 hover:opacity-100'
-                      }`}
-                      title={c.label}
-                    />
-                  ))}
-                </div>
+                <select
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                >
+                  <option value="sky">🔵 {language === 'fa' ? 'آبی استاندارد (Sky Blue)' : 'شین'}</option>
+                  <option value="indigo">🟣 {language === 'fa' ? 'نیلی / سرمه‌ای (Indigo)' : 'مۆر'}</option>
+                  <option value="emerald">🟢 {language === 'fa' ? 'زمردی / سبز (Emerald)' : 'سەوز'}</option>
+                  <option value="amber">🟡 {language === 'fa' ? 'طلایی / زرد (Amber)' : 'زەرد'}</option>
+                  <option value="rose">🔴 {language === 'fa' ? 'یاقوتی / قرمز (Rose)' : 'سوور'}</option>
+                  <option value="purple">🔮 {language === 'fa' ? 'بنفش (Purple)' : 'وەنەوشەیی'}</option>
+                  <option value="slate">⚫ {language === 'fa' ? 'دودی / خاکستری تیره (Slate)' : 'تاریک'}</option>
+                </select>
               </div>
             </>
           ) : (
