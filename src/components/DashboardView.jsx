@@ -364,7 +364,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     workers.forEach((w) => { workerMap[String(w.id)] = w; });
 
     logs.forEach((l) => {
-      const secId = l.sectionId && map[l.sectionId] ? l.sectionId : 'unassigned';
+      const secId = l.sectionId && map[String(l.sectionId)] ? String(l.sectionId) : 'unassigned';
       const item = map[secId];
       const dayVal = l.type === 'hourly' ? 0 : l.type === 'half' ? 0.5 : 1.0;
       const otVal = Number(l.overtimeHours) || 0;

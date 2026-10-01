@@ -1,5 +1,5 @@
 import { pushLogsLive } from '../services/realtimeSync';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getAttendanceLogId, DEFAULT_PROJECT_ID } from '../db/db';
@@ -58,7 +58,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     type: 'full',
     overtimeHours: 0,
     notes: '',
-    sectionId: ''
+    sectionId: '__default__'
   });
 
   // Close on Escape key press
@@ -173,29 +173,82 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     return { unloggedWorkers: unlogged, alreadyLoggedWorkers: alreadyLogged };
   }, [workers, existingWorkerLogMap]);
 
+  // Track open state and date changes to avoid wiping worker edits during live queries
+  const prevIsOpenRef = useRef(false);
+  const prevSelectedDateRef = useRef(selectedDate);
+
   // When date changes or modal opens, initialize selections for UNLOGGED workers only
   useEffect(() => {
-    if (!isOpen) return;
-    if (initialDate) {
+    if (!isOpen) {
+      prevIsOpenRef.current = false;
+      return;
+    }
+
+    const isNewlyOpened = !prevIsOpenRef.current;
+    const isDateChanged = prevSelectedDateRef.current !== selectedDate;
+
+    if (isNewlyOpened && initialDate) {
       setSelectedDate(initialDate);
     }
 
-    const initialSelected = {};
-    const initialConfigs = {};
+    if (isNewlyOpened || isDateChanged) {
+      prevIsOpenRef.current = true;
+      prevSelectedDateRef.current = selectedDate;
 
-    unloggedWorkers.forEach((w) => {
-      initialSelected[w.id] = true;
-      initialConfigs[w.id] = {
+      const initialSelected = {};
+      const initialConfigs = {};
+
+      unloggedWorkers.forEach((w) => {
+        initialSelected[w.id] = true;
+        initialConfigs[w.id] = {
+          type: 'full',
+          overtimeHours: 0,
+          notes: '',
+          sectionId: w.defaultSectionId || null
+        };
+      });
+
+      setSelectedWorkers(initialSelected);
+      setWorkerConfigs(initialConfigs);
+      setGroupConfig({
         type: 'full',
         overtimeHours: 0,
         notes: '',
-        sectionId: w.defaultSectionId || defaultSectionId || null
-      };
-    });
+        sectionId: '__default__'
+      });
+    } else {
+      // Modal is already open and date has not changed:
+      // Merge only newly appeared unlogged workers without wiping existing configs or sections!
+      setWorkerConfigs((prev) => {
+        let hasChanges = false;
+        const updated = { ...prev };
+        unloggedWorkers.forEach((w) => {
+          if (!updated[w.id]) {
+            hasChanges = true;
+            updated[w.id] = {
+              type: 'full',
+              overtimeHours: 0,
+              notes: '',
+              sectionId: w.defaultSectionId || null
+            };
+          }
+        });
+        return hasChanges ? updated : prev;
+      });
 
-    setSelectedWorkers(initialSelected);
-    setWorkerConfigs(initialConfigs);
-  }, [isOpen, selectedDate, unloggedWorkers.length, defaultSectionId]);
+      setSelectedWorkers((prev) => {
+        let hasChanges = false;
+        const updated = { ...prev };
+        unloggedWorkers.forEach((w) => {
+          if (updated[w.id] === undefined) {
+            hasChanges = true;
+            updated[w.id] = true;
+          }
+        });
+        return hasChanges ? updated : prev;
+      });
+    }
+  }, [isOpen, selectedDate, unloggedWorkers, initialDate]);
 
   // Section filter within logging modal
   const [filterModalSection, setFilterModalSection] = useState('all');
@@ -211,12 +264,24 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
   // Bulk move selected workers to section today
   const handleBulkAssignSection = (targetSecId) => {
+    const chosenSecId = targetSecId || '';
+    setDefaultSectionId(chosenSecId);
+
+    // Keep groupConfig synchronized so group mode uses this selected section
+    setGroupConfig((prev) => ({
+      ...prev,
+      sectionId: chosenSecId
+    }));
+
+    // Update workerConfigs for selected workers (or current group members if in group mode)
     setWorkerConfigs((prev) => {
       const updated = { ...prev };
-      Object.keys(selectedWorkers).forEach((id) => {
-        if (selectedWorkers[id]) {
-          updated[id] = { ...updated[id], sectionId: targetSecId || null };
-        }
+      const workerIdsToUpdate = entryMode === 'group' && selectedGroupId
+        ? unloggedWorkers.filter(w => String(w.groupId) === String(selectedGroupId)).map(w => w.id)
+        : Object.keys(selectedWorkers).filter((id) => selectedWorkers[id]);
+
+      workerIdsToUpdate.forEach((id) => {
+        updated[id] = { ...updated[id], sectionId: targetSecId || null };
       });
       return updated;
     });
@@ -361,9 +426,23 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           const worker = workers.find((w) => w.id === workerId);
           if (!worker) continue;
 
+          let chosenSectionId;
+          if (entryMode === 'group') {
+            if (groupConfig.sectionId === '__default__') {
+              chosenSectionId = worker.defaultSectionId || null;
+            } else if (groupConfig.sectionId === '' || groupConfig.sectionId === null) {
+              chosenSectionId = null;
+            } else {
+              chosenSectionId = groupConfig.sectionId;
+            }
+          } else {
+            const wCfg = workerConfigs[workerId];
+            chosenSectionId = wCfg?.sectionId !== undefined ? wCfg.sectionId : (worker.defaultSectionId || null);
+          }
+
           const cfg = entryMode === 'group' 
-            ? { ...groupConfig, sectionId: groupConfig.sectionId || defaultSectionId || worker.defaultSectionId || null }
-            : workerConfigs[workerId] || { type: 'full', overtimeHours: 0, notes: '' };
+            ? { ...groupConfig, sectionId: chosenSectionId }
+            : workerConfigs[workerId] || { type: 'full', overtimeHours: 0, notes: '', sectionId: chosenSectionId };
           const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
           const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
           const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
@@ -395,7 +474,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             workerId: String(workerId),
             projectId: worker.projectId || currentProject?.id || DEFAULT_PROJECT_ID,
             userId: user?.id || null,
-            sectionId: cfg.sectionId || defaultSectionId || null,
+            sectionId: chosenSectionId || null,
             date: selectedDate,
             type: cfg.type,
             overtimeHours: otHours,
@@ -652,6 +731,38 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                       </div>
                     )}
                   </div>
+                  {projectSections.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {t('section') || 'بخش کاری این گروه'}
+                        </label>
+                        {groupConfig.sectionId !== '__default__' && (
+                          <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800">
+                            {t('temporaryForToday') || 'برای امروز'}
+                          </span>
+                        )}
+                      </div>
+                      <select
+                        value={groupConfig.sectionId}
+                        onChange={(e) => setGroupConfig({ ...groupConfig, sectionId: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
+                      >
+                        <option value="__default__">
+                          -- بر اساس بخش پیش‌فرض هر پرسنل --
+                        </option>
+                        <option value="">
+                          {t('noSection') || 'عمومی / بدون بخش'}
+                        </option>
+                        {projectSections.map((sec) => (
+                          <option key={sec.id} value={sec.id}>
+                            {sec.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                       {t('notesOptional')}
@@ -664,8 +775,21 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
-                  <div className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/40 rounded-xl border border-sky-100 dark:border-sky-900/60 text-sm text-sky-800 dark:text-sky-300">
-                    این اطلاعات برای <strong>{unloggedWorkers.filter(w => w.groupId === selectedGroupId).length}</strong> پرسنل که امروز ثبت نشده‌اند، در نظر گرفته می‌شود.
+                  <div className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/40 rounded-xl border border-sky-100 dark:border-sky-900/60 text-sm text-sky-800 dark:text-sky-300 space-y-1.5">
+                    <div>
+                      این اطلاعات برای <strong>{unloggedWorkers.filter(w => w.groupId === selectedGroupId).length}</strong> پرسنل که امروز ثبت نشده‌اند، در نظر گرفته می‌شود.
+                    </div>
+                    {groupConfig.sectionId !== '__default__' && (
+                      <div className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 pt-1">
+                        <span>⚡ بخش کاری انتخابی:</span>
+                        <span className="font-bold">
+                          {groupConfig.sectionId ? (projectSections.find(s => String(s.id) === String(groupConfig.sectionId))?.name || 'بخش انتخابی') : 'عمومی / بدون بخش'}
+                        </span>
+                        <span className="text-[10px] bg-amber-200/60 dark:bg-amber-900/60 px-1.5 py-0.5 rounded font-bold">
+                          ({t('temporaryForToday') || 'برای امروز'})
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -745,7 +869,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                                 <span>{projectSections.find(s => s.id === cfg.sectionId)?.name || ''}</span>
                               </span>
                             )}
-                            {worker.defaultSectionId && cfg.sectionId && worker.defaultSectionId !== cfg.sectionId && (
+                            {((Boolean(worker.defaultSectionId) && String(cfg.sectionId || '') !== String(worker.defaultSectionId || '')) || (!worker.defaultSectionId && Boolean(cfg.sectionId))) && (
                               <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800">
                                 {t('temporaryForToday') || 'برای امروز'}
                               </span>

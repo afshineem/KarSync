@@ -6,7 +6,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { pushPaymentsLive, pushLogsLive } from '../services/realtimeSync';
-import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol, formatHoursAndMinutes, formatCurrency } from '../utils/formatters';
+import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol, formatHoursAndMinutes, formatCurrency, normalizeDigits, convertDigits } from '../utils/formatters';
 import { 
   CheckCircle2, 
   X, 
@@ -52,7 +52,7 @@ export function SettlementModal({
   arrearsList = [],
   onSelectWorker
 }) {
-  const { t, language } = useLanguage();
+  const { t, language, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
@@ -343,6 +343,7 @@ export function SettlementModal({
 
   // Form State
   const [finalPaymentAmount, setFinalPaymentAmount] = useState('');
+  const [isAmountManuallyEdited, setIsAmountManuallyEdited] = useState(false);
   const [settlementDate, setSettlementDate] = useState(getTodayDateString());
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [referenceNumber, setReferenceNumber] = useState('');
@@ -352,6 +353,11 @@ export function SettlementModal({
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [completedPayment, setCompletedPayment] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+
+  const prevWorkerIdRef = React.useRef(worker?.id);
+  const prevModeRef = React.useRef(settlementMode);
+  const prevGroupIdRef = React.useRef(selectedGroupId);
+  const prevIsOpenRef = React.useRef(false);
 
   const { checkAccountOverdraft, accountBalances } = useAccounting();
   const [overdraftPromptData, setOverdraftPromptData] = useState(null);
@@ -373,37 +379,54 @@ export function SettlementModal({
   const effectiveAccountId = selectedAccountId || defaultAccount?.id || (financialAccounts[0]?.id ? String(financialAccounts[0].id) : '');
 
   const currentOverdraft = useMemo(() => {
-    const payAmount = roundCurrency(Number(finalPaymentAmount), currency);
+    const payAmount = roundCurrency(Number(normalizeDigits(finalPaymentAmount)), currency);
     if (isNaN(payAmount) || payAmount <= 0 || !effectiveAccountId) return null;
     return checkAccountOverdraft(effectiveAccountId, payAmount);
   }, [finalPaymentAmount, effectiveAccountId, currency, checkAccountOverdraft]);
 
-  // Sync form defaults whenever mode or calculations change
+  // Sync form defaults whenever modal opens or worker/group/mode changes
   useEffect(() => {
     if (isOpen) {
-      setFinalPaymentAmount(targetPayableAmount > 0 ? String(targetPayableAmount) : '0');
-      setSettlementDate(getTodayDateString());
-      setSelectedAccountId(effectiveAccountId);
-      setReferenceNumber('');
+      const justOpened = !prevIsOpenRef.current;
+      const workerChanged = prevWorkerIdRef.current !== worker?.id;
+      const modeChanged = prevModeRef.current !== settlementMode;
+      const groupChanged = prevGroupIdRef.current !== selectedGroupId;
 
-      if (settlementMode === 'group') {
-        const groupName = activeGroup?.name || 'گروه';
-        const supName = supervisorWorker?.name || 'سرپرست';
-        setNotes(`تسویه حساب گروه ${groupName} با سرپرست (${supName}) - شامل ${groupMembers.length} نفر`);
-      } else {
-        const defaultNote = language === 'en' 
-          ? `Payroll settlement (${individualCalculations.unsettledLogs.length} unsettled days)` 
-          : language === 'ku' 
-            ? `تەسویەی حیساب (${individualCalculations.unsettledLogs.length} ڕۆژی کارکرد)` 
-            : `تسویه حساب کارکرد (${individualCalculations.unsettledLogs.length} روز کارکرد باز)`;
-        setNotes(defaultNote);
+      if (justOpened || workerChanged || modeChanged || groupChanged) {
+        setIsAmountManuallyEdited(false);
+        setFinalPaymentAmount(targetPayableAmount > 0 ? String(targetPayableAmount) : '0');
+        setSettlementDate(getTodayDateString());
+        setSelectedAccountId(effectiveAccountId);
+        setReferenceNumber('');
+
+        if (settlementMode === 'group') {
+          const groupName = activeGroup?.name || 'گروه';
+          const supName = supervisorWorker?.name || 'سرپرست';
+          setNotes(`تسویه حساب گروه ${groupName} با سرپرست (${supName}) - شامل ${groupMembers.length} نفر`);
+        } else {
+          const defaultNote = language === 'en' 
+            ? `Payroll settlement (${individualCalculations.unsettledLogs.length} unsettled days)` 
+            : language === 'ku' 
+              ? `تەسویەی حیساب (${individualCalculations.unsettledLogs.length} ڕۆژی کارکرد)` 
+              : `تسویه حساب کارکرد (${individualCalculations.unsettledLogs.length} روز کارکرد باز)`;
+          setNotes(defaultNote);
+        }
+
+        setMarkAsSettled(true);
+        setFeedback({ type: '', message: '' });
+        setCompletedPayment(null);
+      } else if (!isAmountManuallyEdited) {
+        setFinalPaymentAmount(targetPayableAmount > 0 ? String(targetPayableAmount) : '0');
       }
 
-      setMarkAsSettled(true);
-      setFeedback({ type: '', message: '' });
-      setCompletedPayment(null);
+      prevIsOpenRef.current = true;
+      prevWorkerIdRef.current = worker?.id;
+      prevModeRef.current = settlementMode;
+      prevGroupIdRef.current = selectedGroupId;
+    } else {
+      prevIsOpenRef.current = false;
     }
-  }, [isOpen, settlementMode, targetPayableAmount, selectedGroupId, selectedSupervisorId, activeGroup, supervisorWorker, groupMembers.length, individualCalculations.unsettledLogs.length, language]);
+  }, [isOpen, worker?.id, settlementMode, selectedGroupId, targetPayableAmount, isAmountManuallyEdited, effectiveAccountId, activeGroup?.name, supervisorWorker?.name, groupMembers.length, individualCalculations.unsettledLogs.length, language]);
 
   if (!isOpen) return null;
 
@@ -411,7 +434,7 @@ export function SettlementModal({
     if (e && e.preventDefault) e.preventDefault();
     setFeedback({ type: '', message: '' });
 
-    const payAmount = roundCurrency(Number(finalPaymentAmount), currency);
+    const payAmount = roundCurrency(Number(normalizeDigits(finalPaymentAmount)), currency);
     if (isNaN(payAmount) || payAmount < 0) {
       setFeedback({ type: 'error', message: t('pleaseEnterValidAmount') || 'لطفاً مبلغ معتبری وارد کنید.' });
       return;
@@ -708,21 +731,21 @@ export function SettlementModal({
             <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-200">
                 <span>تعداد افراد گروه:</span>
-                <span className="font-mono">{groupMembers.length} نفر</span>
+                <span>{convertDigits(groupMembers.length, numberFormat)} نفر</span>
               </div>
 
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-600 dark:text-slate-400">مجموع ناخالص کارکرد کل اعضا:</span>
-                <span className="font-bold text-slate-900 dark:text-white font-mono">
-                  {formatAmount(groupCalculations.totalGroupGross, currency)} {getCurrencySymbol(currency, language)}
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {formatAmount(groupCalculations.totalGroupGross, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                 </span>
               </div>
 
               {groupCalculations.totalGroupAdvances > 0 && (
                 <div className="flex items-center justify-between text-xs text-rose-600 dark:text-rose-400">
                   <span>(-) مجموع مساعده‌های اعضای گروه:</span>
-                  <span className="font-bold font-mono">
-                    {formatAmount(groupCalculations.totalGroupAdvances, currency)} {getCurrencySymbol(currency, language)}
+                  <span className="font-bold">
+                    {formatAmount(groupCalculations.totalGroupAdvances, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                   </span>
                 </div>
               )}
@@ -732,8 +755,8 @@ export function SettlementModal({
                   <Calculator className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <span>مجموع کارکرد خالص قابل پرداخت به سرپرست:</span>
                 </span>
-                <span className="font-black text-amber-700 dark:text-amber-300 font-mono text-base sm:text-lg">
-                  {formatAmount(groupCalculations.totalGroupNetDue, currency)} {getCurrencySymbol(currency, language)}
+                <span className="font-black text-amber-700 dark:text-amber-300 text-base sm:text-lg">
+                  {formatAmount(groupCalculations.totalGroupNetDue, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                 </span>
               </div>
             </div>
@@ -779,15 +802,15 @@ export function SettlementModal({
                             )}
                           </div>
                           <span className="text-[10px] text-slate-400 block mt-0.5">
-                            {mb.effectiveDays} روز {mb.otHours > 0 ? `(+${formatHoursAndMinutes(mb.otHours, language)})` : ''} 
-                            {mb.advances > 0 && ` • مساعده: ${formatAmount(mb.advances, currency)}`}
+                            {convertDigits(mb.effectiveDays, numberFormat)} روز {mb.otHours > 0 ? `(+${formatHoursAndMinutes(mb.otHours, language)})` : ''} 
+                            {mb.advances > 0 && ` • مساعده: ${formatAmount(mb.advances, currency, numberFormat)}`}
                           </span>
                         </div>
                       </div>
 
                       <div className="text-end">
-                        <span className="font-bold font-mono text-slate-900 dark:text-white block">
-                          {formatAmount(mb.netDue, currency)}
+                        <span className="font-bold text-slate-900 dark:text-white block">
+                          {formatAmount(mb.netDue, currency, numberFormat)}
                         </span>
                         <span className="text-[10px] text-slate-400 font-normal">
                           {getCurrencySymbol(currency, language)}
@@ -854,10 +877,10 @@ export function SettlementModal({
                       <div className="flex items-center gap-1.5">
                         <User className="w-3 h-3" />
                         <span>{arrWorker.worker.name}</span>
-                        <span className="font-mono bg-white/50 dark:bg-black/20 px-1.5 rounded text-[10px]">
+                        <span className="bg-white/50 dark:bg-black/20 px-1.5 rounded text-[10px] font-semibold">
                           {arrWorker.netBalanceDue < 0 
-                            ? `${formatAmount(Math.abs(arrWorker.netBalanceDue), currency)} (بدهکار)`
-                            : `${formatAmount(arrWorker.netBalanceDue, currency)} (بستانکار)`}
+                            ? `${formatAmount(Math.abs(arrWorker.netBalanceDue), currency, numberFormat)} (بدهکار)`
+                            : `${formatAmount(arrWorker.netBalanceDue, currency, numberFormat)} (بستانکار)`}
                         </span>
                       </div>
                     </button>
@@ -873,24 +896,24 @@ export function SettlementModal({
                   <Calendar className="w-3.5 h-3.5 text-sky-500" />
                   <span>کارکرد جدید در انتظار تسویه:</span>
                 </span>
-                <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
-                  {individualCalculations.unsettledLogs.length} روز ({individualCalculations.effectiveDays} روز کاری)
+                <span className="font-bold text-slate-800 dark:text-slate-100">
+                  {convertDigits(individualCalculations.unsettledLogs.length, numberFormat)} روز ({convertDigits(individualCalculations.effectiveDays, numberFormat)} روز کاری)
                   {individualCalculations.otHours > 0 && ` + ${formatHoursAndMinutes(individualCalculations.otHours, language)}`}
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500 dark:text-slate-400">ناخالص کارکرد تسویه نشده:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
-                  {formatAmount(individualCalculations.grossEarnings, currency)} {getCurrencySymbol(currency, language)}
+                <span className="font-bold text-slate-800 dark:text-slate-100">
+                  {formatAmount(individualCalculations.grossEarnings, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                 </span>
               </div>
 
               {individualCalculations.advancesDeducted > 0 && (
                 <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400">
                   <span>(-) مساعده‌های تسویه نشده:</span>
-                  <span className="font-bold font-mono">
-                    {formatAmount(individualCalculations.advancesDeducted, currency)} {getCurrencySymbol(currency, language)}
+                  <span className="font-bold">
+                    {formatAmount(individualCalculations.advancesDeducted, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                   </span>
                 </div>
               )}
@@ -900,8 +923,8 @@ export function SettlementModal({
                   <Calculator className="w-4 h-4 text-emerald-500" />
                   <span>مبلغ قابل پرداخت این تسویه:</span>
                 </span>
-                <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-base sm:text-lg">
-                  {formatAmount(individualCalculations.totalCumulativeDebt, currency)} {getCurrencySymbol(currency, language)}
+                <span className="font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg">
+                  {formatAmount(individualCalculations.totalCumulativeDebt, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                 </span>
               </div>
             </div>
@@ -914,7 +937,7 @@ export function SettlementModal({
                   <span>ریز روزهای کارکرد در انتظار تسویه:</span>
                 </span>
                 <span className="text-[11px] text-slate-400 font-normal">
-                  {individualCalculations.unsettledLogs.length} روز باز
+                  {convertDigits(individualCalculations.unsettledLogs.length, numberFormat)} روز باز
                 </span>
               </div>
 
@@ -927,7 +950,7 @@ export function SettlementModal({
                   {individualCalculations.unsettledLogs.map((l) => (
                     <div key={l.id || l.date} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px]">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{l.date}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{convertDigits(l.date, numberFormat)}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                           l.type === 'hourly' 
                             ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300' 
@@ -938,13 +961,13 @@ export function SettlementModal({
                           {l.type === 'half' ? 'نیم‌روز' : l.type === 'hourly' ? 'ساعتی' : 'کامل'}
                         </span>
                         {l.overtimeHours > 0 && (
-                          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-mono font-bold">
+                          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-bold">
                             +{formatHoursAndMinutes(l.overtimeHours, language)}
                           </span>
                         )}
                       </div>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">
-                        {formatAmount(l.totalDayPay, currency)} {getCurrencySymbol(currency, language)}
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {formatAmount(l.totalDayPay, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                       </span>
                     </div>
                   ))}
@@ -963,19 +986,39 @@ export function SettlementModal({
           {/* Amount and Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {settlementMode === 'group' ? 'مبلغ نهایی پرداختی به سرپرست' : t('finalPaymentAmount')}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {settlementMode === 'group' ? 'مبلغ نهایی پرداختی به سرپرست' : t('finalPaymentAmount')}
+                </label>
+                {isAmountManuallyEdited && Number(normalizeDigits(finalPaymentAmount)) !== Number(targetPayableAmount) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFinalPaymentAmount(targetPayableAmount > 0 ? String(targetPayableAmount) : '0');
+                      setIsAmountManuallyEdited(false);
+                    }}
+                    className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-bold flex items-center gap-1"
+                  >
+                    بازنشانی به کل مبلغ ({formatAmount(targetPayableAmount, currency, numberFormat)})
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <input
-                  type="number"
-                  min="0"
-                  step="any"
+                  type="text"
+                  inputMode="decimal"
                   value={finalPaymentAmount}
-                  onChange={(e) => setFinalPaymentAmount(e.target.value)}
+                  onChange={(e) => {
+                    const normalized = normalizeDigits(e.target.value);
+                    setFinalPaymentAmount(normalized);
+                    setIsAmountManuallyEdited(true);
+                  }}
                   onBlur={() => {
                     if (finalPaymentAmount !== '') {
-                      setFinalPaymentAmount(String(roundCurrency(finalPaymentAmount, currency)));
+                      const num = Number(normalizeDigits(finalPaymentAmount));
+                      if (!isNaN(num)) {
+                        setFinalPaymentAmount(String(roundCurrency(num, currency)));
+                      }
                     }
                   }}
                   required

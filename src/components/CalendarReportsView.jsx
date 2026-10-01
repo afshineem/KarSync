@@ -476,7 +476,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
         if (selectedSectionId !== 'all') {
           if (selectedSectionId === 'unassigned') {
             if (log.sectionId) return false;
-          } else if (log.sectionId !== selectedSectionId) {
+          } else if (String(log.sectionId) !== String(selectedSectionId)) {
             return false;
           }
         }
@@ -527,7 +527,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
     };
 
     filteredLogs.forEach((l) => {
-      const targetSecId = l.sectionId && breakdown[l.sectionId] ? l.sectionId : 'unassigned';
+      const targetSecId = l.sectionId && breakdown[String(l.sectionId)] ? String(l.sectionId) : 'unassigned';
       const item = breakdown[targetSecId];
       item.days += l.type === 'hourly' ? 0 : l.type === 'half' ? 0.5 : 1.0;
       item.otHours += Number(l.overtimeHours) || 0;

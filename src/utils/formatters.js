@@ -436,6 +436,14 @@ export function convertDigits(input, format = null) {
 }
 
 /**
+ * Normalize Persian/Arabic digits to standard English/Latin digits (0-9)
+ */
+export function normalizeDigits(str) {
+  if (str === undefined || str === null) return '';
+  return convertDigits(str, 'latin');
+}
+
+/**
  * Universal Time Formatter taking format and timezone settings into account
  */
 export function formatTime(date = new Date(), options = {}) {

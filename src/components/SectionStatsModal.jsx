@@ -64,13 +64,13 @@ export function SectionStatsModal({ section, isOpen, onClose, onSwitchProject })
     // Deduplicate logs in memory by workerId + date
     const dedupedMap = new Map();
     allRawLogs.forEach((l) => {
-      let isMatch = l.sectionId === section.id;
+      let isMatch = String(l.sectionId) === String(section.id);
       if (!isMatch && l.notes && l.notes.includes('__META__')) {
         try {
           const parts = l.notes.split('__META__');
           if (parts[1]) {
             const meta = JSON.parse(parts[1]);
-            if (meta.s === section.id) isMatch = true;
+            if (String(meta.s) === String(section.id)) isMatch = true;
           }
         } catch (_) {}
       }
@@ -135,7 +135,7 @@ export function SectionStatsModal({ section, isOpen, onClose, onSwitchProject })
   // Workers who have this section as their permanent default
   const defaultWorkers = useMemo(() => {
     if (!section?.id) return [];
-    return allWorkers.filter((w) => w.defaultSectionId === section.id && w.isActive === 1);
+    return allWorkers.filter((w) => String(w.defaultSectionId) === String(section.id) && w.isActive === 1);
   }, [allWorkers, section?.id]);
 
   // Aggregated Section Statistics
@@ -181,7 +181,7 @@ export function SectionStatsModal({ section, isOpen, onClose, onSwitchProject })
           halfDays: 0,
           overtimeHours: 0,
           totalPay: 0,
-          isDefaultSection: wObj?.defaultSectionId === section?.id
+          isDefaultSection: String(wObj?.defaultSectionId) === String(section?.id)
         };
       }
       crewStatsMap[wId].personDays += dayVal;
