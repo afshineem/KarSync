@@ -630,8 +630,8 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
 
       let sectionId = l.section_id || null;
       let projectId = l.project_id || l.projectId || DEFAULT_PROJECT_ID;
-      let isSettled = l.is_settled || localLog?.isSettled || false;
-      let settlementReceiptId = l.settlement_receipt_id || localLog?.settlementReceiptId || null;
+      let isSettled = l.is_settled || false;
+      let settlementReceiptId = l.settlement_receipt_id || null;
       let cleanNotes = l.notes || '';
       if (cleanNotes.includes('__META__')) {
         const parts = cleanNotes.split('__META__');
@@ -640,11 +640,14 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
             const meta = JSON.parse(parts[1]);
             if (meta.s) sectionId = meta.s;
             if (meta.p) projectId = meta.p;
-            if (meta.st) isSettled = true;
-            if (meta.rid) settlementReceiptId = meta.rid;
+            isSettled = Boolean(meta.st);
+            settlementReceiptId = meta.rid || null;
             cleanNotes = parts.slice(2).join('').trim();
           } catch (_) {}
         }
+      } else {
+        isSettled = l.is_settled !== undefined ? Boolean(l.is_settled) : (localLog?.isSettled || false);
+        settlementReceiptId = l.settlement_receipt_id || localLog?.settlementReceiptId || null;
       }
 
       await db.attendanceLogs.put({
@@ -740,18 +743,18 @@ export async function pushAllLocalToCloud() {
   if (activeLogs.length > 0) {
     const logPayload = activeLogs.map(l => {
       let cleanNotes = (l.notes || '').trim();
-      if (l.sectionId || (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) || l.isSettled || l.settlementReceiptId) {
-        const meta = {};
-        if (l.sectionId) meta.s = l.sectionId;
-        if (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) meta.p = l.projectId;
-        if (l.isSettled) meta.st = 1;
-        if (l.settlementReceiptId) meta.rid = l.settlementReceiptId;
+      // Cleanly strip any old META block first
+      let actualUserNotes = cleanNotes.replace(/__META__[\s\S]*?__META__\n?/, '').trim();
+      const meta = {};
+      if (l.sectionId) meta.s = l.sectionId;
+      if (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) meta.p = l.projectId;
+      if (l.isSettled) meta.st = 1;
+      if (l.settlementReceiptId) meta.rid = l.settlementReceiptId;
+      
+      let finalNotes = actualUserNotes;
+      if (Object.keys(meta).length > 0) {
         const metaStr = `__META__${JSON.stringify(meta)}__META__`;
-        if (cleanNotes.includes('__META__')) {
-          cleanNotes = cleanNotes.replace(/__META__[\s\S]*?__META__/, metaStr);
-        } else {
-          cleanNotes = metaStr + (cleanNotes ? '\n' + cleanNotes : '');
-        }
+        finalNotes = metaStr + (actualUserNotes ? '\n' + actualUserNotes : '');
       }
 
       return {
@@ -763,7 +766,7 @@ export async function pushAllLocalToCloud() {
         calculated_daily_wage: Number(l.calculatedDailyWage) || 0,
         calculated_overtime_wage: Number(l.calculatedOvertimeWage) || 0,
         total_day_pay: Number(l.totalDayPay) || 0,
-        notes: cleanNotes || null,
+        notes: finalNotes || null,
         deleted_at: null,
         updated_at: l.updatedAt || new Date().toISOString()
       };
@@ -863,8 +866,8 @@ function subscribeToRealtime() {
 
           let sectionId = l.section_id || null;
           let projectId = l.project_id || l.projectId || localLog?.projectId || DEFAULT_PROJECT_ID;
-          let isSettled = l.is_settled || localLog?.isSettled || false;
-          let settlementReceiptId = l.settlement_receipt_id || localLog?.settlementReceiptId || null;
+          let isSettled = l.is_settled || false;
+          let settlementReceiptId = l.settlement_receipt_id || null;
           let cleanNotes = l.notes || '';
           if (cleanNotes.includes('__META__')) {
             const parts = cleanNotes.split('__META__');
@@ -873,11 +876,14 @@ function subscribeToRealtime() {
                 const meta = JSON.parse(parts[1]);
                 if (meta.s) sectionId = meta.s;
                 if (meta.p) projectId = meta.p;
-                if (meta.st) isSettled = true;
-                if (meta.rid) settlementReceiptId = meta.rid;
+                isSettled = Boolean(meta.st);
+                settlementReceiptId = meta.rid || null;
                 cleanNotes = parts.slice(2).join('').trim();
               } catch (_) {}
             }
+          } else {
+            isSettled = l.is_settled !== undefined ? Boolean(l.is_settled) : (localLog?.isSettled || false);
+            settlementReceiptId = l.settlement_receipt_id || localLog?.settlementReceiptId || null;
           }
 
           await db.attendanceLogs.put({
@@ -2183,18 +2189,18 @@ export async function pushLogsLive(logs) {
 
   const payload = logs.map(l => {
     let cleanNotes = (l.notes || '').trim();
-    if (l.sectionId || (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) || l.isSettled || l.settlementReceiptId) {
-      const meta = {};
-      if (l.sectionId) meta.s = l.sectionId;
-      if (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) meta.p = l.projectId;
-      if (l.isSettled) meta.st = 1;
-      if (l.settlementReceiptId) meta.rid = l.settlementReceiptId;
+    // Cleanly strip any old META block first
+    let actualUserNotes = cleanNotes.replace(/__META__[\s\S]*?__META__\n?/, '').trim();
+    const meta = {};
+    if (l.sectionId) meta.s = l.sectionId;
+    if (l.projectId && l.projectId !== DEFAULT_PROJECT_ID) meta.p = l.projectId;
+    if (l.isSettled) meta.st = 1;
+    if (l.settlementReceiptId) meta.rid = l.settlementReceiptId;
+
+    let finalNotes = actualUserNotes;
+    if (Object.keys(meta).length > 0) {
       const metaStr = `__META__${JSON.stringify(meta)}__META__`;
-      if (cleanNotes.includes('__META__')) {
-        cleanNotes = cleanNotes.replace(/__META__[\s\S]*?__META__/, metaStr);
-      } else {
-        cleanNotes = metaStr + (cleanNotes ? '\n' + cleanNotes : '');
-      }
+      finalNotes = metaStr + (actualUserNotes ? '\n' + actualUserNotes : '');
     }
 
     return {
@@ -2206,7 +2212,7 @@ export async function pushLogsLive(logs) {
       calculated_daily_wage: roundCurrency(l.calculatedDailyWage, l.currency),
       calculated_overtime_wage: roundCurrency(l.calculatedOvertimeWage, l.currency),
       total_day_pay: roundCurrency(l.totalDayPay, l.currency),
-      notes: cleanNotes || null,
+      notes: finalNotes || null,
       deleted_at: null,
       updated_at: new Date().toISOString()
     };
@@ -2478,7 +2484,7 @@ export async function pullPaymentsLive(force = false) {
 
       if (Array.isArray(cloudPayments)) {
         const pendingDeleted = new Set(getPendingDeletedPayments());
-        const validCloudPayments = cloudPayments.filter(p => !pendingDeleted.has(p.id));
+        const validCloudPayments = cloudPayments.filter(p => !pendingDeleted.has(p.id) && !p.deletedAt && p.status !== 'deleted');
         const validCloudIds = new Set(validCloudPayments.map(p => p.id));
 
         await db.transaction('rw', db.payments, async () => {
@@ -2497,6 +2503,7 @@ export async function pullPaymentsLive(force = false) {
             const localPayments = await db.payments.toArray();
             for (const lp of localPayments) {
               if (pendingDeleted.has(lp.id) || !validCloudIds.has(lp.id)) {
+                await rollbackPaymentSettlement(lp.id).catch(console.warn);
                 await db.payments.delete(lp.id);
               }
             }
@@ -2508,6 +2515,87 @@ export async function pullPaymentsLive(force = false) {
     console.warn('Could not pull payments from Supabase:', err);
   } finally {
     isPullingPayments = false;
+  }
+}
+
+/**
+ * Rollback all attendance logs and advances tied to a settlement receipt.
+ * Restores them to unsettled status immediately in Dexie and Supabase.
+ *
+ * @param {string} paymentId - ID of payment being deleted, moved to trash, or edited
+ */
+export async function rollbackPaymentSettlement(paymentId) {
+  if (!paymentId) return;
+  try {
+    const targetPid = String(paymentId);
+    
+    // 1. Rollback Attendance Logs linked to this settlement receipt
+    const allLogs = await db.attendanceLogs.toArray();
+    const affectedLogs = allLogs.filter((l) => {
+      if (String(l.settlementReceiptId) === targetPid) return true;
+      if (l.notes && l.notes.includes(targetPid)) return true;
+      return false;
+    });
+
+    if (affectedLogs.length > 0) {
+      const now = new Date().toISOString();
+      const updatedLogs = affectedLogs.map((l) => {
+        let cleanNotes = (l.notes || '').trim();
+        // Remove "rid" and "st":1 from __META__ in notes
+        if (cleanNotes.includes('__META__')) {
+          const match = cleanNotes.match(/__META__([\s\S]*?)__META__/);
+          if (match && match[1]) {
+            try {
+              const metaObj = JSON.parse(match[1]);
+              delete metaObj.rid;
+              delete metaObj.st;
+              if (Object.keys(metaObj).length > 0) {
+                cleanNotes = cleanNotes.replace(/__META__[\s\S]*?__META__/, `__META__${JSON.stringify(metaObj)}__META__`);
+              } else {
+                cleanNotes = cleanNotes.replace(/__META__[\s\S]*?__META__\n?/, '').trim();
+              }
+            } catch (_) {}
+          }
+        }
+
+        return {
+          ...l,
+          isSettled: false,
+          settlementReceiptId: null,
+          notes: cleanNotes || null,
+          updatedAt: now
+        };
+      });
+
+      await db.attendanceLogs.bulkPut(updatedLogs);
+      await pushLogsLive(updatedLogs).catch(console.warn);
+    }
+
+    // 2. Rollback any Advances that were settled within this settlement receipt
+    const allPayments = await db.payments.toArray();
+    const affectedAdvances = allPayments.filter((p) => 
+      String(p.settlementReceiptId) === targetPid && String(p.id) !== targetPid
+    );
+
+    if (affectedAdvances.length > 0) {
+      const now = new Date().toISOString();
+      const updatedAdvances = affectedAdvances.map((p) => ({
+        ...p,
+        isSettled: false,
+        settlementReceiptId: null,
+        updatedAt: now
+      }));
+
+      await db.payments.bulkPut(updatedAdvances);
+      await pushPaymentsLive().catch(console.warn);
+    }
+
+    // 3. Dispatch global live update events
+    window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
+    window.dispatchEvent(new CustomEvent('workshop-logs-updated'));
+    window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
+  } catch (err) {
+    console.error(`Error rolling back settlement for payment ${paymentId}:`, err);
   }
 }
 

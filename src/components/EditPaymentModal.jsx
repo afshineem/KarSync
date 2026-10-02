@@ -3,7 +3,7 @@ import { X, Save, Trash2, Calendar, Banknote, FileText, Hash, Check, Lock } from
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { db } from '../db/db';
-import { pushPaymentsLive, recordPendingPaymentDeletion } from '../services/realtimeSync';
+import { pushPaymentsLive, recordPendingPaymentDeletion, rollbackPaymentSettlement } from '../services/realtimeSync';
 
 export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
   const { t } = useLanguage();
@@ -87,6 +87,7 @@ export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
           deletedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
+        await rollbackPaymentSettlement(payment.id).catch(console.warn);
         pushPaymentsLive().catch(() => {});
         onClose();
       } catch (err) {

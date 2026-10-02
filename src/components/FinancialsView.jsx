@@ -20,7 +20,7 @@ import { AdvancePaymentModal } from './AdvancePaymentModal';
 import { WorkerFinancialProfileModal } from './WorkerFinancialProfileModal';
 import { EditPaymentModal } from './EditPaymentModal';
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
-import { fullSyncBothDirections, pushPaymentsLive, recordPendingPaymentDeletion } from '../services/realtimeSync';
+import { fullSyncBothDirections, pushPaymentsLive, recordPendingPaymentDeletion, rollbackPaymentSettlement } from '../services/realtimeSync';
 import { 
   WalletCards, 
   Search, 
@@ -548,6 +548,8 @@ export function FinancialsView() {
           deletedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
+        // Immediately unmark linked logs and advances
+        await rollbackPaymentSettlement(payment.id).catch(console.warn);
         pushPaymentsLive().catch(() => {});
       } catch (err) {
         console.error('Error moving payment to trash:', err);
@@ -577,6 +579,7 @@ export function FinancialsView() {
     if (window.confirm(t('permanentDeleteConfirm') || 'آیا از حذف دائمی این تراکنش مطمئن هستید؟ این عملیات غیرقابل بازگشت است.')) {
       try {
         recordPendingPaymentDeletion(payment.id);
+        await rollbackPaymentSettlement(payment.id).catch(console.warn);
         await db.payments.delete(payment.id);
         pushPaymentsLive().catch(() => {});
       } catch (err) {
@@ -598,6 +601,7 @@ export function FinancialsView() {
       try {
         for (const p of deletableTrash) {
           recordPendingPaymentDeletion(p.id);
+          await rollbackPaymentSettlement(p.id).catch(console.warn);
           await db.payments.delete(p.id);
         }
         pushPaymentsLive().catch(() => {});

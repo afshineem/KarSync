@@ -27,7 +27,8 @@ import {
   syncFinancialDataLive,
   softDeleteExpenseLive,
   recordPendingPaymentDeletion,
-  pushPaymentsLive
+  pushPaymentsLive,
+  rollbackPaymentSettlement
 } from '../services/realtimeSync';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
@@ -1213,6 +1214,7 @@ export function useAccounting(options = {}) {
       await softDeleteExpenseLive(tx.id);
     } else if (tbl === 'payments') {
       recordPendingPaymentDeletion(tx.id);
+      await rollbackPaymentSettlement(tx.id).catch(console.warn);
       await db.payments.delete(tx.id);
       pushPaymentsLive().catch(() => {});
     }
@@ -1244,6 +1246,7 @@ export function useAccounting(options = {}) {
         await softDeleteExpenseLive(tx.id).catch(console.warn);
       } else if (tbl === 'payments') {
         recordPendingPaymentDeletion(tx.id);
+        await rollbackPaymentSettlement(tx.id).catch(console.warn);
         await db.payments.delete(tx.id).catch(console.warn);
         pushPaymentsLive().catch(() => {});
       }

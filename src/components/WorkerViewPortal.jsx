@@ -1039,7 +1039,13 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {displayedLogs.map((l, idx) => {
-                    const isSettled = l.isSettled || l.settlementReceiptId;
+                    let isSettled = false;
+                    if (portalMode === 'personal') {
+                      isSettled = personalFinancials?.isLogSettled?.(l) || false;
+                    } else {
+                      const workerFin = groupMembersFinancials.find(gf => String(gf.member.id) === String(l.workerId));
+                      isSettled = workerFin?.isLogSettled?.(l) || false;
+                    }
                     const effectiveRate = Number(l.workerDailyRate) || Number(worker.dailyRate);
 
                     return (

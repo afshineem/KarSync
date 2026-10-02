@@ -1,5 +1,6 @@
 import { deleteLogLive } from '../services/realtimeSync';
 import React, { useState, useMemo } from 'react';
+import { calculateWorkerFinancials } from "../utils/settlementCalculations";
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -284,30 +285,23 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
     [targetProjectId]
   ) || [];
 
-  const workerLastSettlementMap = useMemo(() => {
-    const map = {};
+  const settledLogIds = useMemo(() => {
+    const ids = new Set();
     workers.forEach((w) => {
-      const settlementReceipts = allPayments.filter((p) => 
-        !p.deletedAt &&
-        (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled') &&
-        (String(p.workerId) === String(w.id) || (w.groupId && p.groupId === w.groupId))
-      );
-      const sortedSettlements = [...settlementReceipts].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-      let lastSettlementDate = sortedSettlements[0]?.date || sortedSettlements[0]?.createdAt?.slice(0, 10) || null;
-      if (sortedSettlements[0]?.createdAt && sortedSettlements[0].createdAt.startsWith('2026-09') && sortedSettlements[0].createdAt <= '2026-09-22') {
-        if (!lastSettlementDate || lastSettlementDate < '2026-09-20') lastSettlementDate = '2026-09-20';
-      }
-      map[String(w.id)] = lastSettlementDate;
+      const workerLogs = allLogs.filter(l => String(l.workerId) === String(w.id));
+      const workerPayments = allPayments.filter(p => String(p.workerId) === String(w.id) || (w.groupId && p.groupId === w.groupId));
+      const fin = calculateWorkerFinancials(w, workerLogs, workerPayments);
+      workerLogs.forEach(l => {
+        if (fin.isLogSettled(l)) {
+          ids.add(String(l.id));
+        }
+      });
     });
-    return map;
-  }, [workers, allPayments]);
+    return ids;
+  }, [workers, allLogs, allPayments]);
 
   const isLogSettled = (log) => {
-    if (log.isSettled) return true;
-    if (log.settlementReceiptId) return true;
-    const lastDate = workerLastSettlementMap[String(log.workerId)];
-    if (lastDate && log.date && log.date <= lastDate) return true;
-    return false;
+    return settledLogIds.has(String(log.id));
   };
 
   // Filter workers list for worker dropdown when a group is selected (both summary & detailed)
@@ -499,7 +493,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
         return true;
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [allLogs, selectedWorkerId, selectedType, selectedSectionId, selectedGroupId, selectedSettlementStatus, dateFrom, dateTo, workerMap, workerLastSettlementMap]);
+  }, [allLogs, selectedWorkerId, selectedType, selectedSectionId, selectedGroupId, selectedSettlementStatus, dateFrom, dateTo, workerMap]);
 
   // Project section breakdown in reporting
   const sectionBreakdown = useMemo(() => {
@@ -612,7 +606,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
   const handleDeleteLog = async (logId) => {
     try {
       const target = await db.attendanceLogs.get(logId);
-      if (target?.isSettled || target?.settlementReceiptId) {
+      if (target && isLogSettled(target)) {
         alert(language === 'fa' 
           ? 'این رکورد در امور مالی تسویه شده و کاملاً قفل است. امکان حذف آن وجود ندارد.' 
           : 'This record is settled and locked. It cannot be deleted.');
@@ -1014,7 +1008,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                                     </span>
                                   )}
                                   {/* Settled indicator or Edit/Delete actions */}
-                                  {Boolean(log.isSettled || log.settlementReceiptId) ? (
+                                  {isLogSettled(log) ? (
                                     <div className="flex items-center gap-1 ms-1">
                                       <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800" title="تسویه شده (قفل)">
                                         <Lock className="w-2.5 h-2.5" />
@@ -1845,7 +1839,7 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                         <span className="font-bold text-slate-900 dark:text-white text-sm">
                           {formatCurrency(log.totalDayPay, currency, language)}
                         </span>
-                        {Boolean(log.isSettled || log.settlementReceiptId) ? (
+                        {isLogSettled(log) ? (
                           <button
                             onClick={() => setEditingLog(log)}
                             className="p-1.5 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors flex items-center gap-1 text-xs font-semibold"

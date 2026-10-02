@@ -11,6 +11,7 @@ import {
   formatDateDisplay,
   roundCurrency 
 } from '../utils/formatters';
+import { calculateWorkerFinancials } from '../utils/settlementCalculations';
 import { 
   User, 
   Phone, 
@@ -98,103 +99,98 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const allWorkers = useLiveQuery(() => db.workers.toArray()) || [];
   const allGroups = useLiveQuery(() => db.groups.toArray()) || [];
 
-  // Metrics computation
+  // Metrics computation using single source of truth
   const stats = useMemo(() => {
-    let unsettledDaysCount = 0;
-    let unsettledFullDays = 0;
-    let unsettledHalfDays = 0;
-    let unsettledHourlyDays = 0;
-    let unsettledOvertimeHours = 0;
-    let unsettledGrossPay = 0;
+    if (!worker) {
+      return {
+        unsettledDaysCount: 0,
+        unsettledFullDays: 0,
+        unsettledHalfDays: 0,
+        unsettledHourlyDays: 0,
+        unsettledOvertimeHours: 0,
+        unsettledGrossPay: 0,
+        settledDaysCount: 0,
+        settledGrossPay: 0,
+        settledOvertimeHours: 0,
+        unsettledAdvances: 0,
+        settledAdvances: 0,
+        settlementsReceived: 0,
+        netBalanceDue: 0,
+        totalDaysWorked: 0,
+        totalGrossEarnedAllTime: 0
+      };
+    }
 
-    let settledDaysCount = 0;
-    let settledGrossPay = 0;
-    let settledOvertimeHours = 0;
-
-    allLogs.forEach((log) => {
-      const isSettled = Boolean(log.isSettled || log.settlementReceiptId);
-      const ot = Number(log.overtimeHours) || 0;
-      const pay = Number(log.totalDayPay) || 0;
-
-      if (isSettled) {
-        settledDaysCount++;
-        settledGrossPay += pay;
-        settledOvertimeHours += ot;
-      } else {
-        unsettledDaysCount++;
-        unsettledGrossPay += pay;
-        unsettledOvertimeHours += ot;
-        if (log.type === 'half') unsettledHalfDays++;
-        else if (log.type === 'hourly') unsettledHourlyDays++;
-        else unsettledFullDays++;
-      }
-    });
-
-    let unsettledAdvances = 0;
-    let settledAdvances = 0;
-    let settlementsReceived = 0;
-
-    allPayments.forEach((p) => {
-      const amt = Number(p.amount) || 0;
-      const isSettled = Boolean(p.isSettled || p.settlementReceiptId);
-      const typeLower = (p.type || '').toLowerCase();
-
-      if (typeLower === 'settlement') {
-        settlementsReceived += amt;
-      } else {
-        // Advance or loan
-        if (isSettled) {
-          settledAdvances += amt;
-        } else {
-          unsettledAdvances += amt;
-        }
-      }
-    });
-
-    // Net balance due to worker (Positive = worker is owed money; Negative = worker owes advance)
-    const netBalanceDue = unsettledGrossPay - unsettledAdvances;
+    const fin = calculateWorkerFinancials(worker, allLogs, allPayments, currency);
+    if (!fin) {
+      return {
+        unsettledDaysCount: 0,
+        unsettledFullDays: 0,
+        unsettledHalfDays: 0,
+        unsettledHourlyDays: 0,
+        unsettledOvertimeHours: 0,
+        unsettledGrossPay: 0,
+        settledDaysCount: 0,
+        settledGrossPay: 0,
+        settledOvertimeHours: 0,
+        unsettledAdvances: 0,
+        settledAdvances: 0,
+        settlementsReceived: 0,
+        netBalanceDue: 0,
+        totalDaysWorked: 0,
+        totalGrossEarnedAllTime: 0
+      };
+    }
 
     return {
-      unsettledDaysCount,
-      unsettledFullDays,
-      unsettledHalfDays,
-      unsettledHourlyDays,
-      unsettledOvertimeHours,
-      unsettledGrossPay,
-      settledDaysCount,
-      settledGrossPay,
-      settledOvertimeHours,
-      unsettledAdvances,
-      settledAdvances,
-      settlementsReceived,
-      netBalanceDue,
+      unsettledDaysCount: fin.unsettledLogs.length,
+      unsettledFullDays: fin.fullDays,
+      unsettledHalfDays: fin.halfDays,
+      unsettledHourlyDays: fin.hourlyDays,
+      unsettledOvertimeHours: fin.otHours,
+      unsettledGrossPay: fin.unsettledGross,
+      settledDaysCount: fin.settledLogs.length,
+      settledGrossPay: fin.settledGross,
+      settledOvertimeHours: fin.settledOtHours,
+      unsettledAdvances: fin.unsettledAdvances,
+      settledAdvances: fin.settledAdvances,
+      settlementsReceived: fin.totalSettlementPaid,
+      netBalanceDue: fin.netBalanceDue,
       totalDaysWorked: allLogs.length,
-      totalGrossEarnedAllTime: unsettledGrossPay + settledGrossPay
+      totalGrossEarnedAllTime: fin.unsettledGross + fin.settledGross
     };
-  }, [allLogs, allPayments]);
+  }, [worker, allLogs, allPayments, currency]);
+
+  // Filtered attendance logs
+  const fin = useMemo(() => {
+    if (!worker) return null;
+    return calculateWorkerFinancials(worker, allLogs, allPayments);
+  }, [worker, allLogs, allPayments]);
 
   // Filtered attendance logs
   const filteredLogs = useMemo(() => {
+    if (!fin) return allLogs;
     if (attendanceFilter === 'unsettled') {
-      return allLogs.filter((l) => !l.isSettled && !l.settlementReceiptId);
+      return allLogs.filter((l) => !fin.isLogSettled(l));
     }
     if (attendanceFilter === 'settled') {
-      return allLogs.filter((l) => l.isSettled || l.settlementReceiptId);
+      return allLogs.filter((l) => fin.isLogSettled(l));
     }
     return allLogs;
-  }, [allLogs, attendanceFilter]);
+  }, [allLogs, attendanceFilter, fin]);
 
   // Filtered payments
   const filteredPayments = useMemo(() => {
-    const list = allPayments.filter((p) => (p.type || '').toLowerCase() !== 'settlement');
+    const list = allPayments.filter((p) => (p.type || '').toLowerCase() !== 'settlement' && !p.deletedAt);
+    if (!fin) return list;
     if (advancesFilter === 'unsettled') {
-      return list.filter((p) => !p.isSettled && !p.settlementReceiptId);
+      return list.filter((p) => !fin.isPaymentSettled(p));
     }
     if (advancesFilter === 'settled') {
-      return list.filter((p) => p.isSettled || p.settlementReceiptId);
+      return list.filter((p) => fin.isPaymentSettled(p));
     }
     return list;
-  }, [allPayments, advancesFilter]);
+  }, [allPayments, advancesFilter, fin]);
 
   // Settlement payments
   const settlementReceipts = useMemo(() => {
@@ -671,7 +667,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
               ) : (
                 <div className="space-y-2">
                   {filteredLogs.map((log) => {
-                    const isSettled = Boolean(log.isSettled || log.settlementReceiptId);
+                    const isSettled = fin?.isLogSettled(log);
 
                     return (
                       <div
@@ -821,7 +817,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
               ) : (
                 <div className="space-y-2">
                   {filteredPayments.map((p) => {
-                    const isSettled = Boolean(p.isSettled || p.settlementReceiptId);
+                    const isSettled = fin?.isPaymentSettled(p);
 
                     return (
                       <div

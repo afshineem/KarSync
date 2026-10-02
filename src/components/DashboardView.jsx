@@ -17,6 +17,7 @@ import {
   getCurrencySymbol,
   formatMonthOnly
 } from '../utils/formatters';
+import { calculateWorkerFinancials } from '../utils/settlementCalculations';
 import { 
   Users, 
   Calendar, 
@@ -261,12 +262,23 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     return map;
   }, [settlementPayments]);
 
+  const settledLogIds = useMemo(() => {
+    const ids = new Set();
+    workers.forEach((w) => {
+      const workerLogs = allAllLogs.filter(l => String(l.workerId) === String(w.id));
+      const workerPayments = allPayments.filter(p => String(p.workerId) === String(w.id) || (w.groupId && p.groupId === w.groupId));
+      const fin = calculateWorkerFinancials(w, workerLogs, workerPayments);
+      workerLogs.forEach(l => {
+        if (fin.isLogSettled(l)) {
+          ids.add(String(l.id));
+        }
+      });
+    });
+    return ids;
+  }, [workers, allAllLogs, allPayments]);
+
   const isLogSettled = (log) => {
-    if (log.isSettled) return true;
-    if (log.settlementReceiptId) return true;
-    const lastDate = workerLastSettlementMap.get(String(log.workerId));
-    if (lastDate && log.date && log.date <= lastDate) return true;
-    return false;
+    return settledLogIds.has(String(log.id));
   };
 
   // Filter active workers
@@ -492,43 +504,22 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     });
   }, [workers, logs, workerLastSettlementMap, currency]);
 
-  // Compute FIFO settlement status and debt per worker for the current month
+  // Compute live settlement status and debt per worker using single source of truth
   const workerFinancialStatusMap = useMemo(() => {
     const map = new Map();
     workers.forEach((w) => {
-      const wLogs = allAllLogs.filter((l) => String(l.workerId) === String(w.id));
-      const wPayments = allPayments.filter((p) => String(p.workerId) === String(w.id));
-      const wDaily = Number(String(w.dailyRate).replace(/,/g, '')) || 0;
-      const wOtRate = Number(String(w.overtimeHourlyRate).replace(/,/g, '')) || 0;
-
-      const getLogPay = (l) => {
-        let val = Number(l.totalDayPay);
-        if (!isNaN(val) && val > 0) return val;
-        const otH = Math.max(0, Number(l.overtimeHours) || 0);
-        if (l.type === 'half') return (wDaily * 0.5) + (otH * wOtRate);
-        if (l.type === 'hourly') return otH * (wOtRate || (wDaily / 8));
-        return wDaily + (otH * wOtRate);
-      };
-
-      const totalAllTimeGross = roundCurrency(wLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
-      const totalAllTimePaid = roundCurrency(wPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), currency);
-      const grossUpToPeriod = roundCurrency(wLogs
-        .filter((l) => l.date && l.date <= `${selectedMonth}-31`)
-        .reduce((sum, l) => sum + getLogPay(l), 0), currency);
-      const netDebt = roundCurrency(Math.max(0, totalAllTimeGross - totalAllTimePaid), currency);
-
-      let isSettled = false;
-      if (totalAllTimeGross === 0 && totalAllTimePaid === 0) {
-        isSettled = true;
-      } else if (netDebt === 0 && totalAllTimeGross > 0) {
-        isSettled = true;
-      } else if (totalAllTimePaid >= grossUpToPeriod && grossUpToPeriod > 0) {
-        isSettled = true;
+      const fin = calculateWorkerFinancials(w, allAllLogs, allPayments, currency);
+      if (fin) {
+        map.set(w.id, {
+          isSettled: fin.netBalanceDue <= 0,
+          netDebt: Math.max(0, fin.netBalanceDue),
+          totalAllTimePaid: fin.totalSettlementPaid + fin.settledAdvances + fin.unsettledAdvances,
+          totalAllTimeGross: fin.settledGross + fin.unsettledGross
+        });
       }
-      map.set(w.id, { isSettled, netDebt, totalAllTimePaid, totalAllTimeGross });
     });
     return map;
-  }, [workers, allAllLogs, allPayments, selectedMonth, currency]);
+  }, [workers, allAllLogs, allPayments, currency]);
 
   // Financial summary metrics for Dashboard Overview Widget
   const financialSummary = useMemo(() => {

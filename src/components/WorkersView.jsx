@@ -7,6 +7,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import { formatCurrency, formatHoursAndMinutes, getCurrencySymbol } from '../utils/formatters';
+import { calculateWorkerFinancials } from '../utils/settlementCalculations';
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 import { EditRecordModal } from './EditRecordModal';
 import { WorkerFinancialProfileModal } from './WorkerFinancialProfileModal';
@@ -40,7 +41,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Lock
+  Lock,
+  WalletCards,
+  Banknote
 } from 'lucide-react';
 import { canDeleteWorker } from '../db/db';
 
@@ -198,15 +201,26 @@ export function WorkersView() {
     [historyWorker?.id]
   ) || [];
 
-  const workerPayments = useLiveQuery(
-    async () => {
-      if (!historyWorker?.id) return [];
-      const list = await db.payments.toArray();
-      const filtered = list.filter((p) => String(p.workerId) === String(historyWorker.id));
-      return filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-    },
-    [historyWorker?.id]
-  ) || [];
+  // Live query all logs and payments for calculating real-time balances
+  const allLogs = useLiveQuery(() => db.attendanceLogs.toArray(), []) || [];
+  const allPayments = useLiveQuery(() => db.payments.toArray(), []) || [];
+
+  const workerPayments = useMemo(() => {
+    if (!historyWorker?.id) return [];
+    return allPayments
+      .filter((p) => String(p.workerId) === String(historyWorker.id) && !p.deletedAt)
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [allPayments, historyWorker?.id]);
+
+  // Single-source-of-truth financial balance map for all workers
+  const workerFinancialsMap = useMemo(() => {
+    const map = new Map();
+    workers.forEach((w) => {
+      const fin = calculateWorkerFinancials(w, allLogs, allPayments, currency);
+      if (fin) map.set(w.id, fin);
+    });
+    return map;
+  }, [workers, allLogs, allPayments, currency]);
 
   const workerHistoryLogs = useMemo(() => {
     if (!Array.isArray(rawWorkerHistoryLogs)) return [];
@@ -956,7 +970,7 @@ export function WorkersView() {
                   </div>
                 )}
 
-                {/* Wage Rates Breakdown (Clean, Non-Redundant Currency) */}
+                {/* Wage Rates Breakdown & Real-Time Financial Balance Badge */}
                 <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -976,6 +990,36 @@ export function WorkersView() {
                       {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
                     </span>
                   </div>
+
+                  {/* Real-Time Outstanding Balance Badge */}
+                  {(() => {
+                    const fin = workerFinancialsMap.get(worker.id);
+                    if (!fin) return null;
+                    const { netBalanceDue, status } = fin;
+                    return (
+                      <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-xs font-bold">
+                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <WalletCards className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>وضعیت مانده:</span>
+                        </span>
+                        {netBalanceDue > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 font-mono">
+                            {formatCurrency(netBalanceDue, currency, language)}
+                            <span className="text-[9px] font-normal">طلبکار</span>
+                          </span>
+                        ) : netBalanceDue < 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 font-mono">
+                            {formatCurrency(Math.abs(netBalanceDue), currency, language)}
+                            <span className="text-[9px] font-normal">بدهکار</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300">
+                            تسویه کامل
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1192,6 +1236,7 @@ export function WorkersView() {
                       {sortBy === 'overtimeRate' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
                     </div>
                   </th>
+                  <th className="py-3 px-3.5 text-center">مانده معوقه</th>
                   <th className="py-3 px-3.5 text-center">{t('actions')}</th>
                 </tr>
               </thead>
@@ -1204,7 +1249,7 @@ export function WorkersView() {
                         onClick={() => toggleGroupCollapse(group.id)}
                         className="bg-slate-100/90 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/60 cursor-pointer transition-colors select-none"
                       >
-                        <td colSpan="8" className="py-2.5 px-4 font-bold text-slate-700 dark:text-slate-200">
+                        <td colSpan="9" className="py-2.5 px-4 font-bold text-slate-700 dark:text-slate-200">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className="p-1 rounded-md bg-white dark:bg-slate-700 shadow-xs text-slate-500">
@@ -1281,6 +1326,32 @@ export function WorkersView() {
                       </td>
                       <td className="py-2.5 px-3.5 font-medium font-mono text-slate-700 dark:text-slate-300">
                         {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
+                      </td>
+                      <td className="py-2.5 px-3.5 text-center font-mono">
+                        {(() => {
+                          const fin = workerFinancialsMap.get(worker.id);
+                          if (!fin) return <span className="text-slate-400">-</span>;
+                          const { netBalanceDue } = fin;
+                          if (netBalanceDue > 0) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                                {formatCurrency(netBalanceDue, currency, language)}
+                              </span>
+                            );
+                          }
+                          if (netBalanceDue < 0) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300">
+                                {formatCurrency(Math.abs(netBalanceDue), currency, language)} بدهی
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                              تسویه
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="py-2.5 px-3.5 text-center">
                         <div className="flex items-center justify-center gap-1">

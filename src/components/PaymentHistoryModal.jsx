@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
-import { pushPaymentsLive, recordPendingPaymentDeletion } from '../services/realtimeSync';
+import { pushPaymentsLive, recordPendingPaymentDeletion, rollbackPaymentSettlement } from '../services/realtimeSync';
 import { formatAmount, roundCurrency, getCurrencySymbol } from '../utils/formatters';
 import { 
   Receipt, 
@@ -62,6 +62,7 @@ export function PaymentHistoryModal({
     }
     if (window.confirm(t('paymentDeleteConfirm'))) {
       recordPendingPaymentDeletion(paymentId);
+      await rollbackPaymentSettlement(paymentId).catch(console.warn);
       await db.payments.delete(paymentId);
       pushPaymentsLive().catch(() => {});
     }
