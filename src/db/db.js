@@ -69,6 +69,12 @@ db.version(12).stores({
   accountTransfers: 'id, projectId, fromAccountId, toAccountId, date, status, created_by, approved_by, createdAt'
 });
 
+db.version(13).stores({
+  app_users: 'id, workspace_id, username, role, is_active, session_version',
+  current_session: 'id, user_id, workspace_id, session_token, last_active',
+  audit_logs: 'id, workspace_id, user_id, entity_type, action_type, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
