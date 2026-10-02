@@ -33,7 +33,7 @@ export async function logAuditAction({ actionType, entityType, entityId, details
 
     const auditRecord = {
       id: generateAuditId(),
-      workspace_id: workspaceId,
+      workspace_id: workspaceId || 'local-offline-workspace',
       user_id: userDoc.id || userDoc.userId || 'unknown',
       user_name: userDoc.full_name || userDoc.name || userDoc.username || 'مدیر سیستم',
       project_id: projectId,

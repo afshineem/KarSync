@@ -3,18 +3,21 @@ import { db } from '../db/db';
 import { supabase } from '../services/realtimeSync';
 import { Activity, Clock, Search, Filter } from 'lucide-react';
 import { usePermissions } from '../context/AuthContext';
+import { logAuditAction } from '../services/auditLogger';
 
-export default function AuditLogsTab() {
+export default function AuditLogsTab({ workspaceId }) {
   const { currentUser } = usePermissions();
   const [logs, setLogs] = useState([]);
   const [filterType, setFilterType] = useState('all');
   const [filterUser, setFilterUser] = useState('');
 
+  const effectiveWorkspaceId = workspaceId || currentUser?.workspace_id;
+
   useEffect(() => {
-    if (currentUser?.workspace_id) {
+    if (effectiveWorkspaceId) {
       loadLogs();
       const channel = supabase.channel('public:audit_logs')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs', filter: `workspace_id=eq.${currentUser.workspace_id}` }, payload => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs', filter: `workspace_id=eq.${effectiveWorkspaceId}` }, payload => {
           setLogs(prev => [payload.new, ...prev]);
           if (db.audit_logs) db.audit_logs.put(payload.new).catch(()=>{});
         })
@@ -23,33 +26,45 @@ export default function AuditLogsTab() {
         supabase.removeChannel(channel);
       };
     }
-  }, [currentUser]);
+  }, [effectiveWorkspaceId]);
 
   const loadLogs = async () => {
     try {
       // 1. Try local first
       let localLogs = [];
       if (db.audit_logs) {
-        localLogs = await db.audit_logs.where('workspace_id').equals(currentUser.workspace_id).reverse().sortBy('created_at');
-        setLogs(localLogs);
+        localLogs = await db.audit_logs?.where('workspace_id').equals(effectiveWorkspaceId).reverse().sortBy('created_at') || [];
       }
       
-      // 2. Fetch from remote
+      if (localLogs.length > 0) {
+        setLogs(localLogs);
+      }
+
+      // 2. Sync from Supabase
       if (navigator.onLine) {
-        const { data, error } = await supabase
-          .from('audit_logs')
+        const { data } = await supabase.from('audit_logs')
           .select('*')
-          .eq('workspace_id', currentUser.workspace_id)
+          .eq('workspace_id', effectiveWorkspaceId)
           .order('created_at', { ascending: false })
-          .limit(100);
-          
-        if (data && !error) {
+          .limit(50);
+        
+        if (data && data.length > 0) {
           setLogs(data);
           if (db.audit_logs) await db.audit_logs.bulkPut(data).catch(()=>{});
+        } else if (localLogs.length === 0) {
+          // Auto-seed initial log if completely empty
+          await logAuditAction({
+            actionType: 'SYSTEM_INIT',
+            entityType: 'WORKSPACE',
+            entityId: effectiveWorkspaceId,
+            details: { message: 'سیستم ممیزی کارگاه فعال شد' }
+          });
+          // Reload logs after 1 sec
+          setTimeout(loadLogs, 1000);
         }
       }
     } catch (err) {
-      console.error("Failed to load audit logs:", err);
+      console.error('Failed to load audit logs:', err);
     }
   };
 
@@ -83,27 +98,32 @@ export default function AuditLogsTab() {
             placeholder="جستجو نام متصدی..." 
             value={filterUser}
             onChange={e => setFilterUser(e.target.value)}
-            className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-indigo-500 rounded-xl text-xs"
           />
         </div>
-        <select 
-          value={filterType}
-          onChange={e => setFilterType(e.target.value)}
-          className="py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="all">همه رویدادها</option>
-          <option value="ATTENDANCE">حضور و غیاب</option>
-          <option value="SETTLEMENT">تسویه و پرداخت</option>
-          <option value="EXPENSE">هزینه‌ها</option>
-          <option value="USER">مدیریت کاربران</option>
-        </select>
+        <div className="relative flex-1 sm:max-w-[200px]">
+          <Filter className="absolute right-3 top-2.5 w-4 h-4 text-slate-400" />
+          <select
+            value={filterType}
+            onChange={e => setFilterType(e.target.value)}
+            className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-indigo-500 rounded-xl text-xs appearance-none"
+          >
+            <option value="all">همه فعالیت‌ها</option>
+            <option value="USER">فعالیت کاربران</option>
+            <option value="ATTENDANCE">ورود و خروج / حضور</option>
+            <option value="FINANCIAL">مالی و هزینه‌ها</option>
+            <option value="SYSTEM">سیستم</option>
+          </select>
+        </div>
       </div>
 
       {/* Timeline */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {filteredLogs.length === 0 ? (
-          <div className="text-center text-slate-500 dark:text-slate-400 py-10 text-xs">
-            هیچ لاگ یا فعالیتی یافت نشد.
+          <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+            <Activity className="w-12 h-12 mb-3 opacity-20 text-indigo-500" />
+            <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-1">هنوز فعالیتی ثبت نشده است</h3>
+            <p className="text-xs">پس از انجام عملیات، تاریخچه در اینجا نمایش داده می‌شود.</p>
           </div>
         ) : (
           <div className="relative border-r-2 border-indigo-100 dark:border-indigo-900/30 pr-4 mr-2 space-y-6">
@@ -121,7 +141,10 @@ export default function AuditLogsTab() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {log.details?.description || `${log.action_type} روی موجودیت ${log.entity_type}`}
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-400 ml-1">
+                      [{log.action_type}]
+                    </span>
+                    {log.details?.message || 'عملیات سیستمی انجام شد'}
                   </p>
                 </div>
               </div>

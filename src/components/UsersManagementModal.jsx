@@ -26,21 +26,70 @@ export default function UsersManagementModal({ isOpen, onClose }) {
 
   const loadData = async () => {
     try {
-      // Offline priority
-      const ws = await db.workspaces?.get(currentUser.workspace_id);
-      if (ws) setWorkspace(ws);
+      let targetWorkspaceId = currentUser.workspace_id;
+      let targetWorkspace = null;
+
+      // 1. If user doesn't have a workspace, we seed one
+      if (!targetWorkspaceId) {
+        // Try to find if default workspace exists
+        const defaultWs = await db.workspaces?.where('workspace_code').equals('KARS-101').first();
+        if (defaultWs) {
+          targetWorkspaceId = defaultWs.id;
+          targetWorkspace = defaultWs;
+        } else {
+          // Seed new workspace
+          const newWs = {
+            id: generateUUID(),
+            name: 'کارگاه مرکزی',
+            workspace_code: 'KARS-101',
+            owner_id: currentUser.id || 'admin_local',
+            max_users_limit: 5,
+            plan_tier: 'standard',
+            created_at: new Date().toISOString()
+          };
+          await db.workspaces?.put(newWs);
+          if (navigator.onLine) supabase.from('workspaces').insert(newWs).then();
+          targetWorkspaceId = newWs.id;
+          targetWorkspace = newWs;
+        }
+
+        // Seed the admin user into app_users if not exists
+        const existingAdmin = await db.app_users?.get(currentUser.id || 'admin_local');
+        if (!existingAdmin) {
+          const newAdmin = {
+            id: currentUser.id || 'admin_local',
+            workspace_id: targetWorkspaceId,
+            username: currentUser.username || 'admin',
+            full_name: currentUser.name || 'مدیر سیستم',
+            role: 'admin',
+            is_active: true,
+            session_version: 1,
+            can_edit_past_records: true,
+            created_at: new Date().toISOString()
+          };
+          await db.app_users?.put(newAdmin);
+          if (navigator.onLine) supabase.from('app_users').insert(newAdmin).then();
+        }
+      }
+
+      // 2. Load workspace
+      if (!targetWorkspace) {
+        targetWorkspace = await db.workspaces?.get(targetWorkspaceId);
+      }
+      if (targetWorkspace) setWorkspace(targetWorkspace);
       
-      const list = await db.app_users?.where('workspace_id').equals(currentUser.workspace_id).toArray() || [];
+      // 3. Load users
+      const list = await db.app_users?.where('workspace_id').equals(targetWorkspaceId).toArray() || [];
       setUsersList(list);
 
-      // Background sync from Supabase
-      if (navigator.onLine) {
-        const { data: wsData } = await supabase.from('workspaces').select('*').eq('id', currentUser.workspace_id).single();
+      // 4. Background sync
+      if (navigator.onLine && targetWorkspaceId) {
+        const { data: wsData } = await supabase.from('workspaces').select('*').eq('id', targetWorkspaceId).maybeSingle();
         if (wsData) {
           setWorkspace(wsData);
           if (db.workspaces) await db.workspaces.put(wsData);
         }
-        const { data: uData } = await supabase.from('app_users').select('*').eq('workspace_id', currentUser.workspace_id);
+        const { data: uData } = await supabase.from('app_users').select('*').eq('workspace_id', targetWorkspaceId);
         if (uData) {
           setUsersList(uData);
           if (db.app_users) await db.app_users.bulkPut(uData);
@@ -200,7 +249,7 @@ export default function UsersManagementModal({ isOpen, onClose }) {
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 max-w-5xl mx-auto w-full">
         {activeTab === 'audit' ? (
-          <AuditLogsTab />
+          <AuditLogsTab workspaceId={workspace?.id} />
         ) : (
           <>
             {/* Status Card */}
@@ -239,7 +288,26 @@ export default function UsersManagementModal({ isOpen, onClose }) {
             )}
 
             {/* Users List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {usersList.length <= 1 && (
+              <div className="bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center mt-4">
+                <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Users className="w-8 h-8" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">هنوز کاربر دیگری تعریف نشده است</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">برای افزودن پرسنل جدید به کارگاه، از دکمه زیر استفاده کنید.</p>
+                <button 
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setIsFormOpen(true);
+                  }}
+                  className="px-5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-500 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm text-xs font-semibold inline-flex items-center gap-2 transition-all"
+                >
+                  <UserPlus className="w-4 h-4" /> تعریف کاربر جدید
+                </button>
+              </div>
+            )}
+            
+            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${usersList.length <= 1 ? 'mt-4' : ''}`}>
               {usersList.map(user => (
                 <div key={user.id} className={`bg-white dark:bg-slate-800 rounded-2xl border ${!user.is_active ? 'border-rose-200 dark:border-rose-900/30 opacity-75' : 'border-slate-200 dark:border-slate-700'} p-4 shadow-sm relative overflow-hidden`}>
                   {!user.is_active && (
