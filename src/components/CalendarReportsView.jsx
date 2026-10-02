@@ -650,10 +650,10 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
           </p>
         </div>
 
-        {/* Action Controls: Google M3 Icon-First Segmented Control with Active Title Expansion */}
+        {/* Action Controls: Google M3 Icon-First Segmented Control + Actions */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* 3-Way Mode Switcher (Google M3 Expressive Style) */}
-          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+          {/* Mode Switcher + Recycle Bin Action */}
+          <div className="h-[52px] sm:h-[58px] flex items-center gap-1 sm:gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1 sm:p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
             {[
               { id: 'timeline', label: language === 'fa' ? 'تفکیک روزانه' : language === 'ku' ? 'لیستی مانگانە' : 'Timeline', icon: CalendarDays },
               { id: 'calendar', label: language === 'fa' ? 'ماه‌نما' : language === 'ku' ? 'تەقویم' : 'Month Grid', icon: LayoutGrid },
@@ -668,10 +668,10 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                   onClick={() => setViewMode(tab.id)}
                   aria-label={tab.label}
                   title={tab.label}
-                  className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
+                  className={`relative h-full flex items-center gap-2 rounded-xl transition-all duration-200 active:scale-95 ${
                     isSelected
-                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold py-2.5 px-3.5 sm:py-3 sm:px-4'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2.5 sm:p-3'
+                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold px-3.5 sm:px-4'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 px-2.5 sm:px-3'
                   }`}
                 >
                   <Icon className="w-5.5 h-5.5 flex-shrink-0" />
@@ -683,14 +683,27 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
                 </button>
               );
             })}
+
+            <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-0.5 self-center" />
+
+            {/* Recycle Bin Action Button inside the same dock */}
+            <button
+              type="button"
+              onClick={() => setIsRecycleBinOpen(true)}
+              aria-label={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
+              title={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
+              className="h-full aspect-square rounded-xl text-slate-500 hover:text-amber-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+            >
+              <Trash2 className="w-5.5 h-5.5 flex-shrink-0" />
+            </button>
           </div>
 
           {/* Export & Print Actions */}
-          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
+          <div className="h-[52px] sm:h-[58px] flex items-center gap-1 sm:gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1 sm:p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
             <button
               type="button"
               onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
-              className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
+              className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center"
               title={t('exportExcel')}
               aria-label={t('exportExcel')}
             >
@@ -700,25 +713,11 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
             <button
               type="button"
               onClick={triggerPrintReport}
-              className="p-2 sm:p-2.5 text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
+              className="h-full aspect-square text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center"
               title={t('printPdf')}
               aria-label={t('printPdf')}
             >
               <Printer className="w-5.5 h-5.5 flex-shrink-0" />
-            </button>
-          </div>
-
-          {/* Recycle Bin Action */}
-          <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsRecycleBinOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-amber-600 dark:text-amber-400 hover:bg-white/80 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 text-xs font-bold"
-              title={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
-              aria-label="Recycle Bin"
-            >
-              <RotateCcw className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{language === 'fa' ? 'سطل بازیافت' : 'Recycle Bin'}</span>
             </button>
           </div>
         </div>

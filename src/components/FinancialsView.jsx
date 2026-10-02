@@ -614,137 +614,152 @@ export function FinancialsView() {
   return (
     <div className="space-y-6 pb-20 no-print" dir={direction}>
       
-      {/* Top Header Bar & Dual Filter Controls (Monthly vs Custom Date Range + Worker Dropdown) */}
-      <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Top Header Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        {/* Right side in RTL: Icon, Title, Project Badge, Subtitle */}
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 flex-shrink-0">
+            <WalletCards className="w-6 h-6 stroke-[2.2]" />
+          </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
-              <WalletCards className="w-6 h-6 text-sky-500" />
-              <span>{t('financialDashboard')}</span>
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                {t('financialDashboard')}
+              </h1>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
+                {currentProject?.name || (language === 'fa' ? 'پروژه کارگاه' : 'پڕۆژە')}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {t('financialDashboardSubtitle')}
             </p>
           </div>
         </div>
 
-        {/* Filter Controls Bar */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3">
+        {/* Left side in RTL: All controls directly opposite the title */}
+        <div className="w-full xl:w-auto flex flex-col sm:flex-row items-center justify-center xl:justify-end gap-2.5 sm:gap-3 flex-wrap">
           
-          {/* Row 1 on Mobile / Left on PC: Quick Actions */}
-          <div className="flex items-center justify-between sm:justify-start gap-2.5">
-            {/* Quick Actions: Settlement + Group Settlement + Add Advance */}
-            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
-              <button
-                type="button"
-                onClick={handleOpenSettlement}
-                aria-label={t('settleBtn') || 'ثبت تسویه حساب فردی'}
-                title={t('settleBtn') || 'ثبت تسویه حساب فردی'}
-                className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
-              >
-                <CheckCircle2 className="w-5.5 h-5.5 flex-shrink-0" />
-              </button>
-
-              {groups.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleOpenGroupSettlement}
-                  aria-label="تسویه با سرپرست گروه"
-                  title="تسویه حساب گروهی با سرپرست"
-                  className="p-2 sm:p-2.5 text-slate-500 hover:text-amber-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
-                >
-                  <Users className="w-5.5 h-5.5 flex-shrink-0" />
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setIsGlobalAdvanceModalOpen(true)}
-                aria-label={t('addAdvanceBtn') || 'ثبت مساعده'}
-                title={t('addAdvanceBtn') || 'ثبت مساعده'}
-                className="p-2 sm:p-2.5 text-slate-500 hover:text-amber-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
-              >
-                <Banknote className="w-5.5 h-5.5 flex-shrink-0" />
-              </button>
-            </div>
+          {/* ۱. سلکتور پرسنل (Worker Selector) */}
+          <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center gap-2 px-3 sm:px-4 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+            <Users className="w-5 h-5 sm:w-5.5 sm:h-5.5 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+            <select
+              value={selectedWorkerId}
+              onChange={(e) => setSelectedWorkerId(e.target.value)}
+              className="bg-transparent text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-black focus:outline-none cursor-pointer flex-1 sm:w-36 md:w-40 appearance-none"
+            >
+              <option value="all">{t('allWorkersOption') || (language === 'fa' ? 'همه پرسنل' : 'هەموو کرێکاران')}</option>
+              {workers.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} {w.isActive === 0 ? `(${t('inactive') || (language === 'fa' ? 'غیرفعال' : 'ناچالاک')})` : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Row 2 on Mobile / Right on PC */}
-          <div className="flex items-center gap-2.5 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 hide-scrollbar sm:ms-auto">
-            
-            {/* Date Selector */}
-            {filterMode === 'monthly' ? (
-              <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/70 transition-colors flex-shrink-0"
-                  title="Previous Month"
-                >
-                  {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-                </button>
+          {/* ۲. ماه‌نما (Month Navigator) */}
+          <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl p-1 sm:p-1.5 border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+              title={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+              aria-label={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+            >
+              {direction === 'rtl' ? <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
+            </button>
 
-                <div className="relative flex items-center justify-center cursor-pointer min-w-[6rem] sm:min-w-[7rem]">
-                  <div className="pointer-events-none px-2 py-0.5 text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200 text-center w-full">
-                    {formatMonthOnly(selectedMonth, language)}
-                  </div>
-                  <input
-                    type="month"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/70 transition-colors flex-shrink-0"
-                  title="Next Month"
-                >
-                  {direction === 'rtl' ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                </button>
+            <div className="relative flex-1 h-full flex items-center justify-center cursor-pointer min-w-[6rem] sm:min-w-[7rem] px-2 sm:px-3">
+              <div className="pointer-events-none text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 text-center w-full truncate">
+                {formatMonthOnly(selectedMonth, language) || selectedMonth}
               </div>
-            ) : (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value);
+                  setFilterMode('monthly');
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                title={language === 'fa' ? 'انتخاب ماه' : 'هەڵبژاردنی مانگ'}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+              title={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
+              aria-label={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
+            >
+              {direction === 'rtl' ? <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
+            </button>
+          </div>
+
+          {/* ۳. داک دکمه‌های آیکونی اقدامات مالی و تسویه */}
+          <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between sm:justify-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+            {/* دکمه ۱: بازه زمانی (در کنار ماه‌نما) */}
+            <button
+              type="button"
+              onClick={() => {
+                setTempFromDate(fromDate);
+                setTempToDate(toDate);
+                setIsDateRangeModalOpen(true);
+              }}
+              className={`relative h-full aspect-square rounded-xl transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden ${
+                filterMode === 'custom'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80'
+              }`}
+              title={
+                filterMode === 'custom'
+                  ? (language === 'fa' ? `بازه سفارشی فعال: ${fromDate} تا ${toDate}` : `ماوەی دیاریکراو: ${fromDate} - ${toDate}`)
+                  : (language === 'fa' ? 'فیلتر بازه زمانی دلخواه' : 'فلتەری ماوەی دیاریکراو')
+              }
+              aria-label="Date Range Filter"
+            >
+              <CalendarRange className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+              {filterMode === 'custom' && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-slate-900 animate-pulse" />
+              )}
+            </button>
+
+            {/* دکمه ۲: ثبت مساعده جدید */}
+            <button
+              type="button"
+              onClick={() => setIsGlobalAdvanceModalOpen(true)}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
+              title={t('addAdvanceBtn') || (language === 'fa' ? 'ثبت مساعده جدید' : 'تۆماری تەنخوا')}
+              aria-label="Add Advance"
+            >
+              <Banknote className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </button>
+
+            {/* دکمه ۳: تسویه گروهی با سرپرست (اگر گروه تعریف شده باشد) */}
+            {groups.length > 0 && (
               <button
                 type="button"
-                onClick={() => {
-                  setTempFromDate(fromDate);
-                  setTempToDate(toDate);
-                  setIsDateRangeModalOpen(true);
-                }}
-                className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-2 px-3 sm:px-4 border border-slate-200/90 dark:border-slate-700/70 shadow-inner text-xs font-semibold hover:bg-slate-200/90 dark:hover:bg-slate-700/90 transition-colors flex-shrink-0"
+                onClick={handleOpenGroupSettlement}
+                className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
+                title={language === 'fa' ? 'تسویه حساب گروهی با سرپرست' : 'تەسویەی بەکۆمەڵ لەگەڵ سەرپەرشتیار'}
+                aria-label="Group Settlement"
               >
-                <div className="flex items-center gap-1.5 leading-tight text-[11px] sm:text-xs whitespace-nowrap">
-                  <span className="text-slate-500 dark:text-slate-400 font-normal">{t('fromDateLabel') || 'از'}</span>
-                  <span className="text-slate-700 dark:text-slate-200 font-bold font-mono">{formatDayMonth(fromDate, language)}</span>
-                  <span className="text-slate-500 dark:text-slate-400 font-normal ms-1">{t('toDateLabel') || 'تا'}</span>
-                  <span className="text-slate-700 dark:text-slate-200 font-bold font-mono">{formatDayMonth(toDate, language)}</span>
-                </div>
-                <Calendar className="w-4 h-4 text-sky-500 flex-shrink-0 ms-2" />
+                <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
               </button>
             )}
 
-            {/* Worker Selector Dropdown */}
-            <div className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl p-1.5 px-3 border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
-              <Users className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-shrink-0" />
-              <select
-                value={selectedWorkerId}
-                onChange={(e) => setSelectedWorkerId(e.target.value)}
-                className="bg-transparent text-slate-900 dark:text-white text-xs font-bold py-1 focus:outline-none cursor-pointer sm:w-40 appearance-none"
-              >
-                <option value="all">{t('allWorkersOption')}</option>
-                {workers.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} {w.isActive === 0 ? `(${t('inactive')})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* دکمه ۴: ثبت تسویه حساب فردی - دکمه اصلی پرایمری با گرادیانت */}
+            <button
+              type="button"
+              onClick={handleOpenSettlement}
+              className="h-full aspect-square rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 group flex items-center justify-center focus:outline-hidden"
+              title={t('settleBtn') || (language === 'fa' ? 'ثبت تسویه حساب' : 'تەسویەی حساب')}
+              aria-label="Settle Worker"
+            >
+              <CheckCircle2 className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:scale-110 transition-transform duration-200" />
+            </button>
           </div>
-        </div>
 
+        </div>
       </div>
 
       {/* 4 Financial KPI Summary Cards */}
@@ -2032,6 +2047,7 @@ export function FinancialsView() {
                 onClick={() => {
                   setFromDate(tempFromDate);
                   setToDate(tempToDate);
+                  setFilterMode('custom');
                   setIsDateRangeModalOpen(false);
                 }}
                 className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 shadow-md shadow-sky-500/30 transition-all flex items-center justify-center gap-1.5"

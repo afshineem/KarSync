@@ -25,6 +25,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
   const [deletedLogs, setDeletedLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [restoringId, setRestoringId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [toastMessage, setToastMessage] = useState('');
 
@@ -180,6 +181,110 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
     fetchDeletedLogs();
   };
 
+  // Permanent Delete a single log
+  const handlePermanentDeleteLog = async (log) => {
+    const confirmMsg = language === 'fa' 
+      ? 'آیا از حذف قطعی و دائمی این رکورد اطمینان دارید؟ این عملیات کاملاً غیرقابل بازگشت است.' 
+      : 'Are you sure you want to permanently delete this record? This cannot be undone.';
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingId(log.id);
+    try {
+      const canonicalId = getAttendanceLogId(log.worker_id, log.date);
+
+      // 1. Delete from Supabase
+      if (supabase) {
+        const { error } = await supabase
+          .from('attendance_logs')
+          .delete()
+          .eq('id', log.id);
+        if (error) throw error;
+      }
+
+      // 2. Delete from Dexie
+      await db.attendanceLogs.delete(canonicalId);
+      await db.attendanceLogs.delete(log.id);
+
+      // 3. Clear from localStorage pending deleted logs
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const PENDING_DELETED_LOGS_KEY = 'workshop_pending_deleted_logs';
+          const list = JSON.parse(localStorage.getItem(PENDING_DELETED_LOGS_KEY) || '[]');
+          const updated = list.filter(id => id !== log.id && id !== canonicalId);
+          localStorage.setItem(PENDING_DELETED_LOGS_KEY, JSON.stringify(updated));
+        }
+      } catch (_) {}
+
+      // 4. Update UI
+      setDeletedLogs((prev) => prev.filter((item) => item.id !== log.id));
+
+      const workerName = workerMap[log.worker_id]?.name || (language === 'fa' ? 'پرسنل' : 'Worker');
+      setToastMessage(language === 'fa' 
+        ? `رکورد کارکرد ${workerName} به طور دائمی حذف گردید.` 
+        : `Record for ${workerName} permanently deleted.`);
+      setTimeout(() => setToastMessage(''), 3000);
+    } catch (err) {
+      console.error('Failed to permanently delete log:', err);
+      alert('خطا در حذف دائمی رکورد: ' + err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Permanent Delete All filtered logs (Empty Recycle Bin)
+  const handlePermanentDeleteAll = async () => {
+    if (filteredLogs.length === 0) return;
+    const confirmMsg = language === 'fa' 
+      ? `آیا از حذف قطعی و دائمی تمام ${filteredLogs.length} رکورد در سطل بازیافت اطمینان دارید؟ این عملیات غیرقابل بازگشت است.` 
+      : `Are you sure you want to permanently delete all ${filteredLogs.length} records in the recycle bin? This cannot be undone.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsLoading(true);
+    try {
+      const ids = filteredLogs.map((l) => l.id);
+
+      // 1. Delete from Supabase
+      if (supabase && ids.length > 0) {
+        const { error } = await supabase
+          .from('attendance_logs')
+          .delete()
+          .in('id', ids);
+        if (error) throw error;
+      }
+
+      // 2. Delete from Dexie
+      for (const log of filteredLogs) {
+        const canonicalId = getAttendanceLogId(log.worker_id, log.date);
+        await db.attendanceLogs.delete(canonicalId);
+        await db.attendanceLogs.delete(log.id);
+      }
+
+      // 3. Clear from localStorage
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const PENDING_DELETED_LOGS_KEY = 'workshop_pending_deleted_logs';
+          const list = JSON.parse(localStorage.getItem(PENDING_DELETED_LOGS_KEY) || '[]');
+          const idSet = new Set(ids);
+          const updated = list.filter(id => !idSet.has(id));
+          localStorage.setItem(PENDING_DELETED_LOGS_KEY, JSON.stringify(updated));
+        }
+      } catch (_) {}
+
+      // 4. Update UI
+      setDeletedLogs((prev) => prev.filter((l) => !ids.includes(l.id)));
+      setToastMessage(language === 'fa' 
+        ? 'تمامی رکوردهای سطل بازیافت به طور قطعی حذف شدند.' 
+        : 'All records in recycle bin permanently deleted.');
+      setTimeout(() => setToastMessage(''), 3000);
+    } catch (err) {
+      console.error('Failed to bulk delete logs:', err);
+      alert('خطا در حذف دائمی رکوردها: ' + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Filter logs by search term (worker name or date)
   const filteredLogs = React.useMemo(() => {
     if (!searchTerm.trim()) return deletedLogs;
@@ -266,15 +371,27 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
           </button>
 
           {filteredLogs.length > 0 && (
-            <button
-              type="button"
-              onClick={handleRestoreAll}
-              disabled={isLoading}
-              className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all shrink-0"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>{language === 'fa' ? 'بازیابی همه' : 'Restore All'}</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleRestoreAll}
+                disabled={isLoading}
+                className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-95"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{language === 'fa' ? 'بازیابی همه' : 'Restore All'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePermanentDeleteAll}
+                disabled={isLoading}
+                className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-95"
+                title={language === 'fa' ? 'حذف قطعی و دائمی تمام رکوردهای سطل' : 'Empty Recycle Bin'}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{language === 'fa' ? 'خالی کردن سطل' : 'Empty Bin'}</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -305,6 +422,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
             filteredLogs.map((log) => {
               const worker = workerMap[log.worker_id];
               const isRestoring = restoringId === log.id;
+              const isDeleting = deletingId === log.id;
               const isSettled = Boolean(log.is_settled || (log.notes && log.notes.includes('"st":1')));
 
               return (
@@ -377,16 +495,26 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                     </div>
                   </div>
 
-                  {/* Right: Restore Button */}
-                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  {/* Right: Actions (Restore & Permanent Delete) */}
+                  <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
                     <button
                       type="button"
                       onClick={() => handleRestoreLog(log)}
-                      disabled={isRestoring}
-                      className="px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-600 hover:text-white text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:border-transparent text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                      disabled={isRestoring || isDeleting}
+                      className="px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-600 hover:text-white text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:border-transparent text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
                     >
                       <RotateCcw className={`w-3.5 h-3.5 ${isRestoring ? 'animate-spin' : ''}`} />
                       <span>{isRestoring ? (language === 'fa' ? 'در حال بازیابی...' : 'Restoring...') : (language === 'fa' ? 'بازیابی' : 'Restore')}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePermanentDeleteLog(log)}
+                      disabled={isRestoring || isDeleting}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-transparent hover:border-rose-200 dark:hover:border-rose-800 transition-colors active:scale-95"
+                      title={language === 'fa' ? 'حذف قطعی و همیشگی رکورد' : 'Delete permanently'}
+                    >
+                      <Trash2 className={`w-4 h-4 ${isDeleting ? 'animate-spin text-rose-500' : ''}`} />
                     </button>
                   </div>
                 </div>
