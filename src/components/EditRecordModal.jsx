@@ -4,7 +4,7 @@ import { db, getAttendanceLogId } from '../db/db';
 import { pushLogsLive, deleteLogLive } from '../services/realtimeSync';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
 import { 
   formatCurrency, 
   formatDateDisplay, 
@@ -38,6 +38,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
   const { t, language } = useLanguage();
   const { currentProject } = useProject();
   const { user } = useAuth();
+  const { canModifyDate } = usePermissions();
   const currency = currentProject?.currency || 'IQD';
   const standardHours = currentProject?.standardWorkHours || 8;
 
@@ -501,7 +502,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
               {!isSettled ? (
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || !canModifyDate(log?.date)}
                   className="px-5 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-sm shadow-sky-600/20 flex items-center gap-1.5 transition-all"
                 >
                   {isSaving ? (

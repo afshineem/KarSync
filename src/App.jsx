@@ -1,7 +1,7 @@
 import { runEmergencyCleanup } from "./db/migration_fix.js";
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth, RBACProvider } from './context/AuthContext';
 import { ProjectProvider, useProject } from './context/ProjectContext';
 import { db, seedInitialDataIfEmpty, reconcileSettlementEpochs, migrateClosedTransactionsToCashBox } from './db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -29,6 +29,7 @@ import { initRealtimeSync, pushLogsLive, pushPaymentsLive, pushAllExpensesToClou
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LockScreenModal } from './components/LockScreenModal';
 import { InstallPwaModal } from './components/InstallPwaModal';
+import UsersManagementModal from './components/UsersManagementModal';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
@@ -50,6 +51,7 @@ function AppContent() {
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
 
   // Catch PWA beforeinstallprompt event globally
@@ -265,6 +267,7 @@ function AppContent() {
         onOpenChangePasswordModal={() => setIsChangePasswordModalOpen(true)}
         onOpenAboutModal={() => setIsAboutModalOpen(true)}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
+        onOpenUsersModal={() => setIsUsersModalOpen(true)}
       />
 
       {/* Main Content View */}
@@ -391,6 +394,11 @@ function AppContent() {
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
       />
+
+      <UsersManagementModal 
+        isOpen={isUsersModalOpen} 
+        onClose={() => setIsUsersModalOpen(false)} 
+      />
     </div>
   );
 }
@@ -400,9 +408,11 @@ export default function App() {
     <ErrorBoundary>
       <LanguageProvider>
         <AuthProvider>
-          <ProjectProvider>
-            <AppContent />
-          </ProjectProvider>
+          <RBACProvider>
+            <ProjectProvider>
+              <AppContent />
+            </ProjectProvider>
+          </RBACProvider>
         </AuthProvider>
       </LanguageProvider>
     </ErrorBoundary>

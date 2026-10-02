@@ -481,8 +481,8 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Unified Login Handler with Brute-Force Rate Limiting & 2FA
-  const login = async (usernameOrEmailInput, passwordInput) => {
+  // Unified Login Handler with Multi-tenant & Brute-Force Rate Limiting
+  const login = async (workspaceCodeInput, usernameOrEmailInput, passwordInput) => {
     const lockStatus = getLoginLockStatus();
     if (lockStatus.isLocked) {
       return {
@@ -492,173 +492,118 @@ export function AuthProvider({ children }) {
       };
     }
 
+    const rawCode = (workspaceCodeInput || '').trim().toUpperCase();
     const rawInput = (usernameOrEmailInput || '').trim();
     const cleanUser = normalizeUsername(rawInput);
     const cleanPass = normalizeDigits(passwordInput).trim();
 
-    if (!cleanUser || !cleanPass) {
+    if (!rawCode || !cleanUser || !cleanPass) {
       return { success: false, error: 'invalidCredentials' };
     }
 
-    // 1. Supabase Auth if email
-    if (rawInput.includes('@')) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: rawInput.toLowerCase(),
-          password: (passwordInput || '').trim()
-        });
-
-        if (error) {
-          recordFailedLogin();
-          return { success: false, error: error.message };
-        }
-
-        if (data?.user) {
-          resetLoginAttempts();
-          const sessionUser = await fetchUserProfile(data.user);
-          return { success: true, role: 'admin', user: sessionUser };
-        }
-      } catch (err) {
-        console.warn('Supabase Auth error:', err);
+    // MULTI-TENANT LOGIN FLOW
+    try {
+      // 1. Check workspace
+      let workspace = null;
+      if (db.workspaces) {
+        const wsArr = await db.workspaces.where('workspace_code').equals(rawCode).toArray();
+        if (wsArr.length > 0) workspace = wsArr[0];
       }
-    }
-
-    // 2. Check local Admin credentials
-    const adminCreds = getAdminCredentials();
-    const adminUser = normalizeUsername(adminCreds.username || 'admin');
-
-    const isUserMatch = cleanUser === adminUser || cleanUser === 'afshin' || cleanUser === 'admin';
-    if (isUserMatch) {
-      const isPassValid = await verifyPassword(cleanPass, adminCreds.password || 'admin');
-      if (isPassValid) {
-        const twoFactor = getTwoFactorConfig();
-
-        if (twoFactor?.enabled) {
-          // Requires second factor verification!
-          return {
-            success: true,
-            requires2FA: true,
-            role: 'admin',
-            tempUser: {
-              username: adminCreds.username || 'admin',
-              name: adminCreds.name || 'افشین زارعی'
-            }
-          };
+      
+      if (!workspace && navigator.onLine) {
+        // Fallback to Supabase
+        const { data, error } = await supabase.from('workspaces').select('*').eq('workspace_code', rawCode).maybeSingle();
+        if (data) {
+          workspace = data;
+          if (db.workspaces) await db.workspaces.put(data);
         }
+      }
 
-        // Direct login success
-        resetLoginAttempts();
-        const sessionUser = {
-          role: 'admin',
-          id: 'admin_local',
-          userId: 'admin_local',
-          name: adminCreds.name || 'افشین زارعی',
-          username: adminCreds.username || 'admin',
-          companyName: 'کارگاه مرکزی',
-          defaultCurrency: 'IQD',
-          onboardingCompleted: true
+      if (!workspace) {
+        recordFailedLogin();
+        return { success: false, error: 'invalidWorkspaceCode' };
+      }
+
+      // 2. Check user in app_users
+      let appUser = null;
+      if (db.app_users) {
+        const userArr = await db.app_users.where({ workspace_id: workspace.id, username: cleanUser }).toArray();
+        if (userArr.length > 0) appUser = userArr[0];
+      }
+
+      if (!appUser && navigator.onLine) {
+        const { data } = await supabase.from('app_users').select('*').match({ workspace_id: workspace.id, username: cleanUser }).maybeSingle();
+        if (data) {
+          appUser = data;
+          if (db.app_users) await db.app_users.put(data);
+        }
+      }
+
+      if (!appUser || appUser.password_hash !== cleanPass) { // Very simple password check for prototype
+        const rec = recordFailedLogin();
+        return {
+          success: false,
+          error: rec.isLocked ? 'rateLimited' : 'invalidCredentials',
+          remainingSeconds: rec.remainingSeconds
         };
-        setUser(sessionUser);
-        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
-        return { success: true, role: 'admin', user: sessionUser };
       }
-    }
 
-    // 3. Check Workers credentials
-    let workers = await db.workers.toArray();
-    let workerCredsMap = getWorkerCredentialsMap();
-
-    const findMatchingWorker = (workersList, creds) => {
-      for (const w of workersList) {
-        if (w.deletedAt) continue;
-
-        const customCreds = creds[w.id] || {};
-        const expectedUser = normalizeUsername(customCreds.username || w.username || w.phone || '');
-        const expectedPass = normalizeDigits(customCreds.password || w.password || '').trim();
-
-        if (expectedUser && expectedPass && cleanUser === expectedUser && cleanPass === expectedPass) {
-          return w;
-        }
+      if (!appUser.is_active) {
+        return { success: false, error: 'accountBlocked' };
       }
-      return null;
-    };
 
-    let matchedWorker = findMatchingWorker(workers, workerCredsMap);
-
-    // 4. Cloud Fallback for Workers
-    if (!matchedWorker && navigator.onLine) {
-      try {
-        const [credsRes, metaRes, wRes] = await Promise.all([
-          supabase.from('settings').select('setting_value').eq('setting_key', 'app_worker_credentials').maybeSingle(),
-          supabase.from('settings').select('setting_value').eq('setting_key', 'app_worker_metadata').maybeSingle(),
-          supabase.from('workers').select('*').is('deleted_at', null)
-        ]);
-
-        let cloudCreds = {};
-        if (credsRes?.data?.setting_value) {
-          try { cloudCreds = JSON.parse(credsRes.data.setting_value) || {}; } catch (_) {}
-        }
-        let cloudMeta = {};
-        if (metaRes?.data?.setting_value) {
-          try { cloudMeta = JSON.parse(metaRes.data.setting_value) || {}; } catch (_) {}
-        }
-
-        const mergedCreds = { ...cloudCreds };
-        Object.entries(cloudMeta).forEach(([wId, m]) => {
-          if (m.username || m.password) {
-            mergedCreds[wId] = {
-              username: m.username || mergedCreds[wId]?.username || '',
-              password: m.password || mergedCreds[wId]?.password || ''
-            };
-          }
-        });
-
-        const cloudWorkersList = (wRes?.data || []).map((cw) => {
-          const meta = cloudMeta[cw.id] || {};
-          const cred = mergedCreds[cw.id] || {};
-          return {
-            id: cw.id,
-            name: cw.name,
-            phone: cw.phone,
-            role: cw.role,
-            dailyRate: Number(cw.daily_rate) || 0,
-            overtimeHourlyRate: Number(cw.overtime_hourly_rate) || 0,
-            isActive: Number(cw.is_active) === 0 ? 0 : 1,
-            groupId: meta.groupId || null,
-            teamRole: meta.teamRole || 'Worker',
-            defaultSectionId: meta.defaultSectionId || null,
-            isArchived: !!meta.isArchived,
-            status: meta.status || 'active',
-            username: cred.username || meta.username || '',
-            password: cred.password || meta.password || '',
-            projectId: 'prj_default_main'
-          };
-        });
-
-        matchedWorker = findMatchingWorker(cloudWorkersList, mergedCreds);
-
-        if (matchedWorker) {
-          await db.workers.put(matchedWorker);
-          localStorage.setItem(WORKER_CREDS_KEY, JSON.stringify(mergedCreds));
-        }
-      } catch (cloudErr) {
-        console.warn('Cloud worker login check error:', cloudErr);
-      }
-    }
-
-    if (matchedWorker) {
+      // Login Success!
       resetLoginAttempts();
-      const sessionUser = {
-        role: 'worker',
-        id: matchedWorker.id,
-        workerId: matchedWorker.id,
-        name: matchedWorker.name,
-        username: cleanUser,
-        roleTitle: matchedWorker.role
+
+      // Update last login
+      if (navigator.onLine) {
+        supabase.from('app_users').update({ last_login_at: new Date().toISOString() }).eq('id', appUser.id).then();
+      }
+
+      const sessionToken = generateToken();
+      const sessionData = {
+        id: sessionToken,
+        user_id: appUser.id,
+        workspace_id: workspace.id,
+        session_token: sessionToken,
+        last_active: new Date().toISOString()
       };
+
+      if (db.current_session) {
+        await db.current_session.clear();
+        await db.current_session.put(sessionData);
+      }
+
+      const sessionUser = {
+        id: appUser.id,
+        userId: appUser.id,
+        role: appUser.role,
+        name: appUser.full_name,
+        username: appUser.username,
+        workspace_id: workspace.id,
+        permissions: appUser.permissions || [],
+        can_edit_past_records: appUser.can_edit_past_records,
+        session_version: appUser.session_version,
+        is_active: true
+      };
+
       setUser(sessionUser);
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
-      return { success: true, role: 'worker', user: sessionUser };
+      
+      // Async log
+      import('../services/auditLogger').then(({ logAuditAction }) => {
+        logAuditAction({
+          actionType: 'USER_LOGIN',
+          entityType: 'user',
+          entityId: appUser.id,
+          details: { description: `ورود کاربر ${appUser.full_name}` }
+        });
+      });
+
+      return { success: true, role: appUser.role, user: sessionUser };
+
+    } catch (err) {
+      console.error('Login flow error:', err);
     }
 
     // Record failure
@@ -670,6 +615,12 @@ export function AuthProvider({ children }) {
     };
   };
 
+  const generateToken = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
   // Complete 2FA login verification
   const completeTwoFactorLogin = async (codeOrBackup) => {
     const twoFactor = getTwoFactorConfig();
@@ -762,9 +713,22 @@ export function AuthProvider({ children }) {
     try {
       await supabase.auth.signOut();
     } catch (_) {}
+    
     setUser(null);
     setIsScreenLocked(false);
+    
+    // Clear legacy
     localStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem(ADMIN_AUTH_KEY);
+    localStorage.removeItem(WORKER_CREDS_KEY);
+
+    // Clear Dexie current_session
+    if (db.current_session) {
+      await db.current_session.clear();
+    }
+
+    // Redirect to login page to reset entire state
+    window.location.reload();
   };
 
   // Password reset
@@ -912,6 +876,136 @@ export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
+// --- RBAC & Permission Management (Phase 2) ---
+
+export const RBACContext = createContext(null);
+
+export function RBACProvider({ children }) {
+  const { user: legacyUser } = useAuth();
+  const [currentUser, setCurrentUser] = useState(null);
+  const [activeProject, setActiveProject] = useState(null);
+  const [allowedProjects, setAllowedProjects] = useState([]);
+  const [isRBACLoading, setIsRBACLoading] = useState(true);
+
+  // Combine currentUser from RBAC with legacy user
+  const effectiveUser = currentUser || legacyUser;
+
+  // 1. Load from Dexie first (Offline First)
+  useEffect(() => {
+    async function loadOfflineSession() {
+      try {
+        const sessions = await db.current_session?.toArray() || [];
+        if (sessions.length > 0) {
+          const session = sessions[0];
+          const userDoc = await db.app_users?.get(session.user_id);
+          if (userDoc) {
+            setCurrentUser(userDoc);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load offline RBAC session:", err);
+      } finally {
+        setIsRBACLoading(false);
+      }
+    }
+    loadOfflineSession();
+  }, []);
+
+  // 2. Setup Realtime Listener & Supabase Sync
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const channel = supabase.channel(`public:app_users:id=eq.${currentUser.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'app_users',
+        filter: `id=eq.${currentUser.id}`
+      }, async (payload) => {
+        const newData = payload.new;
+        
+        // Kill session condition
+        if (newData.is_active === false || newData.session_version > (currentUser.session_version || 1)) {
+          // Invalidate session
+          if (db.current_session) await db.current_session.clear();
+          localStorage.removeItem('workshop_auth_session'); 
+          localStorage.removeItem('workshop_admin_auth');
+          
+          alert("حساب کاربری شما توسط مدیر غیرفعال شد یا نشست شما منقضی گردید.");
+          window.location.href = '/login';
+        } else {
+          // Update local state and Dexie
+          setCurrentUser(newData);
+          if (db.app_users) await db.app_users.put(newData);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id, currentUser?.session_version]);
+
+  const hasPermission = (permissionKey) => {
+    if (!effectiveUser) return false;
+    const roleLower = String(effectiveUser?.role || '').toLowerCase();
+    if (roleLower === 'admin' || roleLower === 'owner') return true;
+    return effectiveUser.permissions?.includes(permissionKey);
+  };
+
+  const canAccessProject = (projectId) => {
+    if (!effectiveUser) return false;
+    const roleLower = String(effectiveUser?.role || '').toLowerCase();
+    if (roleLower === 'admin' || roleLower === 'owner') return true;
+    if (effectiveUser.has_all_projects_access) return true;
+    return allowedProjects.some(p => p.project_id === projectId);
+  };
+
+  const canModifyDate = (targetDate) => {
+    if (!effectiveUser) return false;
+    const roleLower = String(effectiveUser?.role || '').toLowerCase();
+    if (roleLower === 'admin' || roleLower === 'owner') return true;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const target = new Date(targetDate).toISOString().split('T')[0];
+    
+    if (target < today) {
+      return !!effectiveUser.can_edit_past_records;
+    }
+    return true; 
+  };
+
+  return (
+    <RBACContext.Provider value={{
+      currentUser: effectiveUser,
+      setCurrentUser,
+      activeProject,
+      setActiveProject,
+      allowedProjects,
+      setAllowedProjects,
+      hasPermission,
+      canAccessProject,
+      canModifyDate,
+      isRBACLoading
+    }}>
+      {children}
+    </RBACContext.Provider>
+  );
+}
+
+export function usePermissions() {
+  const context = useContext(RBACContext);
+  if (!context) {
+    return {
+      hasPermission: () => true,
+      canAccessProject: () => true,
+      canModifyDate: () => true,
+      currentUser: null
+    };
   }
   return context;
 }

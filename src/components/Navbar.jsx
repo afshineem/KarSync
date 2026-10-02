@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
 import { ProjectSwitcher } from './ProjectSwitcher';
 import { SettingsDropdown } from './SettingsDropdown';
 import { useProject } from '../context/ProjectContext';
@@ -22,7 +22,8 @@ export function Navbar({
   onOpenBackupModal, 
   onOpenChangePasswordModal, 
   onOpenAboutModal,
-  onOpenInstallModal
+  onOpenInstallModal,
+  onOpenUsersModal
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -41,14 +42,23 @@ export function Navbar({
     return () => window.removeEventListener('keydown', handleGlobalKey);
   }, [openGlobalSettings]);
 
+  const { hasPermission } = usePermissions();
+
   const navItems = [
     { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
     { id: 'calendar', label: t('calendarLogs') || 'تەقویم', icon: CalendarDays },
+<<<<<<< HEAD
     { id: 'workers', label: t('workers') || 'کرێکاران', icon: Users },
     { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt },
     { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards },
     { id: 'accounting', label: t('accountingTab') || 'حسابداری و خزانه‌داری', icon: Landmark },
   ];
+=======
+    { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards, hidden: !hasPermission('settlement.manage') },
+    { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt, hidden: !hasPermission('expenses.manage') },
+    { id: 'accounting', label: t('accountingTab') || 'حسابداری و خزانه‌داری', icon: Landmark, hidden: !hasPermission('settlement.manage') },
+  ].filter(item => !item.hidden);
+>>>>>>> users
 
   return (
     <>
@@ -170,6 +180,7 @@ export function Navbar({
                   onOpenAboutModal={onOpenAboutModal}
                   onOpenProjectSettings={openProjectSettings}
                   onOpenInstallModal={onOpenInstallModal}
+                  onOpenUsersModal={onOpenUsersModal}
                 />
               </div>
             </div>

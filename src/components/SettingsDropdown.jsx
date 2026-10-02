@@ -13,8 +13,10 @@ import {
   Settings,
   Sparkles,
   Download,
-  User
+  User,
+  Users
 } from 'lucide-react';
+import PermissionGate from './PermissionGate';
 
 export function SettingsDropdown({ 
   isOpen, 
@@ -23,7 +25,8 @@ export function SettingsDropdown({
   toggleTheme, 
   onOpenGlobalSettings,
   onOpenAboutModal,
-  onOpenInstallModal
+  onOpenInstallModal,
+  onOpenUsersModal
 }) {
   const { language, t, direction } = useLanguage();
   const isRtl = direction === 'rtl';
@@ -100,7 +103,7 @@ export function SettingsDropdown({
   return (
     <div 
       ref={dropdownRef}
-      className={`absolute top-full mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-white/70 dark:bg-slate-900/80 backdrop-blur-3xl backdrop-saturate-200 rounded-3xl border border-white/80 dark:border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.15),inset_0_1px_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.1)] z-50 p-2 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 ltr:left-auto rtl:left-0 rtl:right-auto`}
+      className={`absolute top-full mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-white/70 dark:bg-slate-950/70 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/60 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.15)] z-50 p-2 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 ltr:left-auto rtl:left-0 rtl:right-auto`}
     >
       {/* 1. User Identity Card Header */}
       <div className="p-3 mb-1.5 bg-gradient-to-br from-slate-50 to-slate-100/60 dark:from-slate-800/60 dark:to-slate-800/30 rounded-2xl border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
@@ -216,6 +219,23 @@ export function SettingsDropdown({
             PWA
           </span>
         </button>
+
+        {/* Users Management Link */}
+        <PermissionGate permission="users.manage">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              if (onOpenUsersModal) onOpenUsersModal();
+            }}
+            className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-800 dark:text-slate-200"
+          >
+            <div className="flex items-center gap-2.5">
+              <Users className="w-4 h-4 text-purple-500" />
+              <span>{language === 'fa' ? 'مدیریت کاربران و دسترسی‌ها' : 'Users & Access'}</span>
+            </div>
+          </button>
+        </PermissionGate>
       </div>
 
       <div className="my-1 border-t border-slate-200/60 dark:border-white/10"></div>

@@ -1,3 +1,4 @@
+import { logAuditAction } from "../services/auditLogger";
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
@@ -461,6 +462,18 @@ export function ExpensesView() {
     }
     try {
       await permanentDeleteExpenseLive(itemToPermanentDelete.id);
+
+      logAuditAction({
+        actionType: 'DELETE_EXPENSE',
+        entityType: 'expenses',
+        entityId: itemToPermanentDelete.id,
+        projectId: itemToPermanentDelete.projectId || currentProject?.id,
+        details: {
+          description: `حذف فاکتور/هزینه: ${itemToPermanentDelete.title}`,
+          amount: itemToPermanentDelete.amount
+        }
+      });
+
       setItemToPermanentDelete(null);
       setToastMsg(language === 'fa' ? 'هزینه برای همیشه حذف گردید.' : 'خەرجییەکە بە یەکجاری سڕایەوە.');
       setTimeout(() => setToastMsg(''), 3000);
