@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth, RBACProvider } from './context/AuthContext';
 import { ProjectProvider, useProject } from './context/ProjectContext';
 import { db, seedInitialDataIfEmpty, reconcileSettlementEpochs, migrateClosedTransactionsToCashBox } from './db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -398,9 +398,11 @@ export default function App() {
     <ErrorBoundary>
       <LanguageProvider>
         <AuthProvider>
-          <ProjectProvider>
-            <AppContent />
-          </ProjectProvider>
+          <RBACProvider>
+            <ProjectProvider>
+              <AppContent />
+            </ProjectProvider>
+          </RBACProvider>
         </AuthProvider>
       </LanguageProvider>
     </ErrorBoundary>

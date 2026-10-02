@@ -915,3 +915,121 @@ export function useAuth() {
   }
   return context;
 }
+
+// --- RBAC & Permission Management (Phase 2) ---
+
+export const RBACContext = createContext(null);
+
+export function RBACProvider({ children }) {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [activeProject, setActiveProject] = useState(null);
+  const [allowedProjects, setAllowedProjects] = useState([]);
+  const [isRBACLoading, setIsRBACLoading] = useState(true);
+
+  // 1. Load from Dexie first (Offline First)
+  useEffect(() => {
+    async function loadOfflineSession() {
+      try {
+        const sessions = await db.current_session?.toArray() || [];
+        if (sessions.length > 0) {
+          const session = sessions[0];
+          const userDoc = await db.app_users?.get(session.user_id);
+          if (userDoc) {
+            setCurrentUser(userDoc);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load offline RBAC session:", err);
+      } finally {
+        setIsRBACLoading(false);
+      }
+    }
+    loadOfflineSession();
+  }, []);
+
+  // 2. Setup Realtime Listener & Supabase Sync
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const channel = supabase.channel(`public:app_users:id=eq.${currentUser.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'app_users',
+        filter: `id=eq.${currentUser.id}`
+      }, async (payload) => {
+        const newData = payload.new;
+        
+        // Kill session condition
+        if (newData.is_active === false || newData.session_version > (currentUser.session_version || 1)) {
+          // Invalidate session
+          if (db.current_session) await db.current_session.clear();
+          localStorage.removeItem('workshop_auth_session'); 
+          localStorage.removeItem('workshop_admin_auth');
+          
+          alert("حساب کاربری شما توسط مدیر غیرفعال شد یا نشست شما منقضی گردید.");
+          window.location.href = '/login';
+        } else {
+          // Update local state and Dexie
+          setCurrentUser(newData);
+          if (db.app_users) await db.app_users.put(newData);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id, currentUser?.session_version]);
+
+  const hasPermission = (permissionKey) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    return currentUser.permissions?.includes(permissionKey);
+  };
+
+  const canAccessProject = (projectId) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    if (currentUser.has_all_projects_access) return true;
+    return allowedProjects.some(p => p.project_id === projectId);
+  };
+
+  const canModifyDate = (targetDate) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const target = new Date(targetDate).toISOString().split('T')[0];
+    
+    if (target < today) {
+      return !!currentUser.can_edit_past_records;
+    }
+    return true; 
+  };
+
+  return (
+    <RBACContext.Provider value={{
+      currentUser,
+      setCurrentUser,
+      activeProject,
+      setActiveProject,
+      allowedProjects,
+      setAllowedProjects,
+      hasPermission,
+      canAccessProject,
+      canModifyDate,
+      isRBACLoading
+    }}>
+      {children}
+    </RBACContext.Provider>
+  );
+}
+
+export function usePermissions() {
+  const context = useContext(RBACContext);
+  if (!context) {
+    throw new Error("usePermissions must be used within an RBACProvider");
+  }
+  return context;
+}
