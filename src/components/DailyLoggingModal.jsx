@@ -6,7 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getAttendanceLogId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
 import { 
   formatCurrency, 
   getTodayDateString, 
@@ -43,6 +43,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const { t, language } = useLanguage();
   const { currentProject, openWorkerProfile } = useProject();
   const { user } = useAuth();
+  const { canModifyDate } = usePermissions();
   const currency = currentProject?.currency || 'IQD';
   const standardHours = currentProject?.standardWorkHours || 8;
 
@@ -1168,7 +1169,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
               <button
                 type="button"
                 onClick={handleBatchSubmit}
-                disabled={isSaving || (entryMode === 'individual' && selectedCount === 0) || (entryMode === 'group' && !selectedGroupId)}
+                disabled={isSaving || !canModifyDate(selectedDate) || (entryMode === 'individual' && selectedCount === 0) || (entryMode === 'group' && !selectedGroupId)}
                 className="flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-400 text-white font-medium text-sm rounded-xl shadow-md shadow-sky-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Check className="w-4 h-4" />

@@ -34,6 +34,7 @@ export function LoginView({ theme, toggleTheme }) {
   const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup' | '2fa'
 
   // Sign In Form State
+  const [workspaceCode, setWorkspaceCode] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -98,14 +99,14 @@ export function LoginView({ theme, toggleTheme }) {
       return;
     }
 
-    if (!identifier.trim() || !password.trim()) {
-      setErrorMessage(t('invalidCredentials') || 'لطفاً نام کاربری/ایمیل و رمز عبور را وارد کنید');
+    if (!workspaceCode.trim() || !identifier.trim() || !password.trim()) {
+      setErrorMessage(t('invalidCredentials') || 'لطفاً کد کارگاه، نام کاربری و رمز عبور را وارد کنید');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await login(identifier, password);
+      const res = await login(workspaceCode, identifier, password);
       if (!res.success) {
         if (res.error === 'rateLimited') {
           setRemainingSeconds(res.remainingSeconds || 300);
@@ -341,13 +342,28 @@ export function LoginView({ theme, toggleTheme }) {
           <form onSubmit={handleSignIn} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                <span>کد کارگاه (Workspace Code)</span>
+              </label>
+              <input
+                type="text"
+                autoComplete="off"
+                autoFocus
+                value={workspaceCode}
+                onChange={(e) => setWorkspaceCode(e.target.value.toUpperCase())}
+                placeholder="KARS-101"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition-all text-center tracking-widest dir-ltr uppercase"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-sky-500" />
                 <span>{t('emailOrUsername') || 'ایمیل یا نام کاربری / کد پرسنلی'}</span>
               </label>
               <input
                 type="text"
                 autoComplete="username"
-                autoFocus
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="admin / email@domain.com"
