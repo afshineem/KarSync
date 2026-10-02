@@ -537,16 +537,16 @@ export function ExpensesView() {
         </div>
 
         {/* Actions Dock: Archive & Trash | Analytics & Export | Add New Expense */}
-        <div className="flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs self-start sm:self-center">
-          {/* Button 1: Trash & Archive */}
+        <div className="h-[52px] sm:h-[58px] flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs self-start sm:self-center">
+          {/* Button 1: Trash & Archive - پیش‌فرض خاکستری و در هاور کهربایی */}
           <button
             type="button"
             onClick={() => setIsRecycleBinModalOpen(true)}
-            className="relative p-2.5 sm:p-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group focus:outline-hidden"
+            className="relative h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
             title={t('expensesArchiveAndTrash') || (language === 'fa' ? 'سطل زباله و آرشیو' : 'سەبەتەی سڕینەوە و ئەرشیف')}
             aria-label={t('expensesArchiveAndTrash') || (language === 'fa' ? 'سطل زباله و آرشیو' : 'سەبەتەی سڕینەوە و ئەرشیف')}
           >
-            <Archive className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 group-hover:scale-110 transition-transform" />
+            <Archive className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             {(trashExpenses.length > 0 || archivedExpenses.length > 0) && (
               <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-mono bg-rose-500 text-white font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900 leading-none shadow-xs">
                 {trashExpenses.length + archivedExpenses.length}
@@ -554,29 +554,29 @@ export function ExpensesView() {
             )}
           </button>
 
-          {/* Button 2: Analytics & Export (Formerly Excel Export) */}
+          {/* Button 2: Analytics & Export (Formerly Excel Export) - پیش‌فرض خاکستری و در هاور نیلی */}
           <button
             type="button"
             onClick={() => setIsAnalyticsModalOpen(true)}
-            className="p-2.5 sm:p-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group focus:outline-hidden"
+            className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
             title={t('analyticsAndExport') || (language === 'fa' ? 'آمار و خروجی' : 'ئامار و هەناردە')}
             aria-label={t('analyticsAndExport') || (language === 'fa' ? 'آمار و خروجی' : 'ئامار و هەناردە')}
           >
-            <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-500 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
+            <BarChart3 className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
           </button>
 
-          {/* Button 3: Add New Expense */}
+          {/* Button 3: Add New Expense - دکمه اصلی با گرادیانت */}
           <button
             type="button"
             onClick={() => {
               setEditingExpense(null);
               setIsAddModalOpen(true);
             }}
-            className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white transition-all shadow-md shadow-rose-500/25 active:scale-95 hover:scale-105 group focus:outline-hidden"
+            className="h-full aspect-square rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white transition-all shadow-md shadow-rose-500/25 active:scale-95 hover:scale-105 group flex items-center justify-center focus:outline-hidden"
             title={language === 'fa' ? 'ثبت هزینه جدید' : 'تۆمارکردنی خەرجی نوێ'}
             aria-label={language === 'fa' ? 'ثبت هزینه جدید' : 'تۆمارکردنی خەرجی نوێ'}
           >
-            <Plus className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
+            <Plus className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
           </button>
         </div>
       </div>

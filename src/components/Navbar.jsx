@@ -43,10 +43,10 @@ export function Navbar({
 
   const navItems = [
     { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
-    { id: 'workers', label: t('workers') || 'کرێکاران', icon: Users },
     { id: 'calendar', label: t('calendarLogs') || 'تەقویم', icon: CalendarDays },
-    { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards },
+    { id: 'workers', label: t('workers') || 'کرێکاران', icon: Users },
     { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt },
+    { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards },
     { id: 'accounting', label: t('accountingTab') || 'حسابداری و خزانه‌داری', icon: Landmark },
   ];
 

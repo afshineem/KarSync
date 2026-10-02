@@ -211,54 +211,9 @@ export function AccountingView() {
             </button>
           </div>
 
-          {/* ۲. داک دکمه‌های آیکونی اقدامات حسابداری (سایز بزرگ و یکپارچه با تب هزینه‌ها - خاکستری پیش‌فرض و رنگی در هاور) */}
+          {/* ۲. داک دکمه‌های آیکونی اقدامات حسابداری (چینش: بازه زمانی، گزارش، معین، انتقال، شارژ موجودی) */}
           <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between sm:justify-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
-            {/* دکمه ۱: افزایش موجودی (واریز نقدی/بانکی) - دکمه اصلی گرادیانت */}
-            <button
-              type="button"
-              onClick={() => {
-                setQuickDepositAccount(null);
-                setIsQuickAddModalOpen(true);
-              }}
-              className="h-full aspect-square rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 group flex items-center justify-center focus:outline-hidden"
-              title={language === 'fa' ? 'افزایش موجودی (واریز نقدی یا بانکی به صندوق/حساب)' : 'زیادکردنی باڵانس (داهات/تەنخوا)'}
-              aria-label={language === 'fa' ? 'افزایش موجودی' : 'زیادکردنی باڵانس'}
-            >
-              <Plus className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
-            </button>
-
-            {/* دکمه ۲: انتقال حساب به حساب - پیش‌فرض خاکستری و در هاور آبی */}
-            <button
-              type="button"
-              onClick={() => {
-                setInitialTransferSourceId(null);
-                setIsTransferModalOpen(true);
-              }}
-              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-              title={language === 'fa' ? 'انتقال حساب به حساب (بانک به بانک، صندوق به صندوق، بانک به صندوق و برعکس)' : 'گواستنەوە لە نێوان حیسابەکان'}
-              aria-label={language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە لە نێوان حیسابەکان'}
-            >
-              <ArrowLeftRight className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-            </button>
-
-            {/* دکمه ۳: معین افراد و حساب‌ها - پیش‌فرض خاکستری و در هاور سبز */}
-            <button
-              type="button"
-              onClick={() => {
-                setPlaceholderNotice(
-                  language === 'fa'
-                    ? 'بخش معین گردش مالی پرسنل و حساب‌ها به زودی فعال خواهد شد.'
-                    : 'بەشی دەفتەری حیسابی کەسەکان و حیسابەکان بەم زووانە چالاک دەکرێت.'
-                );
-              }}
-              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-              title={language === 'fa' ? 'معین افراد/حساب‌ها (مشاهده معین گردش مالی پرسنل و حساب‌ها)' : 'دەفتەری حیسابی کەسەکان و حیسابەکان'}
-              aria-label={language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان'}
-            >
-              <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-            </button>
-
-            {/* دکمه ۴: بازه زمانی جهت مشاهده‌ی اسناد - پیش‌فرض خاکستری و در هاور کهربایی */}
+            {/* دکمه ۱: بازه زمانی جهت مشاهده‌ی اسناد (کنار باکس ماه) */}
             <button
               type="button"
               onClick={() => setIsDateRangeModalOpen(true)}
@@ -280,7 +235,7 @@ export function AccountingView() {
               )}
             </button>
 
-            {/* دکمه ۵: گزارش و آمار - پیش‌فرض خاکستری و در هاور نیلی */}
+            {/* دکمه ۲: گزارش و آمار */}
             <button
               type="button"
               onClick={() => {
@@ -295,6 +250,51 @@ export function AccountingView() {
               aria-label={language === 'fa' ? 'گزارش و آمار' : 'ئامار و ڕاپۆرتەکان'}
             >
               <BarChart3 className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </button>
+
+            {/* دکمه ۳: معین افراد و حساب‌ها */}
+            <button
+              type="button"
+              onClick={() => {
+                setPlaceholderNotice(
+                  language === 'fa'
+                    ? 'بخش معین گردش مالی پرسنل و حساب‌ها به زودی فعال خواهد شد.'
+                    : 'بەشی دەفتەری حیسابی کەسەکان و حیسابەکان بەم زووانە چالاک دەکرێت.'
+                );
+              }}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
+              title={language === 'fa' ? 'معین افراد/حساب‌ها (مشاهده معین گردش مالی پرسنل و حساب‌ها)' : 'دەفتەری حیسابی کەسەکان و حیسابەکان'}
+              aria-label={language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان'}
+            >
+              <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </button>
+
+            {/* دکمه ۴: انتقال به حساب */}
+            <button
+              type="button"
+              onClick={() => {
+                setInitialTransferSourceId(null);
+                setIsTransferModalOpen(true);
+              }}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
+              title={language === 'fa' ? 'انتقال حساب به حساب (بانک به بانک، صندوق به صندوق، بانک به صندوق و برعکس)' : 'گواستنەوە لە نێوان حیسابەکان'}
+              aria-label={language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە لە نێوان حیسابەکان'}
+            >
+              <ArrowLeftRight className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </button>
+
+            {/* دکمه ۵: شارژ موجودی (افزایش موجودی) - دکمه اصلی با پس‌زمینه گرادیانت */}
+            <button
+              type="button"
+              onClick={() => {
+                setQuickDepositAccount(null);
+                setIsQuickAddModalOpen(true);
+              }}
+              className="h-full aspect-square rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 group flex items-center justify-center focus:outline-hidden"
+              title={language === 'fa' ? 'شارژ موجودی (واریز نقدی یا بانکی به صندوق/حساب)' : 'زیادکردنی باڵانس (داهات/تەنخوا)'}
+              aria-label={language === 'fa' ? 'شارژ موجودی' : 'زیادکردنی باڵانس'}
+            >
+              <Plus className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
             </button>
           </div>
         </div>
