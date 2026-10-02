@@ -23,6 +23,15 @@ export default function UsersManagementModal({ isOpen, onClose }) {
       loadData();
     }
   }, [isOpen, currentUser]);
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !isFormOpen) onClose();
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isFormOpen, onClose]);
 
   const loadData = async () => {
     try {
