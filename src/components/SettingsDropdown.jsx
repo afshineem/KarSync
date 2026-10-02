@@ -13,8 +13,10 @@ import {
   Settings,
   Sparkles,
   Download,
-  User
+  User,
+  Users
 } from 'lucide-react';
+import PermissionGate from './PermissionGate';
 
 export function SettingsDropdown({ 
   isOpen, 
@@ -23,7 +25,8 @@ export function SettingsDropdown({
   toggleTheme, 
   onOpenGlobalSettings,
   onOpenAboutModal,
-  onOpenInstallModal
+  onOpenInstallModal,
+  onOpenUsersModal
 }) {
   const { language, t, direction } = useLanguage();
   const isRtl = direction === 'rtl';
@@ -216,6 +219,23 @@ export function SettingsDropdown({
             PWA
           </span>
         </button>
+
+        {/* Users Management Link */}
+        <PermissionGate permission="users.manage">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              if (onOpenUsersModal) onOpenUsersModal();
+            }}
+            className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-800 dark:text-slate-200"
+          >
+            <div className="flex items-center gap-2.5">
+              <Users className="w-4 h-4 text-purple-500" />
+              <span>{language === 'fa' ? 'مدیریت کاربران و دسترسی‌ها' : 'Users & Access'}</span>
+            </div>
+          </button>
+        </PermissionGate>
       </div>
 
       <div className="my-1 border-t border-slate-200/60 dark:border-white/10"></div>

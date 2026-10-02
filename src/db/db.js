@@ -70,6 +70,7 @@ db.version(12).stores({
 });
 
 db.version(13).stores({
+  workspaces: 'id, workspace_code, owner_id',
   app_users: 'id, workspace_id, username, role, is_active, session_version',
   current_session: 'id, user_id, workspace_id, session_token, last_active',
   audit_logs: 'id, workspace_id, user_id, entity_type, action_type, createdAt'
