@@ -1,3 +1,4 @@
+import { runEmergencyCleanup } from "./db/migration_fix.js";
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -126,6 +127,7 @@ function AppContent() {
       }
     });
     // Start automatic Real-Time Supabase Sync
+    runEmergencyCleanup();
     initRealtimeSync();
   }, []);
 

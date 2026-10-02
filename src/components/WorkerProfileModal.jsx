@@ -150,7 +150,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       unsettledOvertimeHours: fin.otHours,
       unsettledGrossPay: fin.unsettledGross,
       settledDaysCount: fin.settledLogs.length,
-      settledGrossPay: fin.settledGross,
+      settledGrossPay: fin.totalSettlementPaid,
       settledOvertimeHours: fin.settledOtHours,
       unsettledAdvances: fin.unsettledAdvances,
       settledAdvances: fin.settledAdvances,

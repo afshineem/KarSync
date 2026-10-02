@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { formatCurrency, formatAmount } from '../../utils/formatters';
+import { formatCurrency, formatAmount, formatNumber, normalizeDigits } from '../../utils/formatters';
 import * as XLSX from 'xlsx';
 import { 
   Table as TableIcon, 
@@ -1034,8 +1034,12 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
             <input
               type="text"
               required
-              value={formatAmount(amount)}
-              onChange={(e) => setAmount(e.target.value.replace(/,/g, ''))}
+              value={amount === '' ? '' : formatNumber(amount)}
+              onChange={(e) => {
+                const val = normalizeDigits(e.target.value).replace(/,/g, '');
+                if (val === '') setAmount('');
+                else if (!isNaN(val)) setAmount(val);
+              }}
               className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500"
               placeholder="0"
             />
