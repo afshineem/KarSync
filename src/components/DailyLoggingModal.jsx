@@ -1,3 +1,4 @@
+import { logAuditAction } from "../services/auditLogger";
 import { pushLogsLive } from '../services/realtimeSync';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -485,11 +486,28 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             isSettled: existingLog ? Boolean(existingLog.isSettled) : false,
             settlementReceiptId: existingLog?.settlementReceiptId || null,
             createdAt: existingLog?.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
+            created_by_user_id: existingLog?.created_by_user_id || user?.id,
+            updated_by_user_id: user?.id
           };
 
           await db.attendanceLogs.put(newRecord);
           savedLogs.push(newRecord);
+
+          logAuditAction({
+            actionType: existingLog ? 'EDIT_ATTENDANCE' : 'CREATE_ATTENDANCE',
+            entityType: 'attendanceLogs',
+            entityId: canonicalId,
+            projectId: newRecord.projectId,
+            details: {
+              description: existingLog 
+                ? `ویرایش کارکرد ${worker.name} در تاریخ ${selectedDate}` 
+                : `ثبت کارکرد ${worker.name} در تاریخ ${selectedDate}`,
+              worker_name: worker.name,
+              date: selectedDate,
+              type: cfg.type
+            }
+          });
         }
       });
 

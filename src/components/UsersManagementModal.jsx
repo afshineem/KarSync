@@ -3,13 +3,16 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { usePermissions } from '../context/AuthContext';
 import { db } from '../db/db';
 import { supabase } from '../services/realtimeSync';
-import { Users, UserPlus, X, Edit, Trash2, Power, ShieldAlert, Key } from 'lucide-react';
+import { logAuditAction } from '../services/auditLogger';
+import { Users, UserPlus, X, Edit, Trash2, Power, ShieldAlert, Key, Activity } from 'lucide-react';
 import UserFormModal from './UserFormModal';
+import AuditLogsTab from './AuditLogsTab';
 
 export default function UsersManagementModal({ isOpen, onClose }) {
   const { language } = useLanguage();
   const { currentUser, hasPermission } = usePermissions();
   
+  const [activeTab, setActiveTab] = useState('users'); // 'users' or 'audit'
   const [usersList, setUsersList] = useState([]);
   const [workspace, setWorkspace] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -87,6 +90,16 @@ export default function UsersManagementModal({ isOpen, onClose }) {
         await supabase.from('app_users').upsert(userData);
       }
 
+      logAuditAction({
+        actionType: selectedUser ? 'UPDATE_USER' : 'CREATE_USER',
+        entityType: 'user',
+        entityId: userData.id,
+        details: {
+          description: selectedUser ? `ویرایش کاربر ${userData.full_name}` : `تعریف کاربر جدید: ${userData.full_name}`,
+          role: userData.role
+        }
+      });
+
       setIsFormOpen(false);
       loadData();
     } catch (err) {
@@ -110,6 +123,16 @@ export default function UsersManagementModal({ isOpen, onClose }) {
           session_version: updated.session_version 
         }).eq('id', updated.id);
       }
+
+      logAuditAction({
+        actionType: updated.is_active ? 'UNBLOCK_USER' : 'BLOCK_USER',
+        entityType: 'user',
+        entityId: updated.id,
+        details: {
+          description: updated.is_active ? `فعال‌سازی کاربر ${updated.full_name}` : `مسدودسازی کاربر ${updated.full_name}`
+        }
+      });
+
       loadData();
     } catch (err) {
       console.error('Failed to toggle status', err);
@@ -158,88 +181,109 @@ export default function UsersManagementModal({ isOpen, onClose }) {
         </button>
       </div>
 
+      {/* Tab Switcher */}
+      <div className="flex items-center gap-1 px-4 py-2 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${activeTab === 'users' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50'}`}
+        >
+          <Users className="w-4 h-4" /> کاربران
+        </button>
+        <button
+          onClick={() => setActiveTab('audit')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${activeTab === 'audit' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50'}`}
+        >
+          <Activity className="w-4 h-4" /> تاریخچه فعالیت‌ها
+        </button>
+      </div>
+
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 max-w-5xl mx-auto w-full">
-        {/* Status Card */}
-        {workspace && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="relative w-14 h-14 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  <path className="text-slate-100 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                  <path className="text-indigo-500 transition-all duration-1000" strokeDasharray={`${(usersList.filter(u => u.is_active).length / workspace.max_users_limit) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                </svg>
-                <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-300">
-                  <span>{usersList.filter(u => u.is_active).length}</span>
-                  <span className="border-t border-slate-300 dark:border-slate-600 w-4 my-px"></span>
-                  <span>{workspace.max_users_limit}</span>
-                </div>
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-800 dark:text-white text-sm">وضعیت مصرف پکیج</h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  {usersList.filter(u => u.is_active).length} کاربر فعال از {workspace.max_users_limit} کاربر مجاز مصرف شده است.
-                </p>
-              </div>
-            </div>
-            
-            <button 
-              onClick={() => {
-                setSelectedUser(null);
-                setIsFormOpen(true);
-              }}
-              className="w-full sm:w-auto px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl shadow-sm shadow-indigo-500/20 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-            >
-              <UserPlus className="w-4 h-4" /> تعریف کاربر جدید
-            </button>
-          </div>
-        )}
-
-        {/* Users List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {usersList.map(user => (
-            <div key={user.id} className={`bg-white dark:bg-slate-800 rounded-2xl border ${!user.is_active ? 'border-rose-200 dark:border-rose-900/30 opacity-75' : 'border-slate-200 dark:border-slate-700'} p-4 shadow-sm relative overflow-hidden`}>
-              {!user.is_active && (
-                <div className="absolute top-0 right-0 left-0 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold py-0.5 text-center">
-                  مسدود موقت (نشست ابطال شده)
-                </div>
-              )}
-              
-              <div className={`flex items-start justify-between gap-3 ${!user.is_active ? 'mt-4' : ''}`}>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">{user.full_name}</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate" dir="ltr">@{user.username}</p>
-                </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold flex-shrink-0 ${roleColors[user.role] || roleColors.custom}`}>
-                  {roleNames[user.role] || user.role}
-                </span>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                {/* Actions */}
-                <div className="flex gap-1.5">
-                  <button onClick={() => { setSelectedUser(user); setIsFormOpen(true); }} className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-700/50 dark:hover:bg-slate-700 dark:text-slate-300 transition-colors" title="ویرایش">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  {/* Cannot toggle oneself usually, but for UI let's allow or conditionally disable */}
-                  <button 
-                    onClick={() => toggleUserStatus(user)} 
-                    disabled={user.id === currentUser?.id}
-                    className={`p-1.5 rounded-lg transition-colors ${user.is_active ? 'bg-rose-50 hover:bg-rose-100 text-rose-500 dark:bg-rose-500/10 dark:hover:bg-rose-500/20' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-500 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20'} ${user.id === currentUser?.id ? 'opacity-30 cursor-not-allowed' : ''}`}
-                    title={user.is_active ? 'مسدودسازی موقت' : 'فعال‌سازی مجدد'}
-                  >
-                    <Power className="w-4 h-4" />
-                  </button>
+        {activeTab === 'audit' ? (
+          <AuditLogsTab />
+        ) : (
+          <>
+            {/* Status Card */}
+            {workspace && (
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative w-14 h-14 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path className="text-slate-100 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                      <path className="text-indigo-500 transition-all duration-1000" strokeDasharray={`${(usersList.filter(u => u.is_active).length / workspace.max_users_limit) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                    </svg>
+                    <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                      <span>{usersList.filter(u => u.is_active).length}</span>
+                      <span className="border-t border-slate-300 dark:border-slate-600 w-4 my-px"></span>
+                      <span>{workspace.max_users_limit}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 dark:text-white text-sm">وضعیت مصرف پکیج</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {usersList.filter(u => u.is_active).length} کاربر فعال از {workspace.max_users_limit} کاربر مجاز مصرف شده است.
+                    </p>
+                  </div>
                 </div>
                 
-                <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                  {user.can_edit_past_records && <ShieldAlert className="w-3 h-3 text-amber-500" title="ویرایش گذشته" />}
-                  {user.has_all_projects_access && <Key className="w-3 h-3 text-emerald-500" title="دسترسی همه پروژه‌ها" />}
-                </div>
+                <button 
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setIsFormOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl shadow-sm shadow-indigo-500/20 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <UserPlus className="w-4 h-4" /> تعریف کاربر جدید
+                </button>
               </div>
+            )}
+
+            {/* Users List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {usersList.map(user => (
+                <div key={user.id} className={`bg-white dark:bg-slate-800 rounded-2xl border ${!user.is_active ? 'border-rose-200 dark:border-rose-900/30 opacity-75' : 'border-slate-200 dark:border-slate-700'} p-4 shadow-sm relative overflow-hidden`}>
+                  {!user.is_active && (
+                    <div className="absolute top-0 right-0 left-0 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold py-0.5 text-center">
+                      مسدود موقت (نشست ابطال شده)
+                    </div>
+                  )}
+                  
+                  <div className={`flex items-start justify-between gap-3 ${!user.is_active ? 'mt-4' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">{user.full_name}</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate" dir="ltr">@{user.username}</p>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold flex-shrink-0 ${roleColors[user.role] || roleColors.custom}`}>
+                      {roleNames[user.role] || user.role}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                    {/* Actions */}
+                    <div className="flex gap-1.5">
+                      <button onClick={() => { setSelectedUser(user); setIsFormOpen(true); }} className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-700/50 dark:hover:bg-slate-700 dark:text-slate-300 transition-colors" title="ویرایش">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => toggleUserStatus(user)} 
+                        disabled={user.id === currentUser?.id}
+                        className={`p-1.5 rounded-lg transition-colors ${user.is_active ? 'bg-rose-50 hover:bg-rose-100 text-rose-500 dark:bg-rose-500/10 dark:hover:bg-rose-500/20' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-500 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20'} ${user.id === currentUser?.id ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        title={user.is_active ? 'مسدودسازی موقت' : 'فعال‌سازی مجدد'}
+                      >
+                        <Power className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                      {user.can_edit_past_records && <ShieldAlert className="w-3 h-3 text-amber-500" title="ویرایش گذشته" />}
+                      {user.has_all_projects_access && <Key className="w-3 h-3 text-emerald-500" title="دسترسی همه پروژه‌ها" />}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
 
       <UserFormModal 

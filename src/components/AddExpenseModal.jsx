@@ -1,3 +1,4 @@
+import { logAuditAction } from "../services/auditLogger";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -362,7 +363,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         approvedBy: expenseToEdit?.approvedBy || null,
         approved_at: expenseToEdit?.approved_at || null,
         approvedAt: expenseToEdit?.approvedAt || null,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        created_by_user_id: expenseToEdit?.created_by_user_id || user?.id,
+        updated_by_user_id: user?.id
       };
 
       if (expenseToEdit) {
@@ -371,6 +374,17 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         expenseRecord.createdAt = new Date().toISOString();
         await db.expenses.add(expenseRecord);
       }
+
+      logAuditAction({
+        actionType: expenseToEdit ? 'EDIT_EXPENSE' : 'CREATE_EXPENSE',
+        entityType: 'expenses',
+        entityId: expenseRecord.id,
+        projectId: expenseRecord.projectId,
+        details: {
+          description: expenseToEdit ? `ویرایش هزینه: ${expenseRecord.title}` : `ثبت هزینه جدید: ${expenseRecord.title}`,
+          amount: expenseRecord.amount
+        }
+      });
 
       // 4. Push to cloud Supabase asynchronously
       pushExpenseLive(expenseRecord).catch(console.warn);

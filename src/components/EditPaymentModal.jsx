@@ -1,3 +1,4 @@
+import { logAuditAction } from "../services/auditLogger";
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Calendar, Banknote, FileText, Hash, Check, Lock } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -89,6 +90,18 @@ export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
         });
         await rollbackPaymentSettlement(payment.id).catch(console.warn);
         pushPaymentsLive().catch(() => {});
+
+        logAuditAction({
+          actionType: 'DELETE_PAYMENT',
+          entityType: 'payments',
+          entityId: payment.id,
+          projectId: payment.projectId,
+          details: {
+            description: `حذف / ابطال سند پرداختی/تسویه: ${payment.amount}`,
+            amount: payment.amount
+          }
+        });
+
         onClose();
       } catch (err) {
         console.error('Error moving payment to trash:', err);

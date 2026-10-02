@@ -1,3 +1,4 @@
+import { logAuditAction } from "../services/auditLogger";
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -754,10 +755,24 @@ export function SettlementModal({
             selectedCount: selectedCustomLogs.length
           },
           createdAt: now.toISOString(),
-          updatedAt: now.toISOString()
+          updatedAt: now.toISOString(),
+          created_by_user_id: user?.id,
+          updated_by_user_id: user?.id
         };
 
         await db.payments.put(customSettlementRecord);
+
+        logAuditAction({
+          actionType: 'SUBMIT_SETTLEMENT',
+          entityType: 'payments',
+          entityId: settlementRecordId,
+          projectId: currentProject?.id || DEFAULT_PROJECT_ID,
+          details: {
+            description: `ثبت تسویه حساب / مساعده سفارشی برای ${worker.name}`,
+            amount: finalAmountNum,
+            worker_name: worker.name
+          }
+        });
 
         if (markAsSettled) {
           // Strictly settle only the selected logs
@@ -824,10 +839,26 @@ export function SettlementModal({
           isGroupSettlement: settlementMode === 'group',
           groupMemberCount: settlementMode === 'group' ? groupMembers.length : 1,
           createdAt: now.toISOString(),
-          updatedAt: now.toISOString()
+          updatedAt: now.toISOString(),
+          created_by_user_id: user?.id,
+          updated_by_user_id: user?.id
         };
 
         await db.payments.put(settlementRecord);
+
+        logAuditAction({
+          actionType: 'SUBMIT_SETTLEMENT',
+          entityType: 'payments',
+          entityId: settlementRecordId,
+          projectId: currentProject?.id || DEFAULT_PROJECT_ID,
+          details: {
+            description: settlementMode === 'group' 
+              ? `ثبت تسویه حساب گروهی برای ${groupMembers.length} نفر (گروه ${worker.groupName})`
+              : `ثبت تسویه حساب / مساعده برای ${worker.name}`,
+            amount: amountNum,
+            worker_name: settlementMode === 'group' ? `گروه ${worker.groupName}` : worker.name
+          }
+        });
 
         // Settle covered attendance logs and advances
         if (markAsSettled) {
