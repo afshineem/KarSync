@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAccounting } from '../hooks/useAccounting';
@@ -11,6 +11,8 @@ import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
 import { AccountSubsidiaryLedgerSection } from './accounting/AccountSubsidiaryLedgerSection';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
+import { DateRangeFilterModal } from './accounting/DateRangeFilterModal';
+import { formatMonthOnly, getCurrentYearMonth } from '../utils/formatters';
 import { 
   Landmark, 
   Plus, 
@@ -18,12 +20,16 @@ import {
   X, 
   Clock, 
   ChevronLeft, 
+  ChevronRight,
   ArrowLeftRight, 
-  RefreshCw, 
   Check,
   BookOpen,
   LayoutDashboard,
-  ArrowDownLeft
+  ArrowDownLeft,
+  Users,
+  CalendarRange,
+  BarChart3,
+  Info
 } from 'lucide-react';
 
 /**
@@ -37,18 +43,26 @@ import {
  * ۴. مدیریت حساب‌ها و کارت‌ها (تعریف، ویرایش، حساب پیش‌فرض و سقف اعتبار)
  */
 export function AccountingView() {
-  const { t, language } = useLanguage();
+  const { t, language, direction } = useLanguage();
   const { currentProject } = useProject();
 
   const [activeViewTab, setActiveViewTab] = useState('overview'); // 'overview' | 'ledger' | 'income' | 'accounts'
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [isAccountsModalOpen, setIsAccountsModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
+  const [placeholderNotice, setPlaceholderNotice] = useState(null);
   const [initialTransferSourceId, setInitialTransferSourceId] = useState(null);
   const [selectedAccountForLedger, setSelectedAccountForLedger] = useState(null);
   const [quickDepositAccount, setQuickDepositAccount] = useState(null);
-  const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
-  const [syncFeedback, setSyncFeedback] = useState(null);
+
+  // پیام اعلان موقت
+  useEffect(() => {
+    if (placeholderNotice) {
+      const timer = setTimeout(() => setPlaceholderNotice(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [placeholderNotice]);
 
   // فراخوانی هوک اختصاصی حسابداری جهت مدیریت State و محاسبات زنده
   const {
@@ -90,28 +104,17 @@ export function AccountingView() {
     deleteDraftLedgerItem,
     batchDeleteDraftLedgerItems,
     accountTransfers,
-    transferBetweenAccounts,
-    syncFinancialAccounts
+    transferBetweenAccounts
   } = useAccounting();
 
-  const handleSyncAccounts = async () => {
-    try {
-      setIsSyncingAccounts(true);
-      await syncFinancialAccounts();
-      setSyncFeedback({
-        type: 'success',
-        message: language === 'fa' ? 'حساب‌ها و مانده‌ها با موفقیت همگام شدند.' : 'حیسابەکان هاوکات کران.'
-      });
-      setTimeout(() => setSyncFeedback(null), 3500);
-    } catch (err) {
-      setSyncFeedback({
-        type: 'error',
-        message: err.message || (language === 'fa' ? 'خطا در همگام‌سازی حساب‌ها' : 'هەڵە لە هاوکاتکردن')
-      });
-      setTimeout(() => setSyncFeedback(null), 4000);
-    } finally {
-      setIsSyncingAccounts(false);
-    }
+  // جابه‌جایی ماه در ویجت ماه‌نما
+  const handleShiftMonth = (delta) => {
+    const [year, month] = (selectedMonth || getCurrentYearMonth()).split('-').map(Number);
+    const d = new Date(year, month - 1 + delta, 1);
+    const newY = d.getFullYear();
+    const newM = String(d.getMonth() + 1).padStart(2, '0');
+    setSelectedMonth(`${newY}-${newM}`);
+    setDateFilterMode('month');
   };
 
   const viewTabs = [
@@ -167,62 +170,150 @@ export function AccountingView() {
           </div>
         </div>
 
-        {/* داک دکمه‌های اقدام سریع با زبان طراحی هماهنگ با ناوبار */}
-        <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
-          {/* Segmented Dock Pill */}
-          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
-            {/* دکمه انتقال بین حساب‌ها */}
+        {/* ناحیه کنترل تاریخ و داک اقدامات سریع */}
+        <div className="w-full md:w-auto flex flex-col sm:flex-row items-center justify-center md:justify-end gap-2.5 sm:gap-3">
+          {/* ۱. اینپوت ماه‌نما (Month Navigator) - ارتفاع دقیقاً برابر با داک دکمه‌ها و هم‌عرض فقط در موبایل */}
+          <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl p-1 sm:p-1.5 border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+              title={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+              aria-label={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+            >
+              {direction === 'rtl' ? <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
+            </button>
+
+            <div className="relative flex-1 h-full flex items-center justify-center cursor-pointer min-w-[6rem] sm:min-w-[8rem] px-2 sm:px-4">
+              <div className="pointer-events-none text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 text-center w-full truncate">
+                {formatMonthOnly(selectedMonth, language) || selectedMonth}
+              </div>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value);
+                  setDateFilterMode('month');
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                title={language === 'fa' ? 'انتخاب ماه' : 'هەڵبژاردنی مانگ'}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+              title={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
+              aria-label={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
+            >
+              {direction === 'rtl' ? <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
+            </button>
+          </div>
+
+          {/* ۲. داک دکمه‌های آیکونی اقدامات حسابداری (سایز بزرگ و یکپارچه با تب هزینه‌ها - خاکستری پیش‌فرض و رنگی در هاور) */}
+          <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between sm:justify-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+            {/* دکمه ۱: افزایش موجودی (واریز نقدی/بانکی) - دکمه اصلی گرادیانت */}
+            <button
+              type="button"
+              onClick={() => {
+                setQuickDepositAccount(null);
+                setIsQuickAddModalOpen(true);
+              }}
+              className="h-full aspect-square rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 group flex items-center justify-center focus:outline-hidden"
+              title={language === 'fa' ? 'افزایش موجودی (واریز نقدی یا بانکی به صندوق/حساب)' : 'زیادکردنی باڵانس (داهات/تەنخوا)'}
+              aria-label={language === 'fa' ? 'افزایش موجودی' : 'زیادکردنی باڵانس'}
+            >
+              <Plus className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
+            </button>
+
+            {/* دکمه ۲: انتقال حساب به حساب - پیش‌فرض خاکستری و در هاور آبی */}
             <button
               type="button"
               onClick={() => {
                 setInitialTransferSourceId(null);
                 setIsTransferModalOpen(true);
               }}
-              aria-label={language === 'fa' ? 'انتقال بین حساب‌ها' : 'گواستنەوەی پارە'}
-              title={language === 'fa' ? 'انتقال وجه بین حساب‌ها (کارت به کارت / صندوق به بانک)' : 'گواستنەوەی پارە'}
-              className="px-3 py-2 text-slate-700 hover:text-sky-600 hover:bg-white dark:text-slate-200 dark:hover:text-sky-400 dark:hover:bg-slate-700/70 rounded-xl transition-all duration-200 flex items-center gap-1.5 text-xs font-bold active:scale-95"
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
+              title={language === 'fa' ? 'انتقال حساب به حساب (بانک به بانک، صندوق به صندوق، بانک به صندوق و برعکس)' : 'گواستنەوە لە نێوان حیسابەکان'}
+              aria-label={language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە لە نێوان حیسابەکان'}
             >
-              <ArrowLeftRight className="w-4 h-4 text-sky-500 flex-shrink-0" />
-              <span className="hidden sm:inline">{language === 'fa' ? 'انتقال وجه' : 'گواستنەوەی پارە'}</span>
+              <ArrowLeftRight className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             </button>
 
-            {/* دکمه همگام‌سازی فوری حساب‌ها */}
+            {/* دکمه ۳: معین افراد و حساب‌ها - پیش‌فرض خاکستری و در هاور سبز */}
             <button
               type="button"
-              onClick={handleSyncAccounts}
-              disabled={isSyncingAccounts}
-              aria-label={language === 'fa' ? 'همگام‌سازی حساب‌ها' : 'هاوکاتکردنی حیسابەکان'}
-              title={language === 'fa' ? 'همگام‌سازی ابری و زنده حساب‌ها و موجودی' : 'هاوکاتکردنی حیسابەکان'}
-              className="p-2 text-slate-500 hover:text-sky-600 hover:bg-white dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/70 rounded-xl transition-all duration-200 active:scale-95"
+              onClick={() => {
+                setPlaceholderNotice(
+                  language === 'fa'
+                    ? 'بخش معین گردش مالی پرسنل و حساب‌ها به زودی فعال خواهد شد.'
+                    : 'بەشی دەفتەری حیسابی کەسەکان و حیسابەکان بەم زووانە چالاک دەکرێت.'
+                );
+              }}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
+              title={language === 'fa' ? 'معین افراد/حساب‌ها (مشاهده معین گردش مالی پرسنل و حساب‌ها)' : 'دەفتەری حیسابی کەسەکان و حیسابەکان'}
+              aria-label={language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان'}
             >
-              <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isSyncingAccounts ? 'animate-spin text-sky-500' : ''}`} />
+              <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </button>
+
+            {/* دکمه ۴: بازه زمانی جهت مشاهده‌ی اسناد - پیش‌فرض خاکستری و در هاور کهربایی */}
+            <button
+              type="button"
+              onClick={() => setIsDateRangeModalOpen(true)}
+              className={`relative h-full aspect-square rounded-xl transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden ${
+                dateFilterMode === 'custom'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80'
+              }`}
+              title={
+                dateFilterMode === 'custom'
+                  ? (language === 'fa' ? `بازه سفارشی فعال: از ${customStartDate || '...'} تا ${customEndDate || '...'}` : `ماوەی دیاریکراو: ${customStartDate} - ${customEndDate}`)
+                  : (language === 'fa' ? 'بازه زمانی جهت مشاهده‌ی اسناد (انتخاب بازه‌ی دلخواه برای نمایش اسناد)' : 'ماوەی کاتی بینینی بەڵگەنامەکان')
+              }
+              aria-label={language === 'fa' ? 'بازه زمانی جهت مشاهده‌ی اسناد' : 'ماوەی کاتی بینینی بەڵگەنامەکان'}
+            >
+              <CalendarRange className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+              {dateFilterMode === 'custom' && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-slate-900 animate-pulse" />
+              )}
+            </button>
+
+            {/* دکمه ۵: گزارش و آمار - پیش‌فرض خاکستری و در هاور نیلی */}
+            <button
+              type="button"
+              onClick={() => {
+                setPlaceholderNotice(
+                  language === 'fa'
+                    ? 'بخش گزارش و آمار حرفه‌ای برای ارائه به مدیران به زودی فعال خواهد شد.'
+                    : 'بەشی ئامار و ڕاپۆرتەکان بەم زووانە چالاک دەکرێت.'
+                );
+              }}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
+              title={language === 'fa' ? 'گزارش و آمار (آمارگیری دقیق و حرفه‌ای برای ارائه به مدیران)' : 'ئامار و ڕاپۆرتەکان بۆ بەڕێوەبەران'}
+              aria-label={language === 'fa' ? 'گزارش و آمار' : 'ئامار و ڕاپۆرتەکان'}
+            >
+              <BarChart3 className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             </button>
           </div>
-
-          {/* دکمه برجسته افزایش موجودی / واریز جدید با رنگ پرایمری برنامه */}
-          <button
-            type="button"
-            onClick={() => {
-              setQuickDepositAccount(null);
-              setIsQuickAddModalOpen(true);
-            }}
-            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-1.5 transition-all active:scale-95 flex-shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{language === 'fa' ? 'افزایش موجودی' : 'زیادکردنی باڵانس'}</span>
-          </button>
         </div>
       </div>
 
-      {/* پیام اعلان همگام‌سازی فوری */}
-      {syncFeedback && (
-        <div className={`p-3 rounded-2xl text-xs font-bold flex items-center gap-2 animate-in slide-in-from-top duration-200 ${
-          syncFeedback.type === 'success'
-            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-            : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-        }`}>
-          {syncFeedback.type === 'success' ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <X className="w-4 h-4 text-rose-500 shrink-0" />}
-          <span>{syncFeedback.message}</span>
+      {/* پیام بازخورد برای بخش‌های آماده‌سازی آینده */}
+      {placeholderNotice && (
+        <div className="p-3.5 rounded-2xl text-xs font-bold flex items-center justify-between gap-2 bg-indigo-50/90 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-sm animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-indigo-500 shrink-0" />
+            <span>{placeholderNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPlaceholderNotice(null)}
+            className="p-1 rounded-lg text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -246,37 +337,52 @@ export function AccountingView() {
                   aria-label={tab.label}
                   className={`relative rounded-xl sm:rounded-2xl transition-all duration-300 ease-out flex items-center justify-center cursor-pointer select-none active:scale-95 ${
                     isActive
-                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/25 px-4 py-2 sm:px-5 sm:py-2.5 gap-2 scale-[1.02] font-bold border border-sky-400/30'
-                      : 'p-2 sm:px-3.5 sm:py-2.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.08]'
+                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 px-3.5 py-2.5 sm:px-4 sm:py-3 gap-2 scale-105 font-bold border border-sky-400/30'
+                      : 'p-2.5 sm:p-3 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.08] hover:scale-105'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2] transition-transform duration-200 ${
-                    isActive ? 'scale-105' : 'group-hover:scale-110'
-                  }`} />
+                  <Icon className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2] transition-transform duration-200 group-hover:scale-110 shrink-0" />
 
-                  {/* نام تب */}
-                  <span className={`text-xs sm:text-sm font-black whitespace-nowrap tracking-tight ${isActive ? 'inline' : 'hidden sm:inline ms-1'}`}>
-                    {tab.label}
-                  </span>
+                  {/* نام تب - فقط روی دکمه‌ی انتخاب شده نمایش داده می‌شود */}
+                  {isActive && (
+                    <span className="text-xs sm:text-sm font-black whitespace-nowrap tracking-tight animate-in fade-in zoom-in-95 duration-200">
+                      {tab.label}
+                    </span>
+                  )}
 
-                  {/* نشانگر تعداد */}
-                  {tab.badge ? (
-                    <span className="ms-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-amber-500 text-white shadow-xs">
+                  {/* نشانگر تعداد روی تب فعال */}
+                  {isActive && (
+                    tab.badge ? (
+                      <span className="ms-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-amber-500 text-white shadow-xs animate-in fade-in duration-200">
+                        {tab.badge}
+                      </span>
+                    ) : tab.count > 0 ? (
+                      <span className="ms-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold leading-none bg-white/20 text-white animate-in fade-in duration-200">
+                        {tab.count}
+                      </span>
+                    ) : null
+                  )}
+
+                  {/* بج کوچک نشانگر روی تب غیرفعال اگر بج ضروری (مانند اسناد موقت) وجود داشته باشد */}
+                  {!isActive && tab.badge && (
+                    <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-black bg-amber-500 text-white shadow-xs ring-2 ring-white dark:ring-slate-900 animate-in fade-in duration-200">
                       {tab.badge}
                     </span>
-                  ) : tab.count > 0 ? (
-                    <span className={`ms-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold leading-none ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  ) : null}
+                  )}
 
                   {/* نقطه نشانگر فعال */}
                   {isActive && (
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs"></span>
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs animate-in fade-in duration-200" />
                   )}
                 </button>
+
+                {/* تولتیپ در حالت هاور برای دکمه‌های غیرفعال */}
+                {!isActive && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50">
+                    {tab.label}
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -389,6 +495,8 @@ export function AccountingView() {
             setApprovalStatusFilter={setApprovalStatusFilter}
             dateFilterMode={dateFilterMode}
             setDateFilterMode={setDateFilterMode}
+            selectedMonth={selectedMonth}
+            setSelectedMonth={setSelectedMonth}
             customStartDate={customStartDate}
             setCustomStartDate={setCustomStartDate}
             customEndDate={customEndDate}
@@ -529,6 +637,29 @@ export function AccountingView() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* مودال انتخاب بازه زمانی دلخواه اسناد مالی */}
+      {isDateRangeModalOpen && (
+        <DateRangeFilterModal
+          isOpen={isDateRangeModalOpen}
+          onClose={() => setIsDateRangeModalOpen(false)}
+          customStartDate={customStartDate}
+          setCustomStartDate={setCustomStartDate}
+          customEndDate={customEndDate}
+          setCustomEndDate={setCustomEndDate}
+          dateFilterMode={dateFilterMode}
+          setDateFilterMode={setDateFilterMode}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          onApply={() => {
+            setIsDateRangeModalOpen(false);
+            if (activeViewTab !== 'ledger') {
+              setActiveViewTab('ledger');
+            }
+          }}
+          language={language}
+        />
       )}
     </div>
   );

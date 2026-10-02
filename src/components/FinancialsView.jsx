@@ -1072,63 +1072,86 @@ export function FinancialsView() {
       )}
 
       {/* Settlement View Mode Tabs (تب جاری vs تب تسویه شده), Status Filters & Expandable Search */}
-      <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center md:justify-start gap-3 sm:gap-4 flex-wrap">
+      <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center md:justify-between gap-3 sm:gap-4 flex-wrap">
         
-        {/* Line 1 on mobile: Main View Mode Tabs (Centered, Not Full Width) */}
+        {/* Line 1 on mobile / Left on Desktop: Main View Mode Tabs (طراحی داک مایع شیشه Liquid Glass هماهنگ با تب حسابداری) */}
         <div className="flex justify-center w-full md:w-auto">
-          <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-            {/* Tab 1: Current Unsettled (تب جاری) */}
-            <button
-              type="button"
-              onClick={() => setSettlementViewTab('current')}
-              title={t('tabCurrentFinancials')}
-              aria-label={t('tabCurrentFinancials')}
-              className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-                settlementViewTab === 'current'
-                  ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2.5 px-4 scale-102 flex-none'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2.5'
-              }`}
-            >
-              <Clock className={`w-5.5 h-5.5 flex-shrink-0 transition-transform duration-300 ${
-                settlementViewTab === 'current' ? 'scale-105' : 'group-hover:scale-110'
-              }`} />
-              
-              {settlementViewTab === 'current' && (
-                <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200 flex items-center gap-2">
-                  <span>{t('tabCurrentFinancials')}</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/25 text-white shadow-xs">
-                    {currentActiveRows.length}
-                  </span>
+          <nav
+            aria-label="Settlement view modes"
+            className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl backdrop-saturate-200 p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.08),0_4px_20px_rgba(0,0,0,0.4)]"
+          >
+            {/* Tab 1: Current Unsettled (تب جاری / بدهی معوقه) */}
+            <div className="relative group flex-1 sm:flex-initial">
+              <button
+                type="button"
+                onClick={() => setSettlementViewTab('current')}
+                title={t('tabCurrentFinancials')}
+                aria-label={t('tabCurrentFinancials')}
+                className={`w-full relative rounded-xl sm:rounded-2xl transition-all duration-300 ease-out flex items-center justify-center cursor-pointer select-none active:scale-95 ${
+                  settlementViewTab === 'current'
+                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/25 px-3.5 py-2 sm:px-5 sm:py-2.5 gap-2 scale-[1.02] font-black border border-sky-400/30'
+                    : 'px-3 py-2 sm:px-4 sm:py-2.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.08] gap-1.5 sm:gap-2 font-bold'
+                }`}
+              >
+                <Clock className={`w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2] transition-transform duration-300 ${
+                  settlementViewTab === 'current' ? 'scale-105' : 'group-hover:scale-110'
+                }`} />
+
+                <span className="text-xs sm:text-sm whitespace-nowrap tracking-tight">
+                  {t('tabCurrentFinancials')}
                 </span>
-              )}
-            </button>
+
+                <span className={`ms-1 sm:ms-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-bold leading-none transition-colors ${
+                  settlementViewTab === 'current'
+                    ? 'bg-white/25 text-white shadow-xs'
+                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}>
+                  {currentActiveRows.length}
+                </span>
+
+                {/* نقطه نشانگر فعال */}
+                {settlementViewTab === 'current' && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs"></span>
+                )}
+              </button>
+            </div>
 
             {/* Tab 2: Settled History (تب تسویه شده) */}
-            <button
-              type="button"
-              onClick={() => setSettlementViewTab('settled')}
-              title={t('tabSettledFinancials')}
-              aria-label={t('tabSettledFinancials')}
-              className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-                settlementViewTab === 'settled'
-                  ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2.5 px-4 scale-102 flex-none'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2.5'
-              }`}
-            >
-              <CheckCircle2 className={`w-5.5 h-5.5 flex-shrink-0 transition-transform duration-300 ${
-                settlementViewTab === 'settled' ? 'scale-105' : 'group-hover:scale-110'
-              }`} />
-              
-              {settlementViewTab === 'settled' && (
-                <span className="whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200 flex items-center gap-2">
-                  <span>{t('tabSettledFinancials')}</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/25 text-white shadow-xs">
-                    {settledHistoryRows.length}
-                  </span>
+            <div className="relative group flex-1 sm:flex-initial">
+              <button
+                type="button"
+                onClick={() => setSettlementViewTab('settled')}
+                title={t('tabSettledFinancials')}
+                aria-label={t('tabSettledFinancials')}
+                className={`w-full relative rounded-xl sm:rounded-2xl transition-all duration-300 ease-out flex items-center justify-center cursor-pointer select-none active:scale-95 ${
+                  settlementViewTab === 'settled'
+                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/25 px-3.5 py-2 sm:px-5 sm:py-2.5 gap-2 scale-[1.02] font-black border border-sky-400/30'
+                    : 'px-3 py-2 sm:px-4 sm:py-2.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.08] gap-1.5 sm:gap-2 font-bold'
+                }`}
+              >
+                <CheckCircle2 className={`w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2] transition-transform duration-300 ${
+                  settlementViewTab === 'settled' ? 'scale-105' : 'group-hover:scale-110'
+                }`} />
+
+                <span className="text-xs sm:text-sm whitespace-nowrap tracking-tight">
+                  {t('tabSettledFinancials')}
                 </span>
-              )}
-            </button>
-          </div>
+
+                <span className={`ms-1 sm:ms-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-bold leading-none transition-colors ${
+                  settlementViewTab === 'settled'
+                    ? 'bg-white/25 text-white shadow-xs'
+                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}>
+                  {settledHistoryRows.length}
+                </span>
+
+                {/* نقطه نشانگر فعال */}
+                {settlementViewTab === 'settled' && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs"></span>
+                )}
+              </button>
+            </div>
+          </nav>
         </div>
 
         {/* Line 2 on mobile: Status Filters & Search Controls (Centered, Not Full Width) */}

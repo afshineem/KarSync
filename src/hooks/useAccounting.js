@@ -54,7 +54,7 @@ export function useAccounting(options = {}) {
 
   // فیلترهای تب حسابداری
   const [selectedMonth, setSelectedMonth] = useState(() => getCurrentYearMonth());
-  const [dateFilterMode, setDateFilterMode] = useState('all'); // 'all' | 'this_month' | 'last_month' | 'custom'
+  const [dateFilterMode, setDateFilterMode] = useState('month'); // 'month' | 'all' | 'this_month' | 'last_month' | 'custom'
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | 'petty_cash' | 'worker_settlement' | 'advance_payment' | 'workshop_expense' | 'account_transfer'
@@ -229,8 +229,9 @@ export function useAccounting(options = {}) {
     if (!dateStr) return true;
     const cleanDate = dateStr.slice(0, 10);
 
-    if (dateFilterMode === 'this_month') {
-      return cleanDate.startsWith(currentMonthPrefix);
+    if (dateFilterMode === 'month' || dateFilterMode === 'this_month') {
+      const targetMonth = selectedMonth || currentMonthPrefix;
+      return cleanDate.startsWith(targetMonth);
     }
     if (dateFilterMode === 'last_month') {
       return cleanDate.startsWith(lastMonthPrefix);
@@ -241,7 +242,7 @@ export function useAccounting(options = {}) {
       return true;
     }
     return true; // 'all'
-  }, [dateFilterMode, currentMonthPrefix, lastMonthPrefix, customStartDate, customEndDate]);
+  }, [dateFilterMode, selectedMonth, currentMonthPrefix, lastMonthPrefix, customStartDate, customEndDate]);
 
   // ----------------------------------------------------
   // ۲.۵ محاسبه زنده موجودی و دفتر معین تک‌تک حساب‌ها و صندوق‌ها
