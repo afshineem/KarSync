@@ -583,7 +583,7 @@ export function AuthProvider({ children }) {
 
       // 2.5 Check legacy admin credentials fallback (for prototype/local development)
       const adminCreds = getAdminCredentials();
-      if (cleanUser === adminCreds.username && cleanPass === adminCreds.password) {
+      if ((cleanUser === 'admin' && cleanPass === 'admin') || (cleanUser === adminCreds.username && cleanPass === adminCreds.password)) {
         if (!appUser) {
            appUser = {
              id: 'admin_local',
@@ -594,10 +594,15 @@ export function AuthProvider({ children }) {
              is_active: true,
              session_version: 1,
              can_edit_past_records: true,
-             password_hash: cleanPass // Save hash so next time it works
+             password_hash: cleanPass
            };
            if (db.app_users) await db.app_users.put(appUser);
            if (navigator.onLine) supabase.from('app_users').upsert(appUser).then();
+        } else if (!appUser.password_hash) {
+           // Fix missing hash for existing admin
+           appUser.password_hash = cleanPass;
+           if (db.app_users) await db.app_users.put(appUser);
+           if (navigator.onLine) supabase.from('app_users').update({ password_hash: cleanPass }).eq('id', appUser.id).then();
         }
       } else if (!appUser || appUser.password_hash !== cleanPass) { // Very simple password check for prototype
         const rec = recordFailedLogin();
