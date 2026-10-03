@@ -29,7 +29,6 @@ import { initRealtimeSync, pushLogsLive, pushPaymentsLive, pushAllExpensesToClou
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LockScreenModal } from './components/LockScreenModal';
 import { InstallPwaModal } from './components/InstallPwaModal';
-import UsersManagementModal from './components/UsersManagementModal';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
@@ -51,7 +50,6 @@ function AppContent() {
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
-  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
 
   // Catch PWA beforeinstallprompt event globally
@@ -267,7 +265,7 @@ function AppContent() {
         onOpenChangePasswordModal={() => setIsChangePasswordModalOpen(true)}
         onOpenAboutModal={() => setIsAboutModalOpen(true)}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
-        onOpenUsersModal={() => setIsUsersModalOpen(true)}
+        
       />
 
       {/* Main Content View */}
@@ -395,10 +393,6 @@ function AppContent() {
         onClose={() => setIsInstallModalOpen(false)}
       />
 
-      <UsersManagementModal 
-        isOpen={isUsersModalOpen} 
-        onClose={() => setIsUsersModalOpen(false)} 
-      />
     </div>
   );
 }

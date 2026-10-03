@@ -173,7 +173,7 @@ export function Navbar({
                   onOpenAboutModal={onOpenAboutModal}
                   onOpenProjectSettings={openProjectSettings}
                   onOpenInstallModal={onOpenInstallModal}
-                  onOpenUsersModal={onOpenUsersModal}
+                  
                 />
               </div>
             </div>

@@ -63,6 +63,7 @@ import { TwoFactorModal } from './TwoFactorModal';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
+import UsersSettingsTab from "./UsersSettingsTab";
 import { useAccounting } from '../hooks/useAccounting';
 
 export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
@@ -646,6 +647,12 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
       color: 'text-sky-500'
     },
     {
+      id: 'users',
+      label: language === 'fa' ? 'کاربران و دسترسی‌ها' : language === 'ku' ? 'بەکارهێنەران' : 'Users & Access',
+      icon: Users2,
+      color: 'text-indigo-500'
+    },
+    {
       id: 'projects',
       label: language === 'fa' ? 'پروژه‌ها و بخش‌ها' : language === 'ku' ? 'پڕۆژەکان و بەشەکان' : 'Projects & Structure',
       icon: FolderKanban,
@@ -1025,6 +1032,14 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* ---------------------------------------------------- */}
             {/* TAB 2: PROJECTS & WORKSHOP STRUCTURE */}
             {/* ---------------------------------------------------- */}
+            {/* ---------------------------------------------------- */}
+            {/* TAB: USERS & ACCESS */}
+            {/* ---------------------------------------------------- */}
+            {activeTab === 'users' && (
+              <div className="h-full">
+                <UsersSettingsTab />
+              </div>
+            )}
             {activeTab === 'projects' && (
               <div className="space-y-6 max-w-3xl animate-in fade-in duration-150">
                 {/* Project Selector & Actions Header */}

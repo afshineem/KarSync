@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useLanguage } from '../i18n/LanguageContext';
-import { usePermissions } from '../context/AuthContext';
+import { Users, Shield, Plus, X, Search, ShieldCheck, Edit, Trash2, ShieldBan, UserCog } from 'lucide-react';
 import { db } from '../db/db';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/realtimeSync';
 import { logAuditAction } from '../services/auditLogger';
-import { Users, UserPlus, X, Edit, Trash2, Power, ShieldAlert, Key, Activity } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 import UserFormModal from './UserFormModal';
-import AuditLogsTab from './AuditLogsTab';
 
-export default function UsersManagementModal({ isOpen, onClose }) {
+export default function UsersSettingsTab() {
+  const { user: currentUser } = useAuth();
   const { language } = useLanguage();
-  const { currentUser, hasPermission } = usePermissions();
   
   const [activeTab, setActiveTab] = useState('users'); // 'users' or 'audit'
   const [usersList, setUsersList] = useState([]);
@@ -19,19 +18,12 @@ export default function UsersManagementModal({ isOpen, onClose }) {
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
-    if (isOpen && currentUser?.workspace_id) {
+    if (currentUser?.workspace_id) {
+      loadData();
+    } else {
       loadData();
     }
-  }, [isOpen, currentUser]);
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !isFormOpen) onClose();
-    };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isFormOpen, onClose]);
+  }, [currentUser]);
 
   const loadData = async () => {
     try {
@@ -202,7 +194,6 @@ export default function UsersManagementModal({ isOpen, onClose }) {
     }
   };
 
-  if (!isOpen) return null;
 
   const roleColors = {
     admin: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400 border-rose-200 dark:border-rose-500/30',
@@ -221,30 +212,24 @@ export default function UsersManagementModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-slate-50 dark:bg-slate-900" dir={language === 'fa' ? 'rtl' : 'ltr'}>
-      {/* Header */}
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="font-bold text-slate-800 dark:text-white text-sm">مدیریت کاربران و دسترسی‌ها</h1>
-            {workspace && (
-              <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-2">
-                کد کارگاه: <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1.5 rounded">{workspace.workspace_code}</span>
-                <span className="text-slate-300 dark:text-slate-600">|</span>
-                پکیج: <span className="uppercase text-indigo-500 font-semibold">{workspace.plan_tier}</span>
-              </p>
-            )}
-          </div>
-        </div>
-        <button onClick={onClose} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
-          <X className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      {/* Tab Switcher */}
+      <div className="flex items-center gap-1 mb-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'users' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          <Users className="w-4 h-4" /> کاربران سیستم
+        </button>
+        <button
+          onClick={() => setActiveTab('audit')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'audit' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          <ShieldCheck className="w-4 h-4" /> لاگ‌های امنیتی
         </button>
       </div>
 
-      {/* Tab Switcher */}
+      <div className="flex-1 overflow-y-auto min-h-[400px]">
       <div className="flex items-center gap-1 px-4 py-2 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
         <button
           onClick={() => setActiveTab('users')}
@@ -375,6 +360,7 @@ export default function UsersManagementModal({ isOpen, onClose }) {
         initialData={selectedUser}
         workspaceId={workspace?.id}
       />
+    </div>
     </div>
   );
 }
