@@ -123,6 +123,11 @@ export default function UsersManagementModal({ isOpen, onClose }) {
         return;
       }
 
+      if (!workspace) {
+        alert('اطلاعات کارگاه هنوز بارگذاری نشده است. لطفاً صفحه را رفرش کنید.');
+        return;
+      }
+
       const userData = {
         ...formData,
         id: selectedUser ? selectedUser.id : generateUUID(),
