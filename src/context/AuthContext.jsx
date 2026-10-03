@@ -200,6 +200,7 @@ export function AuthProvider({ children }) {
         supabaseUser
       };
 
+      await enforceDataIsolation(sessionUser.id);
       setUser(sessionUser);
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
       return sessionUser;
@@ -458,6 +459,7 @@ export function AuthProvider({ children }) {
           supabaseUser: data.user
         };
 
+        await enforceDataIsolation(sessionUser.id);
         setUser(sessionUser);
         localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
         return { success: true, user: sessionUser };
@@ -652,6 +654,7 @@ export function AuthProvider({ children }) {
         is_active: true
       };
 
+      await enforceDataIsolation(sessionUser.id);
       setUser(sessionUser);
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
       
@@ -774,6 +777,25 @@ export function AuthProvider({ children }) {
   };
 
   // Logout handler
+  async function enforceDataIsolation(newUserId) {
+    try {
+      const lastUserId = localStorage.getItem('last_active_user_id');
+      if (lastUserId && lastUserId !== newUserId) {
+        console.warn('User switched! Wiping local Dexie database for data isolation.');
+        const tablesToClear = [
+          'current_session', 'projects', 'workers', 'attendanceLogs', 
+          'payments', 'expenseCategories', 'expenses', 'treasuryIncomes', 
+          'financialAccounts', 'accountTransfers', 'groups', 'audit_logs'
+        ];
+        for (const t of tablesToClear) {
+          if (db[t]) await db[t].clear();
+        }
+      }
+      if (newUserId) localStorage.setItem('last_active_user_id', newUserId);
+    } catch(err) {
+      console.error('Isolation check failed:', err);
+    }
+  };
   const logout = async () => {
     try {
       await supabase.auth.signOut();
