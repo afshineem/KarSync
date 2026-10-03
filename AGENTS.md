@@ -9,8 +9,8 @@
      - PC: `http://localhost:8080/`
      - Mobile (LAN): `http://192.168.110.217:8080/`
 
-2. **Strict Approval Before Any GitHub / Vercel Push:**
-   - Present the changes to the user clearly in Persian.
-   - **NEVER** run `push_to_github.js` or push commits to GitHub/Vercel automatically.
-   - **ALWAYS** wait for the user's explicit confirmation and approval (e.g. «تایید شد»، «پوش کن»، «اوکیه») before pushing.
-   - This rule is permanent across all sessions, restarts, and prompts.
+2. **Strict Git & Versioning Workflow (USER PREFERENCE):**
+   - **DO NOT MAKE ANY COMMITS.** (`git commit` is forbidden).
+   - **NEVER PUSH AUTOMATICALLY.** (`git push` is forbidden).
+   - After completing changes and receiving the user's explicit approval, provide a properly formatted English commit message for the user to use themselves.
+   - After EVERY change (small or large), remind the user to bump the version number.

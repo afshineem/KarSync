@@ -251,7 +251,7 @@ export function SettingsDropdown({
           className="w-full py-1 text-center text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors flex items-center justify-center gap-1"
         >
           <Sparkles className="w-3 h-3 text-sky-500" />
-          <span>KarSync v1.2.0 PWA</span>
+          <span>KarSync v0.8.0 PWA</span>
         </button>
       </div>
     </div>
