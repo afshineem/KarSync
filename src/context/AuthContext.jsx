@@ -581,7 +581,25 @@ export function AuthProvider({ children }) {
         }
       }
 
-      if (!appUser || appUser.password_hash !== cleanPass) { // Very simple password check for prototype
+      // 2.5 Check legacy admin credentials fallback (for prototype/local development)
+      const adminCreds = getAdminCredentials();
+      if (cleanUser === adminCreds.username && cleanPass === adminCreds.password) {
+        if (!appUser) {
+           appUser = {
+             id: 'admin_local',
+             workspace_id: workspace.id,
+             username: cleanUser,
+             full_name: adminCreds.name || 'مدیر سیستم',
+             role: 'admin',
+             is_active: true,
+             session_version: 1,
+             can_edit_past_records: true,
+             password_hash: cleanPass // Save hash so next time it works
+           };
+           if (db.app_users) await db.app_users.put(appUser);
+           if (navigator.onLine) supabase.from('app_users').upsert(appUser).then();
+        }
+      } else if (!appUser || appUser.password_hash !== cleanPass) { // Very simple password check for prototype
         const rec = recordFailedLogin();
         return {
           success: false,
