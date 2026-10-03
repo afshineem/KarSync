@@ -56,7 +56,7 @@ export default function UsersSettingsTab() {
         }
 
         // Seed the admin user into app_users if not exists
-        const existingAdmin = await db.app_users?.get(currentUser.id || 'admin_local');
+        const existingAdmin = await db.app_users?.where("workspace_id").equals(targetWorkspaceId).and(u => u.role === "admin").first();
         if (!existingAdmin) {
           const newAdmin = {
             id: currentUser.id || 'admin_local',
@@ -164,6 +164,39 @@ export default function UsersSettingsTab() {
     }
   };
 
+  const deleteUser = async (userToDelete) => {
+    if (userToDelete.id === currentUser?.id) {
+      alert('شما نمی‌توانید حساب کاربری خودتان را حذف کنید!');
+      return;
+    }
+    
+    const confirmDelete = window.confirm(
+      `⚠️ هشدار بسیار مهم!\n\nشما در حال حذف کامل کاربر «${userToDelete.full_name}» هستید.\n\nاگر این کاربر قبلاً فاکتور، هزینه، یا حضور و غیابی ثبت کرده باشد، حذف او باعث خراب شدن اطلاعات و گزارش‌های مالی شما خواهد شد!\n\nشدیداً توصیه می‌شود به جای حذف، از دکمه «غیرفعال‌سازی» (آیکن خاموش/روشن) استفاده کنید.\n\nآیا واقعاً از حذف کامل این کاربر مطمئن هستید؟`
+    );
+    
+    if (!confirmDelete) return;
+
+    try {
+      if (db.app_users) await db.app_users.delete(userToDelete.id);
+      if (navigator.onLine) {
+        await supabase.from('app_users').delete().eq('id', userToDelete.id);
+      }
+
+      logAuditAction({
+        actionType: 'DELETE_USER',
+        entityType: 'user',
+        entityId: userToDelete.id,
+        details: {
+          description: `حذف کامل کاربر ${userToDelete.full_name}`
+        }
+      });
+
+      loadData();
+    } catch (err) {
+      console.error('Failed to delete user', err);
+      alert('خطا در حذف کاربر: ' + err.message);
+    }
+  };
   const toggleUserStatus = async (userToToggle) => {
     try {
       const updated = {
@@ -339,6 +372,14 @@ export default function UsersSettingsTab() {
                         title={user.is_active ? 'مسدودسازی موقت' : 'فعال‌سازی مجدد'}
                       >
                         <Power className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => deleteUser(user)} 
+                        disabled={user.id === currentUser?.id}
+                        className={`p-1.5 rounded-lg transition-colors bg-red-50 hover:bg-red-100 text-red-500 dark:bg-red-500/10 dark:hover:bg-red-500/20 ${user.id === currentUser?.id ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        title="حذف کامل کاربر"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                     
