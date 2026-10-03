@@ -502,6 +502,60 @@ export function AuthProvider({ children }) {
     }
 
     // MULTI-TENANT LOGIN FLOW
+    // 0. Supabase Auth if it's an email (Admin/Owner login)
+    if (rawInput.includes('@')) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: rawInput.toLowerCase(),
+          password: passwordInput
+        });
+
+        if (error) {
+          recordFailedLogin();
+          return { success: false, error: error.message };
+        }
+
+        if (data?.user) {
+          resetLoginAttempts();
+          let sessionUser = await fetchUserProfile(data.user);
+          
+          // Seed admin into app_users & workspace if missing
+          try {
+            let wsData = null;
+            if (rawCode) {
+               const { data: existingWs } = await supabase.from('workspaces').select('*').eq('workspace_code', rawCode).maybeSingle();
+               wsData = existingWs;
+            }
+            if (!wsData) {
+               const { data: ownerWs } = await supabase.from('workspaces').select('*').eq('owner_id', data.user.id).limit(1).maybeSingle();
+               wsData = ownerWs;
+            }
+            if (wsData) {
+               sessionUser.workspace_id = wsData.id;
+               const { data: existingAdmin } = await supabase.from('app_users').select('*').eq('id', data.user.id).maybeSingle();
+               if (!existingAdmin) {
+                 const newAdmin = {
+                   id: data.user.id,
+                   workspace_id: wsData.id,
+                   username: 'admin',
+                   full_name: sessionUser.name || 'مدیر سیستم',
+                   role: 'admin',
+                   is_active: true,
+                   session_version: 1,
+                   can_edit_past_records: true
+                 };
+                 await supabase.from('app_users').insert(newAdmin);
+               }
+            }
+          } catch(e) { console.warn(e); }
+
+          return { success: true, role: 'admin', user: sessionUser };
+        }
+      } catch (err) {
+        console.error('Supabase Auth Error:', err);
+        return { success: false, error: 'networkError' };
+      }
+    }
     try {
       // 1. Check workspace
       let workspace = null;

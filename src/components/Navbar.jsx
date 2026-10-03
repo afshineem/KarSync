@@ -47,18 +47,11 @@ export function Navbar({
   const navItems = [
     { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
     { id: 'calendar', label: t('calendarLogs') || 'تەقویم', icon: CalendarDays },
-<<<<<<< HEAD
     { id: 'workers', label: t('workers') || 'کرێکاران', icon: Users },
-    { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt },
-    { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards },
-    { id: 'accounting', label: t('accountingTab') || 'حسابداری و خزانه‌داری', icon: Landmark },
-  ];
-=======
-    { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards, hidden: !hasPermission('settlement.manage') },
     { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt, hidden: !hasPermission('expenses.manage') },
+    { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards, hidden: !hasPermission('settlement.manage') },
     { id: 'accounting', label: t('accountingTab') || 'حسابداری و خزانه‌داری', icon: Landmark, hidden: !hasPermission('settlement.manage') },
   ].filter(item => !item.hidden);
->>>>>>> users
 
   return (
     <>
