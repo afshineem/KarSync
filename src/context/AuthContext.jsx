@@ -787,9 +787,18 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(ADMIN_AUTH_KEY);
     localStorage.removeItem(WORKER_CREDS_KEY);
 
-    // Clear Dexie current_session
-    if (db.current_session) {
-      await db.current_session.clear();
+    // Clear Dexie local database to ensure data isolation between different accounts
+    try {
+      const tablesToClear = [
+        'current_session', 'projects', 'workers', 'attendanceLogs', 
+        'payments', 'expenseCategories', 'expenses', 'treasuryIncomes', 
+        'financialAccounts', 'accountTransfers', 'groups', 'audit_logs'
+      ];
+      for (const t of tablesToClear) {
+        if (db[t]) await db[t].clear();
+      }
+    } catch(err) {
+      console.error('Error clearing local data:', err);
     }
 
     // Redirect to login page to reset entire state
