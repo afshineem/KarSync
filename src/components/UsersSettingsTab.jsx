@@ -247,38 +247,25 @@ export default function UsersSettingsTab() {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      {/* Tab Switcher */}
-      <div className="flex items-center gap-1 mb-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+      {/* Unified Tab Switcher */}
+      <div className="flex bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl mb-2 mx-auto w-full max-w-sm">
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'users' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl transition-all duration-300 ${activeTab === 'users' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
         >
-          <Users className="w-4 h-4" /> کاربران سیستم
+          <Users className="w-6 h-6" />
+          <span className={`text-[10px] font-bold transition-all duration-300 ${activeTab === 'users' ? 'opacity-100 h-3 mt-1' : 'opacity-0 h-0 overflow-hidden'}`}>کاربران سیستم</span>
         </button>
         <button
           onClick={() => setActiveTab('audit')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'audit' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl transition-all duration-300 ${activeTab === 'audit' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
         >
-          <ShieldCheck className="w-4 h-4" /> لاگ‌های امنیتی
+          <Activity className="w-6 h-6" />
+          <span className={`text-[10px] font-bold transition-all duration-300 ${activeTab === 'audit' ? 'opacity-100 h-3 mt-1' : 'opacity-0 h-0 overflow-hidden'}`}>تاریخچه فعالیت‌ها</span>
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-[400px]">
-      <div className="flex items-center gap-1 px-4 py-2 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${activeTab === 'users' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50'}`}
-        >
-          <Users className="w-4 h-4" /> کاربران
-        </button>
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${activeTab === 'audit' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50'}`}
-        >
-          <Activity className="w-4 h-4" /> تاریخچه فعالیت‌ها
-        </button>
-      </div>
-
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 max-w-5xl mx-auto w-full">
         {activeTab === 'audit' ? (

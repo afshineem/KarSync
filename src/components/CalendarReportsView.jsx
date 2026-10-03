@@ -131,6 +131,17 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
 
   // Inspected date string for quick modal inspection from monthly calendar
   const [inspectedDateStr, setInspectedDateStr] = useState(null);
+  useEffect(() => {
+    const handleInspect = (e) => {
+      if (e.detail?.date) {
+        setDateFrom(e.detail.date);
+        setDateTo(e.detail.date);
+        setInspectedDateStr(e.detail.date);
+      }
+    };
+    window.addEventListener('inspectDate', handleInspect);
+    return () => window.removeEventListener('inspectDate', handleInspect);
+  }, []);
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 

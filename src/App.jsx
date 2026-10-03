@@ -42,6 +42,13 @@ function AppContent() {
     closeGlobalSettings
   } = useProject();
   const [activeTab, setActiveTab] = useState('dashboard');
+  useEffect(() => {
+    const handleNavigate = (e) => {
+      if (e.detail?.tab) setActiveTab(e.detail.tab);
+    };
+    window.addEventListener('navigateApp', handleNavigate);
+    return () => window.removeEventListener('navigateApp', handleNavigate);
+  }, []);
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementWorker, setSettlementWorker] = useState(null);

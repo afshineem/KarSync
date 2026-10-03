@@ -539,6 +539,10 @@ export function AuthProvider({ children }) {
             }
           } catch(e) { console.warn(e); }
 
+          setUser(sessionUser);
+          localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+
+          return { success: true, role: 'admin', user: sessionUser };
           return { success: true, role: 'admin', user: sessionUser };
         }
       } catch (err) {

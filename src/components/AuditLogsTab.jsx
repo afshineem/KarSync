@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../db/db';
 import { supabase } from '../services/realtimeSync';
-import { Activity, Clock, Search, Filter } from 'lucide-react';
+import { Activity, Clock, Search, Filter, Eye, ChevronDown } from 'lucide-react';
 import { usePermissions } from '../context/AuthContext';
 import { logAuditAction } from '../services/auditLogger';
 
@@ -34,6 +34,13 @@ export default function AuditLogsTab({ workspaceId }) {
       let localLogs = [];
       if (db.audit_logs) {
         localLogs = await db.audit_logs?.where('workspace_id').equals(effectiveWorkspaceId).reverse().sortBy('created_at') || [];
+        const orphanLogs = await db.audit_logs?.where('workspace_id').equals('local-offline-workspace').toArray() || [];
+        if (orphanLogs.length > 0) {
+           const updated = orphanLogs.map(l => ({...l, workspace_id: effectiveWorkspaceId}));
+           await db.audit_logs.bulkPut(updated);
+           if (navigator.onLine) supabase.from('audit_logs').upsert(updated).catch(()=>{});
+           localLogs = [...updated, ...localLogs].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+        }
       }
       
       if (localLogs.length > 0) {
@@ -130,22 +137,52 @@ export default function AuditLogsTab({ workspaceId }) {
             {filteredLogs.map(log => (
               <div key={log.id} className="relative">
                 <div className="absolute -right-[23px] top-1 w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-slate-50 dark:ring-slate-900"></div>
-                <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50 shadow-sm">
+                <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50 shadow-sm transition-all hover:shadow-md">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                       <Activity className="w-3.5 h-3.5 text-indigo-500" />
                       {log.user_name}
                     </span>
-                    <span className="text-[10px] text-slate-400 flex items-center gap-1" dir="ltr">
-                      {getTimeAgo(log.created_at)} <Clock className="w-3 h-3" />
-                    </span>
+                    <div className="flex items-center gap-3">
+                      {(log.action_type === 'CREATE_ATTENDANCE' || log.action_type === 'EDIT_ATTENDANCE' || log.action_type === 'CREATE_EXPENSE' || log.action_type === 'EDIT_EXPENSE') && log.details?.date && (
+                        <button 
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('navigateApp', { detail: { tab: 'calendar' } }));
+                            window.dispatchEvent(new CustomEvent('inspectDate', { detail: { date: log.details.date } }));
+                            const closeBtn = document.querySelector('[data-close-global-settings]');
+                            if(closeBtn) closeBtn.click();
+                          }}
+                          className="text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 p-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-500/20 transition-colors"
+                          title="مشاهده در تقویم"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
+                      <span className="text-[10px] text-slate-400 flex items-center gap-1" dir="ltr">
+                        {getTimeAgo(log.created_at)} <Clock className="w-3 h-3" />
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-400 ml-1">
-                      [{log.action_type}]
-                    </span>
-                    {log.details?.message || 'عملیات سیستمی انجام شد'}
-                  </p>
+                  <details className="group cursor-pointer">
+                    <summary className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium list-none flex items-center gap-2">
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 transition-transform group-open:-rotate-180" />
+                      <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                        [{log.action_type}]
+                      </span>
+                      {log.details?.description || log.details?.message || 'عملیات سیستمی انجام شد'}
+                    </summary>
+                    <div className="mt-2 pl-5 text-[10px] text-slate-500 dark:text-slate-400 space-y-1 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                      {Object.entries(log.details || {}).map(([key, value]) => {
+                         if (key === 'description' || key === 'message') return null;
+                         return (
+                           <div key={key} className="flex gap-2">
+                             <span className="font-semibold">{key}:</span>
+                             <span>{String(value)}</span>
+                           </div>
+                         );
+                      })}
+                    </div>
+                  </details>
                 </div>
               </div>
             ))}
