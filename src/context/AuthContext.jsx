@@ -46,21 +46,9 @@ export function AuthProvider({ children }) {
         if (!parsed.role) parsed.role = 'admin';
         return parsed;
       }
-      return {
-        id: 'admin',
-        userId: 'admin',
-        role: 'admin',
-        name: 'مدیر ارشد کارگاه',
-        title: 'مدیر ارشد کارگاه'
-      };
+      return null;
     } catch {
-      return {
-        id: 'admin',
-        userId: 'admin',
-        role: 'admin',
-        name: 'مدیر ارشد کارگاه',
-        title: 'مدیر ارشد کارگاه'
-      };
+      return null;
     }
   });
 
