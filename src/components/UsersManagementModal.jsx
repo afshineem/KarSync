@@ -126,7 +126,7 @@ export default function UsersManagementModal({ isOpen, onClose }) {
       const userData = {
         ...formData,
         id: selectedUser ? selectedUser.id : generateUUID(),
-        workspace_id: currentUser.workspace_id,
+        workspace_id: workspace.id,
         is_active: selectedUser ? selectedUser.is_active : true,
         session_version: selectedUser ? selectedUser.session_version : 1,
         created_at: selectedUser ? selectedUser.created_at : new Date().toISOString()
