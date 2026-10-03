@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Plus, X, Search, ShieldCheck, Edit, Trash2, ShieldBan, UserCog } from 'lucide-react';
+import { Users, Shield, Plus, X, Search, ShieldCheck, Edit, Trash2, ShieldBan, UserCog, Activity, UserPlus, Power, ShieldAlert, Key } from 'lucide-react';
 import { db } from '../db/db';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/realtimeSync';
 import { logAuditAction } from '../services/auditLogger';
 import { useLanguage } from '../i18n/LanguageContext';
 import UserFormModal from './UserFormModal';
+import AuditLogsTab from "./AuditLogsTab";
 
 export default function UsersSettingsTab() {
   const { user: currentUser } = useAuth();
