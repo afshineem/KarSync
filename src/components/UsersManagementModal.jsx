@@ -162,7 +162,7 @@ export default function UsersManagementModal({ isOpen, onClose }) {
       loadData();
     } catch (err) {
       console.error('Failed to save user:', err);
-      alert('خطا در ذخیره اطلاعات کاربر.');
+      alert('خطا در ذخیره اطلاعات کاربر:\n' + err.message);
     }
   };
 
