@@ -111,7 +111,7 @@ export default function UsersSettingsTab() {
 
   const handleSaveUser = async (formData) => {
     try {
-      if (!selectedUser && workspace && usersList.length >= workspace.max_users_limit) {
+      if (!selectedUser && workspace && usersList.filter(u => u.is_active).length >= workspace.max_users_limit) {
         alert('سقف کاربران پکیج شما تکمیل شده است. برای افزودن کاربر جدید، پکیج خود را ارتقا دهید یا کاربری را غیرفعال کنید.');
         return;
       }
