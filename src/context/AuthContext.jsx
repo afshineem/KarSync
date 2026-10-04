@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { db } from '../db/db';
 import { supabase, pushWorkerMetadataLive } from '../services/realtimeSync';
+import { pullAllFromSupabase } from '../services/syncService';
 import { hashPassword, verifyPassword, evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { verifyTOTPCode, verifyAndConsumeBackupCode, generateBackupCodes } from '../utils/totpSecurity';
 
@@ -542,7 +543,11 @@ export function AuthProvider({ children }) {
           setUser(sessionUser);
           localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
 
-          return { success: true, role: 'admin', user: sessionUser };
+          // Force sync to fetch workspaces and app_users from Supabase
+          if (navigator.onLine) {
+            console.log('🔄 Forcing full sync after admin login...');
+            await pullAllFromSupabase().catch(err => console.warn('Forced sync failed:', err));
+          }
           return { success: true, role: 'admin', user: sessionUser };
         }
       } catch (err) {
@@ -741,7 +746,12 @@ export function AuthProvider({ children }) {
       };
       setUser(sessionUser);
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
-      return { success: true, role: 'admin', user: sessionUser };
+      // Force sync to fetch workspaces and app_users from Supabase
+          if (navigator.onLine) {
+            console.log('🔄 Forcing full sync after admin login...');
+            await pullAllFromSupabase().catch(err => console.warn('Forced sync failed:', err));
+          }
+          return { success: true, role: 'admin', user: sessionUser };
     }
 
     recordFailedLogin();

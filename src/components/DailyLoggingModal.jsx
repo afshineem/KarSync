@@ -1,4 +1,4 @@
-import { logAuditAction } from "../services/auditLogger";
+import { logAuditAction, getSafeAuthContext } from "../services/auditLogger";
 import { pushLogsLive } from '../services/realtimeSync';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -43,6 +43,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const { t, language } = useLanguage();
   const { currentProject, openWorkerProfile } = useProject();
   const { user } = useAuth();
+  const { currentUser } = usePermissions();
   const { canModifyDate } = usePermissions();
   const currency = currentProject?.currency || 'IQD';
   const standardHours = currentProject?.standardWorkHours || 8;
@@ -495,11 +496,19 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           await db.attendanceLogs.put(newRecord);
           savedLogs.push(newRecord);
 
-          logAuditAction({
+          
+        const safeAuth = await getSafeAuthContext();
+        await logAuditAction({
+            workspaceId: safeAuth.workspaceId,
+            userId: safeAuth.userId,
+            userName: safeAuth.userName,
             actionType: existingLog ? 'EDIT_ATTENDANCE' : 'CREATE_ATTENDANCE',
             entityType: 'attendanceLogs',
             entityId: canonicalId,
             projectId: newRecord.projectId,
+            
+            
+            
             details: {
               description: existingLog 
                 ? `ویرایش کارکرد ${worker.name} در تاریخ ${selectedDate}` 

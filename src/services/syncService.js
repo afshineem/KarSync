@@ -93,27 +93,59 @@ export async function pullAllFromSupabase() {
   }
 
   const cleanUrl = config.supabaseUrl.trim().replace(/\/+$/, '');
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || config.supabaseKey.trim();
+  
   const headers = {
     'apikey': config.supabaseKey.trim(),
-    'Authorization': `Bearer ${config.supabaseKey.trim()}`,
+    'Authorization': `Bearer ${token}`,
     'Accept': 'application/json'
   };
 
-  const [wRes, lRes] = await Promise.all([
+  const [wRes, lRes, uRes, wsRes] = await Promise.all([
     fetch(`${cleanUrl}/rest/v1/workers?select=*`, { headers }),
-    fetch(`${cleanUrl}/rest/v1/attendance_logs?select=*`, { headers })
+    fetch(`${cleanUrl}/rest/v1/attendance_logs?select=*`, { headers }),
+    fetch(`${cleanUrl}/rest/v1/app_users?select=*`, { headers }),
+    fetch(`${cleanUrl}/rest/v1/workspaces?select=*`, { headers })
   ]);
 
-  if (!wRes.ok || !lRes.ok) {
+  if (!wRes.ok || !lRes.ok || !uRes.ok || !wsRes.ok) {
     throw new Error('خطا در دریافت اطلاعات از سرور ابری سوپابیس.');
   }
 
   const workers = await wRes.json();
   const logs = await lRes.json();
+  const appUsers = await uRes.json();
+  const workspaces = await wsRes.json();
 
-  await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
+  const localAppUsers = await db.app_users.toArray();
+  const localWorkspaces = await db.workspaces.toArray();
+
+  if (appUsers.length === 0 && localAppUsers.length > 0) {
+    console.warn("Supabase returned empty app_users, but local has data. Check RLS! Skipping app_users clear.");
+  }
+  if (workspaces.length === 0 && localWorkspaces.length > 0) {
+    console.warn("Supabase returned empty workspaces, but local has data. Check RLS! Skipping workspaces clear.");
+  }
+
+  await db.transaction('rw', [db.workers, db.attendanceLogs, db.app_users, db.workspaces], async () => {
     await db.workers.clear();
     await db.attendanceLogs.clear();
+    if (!(appUsers.length === 0 && localAppUsers.length > 0)) {
+      await db.app_users.clear();
+    }
+    if (!(workspaces.length === 0 && localWorkspaces.length > 0)) {
+      await db.workspaces.clear();
+    }
+    
+    // Put synced app_users
+    for (const au of appUsers) {
+      await db.app_users.put(au);
+    }
+    // Put synced workspaces
+    for (const ws of workspaces) {
+      await db.workspaces.put(ws);
+    }
 
     for (const w of workers) {
       if (!w.deleted_at) {
@@ -246,9 +278,34 @@ export async function pullAllFromServer() {
   const resJson = await response.json();
   if (!resJson.success || !resJson.data) throw new Error(resJson.error || 'داده‌ای دریافت نشد.');
   const { workers, logs } = resJson.data;
-  await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
+  const localAppUsers = await db.app_users.toArray();
+  const localWorkspaces = await db.workspaces.toArray();
+
+  if (appUsers.length === 0 && localAppUsers.length > 0) {
+    console.warn("Supabase returned empty app_users, but local has data. Check RLS! Skipping app_users clear.");
+  }
+  if (workspaces.length === 0 && localWorkspaces.length > 0) {
+    console.warn("Supabase returned empty workspaces, but local has data. Check RLS! Skipping workspaces clear.");
+  }
+
+  await db.transaction('rw', [db.workers, db.attendanceLogs, db.app_users, db.workspaces], async () => {
     await db.workers.clear();
     await db.attendanceLogs.clear();
+    if (!(appUsers.length === 0 && localAppUsers.length > 0)) {
+      await db.app_users.clear();
+    }
+    if (!(workspaces.length === 0 && localWorkspaces.length > 0)) {
+      await db.workspaces.clear();
+    }
+    
+    // Put synced app_users
+    for (const au of appUsers) {
+      await db.app_users.put(au);
+    }
+    // Put synced workspaces
+    for (const ws of workspaces) {
+      await db.workspaces.put(ws);
+    }
     if (workers) await db.workers.bulkAdd(workers);
     if (logs) await db.attendanceLogs.bulkAdd(logs);
   });

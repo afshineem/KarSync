@@ -1,3 +1,4 @@
+import { logAuditAction, getSafeAuthContext } from "../services/auditLogger";
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
@@ -42,7 +43,7 @@ export function Navbar({
     return () => window.removeEventListener('keydown', handleGlobalKey);
   }, [openGlobalSettings]);
 
-  const { hasPermission } = usePermissions();
+  const { hasPermission, currentUser } = usePermissions();
 
   const navItems = [
     { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
@@ -52,6 +53,38 @@ export function Navbar({
     { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards, hidden: !hasPermission('settlement.manage') },
     { id: 'accounting', label: t('accountingTab') || 'حسابداری و خزانه‌داری', icon: Landmark, hidden: !hasPermission('settlement.manage') },
   ].filter(item => !item.hidden);
+
+  
+  
+  useEffect(() => {
+    console.log("ALL LOCAL STORAGE KEYS:", Object.keys(localStorage));
+    console.log("workshop_auth_session:", localStorage.getItem('workshop_auth_session'));
+    console.log("workshop_admin_auth:", localStorage.getItem('workshop_admin_auth'));
+    console.log("karsync_active_project_id:", localStorage.getItem('karsync_active_project_id'));
+    
+    // Also log Dexie contents
+    import('../db/db').then(({ db }) => {
+        db.current_session.toArray().then(sessions => {
+            console.log("DEXIE current_session:", sessions);
+        });
+        db.workspaces.toArray().then(ws => {
+            console.log("DEXIE workspaces:", ws);
+        });
+    });
+  }, []);
+
+
+  const handleTestLog = async () => {
+    const safeAuth = await getSafeAuthContext();
+    await logAuditAction({
+      actionType: 'SYSTEM_INIT',
+      entityType: 'TEST',
+      workspaceId: safeAuth.workspaceId,
+      userId: safeAuth.userId,
+      userName: safeAuth.userName,
+      details: { message: 'Test from Navbar' }
+    });
+  };
 
   return (
     <>
@@ -131,6 +164,12 @@ export function Navbar({
             {/* Right Controls: ProjectSwitcher + Settings Gear */}
             <div className="flex items-center gap-2 flex-shrink-0 relative">
               {/* SaaS Multi-Project Switcher */}
+              <button
+                onClick={handleTestLog}
+                className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
+              >
+                [تست لاگر]
+              </button>
               <ProjectSwitcher />
 
               {/* User Avatar & Settings Trigger Button */}

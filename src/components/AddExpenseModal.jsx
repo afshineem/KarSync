@@ -1,11 +1,11 @@
-import { logAuditAction } from "../services/auditLogger";
+import { logAuditAction, getSafeAuthContext } from "../services/auditLogger";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateExpenseId, generateCategoryId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
 import { pushExpenseLive, uploadExpenseReceipt } from '../services/realtimeSync';
 import { formatCurrency } from '../utils/formatters';
 import { 
@@ -42,6 +42,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   const { currentProject } = useProject();
   const { t, language, direction } = useLanguage();
   const { user } = useAuth();
+  const { currentUser } = usePermissions();
   const isApprovedAndLocked = expenseToEdit?.status === 'approved';
   const isRtl = direction === 'rtl';
   const fileInputRef = useRef(null);
@@ -375,11 +376,19 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         await db.expenses.add(expenseRecord);
       }
 
-      logAuditAction({
+      
+        const safeAuth = await getSafeAuthContext();
+        await logAuditAction({
+            workspaceId: safeAuth.workspaceId,
+            userId: safeAuth.userId,
+            userName: safeAuth.userName,
         actionType: expenseToEdit ? 'EDIT_EXPENSE' : 'CREATE_EXPENSE',
         entityType: 'expenses',
         entityId: expenseRecord.id,
         projectId: expenseRecord.projectId,
+        
+        
+        
         details: {
           description: expenseToEdit ? `ویرایش هزینه: ${expenseRecord.title}` : `ثبت هزینه جدید: ${expenseRecord.title}`,
           amount: expenseRecord.amount

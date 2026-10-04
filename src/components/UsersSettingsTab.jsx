@@ -3,7 +3,7 @@ import { Users, Shield, Plus, X, Search, ShieldCheck, Edit, Trash2, ShieldBan, U
 import { db } from '../db/db';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/realtimeSync';
-import { logAuditAction } from '../services/auditLogger';
+import { logAuditAction, getSafeAuthContext } from '../services/auditLogger';
 import { useLanguage } from '../i18n/LanguageContext';
 import UserFormModal from './UserFormModal';
 import AuditLogsTab from "./AuditLogsTab";
@@ -28,89 +28,105 @@ export default function UsersSettingsTab() {
 
   const loadData = async () => {
     try {
-      let targetWorkspaceId = currentUser.workspace_id;
+      const safeAuth = await getSafeAuthContext();
+      let targetWorkspaceId = safeAuth.workspaceId;
       let targetWorkspace = null;
 
-      // 1. If user doesn't have a workspace, we seed one
-      if (!targetWorkspaceId) {
-        // Try to find if default workspace exists
-        const defaultWs = await db.workspaces?.where('workspace_code').equals('KARS-101').first();
-        if (defaultWs) {
-          targetWorkspaceId = defaultWs.id;
-          targetWorkspace = defaultWs;
-        } else {
-          // Seed new workspace
-          const newWs = {
-            id: generateUUID(),
-            name: 'کارگاه مرکزی',
-            workspace_code: 'KARS-101',
-            owner_id: currentUser.id || 'admin_local',
-            max_users_limit: 5,
-            plan_tier: 'standard',
-            created_at: new Date().toISOString()
-          };
-          await db.workspaces?.put(newWs);
-          if (navigator.onLine) supabase.from('workspaces').insert(newWs).then();
-          targetWorkspaceId = newWs.id;
-          targetWorkspace = newWs;
-        }
-
-        // Seed the admin user into app_users if not exists
-        const existingAdmin = await db.app_users?.where("workspace_id").equals(targetWorkspaceId).and(u => u.role === "admin").first();
-        if (!existingAdmin) {
-          const newAdmin = {
-            id: currentUser.id || 'admin_local',
-            workspace_id: targetWorkspaceId,
-            username: currentUser.username || 'admin',
-            full_name: currentUser.name || 'مدیر سیستم',
-            role: 'admin',
-            is_active: true,
-            session_version: 1,
-            can_edit_past_records: true,
-            created_at: new Date().toISOString()
-          };
-          await db.app_users?.put(newAdmin);
-          if (navigator.onLine) supabase.from('app_users').insert(newAdmin).then();
+      // 🔥 CRITICAL FIX: Fetch true workspace_id directly from Supabase to override any local ghosts!
+      if (navigator.onLine && supabase) {
+        try {
+          const { data: remoteUser } = await supabase.from('app_users').select('workspace_id').eq('id', safeAuth.userId).single();
+          if (remoteUser && remoteUser.workspace_id) {
+            targetWorkspaceId = remoteUser.workspace_id;
+            console.log('☁️ Synced true workspace_id from Supabase:', targetWorkspaceId);
+            
+            // Update local app_users to reflect reality
+            if (db.app_users) {
+              await db.app_users.where('id').equals(safeAuth.userId).modify({ workspace_id: targetWorkspaceId }).catch(()=>{});
+            }
+          }
+        } catch(e) {
+          console.warn('Could not sync workspace_id from Supabase, using local.', e);
         }
       }
 
-      // 2. Load workspace
-      if (!targetWorkspace) {
+      if (targetWorkspaceId) {
+        // Clean up ghost workspaces! Keep ONLY the target workspace
+        if (db.workspaces) {
+           const allWs = await db.workspaces.toArray();
+           for (const ws of allWs) {
+             if (ws.id !== targetWorkspaceId) {
+                console.log('👻 Cleaning up ghost workspace:', ws.id);
+                await db.workspaces.delete(ws.id);
+             }
+           }
+        }
+        
         targetWorkspace = await db.workspaces?.get(targetWorkspaceId);
-      }
-      if (targetWorkspace) setWorkspace(targetWorkspace);
-      
-      // 3. Load users
-      const list = await db.app_users?.where('workspace_id').equals(targetWorkspaceId).toArray() || [];
-      setUsersList(list);
-
-      // 4. Background sync
-      if (navigator.onLine && targetWorkspaceId) {
-        const { data: wsData } = await supabase.from('workspaces').select('*').eq('id', targetWorkspaceId).maybeSingle();
-        if (wsData) {
-          setWorkspace(wsData);
-          if (db.workspaces) await db.workspaces.put(wsData);
+        
+        // Ensure the correct workspace exists locally
+        if (!targetWorkspace) {
+          targetWorkspace = {
+             id: targetWorkspaceId,
+             name: 'کارگاه مرکزی',
+             workspace_code: 'KAR101',
+             owner_id: safeAuth.userId,
+             max_users_limit: 10,
+             plan_tier: 'free',
+             created_at: new Date().toISOString()
+          };
+          if (db.workspaces) await db.workspaces.put(targetWorkspace).catch(()=>{});
         }
-        const { data: uData } = await supabase.from('app_users').select('*').eq('workspace_id', targetWorkspaceId);
-        if (uData) {
-          setUsersList(uData);
-          if (db.app_users) await db.app_users.bulkPut(uData);
+      } else {
+        console.warn('No targetWorkspaceId found!');
+        return;
+      }
+      
+      setWorkspace(targetWorkspace);
+
+      // Now fetch users
+      // Now fetch users
+      if (db.app_users) {
+        // 1. First fetch local so UI responds instantly
+        let localUsers = await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray();
+        setUsersList(localUsers);
+
+        // 2. Fetch remote to sync missing users (like ones added via MCP)
+        if (navigator.onLine && supabase) {
+           try {
+             const { data: remoteUsers, error } = await supabase
+               .from('app_users')
+               .select('*')
+               .eq('workspace_id', targetWorkspaceId);
+               
+             if (!error && remoteUsers && remoteUsers.length > 0) {
+                await db.app_users.bulkPut(remoteUsers);
+                
+                // Re-fetch local to ensure we have merged list
+                localUsers = await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray();
+                setUsersList(localUsers);
+             } else if (!error && remoteUsers && remoteUsers.length === 0 && localUsers.length > 0) {
+                console.warn("Supabase returned empty app_users for this workspace, but local has data. RLS might be blocking!");
+             }
+           } catch(e) {
+             console.warn('Could not fetch app_users from Supabase:', e);
+           }
         }
       }
     } catch (err) {
-      console.error('Error loading users:', err);
+      console.error('Error in UsersSettingsTab loadData:', err);
     }
   };
 
-  const generateUUID = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  };
+
+
+
 
   const handleSaveUser = async (formData) => {
     try {
+      const safeAuth = await getSafeAuthContext();
+      if (!safeAuth.workspaceId) throw new Error('ورک‌اسپیس معتبری یافت نشد!');
+
       if (!selectedUser && workspace && usersList.filter(u => u.is_active).length >= workspace.max_users_limit) {
         alert('سقف کاربران پکیج شما تکمیل شده است. برای افزودن کاربر جدید، پکیج خود را ارتقا دهید یا کاربری را غیرفعال کنید.');
         return;
@@ -123,8 +139,8 @@ export default function UsersSettingsTab() {
 
       const userData = {
         ...formData,
-        id: selectedUser ? selectedUser.id : generateUUID(),
-        workspace_id: workspace.id,
+        id: selectedUser ? selectedUser.id : crypto.randomUUID(),
+        workspace_id: safeAuth.workspaceId,
         is_active: selectedUser ? selectedUser.is_active : true,
         session_version: selectedUser ? selectedUser.session_version : 1,
         created_at: selectedUser ? selectedUser.created_at : new Date().toISOString()
@@ -143,10 +159,19 @@ export default function UsersSettingsTab() {
 
       // Save to remote
       if (navigator.onLine) {
-        await supabase.from('app_users').upsert(userData);
+        if (selectedUser) {
+           const { error } = await supabase.from('app_users').update(userData).eq('id', selectedUser.id);
+           if (error) console.error("Failed to update user remotely:", error);
+        } else {
+           const { error } = await supabase.from('app_users').insert(userData);
+           if (error) console.error("Failed to insert user remotely:", error);
+        }
       }
 
-      logAuditAction({
+      await logAuditAction({
+        workspaceId: safeAuth.workspaceId,
+        userId: safeAuth.userId,
+        userName: safeAuth.userName,
         actionType: selectedUser ? 'UPDATE_USER' : 'CREATE_USER',
         entityType: 'user',
         entityId: userData.id,
@@ -177,12 +202,17 @@ export default function UsersSettingsTab() {
     if (!confirmDelete) return;
 
     try {
+      const safeAuth = await getSafeAuthContext();
+
       if (db.app_users) await db.app_users.delete(userToDelete.id);
       if (navigator.onLine) {
         await supabase.from('app_users').delete().eq('id', userToDelete.id);
       }
 
-      logAuditAction({
+      await logAuditAction({
+        workspaceId: safeAuth.workspaceId,
+        userId: safeAuth.userId,
+        userName: safeAuth.userName,
         actionType: 'DELETE_USER',
         entityType: 'user',
         entityId: userToDelete.id,
@@ -199,6 +229,8 @@ export default function UsersSettingsTab() {
   };
   const toggleUserStatus = async (userToToggle) => {
     try {
+      const safeAuth = await getSafeAuthContext();
+
       const updated = {
         ...userToToggle,
         is_active: !userToToggle.is_active,
@@ -213,7 +245,10 @@ export default function UsersSettingsTab() {
         }).eq('id', updated.id);
       }
 
-      logAuditAction({
+      await logAuditAction({
+        workspaceId: safeAuth.workspaceId,
+        userId: safeAuth.userId,
+        userName: safeAuth.userName,
         actionType: updated.is_active ? 'UNBLOCK_USER' : 'BLOCK_USER',
         entityType: 'user',
         entityId: updated.id,
@@ -247,22 +282,32 @@ export default function UsersSettingsTab() {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      {/* Unified Tab Switcher */}
-      <div className="flex bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl mb-2 mx-auto w-full max-w-sm">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl transition-all duration-300 ${activeTab === 'users' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
-        >
-          <Users className="w-6 h-6" />
-          <span className={`text-[10px] font-bold transition-all duration-300 ${activeTab === 'users' ? 'opacity-100 h-3 mt-1' : 'opacity-0 h-0 overflow-hidden'}`}>کاربران سیستم</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl transition-all duration-300 ${activeTab === 'audit' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
-        >
-          <Activity className="w-6 h-6" />
-          <span className={`text-[10px] font-bold transition-all duration-300 ${activeTab === 'audit' ? 'opacity-100 h-3 mt-1' : 'opacity-0 h-0 overflow-hidden'}`}>تاریخچه فعالیت‌ها</span>
-        </button>
+      {/* Unified Tab Switcher (Right aligned, Navbar Style) */}
+      <div className="flex justify-start mb-4">
+        <div className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/60 p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`relative p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 ${activeTab === 'users' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105 font-bold border border-blue-400/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'}`}
+          >
+            <Users className="w-5 h-5 transition-transform hover:scale-110" />
+            {activeTab === 'users' && (
+              <span className="text-xs font-semibold px-1 whitespace-nowrap animate-in fade-in">
+                کاربران سیستم
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`relative p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 ${activeTab === 'audit' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105 font-bold border border-blue-400/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'}`}
+          >
+            <Activity className="w-5 h-5 transition-transform hover:scale-110" />
+            {activeTab === 'audit' && (
+              <span className="text-xs font-semibold px-1 whitespace-nowrap animate-in fade-in">
+                تاریخچه فعالیت‌ها
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-[400px]">
@@ -279,7 +324,7 @@ export default function UsersSettingsTab() {
                   <div className="relative w-14 h-14 flex items-center justify-center">
                     <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                       <path className="text-slate-100 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                      <path className="text-indigo-500 transition-all duration-1000" strokeDasharray={`${(usersList.filter(u => u.is_active).length / workspace.max_users_limit) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                      <path className="text-blue-500 transition-all duration-1000" strokeDasharray={`${(usersList.filter(u => u.is_active).length / workspace.max_users_limit) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
                     </svg>
                     <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-300">
                       <span>{usersList.filter(u => u.is_active).length}</span>
@@ -300,7 +345,7 @@ export default function UsersSettingsTab() {
                     setSelectedUser(null);
                     setIsFormOpen(true);
                   }}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl shadow-sm shadow-indigo-500/20 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl shadow-sm shadow-blue-500/20 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
                 >
                   <UserPlus className="w-4 h-4" /> تعریف کاربر جدید
                 </button>
@@ -320,7 +365,7 @@ export default function UsersSettingsTab() {
                     setSelectedUser(null);
                     setIsFormOpen(true);
                   }}
-                  className="px-5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-500 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm text-xs font-semibold inline-flex items-center gap-2 transition-all"
+                  className="px-5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-500 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm text-xs font-semibold inline-flex items-center gap-2 transition-all"
                 >
                   <UserPlus className="w-4 h-4" /> تعریف کاربر جدید
                 </button>

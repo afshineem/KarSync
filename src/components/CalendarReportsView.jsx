@@ -1,5 +1,5 @@
 import { deleteLogLive } from '../services/realtimeSync';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { calculateWorkerFinancials } from "../utils/settlementCalculations";
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';

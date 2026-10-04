@@ -33,13 +33,15 @@ export default function AuditLogsTab({ workspaceId }) {
       // 1. Try local first
       let localLogs = [];
       if (db.audit_logs) {
-        localLogs = await db.audit_logs?.where('workspace_id').equals(effectiveWorkspaceId).reverse().sortBy('created_at') || [];
+        localLogs = await db.audit_logs?.where('workspace_id').equals(effectiveWorkspaceId).toArray() || [];
+        localLogs.sort((a,b) => new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt));
+        
         const orphanLogs = await db.audit_logs?.where('workspace_id').equals('local-offline-workspace').toArray() || [];
         if (orphanLogs.length > 0) {
            const updated = orphanLogs.map(l => ({...l, workspace_id: effectiveWorkspaceId}));
            await db.audit_logs.bulkPut(updated);
            if (navigator.onLine) supabase.from('audit_logs').upsert(updated).catch(()=>{});
-           localLogs = [...updated, ...localLogs].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+           localLogs = [...updated, ...localLogs].sort((a,b) => new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt));
         }
       }
       
@@ -89,7 +91,13 @@ export default function AuditLogsTab({ workspaceId }) {
   };
 
   const filteredLogs = logs.filter(log => {
-    if (filterType !== 'all' && !log.action_type?.startsWith(filterType)) return false;
+    if (filterType !== 'all') {
+      const typeStr = (log.action_type || '').toUpperCase();
+      if (filterType === 'USER' && !typeStr.includes('USER')) return false;
+      if (filterType === 'ATTENDANCE' && !typeStr.includes('ATTENDANCE')) return false;
+      if (filterType === 'FINANCIAL' && !typeStr.includes('EXPENSE') && !typeStr.includes('PAYMENT') && !typeStr.includes('SETTLEMENT')) return false;
+      if (filterType === 'SYSTEM' && !typeStr.includes('SYSTEM')) return false;
+    }
     if (filterUser && !log.user_name?.includes(filterUser)) return false;
     return true;
   });
@@ -105,7 +113,7 @@ export default function AuditLogsTab({ workspaceId }) {
             placeholder="جستجو نام متصدی..." 
             value={filterUser}
             onChange={e => setFilterUser(e.target.value)}
-            className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-indigo-500 rounded-xl text-xs"
+            className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-blue-500 rounded-xl text-xs"
           />
         </div>
         <div className="relative flex-1 sm:max-w-[200px]">
@@ -113,7 +121,7 @@ export default function AuditLogsTab({ workspaceId }) {
           <select
             value={filterType}
             onChange={e => setFilterType(e.target.value)}
-            className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-indigo-500 rounded-xl text-xs appearance-none"
+            className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-blue-500 rounded-xl text-xs appearance-none"
           >
             <option value="all">همه فعالیت‌ها</option>
             <option value="USER">فعالیت کاربران</option>
@@ -128,19 +136,19 @@ export default function AuditLogsTab({ workspaceId }) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {filteredLogs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
-            <Activity className="w-12 h-12 mb-3 opacity-20 text-indigo-500" />
+            <Activity className="w-12 h-12 mb-3 opacity-20 text-blue-500" />
             <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-1">هنوز فعالیتی ثبت نشده است</h3>
             <p className="text-xs">پس از انجام عملیات، تاریخچه در اینجا نمایش داده می‌شود.</p>
           </div>
         ) : (
-          <div className="relative border-r-2 border-indigo-100 dark:border-indigo-900/30 pr-4 mr-2 space-y-6">
+          <div className="relative border-r-2 border-blue-100 dark:border-blue-900/30 pr-4 mr-2 space-y-6">
             {filteredLogs.map(log => (
               <div key={log.id} className="relative">
-                <div className="absolute -right-[23px] top-1 w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-slate-50 dark:ring-slate-900"></div>
+                <div className="absolute -right-[23px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-slate-50 dark:ring-slate-900"></div>
                 <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50 shadow-sm transition-all hover:shadow-md">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5 text-indigo-500" />
+                      <Activity className="w-3.5 h-3.5 text-blue-500" />
                       {log.user_name}
                     </span>
                     <div className="flex items-center gap-3">
@@ -152,7 +160,7 @@ export default function AuditLogsTab({ workspaceId }) {
                             const closeBtn = document.querySelector('[data-close-global-settings]');
                             if(closeBtn) closeBtn.click();
                           }}
-                          className="text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 p-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-500/20 transition-colors"
+                          className="text-blue-500 hover:text-blue-600 dark:text-blue-400 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-500/20 transition-colors"
                           title="مشاهده در تقویم"
                         >
                           <Eye className="w-4 h-4" />
@@ -166,7 +174,7 @@ export default function AuditLogsTab({ workspaceId }) {
                   <details className="group cursor-pointer">
                     <summary className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium list-none flex items-center gap-2">
                       <ChevronDown className="w-3.5 h-3.5 text-slate-400 transition-transform group-open:-rotate-180" />
-                      <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">
                         [{log.action_type}]
                       </span>
                       {log.details?.description || log.details?.message || 'عملیات سیستمی انجام شد'}

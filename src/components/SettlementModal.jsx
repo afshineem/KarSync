@@ -1,11 +1,11 @@
-import { logAuditAction } from "../services/auditLogger";
+import { logAuditAction, getSafeAuthContext } from "../services/auditLogger";
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generatePaymentId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
 import { pushPaymentsLive, pushLogsLive } from '../services/realtimeSync';
 import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol, formatHoursAndMinutes, formatCurrency, normalizeDigits, convertDigits } from '../utils/formatters';
 import { 
@@ -73,6 +73,7 @@ export function SettlementModal({
   const { t, language, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const { user } = useAuth();
+  const { currentUser } = usePermissions();
   const currency = currentProject?.currency || 'IQD';
 
   const [localWorker, setLocalWorker] = useState(null);
@@ -762,11 +763,19 @@ export function SettlementModal({
 
         await db.payments.put(customSettlementRecord);
 
-        logAuditAction({
+        
+        const safeAuth = await getSafeAuthContext();
+        await logAuditAction({
+            workspaceId: safeAuth.workspaceId,
+            userId: safeAuth.userId,
+            userName: safeAuth.userName,
           actionType: 'SUBMIT_SETTLEMENT',
           entityType: 'payments',
           entityId: settlementRecordId,
           projectId: currentProject?.id || DEFAULT_PROJECT_ID,
+          
+          
+          
           details: {
             description: `ثبت تسویه حساب / مساعده سفارشی برای ${worker.name}`,
             amount: finalAmountNum,
@@ -846,11 +855,37 @@ export function SettlementModal({
 
         await db.payments.put(settlementRecord);
 
-        logAuditAction({
+        
+        let finalWorkspaceId = currentUser?.workspace_id || currentUser?.workspaceId || user?.workspace_id || null;
+        let finalUserId = currentUser?.id || currentUser?.userId || user?.id || null;
+        let finalUserName = currentUser?.full_name || currentUser?.name || user?.full_name || user?.name || 'کاربر سیستم';
+
+        if (!finalWorkspaceId || !finalUserId) {
+          try {
+            const sessionStr = localStorage.getItem('workshop_auth_session');
+            if (sessionStr) {
+              const sessionData = JSON.parse(sessionStr);
+              finalWorkspaceId = finalWorkspaceId || sessionData.workspace_id || sessionData.workspaceId || null;
+              finalUserId = finalUserId || sessionData.id || sessionData.userId || null;
+              finalUserName = finalUserName === 'کاربر سیستم' ? (sessionData.full_name || sessionData.name || 'کاربر سیستم') : finalUserName;
+            }
+          } catch(e) {
+            console.error("Error reading session from localStorage", e);
+          }
+        }
+
+        const safeAuth = await getSafeAuthContext();
+        await logAuditAction({
+            workspaceId: safeAuth.workspaceId,
+            userId: safeAuth.userId,
+            userName: safeAuth.userName,
           actionType: 'SUBMIT_SETTLEMENT',
           entityType: 'payments',
           entityId: settlementRecordId,
           projectId: currentProject?.id || DEFAULT_PROJECT_ID,
+          
+          
+          
           details: {
             description: settlementMode === 'group' 
               ? `ثبت تسویه حساب گروهی برای ${groupMembers.length} نفر (گروه ${worker.groupName})`
