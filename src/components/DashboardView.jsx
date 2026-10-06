@@ -5,7 +5,9 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { EditRecordModal } from './EditRecordModal';
 import { UserProfileModal } from './UserProfileModal';
+import { TasksModal } from './TasksModal';
 import { useProject } from '../context/ProjectContext';
+import { useTasks } from '../hooks/useTasks';
 import { pullExpensesLive } from '../services/realtimeSync';
 import { 
   formatCurrency, 
@@ -44,7 +46,9 @@ import {
   Sparkles,
   Receipt,
   CalendarCheck,
-  ListTodo
+  ListTodo,
+  Check,
+  ArrowRight
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
@@ -58,6 +62,45 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const [selectedSectionId, setSelectedSectionId] = useState('all');
   const [editingLog, setEditingLog] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+  
+  // Shortcut: Shift + T to toggle Tasks modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const target = e.target;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+      if (isInput) return;
+
+      if (e.shiftKey && (e.key === 'T' || e.key === 't' || e.code === 'KeyT')) {
+        e.preventDefault();
+        setIsTasksModalOpen(prev => !prev);
+      }
+    };
+    const handleCustomOpen = () => setIsTasksModalOpen(true);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('karsync-open-tasks', handleCustomOpen);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('karsync-open-tasks', handleCustomOpen);
+    };
+  }, []);
+
+  const { tasks, isLoading: isTasksLoading, fetchTasks, addTask, updateTask, deleteTask } = useTasks();
+
+  useEffect(() => {
+    fetchTasks(targetProjectId);
+  }, [targetProjectId, fetchTasks]);
+
+  const activeTasksList = useMemo(() => {
+    let active = tasks.filter(t => t.status !== 'completed');
+    const pWeight = { high: 3, medium: 2, low: 1 };
+    active.sort((a, b) => (pWeight[b.priority || 'medium'] || 0) - (pWeight[a.priority || 'medium'] || 0));
+    return active.slice(0, 3);
+  }, [tasks]);
+
+  const activeTasksCount = tasks.filter(t => t.status !== 'completed').length;
+
 
   // Fetch reactive data from Dexie scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
@@ -828,6 +871,94 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
       </div>
 
+      
+      {/* Active Tasks Widget */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 flex-shrink-0">
+              <ListTodo className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>{language === 'ku' ? 'ئەرکەکانی ئەمڕۆ' : 'تسک‌های فعال'}</span>
+                {activeTasksCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300">
+                    {formatNumber(activeTasksCount)} {language === 'ku' ? 'ئەرک' : 'تسک'}
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {language === 'ku' 
+                  ? 'ئەرکە گرنگەکان بۆ ئەم پڕۆژەیە'
+                  : 'تسک‌های مهم و در جریان پروژه'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsTasksModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-lg"
+          >
+            {language === 'ku' ? 'بینینی هەموویان' : 'نمایش همه'}
+            <ArrowRight className={`w-4 h-4 ${direction === 'rtl' ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+
+        <div className="pt-4 space-y-3">
+          {isTasksLoading ? (
+            <div className="text-center text-sm text-slate-400 py-4 animate-pulse">
+               {language === 'ku' ? 'چاوەڕێ بن...' : 'در حال بارگذاری...'}
+            </div>
+          ) : activeTasksList.length === 0 ? (
+            <div className="text-center py-6 text-slate-400 text-sm">
+              <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-500" />
+              {language === 'ku' ? 'هیچ ئەرکێکی چالاک نییە.' : 'همه تسک‌ها انجام شده یا تسک فعالی ندارید.'}
+            </div>
+          ) : (
+            activeTasksList.map(task => (
+              <div key={task.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 hover:border-indigo-200 dark:hover:border-indigo-500/30 transition-colors group">
+                <div className="flex items-start sm:items-center gap-3">
+                  <button 
+                    onClick={() => updateTask(task.id, { status: 'completed' })}
+                    title={language === 'ku' ? 'تەواوکردن' : 'انجام شد'}
+                    className="mt-0.5 sm:mt-0 w-6 h-6 rounded-full border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 flex items-center justify-center transition-all flex-shrink-0"
+                  >
+                    <Check className="w-3.5 h-3.5 text-transparent hover:text-emerald-500 opacity-0 hover:opacity-100 transition-opacity" />
+                  </button>
+                  <div>
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 block">
+                      {task.title}
+                    </span>
+                    {task.description && (
+                      <span className="text-xs text-slate-400 line-clamp-1 mt-0.5">
+                        {task.description}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 ps-9 sm:ps-0">
+                  {task.priority === 'high' && (
+                    <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 whitespace-nowrap">
+                      {language === 'ku' ? 'گرنگ' : 'فوری'}
+                    </span>
+                  )}
+                  {task.priority === 'medium' && (
+                    <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap">
+                      {language === 'ku' ? 'مامناوەند' : 'متوسط'}
+                    </span>
+                  )}
+                  {task.priority === 'low' && (
+                    <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 whitespace-nowrap">
+                      {language === 'ku' ? 'کەم' : 'کم'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* 2-Part Expense Tile */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-5">
@@ -921,44 +1052,6 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             )}
           </div>
 
-        </div>
-      </div>
-
-      {/* Project Tasks & Work Schedule Section (بخش تسک‌ها به جای خلاصه مالی) */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/20 flex-shrink-0">
-              <ListTodo className="w-5.5 h-5.5" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>{language === 'ku' ? 'ئەرکەکان و بەرنامەی کاری پڕۆژە' : 'تسک‌ها و برنامه کاری پروژه'}</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300">
-                  {language === 'ku' ? 'بەم زووانە' : 'به‌زودی'}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {language === 'ku' 
-                  ? 'ئەم بەشە لە داهاتوودا تەواو دەکرێت و بەستراوەتەوە بە ساڵنامەی کارەکانی پڕۆژە.'
-                  : 'این بخش در ادامه تکمیل خواهد شد و تقویم کارهایی است که قرار است در پروژه انجام شود.'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="py-8 px-4 text-center space-y-2">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center">
-            <CalendarCheck className="w-7 h-7" />
-          </div>
-          <h4 className="text-sm sm:text-base font-bold text-slate-700 dark:text-slate-300">
-            {language === 'ku' ? 'ئەرکەکان لێرە نیشان دەدرێن' : 'تسک‌ها اینجا نشان داده می‌شود'}
-          </h4>
-          <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-            {language === 'ku'
-              ? 'تەواوی ئەرکەکان، ئەولەویەتەکان و پلانی ڕۆژانەی کارکردنی تیم لەم شوێنە بەڕێوە دەبرێن.'
-              : 'تمامی تسک‌ها، اولویت‌بندی‌ها و تقویم اقدامات اجرایی کارگاه به زودی در این قسمت قرار خواهد گرفت.'}
-          </p>
         </div>
       </div>
 
@@ -1449,6 +1542,18 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       <UserProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      {/* Full-Screen Tasks & Subtasks Modal */}
+      <TasksModal
+        isOpen={isTasksModalOpen}
+        onClose={() => setIsTasksModalOpen(false)}
+        tasks={tasks}
+        isLoading={isTasksLoading}
+        onAddTask={addTask}
+        onUpdateTask={updateTask}
+        onDeleteTask={deleteTask}
+        targetProjectId={targetProjectId}
       />
 
     </div>

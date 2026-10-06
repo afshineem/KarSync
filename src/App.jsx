@@ -237,6 +237,15 @@ function AppContent() {
         openGlobalSettings('projects');
         return;
       }
+
+      if (e.shiftKey && (keyUpper === 'T' || e.code === 'KeyT')) {
+        e.preventDefault();
+        setActiveTab('dashboard');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('karsync-open-tasks'));
+        }, 50);
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
