@@ -143,6 +143,27 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
     return () => window.removeEventListener('inspectDate', handleInspect);
   }, []);
 
+  // Listen to external group navigation (e.g. clicking on task group in dashboard)
+  useEffect(() => {
+    const handleFilterGroup = async (e) => {
+      let gId = e.detail?.groupId;
+      const gName = e.detail?.groupName;
+      if (!gId && gName) {
+        try {
+          const match = await db.groups.where('name').equalsIgnoreCase(gName).first();
+          if (match) gId = match.id;
+        } catch (_) {}
+      }
+      if (gId) {
+        setSelectedGroupId(String(gId));
+      }
+      setViewMode('logs');
+      setReportFormat('detailed');
+    };
+    window.addEventListener('karsync-filter-group', handleFilterGroup);
+    return () => window.removeEventListener('karsync-filter-group', handleFilterGroup);
+  }, []);
+
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
   // Fetch project sections

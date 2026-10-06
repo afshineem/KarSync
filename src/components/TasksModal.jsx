@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { TaskFormModal } from './TaskFormModal';
 import {
@@ -35,6 +36,7 @@ export function TasksModal({
   onAddTask,
   onUpdateTask,
   onDeleteTask,
+  onGoToGroupPerformance,
   targetProjectId = null
 }) {
   const { language, direction } = useLanguage();
@@ -195,11 +197,19 @@ export function TasksModal({
     await onUpdateTask(subtask.id, { status: nextStatus });
   };
 
+  const handleGoToGroup = (groupName, groupId) => {
+    if (onGoToGroupPerformance) {
+      onClose();
+      onGoToGroupPerformance(groupName, groupId);
+    }
+  };
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors animate-fadeIn"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] w-screen h-screen m-0 p-0 flex flex-col bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors animate-fadeIn overflow-hidden"
+      style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}
       dir={direction}
     >
       {/* ========================================================= */}
@@ -400,6 +410,7 @@ export function TasksModal({
               onOpenEdit={handleOpenEdit}
               onDeleteTask={(t) => setTaskToDelete(t)}
               onAddSubtask={handleOpenNewSubtask}
+              onGoToGroup={handleGoToGroup}
               themeVariant="neutral"
               language={language}
               direction={direction}
@@ -418,6 +429,7 @@ export function TasksModal({
               onOpenEdit={handleOpenEdit}
               onDeleteTask={(t) => setTaskToDelete(t)}
               onAddSubtask={handleOpenNewSubtask}
+              onGoToGroup={handleGoToGroup}
               themeVariant="primary"
               language={language}
               direction={direction}
@@ -436,6 +448,7 @@ export function TasksModal({
               onOpenEdit={handleOpenEdit}
               onDeleteTask={(t) => setTaskToDelete(t)}
               onAddSubtask={handleOpenNewSubtask}
+              onGoToGroup={handleGoToGroup}
               themeVariant="success"
               language={language}
               direction={direction}
@@ -461,6 +474,7 @@ export function TasksModal({
                 onOpenEdit={() => handleOpenEdit(task)}
                 onDeleteTask={() => setTaskToDelete(task)}
                 onAddSubtask={() => handleOpenNewSubtask(task)}
+                onGoToGroup={handleGoToGroup}
                 language={language}
                 direction={direction}
               />
@@ -533,6 +547,8 @@ export function TasksModal({
 
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 // =========================================================
@@ -550,6 +566,7 @@ function TaskColumn({
   onOpenEdit,
   onDeleteTask,
   onAddSubtask,
+  onGoToGroup,
   themeVariant = 'neutral',
   language,
   direction
@@ -609,6 +626,7 @@ function TaskColumn({
               onOpenEdit={() => onOpenEdit(task)}
               onDeleteTask={() => onDeleteTask(task)}
               onAddSubtask={() => onAddSubtask(task)}
+              onGoToGroup={onGoToGroup}
               language={language}
               direction={direction}
             />
@@ -632,6 +650,7 @@ function TaskCard({
   onOpenEdit,
   onDeleteTask,
   onAddSubtask,
+  onGoToGroup,
   language,
   direction
 }) {
@@ -686,8 +705,12 @@ function TaskCard({
             </button>
 
             {/* Task Title */}
-            <div className="flex-1 min-w-0">
-              <h4 className={`text-sm font-bold leading-snug break-words ${
+            <div
+              className="flex-1 min-w-0 cursor-pointer"
+              onClick={() => onOpenEdit(task)}
+              title="مشاهده و ویرایش جزییات تسک"
+            >
+              <h4 className={`text-sm font-bold leading-snug break-words group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${
                 isCompleted
                   ? 'line-through text-slate-400 dark:text-slate-500'
                   : 'text-slate-900 dark:text-white'
@@ -730,10 +753,20 @@ function TaskCard({
           
           {/* Work Group Badge */}
           {task.group_name && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/40">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onGoToGroup) {
+                  onGoToGroup(task.group_name, task.group_id);
+                }
+              }}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+              title={language === 'ku' ? 'چوون بۆ کارکردی ئەم گرووپە' : 'مشاهده کارکرد و گزارش این گروه'}
+            >
               <Users className="w-3 h-3 text-indigo-500" />
               <span>{task.group_name}</span>
-            </span>
+            </button>
           )}
 
           {/* Priority Badge */}

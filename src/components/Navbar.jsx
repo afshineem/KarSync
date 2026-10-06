@@ -163,13 +163,15 @@ export function Navbar({
 
             {/* Right Controls: ProjectSwitcher + Settings Gear */}
             <div className="flex items-center gap-2 flex-shrink-0 relative">
-              {/* SaaS Multi-Project Switcher */}
-              <button
-                onClick={handleTestLog}
-                className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
-              >
-                [تست لاگر]
-              </button>
+              {/* Temporarily hidden: Test logger button */}
+              {false && (
+                <button
+                  onClick={handleTestLog}
+                  className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
+                >
+                  [تست لاگر]
+                </button>
+              )}
               <ProjectSwitcher />
 
               {/* User Avatar & Settings Trigger Button */}
