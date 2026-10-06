@@ -950,20 +950,6 @@ function subscribeToRealtime() {
         await pullGlobalOverdraftPolicyLive();
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
-      console.log('⚡ Realtime Settings Change received:', payload.eventType, payload);
-      await pullPaymentsLive(true);
-      await pullProjectsLive(true);
-      await pullProjectSectionsLive(true);
-      await pullWorkerProjectsLive(true);
-      await pullGroupsLive(true);
-      await pullWorkerMetadataLive(true);
-      await pullExpensesLive(true);
-      await pullFinancialAccountsLive(true);
-      await pullTreasuryIncomesLive(true);
-      await pullAccountTransfersLive(true);
-      await pullGlobalOverdraftPolicyLive();
-    })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
       console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
       if (payload.eventType === 'DELETE') {

@@ -70,13 +70,16 @@ export function TasksModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isFormOpen, taskToDelete, onClose]);
 
-  // Expand all parent tasks by default when opened
+  // Expand all parent tasks by default when modal is first opened
   useEffect(() => {
     if (isOpen && tasks.length > 0) {
-      const parentIds = tasks.filter(t => !t.parent_id).map(t => t.id);
-      setExpandedTaskIds(new Set(parentIds));
+      setExpandedTaskIds(prev => {
+        if (prev.size > 0) return prev; // Keep user's expanded state intact
+        const parentIds = tasks.filter(t => !t.parent_id).map(t => t.id);
+        return new Set(parentIds);
+      });
     }
-  }, [isOpen, tasks.length]);
+  }, [isOpen]);
 
   // Separate parent tasks and subtasks
   const { parentTasks, subtasksMap, uniqueGroups } = useMemo(() => {
@@ -169,9 +172,9 @@ export function TasksModal({
 
   const handleFormSubmit = async (formData, taskId) => {
     if (taskId) {
-      await onUpdateTask(taskId, formData);
+      return await onUpdateTask(taskId, formData);
     } else {
-      await onAddTask(formData);
+      return await onAddTask(formData);
     }
   };
 

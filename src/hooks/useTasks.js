@@ -1,13 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../services/realtimeSync';
 
-export const useTasks = () => {
+export const useTasks = (projectId = null) => {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // Read: دریافت لیست تسک‌ها
-  const fetchTasks = useCallback(async (projectId = null) => {
+  const fetchTasks = useCallback(async (pId = projectId) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -17,8 +17,8 @@ export const useTasks = () => {
         .order('created_at', { ascending: false });
       
       // در صورت وجود پروژه خاص، تسک‌های همان پروژه را فیلتر می‌کنیم
-      if (projectId) {
-        query = query.eq('project_id', projectId);
+      if (pId) {
+        query = query.eq('project_id', pId);
       }
       
       const { data, error: fetchError } = await query;
@@ -32,7 +32,54 @@ export const useTasks = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [projectId]);
+
+  // Realtime Subscription: گوش دادن زنده به تغییرات جدول tasks
+  useEffect(() => {
+    const channelName = `realtime-tasks-${projectId || 'all'}-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        (payload) => {
+          console.log('⚡ Realtime Task Change received:', payload.eventType, payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newTask = payload.new;
+            if (!projectId || newTask.project_id === projectId) {
+              setTasks((prev) => {
+                if (prev.some((t) => t.id === newTask.id)) return prev;
+                return [newTask, ...prev];
+              });
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = payload.new;
+            setTasks((prev) =>
+              prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setTasks((prev) =>
+                prev.filter((t) => t.id !== deletedId && t.parent_id !== deletedId)
+              );
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('⚠️ Realtime channel status error for tasks');
+        } else {
+          console.log('📡 Realtime tasks channel status:', status);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId]);
 
   // Create: ساخت تسک یا سابتسک جدید
   const addTask = async (taskData) => {
@@ -51,8 +98,11 @@ export const useTasks = () => {
 
       if (insertError) throw insertError;
       
-      // آپدیت کردن استیت لوکال برای رندر سریع بدون نیاز به رفرش
-      setTasks(prevTasks => [data, ...prevTasks]);
+      // آپدیت کردن استیت لوکال برای رندر فوری
+      setTasks(prevTasks => {
+        if (prevTasks.some(t => t.id === data.id)) return prevTasks;
+        return [data, ...prevTasks];
+      });
       return { success: true, data };
     } catch (err) {
       console.error('Error adding task:', err);

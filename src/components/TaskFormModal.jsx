@@ -48,8 +48,10 @@ export function TaskFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // Pre-fill fields on mount or when taskToEdit/parentTask changes
+  // Pre-fill fields only when modal opens or target task changes
   useEffect(() => {
+    if (!isOpen) return;
+
     if (taskToEdit) {
       setTitle(taskToEdit.title || '');
       setDescription(taskToEdit.description || '');
@@ -60,17 +62,8 @@ export function TaskFormModal({
       setDueDate(taskToEdit.due_date || '');
 
       const grp = taskToEdit.group_name || '';
-      const matchingDbGroup = dbGroups.find(g => g.name === grp);
-      if (matchingDbGroup) {
-        setSelectedGroup(matchingDbGroup.name);
-        setCustomGroup('');
-      } else if (grp) {
-        setSelectedGroup('custom');
-        setCustomGroup(grp);
-      } else {
-        setSelectedGroup('');
-        setCustomGroup('');
-      }
+      setSelectedGroup(grp || '');
+      setCustomGroup('');
     } else {
       // Defaults for new task
       setTitle('');
@@ -84,7 +77,7 @@ export function TaskFormModal({
       setDueDate('');
     }
     setFormError('');
-  }, [taskToEdit, isOpen, dbGroups]);
+  }, [isOpen, taskToEdit?.id]);
 
   // Handle ESC key
   useEffect(() => {
@@ -137,7 +130,11 @@ export function TaskFormModal({
         parent_id: taskToEdit ? taskToEdit.parent_id : (parentTask ? parentTask.id : null)
       };
 
-      await onSubmit(payload, taskToEdit ? taskToEdit.id : null);
+      const res = await onSubmit(payload, taskToEdit ? taskToEdit.id : null);
+      if (res && res.success === false) {
+        setFormError(res.error || 'خطا در ثبت تسک در سرور');
+        return;
+      }
       onClose();
     } catch (err) {
       console.error('Error submitting task form:', err);
@@ -347,6 +344,9 @@ export function TaskFormModal({
                     {g.name}
                   </option>
                 ))}
+                {selectedGroup && selectedGroup !== 'custom' && !dbGroups.some(g => g.name === selectedGroup) && (
+                  <option value={selectedGroup}>{selectedGroup}</option>
+                )}
                 <option value="custom">{language === 'ku' ? '+ ناوی گرووپی تر (تایبەت)' : '+ نام گروه جدید / سفارشی'}</option>
               </select>
 

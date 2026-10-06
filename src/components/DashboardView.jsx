@@ -86,7 +86,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     };
   }, []);
 
-  const { tasks, isLoading: isTasksLoading, fetchTasks, addTask, updateTask, deleteTask } = useTasks();
+  const { tasks, isLoading: isTasksLoading, fetchTasks, addTask, updateTask, deleteTask } = useTasks(targetProjectId);
 
   useEffect(() => {
     fetchTasks(targetProjectId);
