@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { db, DEFAULT_PROJECT_ID } from '../../db/db';
 import { useProject } from '../../context/ProjectContext';
 import { formatCurrency, formatAmount } from '../../utils/formatters';
+import { useAccounting } from '../../hooks/useAccounting';
 import { 
   CreditCard, 
   Coins, 
@@ -49,9 +50,17 @@ export function AccountSubsidiaryLedgerModal({
   const { currentProject } = useProject();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
+  // هوک مالی حسابداری برای تأمین مستقل داده‌های حساب‌ها در صورت فراخوانی از تب‌های غیرحسابداری
+  const accounting = useAccounting();
+  const effectiveCurrency = currency || accounting?.currency || 'IQD';
+  const effectiveAccounts = (allAccounts && allAccounts.length > 0) ? allAccounts : (accounting?.financialAccounts || []);
+  const effectiveWorkers = (allWorkers && allWorkers.length > 0) ? allWorkers : (accounting?.workers || []);
+
   const isRtl = language === 'fa' || language === 'ku';
   const entityType = entity?.type || 'account'; // 'account' | 'worker'
   const entityData = entity?.data || entity;
+
+  const effectiveAccountData = accountData || (entityType === 'account' && entityData?.id ? accounting?.accountBalances?.get(String(entityData.id)) : null);
 
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'this_month' | 'last_month' | 'custom'
   const [customStart, setCustomStart] = useState('');
@@ -234,15 +243,13 @@ export function AccountSubsidiaryLedgerModal({
   // تشخیص مقادیر حساب یا پرسنل
   const isBank = entityType === 'account' && entityData?.type === 'bank';
   const isCash = entityType === 'account' && entityData?.type === 'cash';
-  const isWorker = entityType === 'worker';
-
-  const initialBalance = isWorker ? 0 : (Number(accountData?.initialBalance) || 0);
-  const currentBalance = isWorker ? workerTransactionsData.currentBalance : (Number(accountData?.currentBalance) || 0);
-  const totalInflow = isWorker ? workerTransactionsData.totalInflow : (Number(accountData?.totalInflow) || 0);
-  const totalOutflow = isWorker ? workerTransactionsData.totalOutflow : (Number(accountData?.totalOutflow) || 0);
+  const initialBalance = isWorker ? 0 : (Number(effectiveAccountData?.initialBalance) || 0);
+  const currentBalance = isWorker ? workerTransactionsData.currentBalance : (Number(effectiveAccountData?.currentBalance) || 0);
+  const totalInflow = isWorker ? workerTransactionsData.totalInflow : (Number(effectiveAccountData?.totalInflow) || 0);
+  const totalOutflow = isWorker ? workerTransactionsData.totalOutflow : (Number(effectiveAccountData?.totalOutflow) || 0);
   const isPositive = currentBalance >= 0;
 
-  const rawTransactions = isWorker ? workerTransactionsData.rawTransactions : (accountData?.transactions || []);
+  const rawTransactions = isWorker ? workerTransactionsData.rawTransactions : (effectiveAccountData?.transactions || []);
 
   // فیلتر تراکنش‌ها
   const filteredTransactions = useMemo(() => {
@@ -420,16 +427,16 @@ export function AccountSubsidiaryLedgerModal({
         {/* دکمه‌های کنترل هدر */}
         <div className="flex items-center gap-2 self-end sm:self-center">
           {/* سوییچ سریع حساب / پرسنل */}
-          {entityType === 'account' && allAccounts.length > 1 && (
+          {entityType === 'account' && effectiveAccounts.length > 1 && (
             <select
               value={entityData?.id || ''}
               onChange={(e) => {
-                const target = allAccounts.find((a) => a.id === e.target.value);
+                const target = effectiveAccounts.find((a) => a.id === e.target.value);
                 if (target && onSelectEntity) onSelectEntity({ type: 'account', data: target });
               }}
               className="h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200"
             >
-              {allAccounts.map((acc) => (
+              {effectiveAccounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
                   {acc.type === 'bank' ? '💳 ' : '🪙 '}
                   {acc.name}
@@ -439,16 +446,16 @@ export function AccountSubsidiaryLedgerModal({
             </select>
           )}
 
-          {entityType === 'worker' && allWorkers.length > 1 && (
+          {entityType === 'worker' && effectiveWorkers.length > 1 && (
             <select
               value={entityData?.id || ''}
               onChange={(e) => {
-                const target = allWorkers.find((w) => String(w.id) === e.target.value);
+                const target = effectiveWorkers.find((w) => String(w.id) === e.target.value);
                 if (target && onSelectEntity) onSelectEntity({ type: 'worker', data: target });
               }}
               className="h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[160px] truncate"
             >
-              {allWorkers.map((w) => (
+              {effectiveWorkers.map((w) => (
                 <option key={w.id} value={w.id}>
                   👤 {w.name} {w.isActive === 0 ? '(غیرفعال)' : ''}
                 </option>

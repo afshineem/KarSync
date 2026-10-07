@@ -255,7 +255,7 @@ export function SubsidiarySearchModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[100] w-screen h-screen flex items-start sm:items-center justify-center p-3 sm:p-4 pt-16 sm:pt-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-[100] w-screen h-screen flex items-start justify-center p-3 sm:p-4 pt-24 sm:pt-28 bg-transparent animate-in fade-in duration-150"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -265,13 +265,13 @@ export function SubsidiarySearchModal({
       aria-modal="true"
     >
       <div
-        className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden max-h-[85vh] sm:max-h-[80vh] animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-xl bg-white/55 dark:bg-slate-950/55 backdrop-blur-3xl backdrop-saturate-200 rounded-3xl shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_20px_50px_rgba(0,0,0,0.12)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.08),0_20px_50px_rgba(0,0,0,0.5)] border border-white/80 dark:border-white/10 flex flex-col overflow-hidden max-h-[52vh] sm:max-h-[55vh] animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* هدر اسپات‌لایت با اینپوت جستجو */}
-        <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-850/60">
+        <div className="p-3 sm:p-3.5 border-b border-slate-200/50 dark:border-white/10 bg-white/30 dark:bg-white/[0.03]">
           <div className="relative flex items-center">
-            <Search className="w-5 h-5 absolute right-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
+            <Search className="w-5 h-5 absolute right-3.5 text-slate-400 dark:text-slate-400 pointer-events-none" />
             <input
               ref={inputRef}
               type="text"
@@ -283,7 +283,7 @@ export function SubsidiarySearchModal({
                   ? 'جستجوی نام پرسنل (فعال/غیرفعال)، نام بانک یا صندوق...'
                   : 'گەڕان بەدوای ناوی کرێکار، بانک یان سندووق...'
               }
-              className="w-full pr-11 pl-10 py-3 text-sm sm:text-base rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all shadow-inner"
+              className="w-full pr-11 pl-10 py-2.5 sm:py-3 text-sm sm:text-base rounded-2xl bg-white/40 dark:bg-white/[0.05] border border-white/80 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 backdrop-blur-md transition-all shadow-inner"
             />
             {searchQuery ? (
               <button
@@ -292,13 +292,13 @@ export function SubsidiarySearchModal({
                   setSearchQuery('');
                   inputRef.current?.focus();
                 }}
-                className="absolute left-3 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                className="absolute left-3 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors"
                 aria-label="پاک کردن"
               >
                 <X className="w-4 h-4" />
               </button>
             ) : (
-              <span className="absolute left-3 hidden sm:inline-flex text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+              <span className="absolute left-3 hidden sm:inline-flex text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300/50 dark:border-slate-700">
                 Shift+M
               </span>
             )}
@@ -308,18 +308,18 @@ export function SubsidiarySearchModal({
         {/* لیست نتایج جستجو */}
         <div 
           ref={listContainerRef}
-          className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-1 divide-y divide-slate-100/60 dark:divide-slate-800/60 custom-scrollbar min-h-[220px]"
+          className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-1 divide-y divide-slate-100/60 dark:divide-white/5 custom-scrollbar min-h-[220px]"
         >
           {filteredResults.length === 0 ? (
             /* وضعیت عدم یافتن نتیجه (Empty State) */
             <div className="py-12 px-4 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center text-slate-400 dark:text-slate-500 mb-3">
                 <SearchX className="w-6 h-6" />
               </div>
-              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">
                 {language === 'fa' ? 'موردی یافت نشد' : 'هیچ ئەنجامێک نەدۆزرایەوە'}
               </h4>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
+              <p className="text-xs text-slate-400 dark:text-slate-400 mt-1 max-w-xs">
                 {language === 'fa'
                   ? `هیچ پرسنل یا حسابی با عبارت «${searchQuery}» پیدا نشد. املای کلمه را بررسی کنید.`
                   : `هیچ کەسێک یان حیسابێک بەم ناوە نەدۆزرایەوە.`}
@@ -338,8 +338,8 @@ export function SubsidiarySearchModal({
                   onMouseEnter={() => setActiveIndex(index)}
                   className={`w-full p-2.5 sm:p-3 rounded-2xl flex items-center justify-between gap-3 text-right transition-all group ${
                     isSelected
-                      ? 'bg-emerald-500/10 dark:bg-emerald-500/15 ring-1.5 ring-emerald-500/40 shadow-xs'
-                      : 'hover:bg-slate-50 dark:hover:bg-slate-850'
+                      ? 'bg-emerald-500/15 dark:bg-emerald-500/20 ring-1.5 ring-emerald-500/50 dark:ring-emerald-400/50 shadow-xs'
+                      : 'hover:bg-white/60 dark:hover:bg-white/[0.06]'
                   }`}
                 >
                   {/* بخش راست: آیکون و مشخصات */}
@@ -348,24 +348,24 @@ export function SubsidiarySearchModal({
                     {item.type === 'worker' ? (
                       item.isActive ? (
                         /* پرسنل فعال: آیکون سبز/آبی شاداب */
-                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs border border-emerald-500/20">
                           <User className="w-5 h-5" />
                         </div>
                       ) : (
                         /* پرسنل غیرفعال: آیکون و پس‌زمینه خاکستری متمایز */
-                        <div className="w-10 h-10 rounded-2xl bg-slate-200/90 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-slate-200/80 dark:bg-slate-800 text-slate-400 dark:text-slate-400 flex items-center justify-center shrink-0 border border-slate-300/40 dark:border-slate-700">
                           <UserX className="w-5 h-5" />
                         </div>
                       )
                     ) : (
                       item.isCash ? (
                         /* صندوق نقدی */
-                        <div className="w-10 h-10 rounded-2xl bg-amber-500/15 dark:bg-amber-500/25 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-xs">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500/15 dark:bg-amber-500/25 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-xs border border-amber-500/20">
                           <Wallet className="w-5 h-5" />
                         </div>
                       ) : (
                         /* حساب بانکی */
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 dark:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs">
+                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 dark:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs border border-indigo-500/20">
                           <CreditCard className="w-5 h-5" />
                         </div>
                       )
@@ -391,7 +391,7 @@ export function SubsidiarySearchModal({
                               {language === 'fa' ? 'فعال' : 'چالاک'}
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0">
+                            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 ring-1 ring-slate-300/60 dark:ring-slate-700 shrink-0">
                               {language === 'fa' ? 'غیرفعال' : 'ناچالاک'}
                             </span>
                           )
@@ -415,7 +415,7 @@ export function SubsidiarySearchModal({
                         )}
                       </div>
 
-                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                      <p className="text-xs text-slate-400 dark:text-slate-400 truncate mt-0.5">
                         {item.subtitle}
                       </p>
                     </div>
@@ -423,7 +423,7 @@ export function SubsidiarySearchModal({
 
                   {/* بخش چپ: نشانگر مشاهده معین و Enter */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline">
+                    <span className="text-[11px] text-slate-400 dark:text-slate-400 hidden sm:inline">
                       {item.type === 'worker'
                         ? (language === 'fa' ? 'معین پرسنل' : 'دەفتەری کەس')
                         : (language === 'fa' ? 'معین حساب' : 'دەفتەری حیساب')}
@@ -434,7 +434,7 @@ export function SubsidiarySearchModal({
                         <CornerDownLeft className="w-3 h-3" />
                       </span>
                     ) : (
-                      <ChevronLeft className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 transition-colors" />
+                      <ChevronLeft className="w-4 h-4 text-slate-300 dark:text-slate-500 group-hover:text-slate-400 dark:group-hover:text-slate-300 transition-colors" />
                     )}
                   </div>
                 </button>
@@ -444,19 +444,19 @@ export function SubsidiarySearchModal({
         </div>
 
         {/* فوتر راهنمای کلیدها */}
-        <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-850/60 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
+        <div className="px-4 py-2.5 border-t border-slate-200/60 dark:border-white/10 bg-white/40 dark:bg-white/[0.03] flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[10px]">↑</kbd>
-              <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[10px]">↓</kbd>
+              <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px]">↑</kbd>
+              <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px]">↓</kbd>
               <span>{language === 'fa' ? 'جابه‌جایی' : 'جووڵە'}</span>
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[10px]">Enter</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px]">Enter</kbd>
               <span>{language === 'fa' ? 'مشاهده معین' : 'بینینی دەفتەر'}</span>
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[10px]">Esc</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px]">Esc</kbd>
               <span>{language === 'fa' ? 'بستن' : 'داخستن'}</span>
             </span>
           </div>

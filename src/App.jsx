@@ -29,10 +29,12 @@ import { initRealtimeSync, pushLogsLive, pushPaymentsLive, pushAllExpensesToClou
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LockScreenModal } from './components/LockScreenModal';
 import { InstallPwaModal } from './components/InstallPwaModal';
+import { SubsidiarySearchModal } from './components/accounting/SubsidiarySearchModal';
+import { AccountSubsidiaryLedgerModal } from './components/accounting/AccountSubsidiaryLedgerModal';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
-  const { numberFormat } = useLanguage();
+  const { language, numberFormat } = useLanguage();
   const { 
     profileWorkerId, 
     closeWorkerProfile,
@@ -58,6 +60,24 @@ function AppContent() {
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
+  const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
+  const [selectedLedgerEntity, setSelectedLedgerEntity] = useState(null);
+
+  // Global listeners for Subsidiary Search and Ledger
+  useEffect(() => {
+    const handleOpenSearch = () => setIsSubsidiarySearchOpen(true);
+    const handleOpenLedger = (e) => {
+      if (e.detail) {
+        setSelectedLedgerEntity(e.detail);
+      }
+    };
+    window.addEventListener('karsync-open-subsidiary-search', handleOpenSearch);
+    window.addEventListener('karsync-open-subsidiary-ledger', handleOpenLedger);
+    return () => {
+      window.removeEventListener('karsync-open-subsidiary-search', handleOpenSearch);
+      window.removeEventListener('karsync-open-subsidiary-ledger', handleOpenLedger);
+    };
+  }, []);
 
   // Catch PWA beforeinstallprompt event globally
   useEffect(() => {
@@ -249,10 +269,7 @@ function AppContent() {
 
       if (e.shiftKey && (keyUpper === 'M' || e.code === 'KeyM')) {
         e.preventDefault();
-        setActiveTab('accounting');
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'));
-        }, 50);
+        setIsSubsidiarySearchOpen((prev) => !prev);
         return;
       }
     };
@@ -417,6 +434,30 @@ function AppContent() {
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
       />
+
+      {/* Global Subsidiary Search Modal (Shift+M) */}
+      <SubsidiarySearchModal
+        isOpen={isSubsidiarySearchOpen}
+        onClose={() => setIsSubsidiarySearchOpen(false)}
+        onSelectAccount={(account) => {
+          setSelectedLedgerEntity({ type: 'account', data: account });
+        }}
+        onSelectWorker={(worker) => {
+          setSelectedLedgerEntity({ type: 'worker', data: worker });
+        }}
+        language={language}
+      />
+
+      {/* Global Dedicated Account / Worker Subsidiary Ledger Fullscreen Modal */}
+      {selectedLedgerEntity && (
+        <AccountSubsidiaryLedgerModal
+          isOpen={Boolean(selectedLedgerEntity)}
+          entity={selectedLedgerEntity}
+          onSelectEntity={(newEntity) => setSelectedLedgerEntity(newEntity)}
+          onClose={() => setSelectedLedgerEntity(null)}
+          language={language}
+        />
+      )}
 
     </div>
   );

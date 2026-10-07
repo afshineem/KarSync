@@ -9,10 +9,8 @@ import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
 import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
-import { AccountSubsidiaryLedgerModal } from './accounting/AccountSubsidiaryLedgerModal';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { DateRangeFilterModal } from './accounting/DateRangeFilterModal';
-import { SubsidiarySearchModal } from './accounting/SubsidiarySearchModal';
 import { formatMonthOnly, getCurrentYearMonth } from '../utils/formatters';
 import { 
   Landmark, 
@@ -52,12 +50,8 @@ export function AccountingView() {
   const [isAccountsModalOpen, setIsAccountsModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
-  const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
   const [placeholderNotice, setPlaceholderNotice] = useState(null);
   const [initialTransferSourceId, setInitialTransferSourceId] = useState(null);
-  const [selectedLedgerEntity, setSelectedLedgerEntity] = useState(null);
-  const selectedAccountForLedger = selectedLedgerEntity?.type === 'account' ? selectedLedgerEntity.data : null;
-  const setSelectedAccountForLedger = (acc) => setSelectedLedgerEntity(acc ? { type: 'account', data: acc } : null);
   const [quickDepositAccount, setQuickDepositAccount] = useState(null);
 
   // پیام اعلان موقت
@@ -67,32 +61,6 @@ export function AccountingView() {
       return () => clearTimeout(timer);
     }
   }, [placeholderNotice]);
-
-  // رویداد و میانبر کیبورد Shift+M برای باز کردن معین
-  useEffect(() => {
-    const handleOpenSearch = () => {
-      setIsSubsidiarySearchOpen(true);
-    };
-
-    const handleKeyDown = (e) => {
-      const target = e.target;
-      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
-      const keyUpper = e.key ? e.key.toUpperCase() : '';
-      if (e.shiftKey && (keyUpper === 'M' || e.code === 'KeyM')) {
-        if (!isInput) {
-          e.preventDefault();
-          setIsSubsidiarySearchOpen(prev => !prev);
-        }
-      }
-    };
-
-    window.addEventListener('karsync-open-subsidiary-search', handleOpenSearch);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('karsync-open-subsidiary-search', handleOpenSearch);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
 
   // فراخوانی هوک اختصاصی حسابداری جهت مدیریت State و محاسبات زنده
   const {
@@ -286,7 +254,7 @@ export function AccountingView() {
             <button
               type="button"
               onClick={() => {
-                setIsSubsidiarySearchOpen(true);
+                window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'));
               }}
               className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
               title={language === 'fa' ? 'معین افراد/حساب‌ها (Shift+M)' : 'دەفتەری حیسابی کەسەکان و حیسابەکان (Shift+M)'}
@@ -357,7 +325,6 @@ export function AccountingView() {
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedAccountForLedger(null);
                     setActiveViewTab(tab.id);
                   }}
                   aria-label={tab.label}
@@ -469,8 +436,13 @@ export function AccountingView() {
               accountBalances={accountBalances}
               currency={currency}
               language={language}
-              selectedAccountId={selectedAccountForLedger?.id}
-              onSelectAccount={(acc) => setSelectedAccountForLedger(acc)}
+              onSelectAccount={(acc) => {
+                if (acc) {
+                  window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-ledger', {
+                    detail: { type: 'account', data: acc }
+                  }));
+                }
+              }}
               onQuickDeposit={(acc) => {
                 setQuickDepositAccount(acc);
                 setIsQuickAddModalOpen(true);
@@ -668,33 +640,6 @@ export function AccountingView() {
             }
           }}
           language={language}
-        />
-      )}
-
-      {/* مودال سرچ‌باکس معین افراد و حساب‌ها */}
-      <SubsidiarySearchModal
-        isOpen={isSubsidiarySearchOpen}
-        onClose={() => setIsSubsidiarySearchOpen(false)}
-        onSelectAccount={(account) => {
-          setSelectedLedgerEntity({ type: 'account', data: account });
-        }}
-        onSelectWorker={(worker) => {
-          setSelectedLedgerEntity({ type: 'worker', data: worker });
-        }}
-        language={language}
-      />
-
-      {/* مودال فول‌اسکرین و اختصاصی معین تفصیلی حساب یا پرسنل */}
-      {selectedLedgerEntity && (
-        <AccountSubsidiaryLedgerModal
-          isOpen={Boolean(selectedLedgerEntity)}
-          entity={selectedLedgerEntity}
-          accountData={selectedLedgerEntity.type === 'account' ? accountBalances.get(String(selectedLedgerEntity.data?.id)) : null}
-          currency={currency}
-          language={language}
-          allAccounts={financialAccounts}
-          onSelectEntity={(newEntity) => setSelectedLedgerEntity(newEntity)}
-          onClose={() => setSelectedLedgerEntity(null)}
         />
       )}
     </div>
