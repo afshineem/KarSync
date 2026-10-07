@@ -119,21 +119,21 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
         {activeSubTab === 'treasury' && (
           <div className="animate-in fade-in duration-150">
             {/* نمایش بخش خزانه‌داری از طریق AccountingView با ساب‌تب معادل */}
-            <AccountingView initialSubTab="accounts" hideInternalSubNav={true} />
+            <AccountingView initialSubTab="accounts" hideInternalSubNav={true} hideHeader={true} />
           </div>
         )}
 
         {activeSubTab === 'ledger' && (
           <div className="animate-in fade-in duration-150">
             {/* نمایش دفتر کل تراکنش‌ها */}
-            <AccountingView initialSubTab="ledger" hideInternalSubNav={true} />
+            <AccountingView initialSubTab="ledger" hideInternalSubNav={true} hideHeader={true} />
           </div>
         )}
 
         {activeSubTab === 'income' && (
           <div className="animate-in fade-in duration-150">
             {/* نمایش درآمدها و تزریق نقدینگی */}
-            <AccountingView initialSubTab="income" hideInternalSubNav={true} />
+            <AccountingView initialSubTab="income" hideInternalSubNav={true} hideHeader={true} />
           </div>
         )}
       </div>
