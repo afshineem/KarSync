@@ -41,11 +41,18 @@ import {
  * ۳. ورودی‌ها و تنخواه (مدیریت شارژ تنخواه، تزریق نقدینگی)
  * ۴. مدیریت حساب‌ها و کارت‌ها (تعریف، ویرایش، حساب پیش‌فرض و سقف اعتبار)
  */
-export function AccountingView() {
+export function AccountingView({ initialSubTab = 'overview', hideInternalSubNav = false }) {
   const { t, language, direction } = useLanguage();
   const { currentProject, openWorkerProfile } = useProject();
 
-  const [activeViewTab, setActiveViewTab] = useState('overview'); // 'overview' | 'ledger' | 'income' | 'accounts'
+  const [activeViewTab, setActiveViewTab] = useState(initialSubTab); // 'overview' | 'ledger' | 'income' | 'accounts'
+
+  // هماهنگی ساب‌تب در صورت تغییر توسط والد
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveViewTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [isAccountsModalOpen, setIsAccountsModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -312,11 +319,12 @@ export function AccountingView() {
       )}
 
       {/* نوار ناوبری زیرمنوها (طراحی داک مایع شبیه ناوبار و هزینه‌ها) */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <nav
-          aria-label="Accounting views"
-          className="flex items-center gap-1.5 sm:gap-2 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl backdrop-saturate-200 p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.08),0_4px_20px_rgba(0,0,0,0.4)] w-fit flex-wrap"
-        >
+      {!hideInternalSubNav && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <nav
+            aria-label="Accounting views"
+            className="flex items-center gap-1.5 sm:gap-2 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl backdrop-saturate-200 p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.08),0_4px_20px_rgba(0,0,0,0.4)] w-fit flex-wrap"
+          >
           {viewTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeViewTab === tab.id;
@@ -381,6 +389,7 @@ export function AccountingView() {
           })}
         </nav>
       </div>
+      )}
 
       {/* بدنه محتوا بر اساس تب انتخابی */}
       {activeViewTab === 'overview' ? (

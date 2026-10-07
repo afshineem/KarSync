@@ -12,6 +12,7 @@ import { CalendarReportsView } from './components/CalendarReportsView';
 import { FinancialsView } from './components/FinancialsView';
 import { ExpensesView, AddExpenseModal } from './components/ExpensesView';
 import { AccountingView } from './components/AccountingView';
+import { FinanceAndAccountingView } from './components/FinanceAndAccountingView';
 import { SettlementModal } from './components/SettlementModal';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
@@ -338,7 +339,7 @@ function AppContent() {
         )}
 
         {activeTab === 'accounting' && (
-          <AccountingView />
+          <FinanceAndAccountingView initialSubTab="payroll" />
         )}
       </main>
 
