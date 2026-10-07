@@ -617,20 +617,15 @@ export function FinancialsView() {
       
       {/* Top Header Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        {/* Right side in RTL: Icon, Title, Project Badge, Subtitle */}
+        {/* Right side in RTL: Icon, Title, Subtitle */}
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 flex-shrink-0">
             <WalletCards className="w-6 h-6 stroke-[2.2]" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                {t('financialDashboard')}
-              </h1>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
-                {currentProject?.name || (language === 'fa' ? 'پروژه کارگاه' : 'پڕۆژە')}
-              </span>
-            </div>
+            <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+              {t('financialDashboard')}
+            </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {t('financialDashboardSubtitle')}
             </p>
@@ -638,7 +633,7 @@ export function FinancialsView() {
         </div>
 
         {/* Left side in RTL: All controls directly opposite the title */}
-        <div className="w-full xl:w-auto flex flex-col sm:flex-row items-center justify-center xl:justify-end gap-2.5 sm:gap-3 flex-wrap">
+        <div className="w-full xl:w-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-center xl:justify-end gap-2.5 sm:gap-3 flex-wrap">
           
           {/* ۱. سلکتور پرسنل (Worker Selector) */}
           <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center gap-2 px-3 sm:px-4 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">

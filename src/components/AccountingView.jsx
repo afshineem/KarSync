@@ -317,16 +317,11 @@ export function AccountingView({
               {activeViewTab !== 'accounts' && activeViewTab !== 'ledger' && activeViewTab !== 'income' && <Landmark className="w-6 h-6 stroke-[2.2]" />}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  {activeViewTab === 'accounts' && (language === 'fa' ? 'مدیریت و تراز کارت‌ها و صندوق‌ها' : 'بەڕێوەبردنی کارتەکان و سندووق')}
-                  {activeViewTab === 'ledger' && (language === 'fa' ? 'دفتر کل اسناد و تراکنش‌های کارگاه' : 'دەفتەری گشتی مامەڵەکان')}
-                  {activeViewTab === 'income' && (language === 'fa' ? 'ورودی‌های نقدینگی و درآمدهای پروژه' : 'داهات و تەنخوا')}
-                </h1>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
-                  {currentProject?.name || (language === 'fa' ? 'پروژه کارگاه' : 'پڕۆژە')}
-                </span>
-              </div>
+              <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                {activeViewTab === 'accounts' && (language === 'fa' ? 'مدیریت و تراز کارت‌ها و صندوق‌ها' : 'بەڕێوەبردنی کارتەکان و سندووق')}
+                {activeViewTab === 'ledger' && (language === 'fa' ? 'دفتر کل اسناد و تراکنش‌های کارگاه' : 'دەفتەری گشتی مامەڵەکان')}
+                {activeViewTab === 'income' && (language === 'fa' ? 'ورودی‌های نقدینگی و درآمدهای پروژه' : 'داهات و تەنخوا')}
+              </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {activeViewTab === 'accounts' && (language === 'fa' ? 'کنترل سرفصل‌ها، تراز صندوق و کارت‌های بانکی فعال' : 'کۆنترۆڵی سندووق و کارتە بانکییەکان')}
                 {activeViewTab === 'ledger' && (language === 'fa' ? 'ثبت و تایید اسناد دو مرحله‌ای، مغایرت‌گیری و گردش حساب' : 'تۆمارکردن و پەسەندکردنی بەڵگەنامەکان')}
@@ -336,7 +331,7 @@ export function AccountingView({
           </div>
 
           {/* سمت چپ: کنترل ماه‌نما و داک دکمه‌های آیکونی بزرگ (دقیقا برابر با تب اول: h-[52px] sm:h-[58px]) */}
-          <div className="w-full xl:w-auto flex flex-col sm:flex-row items-center justify-center xl:justify-end gap-2.5 sm:gap-3 flex-wrap">
+          <div className="w-full xl:w-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-center xl:justify-end gap-2.5 sm:gap-3 flex-wrap">
             {/* ۱. ماه‌نمای تعاملی با دکمه‌های قبل و بعد - هم‌اندازه تب اول */}
             <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl p-1 sm:p-1.5 border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
               <button

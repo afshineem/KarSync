@@ -69,22 +69,17 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
               <Landmark className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                  {language === 'fa' ? 'حسابداری و امور مالی' : language === 'ku' ? 'حیسابداری و کاروباری دارایی' : 'Finance & Accounting'}
-                </h2>
-                <span className="hidden sm:inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/60">
-                  {currentProject?.name || 'KarSync'}
-                </span>
-              </div>
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                {language === 'fa' ? 'حسابداری و امور مالی' : language === 'ku' ? 'حیسابداری و کاروباری دارایی' : 'Finance & Accounting'}
+              </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {subTabs.find(t => t.id === activeSubTab)?.description}
               </p>
             </div>
           </div>
 
-          {/* نوار زیربرگه‌ها (هماهنگ با سبک نوبار و بدون اسکرول افقی) */}
-          <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 border border-slate-200/80 dark:border-white/10 shadow-xs self-start lg:self-auto">
+          {/* نوار زیربرگه‌ها (هماهنگ با سبک نوبار و کاملاً رسپانسیو) */}
+          <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 border border-slate-200/80 dark:border-white/10 shadow-xs max-w-full overflow-x-auto scrollbar-none">
             {subTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeSubTab === tab.id;
