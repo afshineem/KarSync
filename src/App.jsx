@@ -246,6 +246,15 @@ function AppContent() {
         }, 50);
         return;
       }
+
+      if (e.shiftKey && (keyUpper === 'M' || e.code === 'KeyM')) {
+        e.preventDefault();
+        setActiveTab('accounting');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'));
+        }, 50);
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);

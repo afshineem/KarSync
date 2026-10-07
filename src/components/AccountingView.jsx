@@ -12,6 +12,7 @@ import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
 import { AccountSubsidiaryLedgerSection } from './accounting/AccountSubsidiaryLedgerSection';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { DateRangeFilterModal } from './accounting/DateRangeFilterModal';
+import { SubsidiarySearchModal } from './accounting/SubsidiarySearchModal';
 import { formatMonthOnly, getCurrentYearMonth } from '../utils/formatters';
 import { 
   Landmark, 
@@ -44,13 +45,14 @@ import {
  */
 export function AccountingView() {
   const { t, language, direction } = useLanguage();
-  const { currentProject } = useProject();
+  const { currentProject, openWorkerProfile } = useProject();
 
   const [activeViewTab, setActiveViewTab] = useState('overview'); // 'overview' | 'ledger' | 'income' | 'accounts'
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [isAccountsModalOpen, setIsAccountsModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
+  const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
   const [placeholderNotice, setPlaceholderNotice] = useState(null);
   const [initialTransferSourceId, setInitialTransferSourceId] = useState(null);
   const [selectedAccountForLedger, setSelectedAccountForLedger] = useState(null);
@@ -63,6 +65,32 @@ export function AccountingView() {
       return () => clearTimeout(timer);
     }
   }, [placeholderNotice]);
+
+  // رویداد و میانبر کیبورد Shift+M برای باز کردن معین
+  useEffect(() => {
+    const handleOpenSearch = () => {
+      setIsSubsidiarySearchOpen(true);
+    };
+
+    const handleKeyDown = (e) => {
+      const target = e.target;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+      const keyUpper = e.key ? e.key.toUpperCase() : '';
+      if (e.shiftKey && (keyUpper === 'M' || e.code === 'KeyM')) {
+        if (!isInput) {
+          e.preventDefault();
+          setIsSubsidiarySearchOpen(prev => !prev);
+        }
+      }
+    };
+
+    window.addEventListener('karsync-open-subsidiary-search', handleOpenSearch);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('karsync-open-subsidiary-search', handleOpenSearch);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // فراخوانی هوک اختصاصی حسابداری جهت مدیریت State و محاسبات زنده
   const {
@@ -256,14 +284,10 @@ export function AccountingView() {
             <button
               type="button"
               onClick={() => {
-                setPlaceholderNotice(
-                  language === 'fa'
-                    ? 'بخش معین گردش مالی پرسنل و حساب‌ها به زودی فعال خواهد شد.'
-                    : 'بەشی دەفتەری حیسابی کەسەکان و حیسابەکان بەم زووانە چالاک دەکرێت.'
-                );
+                setIsSubsidiarySearchOpen(true);
               }}
               className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-              title={language === 'fa' ? 'معین افراد/حساب‌ها (مشاهده معین گردش مالی پرسنل و حساب‌ها)' : 'دەفتەری حیسابی کەسەکان و حیسابەکان'}
+              title={language === 'fa' ? 'معین افراد/حساب‌ها (Shift+M)' : 'دەفتەری حیسابی کەسەکان و حیسابەکان (Shift+M)'}
               aria-label={language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان'}
             >
               <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
@@ -661,6 +685,21 @@ export function AccountingView() {
           language={language}
         />
       )}
+
+      {/* مودال سرچ‌باکس معین افراد و حساب‌ها */}
+      <SubsidiarySearchModal
+        isOpen={isSubsidiarySearchOpen}
+        onClose={() => setIsSubsidiarySearchOpen(false)}
+        onSelectAccount={(account) => {
+          setSelectedAccountForLedger(account);
+        }}
+        onSelectWorker={(worker) => {
+          if (worker?.id && openWorkerProfile) {
+            openWorkerProfile(worker.id);
+          }
+        }}
+        language={language}
+      />
     </div>
   );
 }

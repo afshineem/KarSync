@@ -1866,6 +1866,38 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       </div>
                     </div>
 
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'مدیریت وظایف و تسک‌ها' : 'بەڕێوەبردنی ئەرکەکان و کارەکان'}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {language === 'fa' ? 'مشاهده و ثبت تسک‌های پروژه' : 'بینین و تۆمارکردنی ئەرکەکان'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
+                        <span className="text-xs font-bold text-slate-400">+</span>
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 border border-purple-300 dark:border-purple-600 shadow-xs">T</kbd>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان و حیسابەکان'}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {language === 'fa' ? 'سرچ‌باکس سریع گردش مالی و اسناد معین' : 'گەڕانی خێرای دەفتەری حیسابات'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
+                        <span className="text-xs font-bold text-slate-400">+</span>
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-600 shadow-xs">M</kbd>
+                      </div>
+                    </div>
+
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3 md:col-span-2">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
