@@ -34,13 +34,13 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
   const subTabs = [
     {
       id: 'payroll',
-      label: language === 'fa' ? 'حسابداری پرسنل و تسویه‌ها' : language === 'ku' ? 'حیساباتی کرێکاران و تەسویە' : 'Payroll & Settlements',
+      label: language === 'fa' ? 'تسویه پرسنل' : language === 'ku' ? 'تەسویەی کرێکاران' : 'Payroll Settlements',
       description: language === 'fa' ? 'محاسبه کارکرد، مساعده و تسویه حقوق نیروها' : 'ئامار و تەسویەی مووچەی کرێکاران',
       icon: Users
     },
     {
       id: 'treasury',
-      label: language === 'fa' ? 'خزانه‌داری و کارت‌های بانکی' : language === 'ku' ? 'خەزێنەداری و کارتەکان' : 'Treasury & Accounts',
+      label: language === 'fa' ? 'حساب‌ها' : language === 'ku' ? 'حیسابەکان' : 'Accounts',
       description: language === 'fa' ? 'موجودی کارت‌ها، صندوق نقدی و انتقال وجه' : 'باڵانسی سندوقەکان و کارتە بانکییەکان',
       icon: CreditCard
     },
@@ -52,7 +52,7 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
     },
     {
       id: 'income',
-      label: language === 'fa' ? 'درآمدها و تزریق نقدینگی' : language === 'ku' ? 'داهات و پارەی پڕۆژە' : 'Income & Inflow',
+      label: language === 'fa' ? 'درآمد' : language === 'ku' ? 'داهات' : 'Income',
       description: language === 'fa' ? 'شارژ تنخواه، واریزی‌های کارفرما و تراز' : 'تۆمارکردنی داهاتی نوێی کارگە',
       icon: TrendingUp
     }
@@ -78,33 +78,33 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
             </div>
           </div>
 
-          {/* نوار زیربرگه‌ها (هماهنگ با سبک نوبار و کاملاً رسپانسیو) */}
-          <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 border border-slate-200/80 dark:border-white/10 shadow-xs max-w-full overflow-x-auto scrollbar-none">
+          {/* نوار زیربرگه‌ها (بدون هیچ‌گونه اسکرول عمودی/افقی، با بسته‌بندی خودکار در صفحه کوچک) */}
+          <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 border border-slate-200/80 dark:border-white/10 shadow-xs">
             {subTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeSubTab === tab.id;
               return (
-                <div key={tab.id} className="relative group shrink-0">
+                <div key={tab.id} className="relative group">
                   <button
                     type="button"
                     onClick={() => setActiveSubTab(tab.id)}
                     aria-label={tab.label}
-                    className={`relative flex items-center justify-center p-2.5 rounded-xl transition-all duration-300 ease-out ${
+                    className={`relative flex items-center justify-center p-2.5 rounded-xl transition-all duration-200 ${
                       isActive
-                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
+                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08]'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'text-white' : 'group-hover:scale-110'}`} />
+                    <Icon className="w-5 h-5 transition-transform duration-200" />
                     
-                    {/* برچسب متن فقط برای تب فعال با ترانزیشن نرم و متن سفید */}
+                    {/* برچسب متن فقط برای تب فعال با متن سفید */}
                     {isActive && (
-                      <span className="text-xs font-semibold px-1 whitespace-nowrap animate-in fade-in duration-200">
+                      <span className="text-xs font-semibold px-1 whitespace-nowrap">
                         {tab.label}
                       </span>
                     )}
 
-                    {/* نقطه یا خط نشانگر زیر تب فعال دقیقاً مثل نوبار */}
+                    {/* نقطه نشانگر زیر تب فعال */}
                     {isActive && (
                       <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs" />
                     )}
@@ -112,7 +112,7 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
 
                   {/* تول‌تیپ راهنما هنگام هاور روی تب‌های غیرفعال */}
                   {!isActive && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
+                    <div className="hidden sm:block absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50">
                       {tab.label}
                       <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
                     </div>

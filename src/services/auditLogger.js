@@ -2,6 +2,19 @@ import Dexie from 'dexie';
 import { db } from '../db/db';
 import { supabase } from './realtimeSync';
 
+// Helper to generate UUID safely across all browsers/mobile webviews (including insecure HTTP origins)
+export function generateUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch (_) {}
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 // Helper to validate UUIDs for PostgreSQL
 function isValidUUID(str) {
   if (!str) return false;
@@ -135,7 +148,7 @@ export async function logAuditAction(payload) {
     if (!isValidUUID(project_id)) project_id = null;
 
     const logRecord = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       workspace_id,
       user_id,
       user_name,
@@ -198,14 +211,4 @@ export async function logAuditAction(payload) {
   } catch (error) {
     console.error('🚨 AUDIT LOGGER CATCH:', error);
   }
-}
-
-if (!window.crypto || !window.crypto.randomUUID) {
-  window.crypto = window.crypto || {};
-  window.crypto.randomUUID = function() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  };
 }

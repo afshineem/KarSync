@@ -3,7 +3,7 @@ import { Users, Shield, Plus, X, Search, ShieldCheck, Edit, Trash2, ShieldBan, U
 import { db } from '../db/db';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/realtimeSync';
-import { logAuditAction, getSafeAuthContext } from '../services/auditLogger';
+import { logAuditAction, getSafeAuthContext, generateUUID } from '../services/auditLogger';
 import { useLanguage } from '../i18n/LanguageContext';
 import UserFormModal from './UserFormModal';
 import AuditLogsTab from "./AuditLogsTab";
@@ -139,7 +139,7 @@ export default function UsersSettingsTab() {
 
       const userData = {
         ...formData,
-        id: selectedUser ? selectedUser.id : crypto.randomUUID(),
+        id: selectedUser ? selectedUser.id : generateUUID(),
         workspace_id: safeAuth.workspaceId,
         is_active: selectedUser ? selectedUser.is_active : true,
         session_version: selectedUser ? selectedUser.session_version : 1,
