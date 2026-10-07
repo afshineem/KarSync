@@ -330,15 +330,11 @@ function AppContent() {
           />
         ) : null}
 
-        {activeTab === 'financials' && (
-          <FinancialsView />
-        )}
-
         {activeTab === 'expenses' && (
           <ExpensesView />
         )}
 
-        {activeTab === 'accounting' && (
+        {(activeTab === 'accounting' || activeTab === 'financials') && (
           <FinanceAndAccountingView initialSubTab="payroll" />
         )}
       </main>

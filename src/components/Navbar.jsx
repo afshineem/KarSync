@@ -50,8 +50,7 @@ export function Navbar({
     { id: 'calendar', label: t('calendarLogs') || 'تەقویم', icon: CalendarDays },
     { id: 'workers', label: t('workers') || 'کرێکاران', icon: Users },
     { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt, hidden: !hasPermission('expenses.manage') },
-    { id: 'financials', label: t('financialsTab') || 'حیسابات و دارایی', icon: WalletCards, hidden: !hasPermission('settlement.manage') },
-    { id: 'accounting', label: t('accountingTab') || 'حسابداری و خزانه‌داری', icon: Landmark, hidden: !hasPermission('settlement.manage') },
+    { id: 'accounting', label: t('financeAndAccountingTab') || (language === 'fa' ? 'حسابداری و مالی' : language === 'ku' ? 'حیسابداری و دارایی' : 'Finance & Accounting'), icon: Landmark, hidden: !hasPermission('settlement.manage') },
   ].filter(item => !item.hidden);
 
   
