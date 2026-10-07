@@ -9,7 +9,7 @@ import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
 import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
-import { AccountSubsidiaryLedgerSection } from './accounting/AccountSubsidiaryLedgerSection';
+import { AccountSubsidiaryLedgerModal } from './accounting/AccountSubsidiaryLedgerModal';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { DateRangeFilterModal } from './accounting/DateRangeFilterModal';
 import { SubsidiarySearchModal } from './accounting/SubsidiarySearchModal';
@@ -55,7 +55,9 @@ export function AccountingView() {
   const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
   const [placeholderNotice, setPlaceholderNotice] = useState(null);
   const [initialTransferSourceId, setInitialTransferSourceId] = useState(null);
-  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState(null);
+  const [selectedLedgerEntity, setSelectedLedgerEntity] = useState(null);
+  const selectedAccountForLedger = selectedLedgerEntity?.type === 'account' ? selectedLedgerEntity.data : null;
+  const setSelectedAccountForLedger = (acc) => setSelectedLedgerEntity(acc ? { type: 'account', data: acc } : null);
   const [quickDepositAccount, setQuickDepositAccount] = useState(null);
 
   // پیام اعلان موقت
@@ -349,7 +351,7 @@ export function AccountingView() {
         >
           {viewTabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = activeViewTab === tab.id && !selectedAccountForLedger;
+            const isActive = activeViewTab === tab.id;
             return (
               <div key={tab.id} className="relative group">
                 <button
@@ -414,24 +416,7 @@ export function AccountingView() {
       </div>
 
       {/* بدنه محتوا بر اساس تب انتخابی */}
-      {selectedAccountForLedger ? (
-        /* بخش مخصوص دفتر معین حساب انتخاب شده */
-        <section aria-label="Dedicated Account Subsidiary Ledger">
-          <AccountSubsidiaryLedgerSection
-            account={selectedAccountForLedger}
-            accountData={accountBalances.get(String(selectedAccountForLedger.id))}
-            currency={currency}
-            language={language}
-            allAccounts={financialAccounts}
-            onSelectAccount={(acc) => setSelectedAccountForLedger(acc)}
-            onBack={() => setSelectedAccountForLedger(null)}
-            onQuickDeposit={(acc) => {
-              setQuickDepositAccount(acc);
-              setIsQuickAddModalOpen(true);
-            }}
-          />
-        </section>
-      ) : activeViewTab === 'overview' ? (
+      {activeViewTab === 'overview' ? (
         /* تب ۱: نمای کلی و تراز نقدینگی */
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* اعلان اسناد نیازمند تایید مدیر با دکمه هدایت سریع به دفتر کل */}
@@ -691,15 +676,27 @@ export function AccountingView() {
         isOpen={isSubsidiarySearchOpen}
         onClose={() => setIsSubsidiarySearchOpen(false)}
         onSelectAccount={(account) => {
-          setSelectedAccountForLedger(account);
+          setSelectedLedgerEntity({ type: 'account', data: account });
         }}
         onSelectWorker={(worker) => {
-          if (worker?.id && openWorkerProfile) {
-            openWorkerProfile(worker.id);
-          }
+          setSelectedLedgerEntity({ type: 'worker', data: worker });
         }}
         language={language}
       />
+
+      {/* مودال فول‌اسکرین و اختصاصی معین تفصیلی حساب یا پرسنل */}
+      {selectedLedgerEntity && (
+        <AccountSubsidiaryLedgerModal
+          isOpen={Boolean(selectedLedgerEntity)}
+          entity={selectedLedgerEntity}
+          accountData={selectedLedgerEntity.type === 'account' ? accountBalances.get(String(selectedLedgerEntity.data?.id)) : null}
+          currency={currency}
+          language={language}
+          allAccounts={financialAccounts}
+          onSelectEntity={(newEntity) => setSelectedLedgerEntity(newEntity)}
+          onClose={() => setSelectedLedgerEntity(null)}
+        />
+      )}
     </div>
   );
 }

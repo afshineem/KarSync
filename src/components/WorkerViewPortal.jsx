@@ -94,23 +94,23 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
   const isSupervisor = useMemo(() => {
     if (!worker) return false;
-    const roleLower = (worker.role || '').toLowerCase();
-    const isMasterRole = worker.teamRole === 'Master' || 
+    const roleLower = (worker?.role || '').toLowerCase();
+    const isMasterRole = worker?.teamRole === 'Master' || 
                          roleLower.includes('سرپرست') || 
                          roleLower.includes('استادکار') || 
                          roleLower.includes('master');
-    return isMasterRole && !!worker.groupId;
+    return isMasterRole && !!worker?.groupId;
   }, [worker]);
 
   // Group members including active and archived workers (Requirements 2 & 2.1)
   const groupMembers = useMemo(() => {
     if (!worker?.groupId) return [];
     return allWorkers
-      .filter((w) => !w.deletedAt && String(w.groupId) === String(worker.groupId))
+      .filter((w) => w && !w.deletedAt && String(w.groupId) === String(worker.groupId))
       .sort((a, b) => {
         // Master / Supervisor first
-        if (a.teamRole === 'Master' && b.teamRole !== 'Master') return -1;
-        if (b.teamRole === 'Master' && a.teamRole !== 'Master') return 1;
+        if (a?.teamRole === 'Master' && b?.teamRole !== 'Master') return -1;
+        if (b?.teamRole === 'Master' && a?.teamRole !== 'Master') return 1;
         // Active before archived
         const aArchived = a.isArchived || a.status === 'archived';
         const bArchived = b.isArchived || b.status === 'archived';

@@ -444,8 +444,8 @@ export function FinancialsView() {
     }
     if (target) {
       setSettlementTargetWorker(target);
-      setSettlementInitialMode(target.teamRole === 'Master' && target.groupId ? 'group' : 'individual');
-      setSettlementInitialGroupId(target.groupId || null);
+      setSettlementInitialMode(target?.teamRole === 'Master' && target?.groupId ? 'group' : 'individual');
+      setSettlementInitialGroupId(target?.groupId || null);
       setIsSettlementModalOpen(true);
     }
   };
@@ -453,7 +453,7 @@ export function FinancialsView() {
   const handleOpenGroupSettlement = () => {
     if (groups.length > 0) {
       const g = groups[0];
-      const master = workers.find((w) => w.groupId === g.id && w.teamRole === 'Master') || workers.find((w) => w.groupId === g.id) || workers[0];
+      const master = workers.find((w) => w && w.groupId === g.id && w?.teamRole === 'Master') || workers.find((w) => w && w.groupId === g.id) || workers[0];
       setSettlementTargetWorker(master || null);
       setSettlementInitialMode('group');
       setSettlementInitialGroupId(g.id);
@@ -1462,24 +1462,26 @@ export function FinancialsView() {
                           <button
                             type="button"
                             onClick={() => {
-                              setSettlementTargetWorker(row.worker);
-                              setSettlementInitialMode(row.worker.teamRole === 'Master' && row.worker.groupId ? 'group' : 'individual');
-                              setSettlementInitialGroupId(row.worker.groupId || null);
-                              setIsSettlementModalOpen(true);
+                              if (row?.worker) {
+                                setSettlementTargetWorker(row.worker);
+                                setSettlementInitialMode(row.worker.teamRole === 'Master' && row.worker.groupId ? 'group' : 'individual');
+                                setSettlementInitialGroupId(row.worker.groupId || null);
+                                setIsSettlementModalOpen(true);
+                              }
                             }}
                             className={`px-2.5 py-1.5 text-white rounded-xl font-bold text-[11px] shadow-xs transition-all flex items-center gap-1 active:scale-95 ${
-                              row.worker.teamRole === 'Master' && row.worker.groupId
+                              row?.worker?.teamRole === 'Master' && row?.worker?.groupId
                                 ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20'
                                 : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
                             }`}
-                            title={row.worker.teamRole === 'Master' && row.worker.groupId ? (language === 'fa' ? 'تسویه گروهی با سرپرست' : language === 'ku' ? 'تەسویەی گشتی لەگەڵ سەرپەرشتیار' : 'Group Settlement') : t('settleBtn')}
+                            title={row?.worker?.teamRole === 'Master' && row?.worker?.groupId ? (language === 'fa' ? 'تسویه گروهی با سرپرست' : language === 'ku' ? 'تەسویەی گشتی لەگەڵ سەرپەرشتیار' : 'Group Settlement') : t('settleBtn')}
                           >
-                            {row.worker.teamRole === 'Master' && row.worker.groupId ? (
+                            {row?.worker?.teamRole === 'Master' && row?.worker?.groupId ? (
                               <Crown className="w-3.5 h-3.5 text-amber-200" />
                             ) : (
                               <CheckCircle2 className="w-3.5 h-3.5" />
                             )}
-                            <span>{row.worker.teamRole === 'Master' && row.worker.groupId ? (language === 'fa' ? 'تسویه گروهی' : language === 'ku' ? 'تەسویەی گروپ' : 'Group Settle') : t('settleBtn')}</span>
+                            <span>{row?.worker?.teamRole === 'Master' && row?.worker?.groupId ? (language === 'fa' ? 'تسویه گروهی' : language === 'ku' ? 'تەسویەی گروپ' : 'Group Settle') : t('settleBtn')}</span>
                           </button>
 
                           {/* Add Advance Button */}
@@ -1946,9 +1948,9 @@ export function FinancialsView() {
           }}
           arrearsList={workerFinancials.filter((w) => w.netBalanceDue !== 0)}
           onSelectWorker={(w) => {
-            setSettlementTargetWorker(w);
-            setSettlementInitialMode(w.teamRole === 'Master' && w.groupId ? 'group' : 'individual');
-            setSettlementInitialGroupId(w.groupId || null);
+            setSettlementTargetWorker(w || null);
+            setSettlementInitialMode(w?.teamRole === 'Master' && w?.groupId ? 'group' : 'individual');
+            setSettlementInitialGroupId(w?.groupId || null);
           }}
         />
       )}

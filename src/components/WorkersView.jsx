@@ -340,9 +340,9 @@ export function WorkersView() {
           }
 
           // Fallback tie-breaker: Masters first, then name
-          if (a.teamRole === 'Master' && b.teamRole !== 'Master') return -1;
-          if (b.teamRole === 'Master' && a.teamRole !== 'Master') return 1;
-          return (a.name || '').localeCompare(b.name || '');
+          if (a?.teamRole === 'Master' && b?.teamRole !== 'Master') return -1;
+          if (b?.teamRole === 'Master' && a?.teamRole !== 'Master') return 1;
+          return (a?.name || '').localeCompare(b?.name || '');
         });
       }
     });

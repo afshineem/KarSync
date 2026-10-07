@@ -269,7 +269,7 @@ export function SettlementModal({
   // Automatically find or set the supervisor (Master/استادکار)
   useEffect(() => {
     if (groupMembers.length > 0) {
-      const masterWorker = groupMembers.find((w) => w.teamRole === 'Master');
+      const masterWorker = groupMembers.find((w) => w?.teamRole === 'Master');
       if (masterWorker) {
         setSelectedSupervisorId(masterWorker.id);
       } else if (!selectedSupervisorId || !groupMembers.some((w) => w.id === selectedSupervisorId)) {
@@ -311,7 +311,7 @@ export function SettlementModal({
 
       memberBreakdowns.push({
         worker: m,
-        isMaster: m.teamRole === 'Master',
+        isMaster: m?.teamRole === 'Master',
         unsettledLogs: mFin.unsettledLogs,
         unsettledPayments: mFin.unsettledPayments,
         effectiveDays: mFin.effectiveDays,
