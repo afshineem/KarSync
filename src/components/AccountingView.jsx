@@ -306,59 +306,132 @@ export function AccountingView({
           </div>
         </div>
       ) : (
-        /* نوار ابزار فشرده در حالت میزبانی شده داخل کانتینر ادغام‌شده */
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
-            <span>
-              {activeViewTab === 'accounts' && (language === 'fa' ? 'مدیریت و تراز کارت‌ها و صندوق‌ها' : 'بەڕێوەبردنی کارتەکان و سندووق')}
-              {activeViewTab === 'ledger' && (language === 'fa' ? 'دفتر کل اسناد و تراکنش‌های کارگاه' : 'دەفتەری گشتی مامەڵەکان')}
-              {activeViewTab === 'income' && (language === 'fa' ? 'ورودی‌های نقدینگی و درآمدهای پروژه' : 'داهات و تەنخوا')}
-            </span>
+        /* نوار ابزار در حالت میزبانی شده داخل کانتینر ادغام‌شده (کاملاً یکسان با تب اول) */
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          {/* سمت راست: آیکون، عنوان و نشانگر وضعیت تب فرعی دقیقا هم‌اندازه تب اول */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 flex-shrink-0">
+              {activeViewTab === 'accounts' && <CreditCard className="w-6 h-6 stroke-[2.2]" />}
+              {activeViewTab === 'ledger' && <BookOpen className="w-6 h-6 stroke-[2.2]" />}
+              {activeViewTab === 'income' && <ArrowDownLeft className="w-6 h-6 stroke-[2.2]" />}
+              {activeViewTab !== 'accounts' && activeViewTab !== 'ledger' && activeViewTab !== 'income' && <Landmark className="w-6 h-6 stroke-[2.2]" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                  {activeViewTab === 'accounts' && (language === 'fa' ? 'مدیریت و تراز کارت‌ها و صندوق‌ها' : 'بەڕێوەبردنی کارتەکان و سندووق')}
+                  {activeViewTab === 'ledger' && (language === 'fa' ? 'دفتر کل اسناد و تراکنش‌های کارگاه' : 'دەفتەری گشتی مامەڵەکان')}
+                  {activeViewTab === 'income' && (language === 'fa' ? 'ورودی‌های نقدینگی و درآمدهای پروژه' : 'داهات و تەنخوا')}
+                </h1>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
+                  {currentProject?.name || (language === 'fa' ? 'پروژه کارگاه' : 'پڕۆژە')}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {activeViewTab === 'accounts' && (language === 'fa' ? 'کنترل سرفصل‌ها، تراز صندوق و کارت‌های بانکی فعال' : 'کۆنترۆڵی سندووق و کارتە بانکییەکان')}
+                {activeViewTab === 'ledger' && (language === 'fa' ? 'ثبت و تایید اسناد دو مرحله‌ای، مغایرت‌گیری و گردش حساب' : 'تۆمارکردن و پەسەندکردنی بەڵگەنامەکان')}
+                {activeViewTab === 'income' && (language === 'fa' ? 'تزریق نقدینگی، شارژ تنخواه و واریزی‌های کارفرما' : 'تەنخوا و داهاتە نوێیەکان')}
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* دکمه تقویم ماه */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl px-2.5 py-1 text-xs font-bold border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200">
-              <Clock className="w-3.5 h-3.5 text-sky-500 ml-1.5" />
-              <span>{formatMonthOnly(selectedMonth, language) || selectedMonth}</span>
+          {/* سمت چپ: کنترل ماه‌نما و داک دکمه‌های آیکونی بزرگ (دقیقا برابر با تب اول: h-[52px] sm:h-[58px]) */}
+          <div className="w-full xl:w-auto flex flex-col sm:flex-row items-center justify-center xl:justify-end gap-2.5 sm:gap-3 flex-wrap">
+            {/* ۱. ماه‌نمای تعاملی با دکمه‌های قبل و بعد - هم‌اندازه تب اول */}
+            <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl p-1 sm:p-1.5 border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
+                className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+                title={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+                aria-label={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+              >
+                {direction === 'rtl' ? <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
+              </button>
+
+              <div className="relative flex-1 h-full flex items-center justify-center cursor-pointer min-w-[6rem] sm:min-w-[7rem] px-2 sm:px-3">
+                <div className="pointer-events-none text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 text-center w-full truncate">
+                  {formatMonthOnly(selectedMonth, language) || selectedMonth}
+                </div>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(e.target.value);
+                    setDateFilterMode('month');
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  title={language === 'fa' ? 'انتخاب ماه' : 'هەڵبژاردنی مانگ'}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
+                className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+                title={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
+                aria-label={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
+              >
+                {direction === 'rtl' ? <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
+              </button>
             </div>
 
-            {/* دکمه معین سریع */}
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'))}
-              className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200/80 dark:border-emerald-800/80 transition-colors flex items-center gap-1.5"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>{language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیساب'}</span>
-            </button>
+            {/* ۲. داک اکشن‌های سریع - هم‌ارتفاع با تب اول (h-[52px] sm:h-[58px]) با آیکون‌های بزرگ w-5.5 sm:w-6 */}
+            <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between sm:justify-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+              {/* دکمه معین افراد و حساب‌ها */}
+              <div className="relative group h-full">
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'))}
+                  className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center focus:outline-hidden"
+                  aria-label={language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان'}
+                >
+                  <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                </button>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
+                  {language === 'fa' ? 'معین افراد و حساب‌ها (Shift+M)' : 'دەفتەری حیسابی کەسەکان'}
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
+                </div>
+              </div>
 
-            {/* دکمه انتقال وجه */}
-            <button
-              type="button"
-              onClick={() => {
-                setInitialTransferSourceId(null);
-                setIsTransferModalOpen(true);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200/80 dark:border-slate-700/80 transition-colors flex items-center gap-1.5"
-            >
-              <ArrowLeftRight className="w-3.5 h-3.5 text-sky-500" />
-              <span>{language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە'}</span>
-            </button>
+              {/* دکمه انتقال وجه بین حساب‌ها */}
+              <div className="relative group h-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInitialTransferSourceId(null);
+                    setIsTransferModalOpen(true);
+                  }}
+                  className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center focus:outline-hidden"
+                  aria-label={language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە'}
+                >
+                  <ArrowLeftRight className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                </button>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
+                  {language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە'}
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
+                </div>
+              </div>
 
-            {/* دکمه شارژ تنخواه */}
-            <button
-              type="button"
-              onClick={() => {
-                setQuickDepositAccount(null);
-                setIsQuickAddModalOpen(true);
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{language === 'fa' ? 'شارژ موجودی' : 'زیادکردنی باڵانس'}</span>
-            </button>
+              {/* دکمه شارژ موجودی (تنخواه) */}
+              <div className="relative group h-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuickDepositAccount(null);
+                    setIsQuickAddModalOpen(true);
+                  }}
+                  className="h-full aspect-square rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 transition-all flex items-center justify-center focus:outline-hidden"
+                  aria-label={language === 'fa' ? 'شارژ موجودی' : 'زیادکردنی باڵانس'}
+                >
+                  <Plus className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
+                </button>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
+                  {language === 'fa' ? 'شارژ موجودی (تنخواه / واریز)' : 'زیادکردنی باڵانس'}
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
