@@ -49,7 +49,8 @@ import {
   Archive,
   RotateCcw,
   Crown,
-  Lock
+  Lock,
+  BookOpen
 } from 'lucide-react';
 
 export function FinancialsView() {
@@ -1504,6 +1505,25 @@ export function FinancialsView() {
                           >
                             <Receipt className="w-4 h-4 text-sky-500" />
                           </button>
+
+                          {/* Quick Subsidiary General Ledger Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-ledger', {
+                                detail: {
+                                  type: 'worker',
+                                  id: row.worker.id,
+                                  title: row.worker.name,
+                                  subtitle: row.worker.role || (language === 'fa' ? 'پرسنل کارگاه' : 'کرێکار')
+                                }
+                              }));
+                            }}
+                            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 rounded-xl transition-colors"
+                            title={language === 'fa' ? 'گردش حساب در دفتر کل (دفتر معین)' : language === 'ku' ? 'تۆماری دارایی لە دەفتەری گشتی' : 'Subsidiary Ledger'}
+                          >
+                            <BookOpen className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1649,15 +1669,36 @@ export function FinancialsView() {
 
                       {/* 8. Actions */}
                       <td className="px-3 py-3 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setHistoryTargetWorker(row.worker)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-[11px] transition-colors inline-flex items-center gap-1.5"
-                          title={language === 'fa' ? 'مشاهده اسناد تسویه و ریز سوابق' : language === 'ku' ? 'بینینی بەڵگەنامەکانی تەسویە' : 'View Settlement Receipts'}
-                        >
-                          <Receipt className="w-3.5 h-3.5 text-sky-500" />
-                          <span>{t('viewSettlementReceipts')}</span>
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setHistoryTargetWorker(row.worker)}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-[11px] transition-colors inline-flex items-center gap-1.5"
+                            title={language === 'fa' ? 'مشاهده اسناد تسویه و ریز سوابق' : language === 'ku' ? 'بینینی بەڵگەنامەکانی تەسویە' : 'View Settlement Receipts'}
+                          >
+                            <Receipt className="w-3.5 h-3.5 text-sky-500" />
+                            <span>{t('viewSettlementReceipts')}</span>
+                          </button>
+
+                          {/* Quick Subsidiary General Ledger Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-ledger', {
+                                detail: {
+                                  type: 'worker',
+                                  id: row.worker.id,
+                                  title: row.worker.name,
+                                  subtitle: row.worker.role || (language === 'fa' ? 'پرسنل کارگاه' : 'کرێکار')
+                                }
+                              }));
+                            }}
+                            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 rounded-xl transition-colors"
+                            title={language === 'fa' ? 'گردش حساب در دفتر کل (دفتر معین)' : language === 'ku' ? 'تۆماری دارایی لە دەفتەری گشتی' : 'Subsidiary Ledger'}
+                          >
+                            <BookOpen className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
