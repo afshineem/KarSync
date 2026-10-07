@@ -243,6 +243,7 @@ export function AccountSubsidiaryLedgerModal({
   // تشخیص مقادیر حساب یا پرسنل
   const isBank = entityType === 'account' && entityData?.type === 'bank';
   const isCash = entityType === 'account' && entityData?.type === 'cash';
+  const isWorker = entityType === 'worker';
   const initialBalance = isWorker ? 0 : (Number(effectiveAccountData?.initialBalance) || 0);
   const currentBalance = isWorker ? workerTransactionsData.currentBalance : (Number(effectiveAccountData?.currentBalance) || 0);
   const totalInflow = isWorker ? workerTransactionsData.totalInflow : (Number(effectiveAccountData?.totalInflow) || 0);
