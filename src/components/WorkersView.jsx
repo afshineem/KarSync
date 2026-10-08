@@ -121,6 +121,7 @@ export function WorkersView() {
     role: '',
     groupId: '',
     teamRole: 'Worker',
+    wageType: 'standard',
     dailyRate: '35000',
     overtimeHourlyRate: '5000',
     defaultSectionId: '',
@@ -359,7 +360,8 @@ export function WorkersView() {
       role: '',
       groupId: '',
       teamRole: 'Worker',
-      dailyRate: '35000',
+    wageType: 'standard',
+    dailyRate: '35000',
       overtimeHourlyRate: '5000',
       defaultSectionId: '',
       isActive: 1,
@@ -389,6 +391,7 @@ export function WorkersView() {
       role: worker.role || '',
       groupId: worker.groupId || '',
       teamRole: worker.teamRole || 'Worker',
+      wageType: worker.wageType || 'standard',
       dailyRate: String(worker.dailyRate),
       overtimeHourlyRate: String(worker.overtimeHourlyRate),
       defaultSectionId: worker.defaultSectionId || '',
@@ -410,8 +413,9 @@ export function WorkersView() {
       return;
     }
 
-    const dailyRate = Number(formData.dailyRate);
-    const overtimeRate = Number(formData.overtimeHourlyRate);
+    const isContract = formData.wageType === 'contract';
+    const dailyRate = isContract ? 0 : Number(formData.dailyRate);
+    const overtimeRate = isContract ? 0 : Number(formData.overtimeHourlyRate);
 
     if (isNaN(dailyRate) || dailyRate < 0 || isNaN(overtimeRate) || overtimeRate < 0) {
       setFormError(t('validationRatesPositive'));
@@ -432,6 +436,7 @@ export function WorkersView() {
           role: formData.role.trim(),
           groupId: formData.groupId ? String(formData.groupId) : null,
           teamRole: formData.teamRole || 'Worker',
+          wageType: formData.wageType || 'standard',
           dailyRate: dailyRate,
           overtimeHourlyRate: overtimeRate,
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
@@ -475,6 +480,7 @@ export function WorkersView() {
           role: formData.role.trim(),
           groupId: formData.groupId ? String(formData.groupId) : null,
           teamRole: formData.teamRole || 'Worker',
+          wageType: formData.wageType || 'standard',
           dailyRate: dailyRate,
           overtimeHourlyRate: overtimeRate,
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
@@ -977,8 +983,12 @@ export function WorkersView() {
                       <Coins className="w-3.5 h-3.5 text-sky-500" />
                       <span>{t('dailyRateLabel')}:</span>
                     </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
-                      {formatCurrency(worker.dailyRate, currency, language)}
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {worker.wageType === 'contract' ? (
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 font-normal">توافقی (کنتراکت)</span>
+                      ) : (
+                        <span className="font-mono">{formatCurrency(worker.dailyRate, currency, language)}</span>
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
@@ -986,8 +996,12 @@ export function WorkersView() {
                       <Clock className="w-3.5 h-3.5 text-amber-500" />
                       <span>{t('overtimeRateLabel')}:</span>
                     </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
-                      {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {worker.wageType === 'contract' ? (
+                        <span className="text-slate-400 text-xs">-</span>
+                      ) : (
+                        <span className="font-mono">{formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr</span>
+                      )}
                     </span>
                   </div>
 
@@ -1321,11 +1335,19 @@ export function WorkersView() {
                       <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 font-mono" dir="ltr">
                         {worker.phone || '-'}
                       </td>
-                      <td className="py-2.5 px-3.5 font-bold font-mono text-slate-800 dark:text-slate-200">
-                        {formatCurrency(worker.dailyRate, currency, language)}
+                      <td className="py-2.5 px-3.5 font-bold text-slate-800 dark:text-slate-200">
+                        {worker.wageType === 'contract' ? (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 font-normal">توافقی (کنتراکت)</span>
+                        ) : (
+                          <span className="font-mono">{formatCurrency(worker.dailyRate, currency, language)}</span>
+                        )}
                       </td>
-                      <td className="py-2.5 px-3.5 font-medium font-mono text-slate-700 dark:text-slate-300">
-                        {formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr
+                      <td className="py-2.5 px-3.5 font-medium text-slate-700 dark:text-slate-300">
+                        {worker.wageType === 'contract' ? (
+                          <span className="text-slate-400 text-xs">-</span>
+                        ) : (
+                          <span className="font-mono">{formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr</span>
+                        )}
                       </td>
                       <td className="py-2.5 px-3.5 text-center font-mono">
                         {(() => {
@@ -1692,7 +1714,21 @@ export function WorkersView() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>{language === 'fa' ? 'نوع دستمزد' : 'جۆری کرێ'}</span>
+                  </label>
+                  <select
+                    value={formData.wageType || 'standard'}
+                    onChange={(e) => setFormData({ ...formData, wageType: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    <option value="standard">{language === 'fa' ? 'عادی (مزد روزانه)' : 'ستاندارد (کرێی ڕۆژانە)'}</option>
+                    <option value="contract">{language === 'fa' ? 'کنتراکت (توافقی / مقاطعه)' : 'گرێبەست (بڕاوە)'}</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3" style={{ opacity: formData.wageType === 'contract' ? 0.5 : 1, pointerEvents: formData.wageType === 'contract' ? 'none' : 'auto' }}>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       {t('dailyRateLabel')} *

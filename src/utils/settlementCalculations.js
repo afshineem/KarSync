@@ -100,7 +100,8 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     const base = Number(l.calculatedDailyWage) || (l.type === 'half' ? wDaily * 0.5 : l.type === 'full' ? wDaily : 0);
     const otAmount = Number(l.calculatedOvertimeWage) || (ot * wOtRate);
 
-    if (paymentBudget >= pay - 0.001) {
+    const isCovered = (pay > 0 && paymentBudget >= pay - 0.001) || (pay === 0 && Boolean(l.settlementReceiptId));
+    if (isCovered) {
       // Fully covered by past payments
       settledLogs.push(l);
       paymentBudget -= pay;

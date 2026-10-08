@@ -560,6 +560,9 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           teamRole: (localIsNewer && localW?.teamRole)
             ? localW.teamRole
             : (meta.teamRole || localW?.teamRole || 'Worker'),
+          wageType: (localIsNewer && localW?.wageType)
+            ? localW.wageType
+            : (meta.wageType || localW?.wageType || 'standard'),
           isArchived: (localIsNewer && localW?.isArchived !== undefined)
             ? localW.isArchived
             : (meta.isArchived !== undefined ? meta.isArchived : (localW?.isArchived || false)),
@@ -828,6 +831,7 @@ function subscribeToRealtime() {
             defaultSectionId: w.default_section_id || w.defaultSectionId || localW?.defaultSectionId || null,
             groupId: w.group_id || w.groupId || localW?.groupId || null,
             teamRole: w.team_role || w.teamRole || localW?.teamRole || 'Worker',
+            wageType: w.wageType || localW?.wageType || 'standard',
             projectId: resolvedProjectId,
             userId: w.user_id || w.userId || 'default_user',
             createdAt: w.created_at,
@@ -1913,6 +1917,7 @@ export async function pullWorkerMetadataLive(force = false) {
               ...meta,
               groupId: w.groupId || null,
               teamRole: w.teamRole || 'Worker',
+            wageType: w.wageType || 'standard',
               defaultSectionId: w.defaultSectionId || null,
               isArchived: !!(w.isArchived || w.status === 'archived'),
               status: w.status || (w.isArchived ? 'archived' : 'active'),
@@ -1933,6 +1938,10 @@ export async function pullWorkerMetadataLive(force = false) {
           }
           if (meta.teamRole && w.teamRole !== meta.teamRole) {
             updates.teamRole = meta.teamRole;
+            needsUpdate = true;
+          }
+          if (meta.wageType && w.wageType !== meta.wageType) {
+            updates.wageType = meta.wageType;
             needsUpdate = true;
           }
           if (meta.defaultSectionId !== undefined && w.defaultSectionId !== meta.defaultSectionId) {
@@ -1970,6 +1979,7 @@ export async function pullWorkerMetadataLive(force = false) {
           cloudMetadata[w.id] = {
             groupId: w.groupId || null,
             teamRole: w.teamRole || 'Worker',
+            wageType: w.wageType || 'standard',
             defaultSectionId: w.defaultSectionId || null,
             isArchived: !!(w.isArchived || w.status === 'archived'),
             status: w.status || (w.isArchived ? 'archived' : 'active'),
@@ -2075,6 +2085,7 @@ export async function syncAllWorkerMetadataToCloud() {
           ...existingMeta,
           groupId: w.groupId || null,
           teamRole: w.teamRole || 'Worker',
+            wageType: w.wageType || 'standard',
           defaultSectionId: w.defaultSectionId || null,
           isArchived: !!(w.isArchived || w.status === 'archived'),
           status: w.status || (w.isArchived ? 'archived' : 'active'),
@@ -2228,6 +2239,7 @@ export async function pushWorkerLive(w) {
   await pushWorkerMetadataLive(w.id, {
     groupId: w.groupId || null,
     teamRole: w.teamRole || 'Worker',
+            wageType: w.wageType || 'standard',
     defaultSectionId: w.defaultSectionId || null,
     isArchived: !!(w.isArchived || w.status === 'archived'),
     status: w.status || (w.isArchived ? 'archived' : 'active'),

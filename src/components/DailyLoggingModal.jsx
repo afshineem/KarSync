@@ -493,37 +493,39 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             updated_by_user_id: user?.id
           };
 
-          await db.attendanceLogs.put(newRecord);
-          savedLogs.push(newRecord);
-
-          
-        const safeAuth = await getSafeAuthContext();
-        await logAuditAction({
-            workspaceId: safeAuth.workspaceId,
-            userId: safeAuth.userId,
-            userName: safeAuth.userName,
-            actionType: existingLog ? 'EDIT_ATTENDANCE' : 'CREATE_ATTENDANCE',
-            entityType: 'attendanceLogs',
-            entityId: canonicalId,
-            projectId: newRecord.projectId,
-            
-            
-            
-            details: {
-              description: existingLog 
-                ? `ویرایش کارکرد ${worker.name} در تاریخ ${selectedDate}` 
-                : `ثبت کارکرد ${worker.name} در تاریخ ${selectedDate}`,
-              worker_name: worker.name,
-              date: selectedDate,
-              type: cfg.type
-            }
-          });
+await db.attendanceLogs.put(newRecord);
+          savedLogs.push({ newRecord, existingLog, workerName: worker.name, type: cfg.type });
         }
       });
 
+      // Execute Audit logs outside Dexie transaction to prevent "Transaction committed too early"
+      const safeAuth = await getSafeAuthContext();
+      for (const logInfo of savedLogs) {
+        const { newRecord, existingLog, workerName, type } = logInfo;
+        await logAuditAction({
+          workspaceId: safeAuth.workspaceId,
+          userId: safeAuth.userId,
+          userName: safeAuth.userName,
+          actionType: existingLog ? 'EDIT_ATTENDANCE' : 'CREATE_ATTENDANCE',
+          entityType: 'attendanceLogs',
+          entityId: newRecord.id,
+          projectId: newRecord.projectId,
+          details: {
+            description: existingLog 
+              ? `ویرایش کارکرد ${workerName} در تاریخ ${selectedDate}` 
+              : `ثبت کارکرد ${workerName} در تاریخ ${selectedDate}`,
+            worker_name: workerName,
+            date: selectedDate,
+            type: type
+          }
+        }).catch(err => console.warn('Audit error:', err));
+      }
+
+      const logsToPush = savedLogs.map(info => info.newRecord);
+      
       // Realtime push to Supabase
-      if (savedLogs.length > 0) {
-        pushLogsLive(savedLogs).catch((err) => console.warn('Supabase live push warning:', err));
+      if (logsToPush.length > 0) {
+        pushLogsLive(logsToPush).catch((err) => console.warn('Supabase live push warning:', err));
       }
 
       setToastMessage(t('batchSavedSuccess', { count: checkedWorkerIds.length }));

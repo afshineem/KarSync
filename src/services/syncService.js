@@ -154,6 +154,7 @@ export async function pullAllFromSupabase() {
           name: w.name,
           phone: w.phone || '',
           role: w.role,
+          wageType: 'standard', // Will be merged immediately by pullWorkerMetadataLive
           dailyRate: Number(w.daily_rate) || 0,
           overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
           isActive: Number(w.is_active) === 0 ? 0 : 1,
