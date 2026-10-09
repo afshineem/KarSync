@@ -73,4 +73,93 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* Dedicated light-mode print styling for Subsidiary Ledger Modal */
+  body.is-printing-subsidiary-ledger > *:not(.subsidiary-ledger-modal-root) {
+    display: none !important;
+  }
+
+  body.is-printing-subsidiary-ledger .subsidiary-ledger-modal-root {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body.is-printing-subsidiary-ledger .subsidiary-ledger-table-container {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    background-color: #ffffff !important;
+  }
+
+  body.is-printing-subsidiary-ledger table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  body.is-printing-subsidiary-ledger thead {
+    display: table-header-group !important;
+    background-color: #f8fafc !important;
+  }
+
+  body.is-printing-subsidiary-ledger th {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+  }
+
+  body.is-printing-subsidiary-ledger td {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+
+  body.is-printing-subsidiary-ledger tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  body.is-printing-subsidiary-ledger .opening-balance-row {
+    background-color: #fefce8 !important; /* amber-50 */
+  }
+
+  body.is-printing-subsidiary-ledger .opening-balance-row td {
+    background-color: #fefce8 !important;
+    color: #78350f !important; /* amber-900 */
+    border-color: #fde68a !important;
+  }
+
+  body.is-printing-subsidiary-ledger .print-inflow {
+    color: #15803d !important; /* green-700 */
+    font-weight: 700 !important;
+  }
+
+  body.is-printing-subsidiary-ledger .print-outflow {
+    color: #b91c1c !important; /* red-700 */
+    font-weight: 700 !important;
+  }
+
+  body.is-printing-subsidiary-ledger .print-balance-positive {
+    color: #0f172a !important; /* slate-900 */
+    font-weight: 800 !important;
+  }
+
+  body.is-printing-subsidiary-ledger .print-balance-negative {
+    color: #b91c1c !important;
+    font-weight: 800 !important;
+  }
 }
