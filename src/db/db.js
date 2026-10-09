@@ -76,9 +76,19 @@ db.version(13).stores({
   audit_logs: 'id, workspace_id, user_id, entity_type, action_type, createdAt'
 });
 
+db.version(14).stores({
+  counterparties: 'id, projectId, type, name, status, createdAt',
+  treasuryIncomes: 'id, projectId, counterpartyId, date, accountType, status, created_by, approved_by, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+}
+
+// Helper to generate Counterparty IDs
+export function generateCounterpartyId() {
+  return 'cpt_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Transfer IDs
@@ -234,6 +244,17 @@ db.payments.hook('updating', function (modifications, primKey, obj) {
   }
   if ('amount' in modifications && modifications.amount !== undefined) {
     modifications.amount = Number(String(modifications.amount).replace(/,/g, '')) || 0;
+  }
+});
+
+db.counterparties.hook('creating', function (primKey, obj) {
+  if (obj.id !== undefined) obj.id = String(obj.id);
+  if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
+  if (!obj.createdAt) obj.createdAt = new Date().toISOString();
+});
+db.counterparties.hook('updating', function (modifications, primKey, obj) {
+  if ('projectId' in modifications && !modifications.projectId) {
+    modifications.projectId = DEFAULT_PROJECT_ID;
   }
 });
 
