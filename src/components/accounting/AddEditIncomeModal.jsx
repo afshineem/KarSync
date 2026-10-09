@@ -40,11 +40,15 @@ export function AddEditIncomeModal({
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [accountType, setAccountType] = useState('bank'); // fallback: 'cash' | 'bank'
   const [payer, setPayer] = useState('');
+  const [selectedCounterpartyId, setSelectedCounterpartyId] = useState('');
   const [description, setDescription] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
   const isApprovedAndLocked = Boolean(initialData && initialData.status === 'approved');
+
+  // واکشی طرف‌حساب‌ها
+  const counterparties = useLiveQuery(() => db.counterparties ? db.counterparties.toArray() : []) || [];
 
   // واکشی حساب‌های مالی ثبت شده (کارت‌ها و صندوق‌ها)
   const financialAccounts = useLiveQuery(
@@ -83,6 +87,7 @@ export function AddEditIncomeModal({
         const matched = financialAccounts.find(a => String(a.id) === String(initialAccId));
         setAccountType(initialData.accountType || matched?.type || defaultAccount?.type || 'bank');
         setPayer(initialData.payer || '');
+        setSelectedCounterpartyId(initialData.counterpartyId || '');
         setDescription(initialData.description || '');
       } else {
         setAmount('');
@@ -92,6 +97,7 @@ export function AddEditIncomeModal({
         const matched = financialAccounts.find(a => String(a.id) === String(defaultAccId));
         setAccountType(matched?.type || defaultAccount?.type || 'bank');
         setPayer('');
+        setSelectedCounterpartyId('');
         setDescription('');
       }
       setErrorMsg('');
@@ -147,6 +153,7 @@ export function AddEditIncomeModal({
         accountName: matchedAcc?.name || (accountType === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
         accountType: matchedAcc?.type || accountType,
         payer: payer.trim(),
+        counterpartyId: (selectedCounterpartyId && selectedCounterpartyId !== 'other') ? selectedCounterpartyId : null,
         description: description.trim(),
         ...(initialData ? {} : { status: 'draft', created_by: user?.id || 'admin' })
       });
@@ -338,18 +345,40 @@ export function AddEditIncomeModal({
           </div>
 
           {/* واریزکننده / منبع */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
               <User className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-              <span>{language === 'fa' ? 'واریزکننده / طرف‌حساب (اختیاری)' : 'پارەدەر'}</span>
+              <span>{language === 'fa' ? 'واریزکننده / طرف‌حساب' : 'پارەدەر'}</span>
             </label>
-            <input
-              type="text"
-              value={payer}
-              onChange={(e) => setPayer(e.target.value)}
-              placeholder="مثلاً: مهندس کارفرما / حاج احمد"
-              className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
+            <select
+              value={selectedCounterpartyId}
+              onChange={(e) => {
+                setSelectedCounterpartyId(e.target.value);
+                if (e.target.value !== 'other' && e.target.value !== '') {
+                  const cp = counterparties.find(c => String(c.id) === e.target.value);
+                  if (cp) setPayer(cp.name);
+                } else if (e.target.value === '') {
+                  setPayer('');
+                }
+              }}
+              className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent cursor-pointer"
+            >
+              <option value="">{language === 'fa' ? '--- بدون انتخاب ---' : '---'}</option>
+              {counterparties.map(cp => (
+                <option key={cp.id} value={cp.id}>{cp.name} {cp.company ? `(${cp.company})` : ''}</option>
+              ))}
+              <option value="other">{language === 'fa' ? 'سایر (ثبت دستی)' : 'تر'}</option>
+            </select>
+            
+            {(selectedCounterpartyId === 'other' || (!selectedCounterpartyId && payer)) && (
+              <input
+                type="text"
+                value={payer}
+                onChange={(e) => setPayer(e.target.value)}
+                placeholder={language === 'fa' ? "نام واریزکننده به صورت دستی..." : "ناونیشانی واریز..."}
+                className="w-full h-11 mt-2 px-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            )}
           </div>
 
           {/* فیلد توضیحات */}

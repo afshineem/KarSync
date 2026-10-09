@@ -99,6 +99,15 @@ export function useAccounting(options = {}) {
     [projectId]
   ) || [];
 
+  const counterparties = useLiveQuery(
+    async () => {
+      if (!db.counterparties) return [];
+      const list = await db.counterparties.toArray();
+      return list.filter((cp) => !cp.deletedAt && (!cp.projectId || cp.projectId === projectId || projectId === DEFAULT_PROJECT_ID));
+    },
+    [projectId]
+  ) || [];
+
   const workerMap = useMemo(() => {
     const map = new Map();
     workers.forEach((w) => {
@@ -106,6 +115,14 @@ export function useAccounting(options = {}) {
     });
     return map;
   }, [workers]);
+
+  const counterpartyMap = useMemo(() => {
+    const map = new Map();
+    counterparties.forEach((cp) => {
+      map.set(String(cp.id), cp);
+    });
+    return map;
+  }, [counterparties]);
 
   // ب) واریزی‌ها و شارژ تنخواه (Treasury Incomes)
   const treasuryIncomes = useLiveQuery(
@@ -276,6 +293,12 @@ export function useAccounting(options = {}) {
         const entry = map.get(targetId);
         entry.totalInflow += amt;
         entry.inflowsCount += 1;
+        
+        const cp = inc.counterpartyId ? counterpartyMap.get(String(inc.counterpartyId)) : null;
+        const payerName = cp ? cp.name : (inc.payer || '');
+        const descPrefix = payerName ? `واریزکننده: ${payerName}` : '';
+        const finalDesc = [descPrefix, inc.description].filter(Boolean).join(' - ');
+
         entry.transactions.push({
           id: inc.id,
           rawDate: (inc.date || inc.createdAt || '').slice(0, 10),
@@ -285,8 +308,8 @@ export function useAccounting(options = {}) {
           category: 'petty_cash',
           categoryLabel: 'شارژ تنخواه / واریزی',
           title: inc.title || 'واریز تنخواه کارگاه',
-          description: inc.description || (inc.payer ? `واریزکننده: ${inc.payer}` : ''),
-          personName: inc.payer || '',
+          description: finalDesc,
+          personName: payerName,
           inflowAmount: amt,
           outflowAmount: 0,
           amount: amt,
@@ -535,6 +558,11 @@ export function useAccounting(options = {}) {
     treasuryIncomes.forEach((inc) => {
       const dateStr = (inc.date || inc.createdAt || '').slice(0, 10);
       const acc = inc.accountId ? accountMap.get(String(inc.accountId)) : null;
+      const cp = inc.counterpartyId ? counterpartyMap.get(String(inc.counterpartyId)) : null;
+      const payerName = cp ? cp.name : (inc.payer || '');
+      const descPrefix = payerName ? `واریزکننده: ${payerName}` : '';
+      const finalDesc = [descPrefix, inc.description].filter(Boolean).join(' - ');
+
       rawTransactions.push({
         id: inc.id,
         rawDate: dateStr,
@@ -547,7 +575,7 @@ export function useAccounting(options = {}) {
         accountId: inc.accountId || null,
         accountName: acc?.name || (inc.accountType === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
         title: inc.title || 'واریز تنخواه کارگاه',
-        description: inc.description || inc.payer ? `واریزکننده: ${inc.payer || ''}` : '',
+        description: finalDesc,
         tableName: 'treasuryIncomes',
         status: inc.status || 'draft',
         approvedBy: inc.approvedBy || inc.approved_by_name || null,
@@ -876,7 +904,7 @@ export function useAccounting(options = {}) {
   // ----------------------------------------------------
   // ۶. متدهای CRUD برای مدیریت واریزی‌ها، شارژ تنخواه و حساب‌ها
   // ----------------------------------------------------
-  const addIncome = useCallback(async ({ amount, date, title, accountType, accountId, accountName, description, payer, status }) => {
+  const addIncome = useCallback(async ({ amount, date, title, accountType, accountId, accountName, description, payer, counterpartyId, status }) => {
     const numAmount = Number(String(amount).replace(/,/g, ''));
     if (!numAmount || numAmount <= 0) {
       throw new Error('مبلغ واریزی باید بزرگتر از صفر باشد');
@@ -888,6 +916,7 @@ export function useAccounting(options = {}) {
     const newRecord = {
       id: generateTreasuryIncomeId(),
       projectId,
+      counterpartyId: counterpartyId || null,
       userId: user?.id || user?.userId || 'default_user',
       amount: numAmount,
       date: date || getTodayDateString(),
