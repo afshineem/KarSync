@@ -8,6 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { WorkersView } from './components/WorkersView';
+import { CounterpartiesView } from './components/CounterpartiesView';
 import { CalendarReportsView } from './components/CalendarReportsView';
 import { FinancialsView } from './components/FinancialsView';
 import { ExpensesView, AddExpenseModal } from './components/ExpensesView';
@@ -322,6 +323,10 @@ function AppContent() {
 
         {activeTab === 'workers' && (
           <WorkersView />
+        )}
+
+        {activeTab === 'counterparties' && (
+          <CounterpartiesView />
         )}
 
         {activeTab === 'calendar' || activeTab === 'reports' ? (

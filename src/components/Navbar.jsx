@@ -12,7 +12,8 @@ import {
   Settings, 
   WalletCards,
   Receipt,
-  Landmark
+  Landmark,
+  Briefcase
 } from 'lucide-react';
 
 export function Navbar({ 
@@ -26,7 +27,7 @@ export function Navbar({
   onOpenInstallModal,
   onOpenUsersModal
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useAuth();
   const { openProjectSettings, openGlobalSettings } = useProject();
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
@@ -49,6 +50,7 @@ export function Navbar({
     { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
     { id: 'calendar', label: t('calendarLogs') || 'تەقویم', icon: CalendarDays },
     { id: 'workers', label: t('workers') || 'کرێکاران', icon: Users },
+    { id: 'counterparties', label: language === 'fa' ? 'طرف‌حساب‌ها' : 'لایەنەکان', icon: Briefcase },
     { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt, hidden: !hasPermission('expenses.manage') },
     { id: 'accounting', label: t('financeAndAccountingTab') || (language === 'fa' ? 'حسابداری و مالی' : language === 'ku' ? 'حیسابداری و دارایی' : 'Finance & Accounting'), icon: Landmark, hidden: !hasPermission('settlement.manage') },
   ].filter(item => !item.hidden);
