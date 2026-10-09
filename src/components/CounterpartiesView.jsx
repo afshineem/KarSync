@@ -22,6 +22,17 @@ export function CounterpartiesView() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const counterparties = useLiveQuery(() => db.counterparties.toArray()) || [];
+  const treasuryIncomes = useLiveQuery(() => db.treasuryIncomes ? db.treasuryIncomes.toArray() : []) || [];
+  
+  const cpBalances = React.useMemo(() => {
+    const balances = {};
+    treasuryIncomes.forEach(inc => {
+      if (inc.counterpartyId) {
+         balances[inc.counterpartyId] = (balances[inc.counterpartyId] || 0) + (Number(inc.amount) || 0);
+      }
+    });
+    return balances;
+  }, [treasuryIncomes]);
   
   const filteredCounterparties = counterparties.filter(cp => 
     cp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -142,6 +153,43 @@ export function CounterpartiesView() {
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-slate-400" />
                   <span dir="ltr">{cp.phone}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700/60">
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl">
+                  <span className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1">
+                    {language === 'fa' ? 'تزریق شده (پرداختی)' : 'پاره‌ی دراو'}
+                  </span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono text-sm">
+                    {formatCurrency(cpBalances[cp.id] || 0)}
+                  </span>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl">
+                  <span className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1">
+                    {language === 'fa' ? 'مبلغ قرارداد' : 'گرێبەست'}
+                  </span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300 font-mono text-sm">
+                    {cp.contractValue ? formatCurrency(cp.contractValue) : '-'}
+                  </span>
+                </div>
+              </div>
+              {cp.contractValue && cp.type === 'employer' && (
+                <div className="mt-3">
+                  <div className="flex justify-between text-[10px] mb-1">
+                    <span className="text-slate-500">{language === 'fa' ? 'پیشرفت مالی' : 'پێشکەوتن'}</span>
+                    <span className="text-blue-600 font-bold font-mono">
+                      {Math.min(100, Math.round(((cpBalances[cp.id] || 0) / cp.contractValue) * 100))}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" 
+                      style={{ width: `${Math.min(100, ((cpBalances[cp.id] || 0) / cp.contractValue) * 100)}%` }}
+                    ></div>
+                  </div>
                 </div>
               )}
             </div>

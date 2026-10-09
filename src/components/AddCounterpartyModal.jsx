@@ -11,6 +11,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
     type: 'employer',
     phone: '',
     company: '',
+    contractValue: '',
     status: 'active'
   });
   
@@ -21,10 +22,11 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
         type: editingCounterparty.type || 'employer',
         phone: editingCounterparty.phone || '',
         company: editingCounterparty.company || '',
+        contractValue: editingCounterparty.contractValue ? Number(editingCounterparty.contractValue).toLocaleString('en-US') : '',
         status: editingCounterparty.status || 'active'
       });
     } else {
-      setFormData({ name: '', type: 'employer', phone: '', company: '', status: 'active' });
+      setFormData({ name: '', type: 'employer', phone: '', company: '', contractValue: '', status: 'active' });
     }
   }, [editingCounterparty, isOpen]);
 
@@ -34,6 +36,8 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
     e.preventDefault();
     if (!formData.name.trim()) return;
 
+    const parsedContractValue = Number(String(formData.contractValue).replace(/,/g, '')) || 0;
+
     try {
       if (editingCounterparty) {
         await db.counterparties.update(editingCounterparty.id, {
@@ -41,6 +45,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
           type: formData.type,
           phone: formData.phone,
           company: formData.company,
+          contractValue: parsedContractValue,
           status: formData.status,
           updatedAt: new Date().toISOString()
         });
@@ -52,6 +57,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
           type: formData.type,
           phone: formData.phone,
           company: formData.company,
+          contractValue: parsedContractValue,
           status: formData.status,
           createdAt: new Date().toISOString()
         });
@@ -122,6 +128,26 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
               className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all"
             />
           </div>
+
+          {formData.type === 'employer' && (
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <span className="text-emerald-500 font-bold">$</span>
+                {language === 'fa' ? 'مبلغ کل قرارداد (اختیاری)' : 'بڕی گرێبەست (ئارەزوومەندانە)'}
+              </label>
+              <input
+                type="text"
+                value={formData.contractValue}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  setFormData(prev => ({ ...prev, contractValue: val ? Number(val).toLocaleString('en-US') : '' }));
+                }}
+                className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all font-mono"
+                placeholder="0"
+                dir="ltr"
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
