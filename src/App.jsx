@@ -7,7 +7,7 @@ import { db, seedInitialDataIfEmpty, reconcileSettlementEpochs, migrateClosedTra
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
-import { WorkersView } from './components/WorkersView';
+import { PersonnelHubView } from './components/PersonnelHubView';
 import { CounterpartiesView } from './components/CounterpartiesView';
 import { CalendarReportsView } from './components/CalendarReportsView';
 import { FinancialsView } from './components/FinancialsView';
@@ -322,18 +322,12 @@ function AppContent() {
         )}
 
         {activeTab === 'workers' && (
-          <WorkersView />
+          <PersonnelHubView onOpenLoggingModal={handleOpenLoggingModal} />
         )}
 
         {activeTab === 'counterparties' && (
           <CounterpartiesView />
         )}
-
-        {activeTab === 'calendar' || activeTab === 'reports' ? (
-          <CalendarReportsView
-            onOpenLoggingModal={handleOpenLoggingModal}
-          />
-        ) : null}
 
         {activeTab === 'expenses' && (
           <ExpensesView />
