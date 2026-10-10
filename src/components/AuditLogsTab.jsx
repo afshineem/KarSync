@@ -18,7 +18,7 @@ export default function AuditLogsTab({ workspaceId }) {
       loadLogs();
       const channel = supabase.channel('public:audit_logs')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs', filter: `workspace_id=eq.${effectiveWorkspaceId}` }, payload => {
-          setLogs(prev => [payload.new, ...prev]);
+          setLogs(prev => prev.some(l => l.id === payload.new.id) ? prev : [payload.new, ...prev]);
           if (db.audit_logs) db.audit_logs.put(payload.new).catch(()=>{});
         })
         .subscribe();
@@ -51,14 +51,22 @@ export default function AuditLogsTab({ workspaceId }) {
 
       // 2. Sync from Supabase
       if (navigator.onLine) {
-        const { data } = await supabase.from('audit_logs')
+        const { data, error } = await supabase.from('audit_logs')
           .select('*')
           .eq('workspace_id', effectiveWorkspaceId)
           .order('created_at', { ascending: false })
-          .limit(50);
-        
+          .limit(500);
+
+        if (error) console.error('Failed to fetch audit logs from Supabase:', error);
+
         if (data && data.length > 0) {
-          setLogs(data);
+          // Merge server + local by id (don't drop logs that exist only locally)
+          const byId = new Map();
+          [...localLogs, ...data].forEach(l => byId.set(l.id, l));
+          const merged = [...byId.values()].sort(
+            (a, b) => new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt)
+          );
+          setLogs(merged);
           if (db.audit_logs) await db.audit_logs.bulkPut(data).catch(()=>{});
         } else if (localLogs.length === 0) {
           // Auto-seed initial log if completely empty
@@ -123,10 +131,10 @@ export default function AuditLogsTab({ workspaceId }) {
             onChange={e => setFilterType(e.target.value)}
             className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-blue-500 rounded-xl text-xs appearance-none"
           >
-            <option value="all">همه فعالیت‌ها</option>
+            <option value="all">همه فعالیتها</option>
             <option value="USER">فعالیت کاربران</option>
             <option value="ATTENDANCE">ورود و خروج / حضور</option>
-            <option value="FINANCIAL">مالی و هزینه‌ها</option>
+            <option value="FINANCIAL">مالی و هزینهها</option>
             <option value="SYSTEM">سیستم</option>
           </select>
         </div>
@@ -138,7 +146,7 @@ export default function AuditLogsTab({ workspaceId }) {
           <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
             <Activity className="w-12 h-12 mb-3 opacity-20 text-blue-500" />
             <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-1">هنوز فعالیتی ثبت نشده است</h3>
-            <p className="text-xs">پس از انجام عملیات، تاریخچه در اینجا نمایش داده می‌شود.</p>
+            <p className="text-xs">پس از انجام عملیات، تاریخچه در اینجا نمایش داده میشود.</p>
           </div>
         ) : (
           <div className="relative border-r-2 border-blue-100 dark:border-blue-900/30 pr-4 mr-2 space-y-6">

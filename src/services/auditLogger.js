@@ -119,6 +119,43 @@ export async function getSafeAuthContext() {
   });
 }
 
+function pushAuditLogToSupabase(log) {
+  return supabase.rpc('insert_audit_log', {
+    p_id: log.id,
+    p_workspace_id: log.workspace_id,
+    p_user_id: log.user_id,
+    p_user_name: log.user_name,
+    p_project_id: log.project_id,
+    p_action_type: log.action_type,
+    p_entity_type: log.entity_type,
+    p_entity_id: log.entity_id,
+    p_details: log.details || {},
+    p_created_at: log.created_at || log.createdAt || new Date().toISOString()
+  });
+}
+
+// Push logs that only exist locally (written before the RPC fix, or while offline).
+// The RPC is idempotent (ON CONFLICT DO NOTHING), so re-sending is safe.
+let localPushDone = false;
+async function pushLocalAuditLogsOnce(workspaceId) {
+  if (localPushDone || !workspaceId || !db.audit_logs) return;
+  localPushDone = true;
+  try {
+    const local = await db.audit_logs.where('workspace_id').equals(workspaceId).toArray();
+    for (const log of local) {
+      const { error } = await pushAuditLogToSupabase(log);
+      if (error) {
+        console.warn('Audit log resync failed:', error.message);
+        localPushDone = false; // try again on the next log
+        break;
+      }
+    }
+  } catch (e) {
+    localPushDone = false;
+    console.warn('Audit log resync error:', e);
+  }
+}
+
 export async function logAuditAction(payload) {
   console.log('🚀 AUDIT LOGGER TRIGGERED:', payload);
   try {
@@ -198,11 +235,14 @@ export async function logAuditAction(payload) {
     // IMPORTANT: Even if workspace_id or user_id is null, we still try to insert.
     // Supabase RLS will naturally reject it if it requires them, which is exactly the intended secure behavior.
     if (navigator.onLine && supabase) {
-      supabase.from('audit_logs').insert([logRecord]).then(({ error }) => {
+      // Non-admin users have no Supabase Auth session (auth.uid() is null), so a direct
+      // INSERT is blocked by RLS. Go through the SECURITY DEFINER RPC instead.
+      pushAuditLogToSupabase(logRecord).then(({ error }) => {
         if (error) {
            console.error('🚨 Supabase Audit Log Error:', error);
         } else {
            console.log('✅ SUPABASE WRITE SUCCESSFUL!');
+           pushLocalAuditLogsOnce(workspace_id);
         }
       });
     } else {
