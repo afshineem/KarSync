@@ -592,6 +592,45 @@ export function AuthProvider({ children }) {
         }
       }
 
+      // 2.3 Check worker credentials fallback (for personnel login)
+      if (!appUser) {
+        const workerCredsMap = getWorkerCredentialsMap();
+        for (const [workerId, creds] of Object.entries(workerCredsMap)) {
+           if (creds.username && normalizeUsername(creds.username) === cleanUser && creds.password && normalizeDigits(creds.password) === cleanPass) {
+             let workerName = cleanUser;
+             let isActive = true;
+             if (db.workers) {
+                try {
+                  const w = await db.workers.get(workerId);
+                  if (w) {
+                     workerName = w.name;
+                     if (w.isActive === 0) isActive = false;
+                  }
+                } catch (e) {
+                  console.warn('Could not fetch worker from db', e);
+                }
+             }
+             
+             if (!isActive) {
+               return { success: false, error: 'accountBlocked' };
+             }
+
+             appUser = {
+               id: workerId,
+               workspace_id: workspace.id,
+               username: cleanUser,
+               full_name: workerName,
+               role: 'worker',
+               is_active: true,
+               session_version: 1,
+               can_edit_past_records: false,
+               password_hash: cleanPass
+             };
+             break;
+           }
+        }
+      }
+
       // 2.5 Check legacy admin credentials fallback (for prototype/local development)
       const adminCreds = getAdminCredentials();
       if ((cleanUser === 'admin' && cleanPass === 'admin') || (cleanUser === adminCreds.username && cleanPass === adminCreds.password)) {

@@ -61,6 +61,36 @@ export function LoginView({ theme, toggleTheme }) {
     if (status.isLocked) {
       setRemainingSeconds(status.remainingSeconds);
     }
+
+    // Check for Magic Link / QR Code credentials in URL
+    const params = new URLSearchParams(window.location.search);
+    const w = params.get('w');
+    const u = params.get('u');
+    const p = params.get('p');
+    if (w && u && p) {
+      setWorkspaceCode(w);
+      setIdentifier(u);
+      setPassword(p);
+      
+      const autoLogin = async () => {
+        setIsSubmitting(true);
+        try {
+          const res = await login(w, u, p);
+          if (!res.success) {
+            setErrorMessage(res.error === 'invalidCredentials' ? 'مشخصات ورود نامعتبر است' : res.error);
+          }
+        } catch(err) {
+          setErrorMessage(err.message);
+        } finally {
+          setIsSubmitting(false);
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      };
+      
+      // Delay auto-login slightly to ensure AuthContext is fully ready
+      setTimeout(autoLogin, 500);
+    }
   }, []);
 
   useEffect(() => {
