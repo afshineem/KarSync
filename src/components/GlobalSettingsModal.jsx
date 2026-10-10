@@ -1806,6 +1806,24 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
                         <span className="text-xs font-bold text-slate-400">+</span>
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">D</kbd>
+                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">D</kbd>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'تاریخچه فعالیت‌ها (لاگ)' : 'مێژووی چالاکییەکان'}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {language === 'fa' ? 'مشاهده تاریخچه سیستم و کاربران' : 'بینینی مێژووی سیستەم'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
+                        <span className="text-xs font-bold text-slate-400">+</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">L</kbd>
                         <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">L</kbd>

@@ -26,6 +26,12 @@ export default function UsersSettingsTab() {
     }
   }, [currentUser]);
 
+  useEffect(() => {
+    const handleOpenAuditLogs = () => setActiveTab('audit');
+    window.addEventListener('karsync-open-audit-logs', handleOpenAuditLogs);
+    return () => window.removeEventListener('karsync-open-audit-logs', handleOpenAuditLogs);
+  }, []);
+
   const loadData = async () => {
     try {
       const safeAuth = await getSafeAuthContext();

@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WorkersView } from './WorkersView';
 import { CalendarReportsView } from './CalendarReportsView';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Users, CalendarDays } from 'lucide-react';
 
-export function PersonnelHubView({ onOpenLoggingModal }) {
+export function PersonnelHubView({ onOpenLoggingModal, navTarget, onNavConsumed }) {
   const { language } = useLanguage();
-  const [subTab, setSubTab] = useState('list'); // 'list' | 'calendar'
+  const [subTab, setSubTab] = useState(navTarget?.subTab || 'list'); // 'list' | 'calendar'
+
+  // External navigation (e.g. from the audit log): switch to the requested sub-tab
+  useEffect(() => {
+    if (navTarget?.subTab) setSubTab(navTarget.subTab);
+  }, [navTarget]);
 
   return (
     <div className="space-y-4">
@@ -39,7 +44,13 @@ export function PersonnelHubView({ onOpenLoggingModal }) {
       {/* Render View */}
       <div className="mt-4">
         {subTab === 'list' && <WorkersView />}
-        {subTab === 'calendar' && <CalendarReportsView onOpenLoggingModal={onOpenLoggingModal} />}
+        {subTab === 'calendar' && (
+          <CalendarReportsView
+            onOpenLoggingModal={onOpenLoggingModal}
+            navTarget={navTarget}
+            onNavConsumed={onNavConsumed}
+          />
+        )}
       </div>
     </div>
   );

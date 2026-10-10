@@ -3,10 +3,17 @@ import { db } from '../db/db';
 import { supabase } from '../services/realtimeSync';
 import { Activity, Clock, Search, Filter, Eye, ChevronDown } from 'lucide-react';
 import { usePermissions } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
 import { logAuditAction } from '../services/auditLogger';
+
+const isAttendanceLog = (log) =>
+  log.action_type === 'CREATE_ATTENDANCE' || log.action_type === 'EDIT_ATTENDANCE';
+const isExpenseLog = (log) =>
+  log.action_type === 'CREATE_EXPENSE' || log.action_type === 'EDIT_EXPENSE';
 
 export default function AuditLogsTab({ workspaceId }) {
   const { currentUser } = usePermissions();
+  const { currentProject, switchProject, closeGlobalSettings } = useProject();
   const [logs, setLogs] = useState([]);
   const [filterType, setFilterType] = useState('all');
   const [filterUser, setFilterUser] = useState('');
@@ -85,6 +92,36 @@ export default function AuditLogsTab({ workspaceId }) {
     }
   };
 
+  // Jump from a log entry to the original activity.
+  // Attendance -> Personnel hub > "گزارش کارکرد" > calendar, with that day opened.
+  // Expense    -> Expenses tab.
+  const openLogTarget = async (log) => {
+    // The record lives in the project it was created in
+    if (log.project_id && currentProject?.id && String(log.project_id) !== String(currentProject.id)) {
+      try { switchProject?.(log.project_id); } catch (_) {}
+    }
+
+    if (isAttendanceLog(log)) {
+      let date = log.details?.date;
+      if (!date && log.entity_id && db.attendanceLogs) {
+        // Fallback: read the date from the attendance record itself
+        try {
+          const rec = await db.attendanceLogs.get(log.entity_id);
+          date = rec?.date;
+        } catch (_) {}
+      }
+      if (!date) return;
+      closeGlobalSettings?.();
+      window.dispatchEvent(new CustomEvent('karsync-open-attendance-day', { detail: { date } }));
+      return;
+    }
+
+    if (isExpenseLog(log)) {
+      closeGlobalSettings?.();
+      window.dispatchEvent(new CustomEvent('navigateApp', { detail: { tab: 'expenses' } }));
+    }
+  };
+
   const getTimeAgo = (dateString) => {
     const rtf = new Intl.RelativeTimeFormat('fa', { numeric: 'auto' });
     const diff = new Date().getTime() - new Date(dateString).getTime();
@@ -131,10 +168,10 @@ export default function AuditLogsTab({ workspaceId }) {
             onChange={e => setFilterType(e.target.value)}
             className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-blue-500 rounded-xl text-xs appearance-none"
           >
-            <option value="all">همه فعالیتها</option>
+            <option value="all">همه فعالیت‌ها</option>
             <option value="USER">فعالیت کاربران</option>
             <option value="ATTENDANCE">ورود و خروج / حضور</option>
-            <option value="FINANCIAL">مالی و هزینهها</option>
+            <option value="FINANCIAL">مالی و هزینه‌ها</option>
             <option value="SYSTEM">سیستم</option>
           </select>
         </div>
@@ -146,7 +183,7 @@ export default function AuditLogsTab({ workspaceId }) {
           <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
             <Activity className="w-12 h-12 mb-3 opacity-20 text-blue-500" />
             <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-1">هنوز فعالیتی ثبت نشده است</h3>
-            <p className="text-xs">پس از انجام عملیات، تاریخچه در اینجا نمایش داده میشود.</p>
+            <p className="text-xs">پس از انجام عملیات، تاریخچه در اینجا نمایش داده می‌شود.</p>
           </div>
         ) : (
           <div className="relative border-r-2 border-blue-100 dark:border-blue-900/30 pr-4 mr-2 space-y-6">
@@ -160,16 +197,11 @@ export default function AuditLogsTab({ workspaceId }) {
                       {log.user_name}
                     </span>
                     <div className="flex items-center gap-3">
-                      {(log.action_type === 'CREATE_ATTENDANCE' || log.action_type === 'EDIT_ATTENDANCE' || log.action_type === 'CREATE_EXPENSE' || log.action_type === 'EDIT_EXPENSE') && log.details?.date && (
-                        <button 
-                          onClick={() => {
-                            window.dispatchEvent(new CustomEvent('navigateApp', { detail: { tab: 'calendar' } }));
-                            window.dispatchEvent(new CustomEvent('inspectDate', { detail: { date: log.details.date } }));
-                            const closeBtn = document.querySelector('[data-close-global-settings]');
-                            if(closeBtn) closeBtn.click();
-                          }}
+                      {(isAttendanceLog(log) || isExpenseLog(log)) && (
+                        <button
+                          onClick={() => openLogTarget(log)}
                           className="text-blue-500 hover:text-blue-600 dark:text-blue-400 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-500/20 transition-colors"
-                          title="مشاهده در تقویم"
+                          title={isAttendanceLog(log) ? 'مشاهده در گزارش کارکرد' : 'مشاهده در هزینه‌ها'}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -182,9 +214,6 @@ export default function AuditLogsTab({ workspaceId }) {
                   <details className="group cursor-pointer">
                     <summary className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium list-none flex items-center gap-2">
                       <ChevronDown className="w-3.5 h-3.5 text-slate-400 transition-transform group-open:-rotate-180" />
-                      <span className="font-semibold text-blue-600 dark:text-blue-400">
-                        [{log.action_type}]
-                      </span>
                       {log.details?.description || log.details?.message || 'عملیات سیستمی انجام شد'}
                     </summary>
                     <div className="mt-2 pl-5 text-[10px] text-slate-500 dark:text-slate-400 space-y-1 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">

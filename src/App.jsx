@@ -53,6 +53,21 @@ function AppContent() {
     window.addEventListener('navigateApp', handleNavigate);
     return () => window.removeEventListener('navigateApp', handleNavigate);
   }, []);
+
+  // Open a specific attendance day (e.g. from the audit log "eye" button):
+  // Personnel hub > "گزارش کارکرد" > calendar, with that day's modal open.
+  // Passed down as a prop (not a second event) so it can't be lost before the views mount.
+  const [personnelNav, setPersonnelNav] = useState(null);
+  useEffect(() => {
+    const handleOpenAttendanceDay = (e) => {
+      const date = e.detail?.date;
+      if (!date) return;
+      setActiveTab('workers');
+      setPersonnelNav({ subTab: 'calendar', date, nonce: Date.now() });
+    };
+    window.addEventListener('karsync-open-attendance-day', handleOpenAttendanceDay);
+    return () => window.removeEventListener('karsync-open-attendance-day', handleOpenAttendanceDay);
+  }, []);
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementWorker, setSettlementWorker] = useState(null);
@@ -226,10 +241,19 @@ function AppContent() {
 
       const keyUpper = e.key.toUpperCase();
 
-      // Quick Actions (supports both 'L' and 'Shift+L', 'E' and 'Shift+E', etc.)
-      if (keyUpper === 'L' || (e.shiftKey && (keyUpper === 'L' || e.code === 'KeyL'))) {
+      // Quick Actions
+      if (keyUpper === 'D' || (e.shiftKey && (keyUpper === 'D' || e.code === 'KeyD'))) {
         e.preventDefault();
         handleOpenLoggingModal();
+        return;
+      }
+
+      if (keyUpper === 'L' || (e.shiftKey && (keyUpper === 'L' || e.code === 'KeyL'))) {
+        e.preventDefault();
+        openGlobalSettings('users');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('karsync-open-audit-logs'));
+        }, 50);
         return;
       }
 
@@ -322,7 +346,11 @@ function AppContent() {
         )}
 
         {activeTab === 'workers' && (
-          <PersonnelHubView onOpenLoggingModal={handleOpenLoggingModal} />
+          <PersonnelHubView
+            onOpenLoggingModal={handleOpenLoggingModal}
+            navTarget={personnelNav}
+            onNavConsumed={() => setPersonnelNav(null)}
+          />
         )}
 
         {activeTab === 'counterparties' && (

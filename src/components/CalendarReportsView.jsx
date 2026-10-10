@@ -60,7 +60,7 @@ import {
 const TIMELINE_SORT_KEY = 'karsync_timeline_sort_ascending';
 const CALENDAR_VIEW_MODE_KEY = 'karsync_calendar_view_mode';
 
-export function CalendarReportsView({ onOpenLoggingModal }) {
+export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsumed }) {
   const { t, language, direction } = useLanguage();
   const { currentProject, openWorkerProfile } = useProject();
   const currency = currentProject?.currency || 'IQD';
@@ -142,6 +142,17 @@ export function CalendarReportsView({ onOpenLoggingModal }) {
     window.addEventListener('inspectDate', handleInspect);
     return () => window.removeEventListener('inspectDate', handleInspect);
   }, []);
+
+  // Open a specific day requested from outside (e.g. the audit log "eye" button):
+  // show the monthly calendar on that month and open the day's details.
+  useEffect(() => {
+    const date = navTarget?.date;
+    if (!date) return;
+    setViewMode('calendar');
+    setCalendarMonth(String(date).slice(0, 7));
+    setInspectedDateStr(date);
+    if (onNavConsumed) onNavConsumed();
+  }, [navTarget]);
 
   // Listen to external group navigation (e.g. clicking on task group in dashboard)
   useEffect(() => {
