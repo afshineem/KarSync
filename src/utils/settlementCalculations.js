@@ -52,29 +52,37 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     return wDaily + (otH * wOtRate);
   };
 
-  // 2. Double-Barrier Guards: Determine whether each log and payment belongs to settled history
-  const isLogSettled = (l) => {
-    // A log is settled if explicitly linked to an active settlement receipt
+  // 2. Settlement receipt lookup & flag-based resolution (ROOT-CAUSE FIX)
+  // An explicit settlement receipt is the single source of truth:
+  // - A log is settled only if tied to an active settlement receipt (or valid legacy flag).
+  // - Monetary FIFO budget is NEVER used across periods: money from past settlements
+  //   can never silently mark open work as settled.
+  const receiptById = new Map(settlementReceipts.map((p) => [String(p.id), p]));
+
+  const isFlaggedSettled = (l) => {
+    // A log explicitly tied to an active settlement receipt
     if (l.settlementReceiptId && activeSettlementReceiptIds.has(String(l.settlementReceiptId))) {
+      const receipt = receiptById.get(String(l.settlementReceiptId));
+      const receiptDate = receipt ? (receipt.date || receipt.createdAt?.slice(0, 10) || null) : null;
+      // Guard against falsely stamped future dates: a log worked strictly after a settlement date cannot be paid by that receipt
+      if (receiptDate && (l.date || '') > receiptDate) {
+        return false;
+      }
       return true;
     }
-    // Any log worked AFTER the latest settlement date was worked in the open period
-    // and CANNOT be settled by past settlements
-    if (lastSettlementDate && l.date && l.date > lastSettlementDate) {
-      return false;
-    }
-    // Any log worked on or before the latest settlement date belongs to settled epoch
-    if (lastSettlementDate && l.date && l.date <= lastSettlementDate) {
-      return true;
+    // Legacy support: marked isSettled without receiptId, but worker has settlements and date is on or before last settlement
+    if (l.isSettled && settlementReceipts.length > 0) {
+      if (lastSettlementDate && (l.date || '') <= lastSettlementDate) {
+        return true;
+      }
     }
     return false;
   };
 
   const isPaymentSettled = (p) => {
-    if (p.isSettled) return true;
-    if (p.settlementReceiptId && activeSettlementReceiptIds.has(String(p.settlementReceiptId))) return true;
     if (p.type === 'settlement' || p.type === 'Settlement') return true;
-    if (lastSettlementDate && (p.date || '') <= lastSettlementDate) return true;
+    if (p.settlementReceiptId && activeSettlementReceiptIds.has(String(p.settlementReceiptId))) return true;
+    if (p.isSettled && lastSettlementDate && (p.date || '') <= lastSettlementDate) return true;
     return false;
   };
 
@@ -95,8 +103,33 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
   );
 
   const totalPaymentsEver = roundCurrency(totalSettlementPaid + totalAdvancesPaid, currency);
-  const netBalanceDue = roundCurrency(totalGrossEver - totalPaymentsEver, currency);
 
+  const useFlags = settlementReceipts.length === 0 || sortedLogs.some(isFlaggedSettled);
+
+  // Safety net: find logs that are marked settled but were worked after the settlement date,
+  // or on the same day when the settlement was partial and left an unpaid balance.
+  const suspiciousSettledLogs = [];
+  sortedLogs.forEach((l) => {
+    const hasSettledFlag = Boolean(l.isSettled || l.settlementReceiptId);
+    if (!hasSettledFlag) return;
+
+    const receipt = l.settlementReceiptId ? receiptById.get(String(l.settlementReceiptId)) : null;
+    const receiptDate = receipt ? (receipt.date || receipt.createdAt?.slice(0, 10) || null) : null;
+    const compareDate = receiptDate || lastSettlementDate;
+
+    if (!compareDate || (l.date || '') > compareDate) {
+      suspiciousSettledLogs.push(l);
+      return;
+    }
+
+    if (receipt && receipt.settlement_status === 'partial' && Number(receipt.remainingBalanceAfter) > 0 && (l.date || '') === receiptDate) {
+      suspiciousSettledLogs.push(l);
+      return;
+    }
+  });
+
+  // Chronologically resolve which logs are settled vs unsettled
+  let paymentBudget = totalPaymentsEver;
   const settledLogs = [];
   const unsettledLogs = [];
 
@@ -122,7 +155,12 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     const base = Number(l.calculatedDailyWage) || (l.type === 'half' ? wDaily * 0.5 : l.type === 'full' ? wDaily : 0);
     const otAmount = Number(l.calculatedOvertimeWage) || (ot * wOtRate);
 
-    if (isLogSettled(l)) {
+    const isCovered = useFlags
+      ? isFlaggedSettled(l)
+      : (pay > 0 && paymentBudget >= pay - 0.001) || (pay === 0 && Boolean(l.settlementReceiptId));
+
+    if (isCovered) {
+      if (!useFlags) paymentBudget -= pay;
       settledLogs.push(l);
       if (l.type === 'full') settledFullDays++;
       else if (l.type === 'half') settledHalfDays++;
@@ -168,6 +206,9 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     currency
   );
 
+  // Net balance due for the current open period
+  const netBalanceDue = roundCurrency(unsettledGross - unsettledAdvances, currency);
+
   let status = 'settled';
   if (netBalanceDue > 0) status = 'pending';
   else if (netBalanceDue < 0) status = 'overpaid';
@@ -193,6 +234,7 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     isSettled: status === 'settled',
     // Settled stats
     settledLogs,
+    suspiciousSettledLogs,
     settledPayments,
     settlementReceipts,
     settledFullDays,
@@ -209,7 +251,7 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     totalPaymentsEver,
     totalGrossEver,
     // Helper functions
-    isLogSettled,
+    isLogSettled: (l) => (useFlags ? isFlaggedSettled(l) : settledLogs.includes(l)),
     isPaymentSettled,
     getLogPay
   };

@@ -946,12 +946,18 @@ export async function reconcileSettlementEpochs() {
     let totalLogsUpdated = [];
     let totalAdvancesUpdated = [];
 
+    const referencedReceiptIds = new Set();
+    (await db.attendanceLogs.toArray()).forEach((l) => {
+      if (l.settlementReceiptId) referencedReceiptIds.add(String(l.settlementReceiptId));
+    });
+    allPayments.forEach((p) => {
+      if (p.settlementReceiptId) referencedReceiptIds.add(String(p.settlementReceiptId));
+    });
+
     for (const st of settlements) {
-      let stDate = st.date || (st.createdAt ? st.createdAt.slice(0, 10) : '9999-12-31');
-      if (st.createdAt && st.createdAt.startsWith('2026-09') && st.createdAt <= '2026-09-22' && stDate < '2026-09-20') {
-        stDate = '2026-09-20';
-        await db.payments.update(st.id, { date: '2026-09-20', updatedAt: new Date().toISOString() });
-      }
+      if (st.settlement_subtype || st.isGroupSettlement || referencedReceiptIds.has(String(st.id))) continue;
+
+      const stDate = st.date || (st.createdAt ? st.createdAt.slice(0, 10) : '9999-12-31');
       let workerIdsToSettle = [];
 
       if (st.workerId) {

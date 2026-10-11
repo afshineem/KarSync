@@ -43,9 +43,9 @@ export async function runEmergencyCleanup() {
 
     localStorage.setItem('emergency_cleanup_04', 'done');
 
-    // 3. Fix falsely settled attendance logs after settlement date (e.g. Ramin on 2026-09-22)
-    const hasRun05 = localStorage.getItem('emergency_cleanup_05');
-    if (!hasRun05) {
+    // 3. Fix falsely settled attendance logs after settlement date (e.g. Ramin on 2026-09-22, Afshin on 2026-10-01)
+    const hasRun06 = localStorage.getItem('emergency_cleanup_06');
+    if (!hasRun06) {
       const allPayments = await db.payments.toArray();
       const activeSettlements = allPayments.filter(
         (p) => !p.deletedAt && p.status !== 'deleted' && (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled')
@@ -56,6 +56,9 @@ export async function runEmergencyCleanup() {
 
       for (const w of allWorkers) {
         const wIdStr = String(w.id);
+        const isAfshin = wIdStr.includes('phobsou') || (w.name && w.name.includes('ئەفشین'));
+        const isRamin = wIdStr.includes('1nkmm5i') || (w.name && w.name.includes('رامین'));
+
         const workerSettlements = activeSettlements.filter(
           (p) => String(p.workerId) === wIdStr || (w.groupId && p.groupId === w.groupId)
         );
@@ -64,10 +67,31 @@ export async function runEmergencyCleanup() {
 
         const workerLogs = await db.attendanceLogs.where('workerId').equals(wIdStr).toArray();
         for (const log of workerLogs) {
-          // If log is strictly after the latest settlement date, or if worker has no settlements
-          if (!lastStDate || (log.date && log.date > lastStDate)) {
-            let needsUpdate = false;
+          let shouldReset = false;
+
+          // 1. Logs worked strictly after the settlement date
+          if (lastStDate && log.date && log.date > lastStDate) {
+            shouldReset = true;
+          }
+
+          // 2. Afshin specific: 2026-10-01 was October work, NOT covered by September settlement
+          if (isAfshin && log.date && log.date >= '2026-10-01') {
+            shouldReset = true;
+          }
+
+          // 3. Ramin specific: 2026-09-22 was worked after the 2026-09-20 settlement
+          if (isRamin && log.date && log.date >= '2026-09-22') {
+            shouldReset = true;
+          }
+
+          // 4. Any log without settlements that was somehow marked settled
+          if (!lastStDate && (log.isSettled || log.settlementReceiptId)) {
+            shouldReset = true;
+          }
+
+          if (shouldReset) {
             let cleanNotes = log.notes || '';
+            let needsUpdate = false;
 
             if (log.isSettled || log.settlementReceiptId) {
               needsUpdate = true;
@@ -95,10 +119,10 @@ export async function runEmergencyCleanup() {
         await db.attendanceLogs.bulkPut(logsToReset);
         const { pushLogsLive } = await import('../services/realtimeSync.js');
         await pushLogsLive(logsToReset).catch(() => {});
-        console.log('Emergency cleanup 05: Reset falsely settled logs count:', logsToReset.length);
+        console.log('Emergency cleanup 06: Reset falsely settled logs count:', logsToReset.length);
       }
 
-      localStorage.setItem('emergency_cleanup_05', 'done');
+      localStorage.setItem('emergency_cleanup_06', 'done');
       if (logsToReset.length > 0) {
         window.location.reload();
       }

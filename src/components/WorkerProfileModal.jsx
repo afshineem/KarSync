@@ -7,6 +7,7 @@ import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { createWorkerAccessLink, revokeWorkerAccessLinks } from '../services/workerAccess';
+import { pushLogsLive } from '../services/realtimeSync';
 import { 
   formatCurrency, 
   formatHoursAndMinutes, 
@@ -233,6 +234,46 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
     return calculateWorkerFinancials(worker, allLogs, allPayments);
   }, [worker, allLogs, allPayments]);
 
+  const [isRepairingSettled, setIsRepairingSettled] = useState(false);
+  const handleRepairSuspiciousLogs = async () => {
+    const bad = fin?.suspiciousSettledLogs || [];
+    if (bad.length === 0) return;
+    if (!window.confirm(`${bad.length} روز کارکرد دوباره «تسویه‌نشده» می‌شود. ادامه می‌دهید؟`)) return;
+    setIsRepairingSettled(true);
+    try {
+      const now = new Date().toISOString();
+      const fixed = bad.map((l) => {
+        let cleanNotes = (l.notes || '').trim();
+        if (cleanNotes.includes('__META__')) {
+          const match = cleanNotes.match(/__META__([\s\S]*?)__META__/);
+          if (match && match[1]) {
+            try {
+              const metaObj = JSON.parse(match[1]);
+              delete metaObj.rid;
+              delete metaObj.st;
+              if (Object.keys(metaObj).length > 0) {
+                cleanNotes = `__META__${JSON.stringify(metaObj)}__META__\n${cleanNotes.replace(/__META__[\s\S]*?__META__/, '').trim()}`.trim();
+              } else {
+                cleanNotes = cleanNotes.replace(/__META__[\s\S]*?__META__/, '').trim();
+              }
+            } catch (_) {}
+          }
+        }
+        return {
+          ...l,
+          isSettled: false,
+          settlementReceiptId: null,
+          notes: cleanNotes,
+          updatedAt: now
+        };
+      });
+      await db.attendanceLogs.bulkPut(fixed);
+      await pushLogsLive(fixed).catch(console.warn);
+    } finally {
+      setIsRepairingSettled(false);
+    }
+  };
+
   // Filtered attendance logs
   const filteredLogs = useMemo(() => {
     if (!fin) return allLogs;
@@ -406,6 +447,28 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Wrongly-settled work warning: settled days dated AFTER the settlement that paid them or unpaid partial settlements */}
+      {fin?.suspiciousSettledLogs?.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-300 dark:border-amber-800 shrink-0">
+          <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <div className="flex-1 text-amber-900 dark:text-amber-200 leading-relaxed">
+              <b>هشدار مالی:</b> {fin.suspiciousSettledLogs.length} روز کارکرد ({fin.suspiciousSettledLogs.slice(0, 5).map((l) => l.date).join('، ')}
+              {fin.suspiciousSettledLogs.length > 5 ? '، …' : ''}) «تسویه‌شده» علامت خورده، در حالی که تاریخ آن بعد از آخرین سند تسویه است
+              {fin.lastSettlementDate ? ` (${fin.lastSettlementDate})` : ''}. اگر پرداخت نشده‌اند، به کارکرد جاری برگردانید تا از مانده‌ی پرسنل جا نیفتند.
+            </div>
+            <button
+              type="button"
+              disabled={isRepairingSettled}
+              onClick={handleRepairSuspiciousLogs}
+              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold shrink-0 cursor-pointer shadow-xs transition-colors"
+            >
+              {isRepairingSettled ? 'در حال اصلاح…' : 'برگرداندن به کارکرد جاری'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Financial Highlights Bar */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 shrink-0 shadow-xs">
