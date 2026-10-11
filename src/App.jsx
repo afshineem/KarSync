@@ -315,6 +315,7 @@ function AppContent() {
       <WorkerLinkLoginScreen
         status={linkLogin.status}
         error={linkLogin.error}
+        detail={linkLogin.detail}
         onRetry={retryLinkLogin}
         onDismiss={dismissLinkLogin}
       />

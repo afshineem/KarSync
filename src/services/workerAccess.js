@@ -20,6 +20,18 @@ import { supabase, pushWorkerLive } from './realtimeSync';
 
 export const WORKER_ACCESS_TOKEN_KEY = 'karsync_worker_access_token';
 const TOKEN_RE = /^[A-Za-z0-9_-]{32,128}$/;
+const RPC_TIMEOUT_MS = 20000;
+const LOCAL_DB_TIMEOUT_MS = 15000;
+
+function withTimeout(promise, ms, message) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
 
 /** Read the access token from the URL fragment (#t=...). Returns null if absent/invalid. */
 export function readAccessTokenFromUrl() {
@@ -219,11 +231,21 @@ export async function loginWithAccessToken(token, opts = {}) {
     return { success: false, error: 'offline' };
   }
 
+  // Never wait forever: slow / stalled mobile connections must end in a visible, retryable error
   let res;
+  let timer;
   try {
-    res = await supabase.rpc('worker_portal_login', { p_token: token });
+    res = await Promise.race([
+      supabase.rpc('worker_portal_login', { p_token: token }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('request timed out')), RPC_TIMEOUT_MS);
+      })
+    ]);
   } catch (err) {
-    return { success: false, error: 'network', detail: err?.message };
+    const timedOut = /timed out/i.test(err?.message || '');
+    return { success: false, error: timedOut ? 'timeout' : 'network', detail: err?.message };
+  } finally {
+    clearTimeout(timer);
   }
 
   const { data, error } = res || {};
@@ -238,8 +260,21 @@ export async function loginWithAccessToken(token, opts = {}) {
     return { success: false, error: data?.error || 'invalid_token' };
   }
 
-  if (opts.beforeApply) await opts.beforeApply(data.worker_id);
-  await applyBundle(data);
+  // Storing the data on the device can fail (blocked/old IndexedDB, low storage, odd browsers).
+  // That must surface as an error instead of leaving the spinner running forever.
+  try {
+    await withTimeout(
+      (async () => {
+        if (opts.beforeApply) await opts.beforeApply(data.worker_id);
+        await applyBundle(data);
+      })(),
+      LOCAL_DB_TIMEOUT_MS,
+      'local database timed out (is the app open in another tab?)'
+    );
+  } catch (err) {
+    console.error('Worker link login: local save failed', err);
+    return { success: false, error: 'local_db', detail: `${err?.name || 'Error'}: ${err?.message || err}` };
+  }
 
   try {
     localStorage.setItem(WORKER_ACCESS_TOKEN_KEY, token);

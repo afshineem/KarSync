@@ -92,10 +92,16 @@ export function AuthProvider({ children }) {
 
     let cancelled = false;
     (async () => {
-      const res = await loginWithAccessToken(token, {
-        // Wipe leftovers of another account BEFORE the worker's data is written
-        beforeApply: (workerId) => enforceDataIsolation(workerId)
-      });
+      let res;
+      try {
+        res = await loginWithAccessToken(token, {
+          // Wipe leftovers of another account BEFORE the worker's data is written
+          beforeApply: (workerId) => enforceDataIsolation(workerId)
+        });
+      } catch (err) {
+        console.error('Worker link login failed', err);
+        res = { success: false, error: 'network', detail: err?.message };
+      }
       if (cancelled) return;
 
       if (res.success) {
@@ -117,9 +123,9 @@ export function AuthProvider({ children }) {
         clearAccessTokenFromUrl();
         setLinkLogin({ status: 'idle', error: null });
       } else {
-        // Keep the token in the URL only when a retry can help (no internet)
-        if (res.error !== 'offline' && res.error !== 'network') clearAccessTokenFromUrl();
-        setLinkLogin({ status: 'error', error: res.error });
+        // Keep the token in the URL only when a retry can help (no internet, timeout, local db busy)
+        if (!['offline', 'network', 'timeout', 'local_db'].includes(res.error)) clearAccessTokenFromUrl();
+        setLinkLogin({ status: 'error', error: res.error, detail: res.detail || null });
       }
     })();
 

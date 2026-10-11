@@ -20,6 +20,16 @@ const MESSAGES = {
     text: 'ارتباط با سرور برقرار نشد. چند لحظه بعد دوباره تلاش کنید.',
     retry: true
   },
+  timeout: {
+    title: 'اتصال خیلی کند است',
+    text: 'پاسخ سرور دیر رسید. اینترنت خود را بررسی کنید و دوباره تلاش کنید.',
+    retry: true
+  },
+  local_db: {
+    title: 'ذخیره‌ی اطلاعات روی این گوشی ممکن نشد',
+    text: 'اگر برنامه در تب یا پنجره‌ی دیگری باز است آن را ببندید، سپس دوباره تلاش کنید. اگر نشد، حالت «ناشناس/خصوصی» مرورگر را خاموش کنید یا از مرورگر دیگری استفاده کنید.',
+    retry: true
+  },
   not_configured: {
     title: 'سرور هنوز آماده نیست',
     text: 'قابلیت ورود با لینک هنوز روی سرور فعال نشده است. لطفاً به مدیر کارگاه اطلاع دهید.'
@@ -30,7 +40,7 @@ const MESSAGES = {
  * Shown while a worker's personal link / QR code is being verified (so the login page
  * is never displayed), or when the link could not be used.
  */
-export function WorkerLinkLoginScreen({ status, error, onRetry, onDismiss }) {
+export function WorkerLinkLoginScreen({ status, error, detail, onRetry, onDismiss }) {
   const msg = MESSAGES[error] || MESSAGES.invalid_token;
 
   return (
@@ -53,7 +63,12 @@ export function WorkerLinkLoginScreen({ status, error, onRetry, onDismiss }) {
               <ShieldAlert className="w-10 h-10 mx-auto mb-4 text-red-500" />
             )}
             <h1 className="font-bold text-lg mb-2">{msg.title}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">{msg.text}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-4">{msg.text}</p>
+            {detail && (
+              <p dir="ltr" className="text-[10px] text-slate-400 break-words mb-4 font-mono select-all">
+                {String(detail).slice(0, 160)}
+              </p>
+            )}
 
             <div className="flex flex-col gap-2">
               {msg.retry && (
