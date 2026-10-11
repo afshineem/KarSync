@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { db } from '../db/db';
+import { db, withImmutabilityBypass } from '../db/db';
 import { supabase, pushWorkerMetadataLive } from '../services/realtimeSync';
 import { pullAllFromSupabase } from '../services/syncService';
 import {
@@ -917,9 +917,11 @@ export function AuthProvider({ children }) {
           'payments', 'expenseCategories', 'expenses', 'treasuryIncomes', 
           'financialAccounts', 'accountTransfers', 'groups', 'audit_logs'
         ];
-        for (const t of tablesToClear) {
-          if (db[t]) await db[t].clear();
-        }
+        await withImmutabilityBypass(async () => {
+          for (const t of tablesToClear) {
+            if (db[t]) await db[t].clear();
+          }
+        });
       }
       if (newUserId) localStorage.setItem('last_active_user_id', newUserId);
     } catch(err) {
@@ -947,9 +949,11 @@ export function AuthProvider({ children }) {
         'payments', 'expenseCategories', 'expenses', 'treasuryIncomes', 
         'financialAccounts', 'accountTransfers', 'groups', 'audit_logs'
       ];
-      for (const t of tablesToClear) {
-        if (db[t]) await db[t].clear();
-      }
+      await withImmutabilityBypass(async () => {
+        for (const t of tablesToClear) {
+          if (db[t]) await db[t].clear();
+        }
+      });
     } catch(err) {
       console.error('Error clearing local data:', err);
     }

@@ -15,7 +15,7 @@
  *  - No admin credentials, other workers' credentials or other tenants' data are
  *    ever sent to the worker's device.
  */
-import { db, DEFAULT_PROJECT_ID } from '../db/db';
+import { db, DEFAULT_PROJECT_ID, withImmutabilityBypass } from '../db/db';
 import { supabase, pushWorkerLive } from './realtimeSync';
 
 export const WORKER_ACCESS_TOKEN_KEY = 'karsync_worker_access_token';
@@ -264,10 +264,10 @@ export async function loginWithAccessToken(token, opts = {}) {
   // That must surface as an error instead of leaving the spinner running forever.
   try {
     await withTimeout(
-      (async () => {
+      withImmutabilityBypass(async () => {
         if (opts.beforeApply) await opts.beforeApply(data.worker_id);
         await applyBundle(data);
-      })(),
+      }),
       LOCAL_DB_TIMEOUT_MS,
       'local database timed out (is the app open in another tab?)'
     );

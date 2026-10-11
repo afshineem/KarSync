@@ -342,13 +342,28 @@ db.financialAccounts.hook('updating', function (modifications, primKey, obj) {
 });
 
 // Strict Immutability: Deleting Hooks for Approved Financial Records & Expenses
+// The guard protects records from being deleted by USERS. Wiping the local cache of a device
+// (logout / switching accounts / worker link login) is not a user deletion — the cloud copy
+// stays untouched — so those flows run inside withImmutabilityBypass().
+let immutabilityBypassDepth = 0;
+export async function withImmutabilityBypass(fn) {
+  immutabilityBypassDepth++;
+  try {
+    return await fn();
+  } finally {
+    immutabilityBypassDepth--;
+  }
+}
+
 db.payments.hook('deleting', function (primKey, obj) {
+  if (immutabilityBypassDepth > 0) return;
   if (obj && (obj.status === 'approved' || obj.approval_status === 'approved')) {
     throw new Error('403 Forbidden: اسناد مالی تایید نهایی شده به جهت الزامات مالیاتی و تعادل حسابداری غیرقابل حذف هستند.');
   }
 });
 
 db.expenses.hook('deleting', function (primKey, obj) {
+  if (immutabilityBypassDepth > 0) return;
   if (obj && (obj.status === 'approved' || obj.approval_status === 'approved')) {
     throw new Error('403 Forbidden: هزینه‌های کارگاه با سند تایید نهایی شده به جهت الزامات مالیاتی غیرقابل حذف هستند.');
   }
