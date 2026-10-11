@@ -21,6 +21,7 @@ import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { AboutModal } from './components/AboutModal';
 import { LoginView } from './components/LoginView';
 import { WorkerViewPortal } from './components/WorkerViewPortal';
+import { WorkerLinkLoginScreen } from './components/WorkerLinkLoginScreen';
 import { OnboardingModal } from './components/OnboardingModal';
 import { NewProjectModal } from './components/NewProjectModal';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
@@ -35,7 +36,7 @@ import { SubsidiarySearchModal } from './components/accounting/SubsidiarySearchM
 import { AccountSubsidiaryLedgerModal } from './components/accounting/AccountSubsidiaryLedgerModal';
 
 function AppContent() {
-  const { user, isAdmin, isWorker, onboardingCompleted } = useAuth();
+  const { user, isAdmin, isWorker, onboardingCompleted, linkLogin, retryLinkLogin, dismissLinkLogin } = useAuth();
   const { language, numberFormat } = useLanguage();
   const { 
     profileWorkerId, 
@@ -150,7 +151,11 @@ function AppContent() {
     return () => window.removeEventListener('online', handleOnline);
   }, []);
 
+  // Cloud sync / seeding is for signed-in admins only. A worker opened through a personal
+  // link must NEVER run it: that device is read-only and must not push anything to the cloud.
+  const syncEnabled = !!user && !isWorker;
   useEffect(() => {
+    if (!syncEnabled) return;
     // Seed initial demo data if database is newly initialized
     seedInitialDataIfEmpty().then(async () => {
       // Migrate all closed past transactions (settlements, advances, paid expenses) to the cash box
@@ -173,7 +178,7 @@ function AppContent() {
     // Start automatic Real-Time Supabase Sync
     runEmergencyCleanup();
     initRealtimeSync();
-  }, []);
+  }, [syncEnabled]);
 
   // Desktop Global Keyboard Shortcuts
   useEffect(() => {
@@ -303,6 +308,18 @@ function AppContent() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [user, isWorker, openGlobalSettings]);
+
+  // 0. Personal link / QR code in progress (or failed): never flash the login page
+  if (linkLogin && linkLogin.status !== 'idle') {
+    return (
+      <WorkerLinkLoginScreen
+        status={linkLogin.status}
+        error={linkLogin.error}
+        onRetry={retryLinkLogin}
+        onDismiss={dismissLinkLogin}
+      />
+    );
+  }
 
   // 1. If not authenticated, render Login Screen
   if (!user) {

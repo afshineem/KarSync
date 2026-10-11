@@ -6,6 +6,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
+import { createWorkerAccessLink, revokeWorkerAccessLinks } from '../services/workerAccess';
 import { 
   formatCurrency, 
   formatHoursAndMinutes, 
@@ -66,92 +67,64 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const [isEditWorkerModalOpen, setIsEditWorkerModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
-  const [generatedCreds, setGeneratedCreds] = useState(null);
+  const [qrBusy, setQrBusy] = useState(false);
+  const [qrError, setQrError] = useState('');
+  const [qrRevoked, setQrRevoked] = useState(false);
 
-  
-  const handleOpenQRModal = async () => {
+  const describeLinkError = (err) => {
+    const msg = String(err?.message || '');
+    if (!navigator.onLine) return 'برای ساخت لینک، اینترنت لازم است.';
+    if (err?.code === 'PGRST202' || /Could not find the function/i.test(msg)) {
+      return 'قابلیت لینک ورود هنوز روی سرور فعال نشده است (فایل SQL مربوطه اجرا نشده).';
+    }
+    if (/not authenticated/i.test(msg)) {
+      return 'برای ساخت لینک باید با حساب مدیر (ورود با ایمیل) وارد شده باشید.';
+    }
+    if (/worker not found/i.test(msg)) {
+      return 'این پرسنل هنوز روی سرور ثبت نشده است. چند لحظه صبر کنید و دوباره تلاش کنید.';
+    }
+    if (/not allowed/i.test(msg)) {
+      return 'شما مجاز به ساخت لینک برای این پرسنل نیستید.';
+    }
+    return msg || 'خطای ناشناخته در ساخت لینک.';
+  };
+
+  // Opening the dialog does NOT create a link (creating one deactivates the previous link)
+  const handleOpenQRModal = () => {
+    setQrUrl('');
+    setQrError('');
+    setQrRevoked(false);
+    setIsQRModalOpen(true);
+  };
+
+  const handleCreateLink = async () => {
+    setQrBusy(true);
+    setQrError('');
+    setQrRevoked(false);
     try {
-      let creds = getWorkerCredentialsMap()[workerId];
-      
-      if (!creds || !creds.username || !creds.password) {
-         const newUsername = 'w_' + workerId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 5) + Math.floor(100 + Math.random() * 900);
-         const newPassword = Math.random().toString(36).slice(-8);
-         await setWorkerCredentials(workerId, newUsername, newPassword);
-         creds = { username: newUsername, password: newPassword };
-      }
-      
-      let workspaceCode = '';
-      let wsId = user?.workspace_id;
-      
-      // Try from user session
-      if (wsId) {
-        const ws = await db.workspaces.get(wsId);
-        if (ws && ws.workspace_code) workspaceCode = ws.workspace_code;
-      }
-      
-      // Try from local DB fallback
-      if (!workspaceCode && db.workspaces) {
-        const allWs = await db.workspaces.toArray();
-        if (allWs.length > 0) {
-          workspaceCode = allWs[0].workspace_code || 'KARS-101';
-          wsId = allWs[0].id;
-        }
-      }
-      
-      // Fetch from Supabase as fallback
-      if (!workspaceCode && navigator.onLine) {
-         try {
-           const { supabase } = await import('../services/realtimeSync');
-           const { data } = await supabase.from('workspaces').select('*').limit(1).maybeSingle();
-           if (data) {
-             workspaceCode = data.workspace_code;
-             wsId = data.id;
-             if (db.workspaces) await db.workspaces.put(data);
-           }
-         } catch (e) {
-           console.warn('Fallback workspace fetch failed', e);
-         }
-      }
-
-      // If completely missing, auto-create a default workspace with valid UUIDs
-      if (!workspaceCode || !wsId) {
-         wsId = '4a2980ba-f500-4689-9b13-e0c8df300f71'; // valid fallback UUID
-         workspaceCode = 'KAR-101';
-         let ownerId = user?.id;
-         if (ownerId === 'admin' || ownerId === 'admin_local') ownerId = '867f5819-e911-45f2-9d4f-d4a7f955ef5f';
-         const newWs = { id: wsId, workspace_code: workspaceCode, owner_id: ownerId };
-         if (db.workspaces) await db.workspaces.put(newWs);
-         try {
-           const { supabase } = await import('../services/realtimeSync');
-           await supabase.from('workspaces').upsert(newWs);
-         } catch(e) {}
-      }
-      
-      // MUST upsert worker into app_users so mobile phone can fetch it from Supabase
-      try {
-         const { supabase } = await import('../services/realtimeSync');
-         await supabase.from('app_users').upsert({
-           id: workerId,
-           workspace_id: wsId,
-           username: creds.username,
-           full_name: worker?.name || 'Worker',
-           role: 'worker',
-           is_active: true,
-           session_version: 1,
-           can_edit_past_records: false,
-           password_hash: creds.password
-         });
-      } catch (err) {
-         console.warn('Failed to upsert worker to app_users', err);
-      }
-      
-      const loginUrl = `${window.location.origin}/?w=${encodeURIComponent(workspaceCode)}&u=${encodeURIComponent(creds.username)}&p=${encodeURIComponent(creds.password)}`;
-      
-      setQrUrl(loginUrl);
-      setGeneratedCreds(creds);
-      setIsQRModalOpen(true);
+      const { url } = await createWorkerAccessLink(workerId);
+      setQrUrl(url);
     } catch (err) {
-      console.error('Error generating QR', err);
+      console.error('Error creating worker access link', err);
+      setQrError(describeLinkError(err));
+    } finally {
+      setQrBusy(false);
+    }
+  };
+
+  const handleRevokeLink = async () => {
+    if (!window.confirm('لینک ورود این پرسنل باطل شود؟ پرسنل دیگر نمی‌تواند با لینک یا بارکد قبلی وارد شود.')) return;
+    setQrBusy(true);
+    setQrError('');
+    try {
+      await revokeWorkerAccessLinks(workerId);
+      setQrUrl('');
+      setQrRevoked(true);
+    } catch (err) {
+      console.error('Error revoking worker access link', err);
+      setQrError(describeLinkError(err));
+    } finally {
+      setQrBusy(false);
     }
   };
 
@@ -419,6 +392,16 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
             >
               <Receipt className="w-3.5 h-3.5" />
               <span>صدور تسویه‌حساب</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenQRModal}
+              className="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500 text-indigo-200 hover:text-white border border-indigo-500/30 font-bold flex items-center gap-1.5 transition-all shrink-0"
+              title="ساخت لینک یا بارکد ورود اختصاصی پرسنل"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>لینک / بارکد ورود</span>
             </button>
           </div>
         </div>
@@ -1115,13 +1098,12 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         />
       )}
 
-
-      {/* QR Code Login Modal */}
+      {/* Personal access link / QR Code Modal */}
       {isQRModalOpen && (
         <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="font-bold text-slate-800 dark:text-white text-base">کد ورود اختصاصی پرسنل</h3>
+              <h3 className="font-bold text-slate-800 dark:text-white text-base">لینک ورود اختصاصی پرسنل</h3>
               <button 
                 onClick={() => setIsQRModalOpen(false)}
                 className="text-slate-500 hover:text-slate-800 dark:hover:text-white p-1"
@@ -1131,34 +1113,71 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
             </div>
             
             <div className="p-6 flex flex-col items-center text-center">
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                این بارکد (یا لینک) را در اختیار <strong>{worker?.name}</strong> قرار دهید تا بتواند بدون نیاز به رمز عبور وارد پروفایل خود شود.
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+                با این لینک (یا بارکد)، <strong>{worker?.name}</strong> مستقیم و بدون نام کاربری، رمز عبور و کد کارگاه وارد پروفایل خودش می‌شود و فقط صورت‌حساب و گزارش کارکرد خودش را می‌بیند.
               </p>
-              
-              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 inline-block">
-                <QRCodeSVG value={qrUrl} size={180} level="H" includeMargin={false} />
-              </div>
 
-              <div className="mt-6 w-full space-y-2 text-start">
-                <div className="text-xs text-slate-500">
-                  <span>کد کارگاه:</span> <strong className="text-slate-800 dark:text-slate-200 ml-1 select-all font-mono" dir="ltr">{new URLSearchParams(qrUrl.split('?')[1]).get('w')}</strong>
-                </div>
-                <div className="text-xs text-slate-500">
-                  <span>نام کاربری:</span> <strong className="text-slate-800 dark:text-slate-200 ml-1 select-all font-mono" dir="ltr">{generatedCreds?.username}</strong>
-                </div>
-                <div className="text-xs text-slate-500">
-                  <span>رمز عبور:</span> <strong className="text-slate-800 dark:text-slate-200 ml-1 select-all font-mono" dir="ltr">{generatedCreds?.password}</strong>
-                </div>
-              </div>
+              {qrUrl ? (
+                <>
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 inline-block">
+                    <QRCodeSVG value={qrUrl} size={180} level="M" includeMargin={false} />
+                  </div>
 
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText(qrUrl);
-                  alert('لینک ورود کپی شد.');
-                }}
-                className="mt-6 w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-sm transition-colors"
+                  <p className="mt-4 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                    هر کسی که این لینک را داشته باشد وارد پروفایل این پرسنل می‌شود؛ آن را فقط برای خودِ او بفرستید. این لینک فقط همین یک بار نمایش داده می‌شود؛ اگر گم شد، لینک جدید بسازید.
+                  </p>
+
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(qrUrl);
+                      alert('لینک ورود کپی شد.');
+                    }}
+                    className="mt-4 w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-sm transition-colors"
+                  >
+                    کپی لینک ورود
+                  </button>
+
+                  {typeof navigator !== 'undefined' && navigator.share && (
+                    <button
+                      onClick={() => {
+                        navigator.share({ title: 'لینک ورود به پروفایل', url: qrUrl }).catch(() => {});
+                      }}
+                      className="mt-2 w-full py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl font-bold text-sm transition-colors"
+                    >
+                      اشتراک‌گذاری
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {qrRevoked && (
+                    <p className="mb-3 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      دسترسی این پرسنل با لینک باطل شد.
+                    </p>
+                  )}
+                  <button
+                    onClick={handleCreateLink}
+                    disabled={qrBusy}
+                    className="w-full py-2.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white rounded-xl font-bold text-sm transition-colors"
+                  >
+                    {qrBusy ? 'لطفاً صبر کنید…' : 'ساخت لینک ورود'}
+                  </button>
+                  <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
+                    ساخت لینک جدید، لینک قبلی این پرسنل را باطل می‌کند.
+                  </p>
+                </>
+              )}
+
+              {qrError && (
+                <p className="mt-3 text-xs text-red-600 dark:text-red-400 leading-relaxed">{qrError}</p>
+              )}
+
+              <button
+                onClick={handleRevokeLink}
+                disabled={qrBusy}
+                className="mt-5 text-xs font-bold text-red-500 hover:text-red-600 disabled:opacity-60"
               >
-                کپی لینک ورود (Magic Link)
+                باطل کردن دسترسی با لینک
               </button>
             </div>
           </div>
