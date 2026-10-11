@@ -84,7 +84,8 @@ export function ProjectProvider({ children }) {
   // Pull initial projects on startup once
   useEffect(() => {
     let isMounted = true;
-    if (navigator.onLine) {
+    // Workers opened through a personal link get their data from the portal RPC only
+    if (navigator.onLine && user?.role !== 'worker') {
       pullProjectsLive().catch(() => {});
     }
     return () => { isMounted = false; };

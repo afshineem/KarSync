@@ -2,6 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { db } from '../db/db';
 import { supabase, pushWorkerMetadataLive } from '../services/realtimeSync';
 import { pullAllFromSupabase } from '../services/syncService';
+import {
+  readAccessTokenFromUrl,
+  clearAccessTokenFromUrl,
+  loginWithAccessToken,
+  clearStoredWorkerAccessToken
+} from '../services/workerAccess';
 import { hashPassword, verifyPassword, evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { verifyTOTPCode, verifyAndConsumeBackupCode, generateBackupCodes } from '../utils/totpSecurity';
 
@@ -64,6 +70,70 @@ export function AuthProvider({ children }) {
 
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
+  // Direct entry for personnel through a personal link / QR code (no login page).
+  // status: 'idle' | 'loading' | 'error'
+  const [linkLogin, setLinkLogin] = useState(() => {
+    if (!readAccessTokenFromUrl()) return { status: 'idle', error: null };
+    try {
+      // An admin session already on this device is never replaced by a worker link
+      const saved = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null');
+      if (saved && (saved.role || 'admin') !== 'worker') return { status: 'idle', error: null };
+    } catch (_) {}
+    return { status: 'loading', error: null };
+  });
+
+  useEffect(() => {
+    if (linkLogin.status !== 'loading') return;
+    const token = readAccessTokenFromUrl();
+    if (!token) {
+      setLinkLogin({ status: 'idle', error: null });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const res = await loginWithAccessToken(token, {
+        // Wipe leftovers of another account BEFORE the worker's data is written
+        beforeApply: (workerId) => enforceDataIsolation(workerId)
+      });
+      if (cancelled) return;
+
+      if (res.success) {
+        const sessionUser = {
+          id: res.workerId,
+          userId: res.workerId,
+          workerId: res.workerId,
+          role: 'worker',
+          name: res.name,
+          username: '',
+          workspace_id: null,
+          permissions: [],
+          can_edit_past_records: false,
+          is_active: true,
+          via: 'access-link'
+        };
+        setUser(sessionUser);
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+        clearAccessTokenFromUrl();
+        setLinkLogin({ status: 'idle', error: null });
+      } else {
+        // Keep the token in the URL only when a retry can help (no internet)
+        if (res.error !== 'offline' && res.error !== 'network') clearAccessTokenFromUrl();
+        setLinkLogin({ status: 'error', error: res.error });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [linkLogin.status]);
+
+  const retryLinkLogin = () => setLinkLogin({ status: 'loading', error: null });
+  const dismissLinkLogin = () => {
+    clearAccessTokenFromUrl();
+    setLinkLogin({ status: 'idle', error: null });
+  };
+
   // Inactivity Auto-Lock settings & state
   const [autoLockMinutes, setAutoLockMinutesState] = useState(() => {
     try {
@@ -83,7 +153,7 @@ export function AuthProvider({ children }) {
   };
 
   const lockScreen = () => {
-    if (user) {
+    if (user && user.via !== 'access-link') {
       setIsScreenLocked(true);
     }
   };
@@ -114,7 +184,7 @@ export function AuthProvider({ children }) {
 
   // Activity tracking for auto-lock
   useEffect(() => {
-    if (!user || autoLockMinutes <= 0 || isScreenLocked) return;
+    if (!user || user.via === 'access-link' || autoLockMinutes <= 0 || isScreenLocked) return;
 
     const updateActivity = () => {
       lastActivityRef.current = Date.now();
@@ -653,6 +723,7 @@ export function AuthProvider({ children }) {
       const sessionUser = {
         id: appUser.id,
         userId: appUser.id,
+        workerId: appUser.role === 'worker' ? appUser.id : undefined,
         role: appUser.role,
         name: appUser.full_name,
         username: appUser.username,
@@ -822,6 +893,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(AUTH_SESSION_KEY);
     localStorage.removeItem(ADMIN_AUTH_KEY);
     localStorage.removeItem(WORKER_CREDS_KEY);
+    clearStoredWorkerAccessToken();
 
     // Clear Dexie local database to ensure data isolation between different accounts
     try {
@@ -950,6 +1022,9 @@ export function AuthProvider({ children }) {
       value={{
         user,
         isLoadingAuth,
+        linkLogin,
+        retryLinkLogin,
+        dismissLinkLogin,
         isAuthenticated: !!user,
         isAdmin: (user?.role || 'admin') === 'admin',
         isWorker: user?.role === 'worker',

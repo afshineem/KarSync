@@ -4,6 +4,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { pullRemoteChangesSilently } from '../services/realtimeSync';
+import { refreshWorkerPortalData } from '../services/workerAccess';
 import { 
   formatAmount, 
   formatHoursAndMinutes, 
@@ -56,11 +57,37 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
   // Period Tab: 'all' (سوابق و کل کارکرد) | 'current' (کارکرد جاری و مطالبات معوقه) | 'settled' (سوابق تسویه شده)
   const [periodTab, setPeriodTab] = useState('all');
 
-  // Proactively pull fresh cloud attendance logs and workers when portal opens
+  // Proactively load fresh data when the portal opens (and when the app returns to the foreground).
+  // Link / QR sessions use the token RPC; a revoked or blocked link signs the worker out.
   useEffect(() => {
-    if (navigator.onLine) {
-      pullRemoteChangesSilently(true).catch(() => {});
-    }
+    const isLinkSession = user?.via === 'access-link';
+    let lastRun = 0;
+
+    const refresh = () => {
+      if (!navigator.onLine) return;
+      if (!isLinkSession) {
+        pullRemoteChangesSilently(true).catch(() => {});
+        return;
+      }
+      const now = Date.now();
+      if (now - lastRun < 20000) return;
+      lastRun = now;
+      refreshWorkerPortalData()
+        .then((res) => {
+          if (!res.success && (res.error === 'invalid_token' || res.error === 'account_blocked')) {
+            logout();
+          }
+        })
+        .catch(() => {});
+    };
+
+    refresh();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   // Month navigation for historical settled records

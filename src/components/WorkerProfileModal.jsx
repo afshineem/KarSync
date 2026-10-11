@@ -4,6 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
+import { QRCodeSVG } from 'qrcode.react';
+import { createWorkerAccessLink, revokeWorkerAccessLinks } from '../services/workerAccess';
 import { 
   formatCurrency, 
   formatHoursAndMinutes, 
@@ -61,6 +64,68 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [isQuickAttendanceOpen, setIsQuickAttendanceOpen] = useState(false);
   const [isEditWorkerModalOpen, setIsEditWorkerModalOpen] = useState(false);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [qrUrl, setQrUrl] = useState('');
+  const [qrBusy, setQrBusy] = useState(false);
+  const [qrError, setQrError] = useState('');
+  const [qrRevoked, setQrRevoked] = useState(false);
+
+  const describeLinkError = (err) => {
+    const msg = String(err?.message || '');
+    if (!navigator.onLine) return 'برای ساخت لینک، اینترنت لازم است.';
+    if (err?.code === 'PGRST202' || /Could not find the function/i.test(msg)) {
+      return 'قابلیت لینک ورود هنوز روی سرور فعال نشده است (فایل SQL مربوطه اجرا نشده).';
+    }
+    if (/not authenticated/i.test(msg)) {
+      return 'برای ساخت لینک باید با حساب مدیر (ورود با ایمیل) وارد شده باشید.';
+    }
+    if (/worker not found/i.test(msg)) {
+      return 'این پرسنل هنوز روی سرور ثبت نشده است. چند لحظه صبر کنید و دوباره تلاش کنید.';
+    }
+    if (/not allowed/i.test(msg)) {
+      return 'شما مجاز به ساخت لینک برای این پرسنل نیستید.';
+    }
+    return msg || 'خطای ناشناخته در ساخت لینک.';
+  };
+
+  // Opening the dialog does NOT create a link (creating one deactivates the previous link)
+  const handleOpenQRModal = () => {
+    setQrUrl('');
+    setQrError('');
+    setQrRevoked(false);
+    setIsQRModalOpen(true);
+  };
+
+  const handleCreateLink = async () => {
+    setQrBusy(true);
+    setQrError('');
+    setQrRevoked(false);
+    try {
+      const { url } = await createWorkerAccessLink(workerId);
+      setQrUrl(url);
+    } catch (err) {
+      console.error('Error creating worker access link', err);
+      setQrError(describeLinkError(err));
+    } finally {
+      setQrBusy(false);
+    }
+  };
+
+  const handleRevokeLink = async () => {
+    if (!window.confirm('لینک ورود این پرسنل باطل شود؟ پرسنل دیگر نمی‌تواند با لینک یا بارکد قبلی وارد شود.')) return;
+    setQrBusy(true);
+    setQrError('');
+    try {
+      await revokeWorkerAccessLinks(workerId);
+      setQrUrl('');
+      setQrRevoked(true);
+    } catch (err) {
+      console.error('Error revoking worker access link', err);
+      setQrError(describeLinkError(err));
+    } finally {
+      setQrBusy(false);
+    }
+  };
 
   // Close on Escape key press
   useEffect(() => {
@@ -316,6 +381,16 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
             >
               <Receipt className="w-3.5 h-3.5" />
               <span>صدور تسویه‌حساب</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenQRModal}
+              className="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500 text-indigo-200 hover:text-white border border-indigo-500/30 font-bold flex items-center gap-1.5 transition-all shrink-0"
+              title="ساخت لینک یا بارکد ورود اختصاصی پرسنل"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>لینک / بارکد ورود</span>
             </button>
           </div>
         </div>
@@ -1010,6 +1085,92 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
           allPayments={allPayments}
           onSelectWorker={() => {}}
         />
+      )}
+
+      {/* Personal access link / QR Code Modal */}
+      {isQRModalOpen && (
+        <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="font-bold text-slate-800 dark:text-white text-base">لینک ورود اختصاصی پرسنل</h3>
+              <button 
+                onClick={() => setIsQRModalOpen(false)}
+                className="text-slate-500 hover:text-slate-800 dark:hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col items-center text-center">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+                با این لینک (یا بارکد)، <strong>{worker?.name}</strong> مستقیم و بدون نام کاربری، رمز عبور و کد کارگاه وارد پروفایل خودش می‌شود و فقط صورت‌حساب و گزارش کارکرد خودش را می‌بیند.
+              </p>
+
+              {qrUrl ? (
+                <>
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 inline-block">
+                    <QRCodeSVG value={qrUrl} size={180} level="M" includeMargin={false} />
+                  </div>
+
+                  <p className="mt-4 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                    هر کسی که این لینک را داشته باشد وارد پروفایل این پرسنل می‌شود؛ آن را فقط برای خودِ او بفرستید. این لینک فقط همین یک بار نمایش داده می‌شود؛ اگر گم شد، لینک جدید بسازید.
+                  </p>
+
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(qrUrl);
+                      alert('لینک ورود کپی شد.');
+                    }}
+                    className="mt-4 w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-sm transition-colors"
+                  >
+                    کپی لینک ورود
+                  </button>
+
+                  {typeof navigator !== 'undefined' && navigator.share && (
+                    <button
+                      onClick={() => {
+                        navigator.share({ title: 'لینک ورود به پروفایل', url: qrUrl }).catch(() => {});
+                      }}
+                      className="mt-2 w-full py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl font-bold text-sm transition-colors"
+                    >
+                      اشتراک‌گذاری
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {qrRevoked && (
+                    <p className="mb-3 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      دسترسی این پرسنل با لینک باطل شد.
+                    </p>
+                  )}
+                  <button
+                    onClick={handleCreateLink}
+                    disabled={qrBusy}
+                    className="w-full py-2.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white rounded-xl font-bold text-sm transition-colors"
+                  >
+                    {qrBusy ? 'لطفاً صبر کنید…' : 'ساخت لینک ورود'}
+                  </button>
+                  <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
+                    ساخت لینک جدید، لینک قبلی این پرسنل را باطل می‌کند.
+                  </p>
+                </>
+              )}
+
+              {qrError && (
+                <p className="mt-3 text-xs text-red-600 dark:text-red-400 leading-relaxed">{qrError}</p>
+              )}
+
+              <button
+                onClick={handleRevokeLink}
+                disabled={qrBusy}
+                className="mt-5 text-xs font-bold text-red-500 hover:text-red-600 disabled:opacity-60"
+              >
+                باطل کردن دسترسی با لینک
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
