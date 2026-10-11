@@ -983,6 +983,20 @@ export async function reconcileSettlementEpochs() {
           totalLogsUpdated.push(...updatedLogs);
         }
 
+        // Ensure logs strictly AFTER this settlement date are NOT marked settled by this settlement
+        const falselySettledLogs = workerLogs.filter((l) => 
+          (l.settlementReceiptId === st.id || (l.isSettled && !l.settlementReceiptId)) && l.date > stDate
+        );
+        if (falselySettledLogs.length > 0) {
+          const resetLogs = falselySettledLogs.map((l) => ({
+            ...l,
+            isSettled: false,
+            settlementReceiptId: null,
+            updatedAt: new Date().toISOString()
+          }));
+          await db.attendanceLogs.bulkPut(resetLogs);
+        }
+
         // 2. Mark previous advances on or before settlement date as settled
         const workerAdvances = allPayments.filter(
           (p) => !p.deletedAt && 

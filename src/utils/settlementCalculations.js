@@ -52,12 +52,36 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     return wDaily + (otH * wOtRate);
   };
 
-  // 2. FIFO Settlement Engine (Single Source of Truth)
-  // Calculate total gross ever earned across all active logs
+  // 2. Double-Barrier Guards: Determine whether each log and payment belongs to settled history
+  const isLogSettled = (l) => {
+    // A log is settled if explicitly linked to an active settlement receipt
+    if (l.settlementReceiptId && activeSettlementReceiptIds.has(String(l.settlementReceiptId))) {
+      return true;
+    }
+    // Any log worked AFTER the latest settlement date was worked in the open period
+    // and CANNOT be settled by past settlements
+    if (lastSettlementDate && l.date && l.date > lastSettlementDate) {
+      return false;
+    }
+    // Any log worked on or before the latest settlement date belongs to settled epoch
+    if (lastSettlementDate && l.date && l.date <= lastSettlementDate) {
+      return true;
+    }
+    return false;
+  };
+
+  const isPaymentSettled = (p) => {
+    if (p.isSettled) return true;
+    if (p.settlementReceiptId && activeSettlementReceiptIds.has(String(p.settlementReceiptId))) return true;
+    if (p.type === 'settlement' || p.type === 'Settlement') return true;
+    if (lastSettlementDate && (p.date || '') <= lastSettlementDate) return true;
+    return false;
+  };
+
+  // 3. Separate logs into settled historical vs unsettled open periods
   const sortedLogs = [...allWorkerLogs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const totalGrossEver = roundCurrency(sortedLogs.reduce((sum, l) => sum + getLogPay(l), 0), currency);
 
-  // Calculate total payments ever made (Settlements + Advances)
   const totalSettlementPaid = roundCurrency(
     settlementReceipts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
     currency
@@ -71,10 +95,8 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
   );
 
   const totalPaymentsEver = roundCurrency(totalSettlementPaid + totalAdvancesPaid, currency);
-  const netBalanceDue = roundCurrency(Math.max(0, totalGrossEver - totalPaymentsEver), currency);
+  const netBalanceDue = roundCurrency(totalGrossEver - totalPaymentsEver, currency);
 
-  // Chronologically resolve which logs are fully covered by payments vs unsettled
-  let paymentBudget = totalPaymentsEver;
   const settledLogs = [];
   const unsettledLogs = [];
 
@@ -100,12 +122,8 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     const base = Number(l.calculatedDailyWage) || (l.type === 'half' ? wDaily * 0.5 : l.type === 'full' ? wDaily : 0);
     const otAmount = Number(l.calculatedOvertimeWage) || (ot * wOtRate);
 
-    const isCovered = (pay > 0 && paymentBudget >= pay - 0.001) || (pay === 0 && Boolean(l.settlementReceiptId));
-    if (isCovered) {
-      // Fully covered by past payments
+    if (isLogSettled(l)) {
       settledLogs.push(l);
-      paymentBudget -= pay;
-
       if (l.type === 'full') settledFullDays++;
       else if (l.type === 'half') settledHalfDays++;
       else if (l.type === 'hourly') settledHourlyDays++;
@@ -115,9 +133,7 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
       settledOtPay += otAmount;
       settledGross += pay;
     } else {
-      // Unsettled / Open log
       unsettledLogs.push(l);
-
       if (l.type === 'full') fullDays++;
       else if (l.type === 'half') halfDays++;
       else if (l.type === 'hourly') hourlyDays++;
@@ -132,11 +148,10 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
   const effectiveDays = fullDays + halfDays * 0.5;
   const settledEffectiveDays = settledFullDays + settledHalfDays * 0.5;
 
-  // Unsettled advances are open advances not yet absorbed by settlements
+  // Unsettled advances are open advances in the current cycle
   const openAdvances = allWorkerPayments.filter((p) => 
     (p.type === 'advance' || p.type === 'Advance_Payment') && 
-    !p.isSettled && 
-    (!p.settlementReceiptId || !activeSettlementReceiptIds.has(String(p.settlementReceiptId)))
+    !isPaymentSettled(p)
   );
 
   const unsettledAdvances = roundCurrency(
@@ -144,9 +159,7 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     currency
   );
 
-  const settledPayments = allWorkerPayments.filter((p) => 
-    p.isSettled || (p.settlementReceiptId && activeSettlementReceiptIds.has(String(p.settlementReceiptId)))
-  );
+  const settledPayments = allWorkerPayments.filter((p) => isPaymentSettled(p));
 
   const settledAdvances = roundCurrency(
     settledPayments
@@ -157,19 +170,8 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
 
   let status = 'settled';
   if (netBalanceDue > 0) status = 'pending';
-  else if (totalPaymentsEver > totalGrossEver) status = 'overpaid';
+  else if (netBalanceDue < 0) status = 'overpaid';
   else if (effectiveDays > 0) status = 'pending';
-
-  const isLogSettled = (l) => {
-    return settledLogs.some((sl) => String(sl.id || sl.date) === String(l.id || l.date));
-  };
-
-  const isPaymentSettled = (p) => {
-    if (p.isSettled) return true;
-    if (p.settlementReceiptId && activeSettlementReceiptIds.has(String(p.settlementReceiptId))) return true;
-    if (p.type === 'settlement' || p.type === 'Settlement') return true;
-    return false;
-  };
 
   return {
     worker,

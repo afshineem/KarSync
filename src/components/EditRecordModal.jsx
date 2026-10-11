@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getAttendanceLogId } from '../db/db';
 import { pushLogsLive, deleteLogLive } from '../services/realtimeSync';
@@ -56,7 +56,23 @@ export function EditRecordModal({ log, isOpen, onClose }) {
     [log?.workerId]
   );
 
-  const isSettled = Boolean(log?.isSettled || log?.settlementReceiptId);
+  const allPayments = useLiveQuery(() => db.payments.toArray(), []) || [];
+  const isSettled = useMemo(() => {
+    if (!log) return false;
+    const activePayments = allPayments.filter((p) => !p.deletedAt && p.status !== 'deleted');
+    if (log.settlementReceiptId && activePayments.some((p) => p.id === log.settlementReceiptId)) {
+      return true;
+    }
+    const workerSettlements = activePayments.filter((p) => 
+      (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled') &&
+      (String(p.workerId) === String(log.workerId) || (worker?.groupId && p.groupId === worker.groupId))
+    );
+    const lastStDate = workerSettlements.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]?.date;
+    if (lastStDate && log.date && log.date <= lastStDate) {
+      return true;
+    }
+    return false;
+  }, [log, allPayments, worker]);
 
   const [type, setType] = useState('full');
   const [hours, setHours] = useState(0);
