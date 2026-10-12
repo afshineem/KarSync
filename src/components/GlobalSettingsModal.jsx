@@ -908,7 +908,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB 1: GENERAL & THEME */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'general' && (
-              <div className="space-y-6 max-w-3xl animate-in fade-in duration-150">
+              <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
                 
                 {/* Header card with Live Clock & Date */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1654,7 +1654,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB: KEYBOARD SHORTCUTS */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'shortcuts' && (
-              <div className="space-y-6 max-w-3xl animate-in fade-in duration-150">
+              <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80 dark:border-slate-800">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
