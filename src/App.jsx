@@ -19,6 +19,7 @@ import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggi
 import { BackupModal } from './components/BackupModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { AboutModal } from './components/AboutModal';
+import { WorkersModal } from './components/WorkersModal';
 import { LoginView } from './components/LoginView';
 import { WorkerViewPortal } from './components/WorkerViewPortal';
 import { WorkerLinkLoginScreen } from './components/WorkerLinkLoginScreen';
@@ -77,9 +78,17 @@ function AppContent() {
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isWorkersModalOpen, setIsWorkersModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
   const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
   const [selectedLedgerEntity, setSelectedLedgerEntity] = useState(null);
+
+  // Global listeners for Workers modal
+  useEffect(() => {
+    const handleOpenWorkers = () => setIsWorkersModalOpen(true);
+    window.addEventListener('karsync-open-workers-modal', handleOpenWorkers);
+    return () => window.removeEventListener('karsync-open-workers-modal', handleOpenWorkers);
+  }, []);
 
   // Global listeners for Subsidiary Search and Ledger
   useEffect(() => {
@@ -283,7 +292,13 @@ function AppContent() {
         return;
       }
 
-      if (keyUpper === 'P' || (e.shiftKey && (keyUpper === 'P' || e.code === 'KeyP'))) {
+      if (e.shiftKey && (keyUpper === 'P' || e.code === 'KeyP')) {
+        e.preventDefault();
+        setIsWorkersModalOpen(true);
+        return;
+      }
+
+      if (keyUpper === 'P') {
         e.preventDefault();
         openGlobalSettings('projects');
         return;
@@ -363,8 +378,8 @@ function AppContent() {
           />
         )}
 
-        {activeTab === 'workers' && (
-          <PersonnelHubView
+        {(activeTab === 'workers' || activeTab === 'reports' || activeTab === 'calendar') && (
+          <CalendarReportsView
             onOpenLoggingModal={handleOpenLoggingModal}
             navTarget={personnelNav}
             onNavConsumed={() => setPersonnelNav(null)}
@@ -500,6 +515,12 @@ function AppContent() {
           language={language}
         />
       )}
+
+      {/* Global Fullscreen Workers & Personnel Modal (Shift+P) */}
+      <WorkersModal
+        isOpen={isWorkersModalOpen}
+        onClose={() => setIsWorkersModalOpen(false)}
+      />
 
     </div>
   );

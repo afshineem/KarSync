@@ -875,8 +875,10 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-sky-600 dark:text-sky-400 font-medium">
             <button 
-              onClick={() => setActiveTab('workers')} 
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'))} 
               className="hover:underline flex items-center gap-1"
+              title={language === 'fa' ? 'مدیریت پرسنل (Shift+P)' : 'Manage Workers (Shift+P)'}
             >
               <span>{t('workerList')}</span>
               <ArrowUpRight className="w-3.5 h-3.5" />

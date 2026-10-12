@@ -729,6 +729,17 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-0.5 self-center" />
 
+            {/* Workers / Personnel Modal Action Button */}
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'))}
+              aria-label={language === 'fa' ? 'مدیریت پرسنل و کارگران (Shift+P)' : language === 'ku' ? 'بەڕێوەبردنی کرێکاران (Shift+P)' : 'Manage Workers (Shift+P)'}
+              title={language === 'fa' ? 'مدیریت پرسنل و کارگران (Shift+P)' : language === 'ku' ? 'بەڕێوەبردنی کرێکاران (Shift+P)' : 'Manage Workers (Shift+P)'}
+              className="h-full aspect-square rounded-xl text-slate-500 hover:text-sky-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+            >
+              <Users className="w-5.5 h-5.5 flex-shrink-0" />
+            </button>
+
             {/* Recycle Bin Action Button inside the same dock */}
             <button
               type="button"

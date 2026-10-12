@@ -48,7 +48,7 @@ export function Navbar({
 
   const navItems = [
     { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
-    { id: 'workers', label: language === 'fa' ? 'پرسنل و کارکرد' : 'کرێکاران و کارکردن', icon: Users },
+    { id: 'workers', label: language === 'fa' ? 'گزارش کارکرد' : language === 'ku' ? 'ڕاپۆرتی کارکردن' : 'Reports & Attendance', icon: CalendarDays },
     { id: 'counterparties', label: language === 'fa' ? 'طرف‌حساب‌ها' : 'لایەنەکان', icon: Briefcase },
     { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt, hidden: !hasPermission('expenses.manage') },
     { id: 'accounting', label: t('financeAndAccountingTab') || (language === 'fa' ? 'حسابداری و مالی' : language === 'ku' ? 'حیسابداری و دارایی' : 'Finance & Accounting'), icon: Landmark, hidden: !hasPermission('settlement.manage') },
