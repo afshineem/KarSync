@@ -57,7 +57,8 @@ import {
   Smartphone,
   Shield,
   ShieldAlert,
-  Landmark
+  Landmark,
+  RotateCcw
 } from 'lucide-react';
 import { TwoFactorModal } from './TwoFactorModal';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
@@ -195,38 +196,54 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     }
   }, [isOpen, language, timeFormat, timeZone, calendarType, numberFormat]);
 
-  const handleSaveGeneralSettings = () => {
-    if (draftLanguage !== language) changeLanguage(draftLanguage);
-    if (draftTheme !== themeMode) {
-      setThemeMode(draftTheme);
-      if (draftTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-      }
-    }
-    if (draftTimeFormat !== timeFormat) setTimeFormat(draftTimeFormat);
-    if (draftTimeZone !== timeZone) setTimeZone(draftTimeZone);
-    if (draftCalendarType !== calendarType) setCalendarType(draftCalendarType);
-    if (draftNumberFormat !== numberFormat) setNumberFormat(draftNumberFormat);
-
-    setGeneralSaveSuccess(true);
-    setTimeout(() => {
-      setGeneralSaveSuccess(false);
-      onClose();
-    }, 400);
+  // Instant Auto-Apply Handlers for General Tab
+  const updateAppLanguage = (newLang) => {
+    setDraftLanguage(newLang);
+    changeLanguage(newLang);
   };
 
-  const handleCancelGeneralSettings = () => {
-    setDraftLanguage(language);
-    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-    setDraftTheme(isDark ? 'dark' : 'light');
-    setDraftTimeFormat(timeFormat);
-    setDraftTimeZone(timeZone);
-    setDraftCalendarType(calendarType);
-    setDraftNumberFormat(numberFormat);
+  const updateAppTheme = (newTheme) => {
+    setDraftTheme(newTheme);
+    setThemeMode(newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
+
+  const updateAppCalendar = (newCal) => {
+    setDraftCalendarType(newCal);
+    setCalendarType(newCal);
+  };
+
+  const updateAppTimeZone = (newTz) => {
+    setDraftTimeZone(newTz);
+    setTimeZone(newTz);
+  };
+
+  const updateAppTimeFormat = (newFmt) => {
+    setDraftTimeFormat(newFmt);
+    setTimeFormat(newFmt);
+  };
+
+  const updateAppNumberFormat = (newNumFmt) => {
+    setDraftNumberFormat(newNumFmt);
+    setNumberFormat(newNumFmt);
+  };
+
+  // Reset to default factory settings
+  const handleResetToDefaultSettings = () => {
+    if (window.confirm(language === 'fa' ? 'آیا مایلید تمام تنظیمات ظاهر و زمان به حالت پیش‌فرض برگردانده شوند؟' : 'ئایا دەتەوێت ڕێکخستنەکان بگۆڕدرێن بۆ باری بنەڕەتی؟')) {
+      updateAppLanguage('fa');
+      updateAppTheme('light');
+      updateAppCalendar('jalali');
+      updateAppTimeZone('Asia/Tehran');
+      updateAppTimeFormat('24h');
+      updateAppNumberFormat('fa');
+    }
   };
 
   // ----------------------------------------------------
@@ -910,7 +927,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {activeTab === 'general' && (
               <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
                 
-                {/* 1. Header card with Live Clock & Date */}
+                {/* 1. Header card with Live Clock, Date & Quick Reset Button */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent dark:from-sky-950/40 dark:via-sky-900/20 border border-sky-200/80 dark:border-sky-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 flex-shrink-0">
@@ -921,24 +938,37 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         {language === 'fa' ? 'پیش‌نمایش زنده ساعت و تاریخ سیستم' : language === 'ku' ? 'پێشبینینی ڕاستەوخۆی کات و بەروار' : 'Live Clock & Date Preview'}
                       </div>
                       <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white tracking-tight mt-0.5">
-                        {formatTime(modalClock, { timeFormat: draftTimeFormat, timeZone: draftTimeZone, numberFormat: draftNumberFormat, includeSeconds: true })}
+                        {formatTime(modalClock, { timeFormat: timeFormat, timeZone: timeZone, numberFormat: numberFormat, includeSeconds: true })}
                       </div>
                     </div>
                   </div>
 
-                  <div className="self-start sm:self-center flex flex-col sm:items-end text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping" />
-                      <span className="font-bold text-sky-600 dark:text-sky-400">
-                        {draftTimeZone === 'Asia/Tehran' ? (language === 'fa' ? 'تهران' : language === 'ku' ? 'تاران' : 'Tehran') :
-                         draftTimeZone === 'Asia/Baghdad' ? (language === 'fa' ? 'بغداد' : language === 'ku' ? 'بەغدا' : 'Baghdad') :
-                         draftTimeZone === 'Asia/Erbil' ? (language === 'fa' ? 'اربیل / هه‌ولێر' : 'هەولێر' ) :
-                         draftTimeZone}
+                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                    <div className="flex flex-col sm:items-end text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping" />
+                        <span className="font-bold text-sky-600 dark:text-sky-400">
+                          {timeZone === 'Asia/Tehran' ? (language === 'fa' ? 'تهران' : language === 'ku' ? 'تاران' : 'Tehran') :
+                           timeZone === 'Asia/Baghdad' ? (language === 'fa' ? 'بغداد' : language === 'ku' ? 'بەغدا' : 'Baghdad') :
+                           timeZone === 'Asia/Erbil' ? (language === 'fa' ? 'اربیل / هه‌ولێر' : 'هەولێر' ) :
+                           timeZone}
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-800 dark:text-slate-200 font-bold mt-1">
+                        {formatDate(modalClock, { calendarType: calendarType, numberFormat: numberFormat })}
                       </span>
                     </div>
-                    <span className="text-xs text-slate-800 dark:text-slate-200 font-bold mt-1">
-                      {formatDate(modalClock, { calendarType: draftCalendarType, numberFormat: draftNumberFormat })}
-                    </span>
+
+                    {/* Reset to Factory Defaults Button */}
+                    <button
+                      type="button"
+                      onClick={handleResetToDefaultSettings}
+                      title={language === 'fa' ? 'بازنشانی تمام تنظیمات ظاهر و زمان به حالت اولیه' : 'گەڕانەوە بۆ باری بنەڕەتی'}
+                      className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/80 hover:bg-white dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 shadow-xs transition-all flex items-center gap-1.5 text-xs font-bold flex-shrink-0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{language === 'fa' ? 'بازنشانی تنظیمات' : language === 'ku' ? 'باری بنەڕەتی' : 'Reset Defaults'}</span>
+                    </button>
                   </div>
                 </div>
 
@@ -968,12 +998,12 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       {/* [APP_THEME_BUTTON] Segmented Control for Language */}
                       <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex gap-1">
                         {languagesList.map((lang) => {
-                          const isActive = draftLanguage === lang.code;
+                          const isActive = language === lang.code;
                           return (
                             <button
                               key={lang.code}
                               type="button"
-                              onClick={() => setDraftLanguage(lang.code)}
+                              onClick={() => updateAppLanguage(lang.code)}
                               className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center justify-center gap-2 ${
                                 isActive
                                   ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
@@ -1009,9 +1039,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex gap-1">
                         <button
                           type="button"
-                          onClick={() => setDraftTheme('light')}
+                          onClick={() => updateAppTheme('light')}
                           className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center justify-center gap-2 ${
-                            draftTheme === 'light'
+                            themeMode === 'light'
                               ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-slate-800/60'
                           }`}
@@ -1021,9 +1051,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         </button>
                         <button
                           type="button"
-                          onClick={() => setDraftTheme('dark')}
+                          onClick={() => updateAppTheme('dark')}
                           className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center justify-center gap-2 ${
-                            draftTheme === 'dark'
+                            themeMode === 'dark'
                               ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-slate-800/60'
                           }`}
@@ -1056,9 +1086,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex gap-1">
                           <button
                             type="button"
-                            onClick={() => setDraftCalendarType('jalali')}
+                            onClick={() => updateAppCalendar('jalali')}
                             className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out text-center ${
-                              draftCalendarType === 'jalali'
+                              calendarType === 'jalali'
                                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -1067,9 +1097,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           </button>
                           <button
                             type="button"
-                            onClick={() => setDraftCalendarType('gregorian')}
+                            onClick={() => updateAppCalendar('gregorian')}
                             className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out text-center ${
-                              draftCalendarType === 'gregorian'
+                              calendarType === 'gregorian'
                                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -1078,9 +1108,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           </button>
                           <button
                             type="button"
-                            onClick={() => setDraftCalendarType('auto')}
+                            onClick={() => updateAppCalendar('auto')}
                             className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out text-center ${
-                              draftCalendarType === 'auto'
+                              calendarType === 'auto'
                                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -1096,8 +1126,8 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           {language === 'fa' ? 'منطقه زمانی شهر و کارگاه:' : language === 'ku' ? 'ناوچەی کاتی:' : 'Time Zone:'}
                         </label>
                         <select
-                          value={draftTimeZone}
-                          onChange={(e) => setDraftTimeZone(e.target.value)}
+                          value={timeZone}
+                          onChange={(e) => updateAppTimeZone(e.target.value)}
                           className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
                         >
                           <option value="Asia/Tehran">
@@ -1139,9 +1169,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex gap-1">
                           <button
                             type="button"
-                            onClick={() => setDraftTimeFormat('24h')}
+                            onClick={() => updateAppTimeFormat('24h')}
                             className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out text-center ${
-                              draftTimeFormat === '24h'
+                              timeFormat === '24h'
                                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -1150,9 +1180,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           </button>
                           <button
                             type="button"
-                            onClick={() => setDraftTimeFormat('12h')}
+                            onClick={() => updateAppTimeFormat('12h')}
                             className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out text-center ${
-                              draftTimeFormat === '12h'
+                              timeFormat === '12h'
                                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -1170,9 +1200,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex gap-1">
                           <button
                             type="button"
-                            onClick={() => setDraftNumberFormat('fa')}
+                            onClick={() => updateAppNumberFormat('fa')}
                             className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out text-center ${
-                              draftNumberFormat === 'fa'
+                              numberFormat === 'fa'
                                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -1182,9 +1212,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           </button>
                           <button
                             type="button"
-                            onClick={() => setDraftNumberFormat('latin')}
+                            onClick={() => updateAppNumberFormat('latin')}
                             className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out text-center ${
-                              draftNumberFormat === 'latin'
+                              numberFormat === 'latin'
                                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -1194,9 +1224,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           </button>
                           <button
                             type="button"
-                            onClick={() => setDraftNumberFormat('ar')}
+                            onClick={() => updateAppNumberFormat('ar')}
                             className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out text-center ${
-                              draftNumberFormat === 'ar'
+                              numberFormat === 'ar'
                                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -1211,40 +1241,6 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
                   </div>
 
-                </div>
-
-                {/* 3. Action Save & Cancel Bar */}
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
-                  <div>
-                    {generalSaveSuccess ? (
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 animate-in fade-in">
-                        <Check className="w-4 h-4" />
-                        <span>{language === 'fa' ? 'تنظیمات با موفقیت ذخیره و اعمال شد' : language === 'ku' ? 'ڕێکخستنەکان پاشەکەوتکران' : 'Settings saved successfully'}</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {language === 'fa' ? 'تغییرات پس از کلیک روی ذخیره به صورت سراسری اعمال می‌شوند' : language === 'ku' ? 'گۆڕانکارییەکان دوای پاشەکەوتکردن کارا دەبن' : 'Changes apply globally after saving'}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleCancelGeneralSettings}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
-                    >
-                      {language === 'fa' ? 'بازنشانی' : language === 'ku' ? 'گەڕانەوە' : 'Reset'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveGeneralSettings}
-                      className="px-5 py-2.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-md shadow-sky-600/25 flex items-center gap-1.5 active:scale-95"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>{language === 'fa' ? 'ذخیره و اعمال تنظیمات' : language === 'ku' ? 'پاشەکەوتکردن' : 'Save Changes'}</span>
-                    </button>
-                  </div>
                 </div>
 
               </div>
