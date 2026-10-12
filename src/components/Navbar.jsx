@@ -32,10 +32,10 @@ export function Navbar({
   const { openProjectSettings, openGlobalSettings } = useProject();
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
 
-  // Global keyboard shortcut: Ctrl + , or Cmd + , to open settings
+  // Global keyboard shortcut: Shift + , to open settings
   useEffect(() => {
     const handleGlobalKey = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+      if (e.shiftKey && (e.key === ',' || e.key === '<' || e.code === 'Comma')) {
         e.preventDefault();
         if (openGlobalSettings) openGlobalSettings('general');
       }

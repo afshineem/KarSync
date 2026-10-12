@@ -208,7 +208,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     if (draftNumberFormat !== numberFormat) setNumberFormat(draftNumberFormat);
 
     setGeneralSaveSuccess(true);
-    setTimeout(() => setGeneralSaveSuccess(false), 2500);
+    setTimeout(() => {
+      setGeneralSaveSuccess(false);
+      onClose();
+    }, 400);
   };
 
   const handleCancelGeneralSettings = () => {
@@ -721,7 +724,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <span>{language === 'fa' ? 'تنظیمات' : language === 'ku' ? 'ڕێکخستنەکان' : 'Settings'}</span>
               <span className="hidden md:inline-flex text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold border border-sky-200/60 dark:border-sky-800/60">
-                KarSync v0.8.5
+                KarSync v0.8.6
               </span>
               {/* On mobile: display active tab title */}
               <span className="sm:hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300">
@@ -1977,7 +1980,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Ctrl</kbd>
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
                         <span className="text-xs font-bold text-slate-400">+</span>
                         <kbd className="inline-flex items-center justify-center min-w-[24px] h-7 px-1.5 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">,</kbd>
                       </div>
@@ -2399,7 +2402,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                   <h3 className="text-xl font-black text-slate-900 dark:text-white">KarSync</h3>
                   <div className="inline-flex items-center gap-1.5 mt-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 text-xs font-bold font-mono">
                     <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-                    <span>v0.8.5 • SaaS & Local-First PWA</span>
+                    <span>v0.8.6 • SaaS & Local-First PWA</span>
                   </div>
                 </div>
 

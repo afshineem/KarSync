@@ -194,8 +194,8 @@ function AppContent() {
     if (!user || isWorker) return;
 
     const handleKeyDown = (e) => {
-      // 1. Settings shortcut (Ctrl+, or Cmd+,) can work even when typing
-      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+      // 1. Settings shortcut (Shift+,)
+      if (e.shiftKey && (e.key === ',' || e.key === '<' || e.code === 'Comma')) {
         e.preventDefault();
         openGlobalSettings('general');
         return;
