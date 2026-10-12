@@ -64,6 +64,7 @@ import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import ExpenseCategoriesTab from './accounting/ExpenseCategoriesTab';
+import DataSyncSettingsTab from './accounting/DataSyncSettingsTab';
 import UsersSettingsTab from "./UsersSettingsTab";
 import { useAccounting } from '../hooks/useAccounting';
 
@@ -1631,237 +1632,22 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB 4: DATA, CLOUD SYNC & BACKUP */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'sync_data' && (
-              <div className="space-y-6 max-w-2xl animate-in fade-in duration-150">
-                {/* Supabase Realtime Card */}
-                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                        <Cloud className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'همگام‌سازی ابری سوپابیس (Supabase Sync)' : 'هاوکاتکردنی هەوری سوپابەیس'}
-                        </h4>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {navigator.onLine 
-                            ? (language === 'fa' ? 'متصل به سرور و فعال (Online)' : 'پەیوەستکراوە (Online)')
-                            : (language === 'fa' ? 'آفلاین - حالت حافظه محلی' : 'ئۆفلاین')}
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleManualSync}
-                      disabled={isSyncing}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white flex items-center gap-1.5 transition-colors shadow-sm"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                      <span>{language === 'fa' ? 'همگام‌سازی دستی' : 'هاوکاتکردنی خێرا'}</span>
-                    </button>
-                  </div>
-
-                  {syncStatusMsg && (
-                    <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 border border-emerald-200 dark:border-emerald-800">
-                      <Check className="w-4 h-4" />
-                      <span>{syncStatusMsg}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Local DB Statistics */}
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Database className="w-4 h-4 text-sky-500" />
-                    <span>{language === 'fa' ? 'آمار داده‌های محلی (IndexedDB Cache)' : 'ئاماری داتاکانی ئامێر'}</span>
-                  </h4>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {/* 1. Workers */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-sky-500/40">
-                      <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'پرسنل فعال' : 'کرێکارانی چالاک'}</span>
-                        <Users2 className="w-3.5 h-3.5 text-sky-500" />
-                      </div>
-                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.workers}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {language === 'fa' ? `از کل ${dbCounts.totalWorkers} پرسنل` : `لە کۆی ${dbCounts.totalWorkers}`}
-                      </div>
-                    </div>
-
-                    {/* 2. Attendance Logs */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-emerald-500/40">
-                      <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'لاگ‌های تردد' : 'تۆماری ئامادەبوون'}</span>
-                        <Calendar className="w-3.5 h-3.5 text-emerald-500" />
-                      </div>
-                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.logs}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'ثبت‌های حضور و غیاب' : 'تۆمارە ڕۆژانەکان'}
-                      </div>
-                    </div>
-
-                    {/* 3. Payments */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-amber-500/40">
-                      <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'پرداخت و مساعده' : 'پێشەکی و پارەدان'}</span>
-                        <Wallet className="w-3.5 h-3.5 text-amber-500" />
-                      </div>
-                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.payments}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'رسید و تسویه‌ها' : 'پسووڵەی پارەدان'}
-                      </div>
-                    </div>
-
-                    {/* 4. Expenses */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-rose-500/40">
-                      <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'فاکتورهای هزینه' : 'خەرجییەکان'}</span>
-                        <Receipt className="w-3.5 h-3.5 text-rose-500" />
-                      </div>
-                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.expenses}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'فاکتورهای جاری' : 'پسووڵەی خەرجی'}
-                      </div>
-                    </div>
-
-                    {/* 5. Expense Categories */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-purple-500/40">
-                      <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'سرفصل‌های هزینه‌ها' : 'سەردێڕەکان'}</span>
-                        <Layers className="w-3.5 h-3.5 text-purple-500" />
-                      </div>
-                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.categories}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'طبقه‌بندی ۳ سطحی' : 'سەردێڕی خەرجی'}
-                      </div>
-                    </div>
-
-                    {/* 6. Project Sections */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-indigo-500/40">
-                      <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'بخش‌های پروژه' : 'بەشەکانی پڕۆژە'}</span>
-                        <Building className="w-3.5 h-3.5 text-indigo-500" />
-                      </div>
-                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.sections}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'فازها و زون‌های کاری' : 'زۆن و بەشەکان'}
-                      </div>
-                    </div>
-
-                    {/* 7. Working Groups */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-cyan-500/40">
-                      <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'گروه‌های کاری' : 'گرووپەکان'}</span>
-                        <Users2 className="w-3.5 h-3.5 text-cyan-500" />
-                      </div>
-                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.groups}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'دسته‌های استادکار/کارگر' : 'گرووپی کارمەندان'}
-                      </div>
-                    </div>
-
-                    {/* 8. Projects */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:border-blue-500/40">
-                      <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{language === 'fa' ? 'پروژه‌ها' : 'پڕۆژەکان'}</span>
-                        <FolderKanban className="w-3.5 h-3.5 text-blue-500" />
-                      </div>
-                      <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">{dbCounts.projects}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'محیط‌های کاری فعال' : 'پڕۆژەی چالاک'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Backup & Restore System */}
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Download className="w-4 h-4 text-emerald-500" />
-                    <span>{language === 'fa' ? 'پشتیبان‌گیری و بازیابی داده‌ها (Backup & Restore)' : 'پاشەکەوت و گەڕاندنەوەی داتا'}</span>
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {language === 'fa' 
-                      ? 'دانلود یک نسخه کامل و آفلاین از تمامی داده‌ها در قالب فایل استاندارد JSON جهت نگهداری یا انتقال به دستگاه دیگر:'
-                      : 'داگرتنی فایلی یەدەگی داتاکان لە شێوازی JSON:'}
-                  </p>
-
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      type="button"
-                      onClick={handleDownloadBackup}
-                      disabled={backupLoading}
-                      className="flex-1 py-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center justify-center gap-2 transition-colors shadow-sm"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>{language === 'fa' ? 'دانلود فایل پشتیبان (Export JSON)' : 'داگرتنی فایلی یەدەگ'}</span>
-                    </button>
-                  </div>
-
-                  <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {language === 'fa' ? 'بازیابی از فایل پشتیبان (Restore):' : 'گەڕاندنەوە لە فایلی یەدەگ:'}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div className="sm:col-span-1">
-                        <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                          {language === 'fa' ? 'حالت بازیابی:' : 'دۆخی گەڕاندنەوە:'}
-                        </label>
-                        <select
-                          value={restoreMode}
-                          onChange={(e) => setRestoreMode(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
-                        >
-                          <option value="replace">{language === 'fa' ? 'جایگزینی کامل (Clean Replace)' : 'جێگرتنەوەی تەواو'}</option>
-                          <option value="merge">{language === 'fa' ? 'ادغام با داده‌های موجود (Merge)' : 'تێکەڵکردنی داتا'}</option>
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-2 flex flex-col sm:flex-row gap-2 items-end">
-                        <div className="w-full flex-1">
-                          <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'انتخاب فایل پشتیبان JSON:' : 'فایلی JSON:'}
-                          </label>
-                          <input
-                            type="file"
-                            accept=".json"
-                            onChange={(e) => {
-                              if (e.target.files && e.target.files[0]) {
-                                setBackupFile(e.target.files[0]);
-                              }
-                            }}
-                            className="w-full text-xs text-slate-500 file:me-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-300 hover:file:bg-slate-200"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={handleImportBackup}
-                          disabled={!backupFile || backupLoading}
-                          className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-colors shadow-sm flex-shrink-0"
-                        >
-                          <Upload className="w-4 h-4" />
-                          <span>{language === 'fa' ? 'شروع بازیابی' : 'هێنانەوەی داتا'}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {backupMsg.text && (
-                      <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                        backupMsg.type === 'success'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
-                      }`}>
-                        {backupMsg.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                        <span>{backupMsg.text}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <DataSyncSettingsTab
+                language={language}
+                isRtl={isRtl}
+                dbCounts={dbCounts}
+                isSyncing={isSyncing}
+                syncStatusMsg={syncStatusMsg}
+                handleManualSync={handleManualSync}
+                handleDownloadBackup={handleDownloadBackup}
+                handleImportBackup={handleImportBackup}
+                restoreMode={restoreMode}
+                setRestoreMode={setRestoreMode}
+                backupFile={backupFile}
+                setBackupFile={setBackupFile}
+                backupLoading={backupLoading}
+                backupMsg={backupMsg}
+              />
             )}
 
             {/* ---------------------------------------------------- */}
