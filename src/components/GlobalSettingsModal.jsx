@@ -794,7 +794,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <span>{language === 'fa' ? 'تنظیمات' : language === 'ku' ? 'ڕێکخستنەکان' : 'Settings'}</span>
               <span className="hidden md:inline-flex text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold border border-sky-200/60 dark:border-sky-800/60">
-                KarSync v0.8.6
+                KarSync v0.8.7
               </span>
               {/* On mobile: display active tab title */}
               <span className="sm:hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300">
@@ -2219,8 +2219,22 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
                         <span className="text-xs font-bold text-slate-400">+</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">C</kbd>
-                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
-                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">C</kbd>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'مدیریت پروژه‌ها و بخش‌ها' : 'بەڕێوەبردنی پڕۆژە و بەشەکان'}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {language === 'fa' ? 'تنظیمات قوانین کارگاه، بخش‌ها و تیم‌های کاری' : 'ڕێکخستنی پڕۆژە، بەشەکان و تیمەکان'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
+                        <span className="text-xs font-bold text-slate-400">+</span>
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-600 shadow-xs">O</kbd>
                       </div>
                     </div>
 
@@ -2720,7 +2734,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                   <h3 className="text-xl font-black text-slate-900 dark:text-white">KarSync</h3>
                   <div className="inline-flex items-center gap-1.5 mt-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 text-xs font-bold font-mono">
                     <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-                    <span>v0.8.6 • SaaS & Local-First PWA</span>
+                    <span>v0.8.7 • SaaS & Local-First PWA</span>
                   </div>
                 </div>
 

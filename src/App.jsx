@@ -288,6 +288,13 @@ function AppContent() {
         return;
       }
 
+      // Shift + O: Directly open Projects & Sections Settings
+      if (e.shiftKey && (keyUpper === 'O' || e.code === 'KeyO')) {
+        e.preventDefault();
+        openGlobalSettings('projects');
+        return;
+      }
+
       if (keyUpper === 'P') {
         e.preventDefault();
         openGlobalSettings('projects');
