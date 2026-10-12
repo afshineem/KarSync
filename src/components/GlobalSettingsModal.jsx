@@ -2555,36 +2555,12 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (activeTab === 'general') {
-                  handleCancelGeneralSettings();
-                }
-                onClose();
-              }}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              onClick={onClose}
+              className="px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-md shadow-sky-600/20 transition-all"
             >
-              {language === 'fa' ? 'انصراف و بستن' : 'پاشگەزبوونەوە و داخستن'}
+              <Check className="w-4 h-4" />
+              <span>{language === 'fa' ? 'بستن' : language === 'ku' ? 'داخستن' : 'Close'}</span>
             </button>
-
-            {activeTab === 'general' ? (
-              <button
-                type="button"
-                onClick={handleSaveGeneralSettings}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-md shadow-sky-600/20 transition-all"
-              >
-                <Check className="w-4 h-4" />
-                <span>{language === 'fa' ? 'ذخیره تنظیمات' : 'پاشەکەوتکردن'}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-md shadow-sky-600/20 transition-all"
-              >
-                <Check className="w-4 h-4" />
-                <span>{language === 'fa' ? 'تایید و بستن' : 'پەسەندکردن و داخستن'}</span>
-              </button>
-            )}
           </div>
         </div>
 
