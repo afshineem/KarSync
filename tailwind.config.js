@@ -29,9 +29,10 @@ export default {
         }
       },
       fontFamily: {
-        kurdish: ['Vazirmatn', 'Raza', 'Tahoma', 'sans-serif'],
-        persian: ['Vazirmatn', 'Shabnam', 'Tahoma', 'sans-serif'],
-        english: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['"Noto Sans Arabic"', 'Vazirmatn', 'Inter', 'system-ui', 'sans-serif'],
+        kurdish: ['"Noto Sans Arabic"', 'Vazirmatn', 'Raza', 'Tahoma', 'sans-serif'],
+        persian: ['"Noto Sans Arabic"', 'Vazirmatn', 'Shabnam', 'Tahoma', 'sans-serif'],
+        english: ['Inter', '"Noto Sans Arabic"', 'system-ui', 'sans-serif'],
       }
     },
   },
