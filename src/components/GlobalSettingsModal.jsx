@@ -156,18 +156,105 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     if (initialTab) setActiveTab(initialTab);
   }, [initialTab, isOpen]);
 
-  // Keyboard shortcut listener (ESC to close)
+  // Sidebar navigation tabs ordered logically by priority & scope:
+  // 1. Core Profile & Appearance: General -> Account & Security -> Users & Access
+  // 2. Workshop & Financials: Projects -> Expense Categories -> Accounts & Banking
+  // 3. System & Tools: Data & Sync -> Shortcuts -> About
+  const tabs = useMemo(() => [
+    {
+      id: 'general',
+      label: language === 'fa' ? 'عمومی و ظاهر' : language === 'ku' ? 'گشتی و ڕووکار' : 'General & Theme',
+      icon: Settings,
+      color: 'text-sky-500'
+    },
+    {
+      id: 'account',
+      label: language === 'fa' ? 'حساب کاربری و امنیت' : language === 'ku' ? 'هەژمار و ئاسایش' : 'Account & Security',
+      icon: User,
+      color: 'text-sky-500'
+    },
+    {
+      id: 'users',
+      label: language === 'fa' ? 'کاربران و دسترسی‌ها' : language === 'ku' ? 'بەکارهێنەران' : 'Users & Access',
+      icon: Users2,
+      color: 'text-indigo-500'
+    },
+    {
+      id: 'projects',
+      label: language === 'fa' ? 'پروژه‌ها و بخش‌ها' : language === 'ku' ? 'پڕۆژەکان و بەشەکان' : 'Projects & Structure',
+      icon: FolderKanban,
+      color: 'text-sky-500'
+    },
+    {
+      id: 'categories',
+      label: language === 'fa' ? 'سرفصل‌های هزینه‌ها' : language === 'ku' ? 'سەردێڕی خەرجییەکان' : 'Expense Categories',
+      icon: Receipt,
+      color: 'text-sky-500'
+    },
+    {
+      id: 'accounting_accounts',
+      label: language === 'fa' ? 'حساب‌ها و کارت‌های بانکی' : language === 'ku' ? 'حیساب و کارتەکان' : 'Financial Accounts',
+      icon: Landmark,
+      color: 'text-sky-500'
+    },
+    {
+      id: 'sync_data',
+      label: language === 'fa' ? 'داده‌ها و همگام‌سازی' : language === 'ku' ? 'داتاکان و هاوکاتکردن' : 'Data & Cloud Sync',
+      icon: Cloud,
+      color: 'text-sky-500'
+    },
+    {
+      id: 'shortcuts',
+      label: language === 'fa' ? 'کلیدهای میانبر کیبورد' : language === 'ku' ? 'شۆرتکاتەکانی کیبۆرد' : 'Keyboard Shortcuts',
+      icon: Keyboard,
+      color: 'text-sky-500'
+    },
+    {
+      id: 'about',
+      label: language === 'fa' ? 'درباره و نسخه' : language === 'ku' ? 'دەربارە و وەشان' : 'About & Version',
+      icon: Info,
+      color: 'text-sky-500'
+    }
+  ], [language]);
+
+  // Keyboard shortcut listener (ESC to close, ArrowUp/ArrowDown to switch tabs)
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
+        return;
+      }
+
+      // Check if user is currently typing in an input, textarea or select
+      const activeEl = document.activeElement;
+      const isInputFocused = activeEl && (
+        activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        activeEl.tagName === 'SELECT' ||
+        activeEl.isContentEditable
+      );
+
+      if (isInputFocused) return;
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const currentIndex = tabs.findIndex((t) => t.id === activeTab);
+        if (currentIndex === -1) return;
+
+        if (e.key === 'ArrowDown') {
+          const nextIndex = (currentIndex + 1) % tabs.length;
+          setActiveTab(tabs[nextIndex].id);
+        } else if (e.key === 'ArrowUp') {
+          const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+          setActiveTab(tabs[prevIndex].id);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, activeTab, tabs]);
 
   // Theme state
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
@@ -726,64 +813,6 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   };
 
   if (!isOpen) return null;
-
-  // Sidebar navigation tabs
-  const tabs = [
-    {
-      id: 'general',
-      label: language === 'fa' ? 'عمومی و ظاهر' : language === 'ku' ? 'گشتی و ڕووکار' : 'General & Theme',
-      icon: Settings,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'users',
-      label: language === 'fa' ? 'کاربران و دسترسی‌ها' : language === 'ku' ? 'بەکارهێنەران' : 'Users & Access',
-      icon: Users2,
-      color: 'text-indigo-500'
-    },
-    {
-      id: 'projects',
-      label: language === 'fa' ? 'پروژه‌ها و بخش‌ها' : language === 'ku' ? 'پڕۆژەکان و بەشەکان' : 'Projects & Structure',
-      icon: FolderKanban,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'categories',
-      label: language === 'fa' ? 'سرفصل‌های هزینه‌ها' : language === 'ku' ? 'سەردێڕی خەرجییەکان' : 'Expense Categories',
-      icon: Receipt,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'accounting_accounts',
-      label: language === 'fa' ? 'حساب‌ها و کارت‌های بانکی' : language === 'ku' ? 'حیساب و کارتەکان' : 'Financial Accounts',
-      icon: Landmark,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'sync_data',
-      label: language === 'fa' ? 'داده‌ها و همگام‌سازی' : language === 'ku' ? 'داتاکان و هاوکاتکردن' : 'Data & Cloud Sync',
-      icon: Cloud,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'shortcuts',
-      label: language === 'fa' ? 'کلیدهای میانبر کیبورد' : language === 'ku' ? 'شۆرتکاتەکانی کیبۆرد' : 'Keyboard Shortcuts',
-      icon: Keyboard,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'account',
-      label: language === 'fa' ? 'حساب کاربری و امنیت' : language === 'ku' ? 'هەژمار و ئاسایش' : 'Account & Security',
-      icon: User,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'about',
-      label: language === 'fa' ? 'درباره و نسخه' : language === 'ku' ? 'دەربارە و وەشان' : 'About & Version',
-      icon: Info,
-      color: 'text-sky-500'
-    }
-  ];
 
   return createPortal(
     <div
