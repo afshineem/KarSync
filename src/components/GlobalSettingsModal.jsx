@@ -1963,352 +1963,358 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB 5: ACCOUNT & SECURITY */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'account' && (
-              <div className="space-y-6 max-w-2xl animate-in fade-in duration-150">
-                {/* User Identity & Profile Edit Form */}
-                <form onSubmit={handleSaveProfile} className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    {/* Avatar with Camera upload button */}
-                    <div className="relative flex-shrink-0 self-start sm:self-center">
-                      {profileAvatar ? (
-                        <div className="relative group">
-                          <img
-                            src={profileAvatar}
-                            alt={profileName || 'User'}
-                            className="w-16 h-16 rounded-2xl object-cover border-2 border-sky-500/30 shadow-md"
-                          />
+              <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
+                {/* 2-Column Responsive Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  
+                  {/* === COLUMN 1: User Identity, Profile & Role === */}
+                  <div className="space-y-6">
+                    {/* User Identity & Profile Edit Form */}
+                    <form onSubmit={handleSaveProfile} className="p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                        <User className="w-4 h-4 text-sky-500" />
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'اطلاعات و پروفایل کاربری' : 'پرۆفایل و زانیاری بەکارهێنەر'}
+                        </h4>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-1">
+                        {/* Avatar with Camera upload button */}
+                        <div className="relative flex-shrink-0 self-start sm:self-center">
+                          {profileAvatar ? (
+                            <div className="relative group">
+                              <img
+                                src={profileAvatar}
+                                alt={profileName || 'User'}
+                                className="w-16 h-16 rounded-2xl object-cover border-2 border-sky-500/30 shadow-md"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleRemoveAvatar}
+                                className="absolute -top-1.5 -start-1.5 p-1 rounded-lg bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
+                                title={language === 'fa' ? 'حذف تصویر' : 'سڕینەوەی وێنە'}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white text-xl font-black flex items-center justify-center shadow-lg shadow-sky-500/20">
+                              {profileName ? profileName.slice(0, 2).toUpperCase() : 'AZ'}
+                            </div>
+                          )}
+
                           <button
                             type="button"
-                            onClick={handleRemoveAvatar}
-                            className="absolute -top-1.5 -start-1.5 p-1 rounded-lg bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
-                            title={language === 'fa' ? 'حذف تصویر' : 'سڕینەوەی وێنە'}
+                            onClick={() => avatarInputRef.current?.click()}
+                            className="absolute -bottom-1 -end-1 p-1.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md hover:scale-105 active:scale-95 transition-all"
+                            title={language === 'fa' ? 'تغییر عکس پروفایل' : 'گۆڕینی وێنە'}
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Camera className="w-3.5 h-3.5" />
                           </button>
+                          <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarFile}
+                            className="hidden"
+                          />
                         </div>
-                      ) : (
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white text-xl font-black flex items-center justify-center shadow-lg shadow-sky-500/20">
-                          {profileName ? profileName.slice(0, 2).toUpperCase() : 'AZ'}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {language === 'fa' ? 'حساب کاربری مدیریت' : 'هەژماری بەڕێوەبەر'}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                              Admin
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{user?.email || 'admin@karsync.com'}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{user?.companyName || 'کارگاه من'}</p>
                         </div>
-                      )}
+                      </div>
+
+                      {/* Name and Title Inputs */}
+                      <div className="space-y-3 pt-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'نام و نام خانوادگی' : 'ناوی تەواو'}
+                          </label>
+                          <input
+                            type="text"
+                            value={profileName}
+                            onChange={(e) => setProfileName(e.target.value)}
+                            required
+                            className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'عنوان و نقش در مجموعه' : 'پلە یان ناونیشان لە کارگە'}
+                          </label>
+                          <input
+                            type="text"
+                            value={profileTitle}
+                            onChange={(e) => setProfileTitle(e.target.value)}
+                            placeholder={language === 'fa' ? 'مثلاً: مدیر پروژه، سرپرست کارگاه، مدیر فنی...' : 'وەک: بەڕێوەبەری پڕۆژە...'}
+                            className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2">
+                        {profileSaveSuccess ? (
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <Check className="w-4 h-4" />
+                            <span>{language === 'fa' ? 'مشخصات با موفقیت ذخیره شد' : 'زانیارییەکان پاشەکەوتکران'}</span>
+                          </span>
+                        ) : <span />}
+
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition-colors shadow-sm"
+                        >
+                          {language === 'fa' ? 'ذخیره مشخصات کاربری' : 'پاشەکەوتکردنی پرۆفایل'}
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* RBAC & Role Switcher */}
+                    <div className="p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-indigo-500" />
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                            {language === 'fa' ? 'نقش کاربری و سطح دسترسی (RBAC)' : 'ڕۆڵی بەکارهێنەر'}
+                          </h4>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                          (user?.role || 'admin') === 'admin' 
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                        }`}>
+                          {(user?.role || 'admin') === 'admin' 
+                            ? (language === 'fa' ? '👑 مدیر ارشد' : '👑 بەڕێوەبەر') 
+                            : (language === 'fa' ? '✍️ اپراتور ثبت داده' : '✍️ تۆمارکار')}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {language === 'fa' 
+                          ? 'کنترل سطح دسترسی جهت تایید دو مرحله‌ای اسناد مالی، پرداخت‌ها و فاکتورها:' 
+                          : 'کۆنترۆڵی دەسەڵاتەکانی پەسەندکردنی بەڵگەنامەکان:'}
+                      </p>
+
+                      <div>
+                        <select
+                          value={user?.role || 'admin'}
+                          onChange={(e) => setUserRole(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                        >
+                          <option value="admin">
+                            {language === 'fa' ? '👑 مدیر سیستم (Admin) — دسترسی کامل و تایید نهایی اسناد' : '👑 بەڕێوەبەر (Admin)'}
+                          </option>
+                          <option value="operator">
+                            {language === 'fa' ? '✍️ اپراتور ثبت داده (Operator) — فقط ثبت پیش‌نویس بدون تایید' : '✍️ تۆمارکار (Operator)'}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Logout Card */}
+                    <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-rose-800 dark:text-rose-300">
+                          {language === 'fa' ? 'خروج امن از سیستم' : 'چوونەدەرەوە لە سیستم'}
+                        </div>
+                        <div className="text-[11px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">
+                          {language === 'fa' ? 'پایان دادن به نشست فعلی کاربری در این دستگاه' : 'کۆتاییهێنان بە چوونەژوورەوەی ئێستا'}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(language === 'fa' ? 'آیا از خروج از حساب کاربری اطمینان دارید؟' : 'ئایا لە چوونەدەرەوە دڵنیایت؟')) {
+                            logout();
+                          }
+                        }}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-xs flex-shrink-0"
+                      >
+                        {language === 'fa' ? 'خروج از حساب' : 'چوونەدەرەوە'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* === COLUMN 2: Security Hardening, 2FA & Password === */}
+                  <div className="space-y-6">
+                    {/* Two-Factor Authentication (2FA) Card */}
+                    <div className="p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="w-4 h-4 text-sky-500" />
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                            {language === 'fa' ? 'تایید هویت دو مرحله‌ای (2FA)' : 'پشتڕاستکردنەوەی دوو قۆناغی'}
+                          </h4>
+                        </div>
+
+                        <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
+                          twoFactorConfig?.enabled
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                        }`}>
+                          {twoFactorConfig?.enabled
+                            ? (language === 'fa' ? 'فعال و امن' : 'چالاکە')
+                            : (language === 'fa' ? 'غیرفعال' : 'ناچالاکە')}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                        {language === 'fa'
+                          ? 'با اتصال به Google Authenticator یا اپلیکیشن‌های سازگار، امنیت حساب و اطلاعات مالی شما در برابر نفوذ تضمین می‌شود.'
+                          : 'With 2FA enabled, a 6-digit code from your authenticator app is required upon login.'}
+                      </p>
 
                       <button
                         type="button"
-                        onClick={() => avatarInputRef.current?.click()}
-                        className="absolute -bottom-1 -end-1 p-1.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md hover:scale-105 active:scale-95 transition-all"
-                        title={language === 'fa' ? 'تغییر عکس پروفایل' : 'گۆڕینی وێنە'}
+                        onClick={() => setIs2FAModalOpen(true)}
+                        className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-md shadow-sky-600/20 flex items-center justify-center gap-2"
                       >
-                        <Camera className="w-3.5 h-3.5" />
+                        <Shield className="w-4 h-4" />
+                        <span>
+                          {twoFactorConfig?.enabled
+                            ? (language === 'fa' ? 'مدیریت و مشاهده کدهای بازیابی ۲FA' : 'Manage 2FA & Backup Codes')
+                            : (language === 'fa' ? 'راه‌اندازی و فعال‌سازی ۲FA' : 'Setup Two-Factor Authentication')}
+                        </span>
                       </button>
-                      <input
-                        ref={avatarInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarFile}
-                        className="hidden"
-                      />
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                          {language === 'fa' ? 'حساب کاربری مدیریت' : 'هەژماری بەڕێوەبەر'}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-                          Admin
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{user?.email || 'admin@karsync.com'}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{user?.companyName || 'کارگاه من'}</p>
-                    </div>
-                  </div>
-
-                  {/* Name and Title Inputs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {language === 'fa' ? 'نام و نام خانوادگی' : 'ناوی تەواو'}
-                      </label>
-                      <input
-                        type="text"
-                        value={profileName}
-                        onChange={(e) => setProfileName(e.target.value)}
-                        required
-                        className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-sky-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {language === 'fa' ? 'عنوان و نقش در مجموعه' : 'پلە یان ناونیشان لە کارگە'}
-                      </label>
-                      <input
-                        type="text"
-                        value={profileTitle}
-                        onChange={(e) => setProfileTitle(e.target.value)}
-                        placeholder={language === 'fa' ? 'مثلاً: مدیر پروژه، سرپرست کارگاه، مدیر فنی...' : 'وەک: بەڕێوەبەری پڕۆژە...'}
-                        className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-sky-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    {profileSaveSuccess ? (
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                        <Check className="w-4 h-4" />
-                        <span>{language === 'fa' ? 'مشخصات با موفقیت ذخیره شد' : 'زانیارییەکان پاشەکەوتکران'}</span>
-                      </span>
-                    ) : <span />}
-
-                    <button
-                      type="submit"
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition-colors shadow-sm"
-                    >
-                      {language === 'fa' ? 'ذخیره مشخصات کاربری' : 'پاشەکەوتکردنی پرۆفایل'}
-                    </button>
-                  </div>
-                </form>
-
-                {/* RBAC & Two-Stage Verification Role Switcher */}
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 bg-slate-50/50 dark:bg-slate-800/20">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800/60">
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
-                      <div>
+                    {/* Change Password Form */}
+                    <form onSubmit={handleChangePassword} className="p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                        <KeyRound className="w-4 h-4 text-amber-500" />
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'نقش کاربری و سطح دسترسی (RBAC)' : 'ڕۆڵی بەکارهێنەر'}
+                          {language === 'fa' ? 'تغییر رمز عبور ورود به برنامه' : 'گۆڕینی وشەی نهێنی'}
                         </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {language === 'fa' 
-                            ? 'کنترل سطح دسترسی جهت تایید دو مرحله‌ای اسناد مالی و فاکتورها' 
-                            : 'کۆنترۆڵی دەسەڵاتەکانی پەسەندکردنی بەڵگەنامەکان'}
-                        </p>
                       </div>
-                    </div>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-                      (user?.role || 'admin') === 'admin' 
-                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                        : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                    }`}>
-                      {(user?.role || 'admin') === 'admin' 
-                        ? (language === 'fa' ? '👑 مدیر ارشد' : '👑 بەڕێوەبەر') 
-                        : (language === 'fa' ? '✍️ اپراتور ثبت داده' : '✍️ تۆمارکار')}
-                    </span>
-                  </div>
 
-                  <div className="pt-2">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-sky-500" />
-                      <span>{language === 'fa' ? 'انتخاب نقش کاربری (User Role)' : 'دیاریکردنی ڕۆڵ'}</span>
-                    </label>
-                    <select
-                      value={user?.role || 'admin'}
-                      onChange={(e) => setUserRole(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
-                    >
-                      <option value="admin">
-                        {language === 'fa' ? '👑 مدیر سیستم (Admin) — دسترسی کامل و تایید نهایی اسناد' : '👑 بەڕێوەبەر (Admin)'}
-                      </option>
-                      <option value="operator">
-                        {language === 'fa' ? '✍️ اپراتور ثبت داده (Operator) — فقط ثبت پیش‌نویس بدون تایید' : '✍️ تۆمارکار (Operator)'}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Change Password Form */}
-                <form onSubmit={handleChangePassword} className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-amber-500" />
-                    <span>{language === 'fa' ? 'تغییر رمز عبور ورود به برنامه' : 'گۆڕینی وشەی نهێنی'}</span>
-                  </h4>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      {language === 'fa' ? 'رمز عبور فعلی' : 'وشەی نهێنی ئێستا'}
-                    </label>
-                    <input
-                      type="password"
-                      value={currentPass}
-                      onChange={(e) => setCurrentPass(e.target.value)}
-                      required
-                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-amber-500"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {language === 'fa' ? 'رمز عبور جدید' : 'وشەی نهێنی نوێ'}
-                      </label>
-                      <input
-                        type="password"
-                        value={newPass}
-                        onChange={(e) => setNewPass(e.target.value)}
-                        required
-                        className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-amber-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {language === 'fa' ? 'تکرار رمز عبور جدید' : 'دووبارەکردنەوەی وشەی نهێنی نوێ'}
-                      </label>
-                      <input
-                        type="password"
-                        value={confirmPass}
-                        onChange={(e) => setConfirmPass(e.target.value)}
-                        required
-                        className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-amber-500"
-                      />
-                    </div>
-                  </div>
-
-                  {newPass && (
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <PasswordStrengthMeter password={newPass} showChecks={true} />
-                    </div>
-                  )}
-
-                  {passMsg.text && (
-                    <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                      passMsg.type === 'success'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                        : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
-                    }`}>
-                      {passMsg.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                      <span>{passMsg.text}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-end pt-2">
-                    <button
-                      type="submit"
-                      disabled={passLoading}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors shadow-sm"
-                    >
-                      {language === 'fa' ? 'به‌روزرسانی رمز عبور' : 'نوێکردنەوەی تێپەڕەوشە'}
-                    </button>
-                  </div>
-                </form>
-
-                {/* Two-Factor Authentication (2FA) & High Security Hardening */}
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/50 flex items-center justify-center text-sky-600 dark:text-sky-400">
-                        <Smartphone className="w-5 h-5" />
-                      </div>
                       <div>
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <span>{language === 'fa' ? 'تایید هویت دو مرحله‌ای (2FA)' : 'پشتڕاستکردنەوەی دوو قۆناغی'}</span>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          {language === 'fa' ? 'رمز عبور فعلی' : 'وشەی نهێنی ئێستا'}
+                        </label>
+                        <input
+                          type="password"
+                          value={currentPass}
+                          onChange={(e) => setCurrentPass(e.target.value)}
+                          required
+                          className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'رمز عبور جدید' : 'وشەی نهێنی نوێ'}
+                          </label>
+                          <input
+                            type="password"
+                            value={newPass}
+                            onChange={(e) => setNewPass(e.target.value)}
+                            required
+                            className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'تکرار رمز عبور جدید' : 'دووبارەکردنەوەی وشەی نهێنی نوێ'}
+                          </label>
+                          <input
+                            type="password"
+                            value={confirmPass}
+                            onChange={(e) => setConfirmPass(e.target.value)}
+                            required
+                            className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {newPass && (
+                        <div className="p-3 bg-white dark:bg-slate-800/90 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <PasswordStrengthMeter password={newPass} showChecks={true} />
+                        </div>
+                      )}
+
+                      {passMsg.text && (
+                        <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                          passMsg.type === 'success'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
+                        }`}>
+                          {passMsg.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                          <span>{passMsg.text}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-end pt-1">
+                        <button
+                          type="submit"
+                          disabled={passLoading}
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors shadow-sm disabled:opacity-50"
+                        >
+                          {language === 'fa' ? 'به‌روزرسانی رمز عبور' : 'نوێکردنەوەی تێپەڕەوشە'}
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Auto-Lock Screen & Security Badges */}
+                    <div className="p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                        <Clock className="w-4 h-4 text-indigo-500" />
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'قفل خودکار صفحه و سپرهای امنیتی' : 'قفڵکردنی خۆکار و پارێزبەندییەکان'}
                         </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {language === 'fa' ? 'اتصال به Google Authenticator یا Microsoft Authenticator' : 'Google / Microsoft Authenticator'}
-                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                          {language === 'fa' ? 'مدت زمان بی‌حرکتی پیش از قفل شدن برنامه:' : 'ماوەی ناچالاکی بۆ قفڵکردن:'}
+                        </label>
+                        <select
+                          value={autoLockMinutes}
+                          onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
+                          className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+                        >
+                          <option value={0}>{language === 'fa' ? 'غیرفعال (عدم قفل خودکار)' : 'ناچالاک'}</option>
+                          <option value={15}>{language === 'fa' ? '۱۵ دقیقه بی‌حرکتی' : '١٥ خولەک'}</option>
+                          <option value={30}>{language === 'fa' ? '۳۰ دقیقه بی‌حرکتی' : '٣٠ خولەک'}</option>
+                          <option value={60}>{language === 'fa' ? '۱ ساعت بی‌حرکتی' : '١ کاتژمێر'}</option>
+                        </select>
+                      </div>
+
+                      {/* Security Status Badges */}
+                      <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2">
+                          {language === 'fa' ? 'سپرهای فعال پایگاه داده و اتصال KarSync:' : 'Active Protection Layers:'}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-[11px]">
+                          <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>HTTPS</span>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>SHA-256</span>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Anti-Brute</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-
-                    <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
-                      twoFactorConfig?.enabled
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                    }`}>
-                      {twoFactorConfig?.enabled
-                        ? (language === 'fa' ? 'فعال و محافظت‌شده' : 'چالاکە')
-                        : (language === 'fa' ? 'غیرفعال' : 'ناچالاکە')}
-                    </span>
                   </div>
 
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    {language === 'fa'
-                      ? 'با فعال‌سازی ۲FA، در هر بار ورود به برنامه علاوه‌بر رمز عبور، کد ۶ رقمی تولیدشده در گوشی همراه شما درخواست خواهد شد که امنیت داده‌های مالی را به حداکثر می‌رساند.'
-                      : 'With 2FA enabled, a 6-digit code from your authenticator app is required upon login.'}
-                  </p>
-
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setIs2FAModalOpen(true)}
-                      className="px-4 py-2.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-md shadow-sky-600/20 flex items-center gap-2"
-                    >
-                      <Shield className="w-4 h-4" />
-                      <span>
-                        {twoFactorConfig?.enabled
-                          ? (language === 'fa' ? 'مدیریت و مشاهده کدهای بازیابی ۲FA' : 'Manage 2FA & Backup Codes')
-                          : (language === 'fa' ? 'راه‌اندازی و فعال‌سازی ۲FA' : 'Setup Two-Factor Authentication')}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Auto-Lock Screen on Inactivity */}
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-indigo-500" />
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                      {language === 'fa' ? 'قفل خودکار صفحه بر اثر بی‌حرکتی' : 'قفڵکردنی خۆکاری شاشە'}
-                    </h4>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    {language === 'fa'
-                      ? 'جهت جلوگیری از دسترسی افراد غیرمجاز در محیط کارگاه، برنامه پس از مدت زمان مشخصی بی‌حرکتی قفل می‌شود.'
-                      : 'Automatically locks the app after inactivity to prevent unauthorized access in the workshop.'}
-                  </p>
-                  <div className="pt-2">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-sky-500" />
-                      <span>{language === 'fa' ? 'مدت زمان بی‌حرکتی پیش از قفل شدن:' : 'ماوەی ناچالاکی بۆ قفڵکردن:'}</span>
-                    </label>
-                    <select
-                      value={autoLockMinutes}
-                      onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
-                    >
-                      <option value={0}>{language === 'fa' ? 'غیرفعال (عدم قفل خودکار)' : 'ناچالاک'}</option>
-                      <option value={15}>{language === 'fa' ? '۱۵ دقیقه بی‌حرکتی' : '١٥ خولەک'}</option>
-                      <option value={30}>{language === 'fa' ? '۳۰ دقیقه بی‌حرکتی' : '٣٠ خولەک'}</option>
-                      <option value={60}>{language === 'fa' ? '۱ ساعت بی‌حرکتی' : '١ کاتژمێر'}</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Security Audit & Status Badges */}
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span>{language === 'fa' ? 'وضعیت سپرهای امنیتی فعال KarSync' : 'Active Security Layers'}</span>
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>HTTPS Enforced</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>SHA-256 + Salt</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Brute-Force Guard</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Logout Button */}
-                <div className="border-t border-slate-200/80 dark:border-slate-800 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm(language === 'fa' ? 'آیا از خروج از حساب کاربری اطمینان دارید؟' : 'ئایا لە چوونەدەرەوە دڵنیایت؟')) {
-                        logout();
-                      }
-                    }}
-                    className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 transition-colors"
-                  >
-                    {language === 'fa' ? 'خروج امن از حساب کاربری' : 'چوونەدەرەوە لە هەژمار'}
-                  </button>
                 </div>
               </div>
             )}
