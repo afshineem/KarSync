@@ -9,15 +9,20 @@
      - PC: `http://localhost:8080/`
      - Mobile (LAN): `http://192.168.110.217:8080/`
 
-2. **Strict Git & Versioning Workflow (USER PREFERENCE):**
-   - **DO NOT MAKE ANY COMMITS.** (`git commit` is forbidden).
-   - **NEVER PUSH AUTOMATICALLY.** (`git push` is forbidden).
-   - After completing changes and receiving the user's explicit approval, provide the git commands in a code block with this exact format for the user to copy:
-     ```bash
-     git add .
-     git commit -m "message"
-     ```
-   - After EVERY change (small or large), remind the user to bump the version number.
+2. **Strict Git & Versioning Workflow:**
+   - **AUTOMATIC STAGE & COMMIT:**
+     - Whenever tasks, bug fixes, or changes are completed and verified, perform `git add .` and `git commit -m "descriptive message"` automatically.
+   - **PUSH CONTROL & COMMAND CODE PHRASE:**
+     - **DO NOT PUSH AUTOMATICALLY** during normal tasks unless explicitly ordered by the user.
+     - **Push Trigger Words:** If the user says **«پوش کن»** (or "push"), immediately push the commits to the current remote branch:
+       ```bash
+       git push
+       ```
+     - **Merge & Push Trigger Words:** If working on a specific branch and the user says **«مرج و پوش کن»** (or "merge and push"):
+       1. Switch back to the main branch (`git checkout main`).
+       2. Merge the feature/working branch into main (`git merge <branch_name>`).
+       3. Push the updated main branch to remote (`git push origin main`).
+   - Remind the user about the current version number and any version bumps.
 
 ## UI Design System: [APP_THEME_BUTTON]
 **Trigger Keyword:** "Theme Button", "دکمه با تم برنامه", or "[APP_THEME_BUTTON]"

@@ -544,8 +544,8 @@ export default function ExpenseCategoriesTab({
                               onClick={() => toggleL2(l2.id)}
                               className={`p-2.5 flex items-center justify-between gap-2.5 cursor-pointer select-none transition-colors ${
                                 isL2Expanded
-                                  ? 'bg-slate-100/70 dark:bg-slate-750/70 border-b border-slate-100 dark:border-slate-700'
-                                  : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                                  ? 'bg-slate-100/90 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700'
+                                  : 'hover:bg-slate-50 dark:hover:bg-slate-750/50'
                               }`}
                             >
                               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -599,10 +599,10 @@ export default function ExpenseCategoriesTab({
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                                       {l2.name}
                                     </span>
-                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold">
                                       {l3List.length} {language === 'fa' ? 'هزینه' : 'خەرجی'}
                                     </span>
                                   </div>
@@ -651,7 +651,7 @@ export default function ExpenseCategoriesTab({
 
                             {/* Level 2 Expanded Content (Level 3 Items) */}
                             {isL2Expanded && (
-                              <div className="p-2.5 space-y-1.5 bg-slate-50/50 dark:bg-slate-900/40">
+                              <div className="p-2.5 space-y-1.5 bg-slate-50/70 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800">
                                 {/* Inline Add L3 Form */}
                                 {isAddingL3Here && (
                                   <form
@@ -691,7 +691,7 @@ export default function ExpenseCategoriesTab({
                                 )}
 
                                 {l3List.length === 0 && !isAddingL3Here ? (
-                                  <div className={`py-2 px-3 text-[11px] text-slate-400 dark:text-slate-500 text-center rounded-lg bg-white/40 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 ${
+                                  <div className={`py-2 px-3 text-[11px] text-slate-400 dark:text-slate-400 text-center rounded-lg bg-white/40 dark:bg-slate-850/60 border border-dashed border-slate-200 dark:border-slate-700 ${
                                     isRtl ? 'mr-4' : 'ml-4'
                                   }`}>
                                     <span>{language === 'fa' ? 'هیچ هزینه خردی در این زیرگروه نیست.' : 'هیچ وردە خەرجییەک نییە.'}</span>
@@ -711,7 +711,7 @@ export default function ExpenseCategoriesTab({
                                       return (
                                         <div
                                           key={l3.id}
-                                          className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-2 shadow-2xs"
+                                          className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-2 shadow-2xs"
                                         >
                                           {isEditingThisL3 ? (
                                             <div className="flex items-center gap-1 flex-1">
@@ -745,7 +745,7 @@ export default function ExpenseCategoriesTab({
                                             <>
                                               <div className="flex items-center gap-1.5 min-w-0">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                                                <span className="text-xs text-slate-700 dark:text-slate-200 truncate">
+                                                <span className="text-xs text-slate-700 dark:text-slate-200 font-medium truncate">
                                                   {l3.name}
                                                 </span>
                                               </div>
