@@ -364,8 +364,8 @@ export default function ExpenseCategoriesTab({
                   onClick={() => toggleL1(l1.id)}
                   className={`p-3.5 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors ${
                     isL1Expanded
-                      ? 'bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-700/80'
-                      : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'
+                      ? 'bg-slate-50/90 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-700/80'
+                      : 'hover:bg-slate-50/80 dark:hover:bg-slate-700/50'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -545,7 +545,7 @@ export default function ExpenseCategoriesTab({
                               className={`p-2.5 flex items-center justify-between gap-2.5 cursor-pointer select-none transition-colors ${
                                 isL2Expanded
                                   ? 'bg-slate-100/90 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700'
-                                  : 'hover:bg-slate-50 dark:hover:bg-slate-750/50'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-700/60'
                               }`}
                             >
                               <div className="flex items-center gap-2 flex-1 min-w-0">
