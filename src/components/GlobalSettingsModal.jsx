@@ -63,6 +63,7 @@ import { TwoFactorModal } from './TwoFactorModal';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
+import ExpenseCategoriesTab from './accounting/ExpenseCategoriesTab';
 import UsersSettingsTab from "./UsersSettingsTab";
 import { useAccounting } from '../hooks/useAccounting';
 
@@ -413,57 +414,54 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     [targetProjectId]
   ) || [];
 
-  const level1Cats = useMemo(() => allCategories.filter((c) => !c.parentId || c.level === 1), [allCategories]);
-  const [selectedL1Id, setSelectedL1Id] = useState(null);
-  const [selectedL2Id, setSelectedL2Id] = useState(null);
-
-  const level2Cats = useMemo(() => {
-    if (!selectedL1Id) return [];
-    return allCategories.filter((c) => c.parentId === selectedL1Id);
-  }, [allCategories, selectedL1Id]);
-
-  const level3Cats = useMemo(() => {
-    if (!selectedL2Id) return [];
-    return allCategories.filter((c) => c.parentId === selectedL2Id);
-  }, [allCategories, selectedL2Id]);
-
-  const [newCatName, setNewCatName] = useState('');
-  const [catLevelToAdd, setCatLevelToAdd] = useState(1); // 1, 2, 3
-
-  const handleAddCategory = async (e) => {
-    e.preventDefault();
-    if (!newCatName.trim()) return;
+  const handleAddCategory = async ({ name, parentId, level }) => {
+    if (!name || !name.trim()) return;
     const cId = 'cat_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
-    let parentId = null;
-    let level = 1;
-
-    if (catLevelToAdd === 2 && selectedL1Id) {
-      parentId = selectedL1Id;
-      level = 2;
-    } else if (catLevelToAdd === 3 && selectedL2Id) {
-      parentId = selectedL2Id;
-      level = 3;
-    }
-
     const newCat = {
       id: cId,
       projectId: targetProjectId,
       userId: user?.id || 'admin',
-      name: newCatName.trim(),
-      parentId: parentId,
-      level: level,
+      name: name.trim(),
+      parentId: parentId || null,
+      level: Number(level) || 1,
       createdAt: new Date().toISOString()
     };
-
     await pushExpenseCategoryLive(newCat);
-    setNewCatName('');
+  };
+
+  const handleUpdateCategory = async (catId, newName) => {
+    if (!catId || !newName || !newName.trim()) return;
+    const existing = await db.expenseCategories.get(catId);
+    if (!existing) return;
+    const updated = {
+      ...existing,
+      name: newName.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    await pushExpenseCategoryLive(updated);
   };
 
   const handleDeleteCategory = async (catId) => {
-    if (!window.confirm(language === 'fa' ? 'آیا از حذف این سرفصل اطمینان دارید؟' : 'ئایا لە سڕینەوەی ئەم بابەتە دڵنیایت؟')) return;
-    await deleteExpenseCategoryLive(catId);
-    if (selectedL1Id === catId) setSelectedL1Id(null);
-    if (selectedL2Id === catId) setSelectedL2Id(null);
+    if (!window.confirm(language === 'fa' ? 'آیا از حذف این سرفصل و تمام زیرمجموعه‌های آن اطمینان دارید؟' : 'ئایا لە سڕینەوەی ئەم بابەتە و هەموو ژێرگرووپەکانی دڵنیایت؟')) return;
+    // Find all children recursively
+    const all = await db.expenseCategories.toArray();
+    const idsToDelete = new Set([catId]);
+    
+    // Pass 1: find children whose parentId is in idsToDelete
+    let addedMore = true;
+    while (addedMore) {
+      addedMore = false;
+      for (const item of all) {
+        if (item.parentId && idsToDelete.has(item.parentId) && !idsToDelete.has(item.id)) {
+          idsToDelete.add(item.id);
+          addedMore = true;
+        }
+      }
+    }
+
+    for (const id of idsToDelete) {
+      await deleteExpenseCategoryLive(id);
+    }
   };
 
   // ----------------------------------------------------
@@ -1597,204 +1595,16 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB 3: EXPENSE CATEGORIES (3-TIER HIERARCHY) */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'categories' && (
-              <div className="space-y-5 max-w-4xl animate-in fade-in duration-150">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Receipt className="w-5 h-5 text-rose-500" />
-                    <span>{language === 'fa' ? 'سرفصل‌های هزینه‌ها و مخارج (۳ لایه)' : 'سەردێڕی خەرجییەکان (٣ لایەن)'}</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {language === 'fa' 
-                      ? 'مدیریت ساختار سلسله‌مراتبی: گروه اصلی ⬅️ زیرگروه ⬅️ هزینه خرد برای دسته‌بندی فاکتورها' 
-                      : 'بەڕێوەبردنی زنجیرەیی سێ بەشی خەرجییەکان'}
-                  </p>
-                </div>
-
-                {/* 3-Column Interactive Tier Explorer */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  
-                  {/* Column 1: Level 1 (Main Groups) */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col h-80">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-slate-700/60 flex-shrink-0">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {language === 'fa' ? '۱. گروه‌های اصلی' : '١. گرووپی سەرەکی'}
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
-                        {level1Cats.length}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto space-y-1 pe-1">
-                      {level1Cats.map((cat) => {
-                        const isSelected = selectedL1Id === cat.id;
-                        return (
-                          <div
-                            key={cat.id}
-                            onClick={() => {
-                              setSelectedL1Id(cat.id);
-                              setSelectedL2Id(null);
-                            }}
-                            className={`p-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-all ${
-                              isSelected
-                                ? 'bg-rose-500 text-white font-bold shadow-xs'
-                                : 'hover:bg-white dark:hover:bg-slate-700/60 text-slate-800 dark:text-slate-200'
-                            }`}
-                          >
-                            <span className="truncate">{cat.name}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteCategory(cat.id);
-                                }}
-                                className={`p-1 rounded-lg transition-colors ${isSelected ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-rose-500'}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                              {isRtl ? <ChevronLeft className="w-3.5 h-3.5 opacity-60" /> : <ChevronRight className="w-3.5 h-3.5 opacity-60" />}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Column 2: Level 2 (Sub-groups) */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col h-80">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-slate-700/60 flex-shrink-0">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {language === 'fa' ? '۲. زیرگروه‌ها' : '٢. ژێرگرووپەکان'}
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
-                        {level2Cats.length}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto space-y-1 pe-1">
-                      {!selectedL1Id ? (
-                        <div className="text-center text-xs text-slate-400 py-10">
-                          {language === 'fa' ? 'ابتدا یک گروه اصلی را انتخاب کنید' : 'گرووپی سەرەکی دیاریبکە'}
-                        </div>
-                      ) : level2Cats.length === 0 ? (
-                        <div className="text-center text-xs text-slate-400 py-10">
-                          {language === 'fa' ? 'بدون زیرگروه' : 'بێ ژێرگرووپ'}
-                        </div>
-                      ) : (
-                        level2Cats.map((cat) => {
-                          const isSelected = selectedL2Id === cat.id;
-                          return (
-                            <div
-                              key={cat.id}
-                              onClick={() => setSelectedL2Id(cat.id)}
-                              className={`p-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'bg-rose-500 text-white font-bold shadow-xs'
-                                  : 'hover:bg-white dark:hover:bg-slate-700/60 text-slate-800 dark:text-slate-200'
-                              }`}
-                            >
-                              <span className="truncate">{cat.name}</span>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteCategory(cat.id);
-                                  }}
-                                  className={`p-1 rounded-lg transition-colors ${isSelected ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-rose-500'}`}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                                {isRtl ? <ChevronLeft className="w-3.5 h-3.5 opacity-60" /> : <ChevronRight className="w-3.5 h-3.5 opacity-60" />}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Column 3: Level 3 (Micro-expenses) */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col h-80">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-slate-700/60 flex-shrink-0">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {language === 'fa' ? '۳. هزینه‌های خرد' : '٣. وردە خەرجییەکان'}
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
-                        {level3Cats.length}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto space-y-1 pe-1">
-                      {!selectedL2Id ? (
-                        <div className="text-center text-xs text-slate-400 py-10">
-                          {language === 'fa' ? 'ابتدا یک زیرگروه را انتخاب کنید' : 'ژێرگرووپ دیاریبکە'}
-                        </div>
-                      ) : level3Cats.length === 0 ? (
-                        <div className="text-center text-xs text-slate-400 py-10">
-                          {language === 'fa' ? 'بدون هزینه خرد' : 'بێ وردە خەرجی'}
-                        </div>
-                      ) : (
-                        level3Cats.map((cat) => (
-                          <div
-                            key={cat.id}
-                            className="p-2 rounded-xl text-xs flex items-center justify-between bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-slate-800 dark:text-slate-200"
-                          >
-                            <span className="truncate">{cat.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCategory(cat.id)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Add Category Form */}
-                <form onSubmit={handleAddCategory} className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col sm:flex-row gap-3 items-center">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                      {language === 'fa' ? 'افزودن به سطح:' : 'زیادکردن بۆ ئاستی:'}
-                    </span>
-                    <select
-                      value={catLevelToAdd}
-                      onChange={(e) => setCatLevelToAdd(Number(e.target.value))}
-                      className="px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200"
-                    >
-                      <option value={1}>{language === 'fa' ? 'سطح ۱ (گروه اصلی)' : 'ئاستی ١ (گرووپی سەرەکی)'}</option>
-                      <option value={2} disabled={!selectedL1Id}>
-                        {language === 'fa' ? 'سطح ۲ (زیرگروه انتخابی)' : 'ئاستی ٢ (ژێرگرووپ)'}
-                      </option>
-                      <option value={3} disabled={!selectedL2Id}>
-                        {language === 'fa' ? 'سطح ۳ (هزینه خرد انتخابی)' : 'ئاستی ٣ (وردە خەرجی)'}
-                      </option>
-                    </select>
-                  </div>
-
-                  <input
-                    type="text"
-                    placeholder={language === 'fa' ? 'نام سرفصل جدید...' : 'ناوی بابەت یان سەردێڕی نوێ...'}
-                    value={newCatName}
-                    onChange={(e) => setNewCatName(e.target.value)}
-                    className="flex-1 w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-rose-500"
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={!newCatName.trim()}
-                    className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{language === 'fa' ? 'افزودن سرفصل' : 'زیادکردنی بابەت'}</span>
-                  </button>
-                </form>
-              </div>
+              <ExpenseCategoriesTab
+                categories={allCategories}
+                targetProjectId={targetProjectId}
+                user={user}
+                language={language}
+                isRtl={isRtl}
+                onAddCategory={handleAddCategory}
+                onUpdateCategory={handleUpdateCategory}
+                onDeleteCategory={handleDeleteCategory}
+              />
             )}
 
             {/* ---------------------------------------------------- */}
