@@ -1200,47 +1200,69 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                    {/* Grouped/Tabbed Buttons [APP_THEME_BUTTON] */}
+                    <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                      {/* Sub-tab 1: Details */}
                       <button
                         type="button"
                         onClick={() => setProjectSubTab('details')}
-                        className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                        title={language === 'fa' ? 'مشخصات و قوانین عمومی پروژه' : 'تایبەتمەندییەکان'}
+                        className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                           projectSubTab === 'details'
-                            ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08]'
                         }`}
                       >
-                        {language === 'fa' ? 'مشخصات و قوانین' : 'تایبەتمەندییەکان'}
+                        <Building className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
+                        {projectSubTab === 'details' && (
+                          <span className="text-xs font-bold px-1.5 whitespace-nowrap animate-in fade-in duration-200">
+                            {language === 'fa' ? 'مشخصات و قوانین' : 'تایبەتمەندییەکان'}
+                          </span>
+                        )}
                       </button>
 
+                      {/* Sub-tab 2: Sections */}
                       <button
                         type="button"
                         onClick={() => setProjectSubTab('sections')}
-                        className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                        title={language === 'fa' ? 'بخش‌های پروژه (Sections)' : 'بەشەکانی پڕۆژە'}
+                        className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                           projectSubTab === 'sections'
-                            ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08]'
                         }`}
                       >
-                        <span>{language === 'fa' ? 'بخش‌های پروژه' : 'بەشەکان'}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                          {projectSections.length}
-                        </span>
+                        <Layers className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
+                        {projectSubTab === 'sections' && (
+                          <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
+                            <span>{language === 'fa' ? 'بخش‌های پروژه' : 'بەشەکان'}</span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
+                              {projectSections.length}
+                            </span>
+                          </span>
+                        )}
                       </button>
 
+                      {/* Sub-tab 3: Groups */}
                       <button
                         type="button"
                         onClick={() => setProjectSubTab('groups')}
-                        className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                        title={language === 'fa' ? 'تیم‌ها و گروه‌های کاری (Work Teams)' : 'تیمەکان و گروپەکانی کار'}
+                        className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                           projectSubTab === 'groups'
-                            ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08]'
                         }`}
                       >
-                        <span>{language === 'fa' ? 'تیم‌ها و گروه‌ها' : 'تیمەکان'}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                          {projectGroups.length}
-                        </span>
+                        <Users2 className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
+                        {projectSubTab === 'groups' && (
+                          <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
+                            <span>{language === 'fa' ? 'تیم‌ها و گروه‌ها' : 'تیمەکان'}</span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
+                              {projectGroups.length}
+                            </span>
+                          </span>
+                        )}
                       </button>
                     </div>
                   </div>
