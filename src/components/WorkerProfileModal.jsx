@@ -517,42 +517,69 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       </div>
 
-      {/* Tab Navigation Navigation (Apple Liquid Glass Dock Style) */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
-          {[
-            { id: 'overview', label: 'مشخصات و خلاصه', icon: User, count: null },
-            { id: 'attendance', label: 'سوابق کارکرد', icon: Calendar, count: allLogs.length },
-            { id: 'advances', label: 'مساعده‌ها و واریزی‌ها', icon: DollarSign, count: filteredPayments.length },
-            { id: 'settlements', label: 'رسیدهای تسویه', icon: Receipt, count: settlementReceipts.length },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shrink-0 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 border border-sky-400/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-                {tab.count !== null && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                    isActive 
-                      ? 'bg-white/20 text-white font-bold' 
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {/* Tab Navigation (Navbar-style Dock: Large Icons, Active-only Text, Smooth Transitions) */}
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shrink-0 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-start sm:justify-center overflow-x-auto no-scrollbar">
+          <nav className="flex items-center gap-1.5 sm:gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+            {[
+              { id: 'overview', label: 'مشخصات و خلاصه', icon: User, count: null },
+              { id: 'attendance', label: 'سوابق کارکرد', icon: Calendar, count: allLogs.length },
+              { id: 'advances', label: 'مساعده‌ها و واریزی‌ها', icon: DollarSign, count: filteredPayments.length },
+              { id: 'settlements', label: 'رسیدهای تسویه', icon: Receipt, count: settlementReceipts.length },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <div key={tab.id} className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-label={tab.label}
+                    title={tab.label}
+                    className={`relative p-2.5 sm:px-3.5 rounded-xl transition-all duration-300 ease-out flex items-center gap-2 shrink-0 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
+                    }`}
+                  >
+                    {/* Enlarged Icon (w-5.5 h-5.5) with hover scale transition */}
+                    <Icon className="w-5.5 h-5.5 transition-transform duration-200 group-hover:scale-110 shrink-0" />
+                    
+                    {/* Text Label only visible on active tab with fade/slide transition */}
+                    {isActive && (
+                      <span className="text-xs sm:text-sm font-semibold whitespace-nowrap px-0.5 animate-in fade-in slide-in-from-left-1 duration-200">
+                        {tab.label}
+                      </span>
+                    )}
+
+                    {/* Badge Count */}
+                    {tab.count !== null && (
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono transition-colors ${
+                        isActive 
+                          ? 'bg-white/25 text-white font-bold' 
+                          : 'bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    )}
+
+                    {/* Active dot indicator underneath */}
+                    {isActive && (
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs" />
+                    )}
+                  </button>
+
+                  {/* Micro-Tooltip on hover for inactive tabs */}
+                  {!isActive && (
+                    <div className="hidden sm:block absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50">
+                      {tab.label}
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
         </div>
       </div>
 
