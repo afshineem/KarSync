@@ -994,37 +994,6 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       </select>
                     </div>
                   </div>
-
-                  {/* Save / Cancel Action Bar for General Settings */}
-                  <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      {generalSaveSuccess && (
-                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 animate-in fade-in">
-                          <Check className="w-4 h-4" />
-                          <span>{language === 'fa' ? 'تنظیمات با موفقیت ذخیره شد' : 'ڕێکخستنەکان پاشەکەوت کران'}</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-                      <button
-                        type="button"
-                        onClick={handleCancelGeneralSettings}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-                      >
-                        {language === 'fa' ? 'انصراف / بازنشانی' : 'پاشگەزبوونەوە'}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleSaveGeneralSettings}
-                        className="px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-md shadow-sky-600/20 transition-all"
-                      >
-                        <Check className="w-4 h-4" />
-                        <span>{language === 'fa' ? 'ذخیره تنظیمات' : 'پاشەکەوتکردن'}</span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
