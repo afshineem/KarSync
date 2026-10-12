@@ -310,21 +310,18 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
     <div 
       className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden"
     >
-      {/* Top Header / Profile Hero */}
-      <div className="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 text-white shrink-0 relative overflow-hidden shadow-lg border-b border-sky-900/40">
-        {/* Subtle Background Glow */}
-        <div className="absolute -top-16 -end-16 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:px-8">
-          <div className="flex items-start justify-between gap-4 relative z-10">
+      {/* Top Header / Profile Hero (Modern Clean Theme-Harmonized Styling) */}
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-20 shadow-xs">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+          <div className="flex items-start justify-between gap-4">
             {/* Worker Avatar & Identity */}
-            <div className="flex items-center gap-3.5 sm:gap-5 min-w-0">
-              <div className="relative">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-lg shadow-sky-500/20 border-2 border-white/20">
-                  {worker?.name ? worker.name.charAt(0) : <User className="w-8 h-8" />}
+            <div className="flex items-center gap-3.5 sm:gap-4.5 min-w-0">
+              <div className="relative shrink-0">
+                <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-sky-500/20 border-2 border-white dark:border-slate-800">
+                  {worker?.name ? worker.name.charAt(0) : <User className="w-7 h-7" />}
                 </div>
                 <span 
-                  className={`absolute -bottom-1 -end-1 w-4 h-4 rounded-full border-2 border-slate-900 ${
+                  className={`absolute -bottom-1 -end-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
                     worker?.isActive !== false ? 'bg-emerald-500' : 'bg-rose-500'
                   }`} 
                   title={worker?.isActive !== false ? 'فعال' : 'غیرفعال'}
@@ -333,27 +330,27 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg sm:text-xl font-black text-white truncate tracking-tight">
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
                     {worker?.name || '...'}
                   </h2>
                   {worker?.role && (
-                    <span className="px-2 py-0.5 rounded-lg bg-sky-500/20 border border-sky-400/30 text-sky-200 text-xs font-semibold">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 text-xs font-bold">
                       {worker.role}
                     </span>
                   )}
                   {group?.name && (
-                    <span className="px-2 py-0.5 rounded-lg bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-semibold flex items-center gap-1">
-                      <Layers className="w-3 h-3" />
+                    <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-sky-500" />
                       <span>{group.name}</span>
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-300 flex-wrap">
+                <div className="flex items-center gap-2.5 sm:gap-3.5 mt-1.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                   {worker?.phone ? (
                     <a 
                       href={`tel:${worker.phone}`} 
-                      className="inline-flex items-center gap-1 text-sky-300 hover:text-sky-200 font-mono transition-colors"
+                      className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline font-mono font-bold transition-colors"
                       title="تماس تلفنی"
                     >
                       <Phone className="w-3.5 h-3.5" />
@@ -363,13 +360,13 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                     <span className="text-slate-400 text-xs">بدون شماره تماس</span>
                   )}
 
-                  <span className="text-slate-500">•</span>
-                  <span>نرخ روزانه: <strong>{formatCurrency(worker?.dailyRate || 0, currency, language)}</strong></span>
+                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                  <span>نرخ روزانه: <strong className="text-slate-900 dark:text-white font-mono">{formatCurrency(worker?.dailyRate || 0, currency, language)}</strong></span>
                   
                   {Number(worker?.overtimeHourlyRate) > 0 && (
                     <>
-                      <span className="text-slate-500">•</span>
-                      <span>نرخ اضافه کاری: <strong>{formatCurrency(worker.overtimeHourlyRate, currency, language)}</strong>/ساعت</span>
+                      <span className="text-slate-300 dark:text-slate-700">•</span>
+                      <span>نرخ اضافه کاری: <strong className="text-slate-900 dark:text-white font-mono">{formatCurrency(worker.overtimeHourlyRate, currency, language)}</strong>/ساعت</span>
                     </>
                   )}
                 </div>
@@ -378,22 +375,23 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
             {/* Close Button */}
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors shrink-0"
-              title="بستن پنجره"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all duration-150 active:scale-95 shrink-0"
+              title="بستن (Esc)"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Quick Action Pill Bar */}
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-white/10 overflow-x-auto no-scrollbar text-xs">
+          {/* Quick Action Pill Bar (Clean Segmented Dock) */}
+          <div className="flex items-center gap-2 mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800/80 overflow-x-auto no-scrollbar text-xs">
             {worker?.phone && (
               <a
                 href={`tel:${worker.phone}`}
-                className="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/30 font-bold flex items-center gap-1.5 transition-all shrink-0"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-slate-700 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 border border-slate-200/80 dark:border-slate-700 font-bold flex items-center gap-1.5 transition-all shrink-0"
               >
-                <PhoneCall className="w-3.5 h-3.5" />
+                <PhoneCall className="w-3.5 h-3.5 text-emerald-500" />
                 <span>تماس مستقیم</span>
               </a>
             )}
@@ -401,52 +399,42 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
             <button
               type="button"
               onClick={() => setIsAdvanceModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-200 hover:text-slate-900 border border-amber-500/30 font-bold flex items-center gap-1.5 transition-all shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-200 hover:text-amber-700 dark:hover:text-amber-400 border border-slate-200/80 dark:border-slate-700 font-bold flex items-center gap-1.5 transition-all shrink-0"
             >
-              <DollarSign className="w-3.5 h-3.5" />
+              <DollarSign className="w-3.5 h-3.5 text-amber-500" />
               <span>ثبت مساعده جدید</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsQuickAttendanceOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500 text-sky-200 hover:text-white border border-sky-500/30 font-bold flex items-center gap-1.5 transition-all shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 text-slate-700 dark:text-slate-200 hover:text-sky-700 dark:hover:text-sky-400 border border-slate-200/80 dark:border-slate-700 font-bold flex items-center gap-1.5 transition-all shrink-0"
             >
-              <CalendarCheck className="w-3.5 h-3.5" />
+              <CalendarCheck className="w-3.5 h-3.5 text-sky-500" />
               <span>ثبت سریع ماهانه</span>
             </button>
 
             <button
               type="button"
-              onClick={handleOpenQRModal}
-              className="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500 text-indigo-200 hover:text-white border border-indigo-500/30 font-bold flex items-center gap-1.5 transition-all shrink-0"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>لینک / بارکد ورود</span>
-            </button>
-
-
-            <button
-              type="button"
               onClick={() => setIsSettlementModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500 text-purple-200 hover:text-white border border-purple-500/30 font-bold flex items-center gap-1.5 transition-all shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-400 border border-slate-200/80 dark:border-slate-700 font-bold flex items-center gap-1.5 transition-all shrink-0"
             >
-              <Receipt className="w-3.5 h-3.5" />
+              <Receipt className="w-3.5 h-3.5 text-indigo-500" />
               <span>صدور تسویه‌حساب</span>
             </button>
 
             <button
               type="button"
               onClick={handleOpenQRModal}
-              className="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500 text-indigo-200 hover:text-white border border-indigo-500/30 font-bold flex items-center gap-1.5 transition-all shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 text-slate-700 dark:text-slate-200 hover:text-sky-700 dark:hover:text-sky-400 border border-slate-200/80 dark:border-slate-700 font-bold flex items-center gap-1.5 transition-all shrink-0"
               title="ساخت لینک یا بارکد ورود اختصاصی پرسنل"
             >
-              <Lock className="w-3.5 h-3.5" />
+              <Lock className="w-3.5 h-3.5 text-sky-500" />
               <span>لینک / بارکد ورود</span>
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Wrongly-settled work warning: settled days dated AFTER the settlement that paid them or unpaid partial settlements */}
       {fin?.suspiciousSettledLogs?.length > 0 && (
@@ -470,12 +458,12 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       )}
 
-      {/* Financial Highlights Bar */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 shrink-0 shadow-xs">
+      {/* Financial Highlights Bar (Harmonized Cards) */}
+      <div className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 shrink-0">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Net Balance Due */}
-          <div className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
               طلب / مانده حساب جاری
             </span>
             <div className={`text-sm sm:text-base font-black truncate font-mono ${
@@ -483,115 +471,88 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
             }`}>
               {formatCurrency(stats.netBalanceDue, currency, language)}
             </div>
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
               {stats.netBalanceDue >= 0 ? 'طلبکار از کارگاه' : 'بدهکار مساعده'}
             </span>
           </div>
 
           {/* Unsettled Gross Pay */}
-          <div className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
               کارکرد معوق (ناخالص)
             </span>
             <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate font-mono">
               {formatCurrency(stats.unsettledGrossPay, currency, language)}
             </div>
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
               {stats.unsettledDaysCount} روز کارکرد جاری
             </span>
           </div>
 
           {/* Unsettled Advances */}
-          <div className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
               مساعده‌های کسر نشده
             </span>
             <div className="text-sm sm:text-base font-black text-amber-600 dark:text-amber-400 truncate font-mono">
               {formatCurrency(stats.unsettledAdvances, currency, language)}
             </div>
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
               کسر در زمان تسویه
             </span>
           </div>
 
           {/* Settled All-Time */}
-          <div className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
               کل مبالغ تسویه شده
             </span>
             <div className="text-sm sm:text-base font-black text-sky-600 dark:text-sky-400 truncate font-mono">
               {formatCurrency(stats.settledGrossPay, currency, language)}
             </div>
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
               {stats.settledDaysCount} روز در آرشیو
             </span>
           </div>
         </div>
       </div>
 
-      {/* Tab Navigation Navigation */}
+      {/* Tab Navigation Navigation (Apple Liquid Glass Dock Style) */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-2 flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
-          <button
-            type="button"
-            onClick={() => setActiveTab('overview')}
-            className={`py-2.5 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'overview'
-                ? 'border-sky-500 text-sky-600 dark:text-sky-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <User className="w-4 h-4" />
-            <span>مشخصات و خلاصه</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('attendance')}
-            className={`py-2.5 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'attendance'
-                ? 'border-sky-500 text-sky-600 dark:text-sky-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>سوابق کارکرد</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              {allLogs.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('advances')}
-            className={`py-2.5 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'advances'
-                ? 'border-sky-500 text-sky-600 dark:text-sky-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            <span>مساعده‌ها و واریزی‌ها</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              {filteredPayments.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('settlements')}
-            className={`py-2.5 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'settlements'
-                ? 'border-sky-500 text-sky-600 dark:text-sky-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Receipt className="w-4 h-4" />
-            <span>رسیدهای تسویه</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              {settlementReceipts.length}
-            </span>
-          </button>
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
+          {[
+            { id: 'overview', label: 'مشخصات و خلاصه', icon: User, count: null },
+            { id: 'attendance', label: 'سوابق کارکرد', icon: Calendar, count: allLogs.length },
+            { id: 'advances', label: 'مساعده‌ها و واریزی‌ها', icon: DollarSign, count: filteredPayments.length },
+            { id: 'settlements', label: 'رسیدهای تسویه', icon: Receipt, count: settlementReceipts.length },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shrink-0 ${
+                  isActive
+                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 border border-sky-400/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+                {tab.count !== null && (
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    isActive 
+                      ? 'bg-white/20 text-white font-bold' 
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
