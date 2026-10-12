@@ -721,7 +721,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <span>{language === 'fa' ? 'تنظیمات' : language === 'ku' ? 'ڕێکخستنەکان' : 'Settings'}</span>
               <span className="hidden md:inline-flex text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold border border-sky-200/60 dark:border-sky-800/60">
-                KarSync v0.8.4
+                KarSync v0.8.5
               </span>
               {/* On mobile: display active tab title */}
               <span className="sm:hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300">
@@ -1916,7 +1916,25 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       </div>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3 md:col-span-2">
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {language === 'fa' ? 'طرف‌حساب‌ها و اشخاص' : 'لایەنەکان و کەسایەتییەکان'}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {language === 'fa' ? 'مدیریت تامین‌کنندگان، کارفرمایان و پیمانکاران' : 'بەڕێوەبردنی لایەنەکانی ژمێریاری'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
+                        <span className="text-xs font-bold text-slate-400">+</span>
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">C</kbd>
+                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
+                        <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">C</kbd>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
                           {language === 'fa' ? 'مودال مدیریت پرسنل و کارگران' : 'مۆداڵی بەڕێوەبردنی کرێکاران و پرسنل'}
@@ -1941,7 +1959,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <span>{language === 'fa' ? 'ناوبری و جابه‌جایی بین تب‌ها' : 'گۆڕینی پەڕە و بەشەکان'}</span>
                   </h4>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
                         {language === 'fa' ? 'داشبورد مدیریتی' : 'داشبۆرد'}
@@ -1951,37 +1969,23 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'مدیریت پرسنل' : 'کرێکاران'}
+                        {language === 'fa' ? 'تقویم و گزارش کارکرد' : 'ڕۆژمێر و ڕاپۆرتی کار'}
                       </div>
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">2</kbd>
                     </div>
 
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'تقویم هوشمند تردد' : 'ڕۆژمێری ئامادەبوون'}
+                        {language === 'fa' ? 'مدیریت هزینه‌ها' : 'خەرجییەکان'}
                       </div>
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">3</kbd>
                     </div>
 
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'گزارشات و تسویه مالی' : 'ڕاپۆرتی دارایی'}
+                        {language === 'fa' ? 'حسابداری و امور مالی' : 'ژمێریاری و دارایی'}
                       </div>
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">4</kbd>
-                    </div>
-
-                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'مدیریت هزینه‌ها' : 'خەرجییەکان'}
-                      </div>
-                      <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">5</kbd>
-                    </div>
-
-                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'حسابداری و خزانه‌داری' : 'ژمێریاری و خەزێنەداری'}
-                      </div>
-                      <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">6</kbd>
                     </div>
                   </div>
                 </div>
@@ -2426,7 +2430,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                   <h3 className="text-xl font-black text-slate-900 dark:text-white">KarSync</h3>
                   <div className="inline-flex items-center gap-1.5 mt-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 text-xs font-bold font-mono">
                     <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-                    <span>v0.8.4 • SaaS & Local-First PWA</span>
+                    <span>v0.8.5 • SaaS & Local-First PWA</span>
                   </div>
                 </div>
 

@@ -3,12 +3,14 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { FinancialsView } from './FinancialsView';
 import { AccountingView } from './AccountingView';
+import { CounterpartiesView } from './CounterpartiesView';
 import { 
   Users, 
   Landmark, 
   BookOpen, 
   TrendingUp, 
   CreditCard,
+  Briefcase,
   Layers,
   Sparkles
 } from 'lucide-react';
@@ -17,11 +19,12 @@ import {
  * FinanceAndAccountingView
  * نمای ادغام‌شده و جامع «حسابداری و امور مالی کارگاه»
  * 
- * شامل ۴ زیربرگه هوشمند و روان:
+ * شامل ۵ زیربرگه هوشمند و روان:
  * ۱. payroll: حسابداری پرسنل، تسویه‌حساب و پرداخت حقوق (FinancialsView)
  * ۲. treasury: خزانه‌داری، کارت‌ها و موجودی صندوق‌ها
  * ۳. ledger: دفتر کل اسناد مالی و تایید دو مرحله‌ای تراکنش‌ها
  * ۴. income: درآمدهای ورودی پروژه و تراز نقدینگی
+ * ۵. counterparties: اشخاص و طرف‌حساب‌های کارگاه (تأمین‌کنندگان، کارفرمایان و پیمانکاران)
  */
 export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
   const { language, direction } = useLanguage();
@@ -29,6 +32,17 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
   const isRtl = direction === 'rtl';
 
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
+
+  // Listen to external navigation events to switch sub-tabs (e.g. from Shift+C)
+  React.useEffect(() => {
+    const handleSwitchSubTab = (e) => {
+      if (e.detail?.subTab) {
+        setActiveSubTab(e.detail.subTab);
+      }
+    };
+    window.addEventListener('karsync-finance-subtab', handleSwitchSubTab);
+    return () => window.removeEventListener('karsync-finance-subtab', handleSwitchSubTab);
+  }, []);
 
   // پیکربندی زیربرگه‌های ناوبری
   const subTabs = [
@@ -55,6 +69,12 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
       label: language === 'fa' ? 'درآمد' : language === 'ku' ? 'داهات' : 'Income',
       description: language === 'fa' ? 'شارژ تنخواه، واریزی‌های کارفرما و تراز' : 'تۆمارکردنی داهاتی نوێی کارگە',
       icon: TrendingUp
+    },
+    {
+      id: 'counterparties',
+      label: language === 'fa' ? 'طرف‌حساب‌ها' : language === 'ku' ? 'لایەنەکان' : 'Counterparties',
+      description: language === 'fa' ? 'مدیریت تامین‌کنندگان مصالح، کارفرمایان و پیمانکاران' : 'بەڕێوەبردنی لایەنەکانی پڕۆژە و دابینکەران',
+      icon: Briefcase
     }
   ];
 
@@ -150,6 +170,13 @@ export function FinanceAndAccountingView({ initialSubTab = 'payroll' }) {
           <div className="animate-in fade-in duration-150">
             {/* نمایش درآمدها و تزریق نقدینگی */}
             <AccountingView initialSubTab="income" hideInternalSubNav={true} hideHeader={true} />
+          </div>
+        )}
+
+        {activeSubTab === 'counterparties' && (
+          <div className="animate-in fade-in duration-150">
+            {/* نمایش مدیریت طرف‌حساب‌ها */}
+            <CounterpartiesView />
           </div>
         )}
       </div>

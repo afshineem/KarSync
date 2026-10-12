@@ -219,7 +219,7 @@ function AppContent() {
       // Ignore if other control modifiers are active (like Alt or Ctrl/Meta)
       if (e.ctrlKey || e.altKey || e.metaKey) return;
 
-      // Tab navigation numbers: 1 to 5 (without Shift)
+      // Tab navigation numbers: 1 to 4 (without Shift)
       if (!e.shiftKey) {
         if (e.key === '1') {
           e.preventDefault();
@@ -233,20 +233,10 @@ function AppContent() {
         }
         if (e.key === '3') {
           e.preventDefault();
-          setActiveTab('calendar');
-          return;
-        }
-        if (e.key === '4') {
-          e.preventDefault();
-          setActiveTab('financials');
-          return;
-        }
-        if (e.key === '5') {
-          e.preventDefault();
           setActiveTab('expenses');
           return;
         }
-        if (e.key === '6') {
+        if (e.key === '4') {
           e.preventDefault();
           setActiveTab('accounting');
           return;
@@ -316,6 +306,15 @@ function AppContent() {
       if (e.shiftKey && (keyUpper === 'M' || e.code === 'KeyM')) {
         e.preventDefault();
         setIsSubsidiarySearchOpen((prev) => !prev);
+        return;
+      }
+
+      if (e.shiftKey && (keyUpper === 'C' || e.code === 'KeyC')) {
+        e.preventDefault();
+        setActiveTab('accounting');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('karsync-finance-subtab', { detail: { subTab: 'counterparties' } }));
+        }, 50);
         return;
       }
     };
