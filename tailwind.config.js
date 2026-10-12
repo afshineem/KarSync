@@ -29,10 +29,11 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['"Noto Sans Arabic"', 'Vazirmatn', 'Inter', 'system-ui', 'sans-serif'],
-        kurdish: ['"Noto Sans Arabic"', 'Vazirmatn', 'Raza', 'Tahoma', 'sans-serif'],
-        persian: ['"Noto Sans Arabic"', 'Vazirmatn', 'Shabnam', 'Tahoma', 'sans-serif'],
-        english: ['Inter', '"Noto Sans Arabic"', 'system-ui', 'sans-serif'],
+        sans: ['"Noto Sans Arabic"', '"Exo 2"', 'Vazirmatn', 'Inter', 'system-ui', 'sans-serif'],
+        kurdish: ['"Noto Sans Arabic"', '"Exo 2"', 'Vazirmatn', 'Raza', 'Tahoma', 'sans-serif'],
+        persian: ['"Noto Sans Arabic"', '"Exo 2"', 'Vazirmatn', 'Shabnam', 'Tahoma', 'sans-serif'],
+        english: ['"Exo 2"', 'Inter', '"Noto Sans Arabic"', 'system-ui', 'sans-serif'],
+        mono: ['"Exo 2"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       }
     },
   },

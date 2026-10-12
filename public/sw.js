@@ -1,11 +1,13 @@
-const CACHE_NAME = 'karsync-cache-v27';
+const CACHE_NAME = 'karsync-cache-v29';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
   '/karsync-icon.png',
   '/karsync-icon-192.png',
-  '/karsync-logo.png'
+  '/karsync-logo.png',
+  '/fonts/NotoSansArabic.woff2',
+  '/fonts/Exo2-Regular.woff2'
 ];
 
 self.addEventListener('install', (event) => {

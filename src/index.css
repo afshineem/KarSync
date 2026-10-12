@@ -2,25 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Local font-face definition for Noto Sans Arabic (works offline & without CDN blocking) */
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/NotoSansArabic.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC;
+}
+
+/* Local font-face definition for Exo 2 (High-tech geometric font for Latin digits & numbers) */
+@font-face {
+  font-family: 'Exo 2';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/Exo2-Regular.woff2') format('woff2');
+  unicode-range: U+0030-0039, U+0020-007E, U+00A0-00FF;
+}
+
 @layer base {
   html {
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-  }
-
-  html[dir="rtl"] {
-    font-family: 'Noto Sans Arabic', 'Vazirmatn', 'Raza', 'Tahoma', system-ui, sans-serif;
-    letter-spacing: -0.015em;
-  }
-  html[dir="ltr"] {
-    font-family: 'Inter', 'Noto Sans Arabic', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Noto Sans Arabic', 'Exo 2', 'Inter', system-ui, -apple-system, sans-serif;
   }
 
   body {
+    font-family: 'Noto Sans Arabic', 'Exo 2', 'Inter', system-ui, -apple-system, sans-serif !important;
     line-height: 1.6;
     letter-spacing: -0.012em;
+  }
+
+  html[dir="rtl"], html[dir="rtl"] body {
+    font-family: 'Noto Sans Arabic', 'Exo 2', system-ui, -apple-system, sans-serif !important;
+    letter-spacing: -0.015em;
+  }
+
+  /* Ensure inputs, buttons, and selects strictly inherit font stack */
+  button, input, select, textarea {
+    font-family: inherit;
   }
 
   /* Refined typography scales for better Persian & Arabic rhythm */
@@ -37,8 +61,19 @@
     font-feature-settings: "ss01" 0;
   }
 
+  /* When Latin digits mode is active or font-mono / data-latin-digits is used, Exo 2 is enforced */
+  .font-mono, 
+  [data-latin-digits], 
+  html[data-number-format="latin"] .font-mono,
+  input[type="number"],
+  .tabular-nums {
+    font-family: 'Exo 2', ui-monospace, SFMono-Regular, monospace !important;
+    font-feature-settings: "ss01" 0, "tnum" 1 !important;
+    letter-spacing: 0.02em;
+  }
+
   /* Keep input fields and mono blocks clean for inputting numbers */
-  input, textarea, select, .font-mono, [data-latin-digits] {
+  input, textarea, select {
     font-feature-settings: "ss01" 0 !important;
   }
 }

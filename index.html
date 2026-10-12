@@ -20,10 +20,14 @@
     <link rel="apple-touch-icon" sizes="512x512" href="/karsync-icon.png" />
     <link rel="manifest" href="/manifest.json" />
 
-    <!-- Google Fonts: Noto Sans Arabic, Inter & Vazirmatn for Persian, Kurdish & English -->
+    <!-- Preload local fonts for instant render -->
+    <link rel="preload" href="/fonts/NotoSansArabic.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/Exo2-Regular.woff2" as="font" type="font/woff2" crossorigin>
+
+    <!-- Google Fonts: Noto Sans Arabic, Exo 2, Inter & Vazirmatn -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800;900&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800;900&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
       @keyframes karsyncPulse {
