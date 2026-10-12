@@ -191,14 +191,14 @@ export function AccountsSettingsTab({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      {/* هدر بخش و دکمه افزودن حساب */}
+      {/* هدر بخش و دکمه افزودن حساب با تم برنامه */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-slate-800">
         <div>
           <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Landmark className="w-5 h-5 text-emerald-500" />
+            <Landmark className="w-5 h-5 text-sky-500" />
             <span>{language === 'fa' ? 'مدیریت کارت‌های بانکی و صندوق‌های نقدی' : 'بەڕێوەبردنی کارتی بانکی و سندوقەکان'}</span>
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {language === 'fa' 
               ? 'تعریف حساب‌های بانکی، صندوق‌ها و تعیین حساب پیش‌فرض برای پرداخت‌ها و واریزی‌ها' 
               : 'دیاریکردنی کارتی بانکی و سندوقی تەنخوا و حیسابی سەرەکی'}
@@ -208,10 +208,12 @@ export function AccountsSettingsTab({
         <button
           type="button"
           onClick={() => setIsAddModalOpen(true)}
-          className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/25 flex items-center gap-1.5 transition-all self-start sm:self-center"
+          className="h-10 sm:h-11 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-2 transition-all duration-300 ease-in-out active:scale-95 hover:scale-105 group self-start sm:self-center focus:outline-hidden"
+          title={language === 'fa' ? 'افزودن حساب / کارت جدید' : 'زیادکردنی حیسابی نوێ'}
+          aria-label={language === 'fa' ? 'افزودن حساب / کارت جدید' : 'زیادکردنی حیسابی نوێ'}
         >
-          <Plus className="w-4 h-4" />
-          <span>{language === 'fa' ? 'افزودن حساب / کارت جدید' : 'زیادکردنی حیسابی نوێ'}</span>
+          <Plus className="w-5 h-5 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
+          <span>{language === 'fa' ? 'افزودن حساب جدید' : 'حیسابی نوێ'}</span>
         </button>
       </div>
 
@@ -231,119 +233,100 @@ export function AccountsSettingsTab({
         </div>
       )}
 
-      {/* بنر عملیات: پرداخت تراکنش‌های قبلی از محل صندوق */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <Coins className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-              {language === 'fa' ? 'انتساب تراکنش‌های بسته شده قبلی به صندوق نقدی' : 'گواستنەوەی مامەڵە کۆنەکان بۆ سندوقی کاش'}
-            </h4>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              {language === 'fa' 
-                ? 'تمام تسویه‌حساب‌ها، مساعده‌ها و فاکتورهای پرداخت‌شده قبلی را از محل «صندوق نقدی کارگاه» لحاظ و ثبت می‌کند.'
-                : 'هەموو تەسویە و خەرجییە دراوەکانی پێشوو دەخرێنە سەر سندوقی کاش.'}
-            </p>
-          </div>
+      {/* نوار کنترل هوشمند: فیلتر حساب‌ها با تم برنامه + سیاست سراسری کسری */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-3 sm:p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+        
+        {/* فیلتر تب‌ها [APP_THEME_BUTTON] */}
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setActiveFilter('all')}
+            title={language === 'fa' ? `همه حساب‌ها (${accounts.length})` : `هەموو (${accounts.length})`}
+            className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+              activeFilter === 'all'
+                ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800'
+            }`}
+          >
+            <Layers className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
+            {activeFilter === 'all' && (
+              <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
+                <span>{language === 'fa' ? 'همه حساب‌ها' : 'هەموو'}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
+                  {accounts.length}
+                </span>
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('bank')}
+            title={language === 'fa' ? `کارت‌های بانکی (${bankAccountsCount})` : `کارتەکان (${bankAccountsCount})`}
+            className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+              activeFilter === 'bank'
+                ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800'
+            }`}
+          >
+            <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
+            {activeFilter === 'bank' && (
+              <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
+                <span>{language === 'fa' ? 'کارت‌های بانکی' : 'کارتەکان'}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
+                  {bankAccountsCount}
+                </span>
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('cash')}
+            title={language === 'fa' ? `صندوق‌های نقدی (${cashAccountsCount})` : `سندوقەکان (${cashAccountsCount})`}
+            className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+              activeFilter === 'cash'
+                ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800'
+            }`}
+          >
+            <Coins className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
+            {activeFilter === 'cash' && (
+              <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
+                <span>{language === 'fa' ? 'صندوق‌های نقدی' : 'سندوقەکان'}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
+                  {cashAccountsCount}
+                </span>
+              </span>
+            )}
+          </button>
         </div>
 
-        <button
-          type="button"
-          disabled={isMigrating}
-          onClick={handleMigratePastTransactions}
-          className="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-xs active:scale-95"
-        >
-          {isMigrating ? (
-            <>
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              <span>{language === 'fa' ? 'در حال اعمال...' : 'جێبەجێکردن...'}</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{language === 'fa' ? 'پرداخت از محل صندوق' : 'جێبەجێکردن'}</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* ۲.۱ کارت تنظیم سیاست اضافه برداشت (کسری موجودی) سراسری */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-800/30 border border-slate-200/80 dark:border-slate-800 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 border border-sky-200/50 dark:border-sky-800/50">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                {language === 'fa' ? 'سیاست سراسری اضافه برداشت و کسری موجودی' : 'سیاسەتی گشتی کەمبوونی باڵانس'}
-              </h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {language === 'fa' 
-                  ? 'تعیین رفتار سیستم در زمان ثبت فاکتور یا پرداختی پرسنل با مبلغی بیشتر از موجودی صندوق یا کارت'
-                  : 'دیاریکردنی هەڵسوکەوتی سیستەم کاتێک باڵانس بەش ناکات'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* منوی دراپ‌داون سیاست اضافه برداشت سراسری */}
-        <div className="pt-1">
+        {/* کنترل فشرده سیاست کسری موجودی */}
+        <div className="flex items-center gap-2 text-xs">
+          <ShieldAlert className="w-4 h-4 text-sky-500 shrink-0" />
+          <span className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap hidden sm:inline">
+            {language === 'fa' ? 'سیاست کسری:' : 'سیاسەت:'}
+          </span>
           <select
             value={globalOverdraftPolicy}
             onChange={(e) => onUpdateGlobalOverdraftPolicy && onUpdateGlobalOverdraftPolicy(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
+            className="px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 cursor-pointer shadow-xs"
           >
             <option value="ask_each_time">
-              {language === 'fa' 
-                ? '⚠️ هر بار پرسیده شود (پیش‌فرض) — نمایش هشدار در صورت کسری و اخذ تایید مجدد' 
-                : 'پرسیار لە هەر جارێکدا'}
+              {language === 'fa' ? '⚠️ هر بار پرسش (پیش‌فرض)' : 'پرسیار لە هەر جار'}
             </option>
             <option value="always_allow">
-              {language === 'fa' 
-                ? '✅ همیشه مجاز — ثبت فوری برداشت و هزینه بدون مانع (امکان منفی شدن تراز)' 
-                : 'هەمیشە ڕێگەپێدراو'}
+              {language === 'fa' ? '✅ همیشه مجاز (تراز منفی)' : 'هەمیشە ڕێگەپێدراو'}
             </option>
             <option value="never_allow">
-              {language === 'fa' 
-                ? '⛔ همیشه نامجاز — ممانعت کامل از ثبت تراکنش بیش از موجودی حساب' 
-                : 'هەمیشە قەدەغە'}
+              {language === 'fa' ? '⛔ ممانعت از کسری' : 'هەمیشە قەدەغە'}
             </option>
           </select>
         </div>
       </div>
 
-      {/* منوی دراپ‌داون فیلتر حساب‌ها جهت مرتب‌سازی و عدم شلوغی */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">
-            {language === 'fa' ? 'فیلتر نمایش حساب‌ها:' : 'فلتەرکردن:'}
-          </label>
-          <select
-            value={activeFilter}
-            onChange={(e) => setActiveFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
-          >
-            <option value="all">
-              {language === 'fa' ? `همه حساب‌ها (${accounts.length})` : `هەموو (${accounts.length})`}
-            </option>
-            <option value="bank">
-              {language === 'fa' ? `فقط کارت‌های بانکی (${bankAccountsCount})` : `تەنها کارتەکان (${bankAccountsCount})`}
-            </option>
-            <option value="cash">
-              {language === 'fa' ? `فقط صندوق‌های نقدی (${cashAccountsCount})` : `تەنها سندوقەکان (${cashAccountsCount})`}
-            </option>
-          </select>
-        </div>
-
-        <span className="text-[11px] font-medium text-slate-400">
-          {language === 'fa' ? `${filteredAccounts.length} حساب در دسترس` : `${filteredAccounts.length} حیساب`}
-        </span>
-      </div>
-
-      {/* لیست کارت‌ها و صندوق‌ها */}
+      {/* لیست کارت‌ها و صندوق‌ها با استایل مینیمال لوکس */}
       {filteredAccounts.length === 0 ? (
         <div className="p-8 sm:p-12 text-center rounded-3xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60">
           <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-400 flex items-center justify-center mb-3">
@@ -358,7 +341,7 @@ export function AccountsSettingsTab({
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800 transition-colors"
+            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 text-xs font-bold border border-sky-200 dark:border-sky-800 transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>{language === 'fa' ? 'تعریف حساب جدید' : 'زیادکردنی حیساب'}</span>
@@ -378,107 +361,107 @@ export function AccountsSettingsTab({
             return (
               <div
                 key={account.id}
-                className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
+                className={`rounded-3xl border transition-all duration-300 flex flex-col justify-between overflow-hidden relative group ${
+                  isDefault
+                    ? 'bg-white dark:bg-slate-900 border-sky-400/80 dark:border-sky-500/80 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/30'
+                    : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-md'
+                }`}
               >
-                {/* نمای کارتی بالایی (مشابه کارت اعتباری / صندوق) */}
-                <div className={`p-5 bg-gradient-to-br ${getCardGradient(account.color, account.type)} relative overflow-hidden`}>
-                  {/* دایره‌های تزیینی گرافیکی کارت */}
-                  <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
-                  <div className="absolute right-12 -bottom-10 w-24 h-24 rounded-full bg-white/10 pointer-events-none" />
+                {/* نمای بالایی کارت (الهام از کارت‌های لوکس مینیمال تیره/روشن) */}
+                <div className={`p-5 relative overflow-hidden ${
+                  isBank
+                    ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white'
+                    : 'bg-gradient-to-br from-slate-800 via-slate-800/90 to-slate-900 text-white'
+                }`}>
+                  {/* خطوط ژئومتریک مینیمال پس‌زمینه */}
+                  <div className="absolute top-0 right-0 w-36 h-36 bg-white/[0.03] rounded-full blur-2xl pointer-events-none" />
+                  <div className="absolute -bottom-8 -left-8 w-28 h-28 bg-sky-500/10 rounded-full blur-xl pointer-events-none" />
 
-                  {/* ردیف بالا: نوع و نشان پیش‌فرض */}
+                  {/* ردیف بالا: نوع حساب و نشان پیش‌فرض */}
                   <div className="flex items-center justify-between gap-2 relative z-10">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 backdrop-blur-md">
-                      {isBank ? <CreditCard className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
-                      <span>{isBank ? (account.bankName || 'کارت بانکی') : 'صندوق نقدی'}</span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-white/10 backdrop-blur-md border border-white/10">
+                      {isBank ? (
+                        <>
+                          <CreditCard className="w-3 h-3 text-sky-400" />
+                          <span>{account.bankName || (language === 'fa' ? 'کارت بانکی' : 'کارتی بانکی')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Coins className="w-3 h-3 text-amber-400" />
+                          <span>{language === 'fa' ? 'صندوق نقدی' : 'سندوقی کاش'}</span>
+                        </>
+                      )}
                     </span>
 
-                    {isDefault && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-950 shadow-xs">
+                    {isDefault ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-400/90 text-amber-950 shadow-xs">
                         <Star className="w-3 h-3 fill-amber-950" />
-                        <span>حساب پیش‌فرض</span>
+                        <span>{language === 'fa' ? 'پیش‌فرض' : 'سەرەکی'}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {currency}
                       </span>
                     )}
                   </div>
 
-                  {/* نام حساب */}
+                  {/* نام حساب و شماره کارت */}
                   <div className="mt-4 relative z-10">
-                    <h4 className="font-black text-base tracking-tight leading-snug drop-shadow-xs">
+                    <h4 className="font-bold text-sm sm:text-base text-white tracking-tight truncate drop-shadow-xs">
                       {account.name}
                     </h4>
-                    {isBank && account.cardNumber && (
-                      <div className="font-mono text-sm tracking-wider mt-2 opacity-90 drop-shadow-xs" dir="ltr">
-                        {account.cardNumber}
+                    {isBank && account.cardNumber ? (
+                      <div className="font-mono text-xs tracking-widest mt-1.5 text-slate-300" dir="ltr">
+                        {account.cardNumber.replace(/(\d{4})/g, '$1 ').trim()}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        {account.keeperName ? `مسئول: ${account.keeperName}` : (account.holderName ? `دارنده: ${account.holderName}` : 'حساب فعال کارگاه')}
                       </div>
                     )}
                   </div>
 
-                  {/* جزییات پایین کارت: صاحب حساب یا مسئول */}
-                  <div className="mt-4 pt-2.5 border-t border-white/20 flex items-center justify-between text-[11px] opacity-90 relative z-10">
-                    <span>
-                      {isBank ? (account.holderName ? `صاحب کارت: ${account.holderName}` : 'حساب بانکی کارگاه') : (account.keeperName ? `مسئول: ${account.keeperName}` : 'صندوق کارگاه')}
+                  {/* موجودی شاخص در کارت */}
+                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between relative z-10">
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {language === 'fa' ? 'موجودی زنده' : 'باڵانس'}
                     </span>
-                    {account.initialBalance > 0 && (
-                      <span className="font-mono font-bold">
-                        اولیه: {formatAmount(account.initialBalance, currency)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* پنل میانی: موجودی زنده، ورودی و خروجی و سیاست کسری */}
-                <div className="p-3.5 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 space-y-2 text-xs">
-                  {/* ردیف موجودی زنده */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                      {language === 'fa' ? 'موجودی زنده فعلی:' : 'باڵانسی ئێستا:'}
-                    </span>
-                    <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-lg ${
-                      isNegative 
-                        ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400' 
-                        : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300'
+                    <span className={`font-mono text-sm font-black ${
+                      isNegative ? 'text-rose-400' : 'text-emerald-400'
                     }`} dir="ltr">
                       {formatAmount(currentBalance, currency)}
                     </span>
                   </div>
+                </div>
 
-                  {/* ردیف جریان نقدینگی حساب */}
-                  <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px]">
-                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-                      <span className="flex items-center gap-0.5">
-                        <ArrowUpRight className="w-3 h-3" />
-                        <span>{language === 'fa' ? 'واریزی:' : 'هاتوو:'}</span>
+                {/* پنل میانی: گردش نقدینگی حساب */}
+                <div className="p-3 bg-slate-50/70 dark:bg-slate-800/50 border-t border-b border-slate-100 dark:border-slate-800/80">
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="flex items-center justify-between p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/60">
+                      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+                        <span>{language === 'fa' ? 'ورودی' : 'هاتوو'}</span>
                       </span>
-                      <span className="font-mono font-bold" dir="ltr">{formatAmount(totalInflow, currency)}</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
+                        {formatAmount(totalInflow, currency)}
+                      </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-rose-500 dark:text-rose-400">
-                      <span className="flex items-center gap-0.5">
-                        <ArrowDownRight className="w-3 h-3" />
-                        <span>{language === 'fa' ? 'برداشت:' : 'ڕۆیشتوو:'}</span>
+                    <div className="flex items-center justify-between p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/60">
+                      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <ArrowDownRight className="w-3 h-3 text-rose-500" />
+                        <span>{language === 'fa' ? 'خروجی' : 'ڕۆیشتوو'}</span>
                       </span>
-                      <span className="font-mono font-bold" dir="ltr">{formatAmount(totalOutflow, currency)}</span>
+                      <span className="font-mono font-bold text-rose-600 dark:text-rose-400" dir="ltr">
+                        {formatAmount(totalOutflow, currency)}
+                      </span>
                     </div>
-                  </div>
-
-                  {/* برچسب سیاست کسری اختصاصی این حساب */}
-                  <div className="flex items-center justify-between text-[10px] pt-1 text-slate-400 dark:text-slate-500">
-                    <span>{language === 'fa' ? 'سیاست کسری:' : 'سیاسەتی کەمبوون:'}</span>
-                    <span className="font-bold text-slate-600 dark:text-slate-300">
-                      {account.overdraftPolicy === 'always_allow'
-                        ? (language === 'fa' ? '✅ همیشه مجاز' : 'هەمیشە ڕێگەپێدراو')
-                        : account.overdraftPolicy === 'never_allow'
-                          ? (language === 'fa' ? '⛔ همیشه نامجاز' : 'هەمیشە قەدەغە')
-                          : account.overdraftPolicy === 'ask_each_time'
-                            ? (language === 'fa' ? '⚠️ هر بار پرسش' : 'پرسیار لە هەر جار')
-                            : (language === 'fa' ? '⚙️ سراسری' : 'سەرتاسەری')}
-                    </span>
                   </div>
                 </div>
 
-                {/* پنل عملیات و دکمه‌ها در پایین */}
+                {/* نوار اکشن‌های پایین کارت */}
                 <div className="p-3 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 text-xs">
-                  {/* دکمه تنظیم به عنوان پیش‌فرض */}
+                  {/* دکمه تعیین حساب به عنوان پیش‌فرض */}
                   {!isDefault ? (
                     <button
                       type="button"
@@ -489,13 +472,13 @@ export function AccountsSettingsTab({
                       <span>{language === 'fa' ? 'پیش‌فرض' : 'سەرەکی'}</span>
                     </button>
                   ) : (
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-1 rounded-xl">
+                    <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1 bg-sky-50 dark:bg-sky-950/60 px-2 py-1 rounded-xl">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>پیش‌فرض فعال</span>
                     </span>
                   )}
 
-                  {/* دکمه‌های عملیات سریع و ویرایش/حذف */}
+                  {/* دکمه‌های ویرایش و حذف با ترنزیشن نرم */}
                   <div className="flex items-center gap-1">
                     {onQuickDeposit && (
                       <button
@@ -560,6 +543,40 @@ export function AccountsSettingsTab({
           })}
         </div>
       )}
+
+      {/* بخش ابزارهای پیشرفته: انتقال تراکنش‌های قدیمی به صندوق نقدی (انتقال‌یافته به پایین صفحه) */}
+      <div className="p-4 rounded-2xl bg-slate-50/60 dark:bg-slate-800/30 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2.5">
+          <Coins className="w-4 h-4 text-slate-400 shrink-0" />
+          <div>
+            <div className="font-bold text-slate-700 dark:text-slate-300">
+              {language === 'fa' ? 'ابزار همگام‌سازی تراکنش‌های قدیمی' : 'هاوکاتکردنی مامەڵە کۆنەکان'}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              {language === 'fa' ? 'ثبت تسویه‌ها و فاکتورهای فاقد حساب از محل صندوق کارگاه' : 'تۆماری تەسویەکانی پێشوو لە سندوق'}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={isMigrating}
+          onClick={handleMigratePastTransactions}
+          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-700/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-colors self-start sm:self-auto shrink-0"
+        >
+          {isMigrating ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-500" />
+              <span>{language === 'fa' ? 'در حال اعمال...' : 'جێبەجێکردن...'}</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-sky-500" />
+              <span>{language === 'fa' ? 'بروزرسانی از محل صندوق' : 'هاوکاتکردن'}</span>
+            </>
+          )}
+        </button>
+      </div>
 
       {/* مودال افزودن حساب */}
       {isAddModalOpen && (
