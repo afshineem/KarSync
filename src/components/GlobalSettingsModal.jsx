@@ -111,6 +111,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     currentProject,
     switchProject,
     updateProject,
+    deleteProject,
+    softDeleteProject,
+    archiveProject,
     editingProjectId,
     setEditingProjectId,
     setIsNewProjectModalOpen
@@ -298,9 +301,28 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     setNewSectionName('');
   };
 
+  const [editingSectionId, setEditingSectionId] = useState(null);
+  const [editingSectionName, setEditingSectionName] = useState('');
+
+  const handleStartEditSection = (sec) => {
+    setEditingSectionId(sec.id);
+    setEditingSectionName(sec.name);
+  };
+
+  const handleSaveEditSection = async (secId) => {
+    if (!editingSectionName.trim()) return;
+    const sec = projectSections.find((s) => s.id === secId);
+    if (!sec) return;
+    const updatedSec = { ...sec, name: editingSectionName.trim() };
+    await pushProjectSectionLive(updatedSec);
+    setEditingSectionId(null);
+    setEditingSectionName('');
+  };
+
   const handleDeleteSection = async (secId) => {
     if (!window.confirm(language === 'fa' ? 'آیا از حذف این بخش اطمینان دارید؟' : 'ئایا لە سڕینەوەی ئەم بەشە دڵنیایت؟')) return;
     await deleteProjectSectionLive(secId);
+    if (editingSectionId === secId) setEditingSectionId(null);
   };
 
   // Groups of targeted project
@@ -311,6 +333,30 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDeductFood, setNewGroupDeductFood] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [editingGroupName, setEditingGroupName] = useState('');
+  const [editingGroupDeductFood, setEditingGroupDeductFood] = useState(false);
+
+  const handleStartEditGroup = (grp) => {
+    setEditingGroupId(grp.id);
+    setEditingGroupName(grp.name);
+    setEditingGroupDeductFood(!!grp.deductFoodExpense);
+  };
+
+  const handleSaveEditGroup = async (gId) => {
+    if (!editingGroupName.trim()) return;
+    const grp = projectGroups.find((g) => g.id === gId);
+    if (!grp) return;
+    const updatedGrp = {
+      ...grp,
+      name: editingGroupName.trim(),
+      deductFoodExpense: editingGroupDeductFood
+    };
+    await db.groups.put(updatedGrp);
+    setEditingGroupId(null);
+    setEditingGroupName('');
+  };
+
   const handleAddGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
@@ -330,7 +376,31 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   const handleDeleteGroup = async (gId) => {
     if (!window.confirm(language === 'fa' ? 'آیا از حذف این گروه کاری اطمینان دارید؟' : 'ئایا لە سڕینەوەی ئەم تیمە دڵنیایت؟')) return;
     await db.groups.delete(gId);
+    if (editingGroupId === gId) setEditingGroupId(null);
   };
+
+  const handleDeleteTargetProject = async (pId) => {
+    if (pId === DEFAULT_PROJECT_ID) {
+      alert(language === 'fa' ? 'پروژه پیش‌فرض سیستم قابل حذف نیست.' : 'پڕۆژەی بنەڕەتی سیستەم ناکرێت بسڕدرێتەوە.');
+      return;
+    }
+    const p = (projects || []).find((x) => x.id === pId);
+    const confirmMsg = language === 'fa'
+      ? `آیا از حذف کامل پروژه «${p?.name || ''}» اطمینان دارید؟`
+      : `ئایا لە سڕینەوەی تەواوی پڕۆژەی «${p?.name || ''}» دڵنیایت؟`;
+    if (window.confirm(confirmMsg)) {
+      try {
+        await deleteProject(pId);
+        setEditingProjectId(DEFAULT_PROJECT_ID);
+        switchProject(DEFAULT_PROJECT_ID);
+      } catch (err) {
+        alert(err.message || 'خطا در حذف پروژه');
+      }
+    }
+  };
+
+  // Sub-view tab inside Projects Tab: 'details' | 'sections' | 'groups'
+  const [projectSubTab, setProjectSubTab] = useState('details');
 
   // ----------------------------------------------------
   // Tab 3: Expense Categories (3-Tier Hierarchy)
@@ -1013,264 +1083,488 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
               </div>
             )}
             {activeTab === 'projects' && (
-              <div className="space-y-6 max-w-3xl animate-in fade-in duration-150">
-                {/* Project Selector & Actions Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-                      <FolderKanban className="w-5 h-5" />
-                    </div>
+              <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
+                {/* 1. Projects Carousel / Cards Bar */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                        {language === 'fa' ? 'پروژه در حال ویرایش:' : 'پڕۆژەی دەستکاریکراو:'}
-                      </div>
-                      <div className="text-sm font-black text-slate-900 dark:text-white">
-                        {targetProject?.name}
-                      </div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <FolderKanban className="w-4 h-4 text-sky-500" />
+                        <span>{language === 'fa' ? 'پروژه‌ها و کارگاه‌های فعال' : 'پڕۆژە و کارگە چالاکەکان'}</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {language === 'fa' ? 'برای ویرایش مشخصات یا مدیریت بخش‌ها، پروژه مورد نظر را انتخاب کنید' : 'پڕۆژەیەک هەڵبژێرە بۆ بەڕێوەبردن'}
+                      </p>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={targetProjectId}
-                      onChange={(e) => {
-                        setEditingProjectId(e.target.value);
-                        switchProject(e.target.value);
-                      }}
-                      className="px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden"
-                    >
-                      {activeProjects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.currency || 'IQD'})
-                        </option>
-                      ))}
-                    </select>
 
                     <button
                       type="button"
                       onClick={() => setIsNewProjectModalOpen(true)}
-                      className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 transition-colors shadow-sm"
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all"
                     >
                       <Plus className="w-4 h-4" />
-                      <span>{language === 'fa' ? 'پروژه جدید' : 'پڕۆژەی نوێ'}</span>
+                      <span>{language === 'fa' ? 'ایجاد پروژه جدید' : 'پڕۆژەی نوێ'}</span>
                     </button>
                   </div>
-                </div>
 
-                {/* Edit Project Details Form */}
-                <form onSubmit={handleSaveProjectInfo} className="space-y-4 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Building className="w-4 h-4 text-sky-500" />
-                    <span>{language === 'fa' ? 'مشخصات و قوانین عمومی این پروژه' : 'تایبەتمەندی و ڕێساکانی ئەم پڕۆژەیە'}</span>
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {language === 'fa' ? 'نام پروژه یا کارگاه' : 'ناوی پڕۆژە یان کارگە'}
-                      </label>
-                      <input
-                        type="text"
-                        value={projectName}
-                        onChange={(e) => setProjectName(e.target.value)}
-                        required
-                        className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {language === 'fa' ? 'ارز مبنای پروژه' : 'دراوی پڕۆژە'}
-                      </label>
-                      <select
-                        value={projectCurrency}
-                        onChange={(e) => setProjectCurrency(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                      >
-                        <option value="IQD">دینار عراق (IQD)</option>
-                        <option value="USD">دلار آمریکا (USD)</option>
-                        <option value="IRR">تومان ایران (IRR)</option>
-                        <option value="EUR">یورو (EUR)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {language === 'fa' ? 'ساعت کار استاندارد روزانه' : 'کاتژمێری ئاسایی ڕۆژانە'}
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="24"
-                        value={projectHours}
-                        onChange={(e) => setProjectHours(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {language === 'fa' ? 'ضریب محاسبه اضافه‌کاری' : 'زەریبی ئۆڤەرتایم'}
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.5"
-                        max="3"
-                        value={projectOvertime}
-                        onChange={(e) => setProjectOvertime(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2">
-                    {projectSaveSuccess ? (
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                        <Check className="w-4 h-4" />
-                        <span>{language === 'fa' ? 'تغییرات با موفقیت ذخیره شد' : 'گۆڕانکارییەکان پاشەکەوتکران'}</span>
-                      </span>
-                    ) : <span />}
-
-                    <button
-                      type="submit"
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition-colors shadow-sm"
-                    >
-                      {language === 'fa' ? 'ذخیره تغییرات پروژه' : 'پاشەکەوتکردنی پڕۆژە'}
-                    </button>
-                  </div>
-                </form>
-
-                {/* Sub-sections Management for this Project */}
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-indigo-500" />
-                        <span>{language === 'fa' ? 'بخش‌های پروژه (Sections)' : 'بەشەکانی پڕۆژە'}</span>
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'تقسیم‌بندی کارگاه به بخش‌های مختلف (مثل فونداسیون، سوله ۱، نما)' : 'دابەشکردنی کارگە بۆ بەشە جیاوازەکان'}
-                      </p>
-                    </div>
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
-                      {projectSections.length} {language === 'fa' ? 'بخش' : 'بەش'}
-                    </span>
-                  </div>
-
-                  {/* Add section inline */}
-                  <form onSubmit={handleAddSection} className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder={language === 'fa' ? 'نام بخش جدید (مثلاً: سوله شرقی)...' : 'ناوی بەشی نوێ...'}
-                      value={newSectionName}
-                      onChange={(e) => setNewSectionName(e.target.value)}
-                      className="flex-1 px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!newSectionName.trim()}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white flex items-center gap-1 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{language === 'fa' ? 'افزودن' : 'زیادکردن'}</span>
-                    </button>
-                  </form>
-
-                  {/* Sections List */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                    {projectSections.map((sec) => (
-                      <div
-                        key={sec.id}
-                        className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between group"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{sec.name}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSection(sec.id)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                          title={language === 'fa' ? 'حذف بخش' : 'سڕینەوە'}
+                  {/* Project Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {activeProjects.map((p) => {
+                      const isSelected = p.id === targetProjectId;
+                      const isDefault = p.id === DEFAULT_PROJECT_ID;
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setEditingProjectId(p.id);
+                            switchProject(p.id);
+                          }}
+                          className={`p-3.5 rounded-2xl border text-start cursor-pointer transition-all relative group flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-sky-50/70 dark:bg-sky-950/40 border-sky-400 dark:border-sky-600 shadow-md shadow-sky-500/10 ring-2 ring-sky-500/20'
+                              : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm'
+                          }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                                isSelected
+                                  ? 'bg-sky-500 text-white'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                              }`}>
+                                {p.currency || p.base_currency || 'IQD'}
+                              </span>
 
-                {/* Groups / Work Teams for this Project */}
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Users2 className="w-4 h-4 text-emerald-500" />
-                        <span>{language === 'fa' ? 'تیم‌ها و گروه‌های کاری (Work Teams)' : 'تیمەکان و گروپەکانی کار'}</span>
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'دسته‌بندی پرسنل با قوانین کسر هزینه غذای کارگاهی' : 'پۆلێنکردنی کرێکاران بەپێی تیم و تێچووی نانخواردن'}
-                      </p>
-                    </div>
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
-                      {projectGroups.length} {language === 'fa' ? 'تیم' : 'تیم'}
-                    </span>
-                  </div>
+                              <div className="flex items-center gap-1">
+                                {isDefault && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                    {language === 'fa' ? 'پیش‌فرض' : 'بنەڕەتی'}
+                                  </span>
+                                )}
+                                {!isDefault && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteTargetProject(p.id);
+                                    }}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors opacity-0 group-hover:opacity-100"
+                                    title={language === 'fa' ? 'حذف پروژه' : 'سڕینەوەی پڕۆژە'}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
 
-                  {/* Add group inline */}
-                  <form onSubmit={handleAddGroup} className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      placeholder={language === 'fa' ? 'نام تیم جدید (مثلاً: تیم قالب‌بندی)...' : 'ناوی تیمی نوێ...'}
-                      value={newGroupName}
-                      onChange={(e) => setNewGroupName(e.target.value)}
-                      className="flex-1 px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-                    />
-                    <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={newGroupDeductFood}
-                        onChange={(e) => setNewGroupDeductFood(e.target.checked)}
-                        className="rounded-sm text-emerald-600 focus:ring-0"
-                      />
-                      <span>{language === 'fa' ? 'کسر هزینه غذا' : 'لێبڕینی نانخواردن'}</span>
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={!newGroupName.trim()}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white flex items-center justify-center gap-1 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{language === 'fa' ? 'افزودن تیم' : 'زیادکردنی تیم'}</span>
-                    </button>
-                  </form>
+                            <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                              {p.name}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-3">
+                              <span>⏰ {p.standardWorkHours || 8} {language === 'fa' ? 'ساعت' : 'کاتژمێر'}</span>
+                              <span>⚡ ×{p.overtimeMultiplier || 1.0}</span>
+                            </div>
+                          </div>
 
-                  {/* Groups List */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                    {projectGroups.map((grp) => (
-                      <div
-                        key={grp.id}
-                        className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between"
-                      >
-                        <div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{grp.name}</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-                            {grp.deductFoodExpense 
-                              ? (language === 'fa' ? 'با کسر هزینه غذا' : 'بە لێبڕینی نانخواردن')
-                              : (language === 'fa' ? 'بدون کسر غذا' : 'بێ لێبڕینی نانخواردن')}
+                          <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
+                            <span className={`font-medium ${isSelected ? 'text-sky-600 dark:text-sky-400 font-bold' : 'text-slate-400'}`}>
+                              {isSelected 
+                                ? (language === 'fa' ? '✓ در حال مدیریت' : 'چالاکە') 
+                                : (language === 'fa' ? 'انتخاب پروژه' : 'دیاریکردن')}
+                            </span>
+                            {isSelected && (
+                              <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                            )}
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Management Workspace for Target Project */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+                  {/* Sub-Tabs Selector */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700/80">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-xs">
+                        {targetProject?.name ? targetProject.name.slice(0, 1) : 'P'}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {targetProject?.name}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {language === 'fa' ? 'تنظیمات، بخش‌ها و تیم‌های کاری' : 'ڕێکخستن و بەشەکان'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setProjectSubTab('details')}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                          projectSubTab === 'details'
+                            ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        {language === 'fa' ? 'مشخصات و قوانین' : 'تایبەتمەندییەکان'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setProjectSubTab('sections')}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                          projectSubTab === 'sections'
+                            ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        <span>{language === 'fa' ? 'بخش‌های پروژه' : 'بەشەکان'}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                          {projectSections.length}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setProjectSubTab('groups')}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                          projectSubTab === 'groups'
+                            ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        <span>{language === 'fa' ? 'تیم‌ها و گروه‌ها' : 'تیمەکان'}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                          {projectGroups.length}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sub-Tab 1: General Details & Financial Rules */}
+                  {projectSubTab === 'details' && (
+                    <form onSubmit={handleSaveProjectInfo} className="space-y-4 animate-in fade-in duration-150">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'نام پروژه یا کارگاه' : 'ناوی پڕۆژە یان کارگە'}
+                          </label>
+                          <input
+                            type="text"
+                            value={projectName}
+                            onChange={(e) => setProjectName(e.target.value)}
+                            required
+                            className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'ارز مبنای پروژه' : 'دراوی پڕۆژە'}
+                          </label>
+                          <select
+                            value={projectCurrency}
+                            onChange={(e) => setProjectCurrency(e.target.value)}
+                            className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                          >
+                            <option value="IQD">دینار عراق (IQD)</option>
+                            <option value="USD">دلار آمریکا (USD)</option>
+                            <option value="IRR">تومان ایران (IRR)</option>
+                            <option value="EUR">یورو (EUR)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'ساعت کار استاندارد روزانه' : 'کاتژمێری ئاسایی ڕۆژانە'}
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="24"
+                            value={projectHours}
+                            onChange={(e) => setProjectHours(e.target.value)}
+                            className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {language === 'fa' ? 'ضریب محاسبه اضافه‌کاری' : 'زەریبی ئۆڤەرتایم'}
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0.5"
+                            max="3"
+                            value={projectOvertime}
+                            onChange={(e) => setProjectOvertime(e.target.value)}
+                            className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-200/80 dark:border-slate-800">
+                        {projectSaveSuccess ? (
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <Check className="w-4 h-4" />
+                            <span>{language === 'fa' ? 'تغییرات با موفقیت ذخیره شد' : 'گۆڕانکارییەکان پاشەکەوتکران'}</span>
+                          </span>
+                        ) : <span />}
+
                         <button
-                          type="button"
-                          onClick={() => handleDeleteGroup(grp.id)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                          type="submit"
+                          className="px-5 py-2.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-md shadow-sky-600/20"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          {language === 'fa' ? 'ذخیره تغییرات پروژه' : 'پاشەکەوتکردنی پڕۆژە'}
                         </button>
                       </div>
-                    ))}
-                  </div>
+                    </form>
+                  )}
+
+                  {/* Sub-Tab 2: Sections with Inline Edit & Delete */}
+                  {projectSubTab === 'sections' && (
+                    <div className="space-y-4 animate-in fade-in duration-150">
+                      <form onSubmit={handleAddSection} className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder={language === 'fa' ? 'نام بخش جدید (مثلاً: سوله شرقی، فونداسیون، نما)...' : 'ناوی بەشی نوێ...'}
+                          value={newSectionName}
+                          onChange={(e) => setNewSectionName(e.target.value)}
+                          className="flex-1 px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!newSectionName.trim()}
+                          className="px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white flex items-center gap-1.5 transition-all shadow-sm shadow-indigo-600/20"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>{language === 'fa' ? 'افزودن بخش' : 'زیادکردن'}</span>
+                        </button>
+                      </form>
+
+                      {projectSections.length === 0 ? (
+                        <div className="text-center py-8 text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                          {language === 'fa' ? 'هنوز بخشی برای این پروژه ثبت نشده است.' : 'هیچ بەشێک تۆمار نەکراوە.'}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto">
+                          {projectSections.map((sec) => {
+                            const isEditing = editingSectionId === sec.id;
+                            return (
+                              <div
+                                key={sec.id}
+                                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-2 group transition-all"
+                              >
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1.5 flex-1">
+                                    <input
+                                      type="text"
+                                      value={editingSectionName}
+                                      onChange={(e) => setEditingSectionName(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleSaveEditSection(sec.id);
+                                        } else if (e.key === 'Escape') {
+                                          setEditingSectionId(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="flex-1 px-2.5 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-sky-400 text-slate-900 dark:text-white focus:outline-hidden"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveEditSection(sec.id)}
+                                      className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white"
+                                      title={language === 'fa' ? 'ذخیره' : 'پاشەکەوت'}
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingSectionId(null)}
+                                      className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                                      title={language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center gap-2 truncate">
+                                      <Layers className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                                        {sec.name}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartEditSection(sec)}
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                                        title={language === 'fa' ? 'ویرایش نام بخش' : 'دەستکاریکردن'}
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteSection(sec.id)}
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                                        title={language === 'fa' ? 'حذف بخش' : 'سڕینەوە'}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Sub-Tab 3: Work Teams with Inline Edit & Deduct Food Toggle */}
+                  {projectSubTab === 'groups' && (
+                    <div className="space-y-4 animate-in fade-in duration-150">
+                      <form onSubmit={handleAddGroup} className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          placeholder={language === 'fa' ? 'نام تیم جدید (مثلاً: تیم قالب‌بندی، آرماتور، جوشکاری)...' : 'ناوی تیمی نوێ...'}
+                          value={newGroupName}
+                          onChange={(e) => setNewGroupName(e.target.value)}
+                          className="flex-1 px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={newGroupDeductFood}
+                            onChange={(e) => setNewGroupDeductFood(e.target.checked)}
+                            className="rounded-sm text-emerald-600 focus:ring-0 w-4 h-4"
+                          />
+                          <span>{language === 'fa' ? 'کسر هزینه غذا' : 'لێبڕینی نانخواردن'}</span>
+                        </label>
+                        <button
+                          type="submit"
+                          disabled={!newGroupName.trim()}
+                          className="px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-all shadow-sm shadow-emerald-600/20"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>{language === 'fa' ? 'افزودن تیم' : 'زیادکردنی تیم'}</span>
+                        </button>
+                      </form>
+
+                      {projectGroups.length === 0 ? (
+                        <div className="text-center py-8 text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                          {language === 'fa' ? 'هنوز گروه کاری برای این پروژه ثبت نشده است.' : 'هیچ تیمێک تۆمار نەکراوە.'}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto">
+                          {projectGroups.map((grp) => {
+                            const isEditing = editingGroupId === grp.id;
+                            return (
+                              <div
+                                key={grp.id}
+                                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-2 transition-all"
+                              >
+                                {isEditing ? (
+                                  <div className="flex flex-col gap-2 flex-1">
+                                    <input
+                                      type="text"
+                                      value={editingGroupName}
+                                      onChange={(e) => setEditingGroupName(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleSaveEditGroup(grp.id);
+                                        } else if (e.key === 'Escape') {
+                                          setEditingGroupId(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="w-full px-2.5 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-sky-400 text-slate-900 dark:text-white focus:outline-hidden"
+                                    />
+                                    <div className="flex items-center justify-between">
+                                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={editingGroupDeductFood}
+                                          onChange={(e) => setEditingGroupDeductFood(e.target.checked)}
+                                          className="rounded-sm text-emerald-600 focus:ring-0"
+                                        />
+                                        <span>{language === 'fa' ? 'کسر هزینه غذا' : 'لێبڕینی نان'}</span>
+                                      </label>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveEditGroup(grp.id)}
+                                          className="p-1 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1"
+                                        >
+                                          <Check className="w-3.5 h-3.5" />
+                                          <span>{language === 'fa' ? 'ذخیره' : 'پاشەکەوت'}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingGroupId(null)}
+                                          className="p-1 px-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <Users2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                                          {grp.name}
+                                        </span>
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
+                                        <span className={`w-1.5 h-1.5 rounded-full ${grp.deductFoodExpense ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                                        <span>
+                                          {grp.deductFoodExpense 
+                                            ? (language === 'fa' ? 'با کسر هزینه غذای کارگاهی' : 'بە لێبڕینی نانخواردن')
+                                            : (language === 'fa' ? 'بدون کسر غذا' : 'بێ لێبڕینی نانخواردن')}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartEditGroup(grp)}
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                                        title={language === 'fa' ? 'ویرایش مشخصات تیم' : 'دەستکاریکردن'}
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteGroup(grp.id)}
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                                        title={language === 'fa' ? 'حذف تیم' : 'سڕینەوە'}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
