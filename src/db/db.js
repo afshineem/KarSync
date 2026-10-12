@@ -970,9 +970,35 @@ export async function reconcileSettlementEpochs() {
     });
 
     for (const st of settlements) {
-      if (st.settlement_subtype || st.isGroupSettlement || referencedReceiptIds.has(String(st.id))) continue;
+      const effectivePeriodEnd = st.periodEndDate || (st.month ? `${st.month}-31` : (st.date || '9999-12-31'));
 
-      const stDate = st.date || (st.createdAt ? st.createdAt.slice(0, 10) : '9999-12-31');
+      if (st.settlement_subtype || st.isGroupSettlement || referencedReceiptIds.has(String(st.id))) {
+        // Even for referenced settlements, ensure logs dated strictly after the settlement period
+        // are NEVER falsely marked as settled by this receipt!
+        if (st.workerId) {
+          const wLogs = await db.attendanceLogs.where('workerId').equals(String(st.workerId)).toArray();
+          const wronglySettled = wLogs.filter((l) => l.settlementReceiptId === st.id && (l.date || '') > effectivePeriodEnd);
+          if (wronglySettled.length > 0) {
+            const cleanWrongly = wronglySettled.map((l) => {
+              let cleanNotes = l.notes || '';
+              if (cleanNotes.includes('"st":1') || cleanNotes.includes('"st": 1')) {
+                cleanNotes = cleanNotes.replace(/"st":\s*1,?/g, '').replace(/,"rid":\s*"[^"]*"/g, '').replace(/"rid":\s*"[^"]*",?/g, '');
+              }
+              return {
+                ...l,
+                isSettled: false,
+                settlementReceiptId: null,
+                notes: cleanNotes,
+                updatedAt: new Date().toISOString()
+              };
+            });
+            await db.attendanceLogs.bulkPut(cleanWrongly);
+          }
+        }
+        continue;
+      }
+
+      const stDate = effectivePeriodEnd;
       let workerIdsToSettle = [];
 
       if (st.workerId) {
@@ -989,7 +1015,7 @@ export async function reconcileSettlementEpochs() {
       }
 
       for (const workerIdStr of workerIdsToSettle) {
-        // 1. Mark logs on or before settlement date as settled
+        // 1. Mark logs on or before settlement period end date as settled
         const workerLogs = await db.attendanceLogs.where('workerId').equals(workerIdStr).toArray();
         const logsToSettle = workerLogs.filter((l) => (!l.isSettled || !l.settlementReceiptId) && l.date <= stDate);
 
@@ -1004,17 +1030,24 @@ export async function reconcileSettlementEpochs() {
           totalLogsUpdated.push(...updatedLogs);
         }
 
-        // Ensure logs strictly AFTER this settlement date are NOT marked settled by this settlement
+        // Ensure logs strictly AFTER this settlement period end date are NOT marked settled by this settlement
         const falselySettledLogs = workerLogs.filter((l) => 
           (l.settlementReceiptId === st.id || (l.isSettled && !l.settlementReceiptId)) && l.date > stDate
         );
         if (falselySettledLogs.length > 0) {
-          const resetLogs = falselySettledLogs.map((l) => ({
-            ...l,
-            isSettled: false,
-            settlementReceiptId: null,
-            updatedAt: new Date().toISOString()
-          }));
+          const resetLogs = falselySettledLogs.map((l) => {
+            let cleanNotes = l.notes || '';
+            if (cleanNotes.includes('"st":1') || cleanNotes.includes('"st": 1')) {
+              cleanNotes = cleanNotes.replace(/"st":\s*1,?/g, '').replace(/,"rid":\s*"[^"]*"/g, '').replace(/"rid":\s*"[^"]*",?/g, '');
+            }
+            return {
+              ...l,
+              isSettled: false,
+              settlementReceiptId: null,
+              notes: cleanNotes,
+              updatedAt: new Date().toISOString()
+            };
+          });
           await db.attendanceLogs.bulkPut(resetLogs);
         }
 

@@ -15,6 +15,7 @@ import {
   roundCurrency,
   getCurrencySymbol
 } from '../utils/formatters';
+import { getReceiptPeriodEnd } from '../utils/settlementCalculations.js';
 import { 
   X, 
   Trash2, 
@@ -60,16 +61,35 @@ export function EditRecordModal({ log, isOpen, onClose }) {
   const isSettled = useMemo(() => {
     if (!log) return false;
     const activePayments = allPayments.filter((p) => !p.deletedAt && p.status !== 'deleted');
-    if (log.settlementReceiptId && activePayments.some((p) => p.id === log.settlementReceiptId)) {
-      return true;
+    // A log is settled only if explicitly linked to an active settlement receipt
+    if (log.settlementReceiptId) {
+      const receipt = activePayments.find((p) => String(p.id) === String(log.settlementReceiptId));
+      if (receipt) {
+        const receiptPeriodEnd = getReceiptPeriodEnd(receipt);
+        // Guard: a log worked after the receipt period end cannot be paid by that receipt
+        if (receiptPeriodEnd && (log.date || '') > receiptPeriodEnd) {
+          return false;
+        }
+        return true;
+      }
     }
-    const workerSettlements = activePayments.filter((p) => 
-      (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled') &&
-      (String(p.workerId) === String(log.workerId) || (worker?.groupId && p.groupId === worker.groupId))
-    );
-    const lastStDate = workerSettlements.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]?.date;
-    if (lastStDate && log.date && log.date <= lastStDate) {
-      return true;
+    // Legacy support: only if record itself is marked isSettled AND worker has settlements
+    if (log.isSettled) {
+      const workerSettlements = activePayments.filter((p) => 
+        (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled') &&
+        (String(p.workerId) === String(log.workerId) || (worker?.groupId && p.groupId === worker.groupId))
+      );
+      if (workerSettlements.length > 0) {
+        const sortedSt = workerSettlements.sort((a, b) => {
+          const endA = getReceiptPeriodEnd(a) || '';
+          const endB = getReceiptPeriodEnd(b) || '';
+          return endB.localeCompare(endA);
+        });
+        const lastStPeriodEnd = getReceiptPeriodEnd(sortedSt[0]);
+        if (lastStPeriodEnd && log.date && log.date <= lastStPeriodEnd) {
+          return true;
+        }
+      }
     }
     return false;
   }, [log, allPayments, worker]);

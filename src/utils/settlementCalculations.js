@@ -14,6 +14,30 @@ import { roundCurrency } from './formatters.js';
  * @param {string} currency - Project currency code (default: 'IQD')
  * @returns {Object} Comprehensive financial calculations
  */
+/**
+ * Resolves the effective period end date (YYYY-MM-DD) covered by a settlement receipt.
+ * Evaluates:
+ * 1. receipt.periodEndDate (explicit cutoff)
+ * 2. receipt.month (end of billing month: e.g. 2026-09 -> 2026-09-30)
+ * 3. receipt.date or receipt.createdAt (fallback voucher payment date)
+ */
+export function getReceiptPeriodEnd(receipt) {
+  if (!receipt) return null;
+  if (receipt.periodEndDate) return receipt.periodEndDate;
+  if (receipt.month) {
+    const parts = String(receipt.month).split('-');
+    if (parts.length === 2) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (!isNaN(y) && !isNaN(m)) {
+        const lastDay = new Date(y, m, 0).getDate();
+        return `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      }
+    }
+  }
+  return receipt.date || receipt.createdAt?.slice(0, 10) || null;
+}
+
 export function calculateWorkerFinancials(worker, allLogs = [], allPayments = [], currency = 'IQD') {
   if (!worker) return null;
 
@@ -37,8 +61,14 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
       .map((p) => String(p.id))
   );
 
-  const sortedSettlements = [...settlementReceipts].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const lastSettlementDate = sortedSettlements[0]?.date || sortedSettlements[0]?.createdAt?.slice(0, 10) || null;
+  const sortedSettlements = [...settlementReceipts].sort((a, b) => {
+    const endA = getReceiptPeriodEnd(a) || '';
+    const endB = getReceiptPeriodEnd(b) || '';
+    return endB.localeCompare(endA);
+  });
+  const latestSettlement = sortedSettlements[0] || null;
+  const lastSettlementPeriodEnd = getReceiptPeriodEnd(latestSettlement);
+  const lastSettlementDate = latestSettlement?.date || latestSettlement?.createdAt?.slice(0, 10) || null;
 
   const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
   const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
@@ -63,16 +93,16 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     // A log explicitly tied to an active settlement receipt
     if (l.settlementReceiptId && activeSettlementReceiptIds.has(String(l.settlementReceiptId))) {
       const receipt = receiptById.get(String(l.settlementReceiptId));
-      const receiptDate = receipt ? (receipt.date || receipt.createdAt?.slice(0, 10) || null) : null;
-      // Guard against falsely stamped future dates: a log worked strictly after a settlement date cannot be paid by that receipt
-      if (receiptDate && (l.date || '') > receiptDate) {
+      const receiptPeriodEnd = getReceiptPeriodEnd(receipt);
+      // Guard against falsely stamped future dates: a log worked strictly after a settlement period end cannot be paid by that receipt
+      if (receiptPeriodEnd && (l.date || '') > receiptPeriodEnd) {
         return false;
       }
       return true;
     }
-    // Legacy support: marked isSettled without receiptId, but worker has settlements and date is on or before last settlement
+    // Legacy support: marked isSettled without receiptId, but worker has settlements and date is on or before last settlement period end
     if (l.isSettled && settlementReceipts.length > 0) {
-      if (lastSettlementDate && (l.date || '') <= lastSettlementDate) {
+      if (lastSettlementPeriodEnd && (l.date || '') <= lastSettlementPeriodEnd) {
         return true;
       }
     }
@@ -81,8 +111,15 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
 
   const isPaymentSettled = (p) => {
     if (p.type === 'settlement' || p.type === 'Settlement') return true;
-    if (p.settlementReceiptId && activeSettlementReceiptIds.has(String(p.settlementReceiptId))) return true;
-    if (p.isSettled && lastSettlementDate && (p.date || '') <= lastSettlementDate) return true;
+    if (p.settlementReceiptId && activeSettlementReceiptIds.has(String(p.settlementReceiptId))) {
+      const receipt = receiptById.get(String(p.settlementReceiptId));
+      const receiptPeriodEnd = getReceiptPeriodEnd(receipt);
+      if (receiptPeriodEnd && (p.date || '') > receiptPeriodEnd) {
+        return false;
+      }
+      return true;
+    }
+    if (p.isSettled && lastSettlementPeriodEnd && (p.date || '') <= lastSettlementPeriodEnd) return true;
     return false;
   };
 
@@ -114,15 +151,15 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     if (!hasSettledFlag) return;
 
     const receipt = l.settlementReceiptId ? receiptById.get(String(l.settlementReceiptId)) : null;
-    const receiptDate = receipt ? (receipt.date || receipt.createdAt?.slice(0, 10) || null) : null;
-    const compareDate = receiptDate || lastSettlementDate;
+    const receiptPeriodEnd = getReceiptPeriodEnd(receipt);
+    const compareDate = receiptPeriodEnd || lastSettlementPeriodEnd;
 
     if (!compareDate || (l.date || '') > compareDate) {
       suspiciousSettledLogs.push(l);
       return;
     }
 
-    if (receipt && receipt.settlement_status === 'partial' && Number(receipt.remainingBalanceAfter) > 0 && (l.date || '') === receiptDate) {
+    if (receipt && receipt.settlement_status === 'partial' && Number(receipt.remainingBalanceAfter) > 0 && (l.date || '') === receiptPeriodEnd) {
       suspiciousSettledLogs.push(l);
       return;
     }
@@ -217,6 +254,7 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
   return {
     worker,
     lastSettlementDate,
+    lastSettlementPeriodEnd,
     // Unsettled stats
     unsettledLogs,
     unsettledPayments: openAdvances,

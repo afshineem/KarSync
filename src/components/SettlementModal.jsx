@@ -51,7 +51,7 @@ import {
 } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
 import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
-import { calculateWorkerFinancials } from '../utils/settlementCalculations';
+import { calculateWorkerFinancials, getReceiptPeriodEnd } from '../utils/settlementCalculations';
 
 export function SettlementModal({ 
   isOpen, 
@@ -349,9 +349,185 @@ export function SettlementModal({
     };
   }, [selectedGroupId, groupMembers, effectiveAllLogs, effectiveAllPayments, currency]);
 
-  // Active calculations based on chosen mode
-  const activeCalculations = settlementMode === 'group' ? groupCalculations : individualCalculations;
-  const targetPayableAmount = settlementMode === 'group' ? groupCalculations.totalGroupNetDue : individualCalculations.totalCumulativeDebt;
+  // Previous month end date helper (e.g. 2026-09-30 if today is in October 2026)
+  const prevMonthEndDate = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = new Date(y, m, 0);
+    const py = d.getFullYear();
+    const pm = d.getMonth() + 1;
+    const pday = d.getDate();
+    return `${py}-${String(pm).padStart(2, '0')}-${String(pday).padStart(2, '0')}`;
+  }, []);
+
+  // Settlement Period Cutoff Date for Auto Mode (تا تاریخ پایان دوره کارکرد)
+  const [autoCutoffDate, setAutoCutoffDate] = useState(() => {
+    const today = new Date();
+    // If today is early in month (day <= 7), default to end of previous month
+    if (today.getDate() <= 7) {
+      const y = today.getFullYear();
+      const m = today.getMonth();
+      const d = new Date(y, m, 0);
+      const py = d.getFullYear();
+      const pm = d.getMonth() + 1;
+      const pday = d.getDate();
+      return `${py}-${String(pm).padStart(2, '0')}-${String(pday).padStart(2, '0')}`;
+    }
+    return getTodayDateString();
+  });
+
+  // Filtered Auto Mode calculations respecting the period cutoff date (autoCutoffDate)
+  const autoPeriodIndividualCalculations = useMemo(() => {
+    if (!worker) return individualCalculations;
+    if (!autoCutoffDate) return individualCalculations;
+
+    const periodLogs = individualCalculations.unsettledLogs.filter(
+      (l) => (l.date || '') <= autoCutoffDate
+    );
+    const periodPayments = individualCalculations.unsettledPayments.filter(
+      (p) => (p.date || '') <= autoCutoffDate
+    );
+
+    const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
+    const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
+
+    let fullDays = 0;
+    let halfDays = 0;
+    let hourlyDays = 0;
+    let otHours = 0;
+    let basePay = 0;
+    let otPay = 0;
+    let grossEarnings = 0;
+
+    periodLogs.forEach((l) => {
+      const pay = individualCalculations.getLogPay(l);
+      const ot = Number(l.overtimeHours) || 0;
+      const base = Number(l.calculatedDailyWage) || (l.type === 'half' ? wDaily * 0.5 : l.type === 'full' ? wDaily : 0);
+      const otAmount = Number(l.calculatedOvertimeWage) || (ot * wOtRate);
+
+      if (l.type === 'full') fullDays++;
+      else if (l.type === 'half') halfDays++;
+      else if (l.type === 'hourly') hourlyDays++;
+
+      otHours += ot;
+      basePay += base;
+      otPay += otAmount;
+      grossEarnings += pay;
+    });
+
+    const advancesDeducted = roundCurrency(
+      periodPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+      currency
+    );
+
+    const totalCumulativeDebt = roundCurrency(Math.max(0, grossEarnings - advancesDeducted), currency);
+    const effectiveDays = fullDays + halfDays * 0.5;
+
+    return {
+      ...individualCalculations,
+      unsettledLogs: periodLogs,
+      unsettledPayments: periodPayments,
+      fullDays,
+      halfDays,
+      hourlyDays,
+      effectiveDays,
+      otHours,
+      basePay: roundCurrency(basePay, currency),
+      otPay: roundCurrency(otPay, currency),
+      grossEarnings: roundCurrency(grossEarnings, currency),
+      unsettledGross: roundCurrency(grossEarnings, currency),
+      advancesDeducted,
+      unsettledAdvances: advancesDeducted,
+      totalCumulativeDebt,
+      netBalanceDue: totalCumulativeDebt
+    };
+  }, [worker, individualCalculations, autoCutoffDate, currency]);
+
+  const autoPeriodGroupCalculations = useMemo(() => {
+    if (!selectedGroupId || groupMembers.length === 0) return groupCalculations;
+    if (!autoCutoffDate) return groupCalculations;
+
+    const memberBreakdowns = [];
+    let totalGroupGross = 0;
+    let totalGroupAdvances = 0;
+    let totalGroupNetDue = 0;
+    let totalGroupDays = 0;
+    let totalGroupOtHours = 0;
+    const allGroupUnsettledLogs = [];
+    const allGroupUnsettledPayments = [];
+
+    groupCalculations.memberBreakdowns.forEach((mb) => {
+      const mWorker = mb.worker;
+      const mDaily = Number(String(mWorker.dailyRate).replace(/,/g, '')) || 0;
+      const mOtRate = Number(String(mWorker.overtimeHourlyRate).replace(/,/g, '')) || 0;
+
+      const pLogs = mb.unsettledLogs.filter((l) => (l.date || '') <= autoCutoffDate);
+      const pPayments = mb.unsettledPayments.filter((p) => (p.date || '') <= autoCutoffDate);
+
+      let mGross = 0;
+      let mDays = 0;
+      let mOtH = 0;
+
+      pLogs.forEach((l) => {
+        let val = Number(l.totalDayPay);
+        const otH = Math.max(0, Number(l.overtimeHours) || 0);
+        if (isNaN(val) || val <= 0) {
+          if (l.type === 'half') val = (mDaily * 0.5) + (otH * mOtRate);
+          else if (l.type === 'hourly') val = otH * (mOtRate || (mDaily / 8));
+          else val = mDaily + (otH * mOtRate);
+        }
+        if (l.type === 'full') mDays += 1;
+        else if (l.type === 'half') mDays += 0.5;
+        mOtH += otH;
+        mGross += val;
+      });
+
+      const mAdv = roundCurrency(pPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0), currency);
+      const mNet = roundCurrency(Math.max(0, mGross - mAdv), currency);
+
+      memberBreakdowns.push({
+        ...mb,
+        unsettledLogs: pLogs,
+        unsettledPayments: pPayments,
+        effectiveDays: mDays,
+        otHours: mOtH,
+        gross: roundCurrency(mGross, currency),
+        advances: mAdv,
+        netDue: mNet
+      });
+
+      totalGroupGross += mGross;
+      totalGroupAdvances += mAdv;
+      totalGroupNetDue += mNet;
+      totalGroupDays += mDays;
+      totalGroupOtHours += mOtH;
+      allGroupUnsettledLogs.push(...pLogs);
+      allGroupUnsettledPayments.push(...pPayments);
+    });
+
+    memberBreakdowns.sort((a, b) => {
+      if (a.isMaster && !b.isMaster) return -1;
+      if (!a.isMaster && b.isMaster) return 1;
+      return b.netDue - a.netDue;
+    });
+
+    return {
+      memberBreakdowns,
+      totalGroupGross: roundCurrency(totalGroupGross, currency),
+      totalGroupAdvances: roundCurrency(totalGroupAdvances, currency),
+      totalGroupNetDue: roundCurrency(totalGroupNetDue, currency),
+      totalGroupDays,
+      totalGroupOtHours,
+      allGroupUnsettledLogs,
+      allGroupUnsettledPayments
+    };
+  }, [selectedGroupId, groupMembers, groupCalculations, autoCutoffDate, currency]);
+
+  // Active calculations based on chosen mode and period cutoff
+  const activeAutoCalculations = settlementMode === 'group' ? autoPeriodGroupCalculations : autoPeriodIndividualCalculations;
+  const activeCalculations = activeAutoCalculations;
+  const targetPayableAmount = settlementMode === 'group' ? autoPeriodGroupCalculations.totalGroupNetDue : autoPeriodIndividualCalculations.totalCumulativeDebt;
 
   // Custom / Detailed Settlement Filter State
   const [customStartDate, setCustomStartDate] = useState('');
@@ -526,9 +702,10 @@ export function SettlementModal({
   // Chronological FIFO coverage tracker for current typed payment in Auto Tab
   const coveredLogIds = useMemo(() => {
     const payNum = Number(normalizeDigits(finalPaymentAmount)) || 0;
-    let budget = payNum + (settlementMode === 'group' ? groupCalculations.totalGroupAdvances : individualCalculations.advancesDeducted);
+    const currentAdvances = settlementMode === 'group' ? activeAutoCalculations.totalGroupAdvances : activeAutoCalculations.advancesDeducted;
+    let budget = payNum + (currentAdvances || 0);
     const covered = new Set();
-    const sorted = [...(settlementMode === 'group' ? groupCalculations.allGroupUnsettledLogs : individualCalculations.unsettledLogs)]
+    const sorted = [...(settlementMode === 'group' ? activeAutoCalculations.allGroupUnsettledLogs : activeAutoCalculations.unsettledLogs)]
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     for (const l of sorted) {
       const cost = Number(l.totalDayPay) || 0;
@@ -538,7 +715,7 @@ export function SettlementModal({
       }
     }
     return covered;
-  }, [finalPaymentAmount, settlementMode, groupCalculations, individualCalculations]);
+  }, [finalPaymentAmount, settlementMode, activeAutoCalculations]);
 
   // Quick Preset Handlers for Auto Tab
   const handleSelectFullSettlement = () => {
@@ -610,6 +787,14 @@ export function SettlementModal({
       const groupChanged = prevGroupIdRef.current !== selectedGroupId;
 
       if (justOpened || workerChanged || modeChanged || groupChanged) {
+        if (justOpened) {
+          const today = new Date();
+          if (today.getDate() <= 7 && prevMonthEndDate) {
+            setAutoCutoffDate(prevMonthEndDate);
+          } else {
+            setAutoCutoffDate(getTodayDateString());
+          }
+        }
         setIsAmountManuallyEdited(false);
         setFinalPaymentAmount(targetPayableAmount > 0 ? String(targetPayableAmount) : '0');
         setSettlementDate(getTodayDateString());
@@ -622,10 +807,10 @@ export function SettlementModal({
           setNotes(`تسویه حساب گروه ${groupName} با سرپرست (${supName}) - شامل ${groupMembers.length} نفر`);
         } else {
           const defaultNote = language === 'en' 
-            ? `Payroll settlement (${individualCalculations.unsettledLogs.length} unsettled days)` 
+            ? `Payroll settlement (${activeAutoCalculations.unsettledLogs.length} unsettled days)` 
             : language === 'ku' 
-              ? `تەسویەی حیساب (${individualCalculations.unsettledLogs.length} ڕۆژی کارکرد)` 
-              : `تسویه حساب کارکرد (${individualCalculations.unsettledLogs.length} روز کارکرد باز)`;
+              ? `تەسویەی حیساب (${activeAutoCalculations.unsettledLogs.length} ڕۆژی کارکرد)` 
+              : `تسویه حساب کارکرد (${activeAutoCalculations.unsettledLogs.length} روز کارکرد دوره)`;
           setNotes(defaultNote);
         }
 
@@ -659,7 +844,7 @@ export function SettlementModal({
 
     const currentTargetPayable = settlementTypeTab === 'custom'
       ? customNetPayable
-      : (settlementMode === 'group' ? groupCalculations.totalGroupNetDue : individualCalculations.totalCumulativeDebt);
+      : (settlementMode === 'group' ? autoPeriodGroupCalculations.totalGroupNetDue : autoPeriodIndividualCalculations.totalCumulativeDebt);
     const isFullSettlement = payAmount >= (currentTargetPayable - 0.001) && currentTargetPayable > 0;
     const remainingBalance = roundCurrency(Math.max(0, currentTargetPayable - payAmount), currency);
 
@@ -717,6 +902,11 @@ export function SettlementModal({
           return;
         }
 
+        const sortedCustomLogs = [...selectedCustomLogs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        const customPeriodStart = customStartDate || sortedCustomLogs[0]?.date || null;
+        const customPeriodEnd = customEndDate || sortedCustomLogs[sortedCustomLogs.length - 1]?.date || settlementDate;
+        const customMonth = (customPeriodEnd || settlementDate).slice(0, 7);
+
         const customSettlementRecord = {
           id: settlementRecordId,
           projectId: currentProject?.id || DEFAULT_PROJECT_ID,
@@ -724,7 +914,9 @@ export function SettlementModal({
           workerId: targetWorkerObj.id,
           workerName: targetWorkerObj.name,
           groupId: worker?.groupId || null,
-          month: month,
+          month: customMonth,
+          periodStartDate: customPeriodStart,
+          periodEndDate: customPeriodEnd,
           date: settlementDate,
           time: currentTime,
           amount: payAmount,
@@ -816,7 +1008,13 @@ export function SettlementModal({
           }
         }
       } else {
-        // Auto / FIFO Settlement Mode
+        // Auto / FIFO Settlement Mode (with period cutoff)
+        const autoLogs = (settlementMode === 'group' ? autoPeriodGroupCalculations.allGroupUnsettledLogs : autoPeriodIndividualCalculations.unsettledLogs) || [];
+        const sortedPeriodLogs = [...autoLogs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        const periodStart = sortedPeriodLogs[0]?.date || null;
+        const periodEnd = autoCutoffDate || sortedPeriodLogs[sortedPeriodLogs.length - 1]?.date || settlementDate;
+        const derivedMonth = (periodEnd || settlementDate).slice(0, 7);
+
         const settlementRecord = {
           id: settlementRecordId,
           projectId: currentProject?.id || DEFAULT_PROJECT_ID,
@@ -824,7 +1022,9 @@ export function SettlementModal({
           workerId: targetWorkerObj.id,
           workerName: targetWorkerObj.name,
           groupId: settlementMode === 'group' ? selectedGroupId : (worker?.groupId || null),
-          month: month,
+          month: derivedMonth,
+          periodStartDate: periodStart,
+          periodEndDate: periodEnd,
           date: settlementDate,
           time: currentTime,
           amount: payAmount,
@@ -842,9 +1042,9 @@ export function SettlementModal({
           referenceNumber: referenceNumber.trim() || null,
           notes: notes.trim() || null,
           remainingBalanceAfter: remainingBalance,
-          grossEarningsCalculated: settlementMode === 'group' ? groupCalculations.totalGroupGross : individualCalculations.grossEarnings,
+          grossEarningsCalculated: settlementMode === 'group' ? autoPeriodGroupCalculations.totalGroupGross : autoPeriodIndividualCalculations.grossEarnings,
           priorBalanceDeducted: 0,
-          advancesDeducted: settlementMode === 'group' ? groupCalculations.totalGroupAdvances : individualCalculations.advancesDeducted,
+          advancesDeducted: settlementMode === 'group' ? autoPeriodGroupCalculations.totalGroupAdvances : autoPeriodIndividualCalculations.advancesDeducted,
           isGroupSettlement: settlementMode === 'group',
           groupMemberCount: settlementMode === 'group' ? groupMembers.length : 1,
           createdAt: now.toISOString(),
@@ -899,7 +1099,7 @@ export function SettlementModal({
         if (markAsSettled) {
           if (settlementMode === 'group') {
             // Group settlement
-            const advancesToSettle = groupCalculations.allGroupUnsettledPayments;
+            const advancesToSettle = autoPeriodGroupCalculations.allGroupUnsettledPayments;
             if (advancesToSettle.length > 0) {
               const updatedAdv = advancesToSettle.map((p) => ({
                 ...p,
@@ -911,7 +1111,7 @@ export function SettlementModal({
             }
 
             if (isFullSettlement) {
-              const logsToSettle = groupCalculations.allGroupUnsettledLogs.map((l) => ({
+              const logsToSettle = autoPeriodGroupCalculations.allGroupUnsettledLogs.map((l) => ({
                 ...l,
                 isSettled: true,
                 settlementReceiptId: settlementRecordId,
@@ -923,8 +1123,8 @@ export function SettlementModal({
               }
             } else {
               // Partial group settlement: chronologically settle logs up to payAmount + totalGroupAdvances
-              let remainingBudget = payAmount + groupCalculations.totalGroupAdvances;
-              const sortedGroupLogs = [...groupCalculations.allGroupUnsettledLogs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+              let remainingBudget = payAmount + autoPeriodGroupCalculations.totalGroupAdvances;
+              const sortedGroupLogs = [...autoPeriodGroupCalculations.allGroupUnsettledLogs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
               const logsToSettle = [];
               for (const l of sortedGroupLogs) {
                 const cost = Number(l.totalDayPay) || 0;
@@ -946,7 +1146,7 @@ export function SettlementModal({
           } else {
             // Individual worker settlement
             // Settle advances
-            const advancesToSettle = individualCalculations.unsettledPayments;
+            const advancesToSettle = autoPeriodIndividualCalculations.unsettledPayments;
             if (advancesToSettle.length > 0) {
               const updatedAdv = advancesToSettle.map((p) => ({
                 ...p,
@@ -958,8 +1158,8 @@ export function SettlementModal({
             }
 
             if (isFullSettlement) {
-              // Full settlement: settle all open logs
-              const logsToSettle = individualCalculations.unsettledLogs.map((l) => ({
+              // Full settlement: settle all open logs within the period
+              const logsToSettle = autoPeriodIndividualCalculations.unsettledLogs.map((l) => ({
                 ...l,
                 isSettled: true,
                 settlementReceiptId: settlementRecordId,
@@ -970,9 +1170,9 @@ export function SettlementModal({
                 pushLogsLive(logsToSettle).catch(console.warn);
               }
             } else {
-              // Partial settlement (FIFO chronological coverage)
-              let coveredGrossBudget = payAmount + individualCalculations.advancesDeducted;
-              const sortedLogs = [...individualCalculations.unsettledLogs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+              // Partial settlement (FIFO chronological coverage within the period)
+              let coveredGrossBudget = payAmount + autoPeriodIndividualCalculations.advancesDeducted;
+              const sortedLogs = [...autoPeriodIndividualCalculations.unsettledLogs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
               const logsToSettle = [];
               for (const l of sortedLogs) {
                 const pay = Number(l.totalDayPay) || 0;
@@ -1744,6 +1944,82 @@ export function SettlementModal({
           /* ----------------------------------------------------------------- */
           <div className="space-y-3.5">
             
+            {/* Auto Period Cutoff Bar (پایان دوره کارکرد جهت تسویه) */}
+            <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2.5 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <CalendarRange className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                    {language === 'ku' ? 'پایانی ماوەی کارکرد بۆ پاکتاو (تا بەرواری):' : 'پایان دوره کارکرد جهت تسویه (تا تاریخ):'}
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                  {convertDigits(
+                    (settlementMode === 'group' ? autoPeriodGroupCalculations.allGroupUnsettledLogs : autoPeriodIndividualCalculations.unsettledLogs).length,
+                    numberFormat
+                  )} روز کاری در دوره انتخابی
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center">
+                <div>
+                  <input
+                    type="date"
+                    value={autoCutoffDate}
+                    onChange={(e) => {
+                      setAutoCutoffDate(e.target.value);
+                      setIsAmountManuallyEdited(false);
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {prevMonthEndDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAutoCutoffDate(prevMonthEndDate);
+                        setIsAmountManuallyEdited(false);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-colors ${
+                        autoCutoffDate === prevMonthEndDate
+                          ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 shadow-xs'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
+                      }`}
+                    >
+                      تا پایان ماه قبل ({prevMonthEndDate.slice(5)})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAutoCutoffDate(getTodayDateString());
+                      setIsAmountManuallyEdited(false);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-colors ${
+                      autoCutoffDate === getTodayDateString()
+                        ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
+                    }`}
+                  >
+                    تا امروز
+                  </button>
+                  {autoCutoffDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAutoCutoffDate('');
+                        setIsAmountManuallyEdited(false);
+                      }}
+                      className="px-2 py-1.5 rounded-xl text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline"
+                    >
+                      همه روزها
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* GROUP SETTLEMENT SPECIFIC */}
             {settlementMode === 'group' ? (
               <div className="space-y-3">
@@ -1793,15 +2069,15 @@ export function SettlementModal({
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-600 dark:text-slate-400">مجموع ناخالص کارکرد کل اعضا:</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {formatAmount(groupCalculations.totalGroupGross, currency, numberFormat)} {getCurrencySymbol(currency, language)}
+                      {formatAmount(autoPeriodGroupCalculations.totalGroupGross, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                     </span>
                   </div>
 
-                  {groupCalculations.totalGroupAdvances > 0 && (
+                  {autoPeriodGroupCalculations.totalGroupAdvances > 0 && (
                     <div className="flex items-center justify-between text-xs text-rose-600 dark:text-rose-400">
                       <span>(-) مجموع مساعده‌های اعضای گروه:</span>
                       <span className="font-bold">
-                        {formatAmount(groupCalculations.totalGroupAdvances, currency, numberFormat)} {getCurrencySymbol(currency, language)}
+                        {formatAmount(autoPeriodGroupCalculations.totalGroupAdvances, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                       </span>
                     </div>
                   )}
@@ -1812,7 +2088,7 @@ export function SettlementModal({
                       <span>مجموع کارکرد خالص قابل پرداخت به سرپرست:</span>
                     </span>
                     <span className="font-black text-amber-700 dark:text-amber-300 text-base sm:text-lg">
-                      {formatAmount(groupCalculations.totalGroupNetDue, currency, numberFormat)} {getCurrencySymbol(currency, language)}
+                      {formatAmount(autoPeriodGroupCalculations.totalGroupNetDue, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                     </span>
                   </div>
                 </div>
@@ -1829,11 +2105,11 @@ export function SettlementModal({
                     </span>
                   </div>
 
-                  {groupCalculations.memberBreakdowns.length === 0 ? (
+                  {autoPeriodGroupCalculations.memberBreakdowns.length === 0 ? (
                     <div className="py-4 text-center text-xs text-slate-400">هیچ نیرویی در این گروه یافت نشد.</div>
                   ) : (
                     <div className="max-h-48 overflow-y-auto space-y-1.5 pe-1 hide-scrollbar">
-                      {groupCalculations.memberBreakdowns.map((mb) => (
+                      {autoPeriodGroupCalculations.memberBreakdowns.map((mb) => (
                         <div 
                           key={mb.worker.id}
                           className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
@@ -1948,16 +2224,16 @@ export function SettlementModal({
                   {/* Gross Earnings Card */}
                   <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/70 flex flex-col justify-between">
                     <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                      <span className="text-[11px] font-bold">کل کارکرد ناخالص باز</span>
+                      <span className="text-[11px] font-bold">کل کارکرد ناخالص دوره</span>
                       <FileText className="w-4 h-4 text-sky-500" />
                     </div>
                     <div className="mt-2">
                       <span className="text-base font-black text-slate-900 dark:text-white block font-mono">
-                        {formatAmount(individualCalculations.grossEarnings, currency, numberFormat)}
+                        {formatAmount(autoPeriodIndividualCalculations.grossEarnings, currency, numberFormat)}
                       </span>
                       <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
-                        {convertDigits(individualCalculations.effectiveDays, numberFormat)} روز کاری
-                        {individualCalculations.otHours > 0 && ` + ${formatHoursAndMinutes(individualCalculations.otHours, language)}`}
+                        {convertDigits(autoPeriodIndividualCalculations.effectiveDays, numberFormat)} روز کاری
+                        {autoPeriodIndividualCalculations.otHours > 0 && ` + ${formatHoursAndMinutes(autoPeriodIndividualCalculations.otHours, language)}`}
                       </span>
                     </div>
                   </div>
@@ -1970,10 +2246,10 @@ export function SettlementModal({
                     </div>
                     <div className="mt-2">
                       <span className="text-base font-black text-amber-700 dark:text-amber-300 block font-mono">
-                        {formatAmount(individualCalculations.advancesDeducted, currency, numberFormat)}
+                        {formatAmount(autoPeriodIndividualCalculations.advancesDeducted, currency, numberFormat)}
                       </span>
                       <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-medium block mt-0.5">
-                        {convertDigits(individualCalculations.unsettledPayments.length, numberFormat)} فقره مساعده جاری
+                        {convertDigits(autoPeriodIndividualCalculations.unsettledPayments.length, numberFormat)} فقره مساعده جاری
                       </span>
                     </div>
                   </div>
@@ -1987,14 +2263,14 @@ export function SettlementModal({
                     <div className="mt-2">
                       <div className="flex items-baseline gap-1">
                         <span className="text-lg font-black text-white font-mono">
-                          {formatAmount(individualCalculations.totalCumulativeDebt, currency, numberFormat)}
+                          {formatAmount(autoPeriodIndividualCalculations.totalCumulativeDebt, currency, numberFormat)}
                         </span>
                         <span className="text-xs font-semibold text-emerald-100">
                           {getCurrencySymbol(currency, language)}
                         </span>
                       </div>
                       <span className="text-[10px] text-emerald-100 block mt-0.5">
-                        مجموع مطالبات تا تاریخ امروز
+                        {autoCutoffDate ? `مجموع مطالبات تا تاریخ ${autoCutoffDate}` : 'مجموع مطالبات تا تاریخ امروز'}
                       </span>
                     </div>
                   </div>

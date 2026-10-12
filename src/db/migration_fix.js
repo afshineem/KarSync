@@ -128,6 +128,114 @@ export async function runEmergencyCleanup() {
       }
     }
 
+    // 4. Emergency Cleanup 08: Universal Settlement Period Alignment
+    const hasRun08 = localStorage.getItem('emergency_cleanup_08');
+    if (!hasRun08) {
+      const { getReceiptPeriodEnd } = await import('../utils/settlementCalculations.js');
+      const allPayments = await db.payments.toArray();
+      const paymentsToUpdate = [];
+
+      // A. Align Afshin's September settlement receipt
+      for (const p of allPayments) {
+        if (p.id === 'pay_muq06b1e_o79rv' || (p.date === '2026-10-01' && (p.notes?.includes('شهریور') || p.notes?.includes('30 روز') || p.notes?.includes('31 روز')))) {
+          paymentsToUpdate.push({
+            ...p,
+            month: '2026-09',
+            periodStartDate: '2026-09-01',
+            periodEndDate: '2026-09-30',
+            settlement_status: 'settled',
+            remainingBalanceAfter: 0,
+            notes: 'تسویه حساب کامل کارکرد شهریور (30 روز)',
+            updatedAt: new Date().toISOString()
+          });
+        } else if ((p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled') && !p.periodEndDate) {
+          const derivedEnd = getReceiptPeriodEnd(p);
+          if (derivedEnd) {
+            paymentsToUpdate.push({
+              ...p,
+              periodEndDate: derivedEnd,
+              periodStartDate: p.periodStartDate || (p.month ? `${p.month}-01` : null),
+              updatedAt: new Date().toISOString()
+            });
+          }
+        }
+      }
+
+      if (paymentsToUpdate.length > 0) {
+        await db.payments.bulkPut(paymentsToUpdate);
+        await pushPaymentsLive().catch(() => {});
+      }
+
+      // B. Align attendance logs to period boundaries
+      const refreshedPayments = await db.payments.toArray();
+      const activeSettlements = refreshedPayments.filter(
+        (p) => !p.deletedAt && p.status !== 'deleted' && (p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled')
+      );
+      const receiptMap = new Map(activeSettlements.map((p) => [String(p.id), p]));
+
+      const allLogs = await db.attendanceLogs.toArray();
+      const logsToFix = [];
+
+      for (const log of allLogs) {
+        let shouldReset = false;
+
+        if (log.settlementReceiptId) {
+          const receipt = receiptMap.get(String(log.settlementReceiptId));
+          if (!receipt) {
+            shouldReset = true;
+          } else {
+            const periodEnd = getReceiptPeriodEnd(receipt);
+            if (periodEnd && (log.date || '') > periodEnd) {
+              shouldReset = true;
+            }
+          }
+        } else if (log.isSettled) {
+          const workerSettlements = activeSettlements.filter(
+            (p) => String(p.workerId) === String(log.workerId)
+          );
+          if (workerSettlements.length === 0) {
+            shouldReset = true;
+          } else {
+            const sortedSt = [...workerSettlements].sort((a, b) => {
+              const endA = getReceiptPeriodEnd(a) || '';
+              const endB = getReceiptPeriodEnd(b) || '';
+              return endB.localeCompare(endA);
+            });
+            const lastPeriodEnd = getReceiptPeriodEnd(sortedSt[0]);
+            if (lastPeriodEnd && (log.date || '') > lastPeriodEnd) {
+              shouldReset = true;
+            }
+          }
+        }
+
+        if (shouldReset) {
+          let cleanNotes = log.notes || '';
+          if (cleanNotes.includes('"st":1') || cleanNotes.includes('"st": 1')) {
+            cleanNotes = cleanNotes.replace(/"st":\s*1,?/g, '').replace(/,"rid":\s*"[^"]*"/g, '').replace(/"rid":\s*"[^"]*",?/g, '');
+          }
+          logsToFix.push({
+            ...log,
+            isSettled: false,
+            settlementReceiptId: null,
+            notes: cleanNotes,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+
+      if (logsToFix.length > 0) {
+        await db.attendanceLogs.bulkPut(logsToFix);
+        const { pushLogsLive } = await import('../services/realtimeSync.js');
+        await pushLogsLive(logsToFix).catch(() => {});
+        console.log('Emergency cleanup 08: Fixed falsely settled logs count:', logsToFix.length);
+      }
+
+      localStorage.setItem('emergency_cleanup_08', 'done');
+      if (logsToFix.length > 0 || paymentsToUpdate.length > 0) {
+        window.location.reload();
+      }
+    }
+
     console.log('Emergency cleanup finished, deleted:', deletedCount);
   } catch (err) {
     console.error('Cleanup failed', err);
