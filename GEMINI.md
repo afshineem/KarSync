@@ -12,5 +12,9 @@
 2. **Strict Git & Versioning Workflow (USER PREFERENCE):**
    - **DO NOT MAKE ANY COMMITS.** (`git commit` is forbidden).
    - **NEVER PUSH AUTOMATICALLY.** (`git push` is forbidden).
-   - After completing changes and receiving the user's explicit approval, provide a properly formatted English commit message for the user to use themselves.
+   - After completing changes and receiving the user's explicit approval, provide the git commands in a code block with this exact format for the user to copy:
+     ```bash
+     git add .
+     git commit -m "message"
+     ```
    - After EVERY change (small or large), remind the user to bump the version number.
