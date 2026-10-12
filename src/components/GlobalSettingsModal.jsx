@@ -1100,10 +1100,12 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <button
                       type="button"
                       onClick={() => setIsNewProjectModalOpen(true)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all"
+                      className="h-10 sm:h-11 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white transition-all duration-300 ease-in-out shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 group flex items-center gap-2 font-bold text-xs focus:outline-hidden"
+                      title={language === 'fa' ? 'ایجاد پروژه جدید' : 'پڕۆژەی نوێ'}
+                      aria-label={language === 'fa' ? 'ایجاد پروژه جدید' : 'پڕۆژەی نوێ'}
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>{language === 'fa' ? 'ایجاد پروژه جدید' : 'پڕۆژەی نوێ'}</span>
+                      <Plus className="w-5 h-5 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
+                      <span>{language === 'fa' ? 'پروژه جدید' : 'پڕۆژەی نوێ'}</span>
                     </button>
                   </div>
 
