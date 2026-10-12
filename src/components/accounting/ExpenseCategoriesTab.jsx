@@ -34,7 +34,6 @@ export default function ExpenseCategoriesTab({
   const [expandedL2Ids, setExpandedL2Ids] = useState(new Set());
 
   // Inline Quick-Add states
-  // newL1: string
   const [newL1Name, setNewL1Name] = useState('');
   const [isAddingL1, setIsAddingL1] = useState(false);
 
@@ -197,7 +196,7 @@ export default function ExpenseCategoriesTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-primary" />
+            <Receipt className="w-5 h-5 text-sky-500" />
             <span>{language === 'fa' ? 'سرفصل‌های هزینه‌ها و مخارج' : 'سەردێڕی خەرجییەکان'}</span>
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -212,7 +211,7 @@ export default function ExpenseCategoriesTab({
           <button
             type="button"
             onClick={() => setIsAddingL1(true)}
-            className="w-10 h-10 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center transition-all duration-300 active:scale-95 flex-shrink-0"
+            className="w-10 h-10 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white shadow-md shadow-sky-500/25 flex items-center justify-center transition-all duration-300 active:scale-95 flex-shrink-0"
             title={language === 'fa' ? 'ایجاد گروه اصلی جدید' : 'زیادکردنی گرووپی سەرەکی'}
           >
             <Plus className="w-5 h-5 stroke-[2.5]" />
@@ -221,22 +220,22 @@ export default function ExpenseCategoriesTab({
       </div>
 
       {/* Stats Badges & Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800">
         <div className="flex items-center gap-2 flex-wrap text-xs font-medium text-slate-600 dark:text-slate-300">
-          <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-750 shadow-xs flex items-center gap-1.5">
-            <Folder className="w-3.5 h-3.5 text-primary" />
-            <span>{language === 'fa' ? 'گروه‌های اصلی:' : 'گرووپی سەرەکی:'}</span>
-            <b className="font-mono text-slate-900 dark:text-white">{totalL1}</b>
+          <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5">
+            <Folder className="w-3.5 h-3.5 text-sky-500" />
+            <span className="text-slate-600 dark:text-slate-300">{language === 'fa' ? 'گروه‌های اصلی:' : 'گرووپی سەرەکی:'}</span>
+            <b className="font-mono text-slate-900 dark:text-white font-bold">{totalL1}</b>
           </span>
-          <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-750 shadow-xs flex items-center gap-1.5">
+          <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-blue-500" />
-            <span>{language === 'fa' ? 'زیرگروه‌ها:' : 'ژێرگرووپەکان:'}</span>
-            <b className="font-mono text-slate-900 dark:text-white">{totalL2}</b>
+            <span className="text-slate-600 dark:text-slate-300">{language === 'fa' ? 'زیرگروه‌ها:' : 'ژێرگرووپەکان:'}</span>
+            <b className="font-mono text-slate-900 dark:text-white font-bold">{totalL2}</b>
           </span>
-          <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-750 shadow-xs flex items-center gap-1.5">
+          <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5">
             <Tag className="w-3.5 h-3.5 text-emerald-500" />
-            <span>{language === 'fa' ? 'هزینه‌های خرد:' : 'وردە خەرجییەکان:'}</span>
-            <b className="font-mono text-slate-900 dark:text-white">{totalL3}</b>
+            <span className="text-slate-600 dark:text-slate-300">{language === 'fa' ? 'هزینه‌های خرد:' : 'وردە خەرجییەکان:'}</span>
+            <b className="font-mono text-slate-900 dark:text-white font-bold">{totalL3}</b>
           </span>
         </div>
 
@@ -244,15 +243,15 @@ export default function ExpenseCategoriesTab({
           <button
             type="button"
             onClick={expandAll}
-            className="text-[11px] font-bold text-primary hover:underline px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-800 transition-colors"
+            className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-700/60 transition-colors"
           >
             {language === 'fa' ? 'باز کردن همه' : 'کردنەوەی هەموو'}
           </button>
-          <span className="text-slate-300 dark:text-slate-600">|</span>
+          <span className="text-slate-300 dark:text-slate-700">|</span>
           <button
             type="button"
             onClick={collapseAll}
-            className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-800 transition-colors"
+            className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-700/60 transition-colors"
           >
             {language === 'fa' ? 'بستن همه' : 'داخستنی هەموو'}
           </button>
@@ -267,7 +266,7 @@ export default function ExpenseCategoriesTab({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={language === 'fa' ? 'جستجو در نام سرفصل‌ها و مخارج...' : 'گەڕان لە نێو سەردێڕ و خەرجییەکان...'}
-          className={`w-full py-2.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${
+          className={`w-full py-2.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all ${
             isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'
           }`}
         />
@@ -275,7 +274,7 @@ export default function ExpenseCategoriesTab({
           <button
             type="button"
             onClick={() => setSearchQuery('')}
-            className={`absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 ${isRtl ? 'left-3' : 'right-3'}`}
+            className={`absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ${isRtl ? 'left-3' : 'right-3'}`}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -286,9 +285,9 @@ export default function ExpenseCategoriesTab({
       {isAddingL1 && (
         <form
           onSubmit={handleCreateL1}
-          className="p-3.5 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 dark:bg-primary/10 flex flex-col sm:flex-row items-center gap-2.5 animate-in fade-in duration-200"
+          className="p-3.5 rounded-2xl border-2 border-dashed border-sky-500/40 bg-sky-50/50 dark:bg-sky-950/20 flex flex-col sm:flex-row items-center gap-2.5 animate-in fade-in duration-200"
         >
-          <div className="flex items-center gap-2 text-xs font-bold text-primary flex-shrink-0">
+          <div className="flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 flex-shrink-0">
             <FolderPlus className="w-4 h-4" />
             <span>{language === 'fa' ? 'گروه اصلی جدید (سطح ۱):' : 'گرووپی سەرەکی نوێ:'}</span>
           </div>
@@ -298,13 +297,13 @@ export default function ExpenseCategoriesTab({
             value={newL1Name}
             onChange={(e) => setNewL1Name(e.target.value)}
             placeholder={language === 'fa' ? 'مثال: خرید مصالح، حمل و نقل، اداری...' : 'نموونە: کەرەستە، کارگێڕی...'}
-            className="flex-1 w-full px-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-primary"
+            className="flex-1 w-full px-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-sky-500"
           />
           <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
             <button
               type="submit"
               disabled={!newL1Name.trim()}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 disabled:opacity-50 text-white flex items-center gap-1 shadow-xs transition-all"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white flex items-center gap-1 shadow-xs transition-all"
             >
               <Check className="w-3.5 h-3.5" />
               <span>{language === 'fa' ? 'ثبت گروه' : 'تۆمارکردن'}</span>
@@ -341,7 +340,7 @@ export default function ExpenseCategoriesTab({
               <button
                 type="button"
                 onClick={() => setIsAddingL1(true)}
-                className="mt-3 text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
+                className="mt-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{language === 'fa' ? 'افزودن اولین سرفصل' : 'زیادکردنی یەکەم سەردێڕ'}</span>
@@ -358,15 +357,15 @@ export default function ExpenseCategoriesTab({
             return (
               <div
                 key={l1.id}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs overflow-hidden transition-all duration-200"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/90 shadow-xs overflow-hidden transition-all duration-200"
               >
                 {/* Level 1 Node Header */}
                 <div
                   onClick={() => toggleL1(l1.id)}
                   className={`p-3.5 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors ${
                     isL1Expanded
-                      ? 'bg-slate-50/90 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800/80'
-                      : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30'
+                      ? 'bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-700/80'
+                      : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -375,7 +374,7 @@ export default function ExpenseCategoriesTab({
                       className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors flex-shrink-0"
                     >
                       {isL1Expanded ? (
-                        <ChevronDown className="w-4 h-4 text-primary" />
+                        <ChevronDown className="w-4 h-4 text-sky-500" />
                       ) : isRtl ? (
                         <ChevronLeft className="w-4 h-4" />
                       ) : (
@@ -383,7 +382,7 @@ export default function ExpenseCategoriesTab({
                       )}
                     </button>
 
-                    <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 font-bold">
+                    <div className="w-8 h-8 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0 font-bold">
                       <Folder className="w-4 h-4" />
                     </div>
 
@@ -401,19 +400,19 @@ export default function ExpenseCategoriesTab({
                             if (e.key === 'Enter') saveEdit(l1);
                             if (e.key === 'Escape') cancelEdit();
                           }}
-                          className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-800 border border-primary text-slate-900 dark:text-white flex-1 focus:outline-hidden"
+                          className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-sky-500 text-slate-900 dark:text-white flex-1 focus:outline-hidden"
                         />
                         <button
                           type="button"
                           onClick={() => saveEdit(l1)}
-                          className="p-1 rounded-lg bg-primary text-white hover:bg-primary/90"
+                          className="p-1 rounded-lg bg-sky-600 text-white hover:bg-sky-500"
                         >
                           <Check className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={cancelEdit}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -423,7 +422,7 @@ export default function ExpenseCategoriesTab({
                         <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           {l1.name}
                         </span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
                           {l2List.length} {language === 'fa' ? 'زیرگروه' : 'ژێرگرووپ'}
                         </span>
                       </div>
@@ -443,7 +442,7 @@ export default function ExpenseCategoriesTab({
                         setExpandedL1Ids((prev) => new Set(prev).add(l1.id));
                         setNewL2Name('');
                       }}
-                      className="px-2 py-1 rounded-lg text-[11px] font-bold bg-primary/10 hover:bg-primary/20 text-primary flex items-center gap-1 transition-colors"
+                      className="px-2 py-1 rounded-lg text-[11px] font-bold bg-sky-500/10 dark:bg-sky-500/20 hover:bg-sky-500/20 dark:hover:bg-sky-500/30 text-sky-600 dark:text-sky-400 flex items-center gap-1 transition-colors"
                       title={language === 'fa' ? 'افزودن زیرگروه به این گروه' : 'زیادکردنی ژێرگرووپ'}
                     >
                       <Plus className="w-3 h-3 stroke-[2.5]" />
@@ -454,7 +453,7 @@ export default function ExpenseCategoriesTab({
                     <button
                       type="button"
                       onClick={() => startEdit(l1)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
                       title={language === 'fa' ? 'ویرایش نام' : 'دەستکاری'}
                     >
                       <Pencil className="w-3.5 h-3.5" />
@@ -464,7 +463,7 @@ export default function ExpenseCategoriesTab({
                     <button
                       type="button"
                       onClick={() => onDeleteCategory(l1.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                       title={language === 'fa' ? 'حذف گروه' : 'سڕینەوە'}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -474,28 +473,28 @@ export default function ExpenseCategoriesTab({
 
                 {/* Level 1 Expanded Content (Level 2 items) */}
                 {isL1Expanded && (
-                  <div className="p-3.5 space-y-2.5 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="p-3.5 space-y-2.5 bg-slate-50/60 dark:bg-slate-900/50">
                     {/* Inline Add L2 Form */}
                     {isAddingL2Here && (
                       <form
                         onSubmit={(e) => handleCreateL2(l1.id, e)}
-                        className={`p-2.5 rounded-xl border border-primary/30 bg-white dark:bg-slate-800 flex items-center gap-2 ${
+                        className={`p-2.5 rounded-xl border border-sky-500/40 bg-white dark:bg-slate-800 flex items-center gap-2 ${
                           isRtl ? 'mr-4' : 'ml-4'
                         }`}
                       >
-                        <Layers className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
                         <input
                           type="text"
                           autoFocus
                           value={newL2Name}
                           onChange={(e) => setNewL2Name(e.target.value)}
                           placeholder={language === 'fa' ? 'نام زیرگروه جدید (سطح ۲)...' : 'ناوی ژێرگرووپ...'}
-                          className="flex-1 px-2.5 py-1 text-xs rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-primary"
+                          className="flex-1 px-2.5 py-1 text-xs rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-sky-500"
                         />
                         <button
                           type="submit"
                           disabled={!newL2Name.trim()}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-500 disabled:opacity-50 flex items-center gap-1"
                         >
                           <Check className="w-3 h-3" />
                           <span>{language === 'fa' ? 'ثبت' : 'تۆمار'}</span>
@@ -506,7 +505,7 @@ export default function ExpenseCategoriesTab({
                             setAddingUnderL1Id(null);
                             setNewL2Name('');
                           }}
-                          className="p-1 text-slate-400 hover:text-slate-600"
+                          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -514,14 +513,14 @@ export default function ExpenseCategoriesTab({
                     )}
 
                     {l2List.length === 0 && !isAddingL2Here ? (
-                      <div className={`py-3 px-4 text-xs text-slate-400 text-center rounded-xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 ${
+                      <div className={`py-3 px-4 text-xs text-slate-400 dark:text-slate-500 text-center rounded-xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 ${
                         isRtl ? 'mr-4' : 'ml-4'
                       }`}>
                         <span>{language === 'fa' ? 'هیچ زیرگروهی در این شاخه ثبت نشده است.' : 'هیچ ژێرگرووپێک نییە.'}</span>
                         <button
                           type="button"
                           onClick={() => setAddingUnderL1Id(l1.id)}
-                          className="font-bold text-primary hover:underline mx-1.5"
+                          className="font-bold text-sky-600 dark:text-sky-400 hover:underline mx-1.5"
                         >
                           {language === 'fa' ? 'افزودن زیرگروه' : 'زیادکردنی ژێرگرووپ'}
                         </button>
@@ -536,7 +535,7 @@ export default function ExpenseCategoriesTab({
                         return (
                           <div
                             key={l2.id}
-                            className={`rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-850 overflow-hidden ${
+                            className={`rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 overflow-hidden shadow-2xs ${
                               isRtl ? 'mr-4' : 'ml-4'
                             }`}
                           >
@@ -545,8 +544,8 @@ export default function ExpenseCategoriesTab({
                               onClick={() => toggleL2(l2.id)}
                               className={`p-2.5 flex items-center justify-between gap-2.5 cursor-pointer select-none transition-colors ${
                                 isL2Expanded
-                                  ? 'bg-slate-100/70 dark:bg-slate-800/70 border-b border-slate-100 dark:border-slate-800'
-                                  : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                                  ? 'bg-slate-100/70 dark:bg-slate-750/70 border-b border-slate-100 dark:border-slate-700'
+                                  : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
                               }`}
                             >
                               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -563,7 +562,7 @@ export default function ExpenseCategoriesTab({
                                   )}
                                 </button>
 
-                                <div className="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0">
+                                <div className="w-6 h-6 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 text-blue-500 flex items-center justify-center flex-shrink-0">
                                   <Layers className="w-3.5 h-3.5" />
                                 </div>
 
@@ -581,7 +580,7 @@ export default function ExpenseCategoriesTab({
                                         if (e.key === 'Enter') saveEdit(l2);
                                         if (e.key === 'Escape') cancelEdit();
                                       }}
-                                      className="px-2 py-0.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-800 border border-blue-500 text-slate-900 dark:text-white flex-1 focus:outline-hidden"
+                                      className="px-2 py-0.5 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-blue-500 text-slate-900 dark:text-white flex-1 focus:outline-hidden"
                                     />
                                     <button
                                       type="button"
@@ -593,7 +592,7 @@ export default function ExpenseCategoriesTab({
                                     <button
                                       type="button"
                                       onClick={cancelEdit}
-                                      className="p-1 text-slate-400 hover:text-slate-600"
+                                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                                     >
                                       <X className="w-3 h-3" />
                                     </button>
@@ -603,7 +602,7 @@ export default function ExpenseCategoriesTab({
                                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                                       {l2.name}
                                     </span>
-                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
                                       {l3List.length} {language === 'fa' ? 'هزینه' : 'خەرجی'}
                                     </span>
                                   </div>
@@ -623,7 +622,7 @@ export default function ExpenseCategoriesTab({
                                     setExpandedL2Ids((prev) => new Set(prev).add(l2.id));
                                     setNewL3Name('');
                                   }}
-                                  className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center gap-1 transition-colors"
+                                  className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 dark:bg-blue-500/20 hover:bg-blue-500/20 dark:hover:bg-blue-500/30 text-blue-600 dark:text-blue-400 flex items-center gap-1 transition-colors"
                                   title={language === 'fa' ? 'افزودن هزینه خرد' : 'زیادکردنی وردە خەرجی'}
                                 >
                                   <Plus className="w-3 h-3 stroke-[2.5]" />
@@ -633,7 +632,7 @@ export default function ExpenseCategoriesTab({
                                 <button
                                   type="button"
                                   onClick={() => startEdit(l2)}
-                                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                                   title={language === 'fa' ? 'ویرایش نام' : 'دەستکاری'}
                                 >
                                   <Pencil className="w-3 h-3" />
@@ -642,7 +641,7 @@ export default function ExpenseCategoriesTab({
                                 <button
                                   type="button"
                                   onClick={() => onDeleteCategory(l2.id)}
-                                  className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                  className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                                   title={language === 'fa' ? 'حذف زیرگروه' : 'سڕینەوە'}
                                 >
                                   <Trash2 className="w-3 h-3" />
@@ -652,7 +651,7 @@ export default function ExpenseCategoriesTab({
 
                             {/* Level 2 Expanded Content (Level 3 Items) */}
                             {isL2Expanded && (
-                              <div className="p-2.5 space-y-1.5 bg-slate-50/50 dark:bg-slate-900/60">
+                              <div className="p-2.5 space-y-1.5 bg-slate-50/50 dark:bg-slate-900/40">
                                 {/* Inline Add L3 Form */}
                                 {isAddingL3Here && (
                                   <form
@@ -684,7 +683,7 @@ export default function ExpenseCategoriesTab({
                                         setAddingUnderL2Id(null);
                                         setNewL3Name('');
                                       }}
-                                      className="p-1 text-slate-400 hover:text-slate-600"
+                                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                                     >
                                       <X className="w-3 h-3" />
                                     </button>
@@ -692,14 +691,14 @@ export default function ExpenseCategoriesTab({
                                 )}
 
                                 {l3List.length === 0 && !isAddingL3Here ? (
-                                  <div className={`py-2 px-3 text-[11px] text-slate-400 text-center rounded-lg bg-white/40 dark:bg-slate-800/20 border border-dashed border-slate-200 dark:border-slate-800 ${
+                                  <div className={`py-2 px-3 text-[11px] text-slate-400 dark:text-slate-500 text-center rounded-lg bg-white/40 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 ${
                                     isRtl ? 'mr-4' : 'ml-4'
                                   }`}>
                                     <span>{language === 'fa' ? 'هیچ هزینه خردی در این زیرگروه نیست.' : 'هیچ وردە خەرجییەک نییە.'}</span>
                                     <button
                                       type="button"
                                       onClick={() => setAddingUnderL2Id(l2.id)}
-                                      className="font-bold text-blue-500 hover:underline mx-1"
+                                      className="font-bold text-sky-600 dark:text-sky-400 hover:underline mx-1"
                                     >
                                       {language === 'fa' ? 'افزودن هزینه خرد' : 'زیادکردنی خەرجی'}
                                     </button>
@@ -712,7 +711,7 @@ export default function ExpenseCategoriesTab({
                                       return (
                                         <div
                                           key={l3.id}
-                                          className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2 shadow-2xs"
+                                          className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-2 shadow-2xs"
                                         >
                                           {isEditingThisL3 ? (
                                             <div className="flex items-center gap-1 flex-1">
@@ -737,7 +736,7 @@ export default function ExpenseCategoriesTab({
                                               <button
                                                 type="button"
                                                 onClick={cancelEdit}
-                                                className="p-1 text-slate-400 hover:text-slate-600"
+                                                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                                               >
                                                 <X className="w-3 h-3" />
                                               </button>
@@ -746,7 +745,7 @@ export default function ExpenseCategoriesTab({
                                             <>
                                               <div className="flex items-center gap-1.5 min-w-0">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                                                <span className="text-xs text-slate-700 dark:text-slate-300 truncate">
+                                                <span className="text-xs text-slate-700 dark:text-slate-200 truncate">
                                                   {l3.name}
                                                 </span>
                                               </div>
@@ -762,7 +761,7 @@ export default function ExpenseCategoriesTab({
                                                 <button
                                                   type="button"
                                                   onClick={() => onDeleteCategory(l3.id)}
-                                                  className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                                  className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                                                   title={language === 'fa' ? 'حذف' : 'سڕینەوە'}
                                                 >
                                                   <Trash2 className="w-3 h-3" />
