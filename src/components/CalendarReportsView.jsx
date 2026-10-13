@@ -37,6 +37,7 @@ import {
   Coins, 
   CalendarDays,
   LayoutGrid,
+  List,
   ClipboardList,
   X, 
   PieChart, 
@@ -152,6 +153,19 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   // In Reporting mode: Dynamic Adaptive Hub states
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [showDetailsInHero, setShowDetailsInHero] = useState(false);
+  const [summaryLayoutMode, setSummaryLayoutMode] = useState(() => {
+    try {
+      return localStorage.getItem('karsync_report_summary_layout') || 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+  const handleSetSummaryLayoutMode = (mode) => {
+    setSummaryLayoutMode(mode);
+    try {
+      localStorage.setItem('karsync_report_summary_layout', mode);
+    } catch (_) {}
+  };
   const [reportSearch, setReportSearch] = useState('');
   const [isSearchPickerOpen, setIsSearchPickerOpen] = useState(false);
   const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
@@ -2601,22 +2615,62 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               )}
             </div>
           ) : (
-            /* SECTION: Clean Overview Cards of Workers & Groups (هنگامی که شخص خاصی فیلتر نشده است) */
+            /* SECTION: Clean Overview Cards & List of Workers (هنگامی که شخص خاصی فیلتر نشده است) */
             <div className="space-y-4">
-              <div className="flex items-center justify-between px-1">
+              <div className="flex items-center justify-between px-1 flex-wrap gap-2">
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
                   {language === 'fa' ? 'کارنامه خلاصه پرسنل در این دوره (جهت فیلتر لمس کنید):' : 'Worker Summaries (tap to inspect):'}
                 </span>
-                <span className="text-xs text-slate-400 font-mono">
-                  {displayedWorkerSummaries.length} {t('workers')}
-                </span>
+
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs text-slate-400 font-mono">
+                    {displayedWorkerSummaries.length} {t('workers')}
+                  </span>
+
+                  {/* Layout Mode Switcher (APP_THEME_BUTTON segmented control: Cards vs List) */}
+                  <div className="inline-flex items-center p-1 bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => handleSetSummaryLayoutMode('grid')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all duration-300 ease-in-out cursor-pointer ${
+                        summaryLayoutMode === 'grid'
+                          ? 'bg-sky-500 text-white shadow-sm font-bold'
+                          : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                      }`}
+                      title={language === 'fa' ? 'نمایش کارتی' : 'Grid View'}
+                      aria-label="Grid"
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      {summaryLayoutMode === 'grid' && (
+                        <span className="text-[11px] whitespace-nowrap">{language === 'fa' ? 'کارت' : 'Cards'}</span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetSummaryLayoutMode('list')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all duration-300 ease-in-out cursor-pointer ${
+                        summaryLayoutMode === 'list'
+                          ? 'bg-sky-500 text-white shadow-sm font-bold'
+                          : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                      }`}
+                      title={language === 'fa' ? 'نمایش لیستی' : 'List View'}
+                      aria-label="List"
+                    >
+                      <List className="w-3.5 h-3.5" />
+                      {summaryLayoutMode === 'list' && (
+                        <span className="text-[11px] whitespace-nowrap">{language === 'fa' ? 'لیست' : 'List'}</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {displayedWorkerSummaries.length === 0 ? (
                 <div className="p-12 text-center text-slate-400 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10 text-xs">
                   {t('noDataForMonth')}
                 </div>
-              ) : (
+              ) : summaryLayoutMode === 'grid' ? (
+                /* 1. Grid (Card) Layout */
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {displayedWorkerSummaries.map((row) => (
                     <div 
@@ -2665,12 +2719,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         <div>
                           <span className="text-[10px] text-amber-500 font-bold block">{t('overtimeHours')}</span>
                           <span className="font-black text-amber-600 dark:text-amber-400 font-mono">
-                            {formatHoursAndMinutes(row.overtimeHours, language)}
+                            {formatHoursDigital(row.overtimeHours)}
                           </span>
                         </div>
                       </div>
 
-                      {/* Footer & Total Pay */}
+                      {/* Footer & Total Pay (Without the view logs button) */}
                       <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
                         <div>
                           <span className="text-[10px] font-bold text-slate-400 block">{t('totalPayLabel')}</span>
@@ -2679,13 +2733,76 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           </span>
                         </div>
 
-                        <div className="px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-xs flex items-center gap-1 group-hover:bg-sky-500 group-hover:text-white transition-all">
-                          <span>{language === 'fa' ? 'انتخاب و ریز روزها' : 'View Logs'}</span>
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </div>
+                        <span className="text-[11px] font-bold text-slate-400 group-hover:text-sky-500 transition-colors">
+                          {row.fullDaysCount + row.halfDaysCount + row.hourlyDaysCount} شیفت ثبت‌شده
+                        </span>
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : (
+                /* 2. List Layout */
+                <div className="relative overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20 overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-[11px]">
+                      <tr>
+                        <th className="px-4 py-3 text-start">{t('workerName')}</th>
+                        <th className="px-3 py-3 text-center">{t('group')}</th>
+                        <th className="px-3 py-3 text-center">{t('normalDays')}</th>
+                        <th className="px-3 py-3 text-center">{t('halfDays')}</th>
+                        <th className="px-3 py-3 text-center">{t('overtimeHours')}</th>
+                        <th className="px-4 py-3 text-end font-bold text-sky-600 dark:text-sky-400">{t('totalPayLabel')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                      {displayedWorkerSummaries.map((row) => (
+                        <tr
+                          key={row.workerId}
+                          onClick={() => {
+                            setSelectedWorkerId(String(row.workerId));
+                            setSelectedGroupId('all');
+                            setShowDetailsInHero(true);
+                          }}
+                          className="hover:bg-sky-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                        >
+                          <td className="px-4 py-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold flex items-center justify-center text-xs">
+                                {row.worker.name?.charAt(0) || 'W'}
+                              </div>
+                              <div>
+                                <span className="group-hover:text-sky-500 transition-colors block">{row.worker.name}</span>
+                                {row.worker.role && (
+                                  <span className="text-[10px] text-slate-400 font-normal block">{row.worker.role}</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {row.worker.groupId && groupMap[row.worker.groupId] ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                                {groupMap[row.worker.groupId].name}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-[10px]">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
+                            {row.fullDaysCount}
+                          </td>
+                          <td className="px-3 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
+                            {row.halfDaysCount}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono font-bold text-amber-600 dark:text-amber-400">
+                            {formatHoursDigital(row.overtimeHours)}
+                          </td>
+                          <td className="px-4 py-3 text-end font-mono font-black text-sky-600 dark:text-sky-400 whitespace-nowrap">
+                            {formatCurrency(row.totalPay, currency, language)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
