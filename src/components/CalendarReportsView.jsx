@@ -2140,8 +2140,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             </div>
           </div>
 
-          {/* SECTION: In-Line Detailed Audit Ledger (باز شدن با دکمه داخل کارت یا خودکار در انتخاب فرد) */}
-          {(showDetailsInHero || selectedWorkerId !== 'all') ? (
+          {/* SECTION: In-Line Detailed Audit Ledger (باز و بسته شدن با دکمه روی کارت) */}
+          {showDetailsInHero ? (
             <div className="space-y-3 animate-in fade-in slide-in-from-top-3 duration-250">
               <div className="flex items-center justify-between px-1">
                 <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
@@ -2149,18 +2149,29 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   <span>
                     {selectedWorkerId !== 'all' && workerMap[selectedWorkerId]
                       ? `${language === 'fa' ? 'ریز روزهای کارکرد:' : 'Logs for:'} ${workerMap[selectedWorkerId].name}`
+                      : selectedGroupId !== 'all' && groupMap[selectedGroupId]
+                      ? `${language === 'fa' ? 'ریز کارکرد گروه:' : 'Group logs for:'} ${groupMap[selectedGroupId].name}`
                       : (language === 'fa' ? 'ریز اقلام و روزهای ثبت‌شده' : 'Detailed Audit Ledger')}
                   </span>
                 </h4>
-                {selectedWorkerId !== 'all' && (
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={clearAllFilters}
-                    className="text-xs font-bold text-sky-500 hover:text-sky-600 cursor-pointer"
+                    onClick={() => setShowDetailsInHero(false)}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   >
-                    {language === 'fa' ? 'بازگشت به همه پرسنل' : 'Show All Workers'}
+                    {language === 'fa' ? 'بستن ریز کارکرد' : 'Hide Logs'}
                   </button>
-                )}
+                  {(selectedWorkerId !== 'all' || selectedGroupId !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="text-xs font-bold text-sky-500 hover:text-sky-600 cursor-pointer"
+                    >
+                      {language === 'fa' ? 'بازگشت به آمار کل' : 'Show All Workers'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {filteredLogs.length === 0 ? (
@@ -2315,6 +2326,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       onClick={() => {
                         setSelectedWorkerId(String(row.workerId));
                         setSelectedGroupId('all');
+                        setShowDetailsInHero(true);
                       }}
                       className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 hover:shadow-xl hover:scale-[1.01] transition-all duration-200 flex flex-col justify-between space-y-4 cursor-pointer"
                     >
