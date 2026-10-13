@@ -7,6 +7,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { EditRecordModal } from './EditRecordModal';
 import AttendanceRecycleBinModal from './AttendanceRecycleBinModal';
+import { WorkersModal } from './WorkersModal';
 import { 
   formatCurrency, 
   formatAmount,
@@ -93,6 +94,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   const [calendarMonth, setCalendarMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
   const [editingLog, setEditingLog] = useState(null);
   const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
+  const [isWorkersModalOpen, setIsWorkersModalOpen] = useState(false);
 
   // Timeline list controls with persistent sort order
   const [filterOnlyWithLogs, setFilterOnlyWithLogs] = useState(true);
@@ -965,6 +967,20 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
             {/* Export & Utility Actions Dock */}
             <div className="h-[52px] sm:h-[56px] flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner flex-shrink-0 backdrop-blur-md">
+              {/* Personnel / Workers Management Button */}
+              <button
+                type="button"
+                onClick={() => setIsWorkersModalOpen(true)}
+                className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
+                title={language === 'fa' ? 'مدیریت و بانک پرسنل (Shift + P)' : language === 'ku' ? 'بەڕێوەبردنی کرێکاران' : 'Personnel Management'}
+                aria-label={language === 'fa' ? 'مدیریت پرسنل' : 'Personnel'}
+              >
+                <Users className="w-4.5 h-4.5 flex-shrink-0" />
+                <span className="hidden sm:inline">{language === 'fa' ? 'پرسنل' : language === 'ku' ? 'کرێکاران' : 'Workers'}</span>
+              </button>
+
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+
               {/* Quick Export to Excel */}
               <button
                 type="button"
@@ -2832,6 +2848,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
         isOpen={isRecycleBinOpen}
         onClose={() => setIsRecycleBinOpen(false)}
         workers={workers}
+      />
+
+      {/* Full Personnel & Workers Management Modal */}
+      <WorkersModal
+        isOpen={isWorkersModalOpen}
+        onClose={() => setIsWorkersModalOpen(false)}
       />
 
     </div>
