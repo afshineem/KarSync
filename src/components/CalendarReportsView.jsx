@@ -2162,7 +2162,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-10 right-0 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Financial & Attendance Pulse */}
               <div className="lg:col-span-7 space-y-4">
                 {/* Dynamic Title badge */}
