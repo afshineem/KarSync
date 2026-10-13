@@ -147,8 +147,9 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
     setExpandedDayKeys(new Set());
   };
 
-  // In Reporting mode: Sub-mode between 'summary' (گزارش مجموع) and 'detailed' (گزارش با جزییات)
+  // In Reporting mode: Sub-mode between 'summary' (کارنامه‌ای پرسنل), 'groups' (تفکیک گروه‌ها) and 'detailed' (ریز کارکرد)
   const [reportFormat, setReportFormat] = useState('summary'); 
+  const [reportSearch, setReportSearch] = useState('');
 
   // Filters for reporting
   const [selectedWorkerId, setSelectedWorkerId] = useState('all');
@@ -717,6 +718,60 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       };
     });
   }, [filteredLogs, workerMap, currency]);
+
+  // Search-filtered worker summaries
+  const displayedWorkerSummaries = useMemo(() => {
+    if (!reportSearch.trim()) return summaryGroupedData;
+    const q = reportSearch.toLowerCase().trim();
+    return summaryGroupedData.filter((r) => {
+      const name = (r.worker.name || '').toLowerCase();
+      const role = (r.worker.role || '').toLowerCase();
+      const groupName = (groupMap[r.worker.groupId]?.name || '').toLowerCase();
+      return name.includes(q) || role.includes(q) || groupName.includes(q);
+    });
+  }, [summaryGroupedData, reportSearch, groupMap]);
+
+  // Grouped aggregation across all project workgroups
+  const groupSummaries = useMemo(() => {
+    const map = {};
+
+    filteredLogs.forEach((log) => {
+      const w = workerMap[log.workerId];
+      const gId = w?.groupId ? String(w.groupId) : 'unassigned';
+      if (!map[gId]) {
+        map[gId] = {
+          groupId: gId,
+          groupName: gId === 'unassigned' ? (language === 'fa' ? 'پرسنل مستقل (بدون گروه)' : 'Independent Workers') : (groupMap[gId]?.name || gId),
+          workerIds: new Set(),
+          fullDays: 0,
+          halfDays: 0,
+          hourlyDays: 0,
+          totalOt: 0,
+          totalPay: 0,
+          entriesCount: 0
+        };
+      }
+      const item = map[gId];
+      item.workerIds.add(String(log.workerId));
+      if (log.type === 'half') item.halfDays += 1;
+      else if (log.type === 'hourly') item.hourlyDays += 1;
+      else item.fullDays += 1;
+      item.totalOt += Number(log.overtimeHours) || 0;
+      item.totalPay += Number(log.totalDayPay) || 0;
+      item.entriesCount += 1;
+    });
+
+    const list = Object.values(map).map((g) => ({
+      ...g,
+      workersCount: g.workerIds.size,
+      totalOt: Number(g.totalOt.toFixed(2)),
+      totalPay: roundCurrency(g.totalPay, currency)
+    }));
+
+    if (!reportSearch.trim()) return list;
+    const q = reportSearch.toLowerCase().trim();
+    return list.filter((g) => g.groupName.toLowerCase().includes(q));
+  }, [filteredLogs, workerMap, groupMap, language, currency, reportSearch]);
 
   // Delete an individual log
   const handleDeleteLog = async (logId) => {
@@ -1796,13 +1851,13 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 </div>
               </div>
 
-              {/* Segmented Control [APP_THEME_BUTTON] */}
+              {/* Segmented Control [APP_THEME_BUTTON] - ۳ حالت: کارنامه‌ای پرسنل، تفکیک گروه‌ها، ریز کارکرد */}
               <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-                {/* Summary Report */}
+                {/* Summary (Workers) Report */}
                 <button
                   type="button"
                   onClick={() => setReportFormat('summary')}
-                  title={t('summaryReport')}
+                  title={language === 'fa' ? 'کارنامه‌ای پرسنل' : 'Worker Summaries'}
                   aria-label={t('summaryReport')}
                   className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
                     reportFormat === 'summary'
@@ -1815,7 +1870,29 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   }`} />
                   {reportFormat === 'summary' && (
                     <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200">
-                      {t('summaryReport')} (کارنامه‌ای)
+                      {language === 'fa' ? 'پرسنل' : 'Workers'}
+                    </span>
+                  )}
+                </button>
+
+                {/* Groups Breakdown Report */}
+                <button
+                  type="button"
+                  onClick={() => setReportFormat('groups')}
+                  title={language === 'fa' ? 'تفکیک بر اساس گروه‌ها' : 'Group Summaries'}
+                  aria-label={language === 'fa' ? 'تفکیک گروه‌ها' : 'Groups'}
+                  className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
+                    reportFormat === 'groups'
+                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
+                  }`}
+                >
+                  <Users className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${
+                    reportFormat === 'groups' ? 'scale-105' : 'group-hover:scale-110'
+                  }`} />
+                  {reportFormat === 'groups' && (
+                    <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200">
+                      {language === 'fa' ? 'گروه‌ها' : 'Groups'}
                     </span>
                   )}
                 </button>
@@ -1841,6 +1918,72 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     </span>
                   )}
                 </button>
+              </div>
+            </div>
+
+            {/* Quick Interactive Group Chips & Live Search Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+              {/* Group Chips Scroller */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 sm:pb-0 scrollbar-none text-xs">
+                <span className="text-[11px] font-bold text-slate-400 shrink-0 ml-1">
+                  {language === 'fa' ? 'گروه سریع:' : 'Quick Group:'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedGroupId('all');
+                    setSelectedWorkerId('all');
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer ${
+                    selectedGroupId === 'all'
+                      ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/25'
+                      : 'bg-slate-100/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {language === 'fa' ? 'همه' : 'All'}
+                </button>
+                {groupOptions.map((g) => {
+                  const isSel = selectedGroupId === String(g.id);
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGroupId(isSel ? 'all' : String(g.id));
+                        setSelectedWorkerId('all');
+                      }}
+                      className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                        isSel
+                          ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/25'
+                          : 'bg-slate-100/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <Users className="w-3 h-3" />
+                      <span>{g.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Instant Live Search Input */}
+              <div className="relative min-w-[14rem]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={reportSearch}
+                  onChange={(e) => setReportSearch(e.target.value)}
+                  placeholder={language === 'fa' ? 'جستجوی نام پرسنل، نقش یا گروه...' : 'Search worker, role or group...'}
+                  className="w-full pr-8 pl-8 py-1.5 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
+                />
+                {reportSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setReportSearch('')}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2053,9 +2196,9 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               </div>
             </div>
 
-            {/* Sub-view A: Smart Worker Cards (گزارش مجموع به سبک مدرن اپل) */}
-            {reportFormat === 'summary' ? (
-              summaryGroupedData.length === 0 ? (
+            {/* Sub-view A: Smart Worker Cards (گزارش مجموع کارنامه‌ای پرسنل) */}
+            {reportFormat === 'summary' && (
+              displayedWorkerSummaries.length === 0 ? (
                 <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10">
                   <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
                     <PieChart className="w-6 h-6" />
@@ -2064,7 +2207,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {summaryGroupedData.map((row) => (
+                  {displayedWorkerSummaries.map((row) => (
                     <div 
                       key={row.workerId}
                       className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400/50 hover:shadow-xl transition-all duration-300 flex flex-col justify-between space-y-4"
@@ -2124,15 +2267,100 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           </span>
                         </div>
 
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedWorkerId(String(row.workerId));
+                              setReportFormat('detailed');
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-500 hover:text-white dark:hover:bg-sky-500 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>{language === 'fa' ? 'ریز روزها' : 'Logs'}</span>
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* Sub-view B: Group Summary Cards (تفکیک آماری گروه‌های کاری) */}
+            {reportFormat === 'groups' && (
+              groupSummaries.length === 0 ? (
+                <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <p className="text-xs font-semibold">{language === 'fa' ? 'هیچ گروه فعالی در این بازه یافت نشد' : 'No active groups found'}</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {groupSummaries.map((grp) => (
+                    <div 
+                      key={grp.groupId}
+                      className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-indigo-400/50 hover:shadow-xl transition-all duration-300 flex flex-col justify-between space-y-4"
+                    >
+                      {/* Group Header */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-sky-500/20 border border-indigo-400/30 flex items-center justify-center font-black text-indigo-600 dark:text-indigo-400 text-sm shadow-xs">
+                            <Users className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 dark:text-white text-sm">
+                              {grp.groupName}
+                            </h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                              {grp.workersCount} {language === 'fa' ? 'نفر پرسنل فعال' : 'active workers'} • {grp.entriesCount} {language === 'fa' ? 'ثبت' : 'entries'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                          {grp.workersCount} {t('workers')}
+                        </span>
+                      </div>
+
+                      {/* Shifts Grid Capsule */}
+                      <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 text-center text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold block">{t('normalDays')}</span>
+                          <span className="font-black text-slate-800 dark:text-slate-200">{grp.fullDays}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold block">{t('halfDays')}</span>
+                          <span className="font-black text-slate-800 dark:text-slate-200">{grp.halfDays}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-amber-500 font-bold block">{t('overtimeHours')}</span>
+                          <span className="font-black text-amber-600 dark:text-amber-400 font-mono">
+                            {formatHoursAndMinutes(grp.totalOt, language)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Footer & Total Pay */}
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 block">{language === 'fa' ? 'مجموع دستمزد گروه' : 'Total Group Pay'}</span>
+                          <span className="text-base font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                            {formatCurrency(grp.totalPay, currency, language)}
+                          </span>
+                        </div>
+
                         <button
                           type="button"
                           onClick={() => {
-                            setSelectedWorkerId(String(row.workerId));
-                            setReportFormat('detailed');
+                            setSelectedGroupId(grp.groupId);
+                            setSelectedWorkerId('all');
+                            setReportFormat('summary');
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-500 hover:text-white dark:hover:bg-sky-500 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
                         >
-                          <span>{language === 'fa' ? 'ریز روزها' : 'Logs'}</span>
+                          <span>{language === 'fa' ? 'پرسنل گروه' : 'Members'}</span>
                           <ChevronLeft className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -2140,7 +2368,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   ))}
                 </div>
               )
-            ) : (
+            )}
+
+            {/* Sub-view C: Detailed Audit Ledger Table (گزارش ریز کارکرد) */}
+            {reportFormat === 'detailed' && (
               /* Sub-view B: Detailed Audit Ledger Table (گزارش با جزییات مدرن) */
               filteredLogs.length === 0 ? (
                 <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10">
