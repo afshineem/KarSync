@@ -530,151 +530,164 @@ export function ExpensesView() {
   return (
     <div dir={direction} className="space-y-6 pb-24 md:pb-12 max-w-7xl mx-auto animate-in fade-in duration-200">
       
-      {/* Top Header Card */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/20">
-            <Receipt className="w-6 h-6 stroke-[2.2]" />
+      {/* Top Header Card (Liquid Glass Capsule) */}
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/30 transition-all duration-300">
+        <div className="absolute -top-24 -right-24 w-60 h-60 bg-rose-500/10 dark:bg-rose-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-indigo-500/10 dark:bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/25 flex-shrink-0">
+              <Receipt className="w-6 h-6 stroke-[2.2]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
+                  {language === 'fa' ? 'مدیریت هزینه‌ها و مخارج' : 'بەڕێوەبردنی خەرجییەکان'}
+                </h1>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                  {stats.count} {language === 'fa' ? 'فاکتور' : 'فاکتۆر'}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {currentProject?.name} • {language === 'fa' ? 'ثبت هزینه‌های مصالح، ماشین‌آلات، خدمات و تنخواه کارگاه' : 'تۆماری خەرجییەکانی پڕۆژە و کارگە'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <span>{language === 'fa' ? 'مدیریت هزینه‌ها و مخارج' : 'بەڕێوەبردنی خەرجییەکان'}</span>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
-                {stats.count} {language === 'fa' ? 'فاکتور' : 'فاکتۆر'}
-              </span>
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {currentProject?.name} • {language === 'fa' ? 'ثبت هزینه‌های مصالح، ماشین‌آلات، خدمات و تنخواه' : 'تۆماری خەرجییەکانی پڕۆژە و کارگە'}
-            </p>
+
+          {/* Actions Dock: Archive & Trash | Analytics & Export | Add New Expense */}
+          <div className="h-[52px] sm:h-[56px] flex items-center gap-1.5 p-1.5 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner self-start sm:self-center">
+            {/* Button 1: Trash & Archive */}
+            <button
+              type="button"
+              onClick={() => setIsRecycleBinModalOpen(true)}
+              className="relative h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center cursor-pointer"
+              title={t('expensesArchiveAndTrash') || (language === 'fa' ? 'سطل زباله و آرشیو' : 'سەبەتەی سڕینەوە و ئەرشیف')}
+            >
+              <Archive className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              {(trashExpenses.length > 0 || archivedExpenses.length > 0) && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-mono bg-rose-500 text-white font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900 leading-none shadow-xs">
+                  {trashExpenses.length + archivedExpenses.length}
+                </span>
+              )}
+            </button>
+
+            {/* Button 2: Analytics & Export */}
+            <button
+              type="button"
+              onClick={() => setIsAnalyticsModalOpen(true)}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center cursor-pointer"
+              title={t('analyticsAndExport') || (language === 'fa' ? 'آمار و تحلیل مخارج' : 'ئامار و هەناردە')}
+            >
+              <BarChart3 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            </button>
+
+            {/* Button 3: Add New Expense */}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingExpense(null);
+                setIsAddModalOpen(true);
+              }}
+              className="h-full px-3.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-500/25 active:scale-95 transition-all cursor-pointer"
+              title={language === 'fa' ? 'ثبت هزینه جدید' : 'تۆمارکردنی خەرجی نوێ'}
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span className="hidden sm:inline">{language === 'fa' ? 'هزینه جدید' : 'خەرجی نوێ'}</span>
+            </button>
           </div>
-        </div>
-
-        {/* Actions Dock: Archive & Trash | Analytics & Export | Add New Expense */}
-        <div className="h-[52px] sm:h-[58px] flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs self-start sm:self-center">
-          {/* Button 1: Trash & Archive - پیش‌فرض خاکستری و در هاور کهربایی */}
-          <button
-            type="button"
-            onClick={() => setIsRecycleBinModalOpen(true)}
-            className="relative h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-            title={t('expensesArchiveAndTrash') || (language === 'fa' ? 'سطل زباله و آرشیو' : 'سەبەتەی سڕینەوە و ئەرشیف')}
-            aria-label={t('expensesArchiveAndTrash') || (language === 'fa' ? 'سطل زباله و آرشیو' : 'سەبەتەی سڕینەوە و ئەرشیف')}
-          >
-            <Archive className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-            {(trashExpenses.length > 0 || archivedExpenses.length > 0) && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-mono bg-rose-500 text-white font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900 leading-none shadow-xs">
-                {trashExpenses.length + archivedExpenses.length}
-              </span>
-            )}
-          </button>
-
-          {/* Button 2: Analytics & Export (Formerly Excel Export) - پیش‌فرض خاکستری و در هاور نیلی */}
-          <button
-            type="button"
-            onClick={() => setIsAnalyticsModalOpen(true)}
-            className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-            title={t('analyticsAndExport') || (language === 'fa' ? 'آمار و خروجی' : 'ئامار و هەناردە')}
-            aria-label={t('analyticsAndExport') || (language === 'fa' ? 'آمار و خروجی' : 'ئامار و هەناردە')}
-          >
-            <BarChart3 className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-          </button>
-
-          {/* Button 3: Add New Expense - دکمه اصلی با گرادیانت */}
-          <button
-            type="button"
-            onClick={() => {
-              setEditingExpense(null);
-              setIsAddModalOpen(true);
-            }}
-            className="h-full aspect-square rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white transition-all shadow-md shadow-rose-500/25 active:scale-95 hover:scale-105 group flex items-center justify-center focus:outline-hidden"
-            title={language === 'fa' ? 'ثبت هزینه جدید' : 'تۆمارکردنی خەرجی نوێ'}
-            aria-label={language === 'fa' ? 'ثبت هزینه جدید' : 'تۆمارکردنی خەرجی نوێ'}
-          >
-            <Plus className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
-          </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total All-time Expenses */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold mb-2">
-            <span>{language === 'fa' ? 'مجموع کل هزینه‌ها' : 'کۆی گشتی خەرجییەکان'}</span>
-            <div className="w-7 h-7 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-500 flex items-center justify-center">
+      {/* EXECUTIVE HERO BANNER: EXPENSES COMMAND CENTER */}
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 right-0 w-80 h-80 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          {/* Main Total Expense Metric */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 uppercase tracking-wider">
               <Wallet className="w-4 h-4" />
+              <span>{language === 'fa' ? 'نبض هزینه‌ها و مخارج پروژه' : 'Project Expenses Pulse'}</span>
             </div>
-          </div>
-          <div className="text-2xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
-            {formatCurrency(stats.totalAll)}
-          </div>
-          <div className="mt-2 text-[11px] text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1">
-            <span>{language === 'fa' ? 'هزینه این ماه:' : 'ئەم مانگە:'}</span>
-            <span className="font-bold font-mono text-slate-700 dark:text-slate-300">
-              {formatCurrency(stats.totalThisMonth)}
-            </span>
-          </div>
-        </div>
 
-        {/* Card 2: Settled / Paid Amount */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold mb-2">
-            <span>{language === 'fa' ? 'مبالغ تسویه شده (پرداختی)' : 'پارەی پاکتاوکراو (دراو)'}</span>
-            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
+            <div>
+              <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+                <span>{formatCurrency(stats.totalAll)}</span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                {language === 'fa' ? 'مجموع فاکتورها و هزینه‌های ثبت‌شده پروژه' : 'Total all-time expenses recorded for this project'}
+              </p>
             </div>
-          </div>
-          <div className="text-2xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
-            {formatCurrency(stats.totalPaid)}
-          </div>
-          <div className="mt-2 flex items-center gap-1.5">
-            <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                style={{ width: `${stats.totalAll > 0 ? (stats.totalPaid / stats.totalAll) * 100 : 0}%` }}
-              />
-            </div>
-            <span className="text-[11px] font-mono text-slate-400">
-              {stats.totalAll > 0 ? Math.round((stats.totalPaid / stats.totalAll) * 100) : 0}%
-            </span>
-          </div>
-        </div>
 
-        {/* Card 3: Pending / Debts */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold mb-2">
-            <span>{language === 'fa' ? 'مبالغ معوق (نسیه / بدهی)' : 'قەرزی نەدراو (پاشکەوت)'}</span>
-            <div className="w-7 h-7 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
+            {/* Settled vs Pending Progress Bar */}
+            <div className="space-y-2 pt-2">
+              <div className="flex justify-between items-center text-xs font-semibold">
+                <span className="text-emerald-400 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {language === 'fa' ? 'تسویه‌شده:' : 'Paid:'} {formatCurrency(stats.totalPaid)}
+                </span>
+                <span className="text-amber-400 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  {language === 'fa' ? 'معوق (نسیه):' : 'Pending:'} {formatCurrency(stats.totalPending)}
+                </span>
+              </div>
+              <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden p-0.5">
+                <div 
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-rose-400 transition-all duration-700 shadow-md"
+                  style={{ width: `${stats.totalAll > 0 ? (stats.totalPaid / stats.totalAll) * 100 : 0}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-400">
+                <span>
+                  {stats.totalAll > 0 ? Math.round((stats.totalPaid / stats.totalAll) * 100) : 0}% {language === 'fa' ? 'پرداخت شده' : 'Cleared'}
+                </span>
+                <span>
+                  {language === 'fa' ? 'هزینه این ماه:' : 'This month:'} {formatCurrency(stats.totalThisMonth)}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="text-2xl font-black font-mono tracking-tight text-amber-600 dark:text-amber-400">
-            {formatCurrency(stats.totalPending)}
-          </div>
-          <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-            {stats.totalPending > 0 
-              ? (language === 'fa' ? 'تعهدات پرداخت نشده به طرف‌های حساب' : 'قەرزی ماوە لەسەر پڕۆژە') 
-              : (language === 'fa' ? 'تمامی فاکتورها تسویه شده‌اند' : 'هەموو فاکتۆرەکان دراون')}
-          </p>
-        </div>
 
-        {/* Card 4: Top Spending Section */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold mb-2">
-            <span>{language === 'fa' ? 'بخش پرهزینه پروژه' : 'پڕخەرجیترین بەش'}</span>
-            <div className="w-7 h-7 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-500 flex items-center justify-center">
-              <Building2 className="w-4 h-4" />
+          {/* Top Section & Quick Action Dock */}
+          <div className="lg:col-span-5 grid grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+            
+            {/* Tile 1: Top Spending Section */}
+            <div className="col-span-2 p-3.5 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-[11px] text-slate-400 block">{language === 'fa' ? 'بخش پرهزینه پروژه' : 'Top Spending Section'}</span>
+              <div className="text-base font-black text-white mt-1 truncate">
+                {stats.topSectionName}
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1">
+                <span className="font-mono text-rose-400 font-bold">{formatCurrency(stats.topSectionAmount)}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white font-mono">
+                  {stats.topSectionPercent}% {language === 'fa' ? 'سهم از کل' : 'share'}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100 truncate">
-            {stats.topSectionName}
-          </div>
-          <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
-            <span className="font-mono font-bold text-sky-600 dark:text-sky-400">
-              {formatCurrency(stats.topSectionAmount)}
-            </span>
-            <span className="bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-md font-bold font-mono">
-              {stats.topSectionPercent}% {language === 'fa' ? 'از کل' : 'لە گشتی'}
-            </span>
+
+            {/* Quick Action 1: Add Expense */}
+            <button
+              onClick={() => {
+                setEditingExpense(null);
+                setIsAddModalOpen(true);
+              }}
+              className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs shadow-lg shadow-rose-500/25 transition-all duration-300 cursor-pointer active:scale-95"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>{language === 'fa' ? 'ثبت فاکتور' : 'Add Expense'}</span>
+            </button>
+
+            {/* Quick Action 2: Export Excel */}
+            <button
+              onClick={handleExportExcel}
+              className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              <span>{language === 'fa' ? 'خروجی اکسل' : 'Excel Export'}</span>
+            </button>
+
           </div>
         </div>
       </div>
@@ -808,8 +821,8 @@ export function ExpensesView() {
         </div>
       )}
 
-      {/* Advanced Filter & Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+      {/* Advanced Filter & Search Bar (Liquid Glass Dock) */}
+      <div className="relative overflow-hidden rounded-3xl p-4 sm:p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-3.5 transition-all duration-300">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           {/* Search Input */}
           <div className="flex-1 relative">
@@ -819,7 +832,7 @@ export function ExpensesView() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={language === 'fa' ? 'جستجو در عنوان، طرف‌حساب، توضیحات...' : 'گەڕان لە ناونیشان، کەس، تێبینی...'}
-              className={`w-full py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 ${
+              className={`w-full py-2.5 text-xs sm:text-sm bg-slate-100/70 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60 rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all ${
                 isRtl ? 'pr-10 pl-3.5' : 'pl-10 pr-3.5'
               }`}
             />
@@ -1005,8 +1018,8 @@ export function ExpensesView() {
         </div>
       ) : (
         <>
-          {/* Desktop Table View */}
-          <div className="hidden md:block bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+          {/* Desktop Table View (Liquid Glass Canvas) */}
+          <div className="hidden md:block relative overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20 overflow-hidden transition-all duration-300">
             <div className="overflow-x-auto">
               <table className="w-full text-start text-xs border-collapse">
                 <thead>
@@ -1248,7 +1261,7 @@ export function ExpensesView() {
               return (
                 <div
                   key={exp.id}
-                  className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3"
+                  className="p-4.5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 rounded-3xl border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 space-y-3 transition-all duration-200"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2.5">
