@@ -985,12 +985,11 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               <button
                 type="button"
                 onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
-                className="h-full px-3 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white/80 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                 title={t('exportExcel')}
                 aria-label={t('exportExcel')}
               >
-                <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-500" />
-                <span className="hidden md:inline">{t('exportExcel')}</span>
+                <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-500 flex-shrink-0" />
               </button>
 
               {/* Quick Print PDF */}
