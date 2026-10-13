@@ -52,9 +52,11 @@ import {
   AlertCircle,
   Layers,
   CalendarPlus,
-  Lock,
-  Eye,
-  RotateCcw
+  RotateCcw,
+  Filter,
+  User,
+  TrendingUp,
+  Calendar
 } from 'lucide-react';
 
 const TIMELINE_SORT_KEY = 'karsync_timeline_sort_ascending';
