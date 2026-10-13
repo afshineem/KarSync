@@ -1,5 +1,5 @@
 import { deleteLogLive } from '../services/realtimeSync';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { calculateWorkerFinancials } from "../utils/settlementCalculations";
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
@@ -153,6 +153,30 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   const [reportSearch, setReportSearch] = useState('');
   const [isSearchPickerOpen, setIsSearchPickerOpen] = useState(false);
   const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
+  const searchInputRef = useRef(null);
+
+  // Keyboard shortcut: Pressing '/' or '\' focuses the search input in reports view
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (viewMode !== 'logs') return;
+      // Do not trigger if user is already typing in an input, textarea, or contentEditable element
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable) {
+        return;
+      }
+      if (e.key === '/' || e.key === '\\') {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select?.();
+          setIsSearchPickerOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [viewMode]);
 
   // Filters for reporting
   const [selectedWorkerId, setSelectedWorkerId] = useState('all');
@@ -1759,6 +1783,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               <div className="relative">
                 <Search className="w-4 h-4 text-sky-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={reportSearch}
                   onFocus={() => {
@@ -1812,10 +1837,18 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       ? `👤 ${workerMap[selectedWorkerId].name}`
                       : selectedGroupId !== 'all' && groupMap[selectedGroupId]
                       ? `👥 ${groupMap[selectedGroupId].name}`
-                      : (language === 'fa' ? 'جستجو یا انتخاب پرسنل و گروه‌ها...' : 'Search or select worker / group...')
+                      : (language === 'fa' ? 'جستجوی پرسنل یا گروه... (کلید / یا \\)' : 'Search worker or group... (/ or \\)')
                   }
                   className="w-full pr-10 pl-9 py-2.5 text-xs bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm font-medium transition-all"
                 />
+                {/* Shortcut visual badge when empty */}
+                {!reportSearch && selectedWorkerId === 'all' && selectedGroupId === 'all' && (
+                  <div className="hidden sm:flex items-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded border border-slate-200 dark:border-slate-700 shadow-2xs">
+                      /
+                    </kbd>
+                  </div>
+                )}
                 {(reportSearch || selectedWorkerId !== 'all' || selectedGroupId !== 'all') && (
                   <button
                     type="button"
