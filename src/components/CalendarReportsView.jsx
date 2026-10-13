@@ -1962,7 +1962,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   </div>
                 )}
 
-                {/* Custom Date Range */}
+                {/* Custom Date Range: From & To */}
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">
                     {t('fromDate')}
@@ -1972,6 +1972,21 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     value={dateFrom}
                     onChange={(e) => {
                       setDateFrom(e.target.value);
+                      setActiveDatePreset('custom');
+                    }}
+                    className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    {t('toDate')}
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setDateTo(e.target.value);
                       setActiveDatePreset('custom');
                     }}
                     className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
