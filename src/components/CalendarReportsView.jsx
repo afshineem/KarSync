@@ -147,9 +147,11 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
     setExpandedDayKeys(new Set());
   };
 
-  // In Reporting mode: Sub-mode between 'summary' (کارنامه‌ای پرسنل), 'groups' (تفکیک گروه‌ها) and 'detailed' (ریز کارکرد)
-  const [reportFormat, setReportFormat] = useState('summary'); 
+  // In Reporting mode: Dynamic Adaptive Hub states
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [showDetailsInHero, setShowDetailsInHero] = useState(false);
   const [reportSearch, setReportSearch] = useState('');
+  const [isSearchPickerOpen, setIsSearchPickerOpen] = useState(false);
 
   // Filters for reporting
   const [selectedWorkerId, setSelectedWorkerId] = useState('all');
@@ -157,6 +159,16 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   const [selectedSettlementStatus, setSelectedSettlementStatus] = useState('all'); // 'all' | 'current' | 'settled'
   const [selectedType, setSelectedType] = useState('all');
   const [selectedSectionId, setSelectedSectionId] = useState('all');
+
+  const clearAllFilters = () => {
+    setSelectedWorkerId('all');
+    setSelectedGroupId('all');
+    setSelectedSettlementStatus('all');
+    setSelectedType('all');
+    setSelectedSectionId('all');
+    setReportSearch('');
+    setShowDetailsInHero(false);
+  };
   
   // Date range defaults to current month
   const [dateFrom, setDateFrom] = useState(() => `${getCurrentYearMonth()}-01`);
@@ -1678,23 +1690,152 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       )}
 
       {/* ======================================================== */}
-      {/* VIEW 3: REPORTS & SETTLEMENT                             */}
+      {/* VIEW 3: REPORTS & SETTLEMENT (ADAPTIVE INTELLIGENCE HUB) */}
       {/* ======================================================== */}
       {viewMode === 'logs' && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           
-          {/* Quick Date Presets Bar (کپسول انتخاب سریع بازه‌های زمانی) */}
-          <div className="flex items-center justify-between gap-3 flex-wrap no-print">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-sky-500" />
-                <span>{language === 'fa' ? 'بازه زمانی سریع:' : 'Time Preset:'}</span>
-              </span>
-              <div className="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 shadow-inner">
+          {/* Top Command Bar: Unified Search + Time Presets + Collapsible Filter Toggle */}
+          <div className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3 no-print">
+            
+            {/* Left/Start side: Smart Interactive Search Picker + Clear Filter */}
+            <div className="relative flex-1 max-w-md">
+              <div className="relative">
+                <Search className="w-4 h-4 text-sky-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={reportSearch}
+                  onFocus={() => setIsSearchPickerOpen(true)}
+                  onChange={(e) => {
+                    setReportSearch(e.target.value);
+                    setIsSearchPickerOpen(true);
+                  }}
+                  placeholder={
+                    selectedWorkerId !== 'all' && workerMap[selectedWorkerId]
+                      ? `👤 ${workerMap[selectedWorkerId].name}`
+                      : selectedGroupId !== 'all' && groupMap[selectedGroupId]
+                      ? `👥 ${groupMap[selectedGroupId].name}`
+                      : (language === 'fa' ? 'جستجو یا انتخاب پرسنل و گروه‌ها...' : 'Search or select worker / group...')
+                  }
+                  className="w-full pr-10 pl-9 py-2.5 text-xs bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm font-medium transition-all"
+                />
+                {(reportSearch || selectedWorkerId !== 'all' || selectedGroupId !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    title="پاک کردن انتخاب و فیلترها"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Instant Search Suggestions & Touch Picker Dropdown */}
+              {isSearchPickerOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-20" 
+                    onClick={() => setIsSearchPickerOpen(false)} 
+                  />
+                  <div className="absolute top-full mt-2 inset-x-0 z-30 max-h-72 overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-700/90 shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                    {/* All Project item */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearAllFilters();
+                        setIsSearchPickerOpen(false);
+                      }}
+                      className="w-full text-right px-3 py-2 rounded-xl text-xs font-bold hover:bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-between transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{language === 'fa' ? 'کل پروژه (همه پرسنل و گروه‌ها)' : 'Whole Project (All)'}</span>
+                      </span>
+                      {selectedWorkerId === 'all' && selectedGroupId === 'all' && (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+
+                    {/* Groups header */}
+                    <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      {language === 'fa' ? 'گروه‌های کاری' : 'Work Groups'}
+                    </div>
+                    {groupOptions
+                      .filter(g => !reportSearch.trim() || g.name.toLowerCase().includes(reportSearch.toLowerCase().trim()))
+                      .map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedGroupId(String(g.id));
+                            setSelectedWorkerId('all');
+                            setReportSearch(g.name);
+                            setIsSearchPickerOpen(false);
+                          }}
+                          className={`w-full text-right px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-colors ${
+                            selectedGroupId === String(g.id)
+                              ? 'bg-indigo-500 text-white'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <Users className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>{g.name}</span>
+                          </span>
+                          <span className="text-[10px] opacity-75">
+                            {workers.filter(w => String(w.groupId) === String(g.id)).length} نفر
+                          </span>
+                        </button>
+                      ))}
+
+                    {/* Workers header */}
+                    <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      {language === 'fa' ? 'پرسنل' : 'Workers'}
+                    </div>
+                    {workers
+                      .filter(w => !reportSearch.trim() || w.name.toLowerCase().includes(reportSearch.toLowerCase().trim()) || (w.role && w.role.toLowerCase().includes(reportSearch.toLowerCase().trim())))
+                      .map((w) => (
+                        <button
+                          key={w.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedWorkerId(String(w.id));
+                            setSelectedGroupId('all');
+                            setReportSearch(w.name);
+                            setIsSearchPickerOpen(false);
+                          }}
+                          className={`w-full text-right px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-colors ${
+                            selectedWorkerId === String(w.id)
+                              ? 'bg-sky-500 text-white'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <User className="w-3.5 h-3.5 text-sky-400" />
+                            <span>{w.name}</span>
+                            {w.role && <span className="text-[10px] opacity-70 font-normal">({w.role})</span>}
+                          </span>
+                          {w.groupId && groupMap[w.groupId] && (
+                            <span className="text-[10px] opacity-70 bg-slate-200/60 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+                              {groupMap[w.groupId].name}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Right/End side: Time Presets Bar & Filter Drawer Toggle Button */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Presets */}
+              <div className="inline-flex items-center gap-1 bg-white/80 dark:bg-slate-900/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
                 {[
                   { id: 'thisMonth', label: language === 'fa' ? 'این ماه' : 'This Month' },
-                  { id: 'lastMonth', label: language === 'fa' ? 'ماه گذشته' : 'Last Month' },
-                  { id: 'last30Days', label: language === 'fa' ? '۳۰ روز اخیر' : 'Last 30 Days' },
+                  { id: 'lastMonth', label: language === 'fa' ? 'ماه قبل' : 'Last Month' },
+                  { id: 'last30Days', label: language === 'fa' ? '۳۰ روز' : '30 Days' },
                   { id: 'allTime', label: language === 'fa' ? 'کل دوره' : 'All Time' }
                 ].map((preset) => {
                   const isActive = activeDatePreset === preset.id;
@@ -1703,10 +1844,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       key={preset.id}
                       type="button"
                       onClick={() => applyDatePreset(preset.id)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 cursor-pointer ${
+                      className={`px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 cursor-pointer ${
                         isActive
-                          ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/20'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/40'
+                          ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/20'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
                       }`}
                     >
                       {preset.label}
@@ -1714,17 +1855,133 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   );
                 })}
               </div>
+
+              {/* Filter Collapsible Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setIsFilterDrawerOpen(prev => !prev)}
+                className={`p-2.5 rounded-2xl border transition-all duration-200 flex items-center gap-1.5 text-xs font-bold cursor-pointer ${
+                  isFilterDrawerOpen || selectedSettlementStatus !== 'all' || selectedType !== 'all' || selectedSectionId !== 'all'
+                    ? 'bg-sky-500 text-white border-sky-400 shadow-md shadow-sky-500/25'
+                    : 'bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/70 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+                title="فیلترهای پیشرفته"
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">{language === 'fa' ? 'فیلترها' : 'Filters'}</span>
+                {(selectedSettlementStatus !== 'all' || selectedType !== 'all' || selectedSectionId !== 'all') && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                )}
+                {isFilterDrawerOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+
+              {/* Reset / Clear All Filters Button */}
+              {(selectedWorkerId !== 'all' || selectedGroupId !== 'all' || selectedSettlementStatus !== 'all' || selectedType !== 'all' || selectedSectionId !== 'all' || reportSearch) && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="px-3 py-2 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  title="پاک کردن تمام فیلترها و بازگشت به آمار کل"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{language === 'fa' ? 'آمار کل' : 'Reset'}</span>
+                </button>
+              )}
             </div>
 
-            {/* Custom Date Bounds Badge */}
-            <div className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-800/60 px-3.5 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shadow-xs flex items-center gap-2">
-              <span>{dateFrom}</span>
-              <span className="text-slate-400">←</span>
-              <span>{dateTo}</span>
-            </div>
           </div>
 
-          {/* Executive Analytics Hero Hub (مرکز هوشمند بینش کارکرد و هزینه‌ها) */}
+          {/* Collapsible Filter Drawer (کشوی فیلترهای پیشرفته) */}
+          {isFilterDrawerOpen && (
+            <div className="relative overflow-hidden rounded-3xl p-4 sm:p-6 backdrop-blur-2xl bg-white/85 dark:bg-slate-900/85 border border-sky-400/30 dark:border-sky-500/30 shadow-xl shadow-slate-200/40 dark:shadow-black/20 space-y-4 no-print animate-in fade-in slide-in-from-top-3 duration-250">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-sky-500" />
+                  <span>{language === 'fa' ? 'تنظیمات و فیلترهای تکمیلی گزارش' : 'Advanced Report Filters'}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsFilterDrawerOpen(false)}
+                  className="text-xs font-bold text-sky-500 hover:text-sky-600 cursor-pointer"
+                >
+                  {language === 'fa' ? 'بستن کشو' : 'Close'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                {/* Settlement Status */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    {t('settlementWorkStatus')}
+                  </label>
+                  <select
+                    value={selectedSettlementStatus}
+                    onChange={(e) => setSelectedSettlementStatus(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
+                  >
+                    <option value="all">{t('allWorkStatus')}</option>
+                    <option value="current">{t('currentUnsettledWork')}</option>
+                    <option value="settled">{t('pastSettledWork')}</option>
+                  </select>
+                </div>
+
+                {/* Shift Type */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    {t('filterByType')}
+                  </label>
+                  <select
+                    value={selectedType}
+                    onChange={(e) => setSelectedType(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
+                  >
+                    <option value="all">{t('allTypes')}</option>
+                    <option value="full">{t('normalDays')}</option>
+                    <option value="half">{t('halfDays')}</option>
+                    <option value="hourly">{t('hourlyOnlyOption')}</option>
+                  </select>
+                </div>
+
+                {/* Project Section */}
+                {projectSections.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                      {t('section') || 'بخش پروژه'}
+                    </label>
+                    <select
+                      value={selectedSectionId}
+                      onChange={(e) => setSelectedSectionId(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
+                    >
+                      <option value="all">{language === 'fa' ? 'همه بخش‌ها' : 'All Sections'}</option>
+                      <option value="unassigned">{language === 'fa' ? 'عمومی / بدون بخش' : 'General'}</option>
+                      {projectSections.map((sec) => (
+                        <option key={sec.id} value={sec.id}>{sec.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Custom Date Range */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    {t('fromDate')}
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value);
+                      setActiveDatePreset('custom');
+                    }}
+                    className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Dynamic Adaptive Intelligence Hub (کارت بزرگ و تطبیق‌پذیر کارکرد و هزینه) */}
           <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl space-y-6">
             <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-10 right-0 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -1732,14 +1989,21 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
               {/* Financial & Attendance Pulse */}
               <div className="lg:col-span-7 space-y-4">
+                {/* Dynamic Title badge */}
                 <div className="flex items-center gap-2 text-xs font-bold text-sky-400 uppercase tracking-wider">
                   <Sparkles className="w-4 h-4 text-sky-400 animate-pulse" />
-                  <span>{language === 'fa' ? 'بیلان جامع کارکرد و هزینه‌های پروژه' : 'Executive Attendance & Financial Intelligence'}</span>
+                  <span>
+                    {selectedWorkerId !== 'all' && workerMap[selectedWorkerId]
+                      ? `👤 ${language === 'fa' ? 'کارنامه کارکرد و دستمزد:' : 'Worker Statement:'} ${workerMap[selectedWorkerId].name}`
+                      : selectedGroupId !== 'all' && groupMap[selectedGroupId]
+                      ? `👥 ${language === 'fa' ? 'بیلان تجمیعی گروه:' : 'Group Aggregate:'} ${groupMap[selectedGroupId].name}`
+                      : (language === 'fa' ? 'بیلان جامع کارکرد و هزینه‌های کل پروژه' : 'Project Executive Intelligence')}
+                  </span>
                 </div>
 
                 <div className="space-y-1">
                   <span className="text-xs text-slate-400 font-medium">
-                    {language === 'fa' ? 'کل دستمزد ناخالص محاسبه‌شده در بازه انتخابی' : 'Total Gross Labor Cost'}
+                    {language === 'fa' ? 'مجموع دستمزد ناخالص محاسبه‌شده در این بازه' : 'Calculated Gross Labor Cost'}
                   </span>
                   <div className="flex items-baseline gap-3 flex-wrap">
                     <span className="text-3xl sm:text-4xl font-black text-white tracking-tight font-mono">
@@ -1769,6 +2033,34 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       {formatAmount(aggregatedStats.basePay, currency)}
                     </span>
                   </div>
+                </div>
+
+                {/* Direct Action Buttons on Hero Card */}
+                <div className="flex items-center gap-2.5 pt-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setShowDetailsInHero(prev => !prev)}
+                    className={`px-4 py-2.5 rounded-2xl font-bold text-xs shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95 ${
+                      showDetailsInHero
+                        ? 'bg-white text-slate-900 shadow-white/20'
+                        : 'bg-sky-500 hover:bg-sky-400 text-white shadow-sky-500/30'
+                    }`}
+                  >
+                    <TableProperties className="w-4 h-4" />
+                    <span>{showDetailsInHero ? (language === 'fa' ? 'بستن ریز کارکرد' : 'Hide Detailed Logs') : (language === 'fa' ? 'نمایش ریز کارکرد و روزها' : 'Show Detailed Logs')}</span>
+                    {showDetailsInHero ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+
+                  {selectedWorkerId !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => openWorkerProfile(selectedWorkerId)}
+                      className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs backdrop-blur-md border border-white/10 transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <User className="w-4 h-4 text-sky-400" />
+                      <span>{language === 'fa' ? 'مشاهده پرونده کامل مالی' : 'View Full Profile'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1833,569 +2125,49 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             </div>
           </div>
 
-          {/* Controls & Smart Filter Dock (Apple Liquid Glass Dock) */}
-          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-5 no-print transition-all duration-300">
-            {/* Format Toggle & Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-400/30 flex items-center justify-center text-sky-500 dark:text-sky-400 shadow-sm">
-                  <Filter className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>{language === 'fa' ? 'فیلترهای هدفمند گزارش' : 'Targeted Report Filters'}</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {language === 'fa' ? 'تفکیک بر اساس پرسنل، گروه‌های کاری، وضعیت تسویه و بخش‌های اجرایی' : 'Filter by worker, group, settlement and sections'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Segmented Control [APP_THEME_BUTTON] - ۳ حالت: کارنامه‌ای پرسنل، تفکیک گروه‌ها، ریز کارکرد */}
-              <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-                {/* Summary (Workers) Report */}
-                <button
-                  type="button"
-                  onClick={() => setReportFormat('summary')}
-                  title={language === 'fa' ? 'کارنامه‌ای پرسنل' : 'Worker Summaries'}
-                  aria-label={t('summaryReport')}
-                  className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-                    reportFormat === 'summary'
-                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
-                  }`}
-                >
-                  <PieChart className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${
-                    reportFormat === 'summary' ? 'scale-105' : 'group-hover:scale-110'
-                  }`} />
-                  {reportFormat === 'summary' && (
-                    <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200">
-                      {language === 'fa' ? 'پرسنل' : 'Workers'}
-                    </span>
-                  )}
-                </button>
-
-                {/* Groups Breakdown Report */}
-                <button
-                  type="button"
-                  onClick={() => setReportFormat('groups')}
-                  title={language === 'fa' ? 'تفکیک بر اساس گروه‌ها' : 'Group Summaries'}
-                  aria-label={language === 'fa' ? 'تفکیک گروه‌ها' : 'Groups'}
-                  className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-                    reportFormat === 'groups'
-                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
-                  }`}
-                >
-                  <Users className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${
-                    reportFormat === 'groups' ? 'scale-105' : 'group-hover:scale-110'
-                  }`} />
-                  {reportFormat === 'groups' && (
-                    <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200">
-                      {language === 'fa' ? 'گروه‌ها' : 'Groups'}
-                    </span>
-                  )}
-                </button>
-
-                {/* Detailed Report */}
-                <button
-                  type="button"
-                  onClick={() => setReportFormat('detailed')}
-                  title={t('detailedReport')}
-                  aria-label={t('detailedReport')}
-                  className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-                    reportFormat === 'detailed'
-                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
-                  }`}
-                >
-                  <TableProperties className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${
-                    reportFormat === 'detailed' ? 'scale-105' : 'group-hover:scale-110'
-                  }`} />
-                  {reportFormat === 'detailed' && (
-                    <span className="whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200">
-                      {t('detailedReport')}
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Interactive Group Chips & Live Search Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-              {/* Group Chips Scroller */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 sm:pb-0 scrollbar-none text-xs">
-                <span className="text-[11px] font-bold text-slate-400 shrink-0 ml-1">
-                  {language === 'fa' ? 'گروه سریع:' : 'Quick Group:'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedGroupId('all');
-                    setSelectedWorkerId('all');
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer ${
-                    selectedGroupId === 'all'
-                      ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/25'
-                      : 'bg-slate-100/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {language === 'fa' ? 'همه' : 'All'}
-                </button>
-                {groupOptions.map((g) => {
-                  const isSel = selectedGroupId === String(g.id);
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedGroupId(isSel ? 'all' : String(g.id));
-                        setSelectedWorkerId('all');
-                      }}
-                      className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                        isSel
-                          ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/25'
-                          : 'bg-slate-100/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      <Users className="w-3 h-3" />
-                      <span>{g.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Instant Live Search Input */}
-              <div className="relative min-w-[14rem]">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={reportSearch}
-                  onChange={(e) => setReportSearch(e.target.value)}
-                  placeholder={language === 'fa' ? 'جستجوی نام پرسنل، نقش یا گروه...' : 'Search worker, role or group...'}
-                  className="w-full pr-8 pl-8 py-1.5 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
-                />
-                {reportSearch && (
+          {/* SECTION: In-Line Detailed Audit Ledger (باز شدن با دکمه داخل کارت یا خودکار در انتخاب فرد) */}
+          {(showDetailsInHero || selectedWorkerId !== 'all') ? (
+            <div className="space-y-3 animate-in fade-in slide-in-from-top-3 duration-250">
+              <div className="flex items-center justify-between px-1">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <TableProperties className="w-4 h-4 text-sky-500" />
+                  <span>
+                    {selectedWorkerId !== 'all' && workerMap[selectedWorkerId]
+                      ? `${language === 'fa' ? 'ریز روزهای کارکرد:' : 'Logs for:'} ${workerMap[selectedWorkerId].name}`
+                      : (language === 'fa' ? 'ریز اقلام و روزهای ثبت‌شده' : 'Detailed Audit Ledger')}
+                  </span>
+                </h4>
+                {selectedWorkerId !== 'all' && (
                   <button
                     type="button"
-                    onClick={() => setReportSearch('')}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    onClick={clearAllFilters}
+                    className="text-xs font-bold text-sky-500 hover:text-sky-600 cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    {language === 'fa' ? 'بازگشت به همه پرسنل' : 'Show All Workers'}
                   </button>
                 )}
               </div>
-            </div>
 
-            {/* Filter controls Grid */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${
-              projectSections.length > 0 ? 'xl:grid-cols-7' : 'xl:grid-cols-6'
-            } gap-3`}>
-              {/* Worker */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-sky-500" />
-                  <span>{t('filterByWorker')}</span>
-                </label>
-                <select
-                  value={selectedWorkerId}
-                  onChange={(e) => setSelectedWorkerId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
-                >
-                  <option value="all">{t('allWorkers')}</option>
-                  {workersForSelect.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.role})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Group Filter */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>{t('filterByGroup')}</span>
-                </label>
-                <select
-                  value={selectedGroupId}
-                  onChange={(e) => {
-                    setSelectedGroupId(e.target.value);
-                    setSelectedWorkerId('all');
-                  }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
-                >
-                  <option value="all">{t('allGroups')}</option>
-                  <option value="unassigned">{t('independentWorkers')}</option>
-                  {groupOptions.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Settlement Status */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{t('settlementWorkStatus')}</span>
-                </label>
-                <select
-                  value={selectedSettlementStatus}
-                  onChange={(e) => setSelectedSettlementStatus(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
-                >
-                  <option value="all">{t('allWorkStatus')}</option>
-                  <option value="current">{t('currentUnsettledWork')}</option>
-                  <option value="settled">{t('pastSettledWork')}</option>
-                </select>
-              </div>
-
-              {/* Type */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-500" />
-                  <span>{t('filterByType')}</span>
-                </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
-                >
-                  <option value="all">{t('allTypes')}</option>
-                  <option value="full">{t('normalDays')}</option>
-                  <option value="half">{t('halfDays')}</option>
-                  <option value="hourly">{t('hourlyOnlyOption')}</option>
-                </select>
-              </div>
-
-              {/* Project Section */}
-              {projectSections.length > 0 && (
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-sky-500" />
-                    <span>{t('section') || 'بخش پروژه'}</span>
-                  </label>
-                  <select
-                    value={selectedSectionId}
-                    onChange={(e) => setSelectedSectionId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
-                  >
-                    <option value="all">{language === 'fa' ? 'همه بخش‌ها' : 'All Sections'}</option>
-                    <option value="unassigned">{language === 'fa' ? 'عمومی / بدون بخش' : 'General / Unassigned'}</option>
-                    {projectSections.map((sec) => (
-                      <option key={sec.id} value={sec.id}>
-                        {sec.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* From Date */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{t('fromDate')}</span>
-                </label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => {
-                    setDateFrom(e.target.value);
-                    setActiveDatePreset('custom');
-                  }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
-                />
-              </div>
-
-              {/* To Date */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{t('toDate')}</span>
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => {
-                    setDateTo(e.target.value);
-                    setActiveDatePreset('custom');
-                  }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Project Sections Cost Allocation Breakdown (Liquid Glass) */}
-          {sectionBreakdown.length > 0 && (
-            <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-4 no-print transition-all duration-300">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
-                  <Layers className="w-4.5 h-4.5" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                    {language === 'fa' ? 'تفکیک هزینه‌ها بر اساس بخش‌های پروژه' : 'Cost Allocation by Project Section'}
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    {language === 'fa' ? 'سهم هر بخش کاری از کل کارکرد و دستمزد این بازه زمانی' : 'Breakdown of hours, days and labor cost per section'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {sectionBreakdown.map((sec) => {
-                  const percent = aggregatedStats.totalPay > 0 
-                    ? Math.round((sec.totalCost / aggregatedStats.totalPay) * 100) 
-                    : 0;
-                  return (
-                    <div 
-                      key={sec.id}
-                      className="p-4 bg-white/60 dark:bg-slate-800/50 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-2.5 hover:border-sky-500/40 hover:shadow-md transition-all duration-300"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-900 dark:text-white">{sec.name}</span>
-                        <span className="text-xs font-black text-sky-600 dark:text-sky-400 font-mono">{percent}%</span>
-                      </div>
-
-                      {/* Progress bar */}
-                      <div className="w-full h-2 bg-slate-100 dark:bg-slate-700/60 rounded-full overflow-hidden p-0.5">
-                        <div 
-                          className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 rounded-full transition-all duration-500"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                        <span className="font-medium">{sec.days} {t('normalDays')} {sec.otHours > 0 ? `+ ${formatHoursAndMinutes(sec.otHours, language)}` : ''}</span>
-                        <span className="font-black text-slate-800 dark:text-slate-200 font-mono">
-                          {formatCurrency(sec.totalCost, currency, language)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* MAIN REPORT PRESENTATION: SMART CARDS (SUMMARY) OR AUDIT LEDGER (DETAILED) */}
-          <div className="space-y-4">
-            
-            {/* Print Header */}
-            <div className="hidden print:block p-6 border-b border-slate-200 mb-4 text-center">
-              <h1 className="text-2xl font-bold text-slate-900">{t('appName')}</h1>
-              <p className="text-sm text-slate-600 mt-1">{t('reportHeaderTitle')}</p>
-              <div className="flex justify-between items-center text-xs text-slate-500 mt-4 px-4">
-                <span>{t('fromDate')}: {dateFrom} | {t('toDate')}: {dateTo}</span>
-                <span>{reportFormat === 'summary' ? t('summaryReport') : t('detailedReport')}</span>
-                <span>{t('reportGeneratedAt')}: {getTodayDateString()}</span>
-              </div>
-            </div>
-
-            {/* Sub-view A: Smart Worker Cards (گزارش مجموع کارنامه‌ای پرسنل) */}
-            {reportFormat === 'summary' && (
-              displayedWorkerSummaries.length === 0 ? (
-                <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                    <PieChart className="w-6 h-6" />
-                  </div>
-                  <p className="text-xs font-semibold">{t('noDataForMonth')}</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {displayedWorkerSummaries.map((row) => (
-                    <div 
-                      key={row.workerId}
-                      className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400/50 hover:shadow-xl transition-all duration-300 flex flex-col justify-between space-y-4"
-                    >
-                      {/* Worker Header */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-400/30 flex items-center justify-center font-black text-sky-600 dark:text-sky-400 text-sm shadow-xs">
-                            {row.worker.name?.charAt(0) || 'W'}
-                          </div>
-                          <div>
-                            <h4 
-                              onClick={() => openWorkerProfile(row.workerId)}
-                              className="font-black text-slate-900 dark:text-white text-sm hover:text-sky-500 cursor-pointer transition-colors"
-                              title="مشاهده کارنامه پرسنل"
-                            >
-                              {row.worker.name}
-                            </h4>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                              {row.worker.role || 'پرسنل کارگاه'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {row.worker.groupId && groupMap[row.worker.groupId] && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
-                            <Users className="w-2.5 h-2.5" />
-                            <span>{groupMap[row.worker.groupId].name}</span>
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Shifts Grid Capsule */}
-                      <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 text-center text-xs">
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-bold block">{t('normalDays')}</span>
-                          <span className="font-black text-slate-800 dark:text-slate-200">{row.fullDaysCount}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-bold block">{t('halfDays')}</span>
-                          <span className="font-black text-slate-800 dark:text-slate-200">{row.halfDaysCount}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-amber-500 font-bold block">{t('overtimeHours')}</span>
-                          <span className="font-black text-amber-600 dark:text-amber-400 font-mono">
-                            {formatHoursAndMinutes(row.overtimeHours, language)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Footer & Total Pay */}
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] font-bold text-slate-400 block">{t('totalPayLabel')}</span>
-                          <span className="text-base font-black text-sky-600 dark:text-sky-400 font-mono">
-                            {formatCurrency(row.totalPay, currency, language)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedWorkerId(String(row.workerId));
-                              setReportFormat('detailed');
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-500 hover:text-white dark:hover:bg-sky-500 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>{language === 'fa' ? 'ریز روزها' : 'Logs'}</span>
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-
-            {/* Sub-view B: Group Summary Cards (تفکیک آماری گروه‌های کاری) */}
-            {reportFormat === 'groups' && (
-              groupSummaries.length === 0 ? (
-                <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                    <Users className="w-6 h-6" />
-                  </div>
-                  <p className="text-xs font-semibold">{language === 'fa' ? 'هیچ گروه فعالی در این بازه یافت نشد' : 'No active groups found'}</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupSummaries.map((grp) => (
-                    <div 
-                      key={grp.groupId}
-                      className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-indigo-400/50 hover:shadow-xl transition-all duration-300 flex flex-col justify-between space-y-4"
-                    >
-                      {/* Group Header */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-sky-500/20 border border-indigo-400/30 flex items-center justify-center font-black text-indigo-600 dark:text-indigo-400 text-sm shadow-xs">
-                            <Users className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h4 className="font-black text-slate-900 dark:text-white text-sm">
-                              {grp.groupName}
-                            </h4>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                              {grp.workersCount} {language === 'fa' ? 'نفر پرسنل فعال' : 'active workers'} • {grp.entriesCount} {language === 'fa' ? 'ثبت' : 'entries'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
-                          {grp.workersCount} {t('workers')}
-                        </span>
-                      </div>
-
-                      {/* Shifts Grid Capsule */}
-                      <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 text-center text-xs">
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-bold block">{t('normalDays')}</span>
-                          <span className="font-black text-slate-800 dark:text-slate-200">{grp.fullDays}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-bold block">{t('halfDays')}</span>
-                          <span className="font-black text-slate-800 dark:text-slate-200">{grp.halfDays}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-amber-500 font-bold block">{t('overtimeHours')}</span>
-                          <span className="font-black text-amber-600 dark:text-amber-400 font-mono">
-                            {formatHoursAndMinutes(grp.totalOt, language)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Footer & Total Pay */}
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] font-bold text-slate-400 block">{language === 'fa' ? 'مجموع دستمزد گروه' : 'Total Group Pay'}</span>
-                          <span className="text-base font-black text-indigo-600 dark:text-indigo-400 font-mono">
-                            {formatCurrency(grp.totalPay, currency, language)}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedGroupId(grp.groupId);
-                            setSelectedWorkerId('all');
-                            setReportFormat('summary');
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>{language === 'fa' ? 'پرسنل گروه' : 'Members'}</span>
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-
-            {/* Sub-view C: Detailed Audit Ledger Table (گزارش ریز کارکرد) */}
-            {reportFormat === 'detailed' && (
-              /* Sub-view B: Detailed Audit Ledger Table (گزارش با جزییات مدرن) */
-              filteredLogs.length === 0 ? (
-                <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                    <TableProperties className="w-6 h-6" />
-                  </div>
-                  <p className="text-xs font-semibold">{t('noDataForMonth')}</p>
+              {filteredLogs.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10 text-xs">
+                  {t('noDataForMonth')}
                 </div>
               ) : (
                 <div className="relative overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20 overflow-x-auto">
                   <table className="w-full text-right text-sm">
                     <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-xs">
                       <tr>
-                        <th className="px-4 py-4 text-start">{t('dateColumn')}</th>
-                        <th className="px-4 py-4 text-start">{t('workerName')}</th>
-                        <th className="px-3 py-4 text-center">{t('typeColumn')}</th>
-                        <th className="px-3 py-4 text-center">{t('overtimeHours')}</th>
+                        <th className="px-4 py-3.5 text-start">{t('dateColumn')}</th>
+                        <th className="px-4 py-3.5 text-start">{t('workerName')}</th>
+                        <th className="px-3 py-3.5 text-center">{t('typeColumn')}</th>
+                        <th className="px-3 py-3.5 text-center">{t('overtimeHours')}</th>
                         {projectSections.length > 0 && (
-                          <th className="px-3 py-4 text-center">{t('section') || 'بخش'}</th>
+                          <th className="px-3 py-3.5 text-center">{t('section') || 'بخش'}</th>
                         )}
-                        <th className="px-3 py-4 text-center">{t('settlementStatusColumn') || 'وضعیت تسویه'}</th>
-                        <th className="px-4 py-4 text-start">{t('notesColumn')}</th>
-                        <th className="px-4 py-4 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
-                        <th className="px-4 py-4 text-center no-print">{t('actions')}</th>
+                        <th className="px-3 py-3.5 text-center">{t('settlementStatusColumn') || 'وضعیت تسویه'}</th>
+                        <th className="px-4 py-3.5 text-start">{t('notesColumn')}</th>
+                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
+                        <th className="px-4 py-3.5 text-center no-print">{t('actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
@@ -2501,13 +2273,98 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       })}
                     </tbody>
                   </table>
-                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
-                    <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
-                  </div>
                 </div>
-              )
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            /* SECTION: Clean Overview Cards of Workers & Groups (هنگامی که شخص خاصی فیلتر نشده است) */
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                  {language === 'fa' ? 'کارنامه خلاصه پرسنل در این دوره (جهت فیلتر لمس کنید):' : 'Worker Summaries (tap to inspect):'}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  {displayedWorkerSummaries.length} {t('workers')}
+                </span>
+              </div>
+
+              {displayedWorkerSummaries.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10 text-xs">
+                  {t('noDataForMonth')}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {displayedWorkerSummaries.map((row) => (
+                    <div 
+                      key={row.workerId}
+                      onClick={() => {
+                        setSelectedWorkerId(String(row.workerId));
+                        setSelectedGroupId('all');
+                      }}
+                      className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 hover:shadow-xl hover:scale-[1.01] transition-all duration-200 flex flex-col justify-between space-y-4 cursor-pointer"
+                    >
+                      {/* Worker Header */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-400/30 flex items-center justify-center font-black text-sky-600 dark:text-sky-400 text-sm shadow-xs">
+                            {row.worker.name?.charAt(0) || 'W'}
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 dark:text-white text-sm group-hover:text-sky-500 transition-colors">
+                              {row.worker.name}
+                            </h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                              {row.worker.role || 'پرسنل کارگاه'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {row.worker.groupId && groupMap[row.worker.groupId] && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                            <Users className="w-2.5 h-2.5" />
+                            <span>{groupMap[row.worker.groupId].name}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Shifts Grid Capsule */}
+                      <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 text-center text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold block">{t('normalDays')}</span>
+                          <span className="font-black text-slate-800 dark:text-slate-200">{row.fullDaysCount}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold block">{t('halfDays')}</span>
+                          <span className="font-black text-slate-800 dark:text-slate-200">{row.halfDaysCount}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-amber-500 font-bold block">{t('overtimeHours')}</span>
+                          <span className="font-black text-amber-600 dark:text-amber-400 font-mono">
+                            {formatHoursAndMinutes(row.overtimeHours, language)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Footer & Total Pay */}
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 block">{t('totalPayLabel')}</span>
+                          <span className="text-base font-black text-sky-600 dark:text-sky-400 font-mono">
+                            {formatCurrency(row.totalPay, currency, language)}
+                          </span>
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-xs flex items-center gap-1 group-hover:bg-sky-500 group-hover:text-white transition-all">
+                          <span>{language === 'fa' ? 'انتخاب و ریز روزها' : 'View Logs'}</span>
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       )}
