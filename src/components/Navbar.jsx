@@ -201,19 +201,15 @@ export function Navbar({
                   <span className="absolute -bottom-0.5 -end-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-2xs" />
                 </button>
 
-                {/* Sleek Minimal Settings Dropdown */}
+                {/* Sleek Liquid Glass Settings Dropdown */}
                 <SettingsDropdown
                   isOpen={isSettingsDropdownOpen}
                   onClose={() => setIsSettingsDropdownOpen(false)}
                   theme={theme}
                   toggleTheme={toggleTheme}
                   onOpenGlobalSettings={openGlobalSettings}
-                  onOpenBackupModal={onOpenBackupModal}
-                  onOpenChangePasswordModal={onOpenChangePasswordModal}
                   onOpenAboutModal={onOpenAboutModal}
-                  onOpenProjectSettings={openProjectSettings}
                   onOpenInstallModal={onOpenInstallModal}
-                  
                 />
               </div>
             </div>
