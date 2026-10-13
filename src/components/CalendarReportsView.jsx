@@ -1205,119 +1205,227 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       )}
 
       {/* ======================================================== */}
-      {/* VIEW 2: MONTHLY CALENDAR GRID                            */}
+      {/* VIEW 2: MONTHLY CALENDAR GRID (LIQUID GLASS CANVAS)       */}
       {/* ======================================================== */}
       {viewMode === 'calendar' && (
-        <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 no-print transition-all duration-300">
-          
-          {/* Calendar Month Selector Header */}
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800/80">
-            <div className="flex items-center gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner">
-              <button
-                onClick={() => handleMonthShift(direction === 'rtl' ? 1 : -1)}
-                className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
-              >
-                {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-              </button>
-              <div className="relative flex items-center justify-center cursor-pointer min-w-[7.5rem]">
-                <div className="pointer-events-none text-sm font-bold text-slate-800 dark:text-white px-2 py-1 text-center w-full flex items-center justify-center gap-1.5">
-                  <CalendarIcon className="w-4 h-4 text-sky-500" />
-                  <span>{formatMonthOnly(calendarMonth, language)}</span>
-                </div>
-                <input
-                  type="month"
-                  value={calendarMonth}
-                  onChange={(e) => setCalendarMonth(e.target.value)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </div>
-              <button
-                onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
-                className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
-              >
-                {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              </button>
-            </div>
-
-            <div className="text-xs font-bold text-slate-500 dark:text-slate-400 px-3 py-1.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50">
-              {allLogs.filter(l => l.date.startsWith(calendarMonth)).length} {t('totalEntries')}
-            </div>
-          </div>
-
-          {/* Weekday Names Header */}
-          <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">
-            {weekDayLabels.map((dayName, idx) => (
-              <div key={idx} className="py-1">
-                {dayName}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar Day Cells Grid */}
-          <div className="grid grid-cols-7 gap-1 sm:gap-2">
-            {calendarData.map((dayItem, index) => {
-              if (!dayItem) {
-                return (
-                  <div 
-                    key={`blank_${index}`} 
-                    className="min-h-[85px] sm:min-h-[110px] bg-slate-50/40 dark:bg-slate-800/20 rounded-xl opacity-40" 
-                  />
-                );
-              }
-
-              const hasLogs = dayItem.totalWorkers > 0;
-              const isFriday = new Date(dayItem.dateStr).getDay() === 5;
-
-              return (
-                <div
-                  key={dayItem.dateStr}
-                  onClick={() => {
-                    setInspectedDateStr(dayItem.dateStr);
-                  }}
-                  className={`min-h-[85px] sm:min-h-[110px] p-2 rounded-xl border flex flex-col justify-between transition-all cursor-pointer ${
-                    hasLogs
-                      ? 'bg-white dark:bg-slate-800/80 border-sky-200 dark:border-sky-900/60 shadow-sm hover:border-sky-500 hover:scale-[1.02]'
-                      : isFriday
-                      ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-400'
-                      : 'bg-slate-50/60 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800/60 hover:border-slate-300'
-                  }`}
+        <div className="space-y-5 no-print">
+          {/* Calendar Container */}
+          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-7 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 transition-all duration-300">
+            
+            {/* Calendar Month Selector Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 mb-5 border-b border-slate-100 dark:border-slate-800/80 gap-4">
+              <div className="flex items-center gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner">
+                <button
+                  onClick={() => handleMonthShift(direction === 'rtl' ? 1 : -1)}
+                  className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
+                  title="ماه قبل"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs sm:text-sm font-bold ${
-                      hasLogs ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500'
-                    }`}>
-                      {dayItem.dayNumber}
-                    </span>
-                    {hasLogs && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                </button>
+                <div className="relative flex items-center justify-center cursor-pointer min-w-[7.5rem]">
+                  <div className="pointer-events-none text-sm font-bold text-slate-800 dark:text-white px-3 py-1 text-center w-full flex items-center justify-center gap-1.5">
+                    <CalendarIcon className="w-4 h-4 text-sky-500" />
+                    <span>{formatMonthOnly(calendarMonth, language)}</span>
+                  </div>
+                  <input
+                    type="month"
+                    value={calendarMonth}
+                    onChange={(e) => setCalendarMonth(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                <button
+                  onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
+                  className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
+                  title="ماه بعد"
+                >
+                  {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-xs font-bold text-slate-500 dark:text-slate-400 px-3 py-2 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50">
+                  <span>{allLogs.filter(l => l.date.startsWith(calendarMonth)).length} {t('totalEntries')}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpenLoggingModal && onOpenLoggingModal(getTodayDateString())}
+                  className="px-4 py-2 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+                >
+                  <CalendarPlus className="w-4 h-4" />
+                  <span>{t('logDailyAttendance')}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Weekday Names Header */}
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 mb-3 text-center text-xs font-black text-slate-400 uppercase tracking-wider">
+              {weekDayLabels.map((dayName, idx) => (
+                <div key={idx} className="py-1.5 rounded-xl bg-slate-50/50 dark:bg-slate-800/30">
+                  {dayName}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar Day Cells Grid */}
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5">
+              {calendarData.map((dayItem, index) => {
+                if (!dayItem) {
+                  return (
+                    <div 
+                      key={`blank_${index}`} 
+                      className="min-h-[90px] sm:min-h-[120px] bg-slate-50/20 dark:bg-slate-800/10 rounded-2xl border border-dashed border-slate-200/30 dark:border-slate-800/30 opacity-30" 
+                    />
+                  );
+                }
+
+                const hasLogs = dayItem.totalWorkers > 0;
+                const isFriday = new Date(dayItem.dateStr).getDay() === 5;
+                const isInspected = inspectedDateStr === dayItem.dateStr;
+
+                return (
+                  <div
+                    key={dayItem.dateStr}
+                    onClick={() => setInspectedDateStr(isInspected ? null : dayItem.dateStr)}
+                    className={`min-h-[90px] sm:min-h-[120px] p-2 sm:p-2.5 rounded-2xl border flex flex-col justify-between transition-all duration-300 cursor-pointer select-none ${
+                      isInspected
+                        ? 'ring-2 ring-sky-500 bg-sky-50/80 dark:bg-sky-950/40 border-sky-400 shadow-lg scale-[1.02]'
+                        : hasLogs
+                        ? 'bg-white/80 dark:bg-slate-800/70 border-white/80 dark:border-white/10 shadow-sm hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-md hover:scale-[1.02]'
+                        : isFriday
+                        ? 'bg-amber-500/[0.04] dark:bg-amber-500/[0.04] border-amber-500/20 text-slate-400'
+                        : 'bg-white/40 dark:bg-slate-800/20 border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs sm:text-sm font-black ${
+                        isInspected
+                          ? 'text-sky-600 dark:text-sky-300'
+                          : hasLogs
+                          ? 'text-slate-900 dark:text-white'
+                          : 'text-slate-500'
+                      }`}>
+                        {dayItem.dayNumber}
+                      </span>
+                      {hasLogs && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-xs shadow-emerald-500/50" />
+                      )}
+                    </div>
+
+                    {hasLogs ? (
+                      <div className="mt-1 space-y-1 text-[11px]">
+                        <div className="flex items-center gap-1 text-slate-700 dark:text-slate-200 font-bold">
+                          <Users className="w-3 h-3 text-sky-500" />
+                          <span>{dayItem.totalWorkers}</span>
+                        </div>
+                        {dayItem.totalOvertime > 0 && (
+                          <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                            <Clock className="w-3 h-3" />
+                            <span>+{formatHoursAndMinutes(dayItem.totalOvertime, language)}</span>
+                          </div>
+                        )}
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black truncate font-mono">
+                          {formatCurrency(dayItem.totalPay, currency, language)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-300 dark:text-slate-600 text-center py-2">
+                        -
+                      </div>
                     )}
                   </div>
+                );
+              })}
+            </div>
 
-                  {hasLogs ? (
-                    <div className="mt-1 space-y-1 text-[11px]">
-                      <div className="flex items-center gap-1 text-slate-700 dark:text-slate-200 font-semibold">
-                        <Users className="w-3 h-3 text-sky-500" />
-                        <span>{dayItem.totalWorkers}</span>
-                      </div>
-                      {dayItem.totalOvertime > 0 && (
-                        <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                          <Clock className="w-3 h-3" />
-                          <span>+{formatHoursAndMinutes(dayItem.totalOvertime, language)}</span>
-                        </div>
-                      )}
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold truncate">
-                        {formatCurrency(dayItem.totalPay, currency, language)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-slate-300 dark:text-slate-600 text-center py-2">
-                      -
-                    </div>
-                  )}
-                </div>
-              );
-            })}
           </div>
+
+          {/* Interactive Day Inspector Capsule (باز شدن مشخصات روز انتخابی) */}
+          {inspectedDateStr && (
+            <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 border border-sky-400/30 dark:border-sky-500/30 shadow-xl shadow-sky-500/10 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
+                    <CalendarCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>{formatFullDateWithWeekday(inspectedDateStr, language)}</span>
+                      <span className="font-mono text-xs text-slate-400">({inspectedDateStr})</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {inspectedDateLogs.length} {t('workers')} • {formatCurrency(inspectedTotalPay, currency, language)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onOpenLoggingModal && onOpenLoggingModal(inspectedDateStr)}
+                    className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>{t('quickAddLogThisDate')}</span>
+                  </button>
+                  <button
+                    onClick={() => setInspectedDateStr(null)}
+                    className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Day logs list */}
+              {inspectedDateLogs.length === 0 ? (
+                <div className="py-6 text-center text-xs text-slate-400">
+                  {t('noLogsThisDay')}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2.5">
+                  {inspectedDateLogs.map((log) => {
+                    const worker = workerMap[log.workerId] || { name: 'Unknown', role: '' };
+                    return (
+                      <div
+                        key={log.id}
+                        className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl text-xs font-medium bg-white/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-xs"
+                      >
+                        <span 
+                          onClick={() => openWorkerProfile(log.workerId)}
+                          className="font-bold text-slate-900 dark:text-white cursor-pointer hover:text-sky-500 transition-colors"
+                        >
+                          {worker.name}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                          log.type === 'hourly'
+                            ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300'
+                            : log.type === 'half'
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                            : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                        }`}>
+                          {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDays') : t('normalDays')}
+                        </span>
+                        {log.overtimeHours > 0 && (
+                          <span className="text-[10px] text-amber-600 font-bold">
+                            +{formatHoursAndMinutes(log.overtimeHours, language)}
+                          </span>
+                        )}
+                        <span className="font-mono font-bold text-slate-700 dark:text-slate-200 text-[11px]">
+                          {formatAmount(log.totalDayPay, currency)}
+                        </span>
+                        <button
+                          onClick={() => setEditingLog(log)}
+                          className="p-1 text-slate-400 hover:text-sky-600 transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       )}
@@ -1329,74 +1437,89 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
         <div className="space-y-6">
           
           {/* Controls & Filters Bar (Liquid Glass) */}
-          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-4 no-print transition-all duration-300">
-            {/* Format Toggle: Summary vs Detailed */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800/80">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('reports')}:</span>
-                <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-                  {/* Summary Report (گزارش مجموع) */}
-                  <button
-                    type="button"
-                    onClick={() => setReportFormat('summary')}
-                    title={t('summaryReport')}
-                    aria-label={t('summaryReport')}
-                    className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-                      reportFormat === 'summary'
-                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
-                    }`}
-                  >
-                    <PieChart className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${
-                      reportFormat === 'summary' ? 'scale-105' : 'group-hover:scale-110'
-                    }`} />
-                    {reportFormat === 'summary' && (
-                      <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200">
-                        {t('summaryReport')}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Detailed Report (گزارش با جزییات) */}
-                  <button
-                    type="button"
-                    onClick={() => setReportFormat('detailed')}
-                    title={t('detailedReport')}
-                    aria-label={t('detailedReport')}
-                    className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-                      reportFormat === 'detailed'
-                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
-                    }`}
-                  >
-                    <TableProperties className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${
-                      reportFormat === 'detailed' ? 'scale-105' : 'group-hover:scale-110'
-                    }`} />
-                    {reportFormat === 'detailed' && (
-                      <span className="whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200">
-                        {t('detailedReport')}
-                      </span>
-                    )}
-                  </button>
+          {/* Controls & Filters Bar (Apple Liquid Glass Dock) */}
+          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-5 no-print transition-all duration-300">
+            {/* Format Toggle & Header Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-400/30 flex items-center justify-center text-sky-500 dark:text-sky-400 shadow-sm">
+                  <Filter className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>{t('reports')}</span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                      {filteredLogs.length} {t('totalEntries')}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {language === 'fa' ? 'فیلتر هوشمند کارکرد و استخراج گزارشات مالی' : 'Smart attendance filtering & financial reports'}
+                  </p>
                 </div>
               </div>
 
-              <div className="text-xs text-slate-400">
-                {filteredLogs.length} {t('totalEntries')}
+              {/* Segmented Control [APP_THEME_BUTTON] */}
+              <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+                {/* Summary Report */}
+                <button
+                  type="button"
+                  onClick={() => setReportFormat('summary')}
+                  title={t('summaryReport')}
+                  aria-label={t('summaryReport')}
+                  className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
+                    reportFormat === 'summary'
+                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
+                  }`}
+                >
+                  <PieChart className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${
+                    reportFormat === 'summary' ? 'scale-105' : 'group-hover:scale-110'
+                  }`} />
+                  {reportFormat === 'summary' && (
+                    <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200">
+                      {t('summaryReport')}
+                    </span>
+                  )}
+                </button>
+
+                {/* Detailed Report */}
+                <button
+                  type="button"
+                  onClick={() => setReportFormat('detailed')}
+                  title={t('detailedReport')}
+                  aria-label={t('detailedReport')}
+                  className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
+                    reportFormat === 'detailed'
+                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
+                  }`}
+                >
+                  <TableProperties className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${
+                    reportFormat === 'detailed' ? 'scale-105' : 'group-hover:scale-110'
+                  }`} />
+                  {reportFormat === 'detailed' && (
+                    <span className="whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-200">
+                      {t('detailedReport')}
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
 
-            {/* Filter controls */}
+            {/* Filter controls Grid */}
             <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${
               projectSections.length > 0 ? 'xl:grid-cols-7' : 'xl:grid-cols-6'
             } gap-3`}>
               {/* Worker */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">{t('filterByWorker')}</label>
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-sky-500" />
+                  <span>{t('filterByWorker')}</span>
+                </label>
                 <select
                   value={selectedWorkerId}
                   onChange={(e) => setSelectedWorkerId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
                 >
                   <option value="all">{t('allWorkers')}</option>
                   {workersForSelect.map((w) => (
@@ -1407,10 +1530,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 </select>
               </div>
 
-              {/* Group Filter (فیلد ۱: انتخاب گروه) */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
-                  <Users className="w-3 h-3 text-sky-500" />
+              {/* Group Filter */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-indigo-500" />
                   <span>{t('filterByGroup')}</span>
                 </label>
                 <select
@@ -1419,7 +1542,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     setSelectedGroupId(e.target.value);
                     setSelectedWorkerId('all');
                   }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
                 >
                   <option value="all">{t('allGroups')}</option>
                   <option value="unassigned">{t('independentWorkers')}</option>
@@ -1431,16 +1554,16 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 </select>
               </div>
 
-              {/* Work & Settlement Status (فیلد ۲: انتخاب بین کارکرد پیشین و تسویه شده / کارکرد جاری) */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-sky-500" />
+              {/* Settlement Status */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-emerald-500" />
                   <span>{t('settlementWorkStatus')}</span>
                 </label>
                 <select
                   value={selectedSettlementStatus}
                   onChange={(e) => setSelectedSettlementStatus(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
                 >
                   <option value="all">{t('allWorkStatus')}</option>
                   <option value="current">{t('currentUnsettledWork')}</option>
@@ -1449,12 +1572,15 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               </div>
 
               {/* Type */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">{t('filterByType')}</label>
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-500" />
+                  <span>{t('filterByType')}</span>
+                </label>
                 <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
                 >
                   <option value="all">{t('allTypes')}</option>
                   <option value="full">{t('normalDays')}</option>
@@ -1465,15 +1591,15 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
               {/* Project Section */}
               {projectSections.length > 0 && (
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-sky-500" />
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-sky-500" />
                     <span>{t('section') || 'بخش پروژه'}</span>
                   </label>
                   <select
                     value={selectedSectionId}
                     onChange={(e) => setSelectedSectionId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
                   >
                     <option value="all">{language === 'fa' ? 'همه بخش‌ها' : 'All Sections'}</option>
                     <option value="unassigned">{language === 'fa' ? 'عمومی / بدون بخش' : 'General / Unassigned'}</option>
@@ -1487,78 +1613,92 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               )}
 
               {/* From Date */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">{t('fromDate')}</label>
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{t('fromDate')}</span>
+                </label>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
                 />
               </div>
 
               {/* To Date */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">{t('toDate')}</label>
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{t('toDate')}</span>
+                </label>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 text-xs bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium transition-all"
                 />
               </div>
             </div>
           </div>
 
-          {/* Aggregated KPI Strip */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 no-print">
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/50 text-sky-500">
+          {/* Aggregated 4-Metric Glass Strip */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 no-print">
+            {/* 1. Days */}
+            <div className="relative overflow-hidden rounded-2xl p-4.5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex items-center gap-3.5 group hover:border-sky-400/40 transition-all duration-300">
+              <div className="w-11 h-11 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold shadow-inner group-hover:scale-105 transition-transform">
                 <CalendarCheck className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-xs text-slate-400 font-medium">{t('aggregatedDays')}</span>
-                <p className="text-lg font-bold text-slate-900 dark:text-white">{aggregatedStats.days}</p>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-400 font-bold block">{t('aggregatedDays')}</span>
+                <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{aggregatedStats.days}</p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-500">
+            {/* 2. Overtime */}
+            <div className="relative overflow-hidden rounded-2xl p-4.5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex items-center gap-3.5 group hover:border-amber-400/40 transition-all duration-300">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shadow-inner group-hover:scale-105 transition-transform">
                 <Clock className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-xs text-slate-400 font-medium">{t('aggregatedOvertime')}</span>
-                <p className="text-lg font-bold text-slate-900 dark:text-white">{formatHoursAndMinutes(aggregatedStats.otHours, language)}</p>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-400 font-bold block">{t('aggregatedOvertime')}</span>
+                <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{formatHoursAndMinutes(aggregatedStats.otHours, language)}</p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-500">
+            {/* 3. Base Pay */}
+            <div className="relative overflow-hidden rounded-2xl p-4.5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex items-center gap-3.5 group hover:border-emerald-400/40 transition-all duration-300">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shadow-inner group-hover:scale-105 transition-transform">
                 <Coins className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-xs text-slate-400 font-medium">{t('basePay')}</span>
-                <p className="text-base font-bold text-slate-900 dark:text-white truncate">{formatCurrency(aggregatedStats.basePay, currency, language)}</p>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-400 font-bold block">{t('basePay')}</span>
+                <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate font-mono">
+                  {formatCurrency(aggregatedStats.basePay, currency, language)}
+                </p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-500">
-                <Coins className="w-5 h-5" />
+            {/* 4. Total Pay */}
+            <div className="relative overflow-hidden rounded-2xl p-4.5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-sky-400/40 dark:border-sky-500/30 shadow-lg shadow-sky-500/10 flex items-center gap-3.5 group hover:scale-[1.01] transition-all duration-300">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-sky-500/30 group-hover:scale-105 transition-transform">
+                <TrendingUp className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-xs text-slate-400 font-medium">{t('aggregatedTotalPay')}</span>
-                <p className="text-base font-bold text-slate-900 dark:text-white truncate">{formatCurrency(aggregatedStats.totalPay, currency, language)}</p>
+              <div className="min-w-0">
+                <span className="text-[11px] text-sky-600 dark:text-sky-400 font-bold block">{t('aggregatedTotalPay')}</span>
+                <p className="text-base sm:text-lg font-black text-sky-600 dark:text-sky-400 tracking-tight truncate font-mono">
+                  {formatCurrency(aggregatedStats.totalPay, currency, language)}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Project Sections Cost Allocation Breakdown (Liquid Glass) */}
           {sectionBreakdown.length > 0 && (
-            <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-3 no-print transition-all duration-300">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                  <Layers className="w-4 h-4" />
+            <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-4 no-print transition-all duration-300">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
+                  <Layers className="w-4.5 h-4.5" />
                 </div>
                 <div>
                   <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
@@ -1570,7 +1710,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {sectionBreakdown.map((sec) => {
                   const percent = aggregatedStats.totalPay > 0 
                     ? Math.round((sec.totalCost / aggregatedStats.totalPay) * 100) 
@@ -1578,24 +1718,24 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   return (
                     <div 
                       key={sec.id}
-                      className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 space-y-2 hover:border-sky-500/30 transition-all"
+                      className="p-4 bg-white/60 dark:bg-slate-800/50 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-2.5 hover:border-sky-500/40 hover:shadow-md transition-all duration-300"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-slate-900 dark:text-white">{sec.name}</span>
-                        <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400">{percent}%</span>
+                        <span className="text-xs font-black text-sky-600 dark:text-sky-400 font-mono">{percent}%</span>
                       </div>
 
                       {/* Progress bar */}
-                      <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-slate-100 dark:bg-slate-700/60 rounded-full overflow-hidden p-0.5">
                         <div 
-                          className="h-full bg-sky-500 rounded-full transition-all duration-300"
+                          className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 rounded-full transition-all duration-500"
                           style={{ width: `${percent}%` }}
                         />
                       </div>
 
                       <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                        <span>{sec.days} {t('normalDays')} {sec.otHours > 0 ? `+ ${formatHoursAndMinutes(sec.otHours, language)}` : ''}</span>
-                        <span className="font-extrabold text-slate-800 dark:text-slate-200 font-mono">
+                        <span className="font-medium">{sec.days} {t('normalDays')} {sec.otHours > 0 ? `+ ${formatHoursAndMinutes(sec.otHours, language)}` : ''}</span>
+                        <span className="font-black text-slate-800 dark:text-slate-200 font-mono">
                           {formatCurrency(sec.totalCost, currency, language)}
                         </span>
                       </div>
@@ -1607,7 +1747,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
           )}
 
           {/* MAIN REPORT TABLE (SCREEN + PRINT) */}
-          <div className="relative overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20 overflow-hidden print:border-none print:shadow-none transition-all duration-300">
+          <div className="relative overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20 print:border-none print:shadow-none transition-all duration-300">
             
             {/* Print Header */}
             <div className="hidden print:block p-6 border-b border-slate-200 mb-4 text-center">
@@ -1623,47 +1763,50 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             {/* Sub-view A: Summary Report Table (گزارش مجموع) */}
             {reportFormat === 'summary' ? (
               summaryGroupedData.length === 0 ? (
-                <div className="p-12 text-center text-slate-400">
-                  {t('noDataForMonth')}
+                <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                    <PieChart className="w-6 h-6" />
+                  </div>
+                  <p className="text-xs font-semibold">{t('noDataForMonth')}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-right text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 text-xs">
+                    <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-xs">
                       <tr>
-                        <th className="px-4 py-3.5 text-start">{t('workerName')}</th>
-                        <th className="px-4 py-3.5 text-center">{t('fullDaysWithPay')}</th>
-                        <th className="px-4 py-3.5 text-center">{t('halfDaysWithPay')}</th>
-                        <th className="px-4 py-3.5 text-center">{t('overtimeWithPay')}</th>
-                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
+                        <th className="px-5 py-4 text-start">{t('workerName')}</th>
+                        <th className="px-4 py-4 text-center">{t('fullDaysWithPay')}</th>
+                        <th className="px-4 py-4 text-center">{t('halfDaysWithPay')}</th>
+                        <th className="px-4 py-4 text-center">{t('overtimeWithPay')}</th>
+                        <th className="px-5 py-4 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                       {summaryGroupedData.map((row) => (
-                        <tr key={row.workerId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                          <td className="px-4 py-3.5">
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                        <tr key={row.workerId} className="hover:bg-sky-50/40 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="px-5 py-3.5">
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                               <span 
                                 onClick={() => openWorkerProfile(row.workerId)}
-                                className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                                className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors font-bold"
                                 title="مشاهده پروفایل جامع پرسنل"
                               >
                                 {row.worker.name}
                               </span>
                               {row.worker.groupId && groupMap[row.worker.groupId] && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
                                   <Users className="w-2.5 h-2.5" />
                                   <span>{groupMap[row.worker.groupId].name}</span>
                                 </span>
                               )}
                             </div>
-                            <div className="text-xs text-slate-400">{row.worker.role}</div>
+                            <div className="text-[11px] text-slate-400 font-medium">{row.worker.role}</div>
                           </td>
                           <td className="px-4 py-3.5 text-center">
                             <div className="font-bold text-slate-800 dark:text-slate-200">
                               {row.fullDaysCount} {t('normalDays')}
                             </div>
-                            <div className="text-xs text-slate-400 font-mono">
+                            <div className="text-[11px] text-slate-400 font-mono">
                               ({formatAmount(row.fullDaysPay, currency)})
                             </div>
                           </td>
@@ -1671,7 +1814,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             <div className="font-bold text-slate-800 dark:text-slate-200">
                               {row.halfDaysCount} {t('halfDays')}
                             </div>
-                            <div className="text-xs text-slate-400 font-mono">
+                            <div className="text-[11px] text-slate-400 font-mono">
                               ({formatAmount(row.halfDaysPay, currency)})
                             </div>
                           </td>
@@ -1679,46 +1822,46 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             <div className="font-bold text-amber-600 dark:text-amber-400">
                               {formatHoursAndMinutes(row.overtimeHours, language)}
                             </div>
-                            <div className="text-xs text-slate-400 font-mono">
+                            <div className="text-[11px] text-slate-400 font-mono">
                               ({formatAmount(row.overtimePay, currency)})
                             </div>
                           </td>
-                          <td className="px-4 py-3.5 text-end font-extrabold text-sky-600 dark:text-sky-400 text-base font-mono">
+                          <td className="px-5 py-3.5 text-end font-black text-sky-600 dark:text-sky-400 text-base font-mono">
                             {formatAmount(row.totalPay, currency)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="bg-slate-50 dark:bg-slate-800/80 font-bold text-xs border-t-2 border-slate-300 dark:border-slate-700">
+                    <tfoot className="bg-slate-100/80 dark:bg-slate-800/90 font-bold text-xs border-t-2 border-slate-300 dark:border-slate-700">
                       <tr>
-                        <td className="px-4 py-3.5 text-start font-extrabold text-slate-900 dark:text-white">
+                        <td className="px-5 py-4 text-start font-black text-slate-900 dark:text-white">
                           مجموع کل ({summaryGroupedData.length} کارگر)
                         </td>
-                        <td className="px-4 py-3.5 text-center font-bold">
+                        <td className="px-4 py-4 text-center font-bold">
                           {summaryGroupedData.reduce((acc, r) => acc + r.fullDaysCount, 0)} روز
                           <div className="text-[11px] text-slate-500 font-mono">
                             {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.fullDaysPay, 0), currency)}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-center font-bold">
+                        <td className="px-4 py-4 text-center font-bold">
                           {summaryGroupedData.reduce((acc, r) => acc + r.halfDaysCount, 0)} روز
                           <div className="text-[11px] text-slate-500 font-mono">
                             {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.halfDaysPay, 0), currency)}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-center font-bold text-amber-600 dark:text-amber-400">
+                        <td className="px-4 py-4 text-center font-bold text-amber-600 dark:text-amber-400">
                           {formatHoursAndMinutes(summaryGroupedData.reduce((acc, r) => acc + r.overtimeHours, 0), language)}
                           <div className="text-[11px] text-slate-500 font-mono">
                             {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.overtimePay, 0), currency)}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-end font-extrabold text-emerald-600 dark:text-emerald-400 text-base font-mono">
+                        <td className="px-5 py-4 text-end font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg font-mono">
                           {formatAmount(summaryGroupedData.reduce((acc, r) => acc + r.totalPay, 0), currency)}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
                     <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
                   </div>
                 </div>
@@ -1726,76 +1869,79 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             ) : (
               /* Sub-view B: Detailed Report Table (گزارش با جزییات) */
               filteredLogs.length === 0 ? (
-                <div className="p-12 text-center text-slate-400">
-                  {t('noDataForMonth')}
+                <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                    <TableProperties className="w-6 h-6" />
+                  </div>
+                  <p className="text-xs font-semibold">{t('noDataForMonth')}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-right text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 text-xs">
+                    <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-xs">
                       <tr>
-                        <th className="px-4 py-3.5 text-start">{t('dateColumn')}</th>
-                        <th className="px-4 py-3.5 text-start">{t('workerName')}</th>
-                        <th className="px-4 py-3.5 text-center">{t('typeColumn')}</th>
-                        <th className="px-4 py-3.5 text-center">{t('overtimeHours')}</th>
+                        <th className="px-4 py-4 text-start">{t('dateColumn')}</th>
+                        <th className="px-4 py-4 text-start">{t('workerName')}</th>
+                        <th className="px-3 py-4 text-center">{t('typeColumn')}</th>
+                        <th className="px-3 py-4 text-center">{t('overtimeHours')}</th>
                         {projectSections.length > 0 && (
-                          <th className="px-4 py-3.5 text-center">{t('section') || 'بخش'}</th>
+                          <th className="px-3 py-4 text-center">{t('section') || 'بخش'}</th>
                         )}
-                        <th className="px-4 py-3.5 text-center">{t('settlementStatusColumn') || 'وضعیت تسویه'}</th>
-                        <th className="px-4 py-3.5 text-start">{t('notesColumn')}</th>
-                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
-                        <th className="px-4 py-3.5 text-center no-print">{t('actions')}</th>
+                        <th className="px-3 py-4 text-center">{t('settlementStatusColumn') || 'وضعیت تسویه'}</th>
+                        <th className="px-4 py-4 text-start">{t('notesColumn')}</th>
+                        <th className="px-4 py-4 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
+                        <th className="px-4 py-4 text-center no-print">{t('actions')}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                       {filteredLogs.map((log) => {
                         const worker = workerMap[log.workerId] || { name: 'Unknown', role: '' };
                         const logSettled = isLogSettled(log);
                         return (
-                          <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                            <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                          <tr key={log.id} className="hover:bg-sky-50/40 dark:hover:bg-slate-800/50 transition-colors">
+                            <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white whitespace-nowrap text-xs">
                               {log.date}
                             </td>
-                            <td className="px-4 py-3">
-                              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                            <td className="px-4 py-3.5">
+                              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                                 <span 
                                   onClick={() => openWorkerProfile(log.workerId)}
-                                  className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
+                                  className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors font-bold"
                                   title="مشاهده پروفایل جامع پرسنل"
                                 >
                                   {worker.name}
                                 </span>
                                 {worker.groupId && groupMap[worker.groupId] && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
                                     <Users className="w-2.5 h-2.5" />
                                     <span>{groupMap[worker.groupId].name}</span>
                                   </span>
                                 )}
                               </div>
-                              <div className="text-xs text-slate-400">{worker.role}</div>
+                              <div className="text-[11px] text-slate-400 font-medium">{worker.role}</div>
                             </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            <td className="px-3 py-3.5 text-center">
+                              <span className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
                                 log.type === 'hourly'
-                                  ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300'
+                                  ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20'
                                   : log.type === 'half'
-                                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-                                  : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                                  : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
                               }`}>
                                 {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDays') : t('normalDays')}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-center font-bold text-amber-600 dark:text-amber-400">
+                            <td className="px-3 py-3.5 text-center font-bold text-amber-600 dark:text-amber-400">
                               {log.overtimeHours > 0 ? (log.type === 'hourly' ? formatHoursAndMinutes(log.overtimeHours, language) : `+${formatHoursAndMinutes(log.overtimeHours, language)}`) : '-'}
                             </td>
                             {projectSections.length > 0 && (
-                              <td className="px-4 py-3 text-center whitespace-nowrap">
+                              <td className="px-3 py-3.5 text-center whitespace-nowrap">
                                 <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                                   {log.sectionId && sectionMap[log.sectionId] ? sectionMap[log.sectionId].name : (language === 'fa' ? 'عمومی' : 'General')}
                                 </span>
                               </td>
                             )}
-                            <td className="px-4 py-3 text-center whitespace-nowrap">
+                            <td className="px-3 py-3.5 text-center whitespace-nowrap">
                               {logSettled ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                                   <CheckCircle2 className="w-3 h-3 text-slate-500" />
@@ -1808,18 +1954,18 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                 </span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 max-w-xs truncate">
+                            <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-400 max-w-xs truncate">
                               {log.notes || '-'}
                             </td>
-                            <td className="px-4 py-3 text-end font-bold text-slate-900 dark:text-white whitespace-nowrap font-mono">
+                            <td className="px-4 py-3.5 text-end font-black text-slate-900 dark:text-white whitespace-nowrap font-mono text-sm">
                               {formatAmount(log.totalDayPay, currency)}
                             </td>
-                            <td className="px-4 py-3 text-center no-print whitespace-nowrap">
-                              <div className="flex items-center justify-center gap-1">
+                            <td className="px-4 py-3.5 text-center no-print whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-1.5">
                                 {logSettled ? (
                                   <button
                                     onClick={() => setEditingLog(log)}
-                                    className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold"
+                                    className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold"
                                     title={language === 'fa' ? 'مشاهده جزئیات (تسویه شده - قفل)' : 'View details (settled - locked)'}
                                   >
                                     <Lock className="w-3.5 h-3.5" />
@@ -1829,14 +1975,14 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                   <>
                                     <button
                                       onClick={() => setEditingLog(log)}
-                                      className="p-1.5 hover:bg-sky-50 dark:hover:bg-sky-950/50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"
+                                      className="p-1.5 hover:bg-sky-500/10 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-xl transition-colors"
                                       title={t('edit')}
                                     >
                                       <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteLog(log.id)}
-                                      className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+                                      className="p-1.5 hover:bg-red-500/10 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-xl transition-colors"
                                       title={t('delete')}
                                     >
                                       <Trash2 className="w-4 h-4" />
@@ -1850,7 +1996,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       })}
                     </tbody>
                   </table>
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
                     <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
                   </div>
                 </div>
