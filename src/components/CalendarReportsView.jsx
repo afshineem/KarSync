@@ -2354,7 +2354,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               </div>
 
               {/* Visual Shift Distribution Widget */}
-              <div className="lg:col-span-5 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl space-y-4">
+              <div className="lg:col-span-5 p-5 sm:p-5.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl space-y-4 lg:mt-6">
                 <h4 className="text-xs font-bold text-slate-300 flex items-center justify-between">
                   <span>{language === 'fa' ? 'ترکیب و سهم شیفت‌های کاری' : 'Shift Distribution Ratio'}</span>
                   <Award className="w-4 h-4 text-amber-400" />
