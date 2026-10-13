@@ -58,6 +58,7 @@ import {
   TrendingUp,
   Calendar,
   ChevronDown,
+  ChevronUp,
   Download,
   Award,
   Sparkles
@@ -114,6 +115,36 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   };
 
   const [timelineSearch, setTimelineSearch] = useState('');
+
+  // Timeline Day Cards Expansion State: Set of expanded date strings (defaults to latest days or today)
+  const [expandedDayKeys, setExpandedDayKeys] = useState(() => {
+    try {
+      const today = getTodayDateString();
+      return new Set([today]);
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggleDayExpanded = (dateStr) => {
+    setExpandedDayKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) {
+        next.delete(dateStr);
+      } else {
+        next.add(dateStr);
+      }
+      return next;
+    });
+  };
+
+  const expandAllDays = (allDateStrings) => {
+    setExpandedDayKeys(new Set(allDateStrings));
+  };
+
+  const collapseAllDays = () => {
+    setExpandedDayKeys(new Set());
+  };
 
   // In Reporting mode: Sub-mode between 'summary' (گزارش مجموع) and 'detailed' (گزارش با جزییات)
   const [reportFormat, setReportFormat] = useState('summary'); 
@@ -961,11 +992,34 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               </div>
 
               {/* Toggles */}
-              <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+              <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end flex-wrap sm:flex-nowrap">
+                {/* Expand / Collapse All Days */}
+                <div className="inline-flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/15">
+                  <button
+                    type="button"
+                    onClick={() => collapseAllDays()}
+                    className="px-2.5 py-1 text-[11px] font-bold text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-all flex items-center gap-1 cursor-pointer"
+                    title={language === 'fa' ? 'بستن همه روزها' : 'Collapse All'}
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>{language === 'fa' ? 'بستن همه' : 'Collapse'}</span>
+                  </button>
+                  <div className="w-px h-3.5 bg-white/20" />
+                  <button
+                    type="button"
+                    onClick={() => expandAllDays(displayedTimelineDays.map((d) => d.dateStr))}
+                    className="px-2.5 py-1 text-[11px] font-bold text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-all flex items-center gap-1 cursor-pointer"
+                    title={language === 'fa' ? 'باز کردن همه روزها' : 'Expand All'}
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>{language === 'fa' ? 'باز کردن همه' : 'Expand'}</span>
+                  </button>
+                </div>
+
                 {/* Filter days with logs */}
                 <button
                   onClick={() => setFilterOnlyWithLogs(!filterOnlyWithLogs)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
                     filterOnlyWithLogs
                       ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                       : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
@@ -979,7 +1033,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 <button
                   type="button"
                   onClick={toggleSortOrder}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border border-white/15 bg-white/10 hover:bg-white/20 text-white cursor-pointer active:scale-95"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/15 bg-white/10 hover:bg-white/20 text-white cursor-pointer active:scale-95"
                   title={sortAscending 
                     ? (language === 'fa' ? 'مرتب‌سازی: صعودی' : 'Sort: Oldest to Newest')
                     : (language === 'fa' ? 'مرتب‌سازی: نزولی' : 'Sort: Newest to Oldest')}
@@ -1009,28 +1063,43 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               </button>
             </div>
           ) : (
-            <div className="space-y-3.5">
+            <div className="space-y-3">
               {displayedTimelineDays.map((dayItem) => {
                 const hasLogs = dayItem.totalWorkers > 0;
                 const formattedDate = formatFullDateWithWeekday(dayItem.dateStr, language);
                 const isFriday = new Date(dayItem.dateStr).getDay() === 5;
+                const isExpanded = expandedDayKeys.has(dayItem.dateStr);
+
+                // Compact summary worker avatars (take top 4 workers)
+                const avatarWorkers = dayItem.logs.slice(0, 4).map((l) => workerMap[l.workerId] || { name: 'W' });
+                const extraWorkersCount = Math.max(0, dayItem.totalWorkers - 4);
+
+                // Shift distribution counts for this specific day
+                const fullCount = dayItem.logs.filter((l) => l.type !== 'half' && l.type !== 'hourly').length;
+                const halfCount = dayItem.logs.filter((l) => l.type === 'half').length;
+                const hourlyCount = dayItem.logs.filter((l) => l.type === 'hourly').length;
 
                 return (
                   <div
                     key={dayItem.dateStr}
-                    className={`relative overflow-hidden rounded-3xl border transition-all duration-300 p-4 sm:p-5 backdrop-blur-xl ${
+                    className={`relative overflow-hidden rounded-3xl border transition-all duration-300 backdrop-blur-xl ${
                       hasLogs
-                        ? 'bg-white/75 dark:bg-slate-900/75 border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400/40'
+                        ? 'bg-white/80 dark:bg-slate-900/80 border-white/70 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400/40'
                         : isFriday
                         ? 'bg-amber-500/[0.04] dark:bg-amber-500/[0.04] border-amber-500/20'
                         : 'bg-white/40 dark:bg-slate-900/40 border-slate-200/40 dark:border-slate-800/40 opacity-70 hover:opacity-100'
                     }`}
                   >
-                    {/* Day Header Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-slate-100 dark:border-slate-800/60">
-                      {/* Left/Start: Day Badge & Formatted Date */}
+                    {/* Collapsible Header Row (Clickable to Toggle) */}
+                    <div 
+                      onClick={() => toggleDayExpanded(dayItem.dateStr)}
+                      className={`p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none transition-colors ${
+                        isExpanded ? 'border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-800/30' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {/* Left: Day Badge & Date */}
                       <div className="flex items-center gap-3.5">
-                        <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center font-black text-base border shadow-md transition-all ${
+                        <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex flex-col items-center justify-center font-black text-base border shadow-md transition-all flex-shrink-0 ${
                           hasLogs
                             ? 'bg-gradient-to-br from-sky-500 to-indigo-600 text-white border-sky-400/30 shadow-sky-500/20'
                             : isFriday
@@ -1041,40 +1110,83 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         </div>
 
                         <div>
-                          <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>{formattedDate}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                              {formattedDate}
+                            </h3>
                             {isFriday && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                {language === 'fa' ? 'جمعه (تعطیل)' : 'Friday'}
+                                {language === 'fa' ? 'جمعه' : 'Friday'}
                               </span>
                             )}
-                          </h3>
-                          <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
-                            {dayItem.dateStr}
-                          </span>
+                          </div>
+                          
+                          {/* Mini Shift Ratio Bar (when day has logs) */}
+                          {hasLogs ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[11px] text-slate-400 font-mono">
+                                {dayItem.dateStr}
+                              </span>
+                              <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                                {fullCount > 0 && (
+                                  <div style={{ width: `${(fullCount / dayItem.totalWorkers) * 100}%` }} className="bg-emerald-500 h-full" title={`${fullCount} کامل`} />
+                                )}
+                                {halfCount > 0 && (
+                                  <div style={{ width: `${(halfCount / dayItem.totalWorkers) * 100}%` }} className="bg-amber-500 h-full" title={`${halfCount} نیمه`} />
+                                )}
+                                {hourlyCount > 0 && (
+                                  <div style={{ width: `${(hourlyCount / dayItem.totalWorkers) * 100}%` }} className="bg-purple-500 h-full" title={`${hourlyCount} ساعتی`} />
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+                              {dayItem.dateStr}
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      {/* Right/End: Day Metrics & Quick Actions */}
-                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      {/* Right: Metrics & Collapse Trigger */}
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                         {hasLogs ? (
                           <>
+                            {/* Avatar Stack for compact view */}
+                            {!isExpanded && (
+                              <div className="hidden md:flex items-center -space-x-1.5 rtl:space-x-reverse me-1">
+                                {avatarWorkers.map((w, wIdx) => (
+                                  <div
+                                    key={wIdx}
+                                    title={w.name}
+                                    className="w-7 h-7 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-600 border-2 border-white dark:border-slate-800 text-[10px] font-bold text-white flex items-center justify-center shadow-xs"
+                                  >
+                                    {w.name?.charAt(0) || 'W'}
+                                  </div>
+                                ))}
+                                {extraWorkersCount > 0 && (
+                                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 text-[10px] font-black text-slate-600 dark:text-slate-300 flex items-center justify-center shadow-xs">
+                                    +{extraWorkersCount}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             {/* Worker count pill */}
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
                               <Users className="w-3.5 h-3.5 text-sky-500" />
                               <span>{dayItem.totalWorkers} {t('workers')}</span>
                             </span>
 
-                            {/* Overtime count if any */}
+                            {/* Overtime count pill */}
                             {dayItem.totalOvertime > 0 && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
                                 <Clock className="w-3.5 h-3.5 text-amber-500" />
                                 <span>+{formatHoursAndMinutes(dayItem.totalOvertime, language)}</span>
                               </span>
                             )}
 
                             {/* Total day pay */}
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-black bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-mono">
                               <Coins className="w-3.5 h-3.5 text-emerald-500" />
                               <span>{formatCurrency(dayItem.totalPay, currency, language)}</span>
                             </span>
@@ -1085,145 +1197,147 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           </span>
                         )}
 
-                        {/* Quick Add / Edit button for this day */}
+                        {/* Quick Add Log Button */}
                         <button
-                          onClick={() => onOpenLoggingModal && onOpenLoggingModal(dayItem.dateStr)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white shadow-md shadow-sky-500/20 transition-all cursor-pointer ms-1 active:scale-95"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onOpenLoggingModal) onOpenLoggingModal(dayItem.dateStr);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white shadow-md shadow-sky-500/20 transition-all cursor-pointer active:scale-95"
                           title={t('quickAddLogThisDate')}
                         >
-                          <PlusCircle className="w-4 h-4" />
+                          <PlusCircle className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">{t('quickAddLogThisDate')}</span>
                         </button>
+
+                        {/* Collapse/Expand Chevron */}
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-300 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ${
+                          isExpanded ? 'bg-slate-200/60 dark:bg-slate-700/60 text-sky-500' : 'bg-slate-100 dark:bg-slate-800'
+                        }`}>
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Day Content: Workers list with overtime + Notes */}
-                    {hasLogs && (
-                      <div className="mt-3.5 space-y-3">
-                        {/* Workers Row / Badges */}
-                        <div>
-                          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                            <Users className="w-3 h-3 text-slate-400" />
-                            <span>{t('dayWorkersTitle')}:</span>
-                          </div>
+                    {/* Collapsible Content: Micro-Rows of Workers & Notes */}
+                    {isExpanded && (
+                      <div className="p-4 sm:p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                        {hasLogs ? (
+                          <>
+                            {/* Workers Micro-Grid / List */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                              {dayItem.logs.map((log) => {
+                                const worker = workerMap[log.workerId] || { name: 'Unknown', role: '' };
+                                const logSettled = isLogSettled(log);
 
-                          <div className="flex flex-wrap gap-2">
-                            {dayItem.logs.map((log) => {
-                              const worker = workerMap[log.workerId] || { name: 'Unknown', role: '' };
-                              return (
-                                <div
-                                  key={log.id}
-                                  className="group flex items-center gap-2.5 px-3.5 py-2 rounded-2xl text-xs font-medium bg-white/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-md transition-all duration-200"
-                                >
-                                  {/* Worker name */}
-                                  <span 
-                                    onClick={() => openWorkerProfile(log.workerId)}
-                                    className="font-bold text-slate-900 dark:text-white cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                                    title="مشاهده پروفایل جامع پرسنل"
+                                return (
+                                  <div
+                                    key={log.id}
+                                    className="group relative flex items-center justify-between p-3 rounded-2xl bg-white/90 dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700/70 shadow-xs hover:border-sky-400 hover:shadow-md transition-all duration-200"
                                   >
-                                    {worker.name}
-                                  </span>
+                                    {/* Worker Info */}
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-400/30 flex items-center justify-center text-xs font-black text-sky-600 dark:text-sky-400 flex-shrink-0">
+                                        {worker.name?.charAt(0) || 'W'}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <h5 
+                                          onClick={() => openWorkerProfile(log.workerId)}
+                                          className="font-bold text-xs text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-500 transition-colors"
+                                          title="مشاهده پروفایل جامع پرسنل"
+                                        >
+                                          {worker.name}
+                                        </h5>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                          {/* Shift badge */}
+                                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                            log.type === 'hourly'
+                                              ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300'
+                                              : log.type === 'half'
+                                              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                              : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                          }`}>
+                                            {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDays') : t('normalDays')}
+                                          </span>
 
-                                  {/* Attendance status badge */}
-                                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
-                                    log.type === 'hourly'
-                                      ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20'
-                                      : log.type === 'half'
-                                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
-                                      : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
-                                  }`}>
-                                    {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDays') : t('normalDays')}
-                                  </span>
-
-                                  {/* Overtime chip if > 0 */}
-                                  {log.overtimeHours > 0 && (
-                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 flex items-center gap-1">
-                                      <Clock className="w-2.5 h-2.5" />
-                                      <span>{log.type === 'hourly' ? '' : '+'}{formatHoursAndMinutes(log.overtimeHours, language)}</span>
-                                    </span>
-                                  )}
-
-                                  {/* Project Section (Instead of Pay) */}
-                                  {projectSections.length > 0 && (
-                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold border-s ps-2 border-slate-200 dark:border-slate-700">
-                                      {log.sectionId && sectionMap[log.sectionId] ? sectionMap[log.sectionId].name : (language === 'fa' ? 'عمومی' : 'General')}
-                                    </span>
-                                  )}
-                                  {/* Settled indicator or Edit/Delete actions */}
-                                  {isLogSettled(log) ? (
-                                    <div className="flex items-center gap-1 ms-1">
-                                      <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20" title="تسویه شده (قفل)">
-                                        <Lock className="w-2.5 h-2.5" />
-                                        <span>{language === 'fa' ? 'تسویه' : 'Settled'}</span>
-                                      </span>
-                                      <button
-                                        onClick={() => setEditingLog(log)}
-                                        className="p-1 text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
-                                        title={language === 'fa' ? 'مشاهده جزئیات (تسویه شده - قفل)' : 'View details (settled - locked)'}
-                                      >
-                                        <Eye className="w-3.5 h-3.5" />
-                                      </button>
+                                          {/* Section badge if any */}
+                                          {projectSections.length > 0 && log.sectionId && sectionMap[log.sectionId] && (
+                                            <span className="text-[10px] text-slate-400 truncate max-w-[80px]">
+                                              • {sectionMap[log.sectionId].name}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
-                                  ) : (
-                                    <div className="flex items-center gap-0.5 ms-1">
-                                      <button
-                                        onClick={() => setEditingLog(log)}
-                                        className="p-1 text-slate-400 hover:text-sky-600 transition-colors cursor-pointer"
-                                        title={t('edit')}
-                                      >
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteLog(log.id)}
-                                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                        title={t('delete')}
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
 
-                        {/* Daily Notes & Task Descriptions (متن توضیحات روز) */}
-                        {dayItem.notesList.length > 0 && (
-                          <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60">
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-600 dark:text-sky-400 mb-2">
-                              <FileText className="w-3.5 h-3.5" />
-                              <span>{t('dailyNotesTitle')}:</span>
-                            </div>
-
-                            <div className="p-3.5 bg-sky-500/5 dark:bg-sky-500/5 rounded-2xl border border-sky-500/15 text-xs text-slate-700 dark:text-slate-300 leading-relaxed space-y-2 backdrop-blur-md">
-                              {dayItem.notesList.map((noteItem, nIdx) => (
-                                <div key={nIdx} className="flex items-start justify-between gap-2.5 group/note">
-                                  <div className="flex items-start gap-2 flex-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 flex-shrink-0" />
-                                    <div>
-                                      {dayItem.notesList.length > 1 && (
-                                        <span className="font-bold text-slate-900 dark:text-white me-1.5">
-                                          {noteItem.workerName}:
+                                    {/* Overtime & Actions */}
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {log.overtimeHours > 0 && (
+                                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                                          +{formatHoursAndMinutes(log.overtimeHours, language)}
                                         </span>
                                       )}
-                                      <span className="font-medium text-slate-700 dark:text-slate-300">
-                                        {noteItem.text}
-                                      </span>
+
+                                      {/* Action buttons (Minimal on hover) */}
+                                      {logSettled ? (
+                                        <span className="p-1 text-emerald-500 bg-emerald-500/10 rounded-lg text-[10px] font-bold flex items-center gap-0.5" title="تسویه شده (قفل)">
+                                          <Lock className="w-3 h-3" />
+                                        </span>
+                                      ) : (
+                                        <div className="flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditingLog(log)}
+                                            className="p-1.5 hover:bg-sky-500/10 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-colors cursor-pointer"
+                                            title={t('edit')}
+                                          >
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteLog(log.id)}
+                                            className="p-1.5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                                            title={t('delete')}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                  {noteItem.log && (
-                                    <button
-                                      onClick={() => setEditingLog(noteItem.log)}
-                                      className="opacity-0 group-hover/note:opacity-100 p-1 hover:text-sky-600 text-slate-400 transition-all flex-shrink-0 cursor-pointer"
-                                      title={t('edit')}
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
+
+                            {/* Daily Notes & Descriptions */}
+                            {dayItem.notesList.length > 0 && (
+                              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60">
+                                <div className="p-3.5 bg-sky-500/5 dark:bg-sky-500/5 rounded-2xl border border-sky-500/15 text-xs text-slate-700 dark:text-slate-300 leading-relaxed space-y-2 backdrop-blur-md">
+                                  {dayItem.notesList.map((noteItem, nIdx) => (
+                                    <div key={nIdx} className="flex items-start justify-between gap-2.5">
+                                      <div className="flex items-start gap-2 flex-1">
+                                        <FileText className="w-3.5 h-3.5 text-sky-500 mt-0.5 flex-shrink-0" />
+                                        <div>
+                                          {dayItem.notesList.length > 1 && (
+                                            <span className="font-bold text-slate-900 dark:text-white me-1.5">
+                                              {noteItem.workerName}:
+                                            </span>
+                                          )}
+                                          <span className="font-medium text-slate-700 dark:text-slate-300">
+                                            {noteItem.text}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-center py-4 text-xs text-slate-400">
+                            {t('noLogsThisDay')}
                           </div>
                         )}
                       </div>
