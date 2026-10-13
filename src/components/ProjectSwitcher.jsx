@@ -132,27 +132,28 @@ export function ProjectSwitcher() {
   return (
     <>
       <div className="relative inline-block text-start" ref={dropdownRef}>
-        {/* Trigger Button (Apple Liquid Glass) */}
+        {/* Trigger Button (Compact Apple Liquid Glass Pill) */}
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.7)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.1)] backdrop-blur-2xl transition-all text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-100 group"
+          className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl sm:rounded-2xl bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.7)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.1)] backdrop-blur-2xl transition-all text-xs font-medium text-slate-800 dark:text-slate-100 group"
+          title={currentProject?.name || t('selectProject') || 'انتخاب پروژه'}
         >
-          <FolderKanban className="w-4 h-4 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform" />
+          <FolderKanban className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform flex-shrink-0" />
           
-          <span className="font-semibold max-w-[110px] sm:max-w-[160px] truncate">
-            {currentProject?.name || t('selectProject') || 'انتخاب پروژه'}
+          <span className="font-bold max-w-[80px] sm:max-w-[110px] md:max-w-[130px] truncate text-xs leading-none">
+            {currentProject?.name || t('selectProject') || 'پروژه'}
           </span>
 
           {currentProject?.currency && (
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono border ${
+            <span className={`text-[9px] px-1 py-0.5 rounded-md font-mono font-bold leading-none border hidden xs:inline-block ${
               currencyBadgeColors[currentProject.currency] || currencyBadgeColors.IQD
             }`}>
               {currentProject.currency}
             </span>
           )}
 
-          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+          <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
             isOpen ? 'rotate-180' : ''
           }`} />
         </button>

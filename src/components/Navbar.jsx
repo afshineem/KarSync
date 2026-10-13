@@ -115,8 +115,8 @@ export function Navbar({
               </div>
             </div>
 
-            {/* Desktop Navigation Tabs (Apple Liquid Glass Dock) */}
-            <div className="hidden md:flex items-center justify-center pointer-events-auto">
+            {/* Desktop Navigation Tabs (Apple Liquid Glass Dock - Absolute Center Aligned) */}
+            <div className="hidden md:flex items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-auto">
               <nav className="flex items-center gap-1.5 bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 p-1.5 sm:p-2 rounded-2xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.1),0_2px_12px_0_rgba(0,0,0,0.3)]">
                 {navItems.map((item) => {
                   const Icon = item.icon;
@@ -126,17 +126,17 @@ export function Navbar({
                       <button
                         onClick={() => setActiveTab(item.id)}
                         aria-label={item.label}
-                        className={`relative p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 ${
+                        className={`relative p-2.5 rounded-xl transition-all duration-300 ease-in-out flex items-center gap-2 ${
                           isActive
                             ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
                             : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08]'
                         }`}
                       >
-                        <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+                        <Icon className="w-5 h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
                         
                         {/* Subtle text label on active tab */}
                         {isActive && (
-                          <span className="text-xs font-semibold px-1">
+                          <span className="text-xs font-bold px-1 animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
                             {item.label}
                           </span>
                         )}
@@ -149,7 +149,7 @@ export function Navbar({
 
                       {/* Micro-Tooltip (Hover when not active) */}
                       {!isActive && (
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
                           {item.label}
                           <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
                         </div>
@@ -160,17 +160,8 @@ export function Navbar({
               </nav>
             </div>
 
-            {/* Right Controls: ProjectSwitcher + Settings Gear */}
+            {/* Right Controls: Compact ProjectSwitcher + Settings Dropdown Trigger */}
             <div className="flex items-center gap-2 flex-shrink-0 relative">
-              {/* Temporarily hidden: Test logger button */}
-              {false && (
-                <button
-                  onClick={handleTestLog}
-                  className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
-                >
-                  [تست لاگر]
-                </button>
-              )}
               <ProjectSwitcher />
 
               {/* User Avatar & Settings Trigger Button */}
