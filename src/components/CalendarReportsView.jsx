@@ -2741,68 +2741,68 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   ))}
                 </div>
               ) : (
-                /* 2. List Layout */
-                <div className="relative overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20 overflow-x-auto">
-                  <table className="w-full text-right text-xs">
-                    <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-[11px]">
-                      <tr>
-                        <th className="px-4 py-3 text-start">{t('workerName')}</th>
-                        <th className="px-3 py-3 text-center">{t('group')}</th>
-                        <th className="px-3 py-3 text-center">{t('normalDays')}</th>
-                        <th className="px-3 py-3 text-center">{t('halfDays')}</th>
-                        <th className="px-3 py-3 text-center">{t('overtimeHours')}</th>
-                        <th className="px-4 py-3 text-end font-bold text-sky-600 dark:text-sky-400">{t('totalPayLabel')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                      {displayedWorkerSummaries.map((row) => (
-                        <tr
-                          key={row.workerId}
-                          onClick={() => {
-                            setSelectedWorkerId(String(row.workerId));
-                            setSelectedGroupId('all');
-                            setShowDetailsInHero(true);
-                          }}
-                          className="hover:bg-sky-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                        >
-                          <td className="px-4 py-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold flex items-center justify-center text-xs">
-                                {row.worker.name?.charAt(0) || 'W'}
-                              </div>
-                              <div>
-                                <span className="group-hover:text-sky-500 transition-colors block">{row.worker.name}</span>
-                                {row.worker.role && (
-                                  <span className="text-[10px] text-slate-400 font-normal block">{row.worker.role}</span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            {row.worker.groupId && groupMap[row.worker.groupId] ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                /* 2. Compact 2-Column List Layout (Responsive Desktop 2 Columns) */
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {displayedWorkerSummaries.map((row) => (
+                    <div
+                      key={row.workerId}
+                      onClick={() => {
+                        setSelectedWorkerId(String(row.workerId));
+                        setSelectedGroupId('all');
+                        setShowDetailsInHero(true);
+                      }}
+                      className="group relative overflow-hidden rounded-2xl px-4 py-3 backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-white/10 shadow-md shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 hover:shadow-lg transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 select-none"
+                    >
+                      {/* Worker Identity */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500/15 to-indigo-500/15 border border-sky-400/25 flex items-center justify-center font-black text-sky-600 dark:text-sky-400 text-xs flex-shrink-0 shadow-2xs">
+                          {row.worker.name?.charAt(0) || 'W'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-black text-slate-900 dark:text-white text-xs group-hover:text-sky-500 transition-colors truncate">
+                              {row.worker.name}
+                            </span>
+                            {row.worker.groupId && groupMap[row.worker.groupId] && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50">
                                 {groupMap[row.worker.groupId].name}
                               </span>
-                            ) : (
-                              <span className="text-slate-400 text-[10px]">-</span>
                             )}
-                          </td>
-                          <td className="px-3 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
-                            {row.fullDaysCount}
-                          </td>
-                          <td className="px-3 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
-                            {row.halfDaysCount}
-                          </td>
-                          <td className="px-3 py-3 text-center font-mono font-bold text-amber-600 dark:text-amber-400">
-                            {formatHoursDigital(row.overtimeHours)}
-                          </td>
-                          <td className="px-4 py-3 text-end font-mono font-black text-sky-600 dark:text-sky-400 whitespace-nowrap">
-                            {formatCurrency(row.totalPay, currency, language)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-medium block truncate">
+                            {row.worker.role || 'پرسنل'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Shift Breakdown Badges */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0 text-[11px]">
+                        <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 font-bold text-slate-700 dark:text-slate-300" title="روزهای کامل">
+                          {row.fullDaysCount} روز
+                        </span>
+                        {row.halfDaysCount > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[10px]" title="نیمه‌روز">
+                            {row.halfDaysCount} نیم
+                          </span>
+                        )}
+                        {row.overtimeHours > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold text-[10px]" title="اضافه‌کاری">
+                            +{formatHoursDigital(row.overtimeHours)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Total Pay */}
+                      <div className="text-end flex-shrink-0 min-w-[5.5rem]">
+                        <span className="font-mono font-black text-sky-600 dark:text-sky-400 text-xs sm:text-sm block">
+                          {formatCurrency(row.totalPay, currency, language)}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-medium">
+                          {row.fullDaysCount + row.halfDaysCount + row.hourlyDaysCount} شیفت
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
