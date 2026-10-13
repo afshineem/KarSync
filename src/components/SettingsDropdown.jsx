@@ -19,7 +19,8 @@ import {
   FolderKanban,
   Keyboard,
   ShieldCheck,
-  Building
+  Building,
+  Landmark
 } from 'lucide-react';
 
 export function SettingsDropdown({ 
@@ -276,14 +277,15 @@ export function SettingsDropdown({
 
         <button
           type="button"
-          onClick={() => handleOpenTab('projects')}
+          onClick={() => handleOpenTab('accounting_accounts')}
           className="p-2 rounded-xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 text-center transition-all group flex flex-col items-center gap-1 shadow-2xs"
+          title={language === 'fa' ? 'حساب‌ها و کارت‌های بانکی' : 'حیساب و کارتەکان'}
         >
-          <div className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <FolderKanban className="w-3.5 h-3.5" />
+          <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Landmark className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
-            {language === 'fa' ? 'پروژه‌ها' : 'پڕۆژەکان'}
+            {language === 'fa' ? 'حساب‌ها' : 'حیسابەکان'}
           </span>
         </button>
 
