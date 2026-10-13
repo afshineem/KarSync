@@ -799,79 +799,114 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       {viewMode === 'timeline' && (
         <div className="space-y-4 no-print">
           
-          {/* Top Month Selector & Aggregate KPI Banner (Liquid Glass) */}
-          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              
-              {/* Month Navigation Pill */}
-              <div className="flex items-center gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner self-start sm:self-auto">
-                <button
-                  onClick={() => handleMonthShift(direction === 'rtl' ? 1 : -1)}
-                  className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="Previous Month"
-                >
-                  {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-                </button>
-                <div className="relative flex items-center justify-center cursor-pointer min-w-[7.5rem]">
-                  <div className="pointer-events-none text-sm font-bold text-slate-800 dark:text-white px-3 py-1 text-center w-full flex items-center justify-center gap-1.5">
-                    <CalendarIcon className="w-4 h-4 text-sky-500" />
-                    <span>{formatMonthOnly(calendarMonth, language)}</span>
+          {/* Top Month Selector & Executive Hero Command Banner (Matching Dashboard Identity) */}
+          <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
+            <div className="absolute top-0 right-1/4 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-10 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              {/* Main Monthly Metrics */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
+                    <CalendarCheck className="w-4 h-4" />
+                    <span>{language === 'fa' ? 'نبض کارکرد و دستمزد ماه' : 'Monthly Shift & Payroll Pulse'}</span>
                   </div>
-                  <input
-                    type="month"
-                    value={calendarMonth}
-                    onChange={(e) => setCalendarMonth(e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
+
+                  {/* Compact Month Switcher Pill */}
+                  <div className="flex items-center gap-1.5 bg-white/10 p-1 rounded-2xl border border-white/10 backdrop-blur-md">
+                    <button
+                      onClick={() => handleMonthShift(direction === 'rtl' ? 1 : -1)}
+                      className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white cursor-pointer"
+                      title="ماه قبل"
+                    >
+                      {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                    </button>
+                    <div className="relative flex items-center justify-center cursor-pointer min-w-[6.5rem]">
+                      <span className="text-xs font-bold text-white px-2 py-0.5">
+                        {formatMonthOnly(calendarMonth, language)}
+                      </span>
+                      <input
+                        type="month"
+                        value={calendarMonth}
+                        onChange={(e) => setCalendarMonth(e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
+                      className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white cursor-pointer"
+                      title="ماه بعد"
+                    >
+                      {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
-                  className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="Next Month"
-                >
-                  {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                </button>
+
+                <div>
+                  <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+                    <span>{formatAmount(monthTimelineData.monthStats.totalSalary, currency)}</span>
+                    <span className="text-sm sm:text-base font-bold text-sky-400">{getCurrencySymbol(currency, language)}</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                    {language === 'fa' ? 'مجموع ناخالص حقوق و کارکرد ثبت‌شده در این ماه' : 'Total gross wages for the selected month'}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                  <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span className="text-slate-300">{language === 'fa' ? 'روزهای کاری:' : 'Days:'}</span>
+                    <span className="font-black text-white">{monthTimelineData.monthStats.daysWorked} {language === 'fa' ? 'روز' : 'days'}</span>
+                  </div>
+
+                  <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span className="text-slate-300">{language === 'fa' ? 'کل اضافه‌کاری:' : 'OT:'}</span>
+                    <span className="font-black font-mono text-white">+{formatHoursAndMinutes(monthTimelineData.monthStats.totalOvertime, language)}</span>
+                  </div>
+
+                  <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-sky-400" />
+                    <span className="text-slate-300">{language === 'fa' ? 'ثبت‌ها:' : 'Entries:'}</span>
+                    <span className="font-black text-white">{monthTimelineData.monthStats.totalEntries}</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Month KPI Summary Glass Widgets */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                {/* Salary KPI */}
-                <div className="px-3.5 py-2.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 rounded-2xl font-bold flex items-center gap-2.5 border border-emerald-500/20 backdrop-blur-md">
-                  <div className="w-7 h-7 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                    <Coins className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-normal">{language === 'fa' ? 'دستمزد ناخالص ماه' : 'Monthly Payroll'}</span>
-                    <span className="text-sm font-black">{formatCurrency(monthTimelineData.monthStats.totalSalary, currency, language)}</span>
-                  </div>
-                </div>
+              {/* Quick Action Dock */}
+              <div className="lg:col-span-5 grid grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={() => onOpenLoggingModal && onOpenLoggingModal(getTodayDateString())}
+                  className="col-span-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
+                >
+                  <CalendarPlus className="w-4 h-4" />
+                  <span>{t('logDailyAttendance')}</span>
+                </button>
 
-                {/* Days KPI */}
-                <div className="px-3.5 py-2.5 bg-sky-500/10 text-sky-700 dark:text-sky-300 rounded-2xl font-bold flex items-center gap-2.5 border border-sky-500/20 backdrop-blur-md">
-                  <div className="w-7 h-7 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-600 dark:text-sky-400">
-                    <CalendarCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-normal">{language === 'fa' ? 'روزهای کاری' : 'Work Days'}</span>
-                    <span className="text-sm font-black">{monthTimelineData.monthStats.daysWorked} {language === 'fa' ? 'روز کارکرد' : 'days'}</span>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'))}
+                  className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
+                >
+                  <Users className="w-4 h-4 text-sky-400" />
+                  <span>{language === 'fa' ? 'پرسنل' : 'Workers'}</span>
+                </button>
 
-                {/* Overtime KPI */}
-                <div className="px-3.5 py-2.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-2xl font-bold flex items-center gap-2.5 border border-amber-500/20 backdrop-blur-md">
-                  <div className="w-7 h-7 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-normal">{language === 'fa' ? 'کل اضافه‌کاری' : 'Overtime'}</span>
-                    <span className="text-sm font-black font-mono">+{formatHoursAndMinutes(monthTimelineData.monthStats.totalOvertime, language)}</span>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRecycleBinOpen(true)}
+                  className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
+                >
+                  <Trash2 className="w-4 h-4 text-amber-400" />
+                  <span>{language === 'fa' ? 'سطل زباله' : 'Recycle'}</span>
+                </button>
               </div>
             </div>
 
-            {/* Filter & Search Bar */}
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3">
+            {/* Filter & Search Sub-Dock */}
+            <div className="mt-5 pt-4 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-3">
               {/* Search input */}
               <div className="relative w-full md:w-80">
                 <Search className="w-4 h-4 absolute start-3 top-2.5 text-slate-400" />
@@ -880,12 +915,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   value={timelineSearch}
                   onChange={(e) => setTimelineSearch(e.target.value)}
                   placeholder={t('timelineSearchPlaceholder')}
-                  className="w-full ps-9 pe-4 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full ps-9 pe-4 py-2 text-xs bg-white/10 border border-white/15 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
                 />
                 {timelineSearch && (
                   <button
                     onClick={() => setTimelineSearch('')}
-                    className="absolute end-2.5 top-2 text-slate-400 hover:text-slate-600"
+                    className="absolute end-2.5 top-2.5 text-slate-400 hover:text-white"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -893,50 +928,35 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               </div>
 
               {/* Toggles */}
-              <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+              <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
                 {/* Filter days with logs */}
                 <button
                   onClick={() => setFilterOnlyWithLogs(!filterOnlyWithLogs)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors border ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
                     filterOnlyWithLogs
-                      ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                      : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
                   }`}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>{filterOnlyWithLogs ? t('filterOnlyWithLogs') : t('showAllMonthDays')}</span>
                 </button>
 
-                {/* Sort order (Dynamic Lucide Icon & persistent state) */}
+                {/* Sort order toggle */}
                 <button
                   type="button"
                   onClick={toggleSortOrder}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-95 cursor-pointer ${
-                    sortAscending
-                      ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/50'
-                      : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50'
-                  }`}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border border-white/15 bg-white/10 hover:bg-white/20 text-white cursor-pointer active:scale-95"
                   title={sortAscending 
-                    ? (language === 'fa' ? 'مرتب‌سازی: صعودی (قدیمی به جدید)' : language === 'ku' ? 'ڕیزکردن: کۆن بۆ نوێ' : 'Sort: Oldest to Newest')
-                    : (language === 'fa' ? 'مرتب‌سازی: نزولی (جدید به قدیمی)' : language === 'ku' ? 'ڕیزکردن: نوێ بۆ کۆن' : 'Sort: Newest to Oldest')}
+                    ? (language === 'fa' ? 'مرتب‌سازی: صعودی' : 'Sort: Oldest to Newest')
+                    : (language === 'fa' ? 'مرتب‌سازی: نزولی' : 'Sort: Newest to Oldest')}
                 >
                   {sortAscending ? (
-                    <ArrowUpNarrowWide className="w-4 h-4 text-sky-600 dark:text-sky-400 stroke-[2.2]" />
+                    <ArrowUpNarrowWide className="w-4 h-4 text-sky-400 stroke-[2.2]" />
                   ) : (
-                    <ArrowDownWideNarrow className="w-4 h-4 text-amber-600 dark:text-amber-400 stroke-[2.2]" />
+                    <ArrowDownWideNarrow className="w-4 h-4 text-amber-400 stroke-[2.2]" />
                   )}
                   <span>{sortAscending ? (language === 'ku' ? 'کۆن بۆ نوێ' : 'قدیمی به جدید') : (language === 'ku' ? 'نوێ بۆ کۆن' : 'جدید به قدیمی')}</span>
-                </button>
-
-                {/* Quick Add Log Button (Matching FAB) */}
-                <button
-                  type="button"
-                  onClick={() => onOpenLoggingModal && onOpenLoggingModal(getTodayDateString())}
-                  aria-label={t('logDailyAttendance')}
-                  title={t('logDailyAttendance')}
-                  className="p-2 sm:p-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-sky-500/30 cursor-pointer group"
-                >
-                  <CalendarPlus className="w-5 h-5 transition-transform group-hover:scale-110" />
                 </button>
               </div>
             </div>
@@ -974,15 +994,15 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     }`}
                   >
                     {/* Day Header Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/60">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-slate-100 dark:border-slate-800/60">
                       {/* Left/Start: Day Badge & Formatted Date */}
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center font-bold text-sm border shadow-xs ${
+                      <div className="flex items-center gap-3.5">
+                        <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center font-black text-base border shadow-md transition-all ${
                           hasLogs
-                            ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800'
+                            ? 'bg-gradient-to-br from-sky-500 to-indigo-600 text-white border-sky-400/30 shadow-sky-500/20'
                             : isFriday
-                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-                            : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
+                            ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white border-amber-400/30 shadow-amber-500/20'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
                         }`}>
                           <span>{dayItem.dayNumber}</span>
                         </div>
@@ -991,43 +1011,43 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <span>{formattedDate}</span>
                             {isFriday && (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                                جمعه
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                {language === 'fa' ? 'جمعه (تعطیل)' : 'Friday'}
                               </span>
                             )}
                           </h3>
-                          <span className="text-[11px] text-slate-400 font-medium">
+                          <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
                             {dayItem.dateStr}
                           </span>
                         </div>
                       </div>
 
                       {/* Right/End: Day Metrics & Quick Actions */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                         {hasLogs ? (
                           <>
-                            {/* Worker count */}
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            {/* Worker count pill */}
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50">
                               <Users className="w-3.5 h-3.5 text-sky-500" />
                               <span>{dayItem.totalWorkers} {t('workers')}</span>
                             </span>
 
                             {/* Overtime count if any */}
                             {dayItem.totalOvertime > 0 && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/50 dark:border-amber-800/50">
-                                <Clock className="w-3.5 h-3.5" />
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                                <Clock className="w-3.5 h-3.5 text-amber-500" />
                                 <span>+{formatHoursAndMinutes(dayItem.totalOvertime, language)}</span>
                               </span>
                             )}
 
                             {/* Total day pay */}
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50">
-                              <Coins className="w-3.5 h-3.5" />
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                              <Coins className="w-3.5 h-3.5 text-emerald-500" />
                               <span>{formatCurrency(dayItem.totalPay, currency, language)}</span>
                             </span>
                           </>
                         ) : (
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-slate-400 italic px-2">
                             {t('noLogsThisDay')}
                           </span>
                         )}
@@ -1035,10 +1055,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         {/* Quick Add / Edit button for this day */}
                         <button
                           onClick={() => onOpenLoggingModal && onOpenLoggingModal(dayItem.dateStr)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors border border-sky-200/60 dark:border-sky-800/60 ms-1"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white shadow-md shadow-sky-500/20 transition-all cursor-pointer ms-1 active:scale-95"
                           title={t('quickAddLogThisDate')}
                         >
-                          <PlusCircle className="w-3.5 h-3.5" />
+                          <PlusCircle className="w-4 h-4" />
                           <span className="hidden sm:inline">{t('quickAddLogThisDate')}</span>
                         </button>
                       </div>
@@ -1060,7 +1080,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                               return (
                                 <div
                                   key={log.id}
-                                  className="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 text-slate-800 dark:text-slate-200 hover:border-sky-300 dark:hover:border-sky-600 transition-colors"
+                                  className="group flex items-center gap-2.5 px-3.5 py-2 rounded-2xl text-xs font-medium bg-white/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-md transition-all duration-200"
                                 >
                                   {/* Worker name */}
                                   <span 
@@ -1072,19 +1092,19 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                   </span>
 
                                   {/* Attendance status badge */}
-                                  <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
                                     log.type === 'hourly'
-                                      ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300'
+                                      ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20'
                                       : log.type === 'half'
-                                      ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
-                                      : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                                      : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
                                   }`}>
                                     {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDays') : t('normalDays')}
                                   </span>
 
                                   {/* Overtime chip if > 0 */}
                                   {log.overtimeHours > 0 && (
-                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300 flex items-center gap-0.5">
+                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 flex items-center gap-1">
                                       <Clock className="w-2.5 h-2.5" />
                                       <span>{log.type === 'hourly' ? '' : '+'}{formatHoursAndMinutes(log.overtimeHours, language)}</span>
                                     </span>
@@ -1099,33 +1119,33 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                   {/* Settled indicator or Edit/Delete actions */}
                                   {isLogSettled(log) ? (
                                     <div className="flex items-center gap-1 ms-1">
-                                      <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800" title="تسویه شده (قفل)">
+                                      <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20" title="تسویه شده (قفل)">
                                         <Lock className="w-2.5 h-2.5" />
                                         <span>{language === 'fa' ? 'تسویه' : 'Settled'}</span>
                                       </span>
                                       <button
                                         onClick={() => setEditingLog(log)}
-                                        className="p-0.5 text-slate-400 hover:text-emerald-600 transition-colors"
+                                        className="p-1 text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
                                         title={language === 'fa' ? 'مشاهده جزئیات (تسویه شده - قفل)' : 'View details (settled - locked)'}
                                       >
-                                        <Eye className="w-3 h-3" />
+                                        <Eye className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   ) : (
                                     <div className="flex items-center gap-0.5 ms-1">
                                       <button
                                         onClick={() => setEditingLog(log)}
-                                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-sky-600 text-slate-400 transition-opacity"
+                                        className="p-1 text-slate-400 hover:text-sky-600 transition-colors cursor-pointer"
                                         title={t('edit')}
                                       >
-                                        <Edit2 className="w-3 h-3" />
+                                        <Edit2 className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleDeleteLog(log.id)}
-                                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-600 text-slate-400 transition-opacity"
+                                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                                         title={t('delete')}
                                       >
-                                        <Trash2 className="w-3 h-3" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   )}
@@ -1137,17 +1157,17 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
                         {/* Daily Notes & Task Descriptions (متن توضیحات روز) */}
                         {dayItem.notesList.length > 0 && (
-                          <div className="pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800">
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-600 dark:text-sky-400 mb-1.5">
+                          <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-600 dark:text-sky-400 mb-2">
                               <FileText className="w-3.5 h-3.5" />
                               <span>{t('dailyNotesTitle')}:</span>
                             </div>
 
-                            <div className="p-3 bg-sky-50/50 dark:bg-sky-950/30 rounded-xl border border-sky-100 dark:border-sky-900/50 text-xs text-slate-700 dark:text-slate-300 leading-relaxed space-y-1.5">
+                            <div className="p-3.5 bg-sky-500/5 dark:bg-sky-500/5 rounded-2xl border border-sky-500/15 text-xs text-slate-700 dark:text-slate-300 leading-relaxed space-y-2 backdrop-blur-md">
                               {dayItem.notesList.map((noteItem, nIdx) => (
-                                <div key={nIdx} className="flex items-start justify-between gap-2 group/note">
+                                <div key={nIdx} className="flex items-start justify-between gap-2.5 group/note">
                                   <div className="flex items-start gap-2 flex-1">
-                                    <span className="text-sky-500 font-bold mt-0.5">•</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 flex-shrink-0" />
                                     <div>
                                       {dayItem.notesList.length > 1 && (
                                         <span className="font-bold text-slate-900 dark:text-white me-1.5">
@@ -1162,10 +1182,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                   {noteItem.log && (
                                     <button
                                       onClick={() => setEditingLog(noteItem.log)}
-                                      className="opacity-0 group-hover/note:opacity-100 p-0.5 hover:text-sky-600 text-slate-400 transition-opacity flex-shrink-0"
+                                      className="opacity-0 group-hover/note:opacity-100 p-1 hover:text-sky-600 text-slate-400 transition-all flex-shrink-0 cursor-pointer"
                                       title={t('edit')}
                                     >
-                                      <Edit2 className="w-3 h-3" />
+                                      <Edit2 className="w-3.5 h-3.5" />
                                     </button>
                                   )}
                                 </div>
