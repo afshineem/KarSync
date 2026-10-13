@@ -914,14 +914,9 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               <CalendarDays className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
-                  {t('calendarLogs')}
-                </h2>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                  {viewMode === 'timeline' ? t('monthTimeline') : viewMode === 'calendar' ? t('calendarGridTab') : t('logsTitle')}
-                </span>
-              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
+                {language === 'fa' ? 'گزارش کارکرد' : language === 'ku' ? 'ڕاپۆرتی کارکردن' : 'Attendance & Reports'}
+              </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                 {language === 'fa' 
                   ? 'ثبت و پایش شیفت‌های کاری، ساعات اضافه‌کار و گزارش‌گیری تفکیکی پروژه' 
