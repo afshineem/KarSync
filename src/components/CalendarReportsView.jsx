@@ -701,14 +701,30 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
     let basePay = 0;
     let otPay = 0;
     let totalPay = 0;
+    let settledPay = 0;
+    let unsettledPay = 0;
+    let settledEntries = 0;
+    let unsettledEntries = 0;
 
     filteredLogs.forEach((l) => {
       days += l.type === 'hourly' ? 0 : l.type === 'half' ? 0.5 : 1.0;
       otHours += Number(l.overtimeHours) || 0;
       basePay += Number(l.calculatedDailyWage) || 0;
       otPay += Number(l.calculatedOvertimeWage) || 0;
-      totalPay += Number(l.totalDayPay) || 0;
+      const dayTotal = Number(l.totalDayPay) || 0;
+      totalPay += dayTotal;
+
+      if (isLogSettled(l)) {
+        settledPay += dayTotal;
+        settledEntries += 1;
+      } else {
+        unsettledPay += dayTotal;
+        unsettledEntries += 1;
+      }
     });
+
+    const settledPercent = totalPay > 0 ? Math.round((settledPay / totalPay) * 100) : 0;
+    const unsettledPercent = totalPay > 0 ? 100 - settledPercent : 0;
 
     return {
       entriesCount: filteredLogs.length,
@@ -716,9 +732,15 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       otHours,
       basePay: roundCurrency(basePay, currency),
       otPay: roundCurrency(otPay, currency),
-      totalPay: roundCurrency(totalPay, currency)
+      totalPay: roundCurrency(totalPay, currency),
+      settledPay: roundCurrency(settledPay, currency),
+      unsettledPay: roundCurrency(unsettledPay, currency),
+      settledEntries,
+      unsettledEntries,
+      settledPercent,
+      unsettledPercent
     };
-  }, [filteredLogs, currency]);
+  }, [filteredLogs, currency, isLogSettled]);
 
   const summaryGroupedData = useMemo(() => {
     const grouped = {};
@@ -2136,7 +2158,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
           )}
 
           {/* Dynamic Adaptive Intelligence Hub (کارت بزرگ و تطبیق‌پذیر کارکرد و هزینه) */}
-          <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl space-y-6">
+          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-indigo-950 text-white border border-white/10 shadow-2xl space-y-6">
             <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-10 right-0 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -2155,33 +2177,113 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   </span>
                 </div>
 
-                <div className="space-y-1">
-                  <span className="text-xs text-slate-400 font-medium">
-                    {language === 'fa' ? 'مجموع دستمزد ناخالص محاسبه‌شده در این بازه' : 'Calculated Gross Labor Cost'}
-                  </span>
-                  <div className="flex items-baseline gap-3 flex-wrap">
-                    <span className="text-3xl sm:text-4xl font-black text-white tracking-tight font-mono">
-                      {formatCurrency(aggregatedStats.totalPay, currency, language)}
+                {/* Primary Gross Amount + Quick Settled / Unsettled Split */}
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs text-slate-400 font-medium block">
+                      {language === 'fa' ? 'مجموع دستمزد ناخالص کارکرد در این بازه' : 'Calculated Gross Labor Cost'}
                     </span>
-                    <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                      {filteredLogs.length} {t('totalEntries')}
-                    </span>
+                    <div className="flex items-baseline gap-3 flex-wrap mt-0.5">
+                      <span className="text-3xl sm:text-4xl font-black text-white tracking-tight font-mono">
+                        {formatCurrency(aggregatedStats.totalPay, currency, language)}
+                      </span>
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-sky-500/20 text-sky-300 font-bold border border-sky-500/30">
+                        {filteredLogs.length} {t('totalEntries')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Settled vs Unsettled Quick Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    {/* Settled Card */}
+                    <div 
+                      onClick={() => setSelectedSettlementStatus(prev => prev === 'settled' ? 'all' : 'settled')}
+                      className={`p-3 rounded-2xl border backdrop-blur-md transition-all cursor-pointer group select-none ${
+                        selectedSettlementStatus === 'settled'
+                          ? 'bg-emerald-500/25 border-emerald-400/80 shadow-md shadow-emerald-500/20'
+                          : 'bg-white/5 hover:bg-emerald-500/10 border-white/10 hover:border-emerald-500/30'
+                      }`}
+                      title={language === 'fa' ? 'کلیک جهت فیلتر رکوردهای تسویه شده' : 'Click to filter settled'}
+                    >
+                      <div className="flex items-center justify-between pb-1">
+                        <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{language === 'fa' ? 'تسویه و پرداخت‌شده' : 'Settled & Paid'}</span>
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">
+                          {aggregatedStats.settledPercent}%
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-base sm:text-lg font-black text-white font-mono">
+                          {formatAmount(aggregatedStats.settledPay, currency)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {aggregatedStats.settledEntries} رکورد
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Unsettled Card */}
+                    <div 
+                      onClick={() => setSelectedSettlementStatus(prev => prev === 'current' ? 'all' : 'current')}
+                      className={`p-3 rounded-2xl border backdrop-blur-md transition-all cursor-pointer group select-none ${
+                        selectedSettlementStatus === 'current'
+                          ? 'bg-amber-500/25 border-amber-400/80 shadow-md shadow-amber-500/20'
+                          : 'bg-white/5 hover:bg-amber-500/10 border-white/10 hover:border-amber-500/30'
+                      }`}
+                      title={language === 'fa' ? 'کلیک جهت فیلتر رکوردهای تسویه نشده' : 'Click to filter unsettled'}
+                    >
+                      <div className="flex items-center justify-between pb-1">
+                        <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>{language === 'fa' ? 'مانده تسویه‌نشده (تعهد)' : 'Unsettled (Due)'}</span>
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold">
+                          {aggregatedStats.unsettledPercent}%
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-base sm:text-lg font-black text-amber-300 font-mono">
+                          {formatAmount(aggregatedStats.unsettledPay, currency)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {aggregatedStats.unsettledEntries} رکورد
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visual Settlement Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden flex">
+                      <div 
+                        className="h-full bg-emerald-400 transition-all duration-500"
+                        style={{ width: `${aggregatedStats.settledPercent}%` }}
+                        title={`تسویه شده: ${aggregatedStats.settledPercent}%`}
+                      />
+                      <div 
+                        className="h-full bg-amber-400/80 transition-all duration-500"
+                        style={{ width: `${aggregatedStats.unsettledPercent}%` }}
+                        title={`مانده: ${aggregatedStats.unsettledPercent}%`}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* 3 Metrics Row */}
-                <div className="grid grid-cols-3 gap-3 pt-2">
-                  <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                <div className="grid grid-cols-3 gap-2.5 pt-1">
+                  <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                     <span className="text-[11px] text-slate-400 block font-bold">{t('aggregatedDays')}</span>
-                    <span className="text-lg sm:text-xl font-black text-white">{aggregatedStats.days}</span>
+                    <span className="text-base sm:text-lg font-black text-white">{aggregatedStats.days}</span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                     <span className="text-[11px] text-slate-400 block font-bold">{t('aggregatedOvertime')}</span>
-                    <span className="text-lg sm:text-xl font-black text-amber-400 font-mono">
+                    <span className="text-base sm:text-lg font-black text-amber-400 font-mono">
                       {formatHoursAndMinutes(aggregatedStats.otHours, language)}
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                     <span className="text-[11px] text-slate-400 block font-bold">{t('basePay')}</span>
                     <span className="text-xs sm:text-sm font-black text-slate-200 font-mono truncate block">
                       {formatAmount(aggregatedStats.basePay, currency)}
