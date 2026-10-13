@@ -152,6 +152,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   const [showDetailsInHero, setShowDetailsInHero] = useState(false);
   const [reportSearch, setReportSearch] = useState('');
   const [isSearchPickerOpen, setIsSearchPickerOpen] = useState(false);
+  const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
 
   // Filters for reporting
   const [selectedWorkerId, setSelectedWorkerId] = useState('all');
@@ -441,6 +442,39 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
     }
     return workers.filter((w) => String(w.groupId) === String(selectedGroupId));
   }, [workers, selectedGroupId]);
+
+  // Search picker items for instant suggestion & keyboard arrow navigation
+  const searchPickerItems = useMemo(() => {
+    const q = reportSearch.trim().toLowerCase();
+    const items = [];
+
+    // Filter groups
+    const matchedGroups = groupOptions.filter((g) => !q || g.name.toLowerCase().includes(q));
+    matchedGroups.forEach((g) => {
+      items.push({
+        type: 'group',
+        id: String(g.id),
+        name: g.name,
+        count: workers.filter((w) => String(w.groupId) === String(g.id)).length
+      });
+    });
+
+    // Filter workers
+    const matchedWorkers = workers.filter(
+      (w) => !q || w.name.toLowerCase().includes(q) || (w.role && w.role.toLowerCase().includes(q))
+    );
+    matchedWorkers.forEach((w) => {
+      items.push({
+        type: 'worker',
+        id: String(w.id),
+        name: w.name,
+        role: w.role,
+        groupName: w.groupId && groupMap[w.groupId] ? groupMap[w.groupId].name : null
+      });
+    });
+
+    return items;
+  }, [groupOptions, workers, groupMap, reportSearch]);
 
   // ========================================================
   // 1. MONTHLY TIMELINE DATA (Day-by-Day Detailed Breakdown)
@@ -1705,10 +1739,51 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 <input
                   type="text"
                   value={reportSearch}
-                  onFocus={() => setIsSearchPickerOpen(true)}
+                  onFocus={() => {
+                    setIsSearchPickerOpen(true);
+                    setSearchSelectedIndex(0);
+                  }}
                   onChange={(e) => {
                     setReportSearch(e.target.value);
                     setIsSearchPickerOpen(true);
+                    setSearchSelectedIndex(0);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!isSearchPickerOpen) {
+                      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                        setIsSearchPickerOpen(true);
+                        e.preventDefault();
+                      }
+                      return;
+                    }
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setSearchSelectedIndex((prev) => 
+                        searchPickerItems.length > 0 ? (prev + 1) % searchPickerItems.length : 0
+                      );
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setSearchSelectedIndex((prev) => 
+                        searchPickerItems.length > 0 ? (prev - 1 + searchPickerItems.length) % searchPickerItems.length : 0
+                      );
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (searchPickerItems.length > 0 && searchPickerItems[searchSelectedIndex]) {
+                        const target = searchPickerItems[searchSelectedIndex];
+                        if (target.type === 'group') {
+                          setSelectedGroupId(target.id);
+                          setSelectedWorkerId('all');
+                          setReportSearch(target.name);
+                        } else {
+                          setSelectedWorkerId(target.id);
+                          setSelectedGroupId('all');
+                          setReportSearch(target.name);
+                        }
+                        setIsSearchPickerOpen(false);
+                      }
+                    } else if (e.key === 'Escape') {
+                      setIsSearchPickerOpen(false);
+                    }
                   }}
                   placeholder={
                     selectedWorkerId !== 'all' && workerMap[selectedWorkerId]
@@ -1739,90 +1814,154 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     onClick={() => setIsSearchPickerOpen(false)} 
                   />
                   <div className="absolute top-full mt-2 inset-x-0 z-30 max-h-72 overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-700/90 shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
-                    {/* All Project item */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clearAllFilters();
-                        setIsSearchPickerOpen(false);
-                      }}
-                      className="w-full text-right px-3 py-2 rounded-xl text-xs font-bold hover:bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-between transition-colors"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-                        <span>{language === 'fa' ? 'کل پروژه (همه پرسنل و گروه‌ها)' : 'Whole Project (All)'}</span>
-                      </span>
-                      {selectedWorkerId === 'all' && selectedGroupId === 'all' && (
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                    
+                    {/* When searching (user typed something): Render flat streamlined matching items without distracting headers */}
+                    {reportSearch.trim() ? (
+                      searchPickerItems.length === 0 ? (
+                        <div className="py-4 text-center text-slate-400 text-xs">
+                          {language === 'fa' ? 'موردی یافت نشد' : 'No results found'}
+                        </div>
+                      ) : (
+                        searchPickerItems.map((item, idx) => {
+                          const isSelected = idx === searchSelectedIndex;
+                          return (
+                            <button
+                              key={`${item.type}_${item.id}`}
+                              type="button"
+                              onClick={() => {
+                                if (item.type === 'group') {
+                                  setSelectedGroupId(item.id);
+                                  setSelectedWorkerId('all');
+                                } else {
+                                  setSelectedWorkerId(item.id);
+                                  setSelectedGroupId('all');
+                                }
+                                setReportSearch(item.name);
+                                setIsSearchPickerOpen(false);
+                              }}
+                              onMouseEnter={() => setSearchSelectedIndex(idx)}
+                              className={`w-full text-right px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                                isSelected
+                                  ? (item.type === 'group' ? 'bg-indigo-500 text-white' : 'bg-sky-500 text-white')
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                {item.type === 'group' ? (
+                                  <Users className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-indigo-500'}`} />
+                                ) : (
+                                  <User className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-sky-500'}`} />
+                                )}
+                                <span>{item.name}</span>
+                                {item.role && (
+                                  <span className={`text-[10px] font-normal ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                                    ({item.role})
+                                  </span>
+                                )}
+                              </span>
 
-                    {/* Groups header */}
-                    <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      {language === 'fa' ? 'گروه‌های کاری' : 'Work Groups'}
-                    </div>
-                    {groupOptions
-                      .filter(g => !reportSearch.trim() || g.name.toLowerCase().includes(reportSearch.toLowerCase().trim()))
-                      .map((g) => (
-                        <button
-                          key={g.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedGroupId(String(g.id));
-                            setSelectedWorkerId('all');
-                            setReportSearch(g.name);
-                            setIsSearchPickerOpen(false);
-                          }}
-                          className={`w-full text-right px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-colors ${
-                            selectedGroupId === String(g.id)
-                              ? 'bg-indigo-500 text-white'
-                              : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <Users className="w-3.5 h-3.5 text-indigo-400" />
-                            <span>{g.name}</span>
-                          </span>
-                          <span className="text-[10px] opacity-75">
-                            {workers.filter(w => String(w.groupId) === String(g.id)).length} نفر
-                          </span>
-                        </button>
-                      ))}
+                              <div className="flex items-center gap-1.5 text-[10px]">
+                                {item.type === 'group' ? (
+                                  <span className={`px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'}`}>
+                                    {item.count} نفر
+                                  </span>
+                                ) : item.groupName ? (
+                                  <span className={`px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                    {item.groupName}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )
+                    ) : (
+                      /* When input is empty: Clean categorized browser (Groups first, then Workers) */
+                      <>
+                        {/* Groups category */}
+                        {groupOptions.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="px-3 pt-1.5 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                              <Users className="w-3 h-3 text-indigo-400" />
+                              <span>{language === 'fa' ? 'گروه‌های کاری' : 'Work Groups'}</span>
+                            </div>
+                            {groupOptions.map((g, gIdx) => {
+                              const isSelected = gIdx === searchSelectedIndex;
+                              return (
+                                <button
+                                  key={g.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedGroupId(String(g.id));
+                                    setSelectedWorkerId('all');
+                                    setReportSearch(g.name);
+                                    setIsSearchPickerOpen(false);
+                                  }}
+                                  onMouseEnter={() => setSearchSelectedIndex(gIdx)}
+                                  className={`w-full text-right px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-indigo-500 text-white'
+                                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <Users className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-indigo-400'}`} />
+                                    <span>{g.name}</span>
+                                  </span>
+                                  <span className="text-[10px] opacity-75">
+                                    {workers.filter(w => String(w.groupId) === String(g.id)).length} نفر
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
 
-                    {/* Workers header */}
-                    <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      {language === 'fa' ? 'پرسنل' : 'Workers'}
-                    </div>
-                    {workers
-                      .filter(w => !reportSearch.trim() || w.name.toLowerCase().includes(reportSearch.toLowerCase().trim()) || (w.role && w.role.toLowerCase().includes(reportSearch.toLowerCase().trim())))
-                      .map((w) => (
-                        <button
-                          key={w.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedWorkerId(String(w.id));
-                            setSelectedGroupId('all');
-                            setReportSearch(w.name);
-                            setIsSearchPickerOpen(false);
-                          }}
-                          className={`w-full text-right px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-colors ${
-                            selectedWorkerId === String(w.id)
-                              ? 'bg-sky-500 text-white'
-                              : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <User className="w-3.5 h-3.5 text-sky-400" />
-                            <span>{w.name}</span>
-                            {w.role && <span className="text-[10px] opacity-70 font-normal">({w.role})</span>}
-                          </span>
-                          {w.groupId && groupMap[w.groupId] && (
-                            <span className="text-[10px] opacity-70 bg-slate-200/60 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
-                              {groupMap[w.groupId].name}
-                            </span>
-                          )}
-                        </button>
-                      ))}
+                        {/* Workers category */}
+                        {workers.length > 0 && (
+                          <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                            <div className="px-3 pt-1.5 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                              <User className="w-3 h-3 text-sky-400" />
+                              <span>{language === 'fa' ? 'پرسنل کارگاه' : 'Workers'}</span>
+                            </div>
+                            {workers.map((w, wIdx) => {
+                              const itemIndex = groupOptions.length + wIdx;
+                              const isSelected = itemIndex === searchSelectedIndex;
+                              return (
+                                <button
+                                  key={w.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedWorkerId(String(w.id));
+                                    setSelectedGroupId('all');
+                                    setReportSearch(w.name);
+                                    setIsSearchPickerOpen(false);
+                                  }}
+                                  onMouseEnter={() => setSearchSelectedIndex(itemIndex)}
+                                  className={`w-full text-right px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-sky-500 text-white'
+                                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <User className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-sky-400'}`} />
+                                    <span>{w.name}</span>
+                                    {w.role && <span className={`text-[10px] font-normal ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>({w.role})</span>}
+                                  </span>
+                                  {w.groupId && groupMap[w.groupId] && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/60 dark:bg-slate-800 text-slate-500'}`}>
+                                      {groupMap[w.groupId].name}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+
                   </div>
                 </>
               )}
