@@ -2415,7 +2415,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                   <span className="text-[11px] text-slate-400 block font-bold">{t('aggregatedOvertime')}</span>
                   <span className="text-base sm:text-xl font-black text-amber-400 font-mono">
-                    {formatHoursAndMinutes(aggregatedStats.otHours, language)}
+                    {formatHoursDigital(aggregatedStats.otHours)}
                   </span>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
