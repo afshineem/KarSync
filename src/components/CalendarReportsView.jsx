@@ -681,98 +681,114 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   return (
     <div className="space-y-6 pb-20">
       
-      {/* Top Header: 3-Way Mode Switcher (Timeline Breakdown | Calendar Grid | Reports & Settlement) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm no-print">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <CalendarDays className="w-6 h-6 text-sky-500" />
-            <span>{t('calendarLogs')}</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {viewMode === 'timeline' ? t('monthTimeline') : viewMode === 'calendar' ? t('calendarGridTab') : t('logsTitle')}
-          </p>
-        </div>
+      {/* Top Header: Liquid Glass Capsule with 3-Way Mode Switcher & Integrated Actions */}
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/30 transition-all duration-300 no-print">
+        <div className="absolute -top-24 -right-24 w-60 h-60 bg-sky-500/10 dark:bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-indigo-500/10 dark:bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Action Controls: Google M3 Icon-First Segmented Control + Actions */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Mode Switcher + Recycle Bin Action */}
-          <div className="h-[52px] sm:h-[58px] flex items-center gap-1 sm:gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1 sm:p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
-            {[
-              { id: 'timeline', label: language === 'fa' ? 'تفکیک روزانه' : language === 'ku' ? 'لیستی مانگانە' : 'Timeline', icon: CalendarDays },
-              { id: 'calendar', label: language === 'fa' ? 'ماه‌نما' : language === 'ku' ? 'تەقویم' : 'Month Grid', icon: LayoutGrid },
-              { id: 'logs', label: language === 'fa' ? 'ریز کارکرد' : language === 'ku' ? 'وردەکاری' : 'Daily Logs', icon: ClipboardList }
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isSelected = viewMode === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setViewMode(tab.id)}
-                  aria-label={tab.label}
-                  title={tab.label}
-                  className={`relative h-full flex items-center gap-2 rounded-xl transition-all duration-200 active:scale-95 ${
-                    isSelected
-                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold px-3.5 sm:px-4'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 px-2.5 sm:px-3'
-                  }`}
-                >
-                  <Icon className="w-5.5 h-5.5 flex-shrink-0" />
-                  {isSelected && (
-                    <span className="text-xs font-semibold whitespace-nowrap animate-fade-in">
-                      {tab.label}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-
-            <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-0.5 self-center" />
-
-            {/* Workers / Personnel Modal Action Button */}
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'))}
-              aria-label={language === 'fa' ? 'مدیریت پرسنل و کارگران (Shift+P)' : language === 'ku' ? 'بەڕێوەبردنی کرێکاران (Shift+P)' : 'Manage Workers (Shift+P)'}
-              title={language === 'fa' ? 'مدیریت پرسنل و کارگران (Shift+P)' : language === 'ku' ? 'بەڕێوەبردنی کرێکاران (Shift+P)' : 'Manage Workers (Shift+P)'}
-              className="h-full aspect-square rounded-xl text-slate-500 hover:text-sky-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
-            >
-              <Users className="w-5.5 h-5.5 flex-shrink-0" />
-            </button>
-
-            {/* Recycle Bin Action Button inside the same dock */}
-            <button
-              type="button"
-              onClick={() => setIsRecycleBinOpen(true)}
-              aria-label={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
-              title={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
-              className="h-full aspect-square rounded-xl text-slate-500 hover:text-amber-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
-            >
-              <Trash2 className="w-5.5 h-5.5 flex-shrink-0" />
-            </button>
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-500/20 flex-shrink-0">
+              <CalendarDays className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
+                  {t('calendarLogs')}
+                </h2>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                  {viewMode === 'timeline' ? t('monthTimeline') : viewMode === 'calendar' ? t('calendarGridTab') : t('logsTitle')}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {language === 'fa' 
+                  ? 'ثبت و پایش شیفت‌های کاری، ساعات اضافه‌کار و گزارش‌گیری تفکیکی پروژه' 
+                  : 'Track daily shifts, overtime hours, and comprehensive workshop attendance'}
+              </p>
+            </div>
           </div>
 
-          {/* Export & Print Actions */}
-          <div className="h-[52px] sm:h-[58px] flex items-center gap-1 sm:gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1 sm:p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
-              className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center"
-              title={t('exportExcel')}
-              aria-label={t('exportExcel')}
-            >
-              <FileSpreadsheet className="w-5.5 h-5.5 flex-shrink-0" />
-            </button>
+          {/* Action Controls: Liquid Glass Segmented Control Dock */}
+          <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+            {/* Mode Switcher + Quick Actions in shared rounded capsule */}
+            <div className="h-[52px] sm:h-[56px] flex items-center gap-1 sm:gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner flex-shrink-0 backdrop-blur-md">
+              {[
+                { id: 'timeline', label: language === 'fa' ? 'تفکیک روزانه' : language === 'ku' ? 'لیستی مانگانە' : 'Timeline', icon: CalendarDays },
+                { id: 'calendar', label: language === 'fa' ? 'ماه‌نما' : language === 'ku' ? 'تەقویم' : 'Month Grid', icon: LayoutGrid },
+                { id: 'logs', label: language === 'fa' ? 'ریز کارکرد' : language === 'ku' ? 'وردەکاری' : 'Daily Logs', icon: ClipboardList }
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isSelected = viewMode === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setViewMode(tab.id)}
+                    aria-label={tab.label}
+                    title={tab.label}
+                    className={`relative h-full flex items-center gap-2 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer ${
+                      isSelected
+                        ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-bold px-3.5 sm:px-4'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50 px-2.5 sm:px-3'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    {isSelected && (
+                      <span className="text-xs font-semibold whitespace-nowrap">
+                        {tab.label}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
 
-            <button
-              type="button"
-              onClick={triggerPrintReport}
-              className="h-full aspect-square text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center"
-              title={t('printPdf')}
-              aria-label={t('printPdf')}
-            >
-              <Printer className="w-5.5 h-5.5 flex-shrink-0" />
-            </button>
+              <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-0.5 self-center" />
+
+              {/* Workers Modal Action Button */}
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'))}
+                aria-label={language === 'fa' ? 'مدیریت پرسنل و کارگران (Shift+P)' : 'Manage Workers (Shift+P)'}
+                title={language === 'fa' ? 'مدیریت پرسنل و کارگران (Shift+P)' : 'Manage Workers (Shift+P)'}
+                className="h-full aspect-square rounded-xl text-slate-500 hover:text-sky-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer"
+              >
+                <Users className="w-5 h-5 flex-shrink-0" />
+              </button>
+
+              {/* Recycle Bin Action Button */}
+              <button
+                type="button"
+                onClick={() => setIsRecycleBinOpen(true)}
+                aria-label={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
+                title={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
+                className="h-full aspect-square rounded-xl text-slate-500 hover:text-amber-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer"
+              >
+                <Trash2 className="w-5 h-5 flex-shrink-0" />
+              </button>
+            </div>
+
+            {/* Export & Print Dock */}
+            <div className="h-[52px] sm:h-[56px] flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner flex-shrink-0 backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
+                className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
+                title={t('exportExcel')}
+                aria-label={t('exportExcel')}
+              >
+                <FileSpreadsheet className="w-5 h-5 flex-shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={triggerPrintReport}
+                className="h-full aspect-square text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
+                title={t('printPdf')}
+                aria-label={t('printPdf')}
+              >
+                <Printer className="w-5 h-5 flex-shrink-0" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -783,21 +799,23 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       {viewMode === 'timeline' && (
         <div className="space-y-4 no-print">
           
-          {/* Top Month Selector & Aggregate KPI Banner */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              {/* Month navigation */}
-              <div className="flex items-center gap-2">
+          {/* Top Month Selector & Aggregate KPI Banner (Liquid Glass) */}
+          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              
+              {/* Month Navigation Pill */}
+              <div className="flex items-center gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner self-start sm:self-auto">
                 <button
                   onClick={() => handleMonthShift(direction === 'rtl' ? 1 : -1)}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800"
+                  className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
                   title="Previous Month"
                 >
-                  {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+                  {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>
-                <div className="relative flex items-center justify-center cursor-pointer min-w-[7rem]">
-                  <div className="pointer-events-none text-base sm:text-lg font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white px-4 py-1.5 text-center w-full">
-                    {formatMonthOnly(calendarMonth, language)}
+                <div className="relative flex items-center justify-center cursor-pointer min-w-[7.5rem]">
+                  <div className="pointer-events-none text-sm font-bold text-slate-800 dark:text-white px-3 py-1 text-center w-full flex items-center justify-center gap-1.5">
+                    <CalendarIcon className="w-4 h-4 text-sky-500" />
+                    <span>{formatMonthOnly(calendarMonth, language)}</span>
                   </div>
                   <input
                     type="month"
@@ -808,28 +826,46 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 </div>
                 <button
                   onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800"
+                  className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
                   title="Next Month"
                 >
-                  {direction === 'rtl' ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                  {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 </button>
               </div>
 
-              {/* Month KPI Summary Pills */}
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <div className="px-3 py-1.5 bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 rounded-xl font-bold flex items-center gap-1.5 border border-sky-100 dark:border-sky-900">
-                  <CalendarCheck className="w-3.5 h-3.5" />
-                  <span>{monthTimelineData.monthStats.daysWorked} {t('normalDays')}</span>
+              {/* Month KPI Summary Glass Widgets */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                {/* Salary KPI */}
+                <div className="px-3.5 py-2.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 rounded-2xl font-bold flex items-center gap-2.5 border border-emerald-500/20 backdrop-blur-md">
+                  <div className="w-7 h-7 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-normal">{language === 'fa' ? 'دستمزد ناخالص ماه' : 'Monthly Payroll'}</span>
+                    <span className="text-sm font-black">{formatCurrency(monthTimelineData.monthStats.totalSalary, currency, language)}</span>
+                  </div>
                 </div>
 
-                <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 rounded-xl font-bold flex items-center gap-1.5 border border-amber-100 dark:border-amber-900">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>+{formatHoursAndMinutes(monthTimelineData.monthStats.totalOvertime, language)} {language === 'en' ? 'Overtime' : language === 'fa' ? 'اضافه‌کاری' : 'ئۆڤەرتایم'}</span>
+                {/* Days KPI */}
+                <div className="px-3.5 py-2.5 bg-sky-500/10 text-sky-700 dark:text-sky-300 rounded-2xl font-bold flex items-center gap-2.5 border border-sky-500/20 backdrop-blur-md">
+                  <div className="w-7 h-7 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                    <CalendarCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-normal">{language === 'fa' ? 'روزهای کاری' : 'Work Days'}</span>
+                    <span className="text-sm font-black">{monthTimelineData.monthStats.daysWorked} {language === 'fa' ? 'روز کارکرد' : 'days'}</span>
+                  </div>
                 </div>
 
-                <div className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 rounded-xl font-bold flex items-center gap-1.5 border border-emerald-100 dark:border-emerald-900">
-                  <Coins className="w-3.5 h-3.5" />
-                  <span>{formatCurrency(monthTimelineData.monthStats.totalSalary, currency, language)}</span>
+                {/* Overtime KPI */}
+                <div className="px-3.5 py-2.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-2xl font-bold flex items-center gap-2.5 border border-amber-500/20 backdrop-blur-md">
+                  <div className="w-7 h-7 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-normal">{language === 'fa' ? 'کل اضافه‌کاری' : 'Overtime'}</span>
+                    <span className="text-sm font-black font-mono">+{formatHoursAndMinutes(monthTimelineData.monthStats.totalOvertime, language)}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -929,16 +965,16 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 return (
                   <div
                     key={dayItem.dateStr}
-                    className={`bg-white dark:bg-slate-900 rounded-2xl border transition-all p-4 sm:p-5 shadow-sm ${
+                    className={`relative overflow-hidden rounded-3xl border transition-all duration-300 p-4 sm:p-5 backdrop-blur-xl ${
                       hasLogs
-                        ? 'border-slate-200 dark:border-slate-800 hover:border-sky-300 dark:hover:border-sky-700'
+                        ? 'bg-white/75 dark:bg-slate-900/75 border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400/40'
                         : isFriday
-                        ? 'border-amber-200/60 dark:border-amber-900/40 bg-amber-50/20 dark:bg-amber-950/10'
-                        : 'border-slate-100 dark:border-slate-800/60 opacity-60 hover:opacity-100'
+                        ? 'bg-amber-500/[0.04] dark:bg-amber-500/[0.04] border-amber-500/20'
+                        : 'bg-white/40 dark:bg-slate-900/40 border-slate-200/40 dark:border-slate-800/40 opacity-70 hover:opacity-100'
                     }`}
                   >
                     {/* Day Header Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/60">
                       {/* Left/Start: Day Badge & Formatted Date */}
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center font-bold text-sm border shadow-xs ${
@@ -1152,20 +1188,21 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       {/* VIEW 2: MONTHLY CALENDAR GRID                            */}
       {/* ======================================================== */}
       {viewMode === 'calendar' && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-sm no-print">
+        <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 no-print transition-all duration-300">
           
           {/* Calendar Month Selector Header */}
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner">
               <button
                 onClick={() => handleMonthShift(direction === 'rtl' ? 1 : -1)}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-700 dark:text-slate-300"
+                className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                {direction === 'rtl' ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+                {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
               </button>
-              <div className="relative flex items-center justify-center cursor-pointer min-w-[7rem]">
-                <div className="pointer-events-none text-base sm:text-lg font-bold bg-transparent text-slate-900 dark:text-white px-2 py-1 text-center w-full">
-                  {formatMonthOnly(calendarMonth, language)}
+              <div className="relative flex items-center justify-center cursor-pointer min-w-[7.5rem]">
+                <div className="pointer-events-none text-sm font-bold text-slate-800 dark:text-white px-2 py-1 text-center w-full flex items-center justify-center gap-1.5">
+                  <CalendarIcon className="w-4 h-4 text-sky-500" />
+                  <span>{formatMonthOnly(calendarMonth, language)}</span>
                 </div>
                 <input
                   type="month"
@@ -1176,13 +1213,13 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               </div>
               <button
                 onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-700 dark:text-slate-300"
+                className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                {direction === 'rtl' ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </button>
             </div>
 
-            <div className="text-xs text-slate-400">
+            <div className="text-xs font-bold text-slate-500 dark:text-slate-400 px-3 py-1.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50">
               {allLogs.filter(l => l.date.startsWith(calendarMonth)).length} {t('totalEntries')}
             </div>
           </div>
@@ -1271,10 +1308,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       {viewMode === 'logs' && (
         <div className="space-y-6">
           
-          {/* Controls & Filters Bar */}
-          <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 no-print">
+          {/* Controls & Filters Bar (Liquid Glass) */}
+          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-4 no-print transition-all duration-300">
             {/* Format Toggle: Summary vs Detailed */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800/80">
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('reports')}:</span>
                 <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
@@ -1496,11 +1533,11 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             </div>
           </div>
 
-          {/* Project Sections Cost Allocation Breakdown */}
+          {/* Project Sections Cost Allocation Breakdown (Liquid Glass) */}
           {sectionBreakdown.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 no-print">
+            <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/20 space-y-3 no-print transition-all duration-300">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
+                <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
                   <Layers className="w-4 h-4" />
                 </div>
                 <div>
@@ -1521,7 +1558,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   return (
                     <div 
                       key={sec.id}
-                      className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/80 dark:border-slate-700/80 space-y-2"
+                      className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 space-y-2 hover:border-sky-500/30 transition-all"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-slate-900 dark:text-white">{sec.name}</span>
@@ -1550,7 +1587,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
           )}
 
           {/* MAIN REPORT TABLE (SCREEN + PRINT) */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden print:border-none print:shadow-none">
+          <div className="relative overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20 overflow-hidden print:border-none print:shadow-none transition-all duration-300">
             
             {/* Print Header */}
             <div className="hidden print:block p-6 border-b border-slate-200 mb-4 text-center">
