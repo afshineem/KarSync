@@ -510,22 +510,22 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             <button
               type="button"
               onClick={() => openGlobalSettings('account')}
-              className="relative group p-0.5 rounded-2xl ring-2 ring-sky-500/30 hover:ring-sky-500 transition-all duration-300 cursor-pointer overflow-hidden flex-shrink-0"
+              className="relative group p-0.5 rounded-xl ring-2 ring-sky-500/20 hover:ring-sky-500/60 transition-all duration-300 cursor-pointer overflow-hidden flex-shrink-0"
               title={language === 'fa' ? 'حساب کاربری و تنظیمات' : 'Account & Settings'}
             >
               {user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url ? (
                 <img
                   src={user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url}
                   alt="Avatar"
-                  className="w-13 h-13 rounded-[14px] object-cover"
+                  className="w-10 h-10 rounded-[10px] object-cover"
                 />
               ) : (
-                <div className="w-13 h-13 rounded-[14px] bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
                   {(user?.name || user?.email || 'K').slice(0, 2).toUpperCase()}
                 </div>
               )}
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-[14px] flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-[10px] flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5 text-white" />
               </div>
             </button>
 
