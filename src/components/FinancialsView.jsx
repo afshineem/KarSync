@@ -24,6 +24,7 @@ import { EditPaymentModal } from './EditPaymentModal';
 import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { AddEditAccountModal } from './accounting/AddEditAccountModal';
+import { AccountSubsidiaryLedgerModal } from './accounting/AccountSubsidiaryLedgerModal';
 import { CounterpartiesView } from './CounterpartiesView';
 
 // Utilities & LiveSync
@@ -171,6 +172,7 @@ export function FinancialsView() {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
+  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState(null);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementTargetWorker, setSettlementTargetWorker] = useState(null);
   const [settlementInitialMode, setSettlementInitialMode] = useState('individual');
@@ -923,11 +925,13 @@ export function FinancialsView() {
             {accounts.map((acc) => {
               const entry = accountBalances?.get?.(String(acc.id));
               const bal = entry ? (Number(entry.currentBalance) || 0) : (Number(acc.initialBalance) || 0);
+              const txCount = entry?.transactions?.length || 0;
               const isBank = acc.type === 'bank';
               return (
                 <div
                   key={acc.id}
-                  className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 hover:shadow-xl transition-all duration-200 flex flex-col justify-between space-y-4"
+                  onClick={() => setSelectedAccountForLedger(acc)}
+                  className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 hover:shadow-xl transition-all duration-200 flex flex-col justify-between space-y-4 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -939,7 +943,7 @@ export function FinancialsView() {
                         {isBank ? <CreditCard className="w-6 h-6 stroke-[2]" /> : <Landmark className="w-6 h-6 stroke-[2]" />}
                       </div>
                       <div>
-                        <h4 className="font-black text-slate-900 dark:text-white text-sm">
+                        <h4 className="font-black text-slate-900 dark:text-white text-sm group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                           {acc.name}
                         </h4>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -948,9 +952,14 @@ export function FinancialsView() {
                       </div>
                     </div>
 
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                      {isBank ? 'بانکی' : 'نقدی'}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                        {txCount} {language === 'fa' ? 'تراکنش' : 'تۆمار'}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {isBank ? 'بانکی' : 'نقدی'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Account Numbers if any */}
@@ -963,16 +972,17 @@ export function FinancialsView() {
                   {/* Balance Display */}
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 block">موجودی فعلی</span>
+                      <span className="text-[10px] font-bold text-slate-400 block">موجودی فعلی (برای مشاهده تراکنش‌ها کلیک کنید)</span>
                       <span className="text-lg font-black text-slate-900 dark:text-white font-mono">
                         {formatCurrency(bal, currency, language)}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setEditingAccount(acc);
                           setIsAccountModalOpen(true);
                         }}
@@ -983,7 +993,10 @@ export function FinancialsView() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setIsIncomeModalOpen(true)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsIncomeModalOpen(true);
+                        }}
                         className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1"
                       >
                         <ArrowDownLeft className="w-3.5 h-3.5" />
@@ -1307,6 +1320,18 @@ export function FinancialsView() {
         onClose={() => setEditingPayment(null)}
         payment={editingPayment}
         currency={currency}
+      />
+
+      {/* Account Transactions Ledger Modal (معین حساب بانکی / صندوق) */}
+      <AccountSubsidiaryLedgerModal
+        isOpen={!!selectedAccountForLedger}
+        entity={selectedAccountForLedger ? { type: 'account', data: selectedAccountForLedger } : null}
+        accountData={selectedAccountForLedger ? accountBalances?.get?.(String(selectedAccountForLedger.id)) : null}
+        currency={currency}
+        language={language}
+        allAccounts={accounts}
+        allWorkers={workers}
+        onClose={() => setSelectedAccountForLedger(null)}
       />
 
     </div>
