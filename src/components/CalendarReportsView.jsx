@@ -64,7 +64,8 @@ import {
   ChevronUp,
   Download,
   Award,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 
 const TIMELINE_SORT_KEY = 'karsync_timeline_sort_ascending';
@@ -200,6 +201,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   const [selectedSettlementStatus, setSelectedSettlementStatus] = useState('all'); // 'all' | 'current' | 'settled'
   const [selectedType, setSelectedType] = useState('all');
   const [selectedSectionId, setSelectedSectionId] = useState('all');
+  const [reportFormat, setReportFormat] = useState('summary'); // 'summary' | 'detailed'
 
   const clearAllFilters = () => {
     setSelectedWorkerId('all');
