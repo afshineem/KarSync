@@ -4,6 +4,7 @@ import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAccounting } from '../hooks/useAccounting';
+import * as XLSX from 'xlsx';
 import { 
   formatCurrency, 
   formatAmount, 
@@ -23,6 +24,7 @@ import { EditPaymentModal } from './EditPaymentModal';
 import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { AddEditAccountModal } from './accounting/AddEditAccountModal';
+import { CounterpartiesView } from './CounterpartiesView';
 
 // Utilities & LiveSync
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
@@ -70,7 +72,9 @@ import {
   FileSpreadsheet,
   Filter,
   Eye,
-  Plus
+  Plus,
+  Briefcase,
+  Printer
 } from 'lucide-react';
 
 const SUMMARY_LAYOUT_KEY = 'karsync_financials_worker_layout';
@@ -153,6 +157,7 @@ export function FinancialsView() {
   const [isGlobalAdvanceModalOpen, setIsGlobalAdvanceModalOpen] = useState(false);
   const [historyTargetWorker, setHistoryTargetWorker] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
+  const [isCounterpartiesModalOpen, setIsCounterpartiesModalOpen] = useState(false);
 
   // Live Queries for Workers, Logs & Payments
   const workers = useLiveQuery(
@@ -319,6 +324,27 @@ export function FinancialsView() {
     return list.sort((a, b) => b.timestamp - a.timestamp);
   }, [allPayments, workers, accounts, t]);
 
+  // Export Ledger to Excel
+  const handleExportLedgerExcel = () => {
+    if (ledgerTransactions.length === 0) {
+      alert(language === 'fa' ? 'هیچ تراکنشی برای خروجی اکسل وجود ندارد.' : 'No transactions to export.');
+      return;
+    }
+    const rows = ledgerTransactions.map(tx => ({
+      [language === 'fa' ? 'تاریخ' : 'Date']: tx.date,
+      [language === 'fa' ? 'عنوان تراکنش' : 'Title']: tx.title,
+      [language === 'fa' ? 'طرف حساب / پرسنل' : 'Party']: tx.party,
+      [language === 'fa' ? 'منبع پرداخت / صندوق' : 'Account']: tx.accountName || 'صندوق نقدی',
+      [language === 'fa' ? `مبلغ (${currency})` : `Amount (${currency})`]: tx.amount,
+      [language === 'fa' ? 'توضیحات' : 'Notes']: tx.notes || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Financial_Ledger');
+    XLSX.writeFile(workbook, `KarSync_Ledger_${getTodayDateString()}.xlsx`);
+  };
+
   // Quick Action Handlers
   const handleOpenIndividualSettlement = (worker = null) => {
     const target = worker || displayedWorkers.find((w) => w.netBalanceDue > 0)?.worker || workers[0];
@@ -342,7 +368,69 @@ export function FinancialsView() {
     <div className="space-y-5 select-none pb-12 animate-in fade-in duration-300">
 
       {/* ======================================================== */}
-      {/* 1. EXECUTIVE HERO COCKPIT (نمای مقتدر دارک و شیشه‌ای)    */}
+      {/* 1. TOP HEADER (همگام با زبان طراحی کارسینک و گزارش کارکرد)  */}
+      {/* ======================================================== */}
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          
+          {/* Right: Module Title & Icon */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 shrink-0">
+              <Landmark className="w-6 h-6 stroke-[2.2]" />
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
+                {language === 'fa' ? 'حسابداری و امور مالی' : language === 'ku' ? 'حیسابداری و کاروباری دارایی' : 'Finance & Accounting'}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {language === 'fa' 
+                  ? 'مرکز مقتدر پایش نقدینگی، تسویه‌حساب پرسنل، حساب‌های بانکی و دفتر روزنامه' 
+                  : 'Treasury, payroll settlements, bank accounts and financial ledger'}
+              </p>
+            </div>
+          </div>
+
+          {/* Left: General Utilities Dock (همگام با داک گزارش کارکرد) */}
+          <div className="h-[52px] sm:h-[56px] flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner shrink-0 backdrop-blur-md self-end sm:self-auto">
+            {/* دکمه طرف‌حساب‌ها */}
+            <button
+              type="button"
+              onClick={() => setIsCounterpartiesModalOpen(true)}
+              className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
+              title={language === 'fa' ? 'طرف‌حساب‌ها و کارفرمایان' : 'Counterparties'}
+            >
+              <Briefcase className="w-4.5 h-4.5 shrink-0" />
+              <span className="hidden sm:inline">{language === 'fa' ? 'طرف‌حساب‌ها' : 'Parties'}</span>
+            </button>
+
+            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+
+            {/* خروجی اکسل */}
+            <button
+              type="button"
+              onClick={handleExportLedgerExcel}
+              className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
+              title={language === 'fa' ? 'خروجی اکسل دفتر مالی' : 'Export Excel'}
+            >
+              <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
+            </button>
+
+            {/* چاپ و پرینت */}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="h-full aspect-square text-slate-500 hover:text-sky-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
+              title={language === 'fa' ? 'چاپ گزارش مالی' : 'Print PDF'}
+            >
+              <Printer className="w-4.5 h-4.5 shrink-0" />
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 2. EXECUTIVE HERO COCKPIT (نمای مقتدر دارک و شیشه‌ای)    */}
       {/* ======================================================== */}
       <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -479,7 +567,7 @@ export function FinancialsView() {
       </div>
 
       {/* ======================================================== */}
-      {/* 2. CENTRAL SEGMENTED CONTROLLER (تم یکپارچه دکمه کارسینک) */}
+      {/* 3. CENTRAL SEGMENTED CONTROLLER (تم یکپارچه دکمه کارسینک) */}
       {/* ======================================================== */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap no-print">
         
@@ -517,7 +605,7 @@ export function FinancialsView() {
                     : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50 px-2.5 sm:px-3'
                 }`}
               >
-                <Icon className="w-4.5 h-4.5 flex-shrink-0" />
+                <Icon className="w-4.5 h-4.5 shrink-0" />
                 {isSelected && (
                   <span className="text-xs font-semibold whitespace-nowrap">
                     {tab.label}
@@ -528,7 +616,7 @@ export function FinancialsView() {
           })}
         </div>
 
-        {/* Right side helper dock: Custom Range, New Account, Search */}
+        {/* Right side helper dock: Custom Range, New Account */}
         <div className="flex items-center gap-2 flex-wrap">
           
           {/* Custom Date Range Filter */}
@@ -552,7 +640,7 @@ export function FinancialsView() {
             </span>
           </button>
 
-          {/* New Account Button (Only shown in Accounts section or available always) */}
+          {/* New Account Button (Accessible in Accounts section or always) */}
           <button
             type="button"
             onClick={() => {
@@ -571,7 +659,7 @@ export function FinancialsView() {
       </div>
 
       {/* ======================================================== */}
-      {/* 3. SECTION 1: WORKER FINANCIAL BALANCES (کارنامه پرسنل)  */}
+      {/* 4. SECTION 1: WORKER FINANCIAL BALANCES (کارنامه پرسنل)  */}
       {/* ======================================================== */}
       {activeSection === 'workers' && (
         <div className="space-y-4">
@@ -751,7 +839,7 @@ export function FinancialsView() {
                     className="group relative overflow-hidden rounded-2xl px-4 py-3 backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-white/10 shadow-md shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 transition-all duration-200 flex items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500/15 to-indigo-500/15 border border-sky-400/25 flex items-center justify-center font-black text-sky-600 dark:text-sky-400 text-xs flex-shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500/15 to-indigo-500/15 border border-sky-400/25 flex items-center justify-center font-black text-sky-600 dark:text-sky-400 text-xs shrink-0">
                         {wf.worker.name?.charAt(0) || 'W'}
                       </div>
                       <div className="min-w-0">
@@ -767,7 +855,7 @@ export function FinancialsView() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-3 shrink-0">
                       <div className="text-end">
                         <span className="text-[9px] text-slate-400 block font-bold">مانده طلب</span>
                         <span className={`font-mono font-black text-xs sm:text-sm block ${wf.netBalanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -804,7 +892,7 @@ export function FinancialsView() {
       )}
 
       {/* ======================================================== */}
-      {/* 4. SECTION 2: ACCOUNTS & TREASURY (صندوق‌ها و حساب‌ها)   */}
+      {/* 5. SECTION 2: ACCOUNTS & TREASURY (صندوق‌ها و حساب‌ها)   */}
       {/* ======================================================== */}
       {activeSection === 'accounts' && (
         <div className="space-y-4">
@@ -888,7 +976,7 @@ export function FinancialsView() {
       )}
 
       {/* ======================================================== */}
-      {/* 5. SECTION 3: UNIFIED GENERAL LEDGER (دفتر روزنامه)      */}
+      {/* 6. SECTION 3: UNIFIED GENERAL LEDGER (دفتر روزنامه)      */}
       {/* ======================================================== */}
       {activeSection === 'ledger' && (
         <div className="space-y-4">
@@ -907,6 +995,15 @@ export function FinancialsView() {
                   </span>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={handleExportLedgerExcel}
+                className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>خروجی اکسل</span>
+              </button>
             </div>
 
             {ledgerTransactions.length === 0 ? (
@@ -972,8 +1069,37 @@ export function FinancialsView() {
       )}
 
       {/* ======================================================== */}
-      {/* 6. MODALS & SUB-WINDOWS                                  */}
+      {/* 7. MODALS & SUB-WINDOWS                                  */}
       {/* ======================================================== */}
+
+      {/* Counterparties Modal */}
+      {isCounterpartiesModalOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCounterpartiesModalOpen(false);
+          }}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-4xl max-h-[85vh] shadow-2xl overflow-y-auto border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200 p-2 sm:p-4">
+            <div className="flex items-center justify-between pb-3 px-3 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <Briefcase className="w-4.5 h-4.5 text-sky-500" />
+                <span>مدیریت طرف‌حساب‌ها و کارفرمایان</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsCounterpartiesModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-2 sm:p-4">
+              <CounterpartiesView />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add / Edit Income Modal (شارژ حساب) */}
       <AddEditIncomeModal
