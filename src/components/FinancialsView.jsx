@@ -1,26 +1,38 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
+import { useAccounting } from '../hooks/useAccounting';
 import { 
-  formatCurrency,
+  formatCurrency, 
   formatAmount, 
-  formatHoursAndMinutes,
   formatHoursDigital, 
   getCurrentYearMonth, 
   getTodayDateString, 
-  roundCurrency,
-  getCurrencySymbol,
-  formatDayMonth,
-  formatMonthOnly
+  roundCurrency, 
+  getCurrencySymbol, 
+  formatMonthOnly 
 } from '../utils/formatters';
+
+// Modals
 import { SettlementModal } from './SettlementModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
 import { WorkerFinancialProfileModal } from './WorkerFinancialProfileModal';
 import { EditPaymentModal } from './EditPaymentModal';
+import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
+import { AccountTransferModal } from './accounting/AccountTransferModal';
+import { AddEditAccountModal } from './accounting/AddEditAccountModal';
+
+// Utilities & LiveSync
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
-import { fullSyncBothDirections, pushPaymentsLive, recordPendingPaymentDeletion, rollbackPaymentSettlement } from '../services/realtimeSync';
+import { 
+  pushPaymentsLive, 
+  recordPendingPaymentDeletion, 
+  rollbackPaymentSettlement 
+} from '../services/realtimeSync';
+
+// Icons
 import { 
   WalletCards, 
   Search, 
@@ -34,78 +46,115 @@ import {
   Receipt, 
   PlusCircle, 
   Calendar, 
-  CalendarDays,
-  CalendarRange,
-  SlidersHorizontal,
+  CalendarRange, 
   Users, 
-  RefreshCw,
-  Check,
-  X,
-  Trash2,
-  Edit3,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  Archive,
-  RotateCcw,
-  Crown,
-  Lock,
-  BookOpen
+  Check, 
+  X, 
+  Trash2, 
+  Edit3, 
+  Layers, 
+  ChevronDown, 
+  ChevronUp, 
+  Archive, 
+  RotateCcw, 
+  BookOpen, 
+  CreditCard, 
+  ArrowLeftRight, 
+  ArrowDownLeft, 
+  ArrowUpRight, 
+  Landmark, 
+  LayoutGrid, 
+  List, 
+  Sparkles, 
+  Download, 
+  FileSpreadsheet,
+  Filter,
+  Eye,
+  Plus
 } from 'lucide-react';
+
+const SUMMARY_LAYOUT_KEY = 'karsync_financials_worker_layout';
+const FINANCIAL_SECTION_KEY = 'karsync_financials_active_section';
 
 export function FinancialsView() {
   const { t, language, direction } = useLanguage();
   const { currentProject, dateFilter, setDateFilter, openWorkerProfile } = useProject();
   const currency = currentProject?.currency || 'IQD';
+  const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
-  const [isSyncingLive, setIsSyncingLive] = useState(false);
-  const [syncStatusMsg, setSyncStatusMsg] = useState('');
+  // Active main section: 'workers' | 'accounts' | 'ledger'
+  const [activeSection, setActiveSectionState] = useState(() => {
+    try {
+      const saved = localStorage.getItem(FINANCIAL_SECTION_KEY);
+      return saved && ['workers', 'accounts', 'ledger'].includes(saved) ? saved : 'workers';
+    } catch {
+      return 'workers';
+    }
+  });
 
-  const [filterMode, setFilterMode] = useState('monthly');
+  const setActiveSection = (sec) => {
+    setActiveSectionState(sec);
+    try {
+      localStorage.setItem(FINANCIAL_SECTION_KEY, sec);
+    } catch (_) {}
+  };
+
+  // Month & Date filters
   const selectedMonth = dateFilter.month || getCurrentYearMonth();
   const setSelectedMonth = (m) => setDateFilter((prev) => ({ ...prev, month: m }));
-  const [fromDate, setFromDate] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-  });
+  const [filterMode, setFilterMode] = useState('monthly'); // 'monthly' | 'custom'
+  const [fromDate, setFromDate] = useState(() => `${getCurrentYearMonth()}-01`);
   const [toDate, setToDate] = useState(() => getTodayDateString());
-  const [selectedWorkerId, setSelectedWorkerId] = useState('all');
+  const [tempFromDate, setTempFromDate] = useState(fromDate);
+  const [tempToDate, setTempToDate] = useState(toDate);
+  const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
 
+  // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const searchInputRef = useRef(null);
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'settled' | 'overpaid'
-  const [settlementViewTab, setSettlementViewTab] = useState('current'); // 'current' (جاری) | 'settled' (تسویه شده)
+  const [selectedWorkerId, setSelectedWorkerId] = useState('all');
+  const [workerStatusFilter, setWorkerStatusFilter] = useState('all'); // 'all' | 'due' | 'settled'
+
+  // Workers layout mode: 'grid' | 'list'
+  const [workerLayoutMode, setWorkerLayoutMode] = useState(() => {
+    try {
+      return localStorage.getItem(SUMMARY_LAYOUT_KEY) || 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+
+  const handleSetWorkerLayoutMode = (mode) => {
+    setWorkerLayoutMode(mode);
+    try {
+      localStorage.setItem(SUMMARY_LAYOUT_KEY, mode);
+    } catch (_) {}
+  };
+
+  // Accounting Hook (Supplies Treasury, Accounts, and Ledger logic)
+  const {
+    accounts = [],
+    accountBalances = new Map(),
+    saveIncome,
+    transferFunds,
+    saveAccount,
+    globalOverdraftPolicy = 'ask_each_time'
+  } = useAccounting();
 
   // Modals state
-  const [settlementTargetWorker, setSettlementTargetWorker] = useState(null);
+  const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const [settlementTargetWorker, setSettlementTargetWorker] = useState(null);
   const [settlementInitialMode, setSettlementInitialMode] = useState('individual');
   const [settlementInitialGroupId, setSettlementInitialGroupId] = useState(null);
   const [advanceTargetWorker, setAdvanceTargetWorker] = useState(null);
-  const [historyTargetWorker, setHistoryTargetWorker] = useState(null);
   const [isGlobalAdvanceModalOpen, setIsGlobalAdvanceModalOpen] = useState(false);
-  const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
+  const [historyTargetWorker, setHistoryTargetWorker] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
-  const [tempFromDate, setTempFromDate] = useState(fromDate);
-  const [tempToDate, setTempToDate] = useState(toDate);
-  const [transactionTab, setTransactionTab] = useState('active'); // 'active' | 'archived' | 'trash'
 
-  const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
-
-  // Project sections live query
-  const projectSections = useLiveQuery(
-    async () => {
-      if (!targetProjectId) return [];
-      return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
-    },
-    [targetProjectId]
-  ) || [];
-
-  const [sectionFinancialView, setSectionFinancialView] = useState('concise'); // 'concise' | 'detailed'
-  const [expandedSectionFinancialId, setExpandedSectionFinancialId] = useState(null);
-
-  // Live queries from IndexedDB scoped to active project with fallback for legacy records
+  // Live Queries for Workers, Logs & Payments
   const workers = useLiveQuery(
     async () => {
       const list = await db.workers.toArray();
@@ -113,6 +162,20 @@ export function FinancialsView() {
     },
     [targetProjectId]
   ) || [];
+
+  const groups = useLiveQuery(
+    async () => {
+      const list = await db.groups.toArray();
+      return list.filter((g) => !g.projectId || g.projectId === targetProjectId);
+    },
+    [targetProjectId]
+  ) || [];
+
+  const groupMap = useMemo(() => {
+    const map = {};
+    groups.forEach((g) => { map[g.id] = g; });
+    return map;
+  }, [groups]);
 
   const allLogs = useLiveQuery(
     async () => {
@@ -152,279 +215,6 @@ export function FinancialsView() {
     [targetProjectId]
   ) || [];
 
-  // Live query groups for current project with fallback for legacy/unscoped records
-  const groups = useLiveQuery(
-    async () => {
-      try {
-        const [allDbGroups, allDbWorkers] = await Promise.all([
-          db.groups.toArray(),
-          db.workers.toArray()
-        ]);
-        const projectWorkerGroupIds = new Set(
-          allDbWorkers
-            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && w.groupId)
-            .map((w) => String(w.groupId))
-        );
-        let list = allDbGroups.filter((g) => 
-          !targetProjectId || 
-          !g.projectId || 
-          String(g.projectId) === String(targetProjectId) ||
-          (g.projectId || DEFAULT_PROJECT_ID) === targetProjectId ||
-          projectWorkerGroupIds.has(String(g.id))
-        );
-        if (list.length === 0 && allDbGroups.length > 0) {
-          list = allDbGroups;
-        }
-        return list;
-      } catch (err) {
-        console.error('Error fetching groups in FinancialsView:', err);
-        return [];
-      }
-    },
-    [targetProjectId]
-  ) || [];
-
-  // 1. Current / Open Financials (تب جاری)
-  // Strictly active personnel (w.isActive === 1 && !w.deletedAt)
-  // Strictly unpaid/unsettled work and open debt (!log.isSettled, !payment.isSettled)
-  // Double-Barrier Guard: Any log on or before worker's latest settlement date is NEVER treated as unsettled!
-  // Zero data from previously settled cycles!
-  const currentActiveRows = useMemo(() => {
-    return workers
-      .filter((w) => !w.deletedAt && w.isActive === 1)
-      .map((w) => {
-        const fin = calculateWorkerFinancials(w, allLogs, allPayments, currency);
-        return {
-          ...fin,
-          // Generic mappings for dashboard/KPI compatibility
-          grossEarnings: fin.unsettledGross,
-          totalPaidPeriod: fin.unsettledAdvances,
-          totalAllTimeGross: fin.unsettledGross,
-          totalAllTimePaid: fin.unsettledAdvances,
-          priorGross: 0,
-          priorEffectiveDays: 0,
-          priorOtHours: 0,
-          priorBalance: 0
-        };
-      })
-      .filter((row) => row.netBalanceDue !== 0 || row.effectiveDays > 0 || row.unsettledAdvances > 0);
-  }, [workers, allLogs, allPayments, currency]);
-
-  // 2. Settled Financials History (تب تسویه شده)
-  // All personnel (active and inactive: w.isActive === 1 || w.isActive === 0)
-  // Strictly data that has been settled (log.isSettled, payment.isSettled, or dated <= lastSettlementDate)
-  const settledHistoryRows = useMemo(() => {
-    return workers
-      .filter((w) => !w.deletedAt)
-      .map((w) => {
-        const fin = calculateWorkerFinancials(w, allLogs, allPayments, currency);
-        return {
-          worker: fin.worker,
-          settledLogs: fin.settledLogs,
-          settledPayments: fin.settledPayments,
-          settlementReceipts: fin.settlementReceipts,
-          fullDays: fin.settledFullDays,
-          halfDays: fin.settledHalfDays,
-          hourlyDays: fin.settledHourlyDays,
-          effectiveDays: fin.settledEffectiveDays,
-          otHours: fin.settledOtHours,
-          settledGross: fin.settledGross,
-          settledAdvances: fin.settledAdvances,
-          totalSettlementPaid: fin.totalSettlementPaid,
-          lastSettlementDate: fin.lastSettlementDate,
-          settlementsCount: fin.settlementReceipts.length,
-          status: 'settled',
-          // Generic mappings for dashboard/KPI compatibility
-          grossEarnings: fin.settledGross,
-          totalPaidPeriod: fin.totalSettlementPaid,
-          totalAllTimeGross: fin.settledGross,
-          totalAllTimePaid: fin.totalSettlementPaid,
-          netBalanceDue: 0,
-          priorGross: 0,
-          priorEffectiveDays: 0,
-          priorOtHours: 0,
-          priorBalance: 0
-        };
-      })
-      .filter((row) => row.effectiveDays > 0 || row.settlementsCount > 0 || row.totalSettlementPaid > 0);
-  }, [workers, allLogs, allPayments, currency]);
-
-  // Active view alias
-  const workerFinancials = settlementViewTab === 'current' ? currentActiveRows : settledHistoryRows;
-
-  // Project sections financial distribution (concise & comprehensive matrix)
-  const sectionFinancials = useMemo(() => {
-    if (projectSections.length === 0) return [];
-    const map = {};
-
-    projectSections.forEach((s) => {
-      map[s.id] = {
-        id: s.id,
-        name: s.name,
-        personDays: 0,
-        otHours: 0,
-        basePay: 0,
-        otPay: 0,
-        totalCost: 0,
-        workerStats: {}
-      };
-    });
-
-    map['unassigned'] = {
-      id: 'unassigned',
-      name: language === 'fa' ? 'عمومی / بدون بخش' : 'General / Unassigned',
-      personDays: 0,
-      otHours: 0,
-      basePay: 0,
-      otPay: 0,
-      totalCost: 0,
-      workerStats: {}
-    };
-
-    const workerMap = {};
-    workers.forEach((w) => { workerMap[String(w.id)] = w; });
-
-    let totalSectionPayroll = 0;
-
-    // Filter logs for selected period
-    const logsInPeriod = allLogs.filter((l) => {
-      if (filterMode === 'monthly') {
-        return l.date && l.date.startsWith(selectedMonth);
-      } else {
-        return l.date && l.date >= fromDate && l.date <= toDate;
-      }
-    });
-
-    logsInPeriod.forEach((l) => {
-      const secId = l.sectionId && map[l.sectionId] ? l.sectionId : 'unassigned';
-      const item = map[secId];
-      const dayVal = l.type === 'hourly' ? 0 : l.type === 'half' ? 0.5 : 1.0;
-      const otVal = Number(l.overtimeHours) || 0;
-      const totalDayPay = Number(l.totalDayPay) || 0;
-      const baseDayPay = Number(l.calculatedDailyWage) || 0;
-      const otDayPay = Number(l.calculatedOvertimeWage) || 0;
-
-      item.personDays += dayVal;
-      item.otHours += otVal;
-      item.basePay += baseDayPay;
-      item.otPay += otDayPay;
-      item.totalCost += totalDayPay;
-      totalSectionPayroll += totalDayPay;
-
-      const wId = String(l.workerId);
-      const wObj = workerMap[wId];
-      if (!item.workerStats[wId]) {
-        item.workerStats[wId] = {
-          worker: wObj || { id: wId, name: 'کارگر ' + wId, role: '' },
-          days: 0,
-          otHours: 0,
-          totalPay: 0
-        };
-      }
-      item.workerStats[wId].days += dayVal;
-      item.workerStats[wId].otHours += otVal;
-      item.workerStats[wId].totalPay += totalDayPay;
-    });
-
-    return Object.values(map)
-      .filter((sec) => sec.totalCost > 0 || (sec.id !== 'unassigned' && projectSections.some(s => s.id === sec.id)))
-      .map((sec) => {
-        const sharePercent = totalSectionPayroll > 0
-          ? Math.round((sec.totalCost / totalSectionPayroll) * 100)
-          : 0;
-        const workersList = Object.values(sec.workerStats).sort((a, b) => b.totalPay - a.totalPay);
-        const avgDailyCost = sec.personDays > 0 ? Math.round(sec.totalCost / sec.personDays) : 0;
-        return {
-          ...sec,
-          sharePercent,
-          workersList,
-          workerCount: workersList.length,
-          avgDailyCost
-        };
-      });
-  }, [allLogs, projectSections, workers, filterMode, selectedMonth, fromDate, toDate, language]);
-
-  // Aggregate KPI metrics based on current tab view
-  const aggregateMetrics = useMemo(() => {
-    let currentGross = 0;
-    let currentAdvances = 0;
-    let currentNetDue = 0;
-    let activeWithDueCount = 0;
-
-    currentActiveRows.forEach((item) => {
-      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return;
-      currentGross += item.unsettledGross;
-      currentAdvances += item.unsettledAdvances;
-      currentNetDue += item.netBalanceDue;
-      if (item.netBalanceDue > 0 || item.effectiveDays > 0) {
-        activeWithDueCount++;
-      }
-    });
-
-    let settledGross = 0;
-    let settledPaid = 0;
-    let settledAdvances = 0;
-    let settledWorkersCount = 0;
-
-    settledHistoryRows.forEach((item) => {
-      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return;
-      settledGross += item.settledGross;
-      settledPaid += item.totalSettlementPaid;
-      settledAdvances += item.settledAdvances;
-      settledWorkersCount++;
-    });
-
-    const isCurrent = settlementViewTab === 'current';
-
-    return {
-      isCurrent,
-      currentGross: roundCurrency(currentGross, currency),
-      currentAdvances: roundCurrency(currentAdvances, currency),
-      currentNetDue: roundCurrency(currentNetDue, currency),
-      activeWithDueCount,
-      totalActiveWorkers: workers.filter((w) => w.isActive === 1 && !w.deletedAt).length,
-      settledGross: roundCurrency(settledGross, currency),
-      settledPaid: roundCurrency(settledPaid, currency),
-      settledAdvances: roundCurrency(settledAdvances, currency),
-      settledWorkersCount,
-      totalGross: isCurrent ? roundCurrency(currentGross, currency) : roundCurrency(settledGross, currency),
-      totalPaid: isCurrent ? roundCurrency(currentAdvances, currency) : roundCurrency(settledPaid, currency),
-      totalOutstanding: isCurrent ? roundCurrency(currentNetDue, currency) : 0,
-      settledCount: isCurrent ? (currentActiveRows.length - activeWithDueCount) : settledWorkersCount,
-      relevantWorkersCount: isCurrent ? currentActiveRows.length : settledHistoryRows.length
-    };
-  }, [currentActiveRows, settledHistoryRows, settlementViewTab, selectedWorkerId, workers, currency]);
-
-  // Filtered workers for current and settled tabs
-  const displayedCurrentRows = useMemo(() => {
-    return currentActiveRows.filter((item) => {
-      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return false;
-      if (statusFilter !== 'all' && item.status !== statusFilter) return false;
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const matchName = (item.worker.name || '').toLowerCase().includes(q);
-        const matchRole = (item.worker.role || '').toLowerCase().includes(q);
-        if (!matchName && !matchRole) return false;
-      }
-      return true;
-    });
-  }, [currentActiveRows, selectedWorkerId, statusFilter, searchTerm]);
-
-  const displayedSettledRows = useMemo(() => {
-    return settledHistoryRows.filter((item) => {
-      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return false;
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const matchName = (item.worker.name || '').toLowerCase().includes(q);
-        const matchRole = (item.worker.role || '').toLowerCase().includes(q);
-        if (!matchName && !matchRole) return false;
-      }
-      return true;
-    });
-  }, [settledHistoryRows, selectedWorkerId, searchTerm]);
-
-  const displayedRows = settlementViewTab === 'current' ? displayedCurrentRows : displayedSettledRows;
-
   // Month navigation helpers
   const handleShiftMonth = (delta) => {
     const [year, month] = selectedMonth.split('-').map(Number);
@@ -432,1534 +222,802 @@ export function FinancialsView() {
     const newY = d.getFullYear();
     const newM = String(d.getMonth() + 1).padStart(2, '0');
     setSelectedMonth(`${newY}-${newM}`);
+    setFilterMode('monthly');
   };
 
-  const handleOpenSettlement = () => {
-    let target = null;
-    if (selectedWorkerId && selectedWorkerId !== 'all') {
-      target = workers.find((x) => String(x.id) === String(selectedWorkerId));
-    }
-    if (!target) {
-      const dueRow = displayedCurrentRows.find((r) => r.netBalanceDue > 0);
-      target = dueRow?.worker || (currentActiveRows.length > 0 ? currentActiveRows[0].worker : workers[0]);
-    }
-    if (target) {
-      setSettlementTargetWorker(target);
-      setSettlementInitialMode(target?.teamRole === 'Master' && target?.groupId ? 'group' : 'individual');
-      setSettlementInitialGroupId(target?.groupId || null);
-      setIsSettlementModalOpen(true);
-    }
-  };
+  // Worker Financials Matrix
+  const workerFinancials = useMemo(() => {
+    return workers.map((worker) => {
+      const workerLogs = allLogs.filter((l) => String(l.workerId) === String(worker.id));
+      const workerPayments = allPayments.filter(
+        (p) => String(p.workerId) === String(worker.id) || (worker.groupId && p.groupId === worker.groupId)
+      );
+      return calculateWorkerFinancials(worker, workerLogs, workerPayments);
+    });
+  }, [workers, allLogs, allPayments]);
 
-  const handleOpenGroupSettlement = () => {
-    if (groups.length > 0) {
-      const g = groups[0];
-      const master = workers.find((w) => w && w.groupId === g.id && w?.teamRole === 'Master') || workers.find((w) => w && w.groupId === g.id) || workers[0];
-      setSettlementTargetWorker(master || null);
-      setSettlementInitialMode('group');
-      setSettlementInitialGroupId(g.id);
-      setIsSettlementModalOpen(true);
-    } else {
-      handleOpenSettlement();
-    }
-  };
+  // Aggregate Metrics for Hero Cockpit
+  const heroMetrics = useMemo(() => {
+    // 1. Total liquid balance across all active accounts
+    let totalCashBalance = 0;
+    accounts.forEach((acc) => {
+      const bal = accountBalances.get(acc.id) ?? acc.initialBalance ?? 0;
+      totalCashBalance += bal;
+    });
 
-  const statusCounts = useMemo(() => {
-    let pending = 0;
-    let settled = 0;
-    let overpaid = 0;
-    const baseList = currentActiveRows.filter((item) => {
-      if (selectedWorkerId !== 'all' && String(item.worker.id) !== String(selectedWorkerId)) return false;
+    // 2. Total pending wage dues across all active workers
+    let totalWagesDue = 0;
+    let totalWagesGross = 0;
+    let totalAdvancesPaid = 0;
+    let workersWithDueCount = 0;
+
+    workerFinancials.forEach((wf) => {
+      totalWagesGross += wf.unsettledGross;
+      totalAdvancesPaid += wf.unsettledAdvances;
+      if (wf.netBalanceDue > 0) {
+        totalWagesDue += wf.netBalanceDue;
+        workersWithDueCount += 1;
+      }
+    });
+
+    // 3. Net Liquidity Status (Cash minus Pending Due)
+    const netLiquidity = totalCashBalance - totalWagesDue;
+
+    return {
+      totalCashBalance: roundCurrency(totalCashBalance, currency),
+      totalWagesDue: roundCurrency(totalWagesDue, currency),
+      netLiquidity: roundCurrency(netLiquidity, currency),
+      totalWagesGross: roundCurrency(totalWagesGross, currency),
+      totalAdvancesPaid: roundCurrency(totalAdvancesPaid, currency),
+      workersWithDueCount,
+      activeWorkersCount: workers.filter((w) => w.isActive === 1).length
+    };
+  }, [accounts, accountBalances, workerFinancials, workers, currency]);
+
+  // Filtered workers list
+  const displayedWorkers = useMemo(() => {
+    return workerFinancials.filter((wf) => {
+      if (selectedWorkerId !== 'all' && String(wf.worker.id) !== String(selectedWorkerId)) return false;
+      if (workerStatusFilter === 'due' && wf.netBalanceDue <= 0) return false;
+      if (workerStatusFilter === 'settled' && wf.netBalanceDue > 0) return false;
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
-        const matchName = (item.worker.name || '').toLowerCase().includes(q);
-        const matchRole = (item.worker.role || '').toLowerCase().includes(q);
-        if (!matchName && !matchRole) return false;
+        const matchName = (wf.worker.name || '').toLowerCase().includes(q);
+        const matchRole = (wf.worker.role || '').toLowerCase().includes(q);
+        const matchGroup = (groupMap[wf.worker.groupId]?.name || '').toLowerCase().includes(q);
+        if (!matchName && !matchRole && !matchGroup) return false;
       }
       return true;
-    });
+    }).sort((a, b) => b.netBalanceDue - a.netBalanceDue); // Sort by highest outstanding due first
+  }, [workerFinancials, selectedWorkerId, workerStatusFilter, searchTerm, groupMap]);
 
-    baseList.forEach((item) => {
-      if (item.status === 'settled') settled++;
-      else if (item.status === 'overpaid') overpaid++;
-      else pending++;
-    });
-    return {
-      all: baseList.length,
-      pending,
-      settled,
-      overpaid
-    };
-  }, [currentActiveRows, selectedWorkerId, searchTerm]);
+  // Unified Transactions Ledger List
+  const ledgerTransactions = useMemo(() => {
+    const list = [];
 
-  const activePayments = useMemo(() => allPayments.filter(p => !p.deletedAt && !p.isArchived), [allPayments]);
-  const archivedPayments = useMemo(() => allPayments.filter(p => !p.deletedAt && p.isArchived), [allPayments]);
-  const trashPayments = useMemo(() => allPayments.filter(p => !!p.deletedAt), [allPayments]);
-
-  const displayedPayments = useMemo(() => {
-    let list = [];
-    if (transactionTab === 'archived') list = archivedPayments;
-    else if (transactionTab === 'trash') list = trashPayments;
-    else list = activePayments;
-
-    return [...list].sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
-  }, [transactionTab, activePayments, archivedPayments, trashPayments]);
-
-  const handleArchivePayment = async (payment) => {
-    if (payment.status === 'approved' || payment.approval_status === 'approved') {
-      alert(language === 'fa' 
-        ? 'این سند مالی تایید نهایی شده است و به دلایل حفظ نظم حسابداری و مقررات مالیاتی غیرقابل آرشیو می‌باشد. در صورت نیاز به تغییر، از بخش حسابداری اصلاحیه صادر نمایید.' 
-        : 'ئەم بەڵگەنامەیە پەسەندکراوە و ئەرشیف ناکرێت.');
-      return;
-    }
-    try {
-      await db.payments.update(payment.id, {
-        isArchived: true,
-        updatedAt: new Date().toISOString()
-      });
-      pushPaymentsLive().catch(() => {});
-    } catch (err) {
-      console.error('Error archiving payment:', err);
-    }
-  };
-
-  const handleUnarchivePayment = async (payment) => {
-    try {
-      await db.payments.update(payment.id, {
-        isArchived: false,
-        updatedAt: new Date().toISOString()
-      });
-      pushPaymentsLive().catch(() => {});
-    } catch (err) {
-      console.error('Error unarchiving payment:', err);
-    }
-  };
-
-  const handleMovePaymentToTrash = async (payment) => {
-    if (payment.status === 'approved' || payment.approval_status === 'approved') {
-      alert(language === 'fa' 
-        ? 'این سند مالی تایید نهایی شده است و به دلایل حفظ نظم حسابداری و مقررات مالیاتی غیرقابل حذف می‌باشد. در صورت نیاز به تغییر، از بخش حسابداری اصلاحیه صادر نمایید.' 
-        : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناسڕدرێتەوە.');
-      return;
-    }
-    const desc = payment.workerName || payment.notes || formatAmount(payment.amount, currency);
-    if (window.confirm((t('moveToTrash') || 'انتقال به سطل آشغال') + `: ${desc}؟`)) {
-      try {
-        await db.payments.update(payment.id, {
-          deletedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+    // Payments to Workers (Advance & Settlement)
+    allPayments
+      .filter((p) => !p.deletedAt)
+      .forEach((p) => {
+        const isSettlement = p.type === 'settlement';
+        list.push({
+          id: `payment_${p.id}`,
+          date: p.date || p.createdAt?.slice(0, 10) || '',
+          timestamp: new Date(p.date || p.createdAt || 0).getTime(),
+          category: isSettlement ? 'settlement' : 'advance',
+          title: isSettlement ? t('settlementRecord') || 'تسویه حساب پرسنل' : t('advancePayment') || 'مساعده پرسنل',
+          party: p.workerName || (workers.find((w) => String(w.id) === String(p.workerId))?.name) || 'پرسنل',
+          amount: Number(p.amount) || 0,
+          flow: 'out',
+          accountId: p.accountId || null,
+          accountName: p.accountName || (accounts.find((a) => String(a.id) === String(p.accountId))?.name) || '',
+          notes: p.notes || '',
+          raw: p
         });
-        // Immediately unmark linked logs and advances
-        await rollbackPaymentSettlement(payment.id).catch(console.warn);
-        pushPaymentsLive().catch(() => {});
-      } catch (err) {
-        console.error('Error moving payment to trash:', err);
-      }
-    }
-  };
-
-  const handleRestorePayment = async (payment) => {
-    try {
-      await db.payments.update(payment.id, {
-        deletedAt: null,
-        updatedAt: new Date().toISOString()
       });
-      pushPaymentsLive().catch(() => {});
-    } catch (err) {
-      console.error('Error restoring payment:', err);
+
+    return list.sort((a, b) => b.timestamp - a.timestamp);
+  }, [allPayments, workers, accounts, t]);
+
+  // Quick Action Handlers
+  const handleOpenIndividualSettlement = (worker = null) => {
+    const target = worker || displayedWorkers.find((w) => w.netBalanceDue > 0)?.worker || workers[0];
+    if (target) {
+      setSettlementTargetWorker(target);
+      setSettlementInitialMode(target.teamRole === 'Master' && target.groupId ? 'group' : 'individual');
+      setSettlementInitialGroupId(target.groupId || null);
+      setIsSettlementModalOpen(true);
     }
   };
 
-  const handlePermanentDeletePayment = async (payment) => {
-    if (payment.status === 'approved' || payment.approval_status === 'approved') {
-      alert(language === 'fa' 
-        ? 'اسناد مالی تایید نهایی شده به جهت الزامات مالیاتی غیرقابل حذف دائمی هستند.' 
-        : 'بەڵگەنامەی پەسەندکراو ناسڕدرێتەوە.');
-      return;
-    }
-    if (window.confirm(t('permanentDeleteConfirm') || 'آیا از حذف دائمی این تراکنش مطمئن هستید؟ این عملیات غیرقابل بازگشت است.')) {
-      try {
-        recordPendingPaymentDeletion(payment.id);
-        await rollbackPaymentSettlement(payment.id).catch(console.warn);
-        await db.payments.delete(payment.id);
-        pushPaymentsLive().catch(() => {});
-      } catch (err) {
-        console.error('Error permanently deleting payment:', err);
-      }
-    }
-  };
-
-  const handleEmptyPaymentsTrash = async () => {
-    if (trashPayments.length === 0) return;
-    const deletableTrash = trashPayments.filter(p => p.status !== 'approved' && p.approval_status !== 'approved');
-    if (deletableTrash.length === 0) {
-      alert(language === 'fa' 
-        ? 'اسناد موجود در سطل آشغال تایید نهایی شده‌اند و طبق مقررات مالیاتی غیرقابل حذف قطعی هستند.' 
-        : 'بەڵگەنامە پەسەندکراوەکان ناسڕدرێنەوە.');
-      return;
-    }
-    if (window.confirm(t('emptyTrashConfirm') || 'آیا از حذف دائمی موارد مجاز در سطل آشغال مطمئن هستید؟')) {
-      try {
-        for (const p of deletableTrash) {
-          recordPendingPaymentDeletion(p.id);
-          await rollbackPaymentSettlement(p.id).catch(console.warn);
-          await db.payments.delete(p.id);
-        }
-        pushPaymentsLive().catch(() => {});
-      } catch (err) {
-        console.error('Error emptying payments trash:', err);
-      }
+  const handleOpenAdvance = (worker = null) => {
+    if (worker) {
+      setAdvanceTargetWorker(worker);
+    } else {
+      setIsGlobalAdvanceModalOpen(true);
     }
   };
 
   return (
-    <div className="space-y-6 pb-20 no-print" dir={direction}>
-      
-      {/* Top Header Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        {/* Right side in RTL: Icon, Title, Subtitle */}
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 flex-shrink-0">
-            <WalletCards className="w-6 h-6 stroke-[2.2]" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-              {t('financialDashboard')}
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {t('financialDashboardSubtitle')}
-            </p>
-          </div>
-        </div>
+    <div className="space-y-5 select-none pb-12 animate-in fade-in duration-300">
 
-        {/* Left side in RTL: All controls directly opposite the title */}
-        <div className="w-full xl:w-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-center xl:justify-end gap-2.5 sm:gap-3 flex-wrap">
+      {/* ======================================================== */}
+      {/* 1. EXECUTIVE HERO COCKPIT (نمای مقتدر دارک و شیشه‌ای)    */}
+      {/* ======================================================== */}
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 right-0 w-80 h-80 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           
-          {/* ۱. سلکتور پرسنل (Worker Selector) */}
-          <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center gap-2 px-3 sm:px-4 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
-            <Users className="w-5 h-5 sm:w-5.5 sm:h-5.5 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-            <select
-              value={selectedWorkerId}
-              onChange={(e) => setSelectedWorkerId(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-black focus:outline-none cursor-pointer flex-1 sm:w-36 md:w-40 appearance-none"
-            >
-              <option value="all">{t('allWorkersOption') || (language === 'fa' ? 'همه پرسنل' : 'هەموو کرێکاران')}</option>
-              {workers.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name} {w.isActive === 0 ? `(${t('inactive') || (language === 'fa' ? 'غیرفعال' : 'ناچالاک')})` : ''}
-                </option>
-              ))}
-            </select>
+          {/* Main Financial Metrics */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
+                <WalletCards className="w-4 h-4" />
+                <span>{language === 'fa' ? 'نبض زنده مالی و خزانه‌داری پروژه' : 'Project Financial & Treasury Pulse'}</span>
+              </div>
+
+              {/* Month Switcher Pill */}
+              <div className="flex items-center gap-1.5 bg-white/10 p-1 rounded-2xl border border-white/10 backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
+                  className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white cursor-pointer"
+                  title="ماه قبل"
+                >
+                  {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                </button>
+                <div className="relative flex items-center justify-center cursor-pointer min-w-[6.5rem]">
+                  <span className="text-xs font-bold text-white px-2 py-0.5">
+                    {formatMonthOnly(selectedMonth, language)}
+                  </span>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => {
+                      setSelectedMonth(e.target.value);
+                      setFilterMode('monthly');
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
+                  className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white cursor-pointer"
+                  title="ماه بعد"
+                >
+                  {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Big Headline Figure: Total Cash vs Dues */}
+            <div>
+              <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+                <span>{formatAmount(heroMetrics.totalCashBalance, currency)}</span>
+                <span className="text-sm sm:text-base font-bold text-sky-400">{getCurrencySymbol(currency, language)}</span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1 flex items-center gap-2">
+                <span>{language === 'fa' ? 'موجودی کل نقدینگی در صندوق‌ها و کارت‌های بانکی' : 'Total cash balance across accounts'}</span>
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span className="text-emerald-400 font-bold font-mono">{accounts.length} حساب</span>
+              </p>
+            </div>
+
+            {/* Quick Metrics Badges */}
+            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span className="text-slate-300">{language === 'fa' ? 'مطالبات پرسنل:' : 'Wages Due:'}</span>
+                <span className="font-black text-amber-300 font-mono">
+                  {formatAmount(heroMetrics.totalWagesDue, currency)} {getCurrencySymbol(currency, language)}
+                </span>
+              </div>
+
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="text-slate-300">{language === 'fa' ? 'تراز نقدینگی:' : 'Net Liquidity:'}</span>
+                <span className={`font-black font-mono ${heroMetrics.netLiquidity >= 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
+                  {formatAmount(heroMetrics.netLiquidity, currency)} {getCurrencySymbol(currency, language)}
+                </span>
+              </div>
+
+              <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-sky-400" />
+                <span className="text-slate-300">{language === 'fa' ? 'دارای طلب:' : 'Due Crew:'}</span>
+                <span className="font-black text-white">{heroMetrics.workersWithDueCount} نفر</span>
+              </div>
+            </div>
           </div>
 
-          {/* ۲. ماه‌نما (Month Navigator) */}
-          <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl p-1 sm:p-1.5 border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+          {/* Quick Action Dock (4 Action Buttons) */}
+          <div className="lg:col-span-5 grid grid-cols-2 gap-2.5 sm:gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+            {/* 1. شارژ حساب / ورودی پول */}
             <button
               type="button"
-              onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
-              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
-              title={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
-              aria-label={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+              onClick={() => setIsIncomeModalOpen(true)}
+              className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs shadow-lg shadow-emerald-500/25 transition-all duration-300 cursor-pointer active:scale-95"
             >
-              {direction === 'rtl' ? <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
+              <ArrowDownLeft className="w-4 h-4" />
+              <span>{language === 'fa' ? 'شارژ حساب / ورود پول' : 'Deposit'}</span>
             </button>
 
-            <div className="relative flex-1 h-full flex items-center justify-center cursor-pointer min-w-[6rem] sm:min-w-[7rem] px-2 sm:px-3">
-              <div className="pointer-events-none text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 text-center w-full truncate">
-                {formatMonthOnly(selectedMonth, language) || selectedMonth}
-              </div>
+            {/* 2. پرداخت مساعده */}
+            <button
+              type="button"
+              onClick={() => handleOpenAdvance()}
+              className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-300 cursor-pointer active:scale-95"
+            >
+              <Banknote className="w-4 h-4" />
+              <span>{language === 'fa' ? 'پرداخت مساعده' : 'Advance'}</span>
+            </button>
+
+            {/* 3. ثبت تسویه حساب نهایی */}
+            <button
+              type="button"
+              onClick={() => handleOpenIndividualSettlement()}
+              className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{language === 'fa' ? 'تسویه حساب پرسنل' : 'Settlement'}</span>
+            </button>
+
+            {/* 4. انتقال وجه بین حساب‌ها */}
+            <button
+              type="button"
+              onClick={() => setIsTransferModalOpen(true)}
+              className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
+            >
+              <ArrowLeftRight className="w-4 h-4 text-indigo-400" />
+              <span>{language === 'fa' ? 'انتقال بین حساب‌ها' : 'Transfer'}</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 2. CENTRAL SEGMENTED CONTROLLER (تم یکپارچه دکمه کارسینک) */}
+      {/* ======================================================== */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap no-print">
+        
+        {/* Main 3 Section Tabs (APP_THEME_BUTTON style) */}
+        <div className="h-[52px] sm:h-[56px] inline-flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner backdrop-blur-md">
+          {[
+            {
+              id: 'workers',
+              label: language === 'fa' ? 'تراز و کارنامه پرسنل' : language === 'ku' ? 'تەرازووی کرێکاران' : 'Worker Balances',
+              icon: Users
+            },
+            {
+              id: 'accounts',
+              label: language === 'fa' ? 'صندوق‌ها و حساب‌های مالی' : language === 'ku' ? 'سندوق و کارتەکان' : 'Accounts & Wallets',
+              icon: Landmark
+            },
+            {
+              id: 'ledger',
+              label: language === 'fa' ? 'دفتر روزنامه تراکنش‌ها' : language === 'ku' ? 'دەفتەری گشتی' : 'Financial Ledger',
+              icon: Receipt
+            }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isSelected = activeSection === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSection(tab.id)}
+                aria-label={tab.label}
+                title={tab.label}
+                className={`relative h-full flex items-center gap-2 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer ${
+                  isSelected
+                    ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-bold px-3.5 sm:px-4'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50 px-2.5 sm:px-3'
+                }`}
+              >
+                <Icon className="w-4.5 h-4.5 flex-shrink-0" />
+                {isSelected && (
+                  <span className="text-xs font-semibold whitespace-nowrap">
+                    {tab.label}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right side helper dock: Custom Range, New Account, Search */}
+        <div className="flex items-center gap-2 flex-wrap">
+          
+          {/* Custom Date Range Filter */}
+          <button
+            type="button"
+            onClick={() => {
+              setTempFromDate(fromDate);
+              setTempToDate(toDate);
+              setIsDateRangeModalOpen(true);
+            }}
+            className={`h-[52px] sm:h-[56px] px-3.5 rounded-2xl border transition-all duration-200 flex items-center gap-2 text-xs font-bold cursor-pointer active:scale-95 ${
+              filterMode === 'custom'
+                ? 'bg-amber-500 text-white border-amber-400 shadow-md shadow-amber-500/25'
+                : 'bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/70 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+            title={language === 'fa' ? 'فیلتر بازه زمانی دلخواه' : 'Custom Date Range'}
+          >
+            <CalendarRange className="w-4 h-4" />
+            <span className="hidden sm:inline">
+              {filterMode === 'custom' ? `${fromDate} تا ${toDate}` : (language === 'fa' ? 'بازه زمانی' : 'Date Range')}
+            </span>
+          </button>
+
+          {/* New Account Button (Only shown in Accounts section or available always) */}
+          <button
+            type="button"
+            onClick={() => {
+              setEditingAccount(null);
+              setIsAccountModalOpen(true);
+            }}
+            className="h-[52px] sm:h-[56px] px-3.5 rounded-2xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            title={language === 'fa' ? 'تعریف حساب یا کارت بانکی جدید' : 'Add Account'}
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">{language === 'fa' ? 'حساب جدید' : 'New Account'}</span>
+          </button>
+
+        </div>
+
+      </div>
+
+      {/* ======================================================== */}
+      {/* 3. SECTION 1: WORKER FINANCIAL BALANCES (کارنامه پرسنل)  */}
+      {/* ======================================================== */}
+      {activeSection === 'workers' && (
+        <div className="space-y-4">
+          
+          {/* Subheader: Status filter, Search, Layout switcher */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/70 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 backdrop-blur-md">
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 self-start sm:self-auto">
+              {[
+                { id: 'all', label: language === 'fa' ? 'همه' : 'All' },
+                { id: 'due', label: language === 'fa' ? 'طلبکاران' : 'Due' },
+                { id: 'settled', label: language === 'fa' ? 'تسویه‌شده' : 'Settled' }
+              ].map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => setWorkerStatusFilter(st.id)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    workerStatusFilter === st.id
+                      ? 'bg-sky-500 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 absolute start-3 top-2.5 text-slate-400 pointer-events-none" />
               <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => {
-                  setSelectedMonth(e.target.value);
-                  setFilterMode('monthly');
-                }}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                title={language === 'fa' ? 'انتخاب ماه' : 'هەڵبژاردنی مانگ'}
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={language === 'fa' ? 'جستجوی نام پرسنل...' : 'Search crew...'}
+                className="w-full ps-9 pe-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             </div>
 
-            <button
-              type="button"
-              onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
-              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
-              title={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
-              aria-label={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
-            >
-              {direction === 'rtl' ? <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
-            </button>
-          </div>
-
-          {/* ۳. داک دکمه‌های آیکونی اقدامات مالی و تسویه */}
-          <div className="h-[52px] sm:h-[58px] w-full max-w-[340px] sm:w-auto sm:max-w-none flex items-center justify-between sm:justify-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
-            {/* دکمه ۱: بازه زمانی (در کنار ماه‌نما) */}
-            <button
-              type="button"
-              onClick={() => {
-                setTempFromDate(fromDate);
-                setTempToDate(toDate);
-                setIsDateRangeModalOpen(true);
-              }}
-              className={`relative h-full aspect-square rounded-xl transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden ${
-                filterMode === 'custom'
-                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80'
-              }`}
-              title={
-                filterMode === 'custom'
-                  ? (language === 'fa' ? `بازه سفارشی فعال: ${fromDate} تا ${toDate}` : `ماوەی دیاریکراو: ${fromDate} - ${toDate}`)
-                  : (language === 'fa' ? 'فیلتر بازه زمانی دلخواه' : 'فلتەری ماوەی دیاریکراو')
-              }
-              aria-label="Date Range Filter"
-            >
-              <CalendarRange className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-              {filterMode === 'custom' && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-slate-900 animate-pulse" />
-              )}
-            </button>
-
-            {/* دکمه ۲: ثبت مساعده جدید */}
-            <button
-              type="button"
-              onClick={() => setIsGlobalAdvanceModalOpen(true)}
-              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-              title={t('addAdvanceBtn') || (language === 'fa' ? 'ثبت مساعده جدید' : 'تۆماری تەنخوا')}
-              aria-label="Add Advance"
-            >
-              <Banknote className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-            </button>
-
-            {/* دکمه ۳: تسویه گروهی با سرپرست (اگر گروه تعریف شده باشد) */}
-            {groups.length > 0 && (
+            {/* Layout Mode Switcher (Grid vs List) */}
+            <div className="inline-flex items-center p-1 bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner self-end sm:self-auto">
               <button
                 type="button"
-                onClick={handleOpenGroupSettlement}
-                className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-                title={language === 'fa' ? 'تسویه حساب گروهی با سرپرست' : 'تەسویەی بەکۆمەڵ لەگەڵ سەرپەرشتیار'}
-                aria-label="Group Settlement"
-              >
-                <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-              </button>
-            )}
-
-            {/* دکمه ۴: ثبت تسویه حساب فردی - دکمه اصلی پرایمری با گرادیانت */}
-            <button
-              type="button"
-              onClick={handleOpenSettlement}
-              className="h-full aspect-square rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 group flex items-center justify-center focus:outline-hidden"
-              title={t('settleBtn') || (language === 'fa' ? 'ثبت تسویه حساب' : 'تەسویەی حساب')}
-              aria-label="Settle Worker"
-            >
-              <CheckCircle2 className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:scale-110 transition-transform duration-200" />
-            </button>
-          </div>
-
-        </div>
-      </div>
-
-      {/* 4 Financial KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Card 1: Total Gross Payroll */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-sky-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              {settlementViewTab === 'current'
-                ? (t('currentGrossTitle') || 'کارکرد ناخالص جاری (تسویه‌نشده)')
-                : (t('settledGrossTitle') || 'مجموع کارکرد ناخالص تسویه‌شده')}
-            </span>
-            <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-              <Coins className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono">
-              {formatAmount(aggregateMetrics.totalGross, currency)}
-            </span>
-            <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
-          </div>
-          <div className="mt-2 text-[11px] text-slate-400">
-            {settlementViewTab === 'current'
-              ? 'حق‌الزحمه روزها و ساعات کارکرد باز'
-              : 'شامل کلیه کارکردهای تسویه‌شده قبلی'}
-          </div>
-        </div>
-
-        {/* Card 2: Total Paid (Advances / Settlement Receipts) */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-emerald-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              {settlementViewTab === 'current'
-                ? (t('unsettledAdvancesTitle') || 'مساعده‌های باز (کسر از حقوق)')
-                : (t('settledPaidTitle') || 'کل مبالغ پرداختی تسویه')}
-            </span>
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Banknote className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-              {formatAmount(aggregateMetrics.totalPaid, currency)}
-            </span>
-            <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
-          </div>
-          <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-            <span>
-              {settlementViewTab === 'current'
-                ? 'مساعده پرداخت‌شده جاری'
-                : 'اسناد و رسیدهای تسویه پرداخت‌شده'}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Total Outstanding Balance Due */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between group hover:border-amber-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              {settlementViewTab === 'current'
-                ? (t('totalOutstandingPayable') || 'خالص مانده قابل تسویه')
-                : (t('settledAdvancesTitle') || 'مساعده‌های کسر شده')}
-            </span>
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400 font-mono">
-              {settlementViewTab === 'current'
-                ? formatAmount(aggregateMetrics.totalOutstanding, currency)
-                : formatAmount(aggregateMetrics.settledAdvances, currency)}
-            </span>
-            <span className="text-xs text-slate-400 ms-1 font-bold">{getCurrencySymbol(currency, language)}</span>
-          </div>
-          <div className="mt-2 text-[11px] text-slate-400">
-            {settlementViewTab === 'current'
-              ? (t('netBalanceDueLabel') || 'خالص بدهی جهت تسویه حساب')
-              : 'مساعده‌های مستهلک‌شده در اسناد تسویه'}
-          </div>
-        </div>
-
-        {/* Card 4: Settled Ratio / Count */}
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white p-5 rounded-3xl shadow-lg shadow-indigo-600/20 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-indigo-100">
-              {settlementViewTab === 'current'
-                ? (t('settlementStatus') || 'وضعیت پرسنل فعال')
-                : (t('settledWorkersCountTitle') || 'پرسنل دارای سابقه تسویه')}
-            </span>
-            <div className="w-10 h-10 rounded-2xl bg-white/20 text-white flex items-center justify-center backdrop-blur-xs">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl sm:text-3xl font-black tracking-tight">
-              {settlementViewTab === 'current' ? (
-                <>
-                  {aggregateMetrics.settledCount} <span className="text-lg font-bold text-indigo-200">/ {aggregateMetrics.relevantWorkersCount}</span>
-                </>
-              ) : (
-                <>
-                  {aggregateMetrics.settledWorkersCount} <span className="text-base font-bold text-indigo-200">نفر</span>
-                </>
-              )}
-            </span>
-          </div>
-          <div className="mt-2 text-[11px] text-indigo-200 font-semibold">
-            {settlementViewTab === 'current' ? (
-              aggregateMetrics.settledCount === aggregateMetrics.relevantWorkersCount && aggregateMetrics.relevantWorkersCount > 0
-                ? (t('allSettledBadge') || 'همه تسویه‌شده')
-                : `${aggregateMetrics.relevantWorkersCount - aggregateMetrics.settledCount} نفر دارای مانده`
-            ) : (
-              'کلیه پرسنل (فعال و غیرفعال)'
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      {/* Project Sections Financial Breakdown Widget (Prompt Item 6: Concise vs Detailed Admin View) */}
-      {sectionFinancials.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0">
-                <Layers className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>{t('sectionFinancials') || 'مالی و هزینه‌های بخش‌های پروژه'}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                    {sectionFinancials.length} {language === 'fa' ? 'بخش دارای کارکرد' : 'Sections'}
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-400">
-                  {filterMode === 'monthly'
-                    ? `توزیع مالی ماه ${selectedMonth}`
-                    : `توزیع مالی بازه ${fromDate} تا ${toDate}`}
-                </p>
-              </div>
-            </div>
-
-            {/* View Mode Toggle: Concise vs Detailed */}
-            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setSectionFinancialView('concise')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  sectionFinancialView === 'concise'
-                    ? 'bg-sky-600 text-white shadow-sm font-bold'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                onClick={() => handleSetWorkerLayoutMode('grid')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all duration-300 ease-in-out cursor-pointer ${
+                  workerLayoutMode === 'grid'
+                    ? 'bg-sky-500 text-white shadow-sm font-bold'
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                 }`}
+                title="نمایش کارتی"
               >
-                {t('conciseView') || 'نمای مختصر'}
+                <LayoutGrid className="w-3.5 h-3.5" />
+                {workerLayoutMode === 'grid' && (
+                  <span className="text-[11px] whitespace-nowrap">کارت</span>
+                )}
               </button>
               <button
                 type="button"
-                onClick={() => setSectionFinancialView('detailed')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  sectionFinancialView === 'detailed'
-                    ? 'bg-sky-600 text-white shadow-sm font-bold'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                onClick={() => handleSetWorkerLayoutMode('list')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all duration-300 ease-in-out cursor-pointer ${
+                  workerLayoutMode === 'list'
+                    ? 'bg-sky-500 text-white shadow-sm font-bold'
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                 }`}
+                title="نمایش لیستی"
               >
-                {t('detailedView') || 'نمای جامع (ماتریس)'}
+                <List className="w-3.5 h-3.5" />
+                {workerLayoutMode === 'list' && (
+                  <span className="text-[11px] whitespace-nowrap">لیست</span>
+                )}
               </button>
             </div>
           </div>
 
-          {/* Mode 1: Concise Cards View */}
-          {sectionFinancialView === 'concise' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-              {sectionFinancials.map((sec) => (
-                <div
-                  key={sec.id}
-                  className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
-                      {sec.name}
-                    </span>
-                    <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400 bg-sky-100/60 dark:bg-sky-950/80 px-2 py-0.5 rounded-md font-mono">
-                      {sec.sharePercent}%
-                    </span>
-                  </div>
+          {/* Workers Content Canvas */}
+          {displayedWorkers.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10 text-xs">
+              {language === 'fa' ? 'هیچ کارگری با این مشخصات یافت نشد.' : 'No workers found.'}
+            </div>
+          ) : workerLayoutMode === 'grid' ? (
+            /* Mode 1: Grid Cards */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {displayedWorkers.map((wf) => {
+                const isSettled = wf.netBalanceDue <= 0;
+                return (
+                  <div
+                    key={wf.worker.id}
+                    className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 hover:shadow-xl transition-all duration-200 flex flex-col justify-between space-y-4"
+                  >
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-400/30 flex items-center justify-center font-black text-sky-600 dark:text-sky-400 text-sm shadow-xs">
+                          {wf.worker.name?.charAt(0) || 'W'}
+                        </div>
+                        <div>
+                          <h4 
+                            onClick={() => openWorkerProfile(wf.worker.id)}
+                            className="font-black text-slate-900 dark:text-white text-sm hover:text-sky-500 transition-colors cursor-pointer"
+                          >
+                            {wf.worker.name}
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            {wf.worker.role || 'پرسنل کارگاه'}
+                          </p>
+                        </div>
+                      </div>
 
-                  {/* Progress bar */}
-                  <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-sky-500 rounded-full transition-all duration-500"
-                      style={{ width: `${sec.sharePercent}%` }}
-                    />
-                  </div>
+                      {/* Status Badge */}
+                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
+                        isSettled
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60'
+                          : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60'
+                      }`}>
+                        {isSettled ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                        <span>{isSettled ? (language === 'fa' ? 'تسویه کامل' : 'Settled') : (language === 'fa' ? 'دارای طلب' : 'Has Due')}</span>
+                      </span>
+                    </div>
 
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-                      {sec.workerCount} نفر • {sec.personDays} نفر-روز
-                    </span>
-                    <span className="font-extrabold text-slate-800 dark:text-slate-200 font-mono">
-                      {formatCurrency(sec.totalCost, currency, language)}
-                    </span>
-                  </div>
+                    {/* Breakdown Capsule */}
+                    <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block">کل کارکرد ناخالص</span>
+                        <span className="font-bold font-mono text-slate-700 dark:text-slate-200">
+                          {formatAmount(wf.unsettledGross, currency)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block">مساعده دریافتی</span>
+                        <span className="font-bold font-mono text-amber-600 dark:text-amber-400">
+                          {formatAmount(wf.unsettledAdvances, currency)}
+                        </span>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5 border-t border-slate-200/60 dark:border-slate-700/60">
-                    <span>{t('avgDailyCostPerPerson') || 'میانگین هر روز'}:</span>
-                    <span className="font-semibold font-mono">
-                      {formatCurrency(sec.avgDailyCost, currency, language)}
-                    </span>
+                    {/* Footer: Due Amount & Actions */}
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block">خالص مانده طلب</span>
+                        <span className={`text-base font-black font-mono ${wf.netBalanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          {formatCurrency(wf.netBalanceDue, currency, language)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAdvance(wf.worker)}
+                          className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer"
+                          title="ثبت مساعده برای این نیرو"
+                        >
+                          <Banknote className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenIndividualSettlement(wf.worker)}
+                          className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                        >
+                          تسویه
+                        </button>
+                      </div>
+                    </div>
+
                   </div>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+          ) : (
+            /* Mode 2: Compact 2-Column List */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {displayedWorkers.map((wf) => {
+                const isSettled = wf.netBalanceDue <= 0;
+                return (
+                  <div
+                    key={wf.worker.id}
+                    className="group relative overflow-hidden rounded-2xl px-4 py-3 backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-white/10 shadow-md shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 transition-all duration-200 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500/15 to-indigo-500/15 border border-sky-400/25 flex items-center justify-center font-black text-sky-600 dark:text-sky-400 text-xs flex-shrink-0">
+                        {wf.worker.name?.charAt(0) || 'W'}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 
+                          onClick={() => openWorkerProfile(wf.worker.id)}
+                          className="font-black text-slate-900 dark:text-white text-xs hover:text-sky-500 transition-colors truncate cursor-pointer"
+                        >
+                          {wf.worker.name}
+                        </h4>
+                        <span className="text-[10px] text-slate-400 font-medium block truncate">
+                          {wf.worker.role || 'پرسنل'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-end">
+                        <span className="text-[9px] text-slate-400 block font-bold">مانده طلب</span>
+                        <span className={`font-mono font-black text-xs sm:text-sm block ${wf.netBalanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          {formatCurrency(wf.netBalanceDue, currency, language)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAdvance(wf.worker)}
+                          className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-all cursor-pointer"
+                          title="ثبت مساعده"
+                        >
+                          <Banknote className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenIndividualSettlement(wf.worker)}
+                          className="px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-[11px] font-bold transition-all cursor-pointer active:scale-95"
+                        >
+                          تسویه
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Mode 2: Detailed Matrix Table View */}
-          {sectionFinancialView === 'detailed' && (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
-                  <tr>
-                    <th className="py-3 px-3.5">{t('section') || 'بخش'}</th>
-                    <th className="py-3 px-3 text-center">{t('activeWorkersInSection') || 'تعداد پرسنل'}</th>
-                    <th className="py-3 px-3 text-center">{t('personDays') || 'نفر-روز'}</th>
-                    <th className="py-3 px-3 text-center">{t('overtime') || 'اضافه‌کاری'}</th>
-                    <th className="py-3 px-3.5">{language === 'fa' ? 'دستمزد عادی' : 'Base Wage'}</th>
-                    <th className="py-3 px-3.5">{language === 'fa' ? 'دستمزد اضافه' : 'Overtime Pay'}</th>
-                    <th className="py-3 px-3.5 font-black">{t('totalGrossPayroll') || 'کل هزینه بخش'}</th>
-                    <th className="py-3 px-3 text-center">{t('shareOfProjectPayroll') || 'سهم'}</th>
-                    <th className="py-3 px-3 text-center">{language === 'fa' ? 'ریز پرسنل' : 'Details'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {sectionFinancials.map((sec) => {
-                    const isExpanded = expandedSectionFinancialId === sec.id;
-                    return (
-                      <React.Fragment key={sec.id}>
-                        <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors font-medium">
-                          <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-sky-500 flex-shrink-0" />
-                            <span>{sec.name}</span>
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono font-bold">
-                            {sec.workerCount} نفر
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono">
-                            {sec.personDays}
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono text-amber-600 dark:text-amber-400">
-                            {formatHoursAndMinutes(sec.otHours, language)}
-                          </td>
-                          <td className="py-3 px-3.5 font-mono text-slate-600 dark:text-slate-300">
-                            {formatCurrency(sec.basePay, currency, language)}
-                          </td>
-                          <td className="py-3 px-3.5 font-mono text-amber-600 dark:text-amber-400">
-                            {formatCurrency(sec.otPay, currency, language)}
-                          </td>
-                          <td className="py-3 px-3.5 font-mono font-extrabold text-slate-900 dark:text-white text-sm">
-                            {formatCurrency(sec.totalCost, currency, language)}
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-100/60 dark:bg-sky-950/80 px-2 py-0.5 rounded-md font-mono">
-                              {sec.sharePercent}%
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => setExpandedSectionFinancialId(isExpanded ? null : sec.id)}
-                              className="px-2.5 py-1 text-[11px] font-bold rounded-lg text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/60 transition-colors inline-flex items-center gap-1"
-                            >
-                              <span>{isExpanded ? (language === 'fa' ? 'بستن' : 'Close') : (language === 'fa' ? 'مشاهده پرسنل' : 'Crew')}</span>
-                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                            </button>
-                          </td>
-                        </tr>
-
-                        {/* Expandable Crew Sub-table */}
-                        {isExpanded && (
-                          <tr className="bg-sky-50/40 dark:bg-sky-950/20">
-                            <td colSpan={9} className="p-3">
-                              <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-sky-200/60 dark:border-sky-800/60 space-y-2">
-                                <div className="flex items-center justify-between text-xs font-bold text-sky-700 dark:text-sky-300">
-                                  <span>{t('participatingWorkers') || 'پرسنل مشارکت‌کننده در بخش'} «{sec.name}»:</span>
-                                  <span>{sec.workersList.length} کارگر</span>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
-                                  {sec.workersList.map(({ worker, days, otHours, totalPay }) => (
-                                    <div
-                                      key={worker.id}
-                                      className="p-2.5 bg-slate-50 dark:bg-slate-800/70 rounded-lg border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs"
-                                    >
-                                      <div>
-                                        <span 
-                                          onClick={() => openWorkerProfile(worker.id)}
-                                          className="font-bold text-slate-900 dark:text-white block cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                                          title="مشاهده پروفایل جامع پرسنل"
-                                        >
-                                          {worker.name}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400">
-                                          {days} روز {otHours > 0 ? `(+${formatHoursAndMinutes(otHours, language)})` : ''}
-                                        </span>
-                                      </div>
-                                      <span className="font-bold font-mono text-slate-800 dark:text-slate-200">
-                                        {formatCurrency(totalPay, currency, language)}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Settlement View Mode Tabs (تب جاری vs تب تسویه شده), Status Filters & Expandable Search */}
-      <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center md:justify-between gap-3 sm:gap-4 flex-wrap">
-        
-        {/* Line 1 on mobile / Left on Desktop: Main View Mode Tabs (طراحی داک مایع شیشه Liquid Glass هماهنگ با تب حسابداری) */}
-        <div className="flex justify-center w-full md:w-auto">
-          <nav
-            aria-label="Settlement view modes"
-            className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl backdrop-saturate-200 p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.08),0_4px_20px_rgba(0,0,0,0.4)]"
-          >
-            {/* Tab 1: Current Unsettled (تب جاری / بدهی معوقه) */}
-            <div className="relative group flex-1 sm:flex-initial">
-              <button
-                type="button"
-                onClick={() => setSettlementViewTab('current')}
-                title={t('tabCurrentFinancials')}
-                aria-label={t('tabCurrentFinancials')}
-                className={`w-full relative rounded-xl sm:rounded-2xl transition-all duration-300 ease-out flex items-center justify-center cursor-pointer select-none active:scale-95 ${
-                  settlementViewTab === 'current'
-                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/25 px-3.5 py-2 sm:px-5 sm:py-2.5 gap-2 scale-[1.02] font-black border border-sky-400/30'
-                    : 'px-3 py-2 sm:px-4 sm:py-2.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.08] gap-1.5 sm:gap-2 font-bold'
-                }`}
-              >
-                <Clock className={`w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2] transition-transform duration-300 ${
-                  settlementViewTab === 'current' ? 'scale-105' : 'group-hover:scale-110'
-                }`} />
-
-                <span className="text-xs sm:text-sm whitespace-nowrap tracking-tight">
-                  {t('tabCurrentFinancials')}
-                </span>
-
-                <span className={`ms-1 sm:ms-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-bold leading-none transition-colors ${
-                  settlementViewTab === 'current'
-                    ? 'bg-white/25 text-white shadow-xs'
-                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                }`}>
-                  {currentActiveRows.length}
-                </span>
-
-                {/* نقطه نشانگر فعال */}
-                {settlementViewTab === 'current' && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs"></span>
-                )}
-              </button>
-            </div>
-
-            {/* Tab 2: Settled History (تب تسویه شده) */}
-            <div className="relative group flex-1 sm:flex-initial">
-              <button
-                type="button"
-                onClick={() => setSettlementViewTab('settled')}
-                title={t('tabSettledFinancials')}
-                aria-label={t('tabSettledFinancials')}
-                className={`w-full relative rounded-xl sm:rounded-2xl transition-all duration-300 ease-out flex items-center justify-center cursor-pointer select-none active:scale-95 ${
-                  settlementViewTab === 'settled'
-                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/25 px-3.5 py-2 sm:px-5 sm:py-2.5 gap-2 scale-[1.02] font-black border border-sky-400/30'
-                    : 'px-3 py-2 sm:px-4 sm:py-2.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.08] gap-1.5 sm:gap-2 font-bold'
-                }`}
-              >
-                <CheckCircle2 className={`w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2] transition-transform duration-300 ${
-                  settlementViewTab === 'settled' ? 'scale-105' : 'group-hover:scale-110'
-                }`} />
-
-                <span className="text-xs sm:text-sm whitespace-nowrap tracking-tight">
-                  {t('tabSettledFinancials')}
-                </span>
-
-                <span className={`ms-1 sm:ms-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-bold leading-none transition-colors ${
-                  settlementViewTab === 'settled'
-                    ? 'bg-white/25 text-white shadow-xs'
-                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                }`}>
-                  {settledHistoryRows.length}
-                </span>
-
-                {/* نقطه نشانگر فعال */}
-                {settlementViewTab === 'settled' && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs"></span>
-                )}
-              </button>
-            </div>
-          </nav>
-        </div>
-
-        {/* Line 2 on mobile: Status Filters & Search Controls (Centered, Not Full Width) */}
-        <div className="flex items-center justify-center flex-wrap gap-2 w-full md:w-auto">
-          {/* Status Filter (Only in Current Tab: All, Pending Due, Overpaid) */}
-          {settlementViewTab === 'current' && (
-            <div className="inline-flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-              {[
-                { id: 'all', title: t('filterAll') || 'همه پرسنل معوقه', icon: Users, count: statusCounts.all },
-                { id: 'pending', title: t('filterPending') || 'دارای معوقه (طلبکار)', icon: Coins, count: statusCounts.pending },
-                { id: 'overpaid', title: t('filterOverpaid') || 'بدهکار به کارگاه', icon: Banknote, count: statusCounts.overpaid }
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isSelected = statusFilter === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setStatusFilter(tab.id)}
-                    title={tab.title}
-                    aria-label={tab.title}
-                    className={`group relative flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-300 ease-out ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/35 border border-sky-400/30 scale-105'
-                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" />
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                      isSelected
-                        ? 'bg-white/25 text-white'
-                        : 'bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Expandable Search Input / Button with smooth animation */}
-          <div className="relative flex items-center">
-            {!(isSearchOpen || searchTerm) ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSearchOpen(true);
-                  setTimeout(() => searchInputRef.current?.focus(), 150);
-                }}
-                title={t('searchWorkerPlaceholder') || 'جستجو بر اساس نام یا مهارت...'}
-                aria-label={t('searchWorkerPlaceholder') || 'جستجو'}
-                className="w-11 h-11 flex items-center justify-center rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/70 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-700/80 shadow-inner transition-all duration-200"
-              >
-                <Search className="w-5 h-5 flex-shrink-0 transition-transform hover:scale-110" />
-              </button>
-            ) : (
-              <div className="relative flex items-center transition-all duration-300 ease-out w-48 sm:w-60">
-                <Search className="w-4 h-4 text-slate-400 absolute start-3 pointer-events-none" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onBlur={() => {
-                    if (!searchTerm.trim()) {
-                      setIsSearchOpen(false);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      setSearchTerm('');
-                      setIsSearchOpen(false);
-                    }
-                  }}
-                  placeholder={t('searchWorkerPlaceholder')}
-                  className="w-full ps-9 pe-8 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-sky-400/50 dark:border-sky-500/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white shadow-xs transition-all"
-                />
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    setSearchTerm('');
-                    setIsSearchOpen(false);
-                  }}
-                  title="بستن جستجو"
-                  className="absolute end-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
+      {/* ======================================================== */}
+      {/* 4. SECTION 2: ACCOUNTS & TREASURY (صندوق‌ها و حساب‌ها)   */}
+      {/* ======================================================== */}
+      {activeSection === 'accounts' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {accounts.map((acc) => {
+              const bal = accountBalances.get(acc.id) ?? acc.initialBalance ?? 0;
+              const isBank = acc.type === 'bank';
+              return (
+                <div
+                  key={acc.id}
+                  className="group relative overflow-hidden rounded-3xl p-5 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 hover:border-sky-400 hover:shadow-xl transition-all duration-200 flex flex-col justify-between space-y-4"
                 >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md ${
+                        isBank 
+                          ? 'bg-gradient-to-tr from-sky-500 to-indigo-600 shadow-sky-500/25' 
+                          : 'bg-gradient-to-tr from-emerald-500 to-teal-600 shadow-emerald-500/25'
+                      }`}>
+                        {isBank ? <CreditCard className="w-6 h-6 stroke-[2]" /> : <Landmark className="w-6 h-6 stroke-[2]" />}
+                      </div>
+                      <div>
+                        <h4 className="font-black text-slate-900 dark:text-white text-sm">
+                          {acc.name}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          {isBank ? (acc.bankName || 'حساب بانکی') : (language === 'fa' ? 'صندوق نقدی کارگاه' : 'Cashbox')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      {isBank ? 'بانکی' : 'نقدی'}
+                    </span>
+                  </div>
+
+                  {/* Account Numbers if any */}
+                  {isBank && acc.cardNumber && (
+                    <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 font-mono text-xs text-slate-600 dark:text-slate-300 text-center tracking-wider">
+                      {acc.cardNumber}
+                    </div>
+                  )}
+
+                  {/* Balance Display */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block">موجودی فعلی</span>
+                      <span className="text-lg font-black text-slate-900 dark:text-white font-mono">
+                        {formatCurrency(bal, currency, language)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingAccount(acc);
+                          setIsAccountModalOpen(true);
+                        }}
+                        className="p-2 text-slate-400 hover:text-sky-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+                        title="ویرایش حساب"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsIncomeModalOpen(true)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1"
+                      >
+                        <ArrowDownLeft className="w-3.5 h-3.5" />
+                        <span>شارژ</span>
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 5. SECTION 3: UNIFIED GENERAL LEDGER (دفتر روزنامه)      */}
+      {/* ======================================================== */}
+      {activeSection === 'ledger' && (
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center font-bold">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                    {language === 'fa' ? 'دفتر روزنامه تراکنش‌های مالی و پرداختی‌ها' : 'General Financial Ledger'}
+                  </h3>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {ledgerTransactions.length} تراکنش ثبت‌شده
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {ledgerTransactions.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-xs">
+                {language === 'fa' ? 'هیچ تراکنشی در این دوره ثبت نشده است.' : 'No transactions found.'}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-[11px]">
+                    <tr>
+                      <th className="px-4 py-3.5 text-start">تاریخ</th>
+                      <th className="px-4 py-3.5 text-start">شرح و نوع تراکنش</th>
+                      <th className="px-4 py-3.5 text-start">طرف حساب / پرسنل</th>
+                      <th className="px-4 py-3.5 text-start">صندوق / منبع پرداخت</th>
+                      <th className="px-4 py-3.5 text-end">مبلغ تراکنش ({getCurrencySymbol(currency, language)})</th>
+                      <th className="px-4 py-3.5 text-center no-print">عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                    {ledgerTransactions.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-sky-50/40 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="px-4 py-3 font-bold font-mono text-slate-900 dark:text-white whitespace-nowrap">
+                          {tx.date}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold ${
+                            tx.category === 'settlement'
+                              ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20'
+                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                          }`}>
+                            {tx.category === 'settlement' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Banknote className="w-3.5 h-3.5" />}
+                            <span>{tx.title}</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">
+                          {tx.party}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-medium">
+                          {tx.accountName || 'صندوق نقدی'}
+                        </td>
+                        <td className="px-4 py-3 text-end font-black font-mono text-sm text-slate-900 dark:text-white">
+                          {formatAmount(tx.amount, currency)}
+                        </td>
+                        <td className="px-4 py-3 text-center no-print">
+                          <button
+                            type="button"
+                            onClick={() => setEditingPayment(tx.raw)}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            title="مشاهده و ویرایش"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         </div>
+      )}
 
-      </div>
+      {/* ======================================================== */}
+      {/* 6. MODALS & SUB-WINDOWS                                  */}
+      {/* ======================================================== */}
 
-      {/* Main Table: Either Current Tab OR Settled Tab */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        
-        {/* Table Header Banner */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${settlementViewTab === 'current' ? 'bg-sky-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                {settlementViewTab === 'current'
-                  ? t('tableCurrentTitle')
-                  : t('tableSettledTitle')}
-              </h3>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {settlementViewTab === 'current'
-                ? t('tableCurrentSubtitle')
-                : t('tableSettledSubtitle')}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              {displayedRows.length} {t('workers')}
-            </span>
-          </div>
-        </div>
+      {/* Add / Edit Income Modal (شارژ حساب) */}
+      <AddEditIncomeModal
+        isOpen={isIncomeModalOpen}
+        onClose={() => setIsIncomeModalOpen(false)}
+        onSave={async (data) => {
+          await saveIncome(data);
+          setIsIncomeModalOpen(false);
+        }}
+        currency={currency}
+        language={language}
+      />
 
-        {/* Empty State */}
-        {displayedRows.length === 0 ? (
-          <div className="py-14 text-center text-slate-400 text-sm">
-            {settlementViewTab === 'current'
-              ? t('emptyCurrentWorkers')
-              : t('emptySettledWorkers')}
-          </div>
-        ) : settlementViewTab === 'current' ? (
-          /* TAB 1: CURRENT ACTIVE PERSONNEL (UNSETTLED ONLY) */
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800 text-[11px] leading-snug">
-                <tr>
-                  {/* 1. Worker Name */}
-                  <th className="px-3 py-3 text-start whitespace-nowrap">
-                    {t('colWorker')}
-                  </th>
+      {/* Account Transfer Modal (انتقال وجه) */}
+      <AccountTransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        onTransfer={async (transferData) => {
+          await transferFunds(transferData);
+          setIsTransferModalOpen(false);
+        }}
+        accounts={accounts}
+        accountBalances={accountBalances}
+        globalOverdraftPolicy={globalOverdraftPolicy}
+        currency={currency}
+        language={language}
+      />
 
-                  {/* 2. Unsettled Work (Days + OT) */}
-                  <th className="px-3 py-3 text-center whitespace-nowrap">
-                    <div className="font-bold">{t('colCurrentWork')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t('colOpenDaysOT')}</div>
-                  </th>
-
-                  {/* 3. Daily Rate */}
-                  <th className="px-3 py-3 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colDailyWage')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
-                  </th>
-
-                  {/* 4. Unsettled Gross */}
-                  <th className="px-3 py-3 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colCurrentGross')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
-                  </th>
-
-                  {/* 5. Unsettled Advances */}
-                  <th className="px-3 py-3 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colOpenAdvanceDeducted')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
-                  </th>
-
-                  {/* 6. Net Balance Due */}
-                  <th className="px-3 py-3 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colNetBalanceDue')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
-                  </th>
-
-                  {/* 7. Status */}
-                  <th className="px-3 py-3 text-center whitespace-nowrap">
-                    {t('colStatus')}
-                  </th>
-
-                  {/* 8. Actions */}
-                  <th className="px-3 py-3 text-center whitespace-nowrap">
-                    {t('colActions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {displayedCurrentRows.map((row) => {
-                  const isSettled = row.status === 'settled';
-                  const isPending = row.status === 'pending';
-                  const isOverpaid = row.status === 'overpaid';
-
-                  return (
-                    <tr 
-                      key={row.worker.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      {/* 1. Worker Name & Role */}
-                      <td className="px-3 py-3 text-start font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" title="نیروی فعال"></span>
-                          <div>
-                            <span 
-                              onClick={() => openWorkerProfile(row.worker.id)}
-                              className="block font-black cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                              title="مشاهده پروفایل جامع پرسنل"
-                            >
-                              {row.worker.name}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-normal block">
-                              {row.worker.role || 'نیرو'}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 2. Unsettled Days & OT */}
-                      <td className="px-3 py-3 text-center font-mono whitespace-nowrap">
-                        {row.effectiveDays > 0 || row.otHours > 0 ? (
-                          <>
-                            <span className="font-bold text-slate-900 dark:text-white text-xs">
-                              {row.effectiveDays} {t('daysCountUnit')}
-                            </span>
-                            {row.otHours > 0 && (
-                              <span className="text-[10px] text-sky-600 dark:text-sky-400 block font-semibold font-mono">
-                                +{formatHoursDigital(row.otHours)}
-                              </span>
-                            )}
-                            <span className="text-[9px] text-slate-400 block mt-0.5 font-normal">
-                              ({row.fullDays} کامل{row.halfDays > 0 ? ` + ${row.halfDays} نیمه` : ''})
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-slate-400 font-normal">{language === 'fa' ? 'بدون کارکرد باز' : language === 'ku' ? 'بێ کارکردی کراوە' : 'No open work'}</span>
-                        )}
-                      </td>
-
-                      {/* 3. Daily Rate */}
-                      <td className="px-3 py-3 text-end font-mono whitespace-nowrap text-slate-600 dark:text-slate-300">
-                        {formatAmount(row.worker.dailyRate, currency)}
-                      </td>
-
-                      {/* 4. Unsettled Gross */}
-                      <td className="px-3 py-3 text-end font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                        {formatAmount(row.unsettledGross, currency)}
-                      </td>
-
-                      {/* 5. Unsettled Advances */}
-                      <td className="px-3 py-3 text-end text-amber-600 dark:text-amber-400 font-bold font-mono whitespace-nowrap">
-                        {row.unsettledAdvances > 0 ? formatAmount(row.unsettledAdvances, currency) : '—'}
-                      </td>
-
-                      {/* 6. Net Balance Due */}
-                      <td className="px-3 py-3 text-end font-mono whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-xl text-xs font-black inline-block ${
-                          row.netBalanceDue === 0
-                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                            : row.netBalanceDue < 0
-                            ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
-                            : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
-                        }`}>
-                          {row.netBalanceDue === 0
-                            ? (language === 'fa' ? 'تسویه (۰)' : language === 'ku' ? 'تەسویە (٠)' : 'Settled (0)')
-                            : row.netBalanceDue < 0
-                            ? `${formatAmount(Math.abs(row.netBalanceDue), currency)} (${language === 'fa' ? 'بدهکار' : language === 'ku' ? 'قەرزدار' : 'Debtor'})`
-                            : `${formatAmount(row.netBalanceDue, currency)} (${language === 'fa' ? 'مانده طلب' : language === 'ku' ? 'ماوەی داواکراو' : 'Credit Due'})`}
-                        </span>
-                      </td>
-
-                      {/* 7. Status */}
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
-                        {isSettled ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>{t('settledStatusBadge')}</span>
-                          </span>
-                        ) : isOverpaid ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300">
-                            <AlertCircle className="w-3 h-3" />
-                            <span>{t('overpaid')}</span>
-                          </span>
-                        ) : row.netBalanceDue > 0 || row.effectiveDays > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300">
-                            <Clock className="w-3 h-3" />
-                            <span>{language === 'fa' ? 'در انتظار تسویه' : language === 'ku' ? 'چاوەڕوانی تەسویە' : 'Pending Settlement'}</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-[10px]">{language === 'fa' ? 'بدون بدهی' : language === 'ku' ? 'بێ قەرز' : 'Zero Balance'}</span>
-                        )}
-                      </td>
-
-                      {/* 8. Actions */}
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* Settle Button */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (row?.worker) {
-                                setSettlementTargetWorker(row.worker);
-                                setSettlementInitialMode(row.worker.teamRole === 'Master' && row.worker.groupId ? 'group' : 'individual');
-                                setSettlementInitialGroupId(row.worker.groupId || null);
-                                setIsSettlementModalOpen(true);
-                              }
-                            }}
-                            className={`px-2.5 py-1.5 text-white rounded-xl font-bold text-[11px] shadow-xs transition-all flex items-center gap-1 active:scale-95 ${
-                              row?.worker?.teamRole === 'Master' && row?.worker?.groupId
-                                ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20'
-                                : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
-                            }`}
-                            title={row?.worker?.teamRole === 'Master' && row?.worker?.groupId ? (language === 'fa' ? 'تسویه گروهی با سرپرست' : language === 'ku' ? 'تەسویەی گشتی لەگەڵ سەرپەرشتیار' : 'Group Settlement') : t('settleBtn')}
-                          >
-                            {row?.worker?.teamRole === 'Master' && row?.worker?.groupId ? (
-                              <Crown className="w-3.5 h-3.5 text-amber-200" />
-                            ) : (
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            )}
-                            <span>{row?.worker?.teamRole === 'Master' && row?.worker?.groupId ? (language === 'fa' ? 'تسویه گروهی' : language === 'ku' ? 'تەسویەی گروپ' : 'Group Settle') : t('settleBtn')}</span>
-                          </button>
-
-                          {/* Add Advance Button */}
-                          <button
-                            type="button"
-                            onClick={() => setAdvanceTargetWorker(row.worker)}
-                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-[11px] transition-colors flex items-center gap-1"
-                            title={t('addAdvanceBtn')}
-                          >
-                            <PlusCircle className="w-3.5 h-3.5 text-amber-500" />
-                            <span>{t('advanceType')}</span>
-                          </button>
-
-                          {/* Profile History Button */}
-                          <button
-                            type="button"
-                            onClick={() => setHistoryTargetWorker(row.worker)}
-                            className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-colors"
-                            title={language === 'fa' ? 'پروفایل و پرونده مالی' : language === 'ku' ? 'پڕۆفایلی دارایی' : 'Financial Profile'}
-                          >
-                            <Receipt className="w-4 h-4 text-sky-500" />
-                          </button>
-
-                          {/* Quick Subsidiary General Ledger Button */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-ledger', {
-                                detail: {
-                                  type: 'worker',
-                                  id: row.worker.id,
-                                  title: row.worker.name,
-                                  subtitle: row.worker.role || (language === 'fa' ? 'پرسنل کارگاه' : 'کرێکار')
-                                }
-                              }));
-                            }}
-                            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 rounded-xl transition-colors"
-                            title={language === 'fa' ? 'گردش حساب در دفتر کل (دفتر معین)' : language === 'ku' ? 'تۆماری دارایی لە دەفتەری گشتی' : 'Subsidiary Ledger'}
-                          >
-                            <BookOpen className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          /* TAB 2: SETTLED PERSONNEL ARCHIVE (ALL PERSONNEL, SETTLED PORTION ONLY) */
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800 text-[11px] leading-snug">
-                <tr>
-                  {/* 1. Worker Name & Status */}
-                  <th className="px-3 py-3 text-start whitespace-nowrap">
-                    {t('colWorker')}
-                  </th>
-
-                  {/* 2. Total Settled Work */}
-                  <th className="px-3 py-3 text-center whitespace-nowrap">
-                    <div className="font-bold">{t('colSettledWork')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{language === 'fa' ? 'روزهای تسویه شده / اضافه‌کار' : language === 'ku' ? 'ڕۆژانی یەکلاکراوە / ئۆڤەرتایم' : 'Settled Days / OT'}</div>
-                  </th>
-
-                  {/* 3. Settled Gross Earnings */}
-                  <th className="px-3 py-3 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colSettledGross')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
-                  </th>
-
-                  {/* 4. Settled Advances Deducted */}
-                  <th className="px-3 py-3 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colSettledAdvances')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
-                  </th>
-
-                  {/* 5. Total Settlement Amount Paid */}
-                  <th className="px-3 py-3 text-end whitespace-nowrap">
-                    <div className="font-bold">{t('colTotalSettlementPaid')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">({getCurrencySymbol(currency, language)})</div>
-                  </th>
-
-                  {/* 6. Last Settlement Date & Count */}
-                  <th className="px-3 py-3 text-center whitespace-nowrap">
-                    <div className="font-bold">{t('colLastSettlementReceipts')}</div>
-                    <div className="text-[10px] font-normal text-slate-400 mt-0.5">{t('receiptDocsCount')}</div>
-                  </th>
-
-                  {/* 7. Status */}
-                  <th className="px-3 py-3 text-center whitespace-nowrap">
-                    {t('colStatus')}
-                  </th>
-
-                  {/* 8. Actions */}
-                  <th className="px-3 py-3 text-center whitespace-nowrap">
-                    {t('colActions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {displayedSettledRows.map((row) => {
-                  return (
-                    <tr 
-                      key={row.worker.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      {/* 1. Worker Name, Role & Active Badge */}
-                      <td className="px-3 py-3 text-start font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${row.worker.isActive === 1 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span 
-                                onClick={() => openWorkerProfile(row.worker.id)}
-                                className="font-black cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                                title="مشاهده پروفایل جامع پرسنل"
-                              >
-                                {row.worker.name}
-                              </span>
-                              <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-bold ${
-                                row.worker.isActive === 1
-                                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                              }`}>
-                                {row.worker.isActive === 1 ? t('activeBadge') : t('inactiveBadge')}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-slate-400 font-normal block mt-0.5">
-                              {row.worker.role || (language === 'fa' ? 'نیرو' : 'Staff')}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 2. Total Settled Work (Days / Overtime) */}
-                      <td className="px-3 py-3 text-center font-mono whitespace-nowrap">
-                        <span className="font-bold text-slate-900 dark:text-white text-xs">
-                          {row.effectiveDays} {t('daysCountUnit')}
-                        </span>
-                        {row.otHours > 0 && (
-                          <span className="text-[10px] text-sky-600 dark:text-sky-400 block font-semibold font-mono">
-                            +{formatHoursDigital(row.otHours)}
-                          </span>
-                        )}
-                        <span className="text-[9px] text-slate-400 block mt-0.5 font-normal">
-                          ({row.fullDays} {t('normalDays')}{row.halfDays > 0 ? ` + ${row.halfDays} ${t('halfDays')}` : ''})
-                        </span>
-                      </td>
-
-                      {/* 3. Settled Gross Earnings */}
-                      <td className="px-3 py-3 text-end font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
-                        {formatAmount(row.settledGross, currency)}
-                      </td>
-
-                      {/* 4. Settled Advances Deducted */}
-                      <td className="px-3 py-3 text-end text-amber-600 dark:text-amber-400 font-bold font-mono whitespace-nowrap">
-                        {row.settledAdvances > 0 ? formatAmount(row.settledAdvances, currency) : '—'}
-                      </td>
-
-                      {/* 5. Total Settlement Paid */}
-                      <td className="px-3 py-3 text-end text-emerald-600 dark:text-emerald-400 font-extrabold font-mono whitespace-nowrap">
-                        {formatAmount(row.totalSettlementPaid, currency)}
-                      </td>
-
-                      {/* 6. Last Settlement Date & Documents Count */}
-                      <td className="px-3 py-3 text-center font-mono whitespace-nowrap">
-                        <div className="font-bold text-slate-800 dark:text-slate-200">
-                          {row.lastSettlementDate || '—'}
-                        </div>
-                        <span className="inline-block mt-0.5 px-2 py-0.2 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                          {row.settlementsCount} {t('receiptCountSuffix')}
-                        </span>
-                      </td>
-
-                      {/* 7. Settled Status */}
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{t('settledFinalBadge')}</span>
-                        </span>
-                      </td>
-
-                      {/* 8. Actions */}
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setHistoryTargetWorker(row.worker)}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-[11px] transition-colors inline-flex items-center gap-1.5"
-                            title={language === 'fa' ? 'مشاهده اسناد تسویه و ریز سوابق' : language === 'ku' ? 'بینینی بەڵگەنامەکانی تەسویە' : 'View Settlement Receipts'}
-                          >
-                            <Receipt className="w-3.5 h-3.5 text-sky-500" />
-                            <span>{t('viewSettlementReceipts')}</span>
-                          </button>
-
-                          {/* Quick Subsidiary General Ledger Button */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-ledger', {
-                                detail: {
-                                  type: 'worker',
-                                  id: row.worker.id,
-                                  title: row.worker.name,
-                                  subtitle: row.worker.role || (language === 'fa' ? 'پرسنل کارگاه' : 'کرێکار')
-                                }
-                              }));
-                            }}
-                            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 rounded-xl transition-colors"
-                            title={language === 'fa' ? 'گردش حساب در دفتر کل (دفتر معین)' : language === 'ku' ? 'تۆماری دارایی لە دەفتەری گشتی' : 'Subsidiary Ledger'}
-                          >
-                            <BookOpen className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Table Footnote */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-          <span>{currency === 'IQD' ? t('allAmountsInIQDNote') : `* ${t('currency')}: ${currency} (${getCurrencySymbol(currency, language)})`}</span>
-          <span className="font-semibold text-slate-500 dark:text-slate-400">
-            {settlementViewTab === 'current'
-              ? t('footnoteCurrentBasis')
-              : t('footnoteSettledBasis')}
-          </span>
-        </div>
-
-      </div>
-
-      {/* Recent Financial Activity / Ledger with Archive & Trash */}
-      <div className="mt-6 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">{t('recentFinancialActivity') || 'رفتار مالی (تراکنش‌های اخیر)'}</h3>
-              <p className="text-[11px] text-slate-400 font-semibold">{t('recentFinancialActivitySub') || 'امکان مدیریت، بایگانی موقت و بازیابی تراکنش‌ها'}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center flex-wrap gap-2">
-            {/* Segmented Status Tabs (Navbar / Liquid Dock style) */}
-            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-              {[
-                { 
-                  id: 'active', 
-                  title: t('activeTransactions') || 'تراکنش‌های جاری', 
-                  icon: Receipt, 
-                  count: activePayments.length 
-                },
-                { 
-                  id: 'archived', 
-                  title: t('archivedTransactions') || 'تراکنش‌های بایگانی‌شده', 
-                  icon: Archive, 
-                  count: archivedPayments.length 
-                },
-                { 
-                  id: 'trash', 
-                  title: t('trashTransactions') || 'تراکنش‌های حذف‌شده', 
-                  icon: Trash2, 
-                  count: trashPayments.length 
-                }
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isSelected = transactionTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setTransactionTab(tab.id)}
-                    title={tab.title}
-                    aria-label={tab.title}
-                    className={`group relative flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ease-out text-xs font-bold ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 py-2 px-3.5 scale-102'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08] p-2'
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${
-                      isSelected ? 'scale-105' : 'group-hover:scale-110'
-                    }`} />
-                    {isSelected && (
-                      <span className="whitespace-nowrap animate-in fade-in slide-in-from-right-2 duration-200 flex items-center gap-1.5">
-                        <span>{tab.title}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-white/25 text-white shadow-xs">
-                          {tab.count}
-                        </span>
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Empty Trash Button */}
-            {transactionTab === 'trash' && trashPayments.length > 0 && (
-              <button
-                type="button"
-                onClick={handleEmptyPaymentsTrash}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-xl transition-colors"
-                title={t('emptyTrash')}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{t('emptyTrash') || 'خالی کردن سطل آشغال'}</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          {displayedPayments.length === 0 ? (
-            <div className="p-10 text-center text-slate-400">
-              {transactionTab === 'trash' ? (
-                <>
-                  <Trash2 className="w-10 h-10 mx-auto opacity-20 mb-3" />
-                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300">{t('emptyTrashDesc') || 'سطل آشغال تراکنش‌ها در حال حاضر خالی است.'}</p>
-                </>
-              ) : transactionTab === 'archived' ? (
-                <>
-                  <Archive className="w-10 h-10 mx-auto opacity-20 mb-3" />
-                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300">هیچ تراکنش بایگانی‌شده‌ای وجود ندارد.</p>
-                </>
-              ) : (
-                <>
-                  <Receipt className="w-10 h-10 mx-auto opacity-20 mb-3" />
-                  <p className="text-xs font-semibold">{t('noPaymentsFound') || 'هیچ تراکنشی یافت نشد'}</p>
-                </>
-              )}
-            </div>
-          ) : (
-            <table className="w-full text-xs text-slate-600 dark:text-slate-300">
-              <thead className="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
-                <tr>
-                  <th className="px-4 py-3 text-start font-bold w-32">{t('date') || 'تاریخ'}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t('workerName')}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t('type') || 'بابت'}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t('description') || 'شرح'}</th>
-                  <th className="px-4 py-3 text-end font-bold">{t('amount')}</th>
-                  <th className="px-4 py-3 text-center font-bold w-28">{t('actions') || 'عملیات'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                {displayedPayments.slice(0, 50).map((payment) => (
-                  <tr key={payment.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                    <td className="px-4 py-2.5 whitespace-nowrap">
-                      <div className="font-bold">{payment.date}</div>
-                      <div className="text-[10px] text-slate-400">{payment.time}</div>
-                    </td>
-                    <td className="px-4 py-2.5 font-bold whitespace-nowrap">
-                      <span
-                        onClick={() => {
-                          const wId = payment.workerId;
-                          if (wId) openWorkerProfile(wId);
-                        }}
-                        className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                        title="مشاهده پروفایل جامع پرسنل"
-                      >
-                        {payment.workerName || workers.find(w => w.id === payment.workerId)?.name || 'Unknown'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold ${
-                        payment.type === 'settlement' 
-                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
-                          : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
-                      }`}>
-                        {payment.type === 'settlement' ? (t('settlementType') || 'تسویه حساب') : (t('advanceType') || 'علی‌الحساب')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-[11px] truncate max-w-[150px]" title={payment.notes}>
-                      {payment.notes || '-'}
-                    </td>
-                    <td className="px-4 py-2.5 text-end font-mono font-bold whitespace-nowrap">
-                      {formatAmount(payment.amount, currency)}
-                    </td>
-                    <td className="px-4 py-2.5 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1">
-                        {transactionTab === 'active' && (
-                          payment.status === 'approved' || payment.approval_status === 'approved' ? (
-                            <span 
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80"
-                              title={language === 'fa' ? `سند رسمی تایید نهایی شده (توسط: ${payment.approvedBy || 'مدیر'}) - غیرقابل ویرایش، آرشیو یا حذف` : 'پەسەندکراو'}
-                            >
-                              <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                              <span>{language === 'fa' ? 'تایید نهایی' : 'پەسەندکراو'}</span>
-                            </span>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setEditingPayment(payment)}
-                                className="p-1.5 text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/50 rounded-lg transition-colors"
-                                title={t('edit') || 'ویرایش'}
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleArchivePayment(payment)}
-                                className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-colors"
-                                title={t('archive') || 'بایگانی'}
-                              >
-                                <Archive className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleMovePaymentToTrash(payment)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
-                                title={t('moveToTrash') || 'انتقال به سطل آشغال'}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </>
-                          )
-                        )}
-
-                        {transactionTab === 'archived' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleUnarchivePayment(payment)}
-                              className="flex items-center gap-1 px-2 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors"
-                              title={t('unarchive') || 'خروج از بایگانی'}
-                            >
-                              <Archive className="w-3.5 h-3.5" />
-                              <span>{t('unarchive') || 'خروج از بایگانی'}</span>
-                            </button>
-                            {!(payment.status === 'approved' || payment.approval_status === 'approved') && (
-                              <button
-                                type="button"
-                                onClick={() => handleMovePaymentToTrash(payment)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
-                                title={t('moveToTrash') || 'انتقال به سطل آشغال'}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        {transactionTab === 'trash' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleRestorePayment(payment)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
-                              title={t('restore') || 'بازیابی'}
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              <span>{t('restore') || 'بازیابی'}</span>
-                            </button>
-                            {!(payment.status === 'approved' || payment.approval_status === 'approved') && (
-                              <button
-                                type="button"
-                                onClick={() => handlePermanentDeletePayment(payment)}
-                                className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition-colors"
-                                title={t('permanentDelete') || 'حذف دائمی'}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      {/* Add / Edit Account Modal (حساب جدید) */}
+      <AddEditAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => {
+          setIsAccountModalOpen(false);
+          setEditingAccount(null);
+        }}
+        onSave={async (accData) => {
+          await saveAccount(accData);
+          setIsAccountModalOpen(false);
+          setEditingAccount(null);
+        }}
+        initialData={editingAccount}
+        currency={currency}
+        language={language}
+      />
 
       {/* Settlement Modal */}
       {isSettlementModalOpen && (
@@ -1979,9 +1037,6 @@ export function FinancialsView() {
           allPayments={allPayments}
           initialMode={settlementInitialMode}
           initialGroupId={settlementInitialGroupId}
-          onSettlementComplete={(record) => {
-            // Refreshes live via Dexie liveQuery
-          }}
           arrearsList={workerFinancials.filter((w) => w.netBalanceDue !== 0)}
           onSelectWorker={(w) => {
             setSettlementTargetWorker(w || null);
@@ -2013,7 +1068,7 @@ export function FinancialsView() {
         />
       )}
 
-      {/* Worker Financial Profile (replaces legacy Payment History) */}
+      {/* Worker Financial Profile Modal */}
       {historyTargetWorker && (
         <WorkerFinancialProfileModal
           worker={historyTargetWorker}
@@ -2021,7 +1076,7 @@ export function FinancialsView() {
           payments={allPayments.filter(p => String(p.workerId) === String(historyTargetWorker.id))}
           currency={currency}
           onClose={() => setHistoryTargetWorker(null)}
-          onEditLog={() => {}} 
+          onEditLog={() => {}}
         />
       )}
 
@@ -2034,15 +1089,15 @@ export function FinancialsView() {
           }}
         >
           <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200">
-            
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
               <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <CalendarRange className="w-4 h-4 text-sky-500" />
-                {t('filterModeDateRange') || 'انتخاب بازه زمانی'}
+                <span>{language === 'fa' ? 'انتخاب بازه زمانی دلخواه' : 'Date Range'}</span>
               </h3>
               <button
+                type="button"
                 onClick={() => setIsDateRangeModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl transition-colors"
+                className="p-1.5 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2050,38 +1105,36 @@ export function FinancialsView() {
 
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{t('fromDateLabel') || 'از تاریخ'}</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={tempFromDate}
-                    onChange={(e) => setTempFromDate(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 cursor-pointer font-mono"
-                  />
-                </div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{language === 'fa' ? 'از تاریخ' : 'From Date'}</label>
+                <input
+                  type="date"
+                  value={tempFromDate}
+                  onChange={(e) => setTempFromDate(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                />
               </div>
               
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{t('toDateLabel') || 'تا تاریخ'}</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={tempToDate}
-                    onChange={(e) => setTempToDate(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 cursor-pointer font-mono"
-                  />
-                </div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{language === 'fa' ? 'تا تاریخ' : 'To Date'}</label>
+                <input
+                  type="date"
+                  value={tempToDate}
+                  onChange={(e) => setTempToDate(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                />
               </div>
             </div>
 
             <div className="p-4 sm:p-5 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
               <button
+                type="button"
                 onClick={() => setIsDateRangeModalOpen(false)}
                 className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
-                {t('cancel') || 'انصراف'}
+                انصراف
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setFromDate(tempFromDate);
                   setToDate(tempToDate);
@@ -2091,7 +1144,7 @@ export function FinancialsView() {
                 className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 shadow-md shadow-sky-500/30 transition-all flex items-center justify-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
-                {t('confirm') || 'تایید'}
+                <span>تایید بازه</span>
               </button>
             </div>
           </div>
