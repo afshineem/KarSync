@@ -627,7 +627,7 @@ await db.attendanceLogs.put(newRecord);
     >
       {/* 1. TOP EXECUTIVE HEADER */}
       <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800 shrink-0 shadow-xs z-20">
-        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           
           {/* Title & Icon Badge */}
           <div className="flex items-center justify-between sm:justify-start gap-3">
@@ -717,7 +717,7 @@ await db.attendanceLogs.put(newRecord);
 
       {/* 2. MAIN SCROLLABLE WORKSPACE */}
       <div className="flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950/70">
-        <div className="max-w-6xl mx-auto w-full p-4 sm:p-6 space-y-4">
+        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
           {/* Success Toast Banner */}
           {toastMessage && (
@@ -976,7 +976,7 @@ await db.attendanceLogs.put(newRecord);
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {filteredUnloggedWorkers.map((worker) => {
                   const isChecked = !!selectedWorkers[worker.id];
                   const cfg = workerConfigs[worker.id] || { type: 'full', overtimeHours: 0, notes: '' };
@@ -986,23 +986,23 @@ await db.attendanceLogs.put(newRecord);
                   return (
                     <div
                       key={worker.id}
-                      className={`group relative rounded-3xl border transition-all duration-200 overflow-hidden ${
+                      className={`group relative rounded-3xl border transition-all duration-200 overflow-hidden flex flex-col justify-between ${
                         isChecked
                           ? 'bg-white/90 dark:bg-slate-900/90 border-sky-400 dark:border-sky-500 shadow-md shadow-sky-500/10 backdrop-blur-xl'
                           : 'bg-white/50 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800 opacity-60 hover:opacity-90'
                       }`}
                     >
-                      <div className="p-4 sm:p-5 space-y-3">
+                      <div className="p-4 sm:p-4.5 space-y-3 flex-1 flex flex-col justify-between">
                         
                         {/* Upper Header: Worker Meta, Checkbox, Wage Preview */}
                         <div className="flex items-center justify-between gap-3">
                           
                           <div 
                             onClick={() => toggleWorkerSelection(worker.id)}
-                            className="flex items-center gap-3.5 cursor-pointer select-none flex-1"
+                            className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0"
                           >
                             {/* Modern Soft Square Checkbox */}
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                               isChecked
                                 ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
                                 : 'bg-slate-100 dark:bg-slate-800 text-transparent border border-slate-300 dark:border-slate-700 group-hover:border-sky-400'
@@ -1010,34 +1010,34 @@ await db.attendanceLogs.put(newRecord);
                               <Check className="w-5 h-5 stroke-[2.8]" />
                             </div>
 
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <span 
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openWorkerProfile(worker.id);
                                   }}
-                                  className="font-black text-sm sm:text-base text-slate-900 dark:text-white hover:text-sky-500 dark:hover:text-sky-400 transition-colors"
+                                  className="font-black text-sm sm:text-base text-slate-900 dark:text-white hover:text-sky-500 dark:hover:text-sky-400 transition-colors truncate"
                                   title="پروفایل پرسنل"
                                 >
                                   {worker.name}
                                 </span>
 
                                 {projectSections.length > 0 && cfg.sectionId && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60 shrink-0">
                                     <Layers className="w-3 h-3 text-sky-500" />
                                     <span>{projectSections.find(s => s.id === cfg.sectionId)?.name || ''}</span>
                                   </span>
                                 )}
 
                                 {((Boolean(worker.defaultSectionId) && String(cfg.sectionId || '') !== String(worker.defaultSectionId || '')) || (!worker.defaultSectionId && Boolean(cfg.sectionId))) && (
-                                  <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800">
+                                  <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800 shrink-0">
                                     {t('temporaryForToday') || 'امروز'}
                                   </span>
                                 )}
                               </div>
 
-                              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                              <p className="text-xs text-slate-400 font-medium mt-0.5 truncate">
                                 {worker.role || 'پرسنل'} • {formatCurrency(worker.dailyRate, currency, language)} / روز
                               </p>
                             </div>
@@ -1045,9 +1045,9 @@ await db.attendanceLogs.put(newRecord);
 
                           {/* Calculated Wage Preview Badge */}
                           {isChecked && (
-                            <div className="text-end">
+                            <div className="text-end shrink-0">
                               <span className="text-[10px] font-bold text-slate-400 block">دستمزد امروز</span>
-                              <span className="text-base sm:text-lg font-black font-mono text-sky-600 dark:text-sky-400">
+                              <span className="text-sm sm:text-base font-black font-mono text-sky-600 dark:text-sky-400">
                                 {formatCurrency(pay.total, currency, language)}
                               </span>
                             </div>
@@ -1060,14 +1060,14 @@ await db.attendanceLogs.put(newRecord);
                           <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-3">
                             
                             {/* Day Type Selector [APP_THEME_BUTTON Style] & Overtime Stepper */}
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                               
                               {/* [APP_THEME_BUTTON] Tri-state selector */}
-                              <div className="h-10 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner">
+                              <div className="h-9 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => updateWorkerConfig(worker.id, 'type', 'full')}
-                                  className={`h-full flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                  className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
                                     cfg.type === 'full'
                                       ? 'bg-sky-500 text-white font-bold shadow-xs'
                                       : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
@@ -1078,7 +1078,7 @@ await db.attendanceLogs.put(newRecord);
                                 <button
                                   type="button"
                                   onClick={() => updateWorkerConfig(worker.id, 'type', 'half')}
-                                  className={`h-full flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                  className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
                                     cfg.type === 'half'
                                       ? 'bg-amber-500 text-white font-bold shadow-xs'
                                       : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
@@ -1089,7 +1089,7 @@ await db.attendanceLogs.put(newRecord);
                                 <button
                                   type="button"
                                   onClick={() => updateWorkerConfig(worker.id, 'type', 'hourly')}
-                                  className={`h-full flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                  className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
                                     cfg.type === 'hourly'
                                       ? 'bg-purple-500 text-white font-bold shadow-xs'
                                       : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
@@ -1100,10 +1100,10 @@ await db.attendanceLogs.put(newRecord);
                               </div>
 
                               {/* Overtime Stepper with Quick Chips */}
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl px-3 py-1.5 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-                                  <Clock className="w-3.5 h-3.5 text-sky-500" />
-                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-2xl px-2.5 py-1 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
+                                  <Clock className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
                                     {cfg.type === 'hourly' ? t('workedTimeLabel') : t('overtimeHoursLabel')}:
                                   </span>
 
@@ -1114,7 +1114,7 @@ await db.attendanceLogs.put(newRecord);
                                     max="24"
                                     value={hours}
                                     onChange={(e) => handleHoursChange(worker.id, e.target.value)}
-                                    className="w-8 text-center font-black font-mono text-xs bg-white dark:bg-slate-900 rounded-lg py-1 text-slate-900 dark:text-white focus:outline-none"
+                                    className="w-7 text-center font-black font-mono text-xs bg-white dark:bg-slate-900 rounded-lg py-0.5 text-slate-900 dark:text-white focus:outline-none"
                                   />
                                   <span className="text-[10px] text-slate-400 font-bold">{t('hourShort')}</span>
 
@@ -1128,7 +1128,7 @@ await db.attendanceLogs.put(newRecord);
                                     step="5"
                                     value={minutes}
                                     onChange={(e) => handleMinutesChange(worker.id, e.target.value)}
-                                    className="w-8 text-center font-black font-mono text-xs bg-white dark:bg-slate-900 rounded-lg py-1 text-slate-900 dark:text-white focus:outline-none"
+                                    className="w-7 text-center font-black font-mono text-xs bg-white dark:bg-slate-900 rounded-lg py-0.5 text-slate-900 dark:text-white focus:outline-none"
                                   />
                                   <span className="text-[10px] text-slate-400 font-bold">{t('minuteShort')}</span>
                                 </div>
@@ -1138,7 +1138,7 @@ await db.attendanceLogs.put(newRecord);
                                   <button
                                     type="button"
                                     onClick={() => addTime(worker.id, 30)}
-                                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[11px] font-black transition-all active:scale-90"
+                                    className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[10px] font-black transition-all active:scale-90"
                                     title="+30 دقیقه"
                                   >
                                     +30د
@@ -1146,7 +1146,7 @@ await db.attendanceLogs.put(newRecord);
                                   <button
                                     type="button"
                                     onClick={() => addTime(worker.id, 60)}
-                                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[11px] font-black transition-all active:scale-90"
+                                    className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[10px] font-black transition-all active:scale-90"
                                     title="+1 ساعت"
                                   >
                                     +1س
@@ -1154,7 +1154,7 @@ await db.attendanceLogs.put(newRecord);
                                   <button
                                     type="button"
                                     onClick={() => addTime(worker.id, 120)}
-                                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[11px] font-black transition-all active:scale-90"
+                                    className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[10px] font-black transition-all active:scale-90"
                                     title="+2 ساعت"
                                   >
                                     +2س
@@ -1163,7 +1163,7 @@ await db.attendanceLogs.put(newRecord);
                                     <button
                                       type="button"
                                       onClick={() => updateWorkerConfig(worker.id, 'overtimeHours', 0)}
-                                      className="px-2 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 text-[11px] font-black transition-all active:scale-90"
+                                      className="px-1.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 text-[10px] font-black transition-all active:scale-90"
                                       title="ریست اضافه کاری"
                                     >
                                       ✕
@@ -1175,9 +1175,9 @@ await db.attendanceLogs.put(newRecord);
                             </div>
 
                             {/* Section Allocation & Notes Input */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                               {projectSections.length > 0 && (
-                                <div className="sm:col-span-1 flex items-center gap-2 bg-slate-50 dark:bg-slate-800/70 rounded-2xl px-3 py-2 border border-slate-200/60 dark:border-slate-700/60">
+                                <div className="sm:col-span-1 flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/70 rounded-2xl px-2.5 py-1.5 border border-slate-200/60 dark:border-slate-700/60">
                                   <Layers className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                                   <select
                                     value={cfg.sectionId || ''}
@@ -1185,7 +1185,7 @@ await db.attendanceLogs.put(newRecord);
                                     className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer w-full"
                                   >
                                     <option value="" className="bg-white dark:bg-slate-800">
-                                      {t('noSection') || 'عمومی / بدون بخش'}
+                                      {t('noSection') || 'عمومی'}
                                     </option>
                                     {projectSections.map((sec) => (
                                       <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
@@ -1196,13 +1196,13 @@ await db.attendanceLogs.put(newRecord);
                                 </div>
                               )}
 
-                              <div className={`${projectSections.length > 0 ? 'sm:col-span-2' : 'sm:col-span-3'} flex items-center gap-2 bg-slate-50 dark:bg-slate-800/70 rounded-2xl px-3.5 py-2 border border-slate-200/60 dark:border-slate-700/60`}>
+                              <div className={`${projectSections.length > 0 ? 'sm:col-span-2' : 'sm:col-span-3'} flex items-center gap-2 bg-slate-50 dark:bg-slate-800/70 rounded-2xl px-3 py-1.5 border border-slate-200/60 dark:border-slate-700/60`}>
                                 <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                 <input
                                   type="text"
                                   value={cfg.notes}
                                   onChange={(e) => updateWorkerConfig(worker.id, 'notes', e.target.value)}
-                                  placeholder={t('notesPlaceholder') || 'توضیحات و شرح کارهای انجام‌شده...'}
+                                  placeholder={t('notesPlaceholder') || 'شرح کارهای انجام‌شده...'}
                                   className="w-full bg-transparent text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
                                 />
                               </div>
@@ -1313,7 +1313,7 @@ await db.attendanceLogs.put(newRecord);
 
       {/* 3. EXECUTIVE ACTION DOCK (FLOATING FOOTER) */}
       <div className="border-t border-slate-200/80 dark:border-slate-800 shrink-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl shadow-lg z-20">
-        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           
           {/* Live Dynamic Figures: Selected Count + Gross Wages + OT Hours */}
           <div className="flex items-center gap-3 flex-wrap">
