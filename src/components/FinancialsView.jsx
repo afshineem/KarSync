@@ -136,13 +136,35 @@ export function FinancialsView() {
 
   // Accounting Hook (Supplies Treasury, Accounts, and Ledger logic)
   const {
-    accounts = [],
+    financialAccounts: accounts = [],
     accountBalances = new Map(),
-    saveIncome,
-    transferFunds,
-    saveAccount,
+    addIncome,
+    updateIncome,
+    transferBetweenAccounts,
+    addAccount,
+    updateAccount,
     globalOverdraftPolicy = 'ask_each_time'
   } = useAccounting();
+
+  const handleSaveIncome = async (data) => {
+    if (data.id) {
+      await updateIncome(data.id, data);
+    } else {
+      await addIncome(data);
+    }
+  };
+
+  const handleTransferFunds = async (transferData) => {
+    await transferBetweenAccounts(transferData);
+  };
+
+  const handleSaveAccount = async (accData) => {
+    if (accData.id) {
+      await updateAccount(accData.id, accData);
+    } else {
+      await addAccount(accData);
+    }
+  };
 
   // Modals state
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
@@ -1106,7 +1128,7 @@ export function FinancialsView() {
         isOpen={isIncomeModalOpen}
         onClose={() => setIsIncomeModalOpen(false)}
         onSave={async (data) => {
-          await saveIncome(data);
+          await handleSaveIncome(data);
           setIsIncomeModalOpen(false);
         }}
         currency={currency}
@@ -1118,7 +1140,7 @@ export function FinancialsView() {
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
         onTransfer={async (transferData) => {
-          await transferFunds(transferData);
+          await handleTransferFunds(transferData);
           setIsTransferModalOpen(false);
         }}
         accounts={accounts}
@@ -1136,7 +1158,7 @@ export function FinancialsView() {
           setEditingAccount(null);
         }}
         onSave={async (accData) => {
-          await saveAccount(accData);
+          await handleSaveAccount(accData);
           setIsAccountModalOpen(false);
           setEditingAccount(null);
         }}
