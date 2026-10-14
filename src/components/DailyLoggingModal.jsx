@@ -9,6 +9,7 @@ import { useProject } from '../context/ProjectContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { 
   formatCurrency, 
+  formatAmount,
   getTodayDateString, 
   toDecimalHours, 
   fromDecimalHours, 
