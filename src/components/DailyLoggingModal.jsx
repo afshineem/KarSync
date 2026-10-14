@@ -30,13 +30,22 @@ import {
   Coins,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   Edit2,
   Users,
   ShieldAlert,
   Layers,
   Receipt,
-  CreditCard
+  CreditCard,
+  User,
+  Sparkles,
+  Filter,
+  CheckSquare,
+  Square,
+  CornerDownLeft,
+  ArrowLeftRight
 } from 'lucide-react';
 
 export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
@@ -57,12 +66,25 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
   const [entryMode, setEntryMode] = useState('individual'); // 'individual' | 'group'
   const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [isAlreadyLoggedExpanded, setIsAlreadyLoggedExpanded] = useState(false);
   const [groupConfig, setGroupConfig] = useState({
     type: 'full',
     overtimeHours: 0,
     notes: '',
     sectionId: '__default__'
   });
+
+  // Date Shift Helper (Yesterday, Tomorrow, Today)
+  const handleShiftDate = (days) => {
+    try {
+      const [y, m, d] = selectedDate.split('-').map(Number);
+      const dt = new Date(y, m - 1, d + days);
+      const newY = dt.getFullYear();
+      const newM = String(dt.getMonth() + 1).padStart(2, '0');
+      const newD = String(dt.getDate()).padStart(2, '0');
+      setSelectedDate(`${newY}-${newM}-${newD}`);
+    } catch (_) {}
+  };
 
   // Close on Escape key press
   useEffect(() => {
@@ -544,650 +566,810 @@ await db.attendanceLogs.put(newRecord);
 
   const selectedCount = Object.keys(selectedWorkers).filter(id => selectedWorkers[id]).length;
 
+  // Real-time batch calculation of wages and overtime for selected workers
+  const summaryTotals = useMemo(() => {
+    let totalGrossPay = 0;
+    let totalOtHours = 0;
+    let fullCount = 0;
+    let halfCount = 0;
+    let hourlyCount = 0;
+
+    if (entryMode === 'group') {
+      const groupWorkers = unloggedWorkers.filter(w => w.groupId === selectedGroupId);
+      groupWorkers.forEach((w) => {
+        const pay = calculateWorkerDayPay(w);
+        totalGrossPay += pay.total;
+        totalOtHours += Number(groupConfig.overtimeHours) || 0;
+        if (groupConfig.type === 'full') fullCount++;
+        else if (groupConfig.type === 'half') halfCount++;
+        else if (groupConfig.type === 'hourly') hourlyCount++;
+      });
+      return {
+        count: groupWorkers.length,
+        totalGrossPay: roundCurrency(totalGrossPay, currency),
+        totalOtHours,
+        fullCount,
+        halfCount,
+        hourlyCount
+      };
+    }
+
+    unloggedWorkers.forEach((w) => {
+      if (selectedWorkers[w.id]) {
+        const pay = calculateWorkerDayPay(w);
+        const cfg = workerConfigs[w.id] || { type: 'full', overtimeHours: 0 };
+        totalGrossPay += pay.total;
+        totalOtHours += Number(cfg.overtimeHours) || 0;
+        if (cfg.type === 'full') fullCount++;
+        else if (cfg.type === 'half') halfCount++;
+        else if (cfg.type === 'hourly') hourlyCount++;
+      }
+    });
+
+    return {
+      count: selectedCount,
+      totalGrossPay: roundCurrency(totalGrossPay, currency),
+      totalOtHours,
+      fullCount,
+      halfCount,
+      hourlyCount
+    };
+  }, [entryMode, selectedGroupId, unloggedWorkers, groupConfig, selectedWorkers, workerConfigs, currency]);
+
   if (!isOpen) return null;
+
+  const isRtl = language === 'fa' || language === 'ku';
 
   const modalContent = (
     <div 
-      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden"
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-900/60 backdrop-blur-md flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none"
     >
-      {/* Modal Header */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs">
-        <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-              <UserCheck className="w-5 h-5" />
+      {/* 1. TOP EXECUTIVE HEADER */}
+      <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800 shrink-0 shadow-xs z-20">
+        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          
+          {/* Title & Icon Badge */}
+          <div className="flex items-center justify-between sm:justify-start gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/25 shrink-0">
+                <CalendarPlus className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <span>{t('logDailyAttendance')}</span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/70 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                    {unloggedWorkers.length} {t('readyToLog') || 'آماده ثبت'}
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {t('workerSelectionNotice')} ({selectedCount} از {unloggedWorkers.length} انتخاب شده)
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                {t('logDailyAttendance')}
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t('workerSelectionNotice')} ({selectedCount} / {unloggedWorkers.length})
-              </p>
-            </div>
+
+            {/* Mobile Close Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="sm:hidden p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="بستن (ESC)"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="بستن (ESC)"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          {/* Central Controls: [APP_THEME_BUTTON] Entry Mode Switcher + Close */}
+          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+            
+            {/* [APP_THEME_BUTTON] Mode Switcher */}
+            <div className="h-11 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => setEntryMode('individual')}
+                className={`relative h-full flex items-center gap-2 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer ${
+                  entryMode === 'individual'
+                    ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-bold px-3.5'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50 px-2.5'
+                }`}
+                title={language === 'fa' ? 'ثبت انفرادی پرسنل' : 'Individual'}
+              >
+                <User className="w-4 h-4 shrink-0" />
+                {entryMode === 'individual' && (
+                  <span className="text-xs font-semibold whitespace-nowrap">
+                    {language === 'fa' ? 'ثبت انفرادی' : 'Individual'}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEntryMode('group')}
+                className={`relative h-full flex items-center gap-2 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer ${
+                  entryMode === 'group'
+                    ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-bold px-3.5'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50 px-2.5'
+                }`}
+                title={language === 'fa' ? 'ثبت گروهی بر اساس اکیپ' : 'Group'}
+              >
+                <Users className="w-4 h-4 shrink-0" />
+                {entryMode === 'group' && (
+                  <span className="text-xs font-semibold whitespace-nowrap">
+                    {language === 'fa' ? 'ثبت گروهی' : 'Group'}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Desktop Close Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="hidden sm:flex p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
+              title="بستن (ESC)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
         </div>
       </div>
 
-      {/* Main Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-4">
+      {/* 2. MAIN SCROLLABLE WORKSPACE */}
+      <div className="flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950/70">
+        <div className="max-w-6xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
-        {/* Success Toast Banner */}
-        {toastMessage && (
-          <div className="mt-3 p-3 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">
-            <Check className="w-4 h-4" />
-            <span>{toastMessage}</span>
-          </div>
-        )}
-
-        {/* Entry Mode Segemented Control */}
-        <div className="flex items-center gap-2 mt-4 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 max-w-sm mx-auto">
-          <button
-            type="button"
-            onClick={() => setEntryMode('individual')}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              entryMode === 'individual'
-                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <span>ثبت فردی</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setEntryMode('group')}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              entryMode === 'group'
-                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <span>ثبت گروهی</span>
-          </button>
-        </div>
-
-        {/* Date Selector & Quick Toggles */}
-        <div className="mt-4 p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-sky-500 flex-shrink-0" />
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-              {t('selectDate')}:
-            </label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
-            />
-          </div>
-
-          {entryMode === 'individual' && projectSections.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
-              <Layers className="w-4 h-4 text-sky-500 flex-shrink-0" />
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                {t('filterBySection') || 'فیلتر بخش'}:
-              </label>
-              <select
-                value={filterModalSection}
-                onChange={(e) => setFilterModalSection(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden cursor-pointer"
-              >
-                <option value="all" className="bg-white dark:bg-slate-800">
-                  {t('allSections') || 'همه بخش‌ها'}
-                </option>
-                {projectSections.map((sec) => (
-                  <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
-                    {sec.name}
-                  </option>
-                ))}
-                <option value="unassigned" className="bg-white dark:bg-slate-800">
-                  {t('noSection') || 'بدون بخش (عمومی)'}
-                </option>
-              </select>
+          {/* Success Toast Banner */}
+          {toastMessage && (
+            <div className="p-3.5 bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-500/25 flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-200">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <span>{toastMessage}</span>
             </div>
           )}
 
-          {/* Bulk Assign Section Action when multiple workers selected */}
-          {projectSections.length > 0 && selectedCount > 1 && (
-            <div className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-950/60 px-2.5 py-1.5 rounded-xl border border-sky-200/80 dark:border-sky-800/80 self-start sm:self-auto">
-              <span className="text-[11px] font-bold text-sky-700 dark:text-sky-300 whitespace-nowrap">
-                {t('bulkAssignSection') || 'تغییر گروهی بخش'}:
-              </span>
-              <select
-                onChange={(e) => {
-                  if (e.target.value !== '__noop__') {
-                    handleBulkAssignSection(e.target.value);
-                  }
-                }}
-                defaultValue="__noop__"
-                className="bg-transparent text-xs font-semibold text-sky-900 dark:text-sky-200 focus:outline-hidden cursor-pointer"
-              >
-                <option value="__noop__" disabled className="bg-white dark:bg-slate-800">
-                  -- انتخاب بخش --
-                </option>
-                <option value="" className="bg-white dark:bg-slate-800">
-                  {t('noSection') || 'عمومی / بدون بخش'}
-                </option>
-                {projectSections.map((sec) => (
-                  <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
-                    {sec.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {entryMode === 'individual' && unloggedWorkers.length > 0 && (
-            <div className="flex items-center gap-2 self-end sm:self-auto text-xs font-medium">
-              <button
-                type="button"
-                onClick={handleSelectAll}
-                className="px-3 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors"
-              >
-                {t('selectAll')}
-              </button>
-              <button
-                type="button"
-                onClick={handleDeselectAll}
-                className="px-3 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors"
-              >
-                {t('deselectAll')}
-              </button>
-            </div>
-          )}
-
-        </div>
-
-        {/* Scrollable Workers Selection List */}
-        <div className="overflow-y-auto flex-1 my-4 pe-1 space-y-4">
-          
-          {entryMode === 'group' && (
-            <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  انتخاب گروه کاری
-                </label>
-                <select
-                  value={selectedGroupId}
-                  onChange={(e) => setSelectedGroupId(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
+          {/* Modern Smart Date & Filter Bar */}
+          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            {/* Quick Date Stepper Navigation */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                <button
+                  type="button"
+                  onClick={() => handleShiftDate(-1)}
+                  className="p-2 hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all active:scale-90 cursor-pointer"
+                  title="روز قبل"
                 >
-                  <option value="">-- گروه را انتخاب کنید --</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
+                  {isRtl ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                </button>
+
+                <div className="flex items-center gap-2 px-3 py-1">
+                  <Calendar className="w-4 h-4 text-sky-500" />
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="bg-transparent font-bold text-xs sm:text-sm text-slate-800 dark:text-white font-mono focus:outline-none cursor-pointer"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleShiftDate(1)}
+                  className="p-2 hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all active:scale-90 cursor-pointer"
+                  title="روز بعد"
+                >
+                  {isRtl ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {/* Jump to Today Button */}
+              {selectedDate !== getTodayDateString() && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(getTodayDateString())}
+                  className="px-3 py-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{language === 'fa' ? 'امروز' : 'Today'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Filter by Section & Selection Helpers */}
+            <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
+              
+              {/* Project Section Filter (if applicable) */}
+              {entryMode === 'individual' && projectSections.length > 0 && (
+                <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-medium">
+                  <Layers className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                  <select
+                    value={filterModalSection}
+                    onChange={(e) => setFilterModalSection(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all" className="bg-white dark:bg-slate-800">
+                      {t('allSections') || 'همه بخش‌ها'}
+                    </option>
+                    {projectSections.map((sec) => (
+                      <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
+                        {sec.name}
+                      </option>
+                    ))}
+                    <option value="unassigned" className="bg-white dark:bg-slate-800">
+                      {t('noSection') || 'بدون بخش (عمومی)'}
+                    </option>
+                  </select>
+                </div>
+              )}
+
+              {/* Bulk Section Assign when multi-selected */}
+              {projectSections.length > 0 && selectedCount > 1 && entryMode === 'individual' && (
+                <div className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-950/60 px-3 py-1.5 rounded-2xl border border-sky-200/80 dark:border-sky-800/80 text-xs">
+                  <span className="text-[11px] font-bold text-sky-700 dark:text-sky-300 whitespace-nowrap">
+                    {t('bulkAssignSection') || 'تغییر بخش گروهی'}:
+                  </span>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value !== '__noop__') {
+                        handleBulkAssignSection(e.target.value);
+                      }
+                    }}
+                    defaultValue="__noop__"
+                    className="bg-transparent text-xs font-bold text-sky-900 dark:text-sky-200 focus:outline-none cursor-pointer"
+                  >
+                    <option value="__noop__" disabled className="bg-white dark:bg-slate-800">
+                      -- انتخاب --
+                    </option>
+                    <option value="" className="bg-white dark:bg-slate-800">
+                      {t('noSection') || 'عمومی'}
+                    </option>
+                    {projectSections.map((sec) => (
+                      <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
+                        {sec.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Select All / Deselect All Pill buttons */}
+              {entryMode === 'individual' && unloggedWorkers.length > 0 && (
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                  <button
+                    type="button"
+                    onClick={handleSelectAll}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
+                    title={t('selectAll')}
+                  >
+                    {t('selectAll')}
+                  </button>
+                  <span className="text-slate-300 dark:text-slate-700">|</span>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAll}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
+                    title={t('deselectAll')}
+                  >
+                    {t('deselectAll')}
+                  </button>
+                </div>
+              )}
+
+            </div>
+
+          </div>
+
+          {/* Group Mode Configuration Card */}
+          {entryMode === 'group' && (
+            <div className="p-5 sm:p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <Users className="w-5 h-5 text-sky-500" />
+                <h3 className="font-black text-sm text-slate-900 dark:text-white">
+                  تنظیمات حضور و غیاب گروهی (اکیپ)
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                    انتخاب گروه کاری
+                  </label>
+                  <select
+                    value={selectedGroupId}
+                    onChange={(e) => setSelectedGroupId(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">-- گروه را انتخاب کنید --</option>
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedGroupId && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                      {t('attendanceType')}
+                    </label>
+                    <select
+                      value={groupConfig.type}
+                      onChange={(e) => setGroupConfig({...groupConfig, type: e.target.value})}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
+                    >
+                      <option value="full">{t('fullDayOption')}</option>
+                      <option value="half">{t('halfDayOption')}</option>
+                      <option value="hourly">{t('hourlyOnlyOption')}</option>
+                      <option value="absent">{t('absentOption')}</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               {selectedGroupId && (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  {groupConfig.type !== 'absent' && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                        {t('attendanceType')}
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                        {t('overtime')} ({t('hoursShort')})
                       </label>
-                      <select
-                        value={groupConfig.type}
-                        onChange={(e) => setGroupConfig({...groupConfig, type: e.target.value})}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      >
-                        <option value="full">{t('fullDayOption')}</option>
-                        <option value="half">{t('halfDayOption')}</option>
-                        <option value="hourly">{t('hourlyOnlyOption')}</option>
-                        <option value="absent">{t('absentOption')}</option>
-                      </select>
-                    </div>
-                    {groupConfig.type !== 'absent' && (
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                          {t('overtime')} ({t('hoursShort')})
-                        </label>
-                        <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden text-sm">
-                          <button type="button" onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: Math.max(0, prev.overtimeHours - 1)}))} className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors font-bold">-</button>
-                          <div className="flex-1 text-center font-mono font-bold text-slate-900 dark:text-white">
-                            {formatHoursAndMinutes(groupConfig.overtimeHours, language)}
-                          </div>
-                          <button type="button" onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: prev.overtimeHours + 1}))} className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors font-bold">+</button>
+                      <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden p-1">
+                        <button 
+                          type="button" 
+                          onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: Math.max(0, prev.overtimeHours - 0.5)}))} 
+                          className="w-10 h-8 bg-white dark:bg-slate-700 hover:bg-slate-100 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
+                        >
+                          -
+                        </button>
+                        <div className="flex-1 text-center font-mono font-black text-sm text-slate-900 dark:text-white">
+                          {formatHoursAndMinutes(groupConfig.overtimeHours, language)}
                         </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: prev.overtimeHours + 0.5}))} 
+                          className="w-10 h-8 bg-white dark:bg-slate-700 hover:bg-slate-100 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
+                        >
+                          +
+                        </button>
                       </div>
-                    )}
-                  </div>
-                  {projectSections.length > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          {t('section') || 'بخش کاری این گروه'}
-                        </label>
-                        {groupConfig.sectionId !== '__default__' && (
-                          <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800">
-                            {t('temporaryForToday') || 'برای امروز'}
-                          </span>
-                        )}
-                      </div>
-                      <select
-                        value={groupConfig.sectionId}
-                        onChange={(e) => setGroupConfig({ ...groupConfig, sectionId: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                      >
-                        <option value="__default__">
-                          -- بر اساس بخش پیش‌فرض هر پرسنل --
-                        </option>
-                        <option value="">
-                          {t('noSection') || 'عمومی / بدون بخش'}
-                        </option>
-                        {projectSections.map((sec) => (
-                          <option key={sec.id} value={sec.id}>
-                            {sec.name}
-                          </option>
-                        ))}
-                      </select>
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
                       {t('notesOptional')}
                     </label>
                     <input
                       type="text"
                       value={groupConfig.notes}
                       onChange={(e) => setGroupConfig({...groupConfig, notes: e.target.value})}
-                      placeholder="توضیحات برای کل گروه..."
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      placeholder="توضیحات و شرح کار اکیپ..."
+                      className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
                     />
                   </div>
-                  <div className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/40 rounded-xl border border-sky-100 dark:border-sky-900/60 text-sm text-sky-800 dark:text-sky-300 space-y-1.5">
-                    <div>
-                      این اطلاعات برای <strong>{unloggedWorkers.filter(w => w.groupId === selectedGroupId).length}</strong> پرسنل که امروز ثبت نشده‌اند، در نظر گرفته می‌شود.
-                    </div>
-                    {groupConfig.sectionId !== '__default__' && (
-                      <div className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 pt-1">
-                        <span>⚡ بخش کاری انتخابی:</span>
-                        <span className="font-bold">
-                          {groupConfig.sectionId ? (projectSections.find(s => String(s.id) === String(groupConfig.sectionId))?.name || 'بخش انتخابی') : 'عمومی / بدون بخش'}
-                        </span>
-                        <span className="text-[10px] bg-amber-200/60 dark:bg-amber-900/60 px-1.5 py-0.5 rounded font-bold">
-                          ({t('temporaryForToday') || 'برای امروز'})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </>
+                </div>
               )}
             </div>
           )}
-          
+
           {/* Case A: All active workers are already logged */}
           {unloggedWorkers.length === 0 && (
-            <div className="p-4 sm:p-5 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-center space-y-2">
-              <div className="flex items-center justify-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold text-sm">
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                <span>{t('allWorkersAlreadyLoggedNotice')}</span>
+            <div className="p-8 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 rounded-3xl text-center space-y-2 backdrop-blur-md">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
+              <h3 className="text-base font-black text-emerald-800 dark:text-emerald-300 pt-2">
+                {t('allWorkersAlreadyLoggedNotice')}
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                 {t('allWorkersAlreadyLoggedSubtitle')}
               </p>
             </div>
           )}
 
-          {/* Section 1: Workers Available to Log */}
+          {/* Section 1: Workers Available to Log (Modern Redesigned Cards) */}
           {entryMode === 'individual' && unloggedWorkers.length > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 px-1">
-                <span>{t('readyToLogCount', { count: filteredUnloggedWorkers.length })}:</span>
-                <span className="text-slate-400 font-normal">
-                  {selectedCount} کارگر انتخاب‌شده
+              <div className="flex items-center justify-between text-xs font-black text-slate-700 dark:text-slate-300 px-1">
+                <span>{t('readyToLogCount', { count: filteredUnloggedWorkers.length })}</span>
+                <span className="text-slate-400 font-medium">
+                  {selectedCount} نفر فعال برای ثبت
                 </span>
               </div>
 
-              {filteredUnloggedWorkers.map((worker) => {
-                const isChecked = !!selectedWorkers[worker.id];
-                const cfg = workerConfigs[worker.id] || { type: 'full', overtimeHours: 0, notes: '' };
-                const pay = calculateWorkerDayPay(worker);
-                const { hours, minutes } = fromDecimalHours(cfg.overtimeHours);
+              <div className="grid grid-cols-1 gap-3">
+                {filteredUnloggedWorkers.map((worker) => {
+                  const isChecked = !!selectedWorkers[worker.id];
+                  const cfg = workerConfigs[worker.id] || { type: 'full', overtimeHours: 0, notes: '' };
+                  const pay = calculateWorkerDayPay(worker);
+                  const { hours, minutes } = fromDecimalHours(cfg.overtimeHours);
 
-                return (
-                  <div
-                    key={worker.id}
-                    className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
-                      isChecked
-                        ? 'bg-sky-50/40 dark:bg-sky-950/20 border-sky-300 dark:border-sky-800 shadow-sm'
-                        : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-60'
-                    }`}
-                  >
-                    {/* Header Row: Checkbox, Name, Role, Pay Preview */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div 
-                        onClick={() => toggleWorkerSelection(worker.id)}
-                        className="flex items-center gap-3 cursor-pointer select-none flex-1"
-                      >
-                        <button
-                          type="button"
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
-                            isChecked
-                              ? 'bg-sky-600 text-white'
-                              : 'border-2 border-slate-300 dark:border-slate-600 text-transparent'
-                          }`}
-                        >
-                          <Check className="w-4 h-4 stroke-[3]" />
-                        </button>
-
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openWorkerProfile(worker.id);
-                              }}
-                              className="font-bold text-sm sm:text-base text-slate-900 dark:text-white cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                              title="مشاهده پروفایل جامع پرسنل"
-                            >
-                              {worker.name}
-                            </span>
-                            {projectSections.length > 0 && cfg.sectionId && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
-                                <Layers className="w-2.5 h-2.5 text-sky-500" />
-                                <span>{projectSections.find(s => s.id === cfg.sectionId)?.name || ''}</span>
-                              </span>
-                            )}
-                            {((Boolean(worker.defaultSectionId) && String(cfg.sectionId || '') !== String(worker.defaultSectionId || '')) || (!worker.defaultSectionId && Boolean(cfg.sectionId))) && (
-                              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800">
-                                {t('temporaryForToday') || 'برای امروز'}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {worker.role} • {formatCurrency(worker.dailyRate, currency, language)}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Calculated Day Wage Preview */}
-                      {isChecked && (
-                        <div className="text-end">
-                          <span className="text-[11px] text-slate-400 block">{t('calculatedDayTotal')}</span>
-                          <span className="text-sm sm:text-base font-extrabold text-sky-600 dark:text-sky-400">
-                            {formatCurrency(pay.total, currency, language)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Controls Row when Checked */}
-                    {isChecked && (
-                      <div className="mt-3 pt-3 border-t border-sky-100 dark:border-sky-900/60 space-y-2.5 text-xs">
+                  return (
+                    <div
+                      key={worker.id}
+                      className={`group relative rounded-3xl border transition-all duration-200 overflow-hidden ${
+                        isChecked
+                          ? 'bg-white/90 dark:bg-slate-900/90 border-sky-400 dark:border-sky-500 shadow-md shadow-sky-500/10 backdrop-blur-xl'
+                          : 'bg-white/50 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800 opacity-60 hover:opacity-90'
+                      }`}
+                    >
+                      <div className="p-4 sm:p-5 space-y-3">
                         
-                        {/* Upper Row: Day Type Toggle (Full, Half, Hourly) & Hours:Minutes Stepper */}
-                        <div className="flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        {/* Upper Header: Worker Meta, Checkbox, Wage Preview */}
+                        <div className="flex items-center justify-between gap-3">
                           
-                          {/* Day Type Toggle Buttons */}
-                          <div className="flex items-center bg-white dark:bg-slate-900 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-xs sm:flex-1 sm:max-w-md">
-                            <button
-                              type="button"
-                              onClick={() => updateWorkerConfig(worker.id, 'type', 'full')}
-                              className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-xs transition-all ${
-                                cfg.type === 'full'
-                                  ? 'bg-sky-600 text-white shadow-sm'
-                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                              }`}
-                            >
-                              {t('fullDayOption')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateWorkerConfig(worker.id, 'type', 'half')}
-                              className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-xs transition-all ${
-                                cfg.type === 'half'
-                                  ? 'bg-amber-600 text-white shadow-sm'
-                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                              }`}
-                            >
-                              {t('halfDayOption')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateWorkerConfig(worker.id, 'type', 'hourly')}
-                              className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-xs transition-all ${
-                                cfg.type === 'hourly'
-                                  ? 'bg-purple-600 text-white shadow-sm'
-                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                              }`}
-                            >
-                              {t('hourlyOnlyOption')}
-                            </button>
-                          </div>
-
-                          {/* Hours & Minutes Dual Stepper */}
-                          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 rounded-xl px-2.5 py-1 border border-slate-200 dark:border-slate-700 shadow-xs self-start sm:self-auto">
-                            <Clock className="w-3.5 h-3.5 text-sky-500 me-1" />
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                              {cfg.type === 'hourly' ? t('workedTimeLabel') : t('overtimeHoursLabel')}:
-                            </span>
-                            
-                            {/* Hours Box */}
-                            <div className="flex items-center">
-                              <input
-                                type="number"
-                                min="0"
-                                max="24"
-                                value={hours}
-                                onChange={(e) => handleHoursChange(worker.id, e.target.value)}
-                                className="w-8 text-center font-bold text-xs bg-slate-100 dark:bg-slate-800 rounded py-0.5 text-slate-900 dark:text-white focus:outline-none"
-                              />
-                              <span className="text-[10px] text-slate-400 ms-0.5">{t('hourShort')}</span>
+                          <div 
+                            onClick={() => toggleWorkerSelection(worker.id)}
+                            className="flex items-center gap-3.5 cursor-pointer select-none flex-1"
+                          >
+                            {/* Modern Soft Square Checkbox */}
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                              isChecked
+                                ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
+                                : 'bg-slate-100 dark:bg-slate-800 text-transparent border border-slate-300 dark:border-slate-700 group-hover:border-sky-400'
+                            }`}>
+                              <Check className="w-5 h-5 stroke-[2.8]" />
                             </div>
 
-                            <span className="font-bold text-slate-400">:</span>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openWorkerProfile(worker.id);
+                                  }}
+                                  className="font-black text-sm sm:text-base text-slate-900 dark:text-white hover:text-sky-500 dark:hover:text-sky-400 transition-colors"
+                                  title="پروفایل پرسنل"
+                                >
+                                  {worker.name}
+                                </span>
 
-                            {/* Minutes Box */}
-                            <div className="flex items-center">
-                              <input
-                                type="number"
-                                min="0"
-                                max="59"
-                                step="5"
-                                value={minutes}
-                                onChange={(e) => handleMinutesChange(worker.id, e.target.value)}
-                                className="w-8 text-center font-bold text-xs bg-slate-100 dark:bg-slate-800 rounded py-0.5 text-slate-900 dark:text-white focus:outline-none"
-                              />
-                              <span className="text-[10px] text-slate-400 ms-0.5">{t('minuteShort')}</span>
-                            </div>
+                                {projectSections.length > 0 && cfg.sectionId && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                                    <Layers className="w-3 h-3 text-sky-500" />
+                                    <span>{projectSections.find(s => s.id === cfg.sectionId)?.name || ''}</span>
+                                  </span>
+                                )}
 
-                            {/* Micro Stepper Buttons (+ / -) */}
-                            <div className="flex items-center gap-0.5 ms-1 border-s ps-1.5 border-slate-200 dark:border-slate-700">
-                              <button
-                                type="button"
-                                onClick={() => addTime(worker.id, 15)}
-                                className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold"
-                                title="+15m"
-                              >
-                                +15m
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => addTime(worker.id, -15)}
-                                className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold"
-                                title="-15m"
-                              >
-                                -15m
-                              </button>
+                                {((Boolean(worker.defaultSectionId) && String(cfg.sectionId || '') !== String(worker.defaultSectionId || '')) || (!worker.defaultSectionId && Boolean(cfg.sectionId))) && (
+                                  <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800">
+                                    {t('temporaryForToday') || 'امروز'}
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                                {worker.role || 'پرسنل'} • {formatCurrency(worker.dailyRate, currency, language)} / روز
+                              </p>
                             </div>
                           </div>
+
+                          {/* Calculated Wage Preview Badge */}
+                          {isChecked && (
+                            <div className="text-end">
+                              <span className="text-[10px] font-bold text-slate-400 block">دستمزد امروز</span>
+                              <span className="text-base sm:text-lg font-black font-mono text-sky-600 dark:text-sky-400">
+                                {formatCurrency(pay.total, currency, language)}
+                              </span>
+                            </div>
+                          )}
 
                         </div>
 
-                        {/* Optional Worker Project Section Allocation */}
-                        {projectSections.length > 0 && (
-                          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-xl px-3 py-1.5 border border-slate-200 dark:border-slate-700 shadow-xs">
-                            <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                              {t('section') || 'بخش'}:
-                            </span>
-                            <select
-                              value={cfg.sectionId || ''}
-                              onChange={(e) => updateWorkerConfig(worker.id, 'sectionId', e.target.value || null)}
-                              className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer w-full"
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800">
-                                {t('noSection') || 'عمومی / بدون بخش'}
-                              </option>
-                              {projectSections.map((sec) => (
-                                <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
-                                  {sec.name} {worker.defaultSectionId === sec.id ? `(${t('defaultSection') || 'پیش‌فرض'})` : ''}
-                                </option>
-                              ))}
-                            </select>
+                        {/* Interactive Controls when Checked */}
+                        {isChecked && (
+                          <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-3">
+                            
+                            {/* Day Type Selector [APP_THEME_BUTTON Style] & Overtime Stepper */}
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                              
+                              {/* [APP_THEME_BUTTON] Tri-state selector */}
+                              <div className="h-10 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner">
+                                <button
+                                  type="button"
+                                  onClick={() => updateWorkerConfig(worker.id, 'type', 'full')}
+                                  className={`h-full flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                    cfg.type === 'full'
+                                      ? 'bg-sky-500 text-white font-bold shadow-xs'
+                                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                  }`}
+                                >
+                                  <span>{t('fullDayOption')}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => updateWorkerConfig(worker.id, 'type', 'half')}
+                                  className={`h-full flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                    cfg.type === 'half'
+                                      ? 'bg-amber-500 text-white font-bold shadow-xs'
+                                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                  }`}
+                                >
+                                  <span>{t('halfDayOption')}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => updateWorkerConfig(worker.id, 'type', 'hourly')}
+                                  className={`h-full flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                    cfg.type === 'hourly'
+                                      ? 'bg-purple-500 text-white font-bold shadow-xs'
+                                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                  }`}
+                                >
+                                  <span>{t('hourlyOnlyOption')}</span>
+                                </button>
+                              </div>
+
+                              {/* Overtime Stepper with Quick Chips */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl px-3 py-1.5 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
+                                  <Clock className="w-3.5 h-3.5 text-sky-500" />
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                    {cfg.type === 'hourly' ? t('workedTimeLabel') : t('overtimeHoursLabel')}:
+                                  </span>
+
+                                  {/* Hours */}
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="24"
+                                    value={hours}
+                                    onChange={(e) => handleHoursChange(worker.id, e.target.value)}
+                                    className="w-8 text-center font-black font-mono text-xs bg-white dark:bg-slate-900 rounded-lg py-1 text-slate-900 dark:text-white focus:outline-none"
+                                  />
+                                  <span className="text-[10px] text-slate-400 font-bold">{t('hourShort')}</span>
+
+                                  <span className="font-bold text-slate-400">:</span>
+
+                                  {/* Minutes */}
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="59"
+                                    step="5"
+                                    value={minutes}
+                                    onChange={(e) => handleMinutesChange(worker.id, e.target.value)}
+                                    className="w-8 text-center font-black font-mono text-xs bg-white dark:bg-slate-900 rounded-lg py-1 text-slate-900 dark:text-white focus:outline-none"
+                                  />
+                                  <span className="text-[10px] text-slate-400 font-bold">{t('minuteShort')}</span>
+                                </div>
+
+                                {/* Ergonomic Quick Chips */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => addTime(worker.id, 30)}
+                                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[11px] font-black transition-all active:scale-90"
+                                    title="+30 دقیقه"
+                                  >
+                                    +30د
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => addTime(worker.id, 60)}
+                                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[11px] font-black transition-all active:scale-90"
+                                    title="+1 ساعت"
+                                  >
+                                    +1س
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => addTime(worker.id, 120)}
+                                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-600 dark:text-slate-300 hover:text-sky-600 text-[11px] font-black transition-all active:scale-90"
+                                    title="+2 ساعت"
+                                  >
+                                    +2س
+                                  </button>
+                                  {cfg.overtimeHours > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => updateWorkerConfig(worker.id, 'overtimeHours', 0)}
+                                      className="px-2 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 text-[11px] font-black transition-all active:scale-90"
+                                      title="ریست اضافه کاری"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                            </div>
+
+                            {/* Section Allocation & Notes Input */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                              {projectSections.length > 0 && (
+                                <div className="sm:col-span-1 flex items-center gap-2 bg-slate-50 dark:bg-slate-800/70 rounded-2xl px-3 py-2 border border-slate-200/60 dark:border-slate-700/60">
+                                  <Layers className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                  <select
+                                    value={cfg.sectionId || ''}
+                                    onChange={(e) => updateWorkerConfig(worker.id, 'sectionId', e.target.value || null)}
+                                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer w-full"
+                                  >
+                                    <option value="" className="bg-white dark:bg-slate-800">
+                                      {t('noSection') || 'عمومی / بدون بخش'}
+                                    </option>
+                                    {projectSections.map((sec) => (
+                                      <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
+                                        {sec.name} {worker.defaultSectionId === sec.id ? `(${t('defaultSection') || 'پیش‌فرض'})` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              <div className={`${projectSections.length > 0 ? 'sm:col-span-2' : 'sm:col-span-3'} flex items-center gap-2 bg-slate-50 dark:bg-slate-800/70 rounded-2xl px-3.5 py-2 border border-slate-200/60 dark:border-slate-700/60`}>
+                                <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <input
+                                  type="text"
+                                  value={cfg.notes}
+                                  onChange={(e) => updateWorkerConfig(worker.id, 'notes', e.target.value)}
+                                  placeholder={t('notesPlaceholder') || 'توضیحات و شرح کارهای انجام‌شده...'}
+                                  className="w-full bg-transparent text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+
                           </div>
                         )}
 
-                        {/* Lower Row: Notes & Tasks Performed (100% Full Width) */}
-                        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-xl px-3 py-1.5 border border-slate-200 dark:border-slate-700 shadow-xs">
-                          <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                          <input
-                            type="text"
-                            value={cfg.notes}
-                            onChange={(e) => updateWorkerConfig(worker.id, 'notes', e.target.value)}
-                            placeholder={t('notesPlaceholder')}
-                            className="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
-                          />
-                        </div>
-
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          {/* Section 2: Already Logged Workers on this Date (Prevent Duplication + 1-Click Edit) */}
+          {/* Section 2: Already Logged Workers Accordion (Clean & Compact) */}
           {alreadyLoggedWorkers.length > 0 && (
-            <div className="pt-2 border-t border-dashed border-slate-200 dark:border-slate-800 space-y-2.5">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-400">
-                  <ShieldAlert className="w-4 h-4 text-amber-500" />
-                  <span>{t('alreadyLoggedSectionTitle')} ({alreadyLoggedWorkers.length} نفر):</span>
-                </div>
-                <span className="text-[10px] text-slate-400">
-                  جهت تغییر از دکمه ویرایش استفاده فرمایید
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                {alreadyLoggedWorkers.map(({ worker, log }) => (
-                  <div
-                    key={worker.id}
-                    className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-800 flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
-                  >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openWorkerProfile(worker.id);
-                        }}
-                        className="font-bold text-slate-800 dark:text-slate-200 text-sm cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                        title="مشاهده پروفایل جامع پرسنل"
-                      >
-                        {worker.name}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                        log.type === 'hourly'
-                          ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-400'
-                          : log.type === 'half'
-                          ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
-                          : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
-                      }`}>
-                        {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDayOption') : t('fullDayOption')}
-                      </span>
-                      {log.overtimeHours > 0 && (
-                        <span className="bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded text-[11px] font-medium">
-                          {log.type === 'hourly' ? '' : '+'}{formatHoursAndMinutes(log.overtimeHours, language)}
-                        </span>
-                      )}
-                      {log.notes && (
-                        <span className="text-slate-500 dark:text-slate-400 italic truncate max-w-xs">
-                          "{log.notes}"
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3">
-                      <span className="font-extrabold text-slate-700 dark:text-slate-300">
-                        {formatCurrency(log.totalDayPay, currency, language)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setEditingLog(log)}
-                        className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 border border-slate-200 dark:border-slate-700 text-sky-600 dark:text-sky-400 hover:border-sky-400 rounded-lg text-xs font-semibold transition-all shadow-xs"
-                        title={t('editWorkerRecord')}
-                      >
-                        <Edit2 className="w-3 h-3" />
-                        <span>{t('editWorkerRecord')}</span>
-                      </button>
-                    </div>
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl overflow-hidden shadow-xs">
+              <button
+                type="button"
+                onClick={() => setIsAlreadyLoggedExpanded(!isAlreadyLoggedExpanded)}
+                className="w-full p-4 flex items-center justify-between gap-3 text-right hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+                    <ShieldAlert className="w-4 h-4" />
                   </div>
-                ))}
-              </div>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 dark:text-white">
+                      {t('alreadyLoggedSectionTitle')} ({alreadyLoggedWorkers.length} نفر)
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      کارکرد این پرسنل قبلاً برای این روز ثبت شده است
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-sky-600 dark:text-sky-400">
+                    {isAlreadyLoggedExpanded ? 'بستن لیست' : 'مشاهده و ویرایش'}
+                  </span>
+                  {isAlreadyLoggedExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                </div>
+              </button>
+
+              {isAlreadyLoggedExpanded && (
+                <div className="p-4 pt-0 border-t border-slate-100 dark:border-slate-800/80 space-y-2 mt-2">
+                  {alreadyLoggedWorkers.map(({ worker, log }) => (
+                    <div
+                      key={worker.id}
+                      className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openWorkerProfile(worker.id);
+                          }}
+                          className="font-black text-slate-900 dark:text-white cursor-pointer hover:text-sky-500 hover:underline transition-colors"
+                        >
+                          {worker.name}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
+                          log.type === 'hourly'
+                            ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-400'
+                            : log.type === 'half'
+                            ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
+                            : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
+                        }`}>
+                          {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDayOption') : t('fullDayOption')}
+                        </span>
+                        {log.overtimeHours > 0 && (
+                          <span className="bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono">
+                            +{formatHoursAndMinutes(log.overtimeHours, language)}
+                          </span>
+                        )}
+                        {log.notes && (
+                          <span className="text-slate-500 dark:text-slate-400 italic text-[11px] truncate max-w-xs">
+                            "{log.notes}"
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0">
+                        <span className="font-black font-mono text-slate-800 dark:text-slate-200">
+                          {formatCurrency(log.totalDayPay, currency, language)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingLog(log)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-sky-500 hover:text-white dark:hover:bg-sky-500 dark:hover:text-white border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                          title={t('editWorkerRecord')}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>{t('editWorkerRecord')}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-        </div>
         </div>
       </div>
 
-      {/* Modal Footer */}
-      <div className="border-t border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 shadow-xs">
-        <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 text-xs">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            {entryMode === 'group' ? (
-              <span className="font-semibold text-sky-600 dark:text-sky-400">
-                گروه: {selectedGroupId ? unloggedWorkers.filter(w => w.groupId === selectedGroupId).length : 0} پرسنل
+      {/* 3. EXECUTIVE ACTION DOCK (FLOATING FOOTER) */}
+      <div className="border-t border-slate-200/80 dark:border-slate-800 shrink-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl shadow-lg z-20">
+        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          
+          {/* Live Dynamic Figures: Selected Count + Gross Wages + OT Hours */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-sky-500" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {summaryTotals.count} {t('workers') || 'پرسنل'}
               </span>
-            ) : unloggedWorkers.length > 0 ? (
-              selectedCount > 0 ? (
-                <span className="font-semibold text-sky-600 dark:text-sky-400">
-                  {selectedCount} {t('workers')} {t('active')}
-                </span>
-              ) : (
-                <span>{t('noWorkerSelectedError')}</span>
-              )
-            ) : (
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                همه کارگران در این تاریخ قبلاً ثبت شده‌اند
-              </span>
+            </div>
+
+            {summaryTotals.count > 0 && (
+              <>
+                <div className="px-3 py-1.5 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-800/60 flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-sky-500" />
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">مجموع دستمزد:</span>
+                  <span className="text-xs font-black font-mono text-sky-600 dark:text-sky-300">
+                    {formatAmount(summaryTotals.totalGrossPay, currency)} {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+
+                {summaryTotals.totalOtHours > 0 && (
+                  <div className="px-3 py-1.5 rounded-2xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-800/60 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-purple-500" />
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">اضافه‌کاری:</span>
+                    <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-300">
+                      {formatHoursAndMinutes(summaryTotals.totalOtHours, language)}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Action Buttons: Cancel + Submit */}
+          <div className="flex items-center gap-2.5 self-end sm:self-auto w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm rounded-xl transition-colors"
+              className="flex-1 sm:flex-initial px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-2xl transition-all cursor-pointer active:scale-95"
             >
               {t('cancel')} (ESC)
             </button>
+
             {unloggedWorkers.length > 0 && (
               <button
                 type="button"
                 onClick={handleBatchSubmit}
                 disabled={isSaving || !canModifyDate(selectedDate) || (entryMode === 'individual' && selectedCount === 0) || (entryMode === 'group' && !selectedGroupId)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-400 text-white font-medium text-sm rounded-xl shadow-md shadow-sky-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="flex-2 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 disabled:opacity-50 text-white font-black text-xs rounded-2xl shadow-lg shadow-sky-500/25 transition-all cursor-pointer active:scale-95"
               >
-                <Check className="w-4 h-4" />
+                <Check className="w-4 h-4 stroke-[2.5]" />
                 <span>{isSaving ? t('savingAttendance') : t('saveBatchAttendance')}</span>
               </button>
             )}
           </div>
+
         </div>
       </div>
 
