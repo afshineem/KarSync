@@ -268,7 +268,8 @@ export function FinancialsView() {
     // 1. Total liquid balance across all active accounts
     let totalCashBalance = 0;
     accounts.forEach((acc) => {
-      const bal = accountBalances.get(acc.id) ?? acc.initialBalance ?? 0;
+      const entry = accountBalances?.get?.(String(acc.id));
+      const bal = entry ? (Number(entry.currentBalance) || 0) : (Number(acc.initialBalance) || 0);
       totalCashBalance += bal;
     });
 
@@ -920,7 +921,8 @@ export function FinancialsView() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {accounts.map((acc) => {
-              const bal = accountBalances.get(acc.id) ?? acc.initialBalance ?? 0;
+              const entry = accountBalances?.get?.(String(acc.id));
+              const bal = entry ? (Number(entry.currentBalance) || 0) : (Number(acc.initialBalance) || 0);
               const isBank = acc.type === 'bank';
               return (
                 <div
