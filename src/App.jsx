@@ -20,6 +20,7 @@ import { BackupModal } from './components/BackupModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { AboutModal } from './components/AboutModal';
 import { WorkersModal } from './components/WorkersModal';
+import { AddWorkerModal } from './components/AddWorkerModal';
 import { CounterpartiesModal } from './components/CounterpartiesModal';
 import { LoginView } from './components/LoginView';
 import { WorkerViewPortal } from './components/WorkerViewPortal';
@@ -80,6 +81,7 @@ function AppContent() {
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isWorkersModalOpen, setIsWorkersModalOpen] = useState(false);
+  const [isAddWorkerModalOpen, setIsAddWorkerModalOpen] = useState(false);
   const [isCounterpartiesModalOpen, setIsCounterpartiesModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
   const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
@@ -88,11 +90,14 @@ function AppContent() {
   // Global listeners for Workers & Counterparties modals
   useEffect(() => {
     const handleOpenWorkers = () => setIsWorkersModalOpen(true);
+    const handleOpenAddWorker = () => setIsAddWorkerModalOpen(true);
     const handleOpenCounterparties = () => setIsCounterpartiesModalOpen(true);
     window.addEventListener('karsync-open-workers-modal', handleOpenWorkers);
+    window.addEventListener('karsync-open-new-worker', handleOpenAddWorker);
     window.addEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
     return () => {
       window.removeEventListener('karsync-open-workers-modal', handleOpenWorkers);
+      window.removeEventListener('karsync-open-new-worker', handleOpenAddWorker);
       window.removeEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
     };
   }, []);
@@ -282,10 +287,7 @@ function AppContent() {
 
       if (keyUpper === 'W' || (e.shiftKey && (keyUpper === 'W' || e.code === 'KeyW'))) {
         e.preventDefault();
-        setActiveTab('workers');
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('karsync-open-new-worker'));
-        }, 60);
+        setIsAddWorkerModalOpen(true);
         return;
       }
 
@@ -530,6 +532,12 @@ function AppContent() {
       <WorkersModal
         isOpen={isWorkersModalOpen}
         onClose={() => setIsWorkersModalOpen(false)}
+      />
+
+      {/* Global Add/Create Worker Modal (Shift+W) */}
+      <AddWorkerModal
+        isOpen={isAddWorkerModalOpen}
+        onClose={() => setIsAddWorkerModalOpen(false)}
       />
 
       {/* Global Fullscreen Counterparties Modal (Shift+C) */}
