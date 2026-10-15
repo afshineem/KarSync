@@ -1390,7 +1390,7 @@ export function SettlementModal({
       </div>
 
       {/* Main Scrollable Content */}
-      <div className="flex-1 overflow-y-auto bg-slate-100/80 dark:bg-slate-950">
+      <div className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-950">
         <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
         {/* Feedback Alert */}
@@ -1408,7 +1408,7 @@ export function SettlementModal({
         {/* If Individual Mode and No Worker Selected: Dedicated Personnel Selector */}
         {settlementMode === 'individual' && !worker ? (
           <div className="space-y-4 py-2">
-            <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+            <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-xs shadow-slate-200/40 dark:shadow-none space-y-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
