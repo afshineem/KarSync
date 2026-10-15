@@ -1227,7 +1227,7 @@ export function SettlementModal({
 
   const modalContent = (
     <div 
-      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white"
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-900/60 backdrop-blur-md flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white select-none"
     >
       {/* Toast Notification */}
       {toastMessage && (
@@ -1240,151 +1240,162 @@ export function SettlementModal({
           <span>{toastMessage.text}</span>
         </div>
       )}
-      {/* Header with Mode & Strategy Tabs */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs">
-        <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 space-y-3">
+
+      {/* 1. TOP EXECUTIVE HEADER (Glassmorphic) */}
+      <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800 shrink-0 shadow-xs z-20">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3.5 space-y-3">
           
           {/* Top Bar: Icon, Titles & Close Button */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-xs ${
-                settlementMode === 'group'
-                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/20'
-                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20'
-              }`}>
-                {settlementMode === 'group' ? <Users className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center justify-between sm:justify-start gap-3">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md ${
+                  settlementMode === 'group'
+                    ? 'bg-gradient-to-tr from-amber-500 to-amber-600 text-white shadow-amber-500/25'
+                    : 'bg-gradient-to-tr from-emerald-500 to-teal-600 text-white shadow-emerald-500/25'
+                }`}>
+                  {settlementMode === 'group' ? <Users className="w-5 h-5 stroke-[2.2]" /> : <CheckCircle2 className="w-5 h-5 stroke-[2.2]" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                      {settlementMode === 'group' ? 'تسویه حساب گروهی با سرپرست' : (t('settlementModalTitle') || 'تسویه حساب و پرداخت')}
+                    </h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                      settlementTypeTab === 'auto'
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-sky-50 text-sky-700 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
+                    }`}>
+                      {settlementTypeTab === 'auto' ? 'تسویه اتوماتیک' : 'تسویه با جزئیات'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <p className="text-xs text-slate-400 font-medium">
+                      {settlementMode === 'group' 
+                        ? `${activeGroup?.name || 'گروه کاری'} • سرپرست: ${supervisorWorker?.name || 'تعریف‌نشده'}`
+                        : worker 
+                          ? `${worker.name} • مانده کل مطالبات باز`
+                          : 'انتخاب پرسنل جهت تسویه حساب'}
+                    </p>
+                    {settlementMode === 'individual' && worker && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLocalWorker(null);
+                          if (onSelectWorker) onSelectWorker(null);
+                        }}
+                        className="px-2.5 py-0.5 rounded-xl bg-emerald-500/10 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                        title="انتخاب پرسنل دیگر"
+                      >
+                        <ArrowLeftRight className="w-3 h-3" />
+                        <span>تغییر پرسنل</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                    {settlementMode === 'group' ? 'تسویه حساب گروهی با سرپرست' : (t('settlementModalTitle') || 'تسویه حساب و پرداخت')}
-                  </h3>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+
+              {/* Mobile Close Button */}
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="sm:hidden p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title="بستن (ESC)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Controls Right Dock: Dual Controllers (APP_THEME_BUTTON Style) */}
+            <div className="flex items-center gap-2.5 flex-wrap self-end sm:self-auto">
+              
+              {/* [APP_THEME_BUTTON] Strategy Switcher (Auto vs Detailed) */}
+              <div className="h-10 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setSettlementTypeTab('auto')}
+                  className={`relative h-full flex items-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer px-3 text-xs ${
                     settlementTypeTab === 'auto'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                      : 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300'
-                  }`}>
-                    {settlementTypeTab === 'auto' ? 'تسویه اتوماتیک' : 'تسویه با جزئیات'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <p className="text-xs text-slate-400">
-                    {settlementMode === 'group' 
-                      ? `${activeGroup?.name || 'گروه کاری'} • سرپرست: ${supervisorWorker?.name || 'تعریف‌نشده'}`
-                      : worker 
-                        ? `${worker.name} • مانده کل مطالبات باز`
-                        : 'انتخاب پرسنل جهت تسویه حساب'}
-                  </p>
-                  {settlementMode === 'individual' && worker && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLocalWorker(null);
-                        if (onSelectWorker) onSelectWorker(null);
-                      }}
-                      className="px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/80 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors flex items-center gap-1 shadow-xs"
-                      title="انتخاب پرسنل دیگر"
-                    >
-                      <ArrowLeftRight className="w-3 h-3" />
-                      <span>تغییر پرسنل</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleCloseModal}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="بستن (ESC)"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Primary Architecture Tab Switcher: Auto (Quick) vs Detailed (Custom) */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setSettlementTypeTab('auto')}
-              className={`py-2.5 px-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${
-                settlementTypeTab === 'auto'
-                  ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm ring-1 ring-black/5 dark:ring-white/10'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <Zap className={`w-4 h-4 ${settlementTypeTab === 'auto' ? 'text-emerald-500 fill-emerald-500' : 'text-slate-400'}`} />
-              <div className="text-start">
-                <span className="block font-black text-xs leading-none">تسویه اتوماتیک (سریع)</span>
-                <span className="block text-[10px] font-normal text-slate-400 mt-0.5">تسویه کامل یا پرداخت مبلغ دلخواه بر اساس مانده کل طلب</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSettlementTypeTab('custom')}
-              className={`py-2.5 px-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${
-                settlementTypeTab === 'custom'
-                  ? 'bg-white dark:bg-slate-700 text-sky-700 dark:text-sky-300 shadow-sm ring-1 ring-black/5 dark:ring-white/10'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <Sliders className={`w-4 h-4 ${settlementTypeTab === 'custom' ? 'text-sky-500' : 'text-slate-400'}`} />
-              <div className="text-start">
-                <span className="block font-black text-xs leading-none">تسویه با جزئیات (سفارشی)</span>
-                <span className="block text-[10px] font-normal text-slate-400 mt-0.5">تسویه بر اساس بازه زمانی، بخش‌های پروژه یا آیتم‌های انتخابی</span>
-              </div>
-            </button>
-          </div>
-
-          {/* Group vs Individual Mode Switcher (Secondary Scope) */}
-          {allGroups.length > 0 && (
-            <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60 text-xs">
-              <span className="text-[11px] text-slate-400 font-semibold shrink-0">دامنه تسویه:</span>
-              <div className="flex-1 flex items-center gap-1.5 p-0.5 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
-                <button
-                  type="button"
-                  onClick={() => setSettlementMode('individual')}
-                  className={`flex-1 py-1.5 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 text-xs font-bold ${
-                    settlementMode === 'individual'
-                      ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 font-black'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white font-medium'
                   }`}
+                  title="تسویه اتوماتیک و سریع"
                 >
-                  <User className="w-3.5 h-3.5" />
-                  <span>تسویه فردی ({worker?.name || 'پرسنل'})</span>
+                  <Zap className={`w-3.5 h-3.5 ${settlementTypeTab === 'auto' ? 'fill-white' : ''}`} />
+                  <span className="whitespace-nowrap">تسویه سریع</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setSettlementMode('group')}
-                  className={`flex-1 py-1.5 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 text-xs font-bold ${
-                    settlementMode === 'group'
-                      ? 'bg-amber-600 text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  onClick={() => setSettlementTypeTab('custom')}
+                  className={`relative h-full flex items-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer px-3 text-xs ${
+                    settlementTypeTab === 'custom'
+                      ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-black'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white font-medium'
                   }`}
+                  title="تسویه با جزئیات و سفارشی"
                 >
-                  <Crown className="w-3.5 h-3.5 text-amber-300" />
-                  <span>تسویه گروهی با سرپرست</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-mono">
-                    {allGroups.length}
-                  </span>
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span className="whitespace-nowrap">تسویه با جزئیات</span>
                 </button>
               </div>
+
+              {/* [APP_THEME_BUTTON] Scope Switcher (Individual vs Group) */}
+              {allGroups.length > 0 && (
+                <div className="h-10 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={() => setSettlementMode('individual')}
+                    className={`relative h-full flex items-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer px-3 text-xs ${
+                      settlementMode === 'individual'
+                        ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-black'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white font-medium'
+                    }`}
+                    title="تسویه انفرادی پرسنل"
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span className="whitespace-nowrap">فردی</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSettlementMode('group')}
+                    className={`relative h-full flex items-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer px-3 text-xs ${
+                      settlementMode === 'group'
+                        ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30 font-black'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white font-medium'
+                    }`}
+                    title="تسویه گروهی با سرپرست"
+                  >
+                    <Crown className="w-3.5 h-3.5" />
+                    <span className="whitespace-nowrap">گروهی</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Desktop Close Button */}
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="hidden sm:flex p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
+                title="بستن (ESC)"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          )}
+
+          </div>
 
         </div>
       </div>
 
       {/* Main Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950/70">
+        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
         {/* Feedback Alert */}
         {feedback.message && (
-          <div className={`mt-3 p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+          <div className={`p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2.5 shadow-sm ${
             feedback.type === 'error'
               ? 'bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'
               : 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
@@ -1397,8 +1408,8 @@ export function SettlementModal({
         {/* If Individual Mode and No Worker Selected: Dedicated Personnel Selector */}
         {settlementMode === 'individual' && !worker ? (
           <div className="space-y-4 py-2">
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <User className="w-4 h-4 text-emerald-500" />
@@ -1408,24 +1419,24 @@ export function SettlementModal({
                     پرسنل مورد نظر را انتخاب کنید تا مانده حساب و جزئیات تسویه بارگذاری شود:
                   </p>
                 </div>
-                <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 font-mono">
-                  {convertDigits(filteredActiveWorkers.length, numberFormat)} نفر
+                <span className="self-start sm:self-auto px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-black text-slate-600 dark:text-slate-300 font-mono">
+                  {convertDigits(filteredActiveWorkers.length, numberFormat)} نفر فعال
                 </span>
               </div>
 
-              {/* Status Filter Buttons (Arrears vs All vs Settled) */}
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs font-bold">
+              {/* Status Filter Buttons (Arrears vs All vs Settled) - APP_THEME_BUTTON style */}
+              <div className="h-10 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setWorkerStatusFilter('with_arrears')}
-                  className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 text-xs font-black cursor-pointer ${
+                  className={`flex-1 sm:flex-initial h-full px-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black cursor-pointer ${
                     workerStatusFilter === 'with_arrears'
                       ? 'bg-rose-500 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <AlertCircle className="w-3.5 h-3.5" />
-                  <span>فقط دارای معوقه</span>
+                  <span>دارای معوقه</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                     workerStatusFilter === 'with_arrears' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300'
                   }`}>
@@ -1436,15 +1447,17 @@ export function SettlementModal({
                 <button
                   type="button"
                   onClick={() => setWorkerStatusFilter('all')}
-                  className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 text-xs font-black cursor-pointer ${
+                  className={`flex-1 sm:flex-initial h-full px-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black cursor-pointer ${
                     workerStatusFilter === 'all'
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                      ? 'bg-sky-500 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <Users className="w-3.5 h-3.5" />
                   <span>همه پرسنل</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    workerStatusFilter === 'all' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}>
                     {convertDigits(activeWorkersList.length, numberFormat)}
                   </span>
                 </button>
@@ -1452,7 +1465,7 @@ export function SettlementModal({
                 <button
                   type="button"
                   onClick={() => setWorkerStatusFilter('settled')}
-                  className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 text-xs font-black cursor-pointer ${
+                  className={`flex-1 sm:flex-initial h-full px-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black cursor-pointer ${
                     workerStatusFilter === 'settled'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -1476,7 +1489,7 @@ export function SettlementModal({
                   placeholder="جستجوی نام پرسنل، سمت، شماره تماس..."
                   value={workerSearchQuery}
                   onChange={(e) => setWorkerSearchQuery(e.target.value)}
-                  className="w-full pr-10 pl-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                  className="w-full pr-10 pl-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                   autoFocus
                 />
                 {workerSearchQuery && (
@@ -1491,8 +1504,8 @@ export function SettlementModal({
               </div>
             </div>
 
-            {/* Workers Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {/* Workers Cards Grid (2-Column on Desktop) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {filteredActiveWorkers.map((w) => {
                 const fin = workerFinancialsMap.get(String(w.id)) || calculateWorkerFinancials(w, effectiveAllLogs, effectiveAllPayments, currency);
                 const hasDue = (fin?.netBalanceDue || 0) > 0;
@@ -1504,23 +1517,23 @@ export function SettlementModal({
                       setLocalWorker(w);
                       if (onSelectWorker) onSelectWorker(w);
                     }}
-                    className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 hover:shadow-md transition-all text-start group flex flex-col justify-between gap-3 relative overflow-hidden cursor-pointer"
+                    className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 hover:shadow-lg transition-all text-start group flex flex-col justify-between gap-3 relative overflow-hidden cursor-pointer active:scale-[0.99]"
                   >
                     <div className="flex items-start justify-between gap-2 w-full">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs ring-1 ring-emerald-500/20 group-hover:scale-105 transition-transform">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-sm ring-1 ring-emerald-500/20 group-hover:scale-105 transition-transform shrink-0">
                           {w.name?.charAt(0) || 'ک'}
                         </div>
-                        <div>
-                          <div className="text-xs font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        <div className="min-w-0">
+                          <div className="text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
                             {w.name}
                           </div>
-                          <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          <div className="text-[11px] text-slate-400 font-medium mt-0.5 truncate">
                             {w.role || 'کارگر'} {w.phone ? `• ${w.phone}` : ''}
                           </div>
                         </div>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
                         hasDue
                           ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/40'
                           : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40'
@@ -1530,9 +1543,9 @@ export function SettlementModal({
                     </div>
 
                     {/* Financial Summary */}
-                    <div className="w-full pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">مانده قابل تسویه:</span>
-                      <span className={`font-black font-mono ${hasDue ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    <div className="w-full pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                      <span className="text-slate-400 font-medium">مانده کل طلب جهت تسویه:</span>
+                      <span className={`font-black font-mono text-sm ${hasDue ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {formatCurrency(fin?.netBalanceDue || 0, currency, numberFormat)}
                       </span>
                     </div>
@@ -2220,18 +2233,23 @@ export function SettlementModal({
                 )}
 
                 {/* 1. Transparent Financial Balance KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* Gross Earnings Card */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/70 flex flex-col justify-between">
+                  <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-sky-300 dark:hover:border-sky-700 transition-all">
                     <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                      <span className="text-[11px] font-bold">کل کارکرد ناخالص دوره</span>
-                      <FileText className="w-4 h-4 text-sky-500" />
+                      <span className="text-xs font-bold">کل کارکرد ناخالص دوره</span>
+                      <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      <span className="text-base font-black text-slate-900 dark:text-white block font-mono">
-                        {formatAmount(autoPeriodIndividualCalculations.grossEarnings, currency, numberFormat)}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                    <div className="mt-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white block font-mono">
+                          {formatAmount(autoPeriodIndividualCalculations.grossEarnings, currency, numberFormat)}
+                        </span>
+                        <span className="text-xs font-bold text-slate-400">{getCurrencySymbol(currency, language)}</span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-medium block mt-1">
                         {convertDigits(autoPeriodIndividualCalculations.effectiveDays, numberFormat)} روز کاری
                         {autoPeriodIndividualCalculations.otHours > 0 && ` + ${formatHoursAndMinutes(autoPeriodIndividualCalculations.otHours, language)}`}
                       </span>
@@ -2239,64 +2257,74 @@ export function SettlementModal({
                   </div>
 
                   {/* Deducted Advances Card */}
-                  <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 flex flex-col justify-between">
+                  <div className="p-4 rounded-3xl bg-amber-50/60 dark:bg-amber-950/30 backdrop-blur-xl border border-amber-200/80 dark:border-amber-800/50 shadow-sm flex flex-col justify-between hover:border-amber-400 transition-all">
                     <div className="flex items-center justify-between text-amber-700 dark:text-amber-300">
-                      <span className="text-[11px] font-bold">مساعده‌های باز کسرشده</span>
-                      <Coins className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-bold">مساعده‌های باز کسرشده</span>
+                      <div className="w-8 h-8 rounded-xl bg-amber-100/80 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                        <Coins className="w-4 h-4" />
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      <span className="text-base font-black text-amber-700 dark:text-amber-300 block font-mono">
-                        {formatAmount(autoPeriodIndividualCalculations.advancesDeducted, currency, numberFormat)}
-                      </span>
-                      <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-medium block mt-0.5">
+                    <div className="mt-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-lg sm:text-xl font-black text-amber-700 dark:text-amber-300 block font-mono">
+                          {formatAmount(autoPeriodIndividualCalculations.advancesDeducted, currency, numberFormat)}
+                        </span>
+                        <span className="text-xs font-bold text-amber-600/70 dark:text-amber-400/70">{getCurrencySymbol(currency, language)}</span>
+                      </div>
+                      <span className="text-[11px] text-amber-600/80 dark:text-amber-400/80 font-medium block mt-1">
                         {convertDigits(autoPeriodIndividualCalculations.unsettledPayments.length, numberFormat)} فقره مساعده جاری
                       </span>
                     </div>
                   </div>
 
                   {/* Net Due Final Cumulative Balance Card */}
-                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 flex flex-col justify-between sm:col-span-1">
+                  <div className="p-4 rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-500/20 flex flex-col justify-between sm:col-span-1">
                     <div className="flex items-center justify-between text-emerald-100">
-                      <span className="text-[11px] font-bold">مانده نهایی سررسید (طلب خالص)</span>
-                      <Calculator className="w-4 h-4 text-white" />
+                      <span className="text-xs font-black">مانده نهایی سررسید (طلب خالص)</span>
+                      <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+                        <Calculator className="w-4 h-4" />
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-lg font-black text-white font-mono">
+                    <div className="mt-3">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-xl sm:text-2xl font-black text-white font-mono">
                           {formatAmount(autoPeriodIndividualCalculations.totalCumulativeDebt, currency, numberFormat)}
                         </span>
-                        <span className="text-xs font-semibold text-emerald-100">
+                        <span className="text-xs font-bold text-emerald-100">
                           {getCurrencySymbol(currency, language)}
                         </span>
                       </div>
-                      <span className="text-[10px] text-emerald-100 block mt-0.5">
-                        {autoCutoffDate ? `مجموع مطالبات تا تاریخ ${autoCutoffDate}` : 'مجموع مطالبات تا تاریخ امروز'}
+                      <span className="text-[10px] text-emerald-100/90 block mt-1 font-medium">
+                        {autoCutoffDate ? `مجموع مطالبات تا تاریخ ${autoCutoffDate}` : "مجموع مطالبات تا تاریخ امروز"}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* 2. Settlement Mode / Options Selector in Auto Tab */}
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                    گزینه‌های پرداخت در تسویه اتوماتیک:
-                  </span>
+                <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-emerald-500" />
+                      <span>استراتژی پرداخت در تسویه خودکار:</span>
+                    </span>
+                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Option A: Full Settlement */}
                     <button
                       type="button"
                       onClick={handleSelectFullSettlement}
-                      className={`p-3 rounded-xl border text-start transition-all flex items-start gap-2.5 ${
-                        settleOption === 'full' && Number(normalizeDigits(finalPaymentAmount)) >= (targetPayableAmount - 0.001)
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 ring-2 ring-emerald-500/20 shadow-xs'
-                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-emerald-300'
+                      className={`p-3.5 rounded-2xl border text-start transition-all flex items-start gap-3 cursor-pointer ${
+                        settleOption === "full" && Number(normalizeDigits(finalPaymentAmount)) >= (targetPayableAmount - 0.001)
+                          ? "bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm"
+                          : "bg-slate-50/80 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/80 hover:border-emerald-300"
                       }`}
                     >
-                      <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
-                        settleOption === 'full' && Number(normalizeDigits(finalPaymentAmount)) >= (targetPayableAmount - 0.001)
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                        settleOption === "full" && Number(normalizeDigits(finalPaymentAmount)) >= (targetPayableAmount - 0.001)
+                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
+                          : "bg-slate-200 dark:bg-slate-700 text-slate-500"
                       }`}>
                         <CheckCircle2 className="w-4 h-4" />
                       </div>
@@ -2304,7 +2332,7 @@ export function SettlementModal({
                         <span className="text-xs font-black text-slate-900 dark:text-white block">
                           حالت ۱: تسویه کامل کل طلب (۱۰۰٪)
                         </span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                        <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
                           تسویه تمامی روزهای باز و رساندن مانده کل طلب پرسنل به ۰
                         </span>
                       </div>
@@ -2314,16 +2342,16 @@ export function SettlementModal({
                     <button
                       type="button"
                       onClick={handleSelectPartialSettlement}
-                      className={`p-3 rounded-xl border text-start transition-all flex items-start gap-2.5 ${
-                        settleOption === 'partial' || Number(normalizeDigits(finalPaymentAmount)) < (targetPayableAmount - 0.001)
-                          ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400 dark:border-sky-700 ring-2 ring-sky-500/20 shadow-xs'
-                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-sky-300'
+                      className={`p-3.5 rounded-2xl border text-start transition-all flex items-start gap-3 cursor-pointer ${
+                        settleOption === "partial" || Number(normalizeDigits(finalPaymentAmount)) < (targetPayableAmount - 0.001)
+                          ? "bg-sky-50/80 dark:bg-sky-950/40 border-sky-500 ring-2 ring-sky-500/20 shadow-sm"
+                          : "bg-slate-50/80 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/80 hover:border-sky-300"
                       }`}
                     >
-                      <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
-                        settleOption === 'partial' || Number(normalizeDigits(finalPaymentAmount)) < (targetPayableAmount - 0.001)
-                          ? 'bg-sky-600 text-white'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                        settleOption === "partial" || Number(normalizeDigits(finalPaymentAmount)) < (targetPayableAmount - 0.001)
+                          ? "bg-sky-600 text-white shadow-md shadow-sky-600/30"
+                          : "bg-slate-200 dark:bg-slate-700 text-slate-500"
                       }`}>
                         <Sliders className="w-4 h-4" />
                       </div>
@@ -2331,7 +2359,7 @@ export function SettlementModal({
                         <span className="text-xs font-black text-slate-900 dark:text-white block">
                           حالت ۲: پرداخت مبلغ دلخواه (تسویه جزئی)
                         </span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                        <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
                           ورود رقم دلخواه، پوشش ترتیبی روزها (FIFO) و باقی‌ماندن مابقی در معوقه
                         </span>
                       </div>
@@ -2339,27 +2367,27 @@ export function SettlementModal({
                   </div>
 
                   {/* Quick Preset Buttons */}
-                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                    <span className="text-[10px] font-bold text-slate-400">میانبرهای سریع مبلغ:</span>
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                    <span className="text-[11px] font-bold text-slate-400">میانبرهای سریع مبلغ:</span>
                     <button
                       type="button"
-                      onClick={() => handleApplyPreset('full')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors"
+                      onClick={() => handleApplyPreset("full")}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 hover:text-emerald-600 dark:hover:text-emerald-300 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-colors cursor-pointer"
                     >
                       تسویه کامل (۱۰۰٪)
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleApplyPreset('half')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/50 hover:text-sky-600 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors"
+                      onClick={() => handleApplyPreset("half")}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 hover:text-sky-600 dark:hover:text-sky-300 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-colors cursor-pointer"
                     >
                       ۵۰٪ مبلغ طلب
                     </button>
                     {targetPayableAmount >= 50000 && (
                       <button
                         type="button"
-                        onClick={() => handleApplyPreset('round50k')}
-                        className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-600 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors"
+                        onClick={() => handleApplyPreset("round50k")}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/60 hover:text-amber-600 dark:hover:text-amber-300 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-colors cursor-pointer"
                       >
                         رند کردن به ۵۰ هزار
                       </button>
@@ -2368,35 +2396,40 @@ export function SettlementModal({
                 </div>
 
                 {/* 3. Live Remaining Balance Due Display (کادر محاسباتی زنده) */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+                <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                   {Number(normalizeDigits(finalPaymentAmount)) >= (targetPayableAmount - 0.001) ? (
-                    <div className="flex items-center gap-2.5 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                    <div className="flex items-center gap-3 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-5 h-5 stroke-[2.2]" />
+                      </div>
                       <div>
-                        <span>تسویه کامل: مانده طلب پرسنل پس از ثبت این پرداخت صفر (۰) خواهد شد.</span>
-                        <span className="block text-[10px] text-slate-400 font-normal mt-0.5">
+                        <span className="text-sm font-black text-emerald-800 dark:text-emerald-200">تسویه کامل: مانده طلب پرسنل پس از ثبت این پرداخت صفر (۰) خواهد شد.</span>
+                        <span className="block text-[11px] text-slate-400 font-normal mt-0.5">
                           تمام روزهای کارکرد باز تسویه و بسته می‌شوند.
                         </span>
                       </div>
                     </div>
                   ) : Number(normalizeDigits(finalPaymentAmount)) > 0 ? (
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                          <Clock className="w-4 h-4 text-amber-500" />
+                        <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                            <Clock className="w-4 h-4" />
+                          </div>
                           <span>مانده طلب پرسنل پس از این پرداخت:</span>
                         </span>
-                        <span className="text-sm font-black text-amber-700 dark:text-amber-300 font-mono">
+                        <span className="text-base font-black text-amber-700 dark:text-amber-300 font-mono">
                           {formatAmount(Math.max(0, targetPayableAmount - Number(normalizeDigits(finalPaymentAmount))), currency, numberFormat)} {getCurrencySymbol(currency, language)}
                         </span>
                       </div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pt-1 border-t border-slate-100 dark:border-slate-800/80">
                         فرمول محاسبه: مانده کل ({formatAmount(targetPayableAmount, currency, numberFormat)}) - پرداختی ({formatAmount(Number(normalizeDigits(finalPaymentAmount)), currency, numberFormat)}) = مانده معوقه جدید
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs text-slate-500 font-medium">
-                      مبلغ مورد نظر برای پرداخت را در کادر زیر وارد کنید.
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-slate-400" />
+                      <span>مبلغ مورد نظر برای پرداخت را در فرم زیر وارد کنید تا مانده جدید محاسبه گردد.</span>
                     </div>
                   )}
                 </div>
@@ -2561,14 +2594,14 @@ export function SettlementModal({
           </div>
 
           {/* Payment Account (Bank Card / Cash Box) */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                <Landmark className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-                <span>حساب یا صندوق پرداختی تسویه</span>
+          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Landmark className="w-4 h-4 text-emerald-500" />
+                <span>حساب یا صندوق پرداختی تسویه:</span>
               </label>
               {defaultAccount && (
-                <span className="text-[10px] text-amber-500 font-bold flex items-center gap-0.5">
+                <span className="text-[11px] text-amber-500 font-bold flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-900/40">
                   <Star className="w-3 h-3 fill-amber-500" />
                   <span>پیش‌فرض: {defaultAccount.name}</span>
                 </span>
@@ -2578,48 +2611,54 @@ export function SettlementModal({
               <select
                 value={selectedAccountId}
                 onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white cursor-pointer font-medium"
+                className="w-full px-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white cursor-pointer font-bold shadow-xs transition-all"
               >
                 {financialAccounts.map((acc) => {
                   const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
                   return (
                     <option key={acc.id} value={acc.id}>
-                      {acc.type === 'bank' ? '💳 کارت بانکی: ' : '🪙 صندوق نقدی: '}
-                      {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} - موجودی: {formatCurrency(b, currency, language)} {acc.isDefault ? '⭐ [پیش‌فرض]' : ''}
+                      {acc.type === "bank" ? "💳 کارت بانکی: " : "🪙 صندوق نقدی: "}
+                      {acc.name} {acc.bankName ? `(${acc.bankName})` : ""} - موجودی: {formatCurrency(b, currency, language)} {acc.isDefault ? "⭐ [پیش‌فرض]" : ""}
                     </option>
                   );
                 })}
               </select>
             ) : (
-              <div className="text-[11px] text-slate-400 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="text-xs text-slate-400 p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
                 صندوق نقدی کارگاه
               </div>
             )}
 
             {/* هشدار زنده اضافه برداشت در فرم */}
             {currentOverdraft && !currentOverdraft.hasSufficientFunds && (
-              <div className={`mt-2 p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
-                currentOverdraft.effectivePolicy === 'never_allow'
-                  ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300'
-                  : 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300'
+              <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-3 transition-all ${
+                currentOverdraft.effectivePolicy === "never_allow"
+                  ? "bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300"
+                  : "bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300"
               }`}>
-                {currentOverdraft.effectivePolicy === 'never_allow' ? (
-                  <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                )}
-                <div className="space-y-0.5">
-                  <div className="font-bold">
-                    {currentOverdraft.effectivePolicy === 'never_allow'
-                      ? 'کسری موجودی - ثبت غیرمجاز'
-                      : currentOverdraft.effectivePolicy === 'always_allow'
-                        ? 'هشدار کسری موجودی (مجاز در تنظیمات سیستم)'
-                        : 'هشدار کسری موجودی حساب'}
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                  currentOverdraft.effectivePolicy === "never_allow"
+                    ? "bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400"
+                    : "bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400"
+                }`}>
+                  {currentOverdraft.effectivePolicy === "never_allow" ? (
+                    <ShieldAlert className="w-4 h-4" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="font-black text-xs">
+                    {currentOverdraft.effectivePolicy === "never_allow"
+                      ? "کسری موجودی - ثبت غیرمجاز"
+                      : currentOverdraft.effectivePolicy === "always_allow"
+                        ? "هشدار کسری موجودی (مجاز در تنظیمات سیستم)"
+                        : "هشدار کسری موجودی حساب"}
                   </div>
                   <div className="text-[11px] leading-relaxed opacity-90">
-                    {currentOverdraft.effectivePolicy === 'never_allow'
+                    {currentOverdraft.effectivePolicy === "never_allow"
                       ? `موجودی حساب انتخابی (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) کافی نیست (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). بر اساس تنظیمات سیستم، ثبت با موجودی منفی «غیرمجاز» است.`
-                      : currentOverdraft.effectivePolicy === 'always_allow'
+                      : currentOverdraft.effectivePolicy === "always_allow"
                         ? `مبلغ تسویه از موجودی فعلی حساب (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). با توجه به تنظیم بودن بر روی «همیشه مجاز»، این تراکنش با مانده منفی ثبت خواهد شد.`
                         : `مبلغ تسویه از موجودی حساب (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). هنگام کلیک بر روی ثبت، پنجره تأیید کسر موجودی نمایش داده می‌شود.`}
                   </div>
@@ -2694,52 +2733,52 @@ export function SettlementModal({
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="pt-2 flex items-center gap-2">
+          {/* Action Buttons Dock */}
+          <div className="pt-2 flex items-center gap-3">
             <button
               type="button"
               onClick={handleCloseModal}
-              className="w-1/3 py-2.5 px-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-colors"
+              className="w-1/3 py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-2xl transition-all cursor-pointer active:scale-95 text-center"
             >
-              {t('cancel')}
+              {t("cancel")} (ESC)
             </button>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-2/3 py-2.5 px-3 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 ${
-                currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow'
-                  ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/25'
-                  : settlementTypeTab === 'custom'
-                  ? 'bg-sky-600 hover:bg-sky-500 disabled:bg-sky-400 text-white shadow-sky-600/20'
-                  : settlementMode === 'group'
-                  ? 'bg-amber-600 hover:bg-amber-500 disabled:bg-amber-400 text-white shadow-amber-600/20'
-                  : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white shadow-emerald-600/20'
+              className={`w-2/3 py-3 px-5 font-black text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
+                currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === "never_allow"
+                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30"
+                  : settlementTypeTab === "custom"
+                  ? "bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 disabled:opacity-50 text-white shadow-sky-500/25"
+                  : settlementMode === "group"
+                  ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 text-white shadow-amber-500/25"
+                  : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 text-white shadow-emerald-500/25"
               }`}
             >
-              {currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow' ? (
+              {currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === "never_allow" ? (
                 <>
-                  <Ban className="w-4 h-4" />
+                  <Ban className="w-4 h-4 stroke-[2.5]" />
                   <span>کسری موجودی (غیرمجاز)</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
                   <span>
                     {isSubmitting
-                      ? 'در حال ثبت...'
-                      : settlementMode === 'group'
+                      ? "در حال ثبت..."
+                      : settlementMode === "group"
                       ? `ثبت تسویه گروهی با سرپرست (${groupMembers.length} نفر)`
-                      : settlementTypeTab === 'custom'
+                      : settlementTypeTab === "custom"
                       ? `ثبت تسویه با جزئیات (${convertDigits(selectedCustomLogs.length, numberFormat)} روز)`
-                      : t('settleBtn')}
+                      : t("settleBtn")}
                   </span>
                 </>
               )}
             </button>
           </div>
 
-        </form>
+          </form>
         </>
         )}
 
