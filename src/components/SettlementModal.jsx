@@ -1390,7 +1390,7 @@ export function SettlementModal({
       </div>
 
       {/* Main Scrollable Content */}
-      <div className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-950">
+      <div className="flex-1 overflow-y-auto bg-[#f3f6f4] dark:bg-slate-950">
         <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
         {/* Feedback Alert */}
