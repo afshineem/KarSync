@@ -438,7 +438,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   const modalContent = (
     <div 
       dir={direction}
-      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white"
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-900/60 backdrop-blur-md flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white select-none"
     >
       {/* Toast Notification */}
       {toastMessage && (
@@ -453,20 +453,25 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
       )}
 
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs">
-        <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs z-20">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-500 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-md shadow-rose-500/25 shrink-0">
               <Receipt className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100">
-                {expenseToEdit 
-                  ? (language === 'fa' ? 'ویرایش فاکتور / هزینه' : 'دەستکاریکردنی خەرجی') 
-                  : (language === 'fa' ? 'ثبت هزینه جدید پروژه' : 'تۆمارکردنی خەرجی نوێ')}
-              </h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                {currentProject?.name || 'KarSync'} • {language === 'fa' ? 'مدیریت هزینه‌ها' : 'بەڕێوەبردنی خەرجییەکان'}
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  {expenseToEdit 
+                    ? (language === 'fa' ? 'ویرایش سند هزینه' : 'دەستکاریکردنی خەرجی') 
+                    : (language === 'fa' ? 'ثبت هزینه جدید پروژه' : 'تۆمارکردنی خەرجی نوێ')}
+                </h2>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/60">
+                  {currentProject?.name || 'پروژه کارگاه'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                {language === 'fa' ? 'ثبت فاکتور، خرید مصالح، خدمات، کرایه و هزینه‌های عمومی کارگاه' : 'تۆمارکردنی خەرجی و پسوولەکانی کارگە'}
               </p>
             </div>
           </div>
@@ -474,7 +479,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            className="p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
             title="بستن (ESC)"
           >
             <X className="w-5 h-5" />
@@ -483,8 +488,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
       </div>
 
       {/* Main Scrollable Form Body */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto w-full p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto bg-[#f3f6f4] dark:bg-slate-950">
+        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6">
           <form id="expense-form" onSubmit={handleSubmit} className="space-y-5">
           {errorMessage && (
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs sm:text-sm font-medium flex items-center gap-2">
@@ -507,459 +512,500 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
             </div>
           )}
 
-          {/* Section 1: Title & Amount with Auto Currency */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'عنوان هزینه / شرح فاکتور' : 'ناونیشانی خەرجی / بابەت'} <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  required
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder={language === 'fa' ? 'مثال: خرید سیمان تیپ ۲، کرایه خاور، پذیرایی' : 'نموونە: کڕینی چیمەنتۆ، کرێی سەیارە'}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'مبلغ عددی' : 'بڕی پارە'} <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative flex rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 focus-within:ring-2 focus-within:ring-rose-500 overflow-hidden">
-                <input
-                  required
-                  type="text"
-                  inputMode="numeric"
-                  value={formData.amount ? Number(String(formData.amount).replace(/,/g, '')).toLocaleString() : ''}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/,/g, '').replace(/[^0-9.]/g, '');
-                    setFormData({ ...formData, amount: raw });
-                  }}
-                  placeholder="0"
-                  className="w-full px-3 py-2.5 bg-transparent text-sm font-black font-mono text-slate-900 dark:text-white focus:outline-none"
-                />
-                <select
-                  value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                  className="bg-slate-200/70 dark:bg-slate-700/70 px-2 py-2 text-xs font-bold font-mono text-slate-700 dark:text-slate-200 border-s border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
-                >
-                  <option value="IQD">د.ع (IQD)</option>
-                  <option value="IRT">تومان (IRT)</option>
-                  <option value="USD">دلار ($)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: 3-Stage Cascading Category Selector */}
-          <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FolderTree className="w-4 h-4 text-rose-500" />
-                <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                  {language === 'fa' ? 'سرفصل هزینه (انتخاب ۳ مرحله‌ای آبشاری)' : 'پۆلێنکردنی خەرجی (٣ قۆناغی)'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddingNewCategory(!isAddingNewCategory)}
-                className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>{language === 'fa' ? '+ سرفصل سفارشی' : '+ پۆلی نوێ'}</span>
-              </button>
-            </div>
-
-            {/* Quick Category Adder */}
-            {isAddingNewCategory && (
-              <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-rose-200 dark:border-rose-900/40 flex items-center gap-2 animate-in fade-in duration-150">
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder={language === 'fa' ? 'نام سرفصل جدید...' : 'ناوی پۆلی نوێ...'}
-                  className="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleCreateNewCategory}
-                  className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold"
-                >
-                  {language === 'fa' ? 'افزودن' : 'زیادکردن'}
-                </button>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {/* Step 1: Main Group */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  ۱. {language === 'fa' ? 'گروه اصلی' : 'گرووپی سەرەکی'}
-                </label>
-                <select
-                  value={formData.mainCategoryId}
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      mainCategoryId: e.target.value,
-                      subCategoryId: '',
-                      categoryId: ''
-                    });
-                  }}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none cursor-pointer"
-                >
-                  <option value="">{language === 'fa' ? '— انتخاب گروه اصلی —' : '— دیاریکردنی گرووپ —'}</option>
-                  {mainCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Step 2: Sub Group */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  ۲. {language === 'fa' ? 'زیرگروه' : 'ژێرگرووپ'}
-                </label>
-                <select
-                  disabled={!formData.mainCategoryId || subCategories.length === 0}
-                  value={formData.subCategoryId}
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      subCategoryId: e.target.value,
-                      categoryId: ''
-                    });
-                  }}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none disabled:opacity-50 cursor-pointer"
-                >
-                  <option value="">
-                    {formData.mainCategoryId ? (language === 'fa' ? '— انتخاب زیرگروه —' : '— دیاریکردنی ژێرگرووپ —') : '—'}
-                  </option>
-                  {subCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Step 3: Micro Category */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  ۳. {language === 'fa' ? 'هزینه خرد / آیتم نهایی' : 'وردەکاری خەرجی'}
-                </label>
-                <select
-                  disabled={!formData.subCategoryId || microCategories.length === 0}
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none disabled:opacity-50 cursor-pointer"
-                >
-                  <option value="">
-                    {formData.subCategoryId ? (language === 'fa' ? '— انتخاب هزینه خرد —' : '— دیاریکردنی وردەکاری —') : '—'}
-                  </option>
-                  {microCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Person (Payee) & Project Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Payee / Person */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {language === 'fa' ? 'طرف‌حساب / دریافت‌کننده وجه' : 'لایەنی بەرامبەر / کەسی وەرگر'}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomPayeeActive(!customPayeeActive);
-                    setFormData((prev) => ({ ...prev, personId: '', personName: '' }));
-                  }}
-                  className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline font-bold"
-                >
-                  {customPayeeActive 
-                    ? (language === 'fa' ? 'انتخاب از پرسنل' : 'هەڵبژاردن لە کرێکاران') 
-                    : (language === 'fa' ? '+ شخص متفرقه/فروشنده' : '+ کەسی دەرەکی')}
-                </button>
-              </div>
-
-              {customPayeeActive ? (
-                <input
-                  type="text"
-                  value={formData.personName}
-                  onChange={(e) => setFormData({ ...formData, personName: e.target.value })}
-                  placeholder={language === 'fa' ? 'نام فروشنده، راننده، یا شخص متفرقه...' : 'ناوی فرۆشیار یان کەسی دەرەکی...'}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-                />
-              ) : (
-                <select
-                  value={formData.personId}
-                  onChange={(e) => {
-                    const selId = e.target.value;
-                    const w = workers.find((item) => item.id === selId);
-                    setFormData({
-                      ...formData,
-                      personId: selId,
-                      personName: w?.name || ''
-                    });
-                  }}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
-                >
-                  <option value="">{language === 'fa' ? '— بدون انتساب به شخص —' : '— بێ کەسی پەیوەندیدار —'}</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} {w.role ? `(${w.role})` : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* Project Section */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'بخش پروژه (Section)' : 'بەشی پڕۆژە'}
-              </label>
-              <select
-                value={formData.sectionId}
-                onChange={(e) => setFormData({ ...formData, sectionId: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
-              >
-                <option value="">{language === 'fa' ? 'عمومی (کل پروژه)' : 'گشتی (هەموو پڕۆژە)'}</option>
-                {projectSections.map((sec) => (
-                  <option key={sec.id} value={sec.id}>
-                    {sec.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Section 4: Payment Status & Method Switches */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Payment Status Segmented Control */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'وضعیت تسویه فاکتور' : 'دۆخی پارەدان'}
-              </label>
-              <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/80">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, paymentStatus: 'paid' })}
-                  className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                    formData.paymentStatus === 'paid'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{language === 'fa' ? 'تسویه شده' : 'پارەدراو (پاکتاو)'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, paymentStatus: 'pending' })}
-                  className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                    formData.paymentStatus === 'pending'
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{language === 'fa' ? 'پرداخت نشده (نسیه)' : 'قەرز / نەدراو'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Payment Method / Account */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span>{language === 'fa' ? 'محل / حساب پرداخت' : 'شێوازی پارەدان'}</span>
-                {defaultAccount && (
-                  <span className="text-[10px] text-amber-500 font-bold">
-                    پیش‌فرض: {defaultAccount.name}
+          {/* Responsive 2-Column Desktop Grid Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            
+            {/* ───────────────────────────────────────────────────────────── */}
+            {/* RIGHT COLUMN (7 Cols): Basic Info, Amount, Categories, Payee  */}
+            {/* ───────────────────────────────────────────────────────────── */}
+            <div className="lg:col-span-7 space-y-4.5">
+              
+              {/* Card 1: Title & Numeric Amount */}
+              <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                  <DollarSign className="w-4 h-4 text-rose-500" />
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                    {language === "fa" ? "مشخصات و مبلغ فاکتور" : "زانیاری و بڕی پارە"}
                   </span>
-                )}
-              </label>
-              <select
-                value={formData.accountId || formData.paymentMethod}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const acc = financialAccounts.find((a) => a.id === val);
-                  if (acc) {
-                    setFormData({
-                      ...formData,
-                      accountId: acc.id,
-                      accountName: acc.name,
-                      paymentMethod: acc.type === 'bank' ? 'bank' : 'cash'
-                    });
-                  } else {
-                    setFormData({
-                      ...formData,
-                      accountId: '',
-                      accountName: '',
-                      paymentMethod: val
-                    });
-                  }
-                }}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
-              >
-                {financialAccounts.length > 0 ? (
-                  financialAccounts.map((acc) => {
-                    const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
-                    return (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.type === 'bank' ? '💳 کارت بانکی: ' : '🪙 صندوق نقدی: '}
-                        {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} - موجودی: {formatCurrency(b, formData.currency || projectCurrency, language)} {acc.isDefault ? '⭐ [پیش‌فرض]' : ''}
-                      </option>
-                    );
-                  })
-                ) : (
-                  <>
-                    <option value="cash">{language === 'fa' ? 'صندوق اصلی کارگاه (نقدی)' : 'سندوقی سەرەکی (کاش)'}</option>
-                    <option value="bank">{language === 'fa' ? 'حساب بانکی / کارت به کارت' : 'حسابی بانکی / کارت'}</option>
-                    <option value="petty_cash">{language === 'fa' ? 'تنخواه سرپرست / مدیر کارگاه' : 'تەنخوای سەرپەرشتیار'}</option>
-                  </>
-                )}
-              </select>
+                </div>
 
-              {/* هشدار زنده اضافه برداشت در فرم */}
-              {currentOverdraft && !currentOverdraft.hasSufficientFunds && (
-                <div className={`mt-2 p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
-                  currentOverdraft.effectivePolicy === 'never_allow'
-                    ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300'
-                    : 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300'
-                }`}>
-                  {currentOverdraft.effectivePolicy === 'never_allow' ? (
-                    <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                  )}
-                  <div className="space-y-0.5">
-                    <div className="font-bold">
-                      {currentOverdraft.effectivePolicy === 'never_allow'
-                        ? 'کسری موجودی - ثبت غیرمجاز'
-                        : currentOverdraft.effectivePolicy === 'always_allow'
-                          ? 'هشدار کسری موجودی (مجاز در تنظیمات سیستم)'
-                          : 'هشدار کسری موجودی حساب'}
-                    </div>
-                    <div className="text-[11px] leading-relaxed opacity-90">
-                      {currentOverdraft.effectivePolicy === 'never_allow'
-                        ? `موجودی حساب انتخابی (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) کافی نیست (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}). بر اساس تنظیمات سیستم، ثبت با موجودی منفی «غیرمجاز» است.`
-                        : currentOverdraft.effectivePolicy === 'always_allow'
-                          ? `مبلغ هزینه از موجودی فعلی حساب (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}). با توجه به تنظیم بودن بر روی «همیشه مجاز»، این تراکنش با مانده منفی ثبت خواهد شد.`
-                          : `مبلغ هزینه از موجودی حساب (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}). هنگام کلیک بر روی ثبت، پنجره تأیید کسر موجودی نمایش داده می‌شود.`}
+                <div className="space-y-3.5">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {language === "fa" ? "عنوان هزینه / شرح فاکتور" : "ناونیشانی خەرجی / بابەت"} <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder={language === "fa" ? "مثال: خرید سیمان تیپ ۲، کرایه خاور، ابزار و پذیرایی..." : "نموونە: کڕینی چیمەنتۆ، کرێی سەیارە..."}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {language === "fa" ? "مبلغ پرداختی فاکتور" : "بڕی پارە"} <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative flex rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 focus-within:ring-2 focus-within:ring-rose-500 overflow-hidden shadow-xs">
+                      <input
+                        required
+                        type="text"
+                        inputMode="numeric"
+                        value={formData.amount ? Number(String(formData.amount).replace(/,/g, "")).toLocaleString() : ""}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/,/g, "").replace(/[^0-9.]/g, "");
+                          setFormData({ ...formData, amount: raw });
+                        }}
+                        placeholder="0"
+                        className="w-full px-4 py-3 bg-transparent text-base sm:text-lg font-black font-mono text-slate-900 dark:text-white focus:outline-none"
+                      />
+                      <select
+                        value={formData.currency}
+                        onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                        className="bg-slate-200/80 dark:bg-slate-700 px-3 py-2 text-xs font-black font-mono text-slate-700 dark:text-slate-200 border-s border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
+                      >
+                        <option value="IQD">د.ع (IQD)</option>
+                        <option value="IRT">تومان (IRT)</option>
+                        <option value="USD">دلار ($)</option>
+                      </select>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Section 5: Date & Notes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'تاریخ ثبت فاکتور' : 'بەرواری فاکتۆر'}
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={formData.expenseDate}
-                  onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-                />
               </div>
+
+              {/* Card 2: 3-Stage Cascading Category Selector */}
+              <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <FolderTree className="w-4 h-4 text-rose-500" />
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                      {language === "fa" ? "سرفصل هزینه (انتخاب ۳ مرحله‌ای آبشاری)" : "پۆلێنکردنی خەرجی (٣ قۆناغی)"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNewCategory(!isAddingNewCategory)}
+                    className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>{language === "fa" ? "+ سرفصل سفارشی" : "+ پۆلی نوێ"}</span>
+                  </button>
+                </div>
+
+                {/* Quick Category Adder */}
+                {isAddingNewCategory && (
+                  <div className="p-3 bg-rose-50/50 dark:bg-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-900/40 flex items-center gap-2 animate-in fade-in duration-150">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder={language === "fa" ? "نام سرفصل جدید..." : "ناوی پۆلی نوێ..."}
+                      className="flex-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateNewCategory}
+                      className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      {language === "fa" ? "افزودن" : "زیادکردن"}
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Step 1: Main Group */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      ۱. {language === "fa" ? "گروه اصلی" : "گرووپی سەرەکی"}
+                    </label>
+                    <select
+                      value={formData.mainCategoryId}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          mainCategoryId: e.target.value,
+                          subCategoryId: "",
+                          categoryId: ""
+                        });
+                      }}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none cursor-pointer shadow-xs"
+                    >
+                      <option value="">{language === "fa" ? "— انتخاب گروه —" : "— دیاریکردن —"}</option>
+                      {mainCategories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Step 2: Sub Group */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      ۲. {language === "fa" ? "زیرگروه" : "ژێرگرووپ"}
+                    </label>
+                    <select
+                      disabled={!formData.mainCategoryId || subCategories.length === 0}
+                      value={formData.subCategoryId}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          subCategoryId: e.target.value,
+                          categoryId: ""
+                        });
+                      }}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none disabled:opacity-50 cursor-pointer shadow-xs"
+                    >
+                      <option value="">
+                        {formData.mainCategoryId ? (language === "fa" ? "— انتخاب زیرگروه —" : "— ژێرگرووپ —") : "—"}
+                      </option>
+                      {subCategories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Step 3: Micro Category */}
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      ۳. {language === "fa" ? "هزینه خرد / آیتم" : "وردەکاری"}
+                    </label>
+                    <select
+                      disabled={!formData.subCategoryId || microCategories.length === 0}
+                      value={formData.categoryId}
+                      onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none disabled:opacity-50 cursor-pointer shadow-xs"
+                    >
+                      <option value="">
+                        {formData.subCategoryId ? (language === "fa" ? "— انتخاب آیتم —" : "— وردەکاری —") : "—"}
+                      </option>
+                      {microCategories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Payee & Project Section */}
+              <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                  <User className="w-4 h-4 text-rose-500" />
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                    {language === "fa" ? "طرف‌حساب و بخش کارگاه" : "لایەنی پەیوەندیدار"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Payee / Person */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {language === "fa" ? "طرف‌حساب / دریافت‌کننده وجه" : "وەرگر"}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomPayeeActive(!customPayeeActive);
+                          setFormData((prev) => ({ ...prev, personId: "", personName: "" }));
+                        }}
+                        className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline font-bold cursor-pointer"
+                      >
+                        {customPayeeActive 
+                          ? (language === "fa" ? "انتخاب از پرسنل" : "لە کرێکاران") 
+                          : (language === "fa" ? "+ شخص متفرقه/فروشنده" : "+ کەسی دەرەکی")}
+                      </button>
+                    </div>
+
+                    {customPayeeActive ? (
+                      <input
+                        type="text"
+                        value={formData.personName}
+                        onChange={(e) => setFormData({ ...formData, personName: e.target.value })}
+                        placeholder={language === "fa" ? "نام فروشنده، راننده، یا شخص متفرقه..." : "ناوی فرۆشیار..."}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
+                      />
+                    ) : (
+                      <select
+                        value={formData.personId}
+                        onChange={(e) => {
+                          const selId = e.target.value;
+                          const w = workers.find((item) => item.id === selId);
+                          setFormData({
+                            ...formData,
+                            personId: selId,
+                            personName: w?.name || ""
+                          });
+                        }}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer shadow-xs"
+                      >
+                        <option value="">{language === "fa" ? "— بدون انتساب به شخص —" : "— بێ کەسی پەیوەندیدار —"}</option>
+                        {workers.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.name} {w.role ? `(${w.role})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Project Section */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {language === "fa" ? "بخش پروژه (Section)" : "بەشی پڕۆژە"}
+                    </label>
+                    <select
+                      value={formData.sectionId}
+                      onChange={(e) => setFormData({ ...formData, sectionId: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer shadow-xs"
+                    >
+                      <option value="">{language === "fa" ? "عمومی (کل پروژه)" : "گشتی (هەموو پڕۆژە)"}</option>
+                      {projectSections.map((sec) => (
+                        <option key={sec.id} value={sec.id}>
+                          {sec.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'توضیحات تکمیلی و یادداشت' : 'تێبینی و وردەکاری'}
-              </label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder={language === 'fa' ? 'شماره فاکتور، نام فروشگاه یا توضیحات...' : 'ژمارەی فاکتۆر، فرۆشگا...'}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
-            </div>
-          </div>
+            {/* ───────────────────────────────────────────────────────────── */}
+            {/* LEFT COLUMN (5 Cols): Payment State, Account, Date & Receipt  */}
+            {/* ───────────────────────────────────────────────────────────── */}
+            <div className="lg:col-span-5 space-y-4.5">
+              
+              {/* Card 4: Financial Payment Account & [APP_THEME_BUTTON] Status */}
+              <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                  <CreditCard className="w-4 h-4 text-rose-500" />
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                    {language === "fa" ? "وضعیت و محل پرداخت" : "پارەدان و دۆخ"}
+                  </span>
+                </div>
 
-          {/* Section 6: Receipt / Invoice Image Upload with Live Preview */}
-          <div className="space-y-2 pt-1">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-              {language === 'fa' ? 'تصویر فاکتور یا رسید پرداختی' : 'وێنەی فاکتۆر یان پسوولە'}
-            </label>
+                {/* [APP_THEME_BUTTON] Payment Status Switcher */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {language === "fa" ? "وضعیت تسویه فاکتور:" : "دۆخی پارەدان:"}
+                  </label>
+                  <div className="h-11 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner w-full">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, paymentStatus: "paid" })}
+                      className={`relative flex-1 h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer text-xs ${
+                        formData.paymentStatus === "paid"
+                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-black"
+                          : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium"
+                      }`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{language === "fa" ? "تسویه شده" : "پارەدراو (کاش)"}</span>
+                    </button>
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*"
-              capture="environment"
-              onChange={handleReceiptChange}
-              className="hidden"
-            />
-
-            {receiptPreview ? (
-              <div className="relative p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <img
-                    src={receiptPreview}
-                    alt="Receipt preview"
-                    className="w-14 h-14 object-cover rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs"
-                  />
-                  <div className="truncate">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                      {formData.receiptFile?.name || 'تصویر رسید ضمیمه شده'}
-                    </p>
-                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-                      <CheckCircle2 className="w-3 h-3" /> {language === 'fa' ? 'تصویر بارگذاری شد' : 'وێنە ئامادەیە'}
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, paymentStatus: "pending" })}
+                      className={`relative flex-1 h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer text-xs ${
+                        formData.paymentStatus === "pending"
+                          ? "bg-amber-600 text-white shadow-md shadow-amber-600/30 font-black"
+                          : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium"
+                      }`}
+                    >
+                      <Clock className="w-4 h-4" />
+                      <span>{language === "fa" ? "پرداخت نشده (نسیه)" : "قەرز / نەدراو"}</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* Payment Account Dropdown */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                    <span>{language === "fa" ? "محل / حساب پرداخت:" : "شێوازی پارەدان:"}</span>
+                    {defaultAccount && (
+                      <span className="text-[10px] text-amber-500 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-900/40">
+                        ⭐ پیش‌فرض: {defaultAccount.name}
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    value={formData.accountId || formData.paymentMethod}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const acc = financialAccounts.find((a) => a.id === val);
+                      if (acc) {
+                        setFormData({
+                          ...formData,
+                          accountId: acc.id,
+                          accountName: acc.name,
+                          paymentMethod: acc.type === "bank" ? "bank" : "cash"
+                        });
+                      } else {
+                        setFormData({
+                          ...formData,
+                          accountId: "",
+                          accountName: "",
+                          paymentMethod: val
+                        });
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer shadow-xs"
+                  >
+                    {financialAccounts.length > 0 ? (
+                      financialAccounts.map((acc) => {
+                        const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
+                        return (
+                          <option key={acc.id} value={acc.id}>
+                            {acc.type === "bank" ? "💳 کارت بانکی: " : "🪙 صندوق نقدی: "}
+                            {acc.name} {acc.bankName ? `(${acc.bankName})` : ""} - موجودی: {formatCurrency(b, formData.currency || projectCurrency, language)} {acc.isDefault ? "⭐ [پیش‌فرض]" : ""}
+                          </option>
+                        );
+                      })
+                    ) : (
+                      <>
+                        <option value="cash">{language === "fa" ? "صندوق اصلی کارگاه (نقدی)" : "سندوقی سەرەکی (کاش)"}</option>
+                        <option value="bank">{language === "fa" ? "حساب بانکی / کارت به کارت" : "حسابی بانکی / کارت"}</option>
+                        <option value="petty_cash">{language === "fa" ? "تنخواه سرپرست / مدیر کارگاه" : "تەنخوای سەرپەرشتیار"}</option>
+                      </>
+                    )}
+                  </select>
+
+                  {/* Overdraft live alert */}
+                  {currentOverdraft && !currentOverdraft.hasSufficientFunds && (
+                    <div className={`mt-2 p-3 rounded-2xl border text-xs flex items-start gap-2.5 transition-all ${
+                      currentOverdraft.effectivePolicy === "never_allow"
+                        ? "bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300"
+                        : "bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300"
+                    }`}>
+                      {currentOverdraft.effectivePolicy === "never_allow" ? (
+                        <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      )}
+                      <div className="space-y-0.5">
+                        <div className="font-bold">
+                          {currentOverdraft.effectivePolicy === "never_allow"
+                            ? "کسری موجودی - ثبت غیرمجاز"
+                            : currentOverdraft.effectivePolicy === "always_allow"
+                              ? "هشدار کسری موجودی (مجاز در تنظیمات)"
+                              : "هشدار کسری موجودی حساب"}
+                        </div>
+                        <div className="text-[11px] leading-relaxed opacity-90">
+                          {currentOverdraft.effectivePolicy === "never_allow"
+                            ? `موجودی حساب انتخابی (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) کافی نیست (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}).`
+                            : `مبلغ هزینه از موجودی حساب (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}).`}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Date & Reference */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {language === "fa" ? "تاریخ ثبت فاکتور" : "بەرواری فاکتۆر"}
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.expenseDate}
+                      onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {language === "fa" ? "توضیح یا شماره فاکتور" : "ژمارەی فاکتۆر"}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder={language === "fa" ? "شماره فاکتور، فروشگاه..." : "تێبینی..."}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 5: Receipt Image Upload */}
+              <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                  <ImageIcon className="w-4 h-4 text-rose-500" />
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                    {language === "fa" ? "تصویر فاکتور یا رسید پرداختی" : "وێنەی فاکتۆر"}
+                  </span>
+                </div>
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleReceiptChange}
+                  className="hidden"
+                />
+
+                {receiptPreview ? (
+                  <div className="relative p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <img
+                        src={receiptPreview}
+                        alt="Receipt preview"
+                        className="w-16 h-16 object-cover rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs"
+                      />
+                      <div className="truncate">
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                          {formData.receiptFile?.name || (language === "fa" ? "تصویر فاکتور ضمیمه شد" : "وێنە زیادکرا")}
+                        </p>
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> {language === "fa" ? "آماده ذخیره" : "ئامادەیە"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        {language === "fa" ? "تغییر" : "گۆڕین"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={removeReceipt}
+                        className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-colors cursor-pointer"
+                        title="حذف تصویر"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 hover:bg-slate-100"
+                    className="w-full p-4 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-rose-400 dark:hover:border-rose-600 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all cursor-pointer group"
                   >
-                    {language === 'fa' ? 'تغییر' : 'گۆڕین'}
+                    <div className="w-11 h-11 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-400 group-hover:text-rose-500 group-hover:scale-105 transition-all shadow-xs">
+                      <UploadCloud className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <div className="text-center">
+                      <span className="text-xs font-black text-slate-700 dark:text-slate-200">
+                        {language === "fa" ? "کلیک جهت انتخاب یا عکاسی از فاکتور" : "کلیک بکە بۆ بارکردنی وێنە"}
+                      </span>
+                      <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG, WebP (حداکثر ۱۰ مگابایت)</p>
+                    </div>
                   </button>
-                  <button
-                    type="button"
-                    onClick={removeReceipt}
-                    className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-colors"
-                    title="حذف تصویر"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                )}
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full p-4 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-rose-400 dark:hover:border-rose-600 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                  <UploadCloud className="w-5 h-5" />
-                </div>
-                <div className="text-center">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                    {language === 'fa' ? 'برای آپلود فاکتور کلیک کنید یا عکس بگیرید' : 'کلیک بکە بۆ بارکردنی وێنەی فاکتۆر'}
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">JPG, PNG, WebP (حداکثر ۱۰ مگابایت)</p>
-                </div>
-              </button>
-            )}
+
+            </div>
+
           </div>
 
           </form>
@@ -967,22 +1013,49 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
       </div>
 
       {/* Sticky Bottom Actions Bar */}
-      <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3.5 shrink-0 shadow-xs">
-        <div className="max-w-4xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {errorMessage ? (
-            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          ) : (
-            <div />
-          )}
+      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 sm:px-8 py-3.5 shrink-0 shadow-lg z-20">
+        <div className="max-w-7xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {errorMessage ? (
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                  <span className="text-[11px] font-bold text-slate-400">
+                    {language === "fa" ? "مبلغ نهایی:" : "بڕی کۆتایی:"}
+                  </span>
+                  <span className="text-sm font-black text-slate-800 dark:text-slate-100 font-mono tracking-tight">
+                    {formData.amount ? Number(formData.amount).toLocaleString() : "۰"}
+                  </span>
+                  <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                    {currencies.find((c) => c.code === formData.currency)?.symbol || formData.currency}
+                  </span>
+                </div>
+
+                <div
+                  className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-black border ${
+                    formData.paymentStatus === "paid"
+                      ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                      : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                  {formData.paymentStatus === "paid"
+                    ? (language === "fa" ? "پرداخت نقدی" : "نەقد")
+                    : (language === "fa" ? "ثبت به عنوان بدهی (نسیه)" : "قەرز")}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               {language === 'fa' ? 'انصراف (ESC)' : 'پاشگەزبوونەوە'}
             </button>
@@ -990,7 +1063,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
               type="submit"
               form="expense-form"
               disabled={isSubmitting || isApprovedAndLocked}
-              className={`px-6 py-2.5 rounded-2xl text-xs font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer shadow-lg ${
+              className={`px-6 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer shadow-md ${
                 currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow'
                   ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/25'
                   : 'bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-rose-500/25'
