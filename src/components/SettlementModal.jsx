@@ -1242,7 +1242,7 @@ export function SettlementModal({
       )}
 
       {/* 1. TOP EXECUTIVE HEADER (Glassmorphic) */}
-      <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800 shrink-0 shadow-xs z-20">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs z-20">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3.5 space-y-3">
           
           {/* Top Bar: Icon, Titles & Close Button */}
@@ -1390,7 +1390,7 @@ export function SettlementModal({
       </div>
 
       {/* Main Scrollable Content */}
-      <div className="flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950/70">
+      <div className="flex-1 overflow-y-auto bg-slate-100/80 dark:bg-slate-950">
         <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-4">
 
         {/* Feedback Alert */}
@@ -1408,7 +1408,7 @@ export function SettlementModal({
         {/* If Individual Mode and No Worker Selected: Dedicated Personnel Selector */}
         {settlementMode === 'individual' && !worker ? (
           <div className="space-y-4 py-2">
-            <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+            <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -1489,7 +1489,7 @@ export function SettlementModal({
                   placeholder="جستجوی نام پرسنل، سمت، شماره تماس..."
                   value={workerSearchQuery}
                   onChange={(e) => setWorkerSearchQuery(e.target.value)}
-                  className="w-full pr-10 pl-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                  className="w-full pr-10 pl-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                   autoFocus
                 />
                 {workerSearchQuery && (
@@ -1517,7 +1517,7 @@ export function SettlementModal({
                       setLocalWorker(w);
                       if (onSelectWorker) onSelectWorker(w);
                     }}
-                    className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 hover:shadow-lg transition-all text-start group flex flex-col justify-between gap-3 relative overflow-hidden cursor-pointer active:scale-[0.99]"
+                    className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 hover:shadow-md transition-all text-start group flex flex-col justify-between gap-3 relative overflow-hidden cursor-pointer active:scale-[0.99]"
                   >
                     <div className="flex items-start justify-between gap-2 w-full">
                       <div className="flex items-center gap-3 min-w-0">
@@ -2235,7 +2235,7 @@ export function SettlementModal({
                 {/* 1. Transparent Financial Balance KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* Gross Earnings Card */}
-                  <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-sky-300 dark:hover:border-sky-700 transition-all">
+                  <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-sky-300 dark:hover:border-sky-700 transition-all">
                     <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                       <span className="text-xs font-bold">کل کارکرد ناخالص دوره</span>
                       <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
@@ -2302,7 +2302,7 @@ export function SettlementModal({
                 </div>
 
                 {/* 2. Settlement Mode / Options Selector in Auto Tab */}
-                <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+                <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
                       <Sliders className="w-4 h-4 text-emerald-500" />
@@ -2396,7 +2396,7 @@ export function SettlementModal({
                 </div>
 
                 {/* 3. Live Remaining Balance Due Display (کادر محاسباتی زنده) */}
-                <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
                   {Number(normalizeDigits(finalPaymentAmount)) >= (targetPayableAmount - 0.001) ? (
                     <div className="flex items-center gap-3 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
                       <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
@@ -2594,7 +2594,7 @@ export function SettlementModal({
           </div>
 
           {/* Payment Account (Bank Card / Cash Box) */}
-          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-2.5">
+          <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-2.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Landmark className="w-4 h-4 text-emerald-500" />
