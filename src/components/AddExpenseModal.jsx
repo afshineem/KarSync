@@ -38,6 +38,12 @@ import {
 import { useAccounting } from '../hooks/useAccounting';
 import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 
+const CURRENCIES = [
+  { code: 'IQD', symbol: 'د.ع', label: 'د.ع (IQD)' },
+  { code: 'IRT', symbol: 'تومان', label: 'تومان (IRT)' },
+  { code: 'USD', symbol: '$', label: 'دلار ($)' },
+];
+
 export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, onSuccess }) {
   const { currentProject } = useProject();
   const { t, language, direction } = useLanguage();
@@ -1031,7 +1037,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                     {formData.amount ? Number(formData.amount).toLocaleString() : "۰"}
                   </span>
                   <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
-                    {currencies.find((c) => c.code === formData.currency)?.symbol || formData.currency}
+                    {CURRENCIES.find((c) => c.code === formData.currency)?.symbol || formData.currency}
                   </span>
                 </div>
 
