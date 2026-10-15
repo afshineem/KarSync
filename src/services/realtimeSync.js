@@ -160,6 +160,30 @@ export function clearPendingSectionDeletion(sectionId) {
   localStorage.setItem(PENDING_DELETED_SECTIONS_KEY, JSON.stringify(list));
 }
 
+const PENDING_DELETED_COUNTERPARTIES_KEY = 'workshop_pending_deleted_counterparties';
+
+export function getPendingDeletedCounterparties() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_DELETED_COUNTERPARTIES_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function recordPendingCounterpartyDeletion(counterpartyId) {
+  if (!counterpartyId) return;
+  const list = getPendingDeletedCounterparties();
+  if (!list.includes(counterpartyId)) {
+    list.push(counterpartyId);
+    localStorage.setItem(PENDING_DELETED_COUNTERPARTIES_KEY, JSON.stringify(list));
+  }
+}
+
+export function clearPendingCounterpartyDeletion(counterpartyId) {
+  const list = getPendingDeletedCounterparties().filter(id => id !== counterpartyId);
+  localStorage.setItem(PENDING_DELETED_COUNTERPARTIES_KEY, JSON.stringify(list));
+}
+
 const PENDING_DELETED_EXPENSES_KEY = 'workshop_pending_deleted_expenses';
 
 export function getPendingDeletedExpenses() {
@@ -470,6 +494,7 @@ export async function autoInitialSync() {
   await pullFinancialAccountsLive(true);
   await pullTreasuryIncomesLive(true);
   await pullAccountTransfersLive(true);
+  await pullCounterpartiesLive(true);
   await pullGlobalOverdraftPolicyLive();
 
   // Auto-detect and push any local workers missing in cloud (Mohammad, Mostafa, etc.)
@@ -938,6 +963,8 @@ function subscribeToRealtime() {
         await pullTreasuryIncomesLive(true);
       } else if (syncType === 'transfers') {
         await pullAccountTransfersLive(true);
+      } else if (syncType === 'counterparties') {
+        await pullCounterpartiesLive(true);
       } else if (syncType === 'settings') {
         await pullGlobalOverdraftPolicyLive();
       } else {
@@ -951,6 +978,7 @@ function subscribeToRealtime() {
         await pullFinancialAccountsLive(true);
         await pullTreasuryIncomesLive(true);
         await pullAccountTransfersLive(true);
+        await pullCounterpartiesLive(true);
         await pullGlobalOverdraftPolicyLive();
       }
     })
@@ -1059,6 +1087,8 @@ function subscribeToRealtime() {
         await pullTreasuryIncomesLive(true);
       } else if (key === 'app_account_transfers') {
         await pullAccountTransfersLive(true);
+      } else if (key === 'app_counterparties') {
+        await pullCounterpartiesLive(true);
       } else if (key === 'app_global_overdraft_policy') {
         await pullGlobalOverdraftPolicyLive();
       } else if (key === 'app_projects') {
@@ -4020,17 +4050,202 @@ export async function syncFinancialDataLive() {
     await pullFinancialAccountsLive(true);
     await pullTreasuryIncomesLive(true);
     await pullAccountTransfersLive(true);
+    await pullCounterpartiesLive(true);
     await pullGlobalOverdraftPolicyLive();
     await pushAllFinancialAccountsToCloud();
     await pushAllTreasuryIncomesToCloud();
     await pushAllAccountTransfersToCloud();
+    await pushAllCounterpartiesToCloud();
     window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
     window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
     window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
+    window.dispatchEvent(new CustomEvent('workshop-counterparties-sync'));
     return { success: true };
   } catch (err) {
     console.warn('syncFinancialDataLive warning:', err);
     return { success: false, error: err.message };
   }
 }
+
+// ========================================================
+// COUNTERPARTIES SYNC (Stored in Supabase settings: app_counterparties)
+// ========================================================
+let isPullingCounterparties = false;
+let lastCounterpartiesPullTime = 0;
+
+export async function pullCounterpartiesLive(force = false) {
+  if (!navigator.onLine || !db.counterparties) return;
+  const now = Date.now();
+  if (isPullingCounterparties) return;
+  if (!force && now - lastCounterpartiesPullTime < 2000) return;
+  isPullingCounterparties = true;
+  lastCounterpartiesPullTime = now;
+
+  try {
+    const pendingDeleted = new Set(getPendingDeletedCounterparties());
+    let cloudCounterparties = null;
+    const { data: sData, error: sErr } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_counterparties')
+      .maybeSingle();
+
+    if (!sErr && sData?.setting_value) {
+      try {
+        cloudCounterparties = JSON.parse(sData.setting_value);
+      } catch (_) {}
+    }
+
+    const localCounterparties = await db.counterparties.toArray();
+
+    if (cloudCounterparties === null || !Array.isArray(cloudCounterparties)) {
+      if (localCounterparties.length > 0) {
+        await pushAllCounterpartiesToCloud();
+      }
+      return;
+    }
+
+    const cloudMap = new Map();
+    const cloudDeletedIds = new Set();
+    for (const cp of cloudCounterparties) {
+      if (!cp || !cp.id) continue;
+      if (cp.deletedAt || cp.status === 'deleted' || pendingDeleted.has(cp.id)) {
+        cloudDeletedIds.add(cp.id);
+        await db.counterparties.delete(cp.id).catch(() => {});
+      } else {
+        cloudMap.set(cp.id, cp);
+      }
+    }
+
+    let needPush = false;
+    for (const lp of localCounterparties) {
+      if (pendingDeleted.has(lp.id) || cloudDeletedIds.has(lp.id) || lp.deletedAt || lp.status === 'deleted') {
+        await db.counterparties.delete(lp.id).catch(() => {});
+      } else if (!cloudMap.has(lp.id)) {
+        cloudMap.set(lp.id, lp);
+        needPush = true;
+      }
+    }
+
+    for (const cp of cloudMap.values()) {
+      if (cp.deletedAt || cp.status === 'deleted' || pendingDeleted.has(cp.id) || cloudDeletedIds.has(cp.id)) {
+        await db.counterparties.delete(cp.id).catch(() => {});
+      } else {
+        const local = await db.counterparties.get(cp.id);
+        if (!local || !local.updatedAt || !cp.updatedAt || new Date(cp.updatedAt) >= new Date(local.updatedAt)) {
+          await db.counterparties.put(cp);
+        }
+      }
+    }
+
+    if (needPush) {
+      await pushAllCounterpartiesToCloud();
+    }
+
+    window.dispatchEvent(new CustomEvent('workshop-counterparties-sync'));
+  } catch (err) {
+    console.warn('pullCounterpartiesLive warning:', err);
+  } finally {
+    isPullingCounterparties = false;
+  }
+}
+
+export async function pushCounterpartyLive(counterparty) {
+  if (!counterparty || !counterparty.id || !db.counterparties) return;
+  try {
+    await db.counterparties.put(counterparty);
+    window.dispatchEvent(new CustomEvent('workshop-counterparties-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_counterparties')
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudList = JSON.parse(data.setting_value) || [];
+        for (const item of cloudList) {
+          if (item && item.id) mergedMap.set(item.id, item);
+        }
+      } catch (_) {}
+    }
+
+    mergedMap.set(counterparty.id, {
+      ...counterparty,
+      updatedAt: new Date().toISOString()
+    });
+
+    await supabase.from('settings').upsert({
+      setting_key: 'app_counterparties',
+      setting_value: JSON.stringify(Array.from(mergedMap.values())),
+      updated_at: new Date().toISOString()
+    });
+
+    broadcastSyncEvent('counterparties');
+  } catch (err) {
+    console.warn('pushCounterpartyLive warning:', err);
+  }
+}
+
+export async function deleteCounterpartyLive(counterpartyId) {
+  if (!counterpartyId || !db.counterparties) return;
+  recordPendingCounterpartyDeletion(counterpartyId);
+  try {
+    await db.counterparties.delete(counterpartyId);
+    window.dispatchEvent(new CustomEvent('workshop-counterparties-sync'));
+  } catch (_) {}
+
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'app_counterparties')
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        let cloudList = JSON.parse(data.setting_value) || [];
+        cloudList = cloudList.map((cp) => {
+          if (cp && cp.id === counterpartyId) {
+            return { ...cp, deletedAt: new Date().toISOString(), status: 'deleted' };
+          }
+          return cp;
+        });
+        await supabase.from('settings').upsert({
+          setting_key: 'app_counterparties',
+          setting_value: JSON.stringify(cloudList),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    broadcastSyncEvent('counterparties');
+  } catch (err) {
+    console.warn('deleteCounterpartyLive warning:', err);
+  }
+}
+
+export async function pushAllCounterpartiesToCloud() {
+  if (!navigator.onLine || !db.counterparties) return;
+  try {
+    const list = await db.counterparties.toArray();
+    const pendingDeleted = new Set(getPendingDeletedCounterparties());
+    const active = list.filter((cp) => !pendingDeleted.has(cp.id) && !cp.deletedAt && cp.status !== 'deleted');
+    await supabase.from('settings').upsert({
+      setting_key: 'app_counterparties',
+      setting_value: JSON.stringify(active),
+      updated_at: new Date().toISOString()
+    });
+    broadcastSyncEvent('counterparties');
+  } catch (err) {
+    console.warn('pushAllCounterpartiesToCloud warning:', err);
+  }
+}
+
 

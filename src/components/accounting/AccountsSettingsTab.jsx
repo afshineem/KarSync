@@ -394,14 +394,20 @@ export function AccountsSettingsTab({
                     </span>
 
                     {isDefault ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-400/90 text-amber-950 shadow-xs">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-400 text-amber-950 shadow-sm cursor-default">
                         <Star className="w-3 h-3 fill-amber-950" />
-                        <span>{language === 'fa' ? 'پیش‌فرض' : 'سەرەکی'}</span>
+                        <span>{language === 'fa' ? 'پیش‌فرض اصلی' : 'سەرەکی'}</span>
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {currency}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onSetDefaultAccount(account.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/10 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer"
+                        title={language === 'fa' ? 'کلیک جهت انتخاب به عنوان حساب پیش‌فرض' : 'کلیک بکە بۆ سەرەکی'}
+                      >
+                        <Star className="w-3 h-3" />
+                        <span>{language === 'fa' ? 'تنظیم پیش‌فرض' : 'سەرەکی'}</span>
+                      </button>
                     )}
                   </div>
 

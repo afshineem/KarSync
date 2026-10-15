@@ -14,12 +14,17 @@ import {
   Edit2
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import { deleteCounterpartyLive, pullCounterpartiesLive } from '../services/realtimeSync';
 
 export function CounterpartiesView() {
   const { language } = useLanguage();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCounterparty, setEditingCounterparty] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  React.useEffect(() => {
+    pullCounterpartiesLive(true).catch(console.warn);
+  }, []);
   
   const counterparties = useLiveQuery(() => db.counterparties.toArray()) || [];
   const treasuryIncomes = useLiveQuery(() => db.treasuryIncomes ? db.treasuryIncomes.toArray() : []) || [];
@@ -46,7 +51,7 @@ export function CounterpartiesView() {
       
     if (window.confirm(confirmMsg)) {
       try {
-        await db.counterparties.delete(id);
+        await deleteCounterpartyLive(id);
       } catch (err) {
         console.error('Error deleting counterparty:', err);
       }

@@ -20,6 +20,7 @@ import { BackupModal } from './components/BackupModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { AboutModal } from './components/AboutModal';
 import { WorkersModal } from './components/WorkersModal';
+import { CounterpartiesModal } from './components/CounterpartiesModal';
 import { LoginView } from './components/LoginView';
 import { WorkerViewPortal } from './components/WorkerViewPortal';
 import { WorkerLinkLoginScreen } from './components/WorkerLinkLoginScreen';
@@ -79,15 +80,21 @@ function AppContent() {
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isWorkersModalOpen, setIsWorkersModalOpen] = useState(false);
+  const [isCounterpartiesModalOpen, setIsCounterpartiesModalOpen] = useState(false);
   const [loggingModalDate, setLoggingModalDate] = useState(null);
   const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
   const [selectedLedgerEntity, setSelectedLedgerEntity] = useState(null);
 
-  // Global listeners for Workers modal
+  // Global listeners for Workers & Counterparties modals
   useEffect(() => {
     const handleOpenWorkers = () => setIsWorkersModalOpen(true);
+    const handleOpenCounterparties = () => setIsCounterpartiesModalOpen(true);
     window.addEventListener('karsync-open-workers-modal', handleOpenWorkers);
-    return () => window.removeEventListener('karsync-open-workers-modal', handleOpenWorkers);
+    window.addEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
+    return () => {
+      window.removeEventListener('karsync-open-workers-modal', handleOpenWorkers);
+      window.removeEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
+    };
   }, []);
 
   // Global listeners for Subsidiary Search and Ledger
@@ -318,10 +325,7 @@ function AppContent() {
 
       if (e.shiftKey && (keyUpper === 'C' || e.code === 'KeyC')) {
         e.preventDefault();
-        setActiveTab('accounting');
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('karsync-finance-subtab', { detail: { subTab: 'counterparties' } }));
-        }, 50);
+        setIsCounterpartiesModalOpen(true);
         return;
       }
     };
@@ -526,6 +530,12 @@ function AppContent() {
       <WorkersModal
         isOpen={isWorkersModalOpen}
         onClose={() => setIsWorkersModalOpen(false)}
+      />
+
+      {/* Global Fullscreen Counterparties Modal (Shift+C) */}
+      <CounterpartiesModal
+        isOpen={isCounterpartiesModalOpen}
+        onClose={() => setIsCounterpartiesModalOpen(false)}
       />
 
     </div>

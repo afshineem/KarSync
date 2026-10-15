@@ -1023,30 +1023,30 @@ export function useAccounting(options = {}) {
     if (cleanMods.isDefault) {
       const allAccs = await db.financialAccounts.toArray();
       const updates = allAccs
-        .filter((a) => a.id !== id && a.projectId === projectId && a.isDefault)
-        .map((a) => db.financialAccounts.update(a.id, { isDefault: false }));
+        .filter((a) => a.id !== id && a.isDefault)
+        .map((a) => db.financialAccounts.update(a.id, { isDefault: false, updatedAt: now }));
       await Promise.all(updates);
     }
 
     await db.financialAccounts.update(id, cleanMods);
-    const updated = await db.financialAccounts.get(id);
-    if (updated) {
-      pushFinancialAccountLive(updated).catch(console.warn);
-    }
-  }, [projectId]);
+    await pushAllFinancialAccountsToCloud();
+    window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
+  }, []);
 
   const setDefaultAccount = useCallback(async (id) => {
     if (!id) return;
     const allAccs = await db.financialAccounts.toArray();
-    const promises = allAccs
-      .filter((a) => a.projectId === projectId)
-      .map((a) => db.financialAccounts.update(a.id, { isDefault: a.id === id }));
-    await Promise.all(promises);
-    const updatedList = await db.financialAccounts.toArray();
-    for (const acc of updatedList) {
-      pushFinancialAccountLive(acc).catch(console.warn);
-    }
-  }, [projectId]);
+    const strTargetId = String(id);
+    const updates = allAccs.map((a) =>
+      db.financialAccounts.update(a.id, {
+        isDefault: String(a.id) === strTargetId,
+        updatedAt: new Date().toISOString()
+      })
+    );
+    await Promise.all(updates);
+    await pushAllFinancialAccountsToCloud();
+    window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
+  }, []);
 
   // حذف ایمن حساب با اعتبارسنجی جامع گردش‌های مالی و قوانین حسابداری
   const deleteAccount = useCallback(async (id) => {

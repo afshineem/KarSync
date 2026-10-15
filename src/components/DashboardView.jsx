@@ -86,7 +86,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     };
   }, []);
 
-  const { tasks, isLoading: isTasksLoading, fetchTasks, updateTask } = useTasks(targetProjectId);
+  const { tasks, isLoading: isTasksLoading, fetchTasks, addTask, updateTask, deleteTask } = useTasks(targetProjectId);
 
   useEffect(() => {
     fetchTasks(targetProjectId);
@@ -1020,7 +1020,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         <TasksModal
           isOpen={isTasksModalOpen}
           onClose={() => setIsTasksModalOpen(false)}
-          projectId={targetProjectId}
+          tasks={tasks}
+          isLoading={isTasksLoading}
+          targetProjectId={targetProjectId}
+          onAddTask={addTask}
+          onUpdateTask={updateTask}
+          onDeleteTask={deleteTask}
           onSelectTaskForDetails={(task) => setSelectedTaskForDetails(task)}
         />
       )}

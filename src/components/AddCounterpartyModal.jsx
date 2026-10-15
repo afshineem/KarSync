@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { db, generateCounterpartyId, DEFAULT_PROJECT_ID } from '../db/db';
 import { X, User, Briefcase, Phone, Tag } from 'lucide-react';
+import { pushCounterpartyLive } from '../services/realtimeSync';
 
 export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = null }) {
   const { language } = useLanguage();
@@ -40,7 +41,8 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
 
     try {
       if (editingCounterparty) {
-        await db.counterparties.update(editingCounterparty.id, {
+        const updated = {
+          ...editingCounterparty,
           name: formData.name,
           type: formData.type,
           phone: formData.phone,
@@ -48,9 +50,11 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
           contractValue: parsedContractValue,
           status: formData.status,
           updatedAt: new Date().toISOString()
-        });
+        };
+        await db.counterparties.update(editingCounterparty.id, updated);
+        pushCounterpartyLive(updated).catch(console.warn);
       } else {
-        await db.counterparties.add({
+        const record = {
           id: generateCounterpartyId(),
           projectId: DEFAULT_PROJECT_ID,
           name: formData.name,
@@ -59,8 +63,11 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
           company: formData.company,
           contractValue: parsedContractValue,
           status: formData.status,
-          createdAt: new Date().toISOString()
-        });
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await db.counterparties.add(record);
+        pushCounterpartyLive(record).catch(console.warn);
       }
       onClose();
     } catch (err) {

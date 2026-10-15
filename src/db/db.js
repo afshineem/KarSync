@@ -693,11 +693,19 @@ export async function seedDefaultFinancialAccounts(projectId = DEFAULT_PROJECT_I
       console.log('✅ Restored/seeded default bank card (acc_default_bank).');
     }
 
-    // اطمینان از وجود حداقل یک حساب پیش‌فرض فعال
+    // اطمینان از وجود فقط و فقط یک حساب پیش‌فرض فعال
     const currentList = await db.financialAccounts.toArray();
-    const hasDefault = currentList.some((a) => a.isDefault && !a.deletedAt && a.status !== 'deleted');
-    if (!hasDefault && currentList.length > 0) {
-      const targetDefault = currentList.find((a) => a.type === 'cash' && !a.deletedAt) || currentList[0];
+    const activeAccounts = currentList.filter((a) => !a.deletedAt && a.status !== 'deleted');
+    const defaultAccounts = activeAccounts.filter((a) => a.isDefault);
+    if (defaultAccounts.length > 1) {
+      // اگر بیش از یک حساب به عنوان پیش‌فرض ثبت شده بود، فقط اولین حساب را پیش‌فرض نگه می‌داریم و بقیه را false می‌کنیم
+      const [primaryDefault, ...others] = defaultAccounts;
+      for (const o of others) {
+        await db.financialAccounts.update(o.id, { isDefault: false, updatedAt: now });
+      }
+      changed = true;
+    } else if (defaultAccounts.length === 0 && activeAccounts.length > 0) {
+      const targetDefault = activeAccounts.find((a) => a.type === 'cash') || activeAccounts[0];
       await db.financialAccounts.update(targetDefault.id, { isDefault: true, updatedAt: now });
       changed = true;
     }
