@@ -1594,7 +1594,7 @@ export function SettlementModal({
               {/* ----------------------------------------------------------- */}
               {/* CUSTOM / DETAILED TAB CONTENT */}
               {/* ----------------------------------------------------------- */}
-              {settlementTypeTab === custom ? (
+              {settlementTypeTab === 'custom' ? (
                 <div className="space-y-4">
             
             {/* Worker Selector (if individual mode) */}
