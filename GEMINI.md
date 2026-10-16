@@ -39,3 +39,30 @@ When explicitly instructed to use this theme button pattern, you MUST strictly a
 - **Active State:** The currently active tab MUST have the primary blue background color (`bg-primary` or similar). It MUST display BOTH the text label and a light-colored icon.
 - **Inactive State:** Unselected tabs MUST have a transparent or subtle background. They MUST display ONLY an icon (NO text label).
 - **Transitions:** You MUST apply smooth CSS transitions (e.g., `transition-all duration-300 ease-in-out`) to all buttons in the group. This ensures that when a tab becomes active, it smoothly expands to reveal the text, and color changes animate gracefully.
+
+## UI Design System: Apple Liquid Glass & Full Modular Redesign Protocol
+**Trigger Phrase:** «.... {فلان بخش} رو به زبان طراحی جدید آپدیت کن» (e.g. «مودال ثبت مساعده رو به زبان طراحی جدید آپدیت کن»)
+
+Whenever this trigger phrase or a request to update a modal/view to the new design language is issued, you MUST follow this mandatory protocol:
+
+### 1. Mandatory Workflow & Planning:
+1. **Never perform superficial patches:** Do not simply change a background color class. The view/modal must be redesigned from the ground up, line-by-line, to achieve 100% aesthetic and functional parity with the app's flagship design standard (as seen in `AddExpenseModal.jsx`).
+2. **Present Blueprint & Roadmap First:** Always break down the audit, gap analysis, and layout blueprint (including desktop multi-column structure, responsive grid, card groupings, and interactive controls) and wait for explicit user approval before modifying files.
+3. **Execution & Build Check:** Once approved, write the production-ready code, verify with Vite build (`0 errors`), and auto-commit locally.
+
+### 2. Apple Liquid Glass UI Standards:
+* **Root Container & Background:**
+  - Base background must strictly be `#f3f6f4` in light mode (`bg-[#f3f6f4] dark:bg-slate-950`).
+  - Modal backdrops must use deep subtle blur (`bg-slate-900/60 backdrop-blur-md`).
+* **Desktop Multi-Column Layout:**
+  - Avoid narrow, single-column forms on desktop. Always utilize a responsive 12-column grid (e.g., 7 columns for primary inputs/amount, 5 columns for account/status/meta cards).
+* **Card Anatomy (Apple Glass Cards):**
+  - Use `bg-white/80 dark:bg-slate-900/80 backdrop-blur-md` with soft frosted highlights.
+  - Border: `border border-white/60 dark:border-slate-800/80` or `border border-slate-200/80 dark:border-slate-800`.
+  - Generous rounding (`rounded-3xl` for main cards, `rounded-2xl` for sub-panels and inputs).
+  - Subtle diffuse shadows (`shadow-[0_8px_30px_rgb(0,0,0,0.04)]` or `shadow-sm`).
+* **Sticky Glass Bottom Dock:**
+  - Actions must not be pushed to the bottom of long scrollable content. Use a fixed/sticky bottom action bar (`bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800`) displaying a live transaction/calculation summary on the start side, and Cancel / Submit action buttons on the end side.
+* **Quick Chips & Segments:**
+  - Amount chips, status toggles, and payment methods must use pill-shaped containers with smooth active-indicator animations (`transition-all duration-300`).
+
