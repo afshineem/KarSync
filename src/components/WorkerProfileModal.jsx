@@ -887,7 +887,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                             <span className={`font-mono font-black text-sm sm:text-base ${
                               isSettlement ? 'text-purple-600 dark:text-purple-400' : isAdvance ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                             }`} dir="ltr">
-                              {isAdvance ? `-${formatAmount(ev.amount, currency)}` : `+${formatAmount(ev.amount, currency)}`} {getCurrencySymbol(currency, language)}
+                              {isAdvance ? `-${formatCurrency(ev.amount, currency, language)}` : `+${formatCurrency(ev.amount, currency, language)}`}
                             </span>
                           </div>
 
