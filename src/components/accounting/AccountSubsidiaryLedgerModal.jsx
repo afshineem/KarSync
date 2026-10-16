@@ -356,12 +356,13 @@ export function AccountSubsidiaryLedgerModal({
 
   const modalContent = (
     <div
-      className="subsidiary-ledger-modal-root fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !p-0 z-[100] w-screen h-[100dvh] max-h-[100dvh] bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden animate-in fade-in duration-150"
+      dir={isRtl ? 'rtl' : 'ltr'}
+      className="subsidiary-ledger-modal-root fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !p-0 z-[100] w-screen h-[100dvh] max-h-[100dvh] bg-[#f3f6f4] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden animate-in fade-in duration-150 select-none"
       role="dialog"
       aria-modal="true"
     >
       {/* هدر بالایی تمام‌صفحه */}
-      <div className="no-print px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/95 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+      <div className="no-print px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 shadow-xs z-20">
         <div className="flex items-center gap-3.5">
           {/* آیکون هویت */}
           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
@@ -514,11 +515,11 @@ export function AccountSubsidiaryLedgerModal({
         </div>
       </div>
 
-      {/* نوار فشرده خلاصه وضعیت مالی و مانده زنده (صرفاً داده‌ها بدون دکمه شارژ و واریز) */}
-      <div className="no-print px-4 py-3 sm:px-6 bg-slate-50/70 dark:bg-slate-900/40 border-b border-slate-200/60 dark:border-slate-800 shrink-0">
+      {/* نوار خلاصه وضعیت مالی و مانده زنده روی پس‌زمینه #f3f6f4 */}
+      <div className="no-print px-4 py-3 sm:px-6 bg-[#f3f6f4] dark:bg-slate-950 border-b border-slate-200/90 dark:border-slate-800 shrink-0">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
           {/* ۱. افتتاحیه / مبنا */}
-          <div className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 shadow-xs">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 block mb-0.5">
               {isWorker 
                 ? (language === 'fa' ? 'کل رکوردهای مالی' : 'کۆی تۆمارەکان')
@@ -532,7 +533,7 @@ export function AccountSubsidiaryLedgerModal({
           </div>
 
           {/* ۲. کل وارده (ورودی +) */}
-          <div className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 shadow-xs">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5">
               {isWorker 
                 ? (language === 'fa' ? 'کل مطالبات کارکرد (بستانکار +)' : 'کۆی حەقدەست (+)')
@@ -544,7 +545,7 @@ export function AccountSubsidiaryLedgerModal({
           </div>
 
           {/* ۳. کل صادره (خروجی -) */}
-          <div className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 shadow-xs">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
             <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 block mb-0.5">
               {isWorker 
                 ? (language === 'fa' ? 'کل پرداختی‌ها و تسویه‌ها (بدهکار -)' : 'کۆی پارەدراوەکان (-)')
@@ -556,12 +557,12 @@ export function AccountSubsidiaryLedgerModal({
           </div>
 
           {/* ۴. مانده زنده */}
-          <div className={`p-2.5 sm:p-3 rounded-2xl border shadow-xs ${
+          <div className={`p-3 sm:p-3.5 rounded-2xl border shadow-xs ${
             isPositive
-              ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/30 dark:border-emerald-500/30'
-              : 'bg-rose-500/15 dark:bg-rose-500/20 border-rose-500/40 dark:border-rose-500/30'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300'
+              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300'
           }`}>
-            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 block mb-0.5">
+            <span className="text-[10px] font-bold block mb-0.5 opacity-80">
               {isWorker 
                 ? (language === 'fa' ? 'مانده طلب نهایی پرسنل' : 'شایستەی کۆتایی کارمەند')
                 : (language === 'fa' ? 'مانده زنده فعلی' : 'باڵانسی کۆتایی')}
