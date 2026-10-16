@@ -488,63 +488,71 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       )}
 
-      {/* نوار کارت‌های شاخص مالی پرسنل (Liquid Glass KPI Cards) */}
+      {/* بنر هیروی اجرایی لوکس وضعیت مالی پرسنل (Executive Hero Banner) */}
       <div className="no-print px-4 py-3 sm:px-6 lg:px-8 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
-        <div className="max-w-7xl mx-auto w-full grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* ۱. طلب / مانده حساب جاری */}
-          <div className={`p-4 rounded-3xl backdrop-blur-md border shadow-md flex flex-col justify-between transition-all ${
-            stats.netBalanceDue >= 0
-              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/60 text-white shadow-emerald-500/20'
-              : 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400/60 text-white shadow-rose-500/20'
-          }`}>
-            <span className="text-[11px] font-bold block mb-1 opacity-90 text-white">
-              طلب / مانده حساب جاری
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono truncate text-white" dir="ltr">
-              {formatCurrency(stats.netBalanceDue, currency, language)}
-            </div>
-            <span className="text-[10px] mt-1 block opacity-80 text-white">
-              {stats.netBalanceDue >= 0 ? 'طلبکار از کارگاه' : 'بدهکار مساعده'}
-            </span>
-          </div>
+        <div className="max-w-7xl mx-auto w-full relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-slate-950 text-white border border-white/10 shadow-2xl">
+          {/* حباب‌های بلورین درخشان در پس‌زمینه */}
+          <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-10 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* ۲. کارکرد معوق ناخالص */}
-          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
-              کارکرد معوق (ناخالص)
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-white truncate" dir="ltr">
-              {formatCurrency(stats.unsettledGrossPay, currency, language)}
-            </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              {stats.unsettledDaysCount} روز کارکرد جاری
-            </span>
-          </div>
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            {/* سمت راست: مانده حساب جاری، نشان وضعیت و روزهای کارکرد */}
+            <div className="lg:col-span-7 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+                <span className={`w-2 h-2 rounded-full ${stats.netBalanceDue >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-pulse'}`} />
+                <span className={stats.netBalanceDue >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                  {stats.netBalanceDue >= 0 ? 'وضعیت حساب: طلبکار از کارگاه' : 'وضعیت حساب: بدهکار مساعده'}
+                </span>
+                <span className="text-slate-500">•</span>
+                <span className="text-slate-400">{stats.unsettledDaysCount} روز کارکرد جاری در انتظار تسویه</span>
+              </div>
 
-          {/* ۳. مساعده‌های کسر نشده */}
-          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-amber-300 dark:hover:border-amber-700 transition-all">
-            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 block mb-1">
-              مساعده‌های کسر نشده
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-amber-600 dark:text-amber-400 truncate" dir="ltr">
-              {formatCurrency(stats.unsettledAdvances, currency, language)}
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block mb-1">
+                  مانده طلب نهایی پرسنل (خالص قابل تسویه)
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-2xl sm:text-3xl md:text-4xl font-black font-mono tracking-tight ${
+                    stats.netBalanceDue >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`} dir="ltr">
+                    {formatCurrency(stats.netBalanceDue, currency, language)}
+                  </span>
+                </div>
+              </div>
             </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              کسر در زمان تسویه
-            </span>
-          </div>
 
-          {/* ۴. کل مبالغ تسویه شده */}
-          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-sky-300 dark:hover:border-sky-700 transition-all">
-            <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 block mb-1">
-              کل مبالغ تسویه شده
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-sky-600 dark:text-sky-400 truncate" dir="ltr">
-              {formatCurrency(stats.settledGrossPay, currency, language)}
+            {/* سمت چپ: کارت شیشه‌ای شاخص‌های سه‌گانه مالی */}
+            <div className="lg:col-span-5 grid grid-cols-3 gap-2.5 bg-white/5 p-3.5 rounded-2xl border border-white/10 backdrop-blur-md">
+              {/* ۱. کارکرد معوق */}
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                <span className="text-[10px] text-slate-400 block truncate">
+                  کارکرد جاری (+)
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-slate-200 mt-1 block truncate" dir="ltr">
+                  +{formatCurrency(stats.unsettledGrossPay, currency, language)}
+                </span>
+              </div>
+
+              {/* ۲. مساعده‌های کسر نشده */}
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col justify-between">
+                <span className="text-[10px] text-amber-300 block truncate">
+                  مساعده‌ها (-)
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-amber-400 mt-1 block truncate" dir="ltr">
+                  -{formatCurrency(stats.unsettledAdvances, currency, language)}
+                </span>
+              </div>
+
+              {/* ۳. کل تسویه شده در تاریخچه */}
+              <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 flex flex-col justify-between">
+                <span className="text-[10px] text-sky-300 block truncate">
+                  تسویه‌شده کل
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-sky-400 mt-1 block truncate" dir="ltr">
+                  {formatCurrency(stats.settledGrossPay, currency, language)}
+                </span>
+              </div>
             </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              {stats.settledDaysCount} روز در آرشیو
-            </span>
           </div>
         </div>
       </div>
