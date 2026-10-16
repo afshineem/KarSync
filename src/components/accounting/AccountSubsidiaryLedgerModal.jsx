@@ -369,91 +369,14 @@ export function AccountSubsidiaryLedgerModal({
       role="dialog"
       aria-modal="true"
     >
-      {/* هدر بالایی تمام‌صفحه (Apple Liquid Glass Header) */}
-      <div className="no-print px-4 py-3 sm:px-6 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 z-20">
-        <div className="flex items-center gap-3.5">
-          {/* آیکون هویت */}
-          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
-            isWorker
-              ? (entityData?.isActive !== 0 && entityData?.isActive !== false
-                  ? 'bg-gradient-to-tr from-emerald-500 to-teal-600 text-white shadow-emerald-500/25'
-                  : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400')
-              : isBank 
-              ? 'bg-gradient-to-tr from-sky-500 to-indigo-600 text-white shadow-sky-500/25'
-              : 'bg-gradient-to-tr from-amber-500 to-amber-700 text-white shadow-amber-500/25'
-          }`}>
-            {isWorker ? (
-              entityData?.isActive !== 0 && entityData?.isActive !== false ? <User className="w-6 h-6 stroke-[2.2]" /> : <UserX className="w-6 h-6 stroke-[2.2]" />
-            ) : isBank ? (
-              <CreditCard className="w-6 h-6 stroke-[2.2]" />
-            ) : (
-              <Wallet className="w-6 h-6 stroke-[2.2]" />
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                {language === 'fa' 
-                  ? `معین گردش مالی: ${entityData?.name}` 
-                  : `دەفتەری دارایی: ${entityData?.name}`}
-              </h2>
-
-              {/* برچسب‌ها */}
-              {isWorker ? (
-                entityData?.isActive !== 0 && entityData?.isActive !== false ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300">
-                    {language === 'fa' ? 'پرسنل فعال' : 'چالاک'}
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                    {language === 'fa' ? 'پرسنل غیرفعال' : 'ناچالاک'}
-                  </span>
-                )
-              ) : (
-                <>
-                  {entityData?.isDefault && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-950">
-                      <Star className="w-3 h-3 fill-amber-950" />
-                      <span>پیش‌فرض</span>
-                    </span>
-                  )}
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    isBank 
-                      ? 'bg-sky-100 dark:bg-sky-950/70 text-sky-700 dark:text-sky-300'
-                      : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300'
-                  }`}>
-                    {isBank ? 'کارت بانکی' : 'صندوق نقدی'}
-                  </span>
-                </>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {isWorker ? (
-                <>
-                  {groupName && <span>گروه: <strong className="text-slate-700 dark:text-slate-300">{groupName}</strong></span>}
-                  {entityData?.role && <span>سمت: <strong className="text-slate-700 dark:text-slate-300">{entityData.role}</strong></span>}
-                  {entityData?.phone && <span dir="ltr" className="font-mono text-slate-600 dark:text-slate-400">{entityData.phone}</span>}
-                </>
-              ) : isBank ? (
-                <>
-                  <span>بانک: <strong className="text-slate-700 dark:text-slate-300">{entityData?.bankName || '-'}</strong></span>
-                  {entityData?.cardNumber && (
-                    <span dir="ltr" className="font-mono text-slate-700 dark:text-slate-300">
-                      کارت: {entityData.cardNumber}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span>مسئول صندوق: <strong className="text-slate-700 dark:text-slate-300">{entityData?.keeperName || 'سرپرست کارگاه'}</strong></span>
-              )}
-            </div>
-          </div>
+      {/* نوار بالایی ابزار و خروج (Compact Glass Utility Bar) */}
+      <div className="no-print px-4 py-2.5 sm:px-6 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-3 shrink-0 z-20">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <FileSpreadsheet className="w-4 h-4 text-sky-500" />
+          <span>{language === 'fa' ? 'صورت گردش معین حساب و اسناد مالی' : 'دەفتەری دارایی و تۆمارەکان'}</span>
         </div>
 
-        {/* دکمه‌های کنترل هدر */}
-        <div className="flex items-center gap-2 self-end sm:self-center">
+        <div className="flex items-center gap-2">
           {/* سوییچ سریع حساب / پرسنل */}
           {entityType === 'account' && effectiveAccounts.length > 1 && (
             <select
@@ -462,7 +385,7 @@ export function AccountSubsidiaryLedgerModal({
                 const target = effectiveAccounts.find((a) => a.id === e.target.value);
                 if (target && onSelectEntity) onSelectEntity({ type: 'account', data: target });
               }}
-              className="h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200"
+              className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200"
             >
               {effectiveAccounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
@@ -481,7 +404,7 @@ export function AccountSubsidiaryLedgerModal({
                 const target = effectiveWorkers.find((w) => String(w.id) === e.target.value);
                 if (target && onSelectEntity) onSelectEntity({ type: 'worker', data: target });
               }}
-              className="h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[160px] truncate"
+              className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[150px] truncate"
             >
               {effectiveWorkers.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -491,92 +414,123 @@ export function AccountSubsidiaryLedgerModal({
             </select>
           )}
 
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/70 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-all shadow-xs shrink-0"
-            title={language === 'fa' ? 'خروجی فایل اکسل' : 'دابەزاندنی ئێکسڵ'}
-            aria-label={language === 'fa' ? 'خروجی فایل اکسل' : 'دابەزاندنی ئێکسڵ'}
-          >
-            <Download className="w-5 h-5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/70 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-all shadow-xs shrink-0"
-            title={language === 'fa' ? 'چاپ جدول معین (قالب لایت)' : 'چاپکردنی دەفتەر'}
-            aria-label={language === 'fa' ? 'چاپ جدول معین' : 'چاپکردنی دەفتەر'}
-          >
-            <Printer className="w-5 h-5" />
-          </button>
-
+          {/* دکمه خروج مینیمال */}
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors shrink-0"
             aria-label="بستن"
             title={language === 'fa' ? 'بستن' : 'داخستن'}
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* نوار خلاصه وضعیت مالی و مانده زنده روی پس‌زمینه #f3f6f4 (Liquid Glass KPI Cards) */}
+      {/* بنر هیروی اجرایی لوکس معین (Executive Hero Banner) */}
       <div className="no-print px-4 py-3 sm:px-6 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* ۱. افتتاحیه / مبنا */}
-          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
-              {isWorker 
-                ? (language === 'fa' ? 'کل رکوردهای مالی' : 'کۆی تۆمارەکان')
-                : (language === 'fa' ? 'موجودی اولیه حساب' : 'باڵانسی سەرەتایی')}
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-slate-800 dark:text-slate-100 truncate" dir="ltr">
-              {isWorker 
-                ? `${rawTransactions.length} ردیف سند`
-                : formatCurrency(initialBalance, currency, language)}
-            </div>
-          </div>
+        <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-slate-950 text-white border border-white/10 shadow-2xl">
+          {/* حباب‌های بلورین درخشان در پس‌زمینه */}
+          <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-10 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* ۲. کل وارده (ورودی +) */}
-          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-emerald-300 dark:hover:border-emerald-700 transition-all">
-            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">
-              {isWorker 
-                ? (language === 'fa' ? 'کل مطالبات کارکرد (بستانکار +)' : 'کۆی حەقدەست (+)')
-                : (language === 'fa' ? 'کل وارده (ورودی +)' : 'کۆی داهات (+) ')}
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 truncate" dir="ltr">
-              +{formatCurrency(totalInflow, currency, language)}
-            </div>
-          </div>
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            {/* سمت راست: هویت حساب + نمایش مانده زنده و وضعیت */}
+            <div className="lg:col-span-7 space-y-3.5">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
+                  isWorker
+                    ? (entityData?.isActive !== 0 && entityData?.isActive !== false
+                        ? 'bg-gradient-to-tr from-emerald-500 to-teal-600 text-white shadow-emerald-500/25'
+                        : 'bg-slate-800 text-slate-400 border border-slate-700')
+                    : isBank 
+                    ? 'bg-gradient-to-tr from-sky-500 to-indigo-600 text-white shadow-sky-500/25'
+                    : 'bg-gradient-to-tr from-amber-500 to-amber-700 text-white shadow-amber-500/25'
+                }`}>
+                  {isWorker ? (
+                    entityData?.isActive !== 0 && entityData?.isActive !== false ? <User className="w-5 h-5 stroke-[2.2]" /> : <UserX className="w-5 h-5 stroke-[2.2]" />
+                  ) : isBank ? (
+                    <CreditCard className="w-5 h-5 stroke-[2.2]" />
+                  ) : (
+                    <Wallet className="w-5 h-5 stroke-[2.2]" />
+                  )}
+                </div>
 
-          {/* ۳. کل صادره (خروجی -) */}
-          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-rose-300 dark:hover:border-rose-700 transition-all">
-            <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 block mb-1">
-              {isWorker 
-                ? (language === 'fa' ? 'کل پرداختی‌ها و تسویه‌ها (بدهکار -)' : 'کۆی پارەدراوەکان (-)')
-                : (language === 'fa' ? 'کل صادره (خروجی -)' : 'کۆی خەرجی (-)')}
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-rose-600 dark:text-rose-400 truncate" dir="ltr">
-              -{formatCurrency(totalOutflow, currency, language)}
-            </div>
-          </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                      {entityData?.name}
+                    </h1>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      isPositive
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                    }`}>
+                      {statusBadgeText}
+                    </span>
+                    {entityData?.isDefault && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-950">
+                        <Star className="w-2.5 h-2.5 fill-amber-950" />
+                        <span>پیش‌فرض</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-400 mt-0.5">
+                    <span>{isWorker ? (language === 'fa' ? 'طرف حساب: پرسنل' : 'کارمەند') : (isBank ? 'حساب و کارت بانکی' : 'صندوق نقدینگی')}</span>
+                    {groupName && <span>• گروه: <strong className="text-slate-300">{groupName}</strong></span>}
+                    {entityData?.role && <span>• سمت: <strong className="text-slate-300">{entityData.role}</strong></span>}
+                    {entityData?.bankName && <span>• بانک: <strong className="text-slate-300">{entityData.bankName}</strong></span>}
+                    {entityData?.cardNumber && <span dir="ltr" className="font-mono text-slate-300">• کارت: {entityData.cardNumber}</span>}
+                  </div>
+                </div>
+              </div>
 
-          {/* ۴. مانده زنده */}
-          <div className={`p-4 rounded-3xl backdrop-blur-md border shadow-md flex flex-col justify-between transition-all ${
-            isPositive
-              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/60 text-white shadow-emerald-500/20'
-              : 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400/60 text-white shadow-rose-500/20'
-          }`}>
-            <span className="text-[11px] font-bold block mb-1 opacity-90 text-white">
-              {isWorker 
-                ? (language === 'fa' ? 'مانده طلب نهایی پرسنل' : 'شایستەی کۆتایی کارمەند')
-                : (language === 'fa' ? 'مانده زنده فعلی' : 'باڵانسی کۆتایی')}
-            </span>
-            <div className="text-lg sm:text-xl font-black font-mono truncate text-white" dir="ltr">
-              {formatCurrency(currentBalance, currency, language)}
+              {/* مانده لحظه‌ای و نهایی */}
+              <div className="pt-1">
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  {isWorker 
+                    ? (language === 'fa' ? 'مانده زنده طلب / تسویه پرسنل' : 'شایستەی دارایی کارمەند')
+                    : (language === 'fa' ? 'موجودی و مانده نهایی زنده حساب' : 'باڵانسی کۆتایی ئەم حیسابە')}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-2xl sm:text-3xl md:text-4xl font-black font-mono tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`} dir="ltr">
+                    {formatCurrency(currentBalance, currency, language)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* سمت چپ: کارت شیشه‌ای شاخص‌های سه‌گانه */}
+            <div className="lg:col-span-5 grid grid-cols-3 gap-2.5 bg-white/5 p-3.5 rounded-2xl border border-white/10 backdrop-blur-md">
+              {/* ۱. افتتاحیه / مبنا */}
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                <span className="text-[10px] text-slate-400 block truncate">
+                  {isWorker ? 'کل اسناد' : 'موجودی اولیه'}
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-slate-200 mt-1 block truncate" dir="ltr">
+                  {isWorker ? `${rawTransactions.length} ردیف` : formatCurrency(initialBalance, currency, language)}
+                </span>
+              </div>
+
+              {/* ۲. کل وارده (ورودی +) */}
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-between">
+                <span className="text-[10px] text-emerald-300 block truncate">
+                  {isWorker ? 'کل کارکرد (+)' : 'کل وارده (+)'}
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-emerald-400 mt-1 block truncate" dir="ltr">
+                  +{formatCurrency(totalInflow, currency, language)}
+                </span>
+              </div>
+
+              {/* ۳. کل صادره (خروجی -) */}
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col justify-between">
+                <span className="text-[10px] text-rose-300 block truncate">
+                  {isWorker ? 'کل پرداختی (-)' : 'کل صادره (-)'}
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-rose-400 mt-1 block truncate" dir="ltr">
+                  -{formatCurrency(totalOutflow, currency, language)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
