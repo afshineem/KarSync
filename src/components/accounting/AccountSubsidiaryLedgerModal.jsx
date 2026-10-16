@@ -361,8 +361,8 @@ export function AccountSubsidiaryLedgerModal({
       role="dialog"
       aria-modal="true"
     >
-      {/* هدر بالایی تمام‌صفحه */}
-      <div className="no-print px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 shadow-xs z-20">
+      {/* هدر بالایی تمام‌صفحه (Apple Liquid Glass Header) */}
+      <div className="no-print px-4 py-3 sm:px-6 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 z-20">
         <div className="flex items-center gap-3.5">
           {/* آیکون هویت */}
           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
@@ -515,17 +515,17 @@ export function AccountSubsidiaryLedgerModal({
         </div>
       </div>
 
-      {/* نوار خلاصه وضعیت مالی و مانده زنده روی پس‌زمینه #f3f6f4 */}
-      <div className="no-print px-4 py-3 sm:px-6 bg-[#f3f6f4] dark:bg-slate-950 border-b border-slate-200/90 dark:border-slate-800 shrink-0">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
+      {/* نوار خلاصه وضعیت مالی و مانده زنده روی پس‌زمینه #f3f6f4 (Liquid Glass KPI Cards) */}
+      <div className="no-print px-4 py-3 sm:px-6 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* ۱. افتتاحیه / مبنا */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 block mb-0.5">
+          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
               {isWorker 
                 ? (language === 'fa' ? 'کل رکوردهای مالی' : 'کۆی تۆمارەکان')
                 : (language === 'fa' ? 'موجودی اولیه حساب' : 'باڵانسی سەرەتایی')}
             </span>
-            <div className="text-sm sm:text-base font-black font-mono text-slate-800 dark:text-slate-100 truncate" dir="ltr">
+            <div className="text-base sm:text-lg font-black font-mono text-slate-800 dark:text-slate-100 truncate" dir="ltr">
               {isWorker 
                 ? `${rawTransactions.length} ردیف سند`
                 : formatCurrency(initialBalance, currency, language)}
@@ -533,137 +533,137 @@ export function AccountSubsidiaryLedgerModal({
           </div>
 
           {/* ۲. کل وارده (ورودی +) */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
-            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5">
+          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-emerald-300 dark:hover:border-emerald-700 transition-all">
+            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">
               {isWorker 
                 ? (language === 'fa' ? 'کل مطالبات کارکرد (بستانکار +)' : 'کۆی حەقدەست (+)')
                 : (language === 'fa' ? 'کل وارده (ورودی +)' : 'کۆی داهات (+) ')}
             </span>
-            <div className="text-sm sm:text-base font-black font-mono text-emerald-600 dark:text-emerald-400 truncate" dir="ltr">
+            <div className="text-base sm:text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 truncate" dir="ltr">
               +{formatCurrency(totalInflow, currency, language)}
             </div>
           </div>
 
           {/* ۳. کل صادره (خروجی -) */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
-            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 block mb-0.5">
+          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-rose-300 dark:hover:border-rose-700 transition-all">
+            <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 block mb-1">
               {isWorker 
                 ? (language === 'fa' ? 'کل پرداختی‌ها و تسویه‌ها (بدهکار -)' : 'کۆی پارەدراوەکان (-)')
                 : (language === 'fa' ? 'کل صادره (خروجی -)' : 'کۆی خەرجی (-)')}
             </span>
-            <div className="text-sm sm:text-base font-black font-mono text-rose-600 dark:text-rose-400 truncate" dir="ltr">
+            <div className="text-base sm:text-lg font-black font-mono text-rose-600 dark:text-rose-400 truncate" dir="ltr">
               -{formatCurrency(totalOutflow, currency, language)}
             </div>
           </div>
 
           {/* ۴. مانده زنده */}
-          <div className={`p-3 sm:p-3.5 rounded-2xl border shadow-xs ${
+          <div className={`p-4 rounded-3xl backdrop-blur-md border shadow-md flex flex-col justify-between transition-all ${
             isPositive
-              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300'
-              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300'
+              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/60 text-white shadow-emerald-500/20'
+              : 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400/60 text-white shadow-rose-500/20'
           }`}>
-            <span className="text-[10px] font-bold block mb-0.5 opacity-80">
+            <span className="text-[11px] font-bold block mb-1 opacity-90 text-white">
               {isWorker 
                 ? (language === 'fa' ? 'مانده طلب نهایی پرسنل' : 'شایستەی کۆتایی کارمەند')
                 : (language === 'fa' ? 'مانده زنده فعلی' : 'باڵانسی کۆتایی')}
             </span>
-            <div className={`text-sm sm:text-base font-black font-mono truncate ${
-              isPositive ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-            }`} dir="ltr">
+            <div className="text-lg sm:text-xl font-black font-mono truncate text-white" dir="ltr">
               {formatCurrency(currentBalance, currency, language)}
             </div>
           </div>
         </div>
       </div>
 
-      {/* نوار فیلتر و جستجو */}
-      <div className="no-print p-3 sm:px-6 border-b border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5 shrink-0 bg-white dark:bg-slate-900">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-            <FileSpreadsheet className="w-4 h-4" />
+      {/* نوار فیلتر و جستجو (Glass Filter Bar) */}
+      <div className="no-print px-4 py-2.5 sm:px-6 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
+        <div className="p-3 sm:px-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-black text-slate-800 dark:text-slate-200 font-mono">
+              {filteredTransactions.length} {language === 'fa' ? 'سند و گردش مالی' : 'تۆماری دارایی'}
+            </span>
           </div>
-          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-            {filteredTransactions.length} {language === 'fa' ? 'سند و گردش مالی' : 'تۆماری دارایی'}
-          </span>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* فیلتر تاریخ */}
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-          >
-            <option value="all">همه تاریخ‌ها</option>
-            <option value="this_month">این ماه</option>
-            <option value="last_month">ماه گذشته</option>
-            <option value="custom">بازه سفارشی</option>
-          </select>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* فیلتر تاریخ */}
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="h-9 px-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+            >
+              <option value="all">همه تاریخ‌ها</option>
+              <option value="this_month">این ماه</option>
+              <option value="last_month">ماه گذشته</option>
+              <option value="custom">بازه سفارشی</option>
+            </select>
 
-          {/* فیلتر دسته */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-          >
-            <option value="all">همه سرفصل‌ها</option>
-            {isWorker ? (
-              <>
-                <option value="attendance_wage">کارکرد و دستمزد</option>
-                <option value="advance_payment">مساعده</option>
-                <option value="worker_settlement">تسویه حساب دستمزد</option>
-              </>
-            ) : (
-              <>
-                <option value="petty_cash">شارژ تنخواه و واریزی</option>
-                <option value="worker_settlement">تسویه حساب دستمزد</option>
-                <option value="advance_payment">مساعده پرسنل</option>
-                <option value="workshop_expense">فاکتور و هزینه کارگاه</option>
-              </>
-            )}
-          </select>
+            {/* فیلتر دسته */}
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="h-9 px-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+            >
+              <option value="all">همه سرفصل‌ها</option>
+              {isWorker ? (
+                <>
+                  <option value="attendance_wage">کارکرد و دستمزد</option>
+                  <option value="advance_payment">مساعده</option>
+                  <option value="worker_settlement">تسویه حساب دستمزد</option>
+                </>
+              ) : (
+                <>
+                  <option value="petty_cash">شارژ تنخواه و واریزی</option>
+                  <option value="worker_settlement">تسویه حساب دستمزد</option>
+                  <option value="advance_payment">مساعده پرسنل</option>
+                  <option value="workshop_expense">فاکتور و هزینه کارگاه</option>
+                </>
+              )}
+            </select>
 
-          {/* جستجو */}
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="جستجو در شرح سند..."
-              className="w-40 sm:w-52 h-8 ps-7 pe-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute start-2 top-1/2 -translate-y-1/2" />
+            {/* جستجو */}
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="جستجو در شرح سند..."
+                className="w-44 sm:w-60 h-9 ps-8 pe-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs transition-all"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
+            </div>
           </div>
         </div>
       </div>
 
       {/* فیلتر تاریخ سفارشی */}
       {dateFilter === 'custom' && (
-        <div className="no-print p-2.5 px-6 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 text-xs shrink-0 text-slate-700 dark:text-slate-300">
-          <span className="font-bold text-slate-600 dark:text-slate-400">بازه سفارشی:</span>
-          <div className="flex items-center gap-1.5">
-            <span>از:</span>
+        <div className="no-print mx-4 sm:mx-6 mb-3 p-3 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-xs flex flex-wrap items-center gap-3 text-xs shrink-0 text-slate-700 dark:text-slate-300">
+          <span className="font-bold text-slate-700 dark:text-slate-300">بازه سفارشی:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 text-[11px]">از:</span>
             <input
               type="date"
               value={customStart}
               onChange={(e) => setCustomStart(e.target.value)}
-              className="h-7 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-100"
+              className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
-          <div className="flex items-center gap-1.5">
-            <span>تا:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 text-[11px]">تا:</span>
             <input
               type="date"
               value={customEnd}
               onChange={(e) => setCustomEnd(e.target.value)}
-              className="h-7 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-100"
+              className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
         </div>
       )}
 
-      {/* جدول معین ورودی و خروجی با سرستون‌های چسبان (Sticky) و اسکرول مستقل */}
-      <div className="subsidiary-ledger-table-container flex-1 overflow-auto custom-scrollbar bg-white dark:bg-slate-950">
+      {/* بدنه اسکرول‌پذیر محتوا و جدول معین */}
+      <div className="subsidiary-ledger-table-container flex-1 overflow-auto custom-scrollbar px-4 sm:px-6 pb-28">
         {/* سربرگ مشخصات معین مخصوص پرینت (در صفحه عادی مخفی، در پرینت آشکار) */}
         <div className="print-only mb-4 pb-3 border-b-2 border-slate-900 text-slate-900">
           <div className="flex items-center justify-between">
@@ -690,25 +690,27 @@ export function AccountSubsidiaryLedgerModal({
           </div>
         </div>
 
-        <table className="w-full text-right text-xs">
-          <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-900 shadow-xs border-b border-slate-200 dark:border-slate-800">
-            <tr className="text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
-              <th className="py-3 px-3.5 text-center w-12">#</th>
-              <th className="py-3 px-3.5 whitespace-nowrap">تاریخ و زمان</th>
-              <th className="py-3 px-3.5 whitespace-nowrap">بابت / سرفصل</th>
-              <th className="py-3 px-3.5 min-w-[200px]">شرح و توضیحات تراکنش</th>
-              <th className="py-3 px-3.5 whitespace-nowrap">طرف‌حساب</th>
-              <th className="py-3 px-3.5 whitespace-nowrap text-emerald-600 dark:text-emerald-400">
-                {isWorker ? 'طلب / بستانکار (+)' : 'وارده (ورودی +)'}
-              </th>
-              <th className="py-3 px-3.5 whitespace-nowrap text-rose-600 dark:text-rose-400">
-                {isWorker ? 'پرداختی / بدهکار (-)' : 'صادره (خروجی -)'}
-              </th>
-              <th className="py-3 px-3.5 whitespace-nowrap">مانده لحظه‌ای</th>
-              <th className="py-3 px-3.5 text-center whitespace-nowrap">منبع</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-normal">
+        {/* کادر گلس جدول معین */}
+        <div className="rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+          <table className="w-full text-right text-xs">
+            <thead className="sticky top-0 z-10 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-700/80">
+              <tr className="text-slate-600 dark:text-slate-300 font-bold">
+                <th className="py-3.5 px-3.5 text-center w-12">#</th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">تاریخ و زمان</th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">بابت / سرفصل</th>
+                <th className="py-3.5 px-3.5 min-w-[200px]">شرح و توضیحات تراکنش</th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">طرف‌حساب</th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                  {isWorker ? 'طلب / بستانکار (+)' : 'وارده (ورودی +)'}
+                </th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap text-rose-600 dark:text-rose-400">
+                  {isWorker ? 'پرداختی / بدهکار (-)' : 'صادره (خروجی -)'}
+                </th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">مانده لحظه‌ای</th>
+                <th className="py-3.5 px-3.5 text-center whitespace-nowrap">منبع</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-normal">
             {/* ردیف افتتاحیه برای حساب‌ها */}
             {!isWorker && initialBalance > 0 && (
               <tr className="opening-balance-row bg-amber-50/50 dark:bg-amber-950/25 font-semibold text-slate-700 dark:text-slate-200 border-b border-amber-200/50 dark:border-amber-900/30">
@@ -829,18 +831,71 @@ export function AccountSubsidiaryLedgerModal({
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
-      {/* فوتر ساده تمام‌صفحه */}
-      <div className="no-print px-4 py-2.5 sm:px-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0">
-        <span>{language === 'fa' ? 'برای بستن پنجره معین، کلید Esc را بفشارید.' : 'بۆ داخستن، دوگمەی Esc بکە.'}</span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold border border-slate-300 dark:border-slate-700 transition-all"
-        >
-          {language === 'fa' ? 'بستن پنجره معین' : 'داخستن'}
-        </button>
+      {/* داک چسبان شیشه‌ای پایین (Sticky Apple Liquid Glass Bottom Dock) */}
+      <div className="no-print fixed bottom-0 start-0 end-0 z-30 p-3 sm:px-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex items-center justify-between">
+        {/* خلاصه زنده مانده و تراکنش‌ها */}
+        <div className="flex items-center gap-3 sm:gap-6">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">مانده نهایی حساب:</span>
+            <span className={`text-base sm:text-lg font-black font-mono tracking-tight ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`} dir="ltr">
+              {formatCurrency(currentBalance, currency, language)}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+              isPositive
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+            }`}>
+              {statusBadgeText}
+            </span>
+          </div>
+
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
+
+          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>تعداد کل اسناد:</span>
+            <span className="font-bold font-mono text-slate-800 dark:text-slate-200">{filteredTransactions.length} ردیف</span>
+          </div>
+        </div>
+
+        {/* دکمه‌های عملیاتی */}
+        <div className="flex items-center gap-2">
+          {/* دکمه اکسل */}
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-3 sm:px-4 h-10 rounded-2xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all active:scale-95"
+            title="خروجی فایل اکسل"
+          >
+            <Download className="w-4 h-4 text-emerald-600" />
+            <span className="hidden sm:inline">خروجی اکسل</span>
+          </button>
+
+          {/* دکمه چاپ */}
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3 sm:px-4 h-10 rounded-2xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all active:scale-95"
+            title="چاپ صورت گردش حساب"
+          >
+            <Printer className="w-4 h-4 text-blue-600" />
+            <span className="hidden sm:inline">چاپ معین</span>
+          </button>
+
+          {/* دکمه بستن */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-4 sm:px-5 h-10 rounded-2xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-bold text-xs shadow-md transition-all active:scale-95"
+          >
+            <span>{language === 'fa' ? 'بستن' : 'داخستن'}</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-slate-700 dark:bg-slate-200 text-slate-200 dark:text-slate-700 rounded-md font-mono">
+              ESC
+            </kbd>
+          </button>
+        </div>
       </div>
     </div>
   );
