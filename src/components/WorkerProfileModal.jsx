@@ -41,7 +41,8 @@ import {
   History,
   PhoneCall,
   MessageSquare,
-  FileSpreadsheet
+  FileSpreadsheet,
+  MoreHorizontal
 } from 'lucide-react';
 import { EditRecordModal } from './EditRecordModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
@@ -52,6 +53,9 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const { language, t, direction } = useLanguage();
   const { currentProject, currency = 'IQD' } = useProject();
   const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
+
+  // کنترل باز بودن منوی عملیات بیشتر در هدر
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
   // فیلترهای تایم‌لاین یکپارچه مالی و کارکرد: 'all' | 'attendance' | 'advances' | 'settlements'
   const [activityTypeFilter, setActivityTypeFilter] = useState('all');
@@ -428,80 +432,78 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
               </div>
             </div>
 
-            {/* نوار داک ابزارهای سریع پرسنل و بستن */}
+            {/* دکمه عملیات بیشتر و دکمه بستن */}
             <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              <div className="h-11 sm:h-12 flex items-center gap-1 p-1 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs shrink-0">
-                {worker?.phone && (
-                  <a
-                    href={`tel:${worker.phone}`}
-                    aria-label="تماس مستقیم"
-                    title="تماس مستقیم"
-                    className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
-                  >
-                    <PhoneCall className="w-4.5 h-4.5" />
-                  </a>
+              {/* منوی دراپ‌دان عملیات جانبی */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsMoreMenuOpen(prev => !prev)}
+                  aria-label="سایر ابزارها و عملیات"
+                  title="سایر ابزارها و عملیات"
+                  className={`h-11 sm:h-12 w-11 sm:w-12 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-95 border shadow-xs cursor-pointer ${
+                    isMoreMenuOpen
+                      ? 'bg-primary text-white border-primary shadow-primary/20'
+                      : 'bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200/90 dark:border-slate-700/80'
+                  }`}
+                >
+                  <MoreHorizontal className="w-5 h-5" />
+                </button>
+
+                {isMoreMenuOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setIsMoreMenuOpen(false)} 
+                    />
+                    <div className="absolute end-0 top-full mt-2 w-56 rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200/90 dark:border-slate-800 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMoreMenuOpen(false);
+                          setIsQuickAttendanceOpen(true);
+                        }}
+                        className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-600 dark:hover:text-sky-400 flex items-center gap-2.5 transition-colors cursor-pointer text-start"
+                      >
+                        <CalendarCheck className="w-4 h-4 text-sky-500 shrink-0" />
+                        <span>ثبت سریع ماهانه (کارکرد)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMoreMenuOpen(false);
+                          window.dispatchEvent(
+                            new CustomEvent('karsync-open-subsidiary-ledger', {
+                              detail: {
+                                id: worker.id,
+                                name: worker.name,
+                                type: 'worker',
+                                role: worker.role || 'پرسنل'
+                              }
+                            })
+                          );
+                        }}
+                        className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-2.5 transition-colors cursor-pointer text-start"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-purple-500 shrink-0" />
+                        <span>مشاهده دفتر معین حسابداری</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMoreMenuOpen(false);
+                          handleOpenQRModal();
+                        }}
+                        className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-2.5 transition-colors cursor-pointer text-start"
+                      >
+                        <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>لینک و بارکد ورود پرسنل</span>
+                      </button>
+                    </div>
+                  </>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => setIsAdvanceModalOpen(true)}
-                  aria-label="ثبت مساعده جدید"
-                  title="ثبت مساعده جدید"
-                  className="h-full aspect-square text-slate-500 hover:text-amber-600 hover:bg-white dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
-                >
-                  <DollarSign className="w-4.5 h-4.5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAttendanceOpen(true)}
-                  aria-label="ثبت سریع ماهانه"
-                  title="ثبت سریع ماهانه"
-                  className="h-full aspect-square text-slate-500 hover:text-sky-600 hover:bg-white dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
-                >
-                  <CalendarCheck className="w-4.5 h-4.5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsSettlementModalOpen(true)}
-                  aria-label="صدور تسویه‌حساب"
-                  title="صدور تسویه‌حساب"
-                  className="h-full aspect-square text-slate-500 hover:text-indigo-600 hover:bg-white dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
-                >
-                  <Receipt className="w-4.5 h-4.5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.dispatchEvent(
-                      new CustomEvent('karsync-open-subsidiary-ledger', {
-                        detail: {
-                          id: worker.id,
-                          name: worker.name,
-                          type: 'worker',
-                          role: worker.role || 'پرسنل'
-                        }
-                      })
-                    );
-                  }}
-                  aria-label="دفتر معین پرسنل"
-                  title="دفتر معین و صورت‌حساب پرسنل"
-                  className="h-full aspect-square text-slate-500 hover:text-purple-600 hover:bg-white dark:text-slate-400 dark:hover:text-purple-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
-                >
-                  <FileSpreadsheet className="w-4.5 h-4.5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleOpenQRModal}
-                  aria-label="لینک یا بارکد ورود پرسنل"
-                  title="لینک یا بارکد ورود پرسنل"
-                  className="h-full aspect-square text-slate-500 hover:text-sky-600 hover:bg-white dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
-                >
-                  <Lock className="w-4.5 h-4.5" />
-                </button>
               </div>
 
               {/* دکمه بستن */}
@@ -942,14 +944,37 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {/* دکمه ثبت مساعده */}
+          <button
+            type="button"
+            onClick={() => setIsAdvanceModalOpen(true)}
+            className="px-3.5 sm:px-4 h-10 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span>ثبت مساعده</span>
+          </button>
+
+          {/* دکمه صدور تسویه حساب */}
+          <button
+            type="button"
+            onClick={() => setIsSettlementModalOpen(true)}
+            className="px-3.5 sm:px-4 h-10 rounded-2xl bg-primary text-white hover:bg-primary/90 text-xs font-bold shadow-md shadow-primary/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Receipt className="w-4 h-4" />
+            <span>صدور تسویه‌حساب</span>
+          </button>
+
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
+
+          {/* دکمه بستن */}
           <button
             type="button"
             onClick={onClose}
-            className="px-4 sm:px-5 h-10 rounded-2xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 sm:px-4 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
             <span>بستن</span>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-slate-700 dark:bg-slate-200 text-slate-200 dark:text-slate-700 rounded-md font-mono">
+            <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded font-mono">
               ESC
             </kbd>
           </button>
