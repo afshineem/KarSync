@@ -2757,7 +2757,7 @@ export function SettlementModal({
       {/* ------------------------------------------------------------- */}
       {/* 3. STICKY APPLE LIQUID GLASS BOTTOM ACTION DOCK */}
       {/* ------------------------------------------------------------- */}
-      {(settlementMode === group || worker) && (
+      {(settlementMode === 'group' || worker) && (
         <div className="fixed bottom-0 inset-x-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3.5 z-40 shadow-lg">
           <div className="max-w-7xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             
@@ -2782,17 +2782,17 @@ export function SettlementModal({
                 </div>
               )}
 
-              {settlementMode === individual && worker && (
+              {settlementMode === 'individual' && worker && (
                 <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                   <User className="w-3.5 h-3.5 text-emerald-500" />
                   <span>پرسنل: {worker.name}</span>
                 </div>
               )}
 
-              {settlementMode === group && (
+              {settlementMode === 'group' && (
                 <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                   <Crown className="w-3.5 h-3.5 text-amber-500" />
-                  <span>سرپرست: {supervisorWorker?.name || تعریف‌نشده} ({groupMembers.length} نفر)</span>
+                  <span>سرپرست: {supervisorWorker?.name || 'تعریف‌نشده'} ({groupMembers.length} نفر)</span>
                 </div>
               )}
             </div>
