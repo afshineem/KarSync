@@ -53,13 +53,10 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const { currentProject, currency = 'IQD' } = useProject();
   const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
 
-  // Active Tab: 'overview' | 'attendance' | 'advances' | 'settlements'
-  const [activeTab, setActiveTab] = useState('overview');
-
-  // Attendance sub-filter: 'all' | 'unsettled' | 'settled'
-  const [attendanceFilter, setAttendanceFilter] = useState('all');
-  // Advances sub-filter: 'all' | 'unsettled' | 'settled'
-  const [advancesFilter, setAdvancesFilter] = useState('all');
+  // فیلترهای تایم‌لاین یکپارچه مالی و کارکرد: 'all' | 'attendance' | 'advances' | 'settlements'
+  const [activityTypeFilter, setActivityTypeFilter] = useState('all');
+  // وضعیت تسویه: 'all' | 'unsettled' | 'settled'
+  const [activityStatusFilter, setActivityStatusFilter] = useState('all');
 
   // Sub-modal states
   const [editingLog, setEditingLog] = useState(null);
@@ -275,35 +272,91 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
     }
   };
 
-  // Filtered attendance logs
-  const filteredLogs = useMemo(() => {
-    if (!fin) return allLogs;
-    if (attendanceFilter === 'unsettled') {
-      return allLogs.filter((l) => !fin.isLogSettled(l));
-    }
-    if (attendanceFilter === 'settled') {
-      return allLogs.filter((l) => fin.isLogSettled(l));
-    }
-    return allLogs;
-  }, [allLogs, attendanceFilter, fin]);
+  // تایم‌لاین رویدادهای یکپارچه (حضور و غیاب، مساعده‌ها، رسیدهای تسویه)
+  const combinedActivityEvents = useMemo(() => {
+    if (!worker) return [];
 
-  // Filtered payments
-  const filteredPayments = useMemo(() => {
-    const list = allPayments.filter((p) => (p.type || '').toLowerCase() !== 'settlement' && !p.deletedAt);
-    if (!fin) return list;
-    if (advancesFilter === 'unsettled') {
-      return list.filter((p) => !fin.isPaymentSettled(p));
-    }
-    if (advancesFilter === 'settled') {
-      return list.filter((p) => fin.isPaymentSettled(p));
-    }
-    return list;
-  }, [allPayments, advancesFilter, fin]);
+    const events = [];
 
-  // Settlement payments
-  const settlementReceipts = useMemo(() => {
-    return allPayments.filter((p) => (p.type || '').toLowerCase() === 'settlement');
-  }, [allPayments]);
+    // ۱. کارکردها
+    allLogs.forEach((l) => {
+      const isSettled = fin?.isLogSettled(l);
+      events.push({
+        id: `log_${l.id}`,
+        kind: 'attendance',
+        rawDate: l.date || '',
+        date: l.date || '',
+        data: l,
+        isSettled,
+        type: l.type,
+        amount: Number(l.totalDayPay) || 0,
+        title: l.type === 'half' ? 'ثبت نیم‌روز کارکرد' : l.type === 'hourly' ? 'ثبت کارکرد ساعتی' : 'ثبت روز کامل کارکرد',
+        notes: l.notes,
+        overtimeHours: l.overtimeHours
+      });
+    });
+
+    // ۲. مساعده‌ها
+    allPayments
+      .filter((p) => (p.type || '').toLowerCase() !== 'settlement' && !p.deletedAt)
+      .forEach((p) => {
+        const isSettled = fin?.isPaymentSettled(p);
+        events.push({
+          id: `pay_${p.id}`,
+          kind: 'advance',
+          rawDate: p.date || p.createdAt || '',
+          date: p.date || p.createdAt || '',
+          data: p,
+          isSettled,
+          type: p.type || 'مساعده',
+          amount: Number(p.amount) || 0,
+          title: 'پرداخت مساعده نقدی / بانکی',
+          notes: p.notes
+        });
+      });
+
+    // ۳. رسیدهای تسویه
+    allPayments
+      .filter((p) => (p.type || '').toLowerCase() === 'settlement' && !p.deletedAt)
+      .forEach((st) => {
+        events.push({
+          id: `set_${st.id}`,
+          kind: 'settlement',
+          rawDate: st.date || st.createdAt || '',
+          date: st.date || st.createdAt || '',
+          data: st,
+          isSettled: true,
+          type: 'تسویه حساب',
+          amount: Number(st.amount) || 0,
+          title: 'سند تسویه‌حساب نهایی',
+          notes: st.notes
+        });
+      });
+
+    // مرتب‌سازی معکوس (از جدیدترین به قدیمی‌ترین)
+    events.sort((a, b) => (b.rawDate || '').localeCompare(a.rawDate || ''));
+
+    // فیلتر بر اساس نوع رویداد و وضعیت تسویه
+    return events.filter((ev) => {
+      if (activityTypeFilter !== 'all' && ev.kind !== activityTypeFilter) return false;
+      if (activityStatusFilter === 'unsettled' && ev.isSettled) return false;
+      if (activityStatusFilter === 'settled' && !ev.isSettled) return false;
+      return true;
+    });
+  }, [worker, allLogs, allPayments, fin, activityTypeFilter, activityStatusFilter]);
+
+  // شمارنده‌ها برای فیلتر کپسولی
+  const activityCounts = useMemo(() => {
+    const totalLogs = allLogs.length;
+    const totalAdvances = allPayments.filter((p) => (p.type || '').toLowerCase() !== 'settlement' && !p.deletedAt).length;
+    const totalSettlements = allPayments.filter((p) => (p.type || '').toLowerCase() === 'settlement' && !p.deletedAt).length;
+    return {
+      all: totalLogs + totalAdvances + totalSettlements,
+      attendance: totalLogs,
+      advances: totalAdvances,
+      settlements: totalSettlements
+    };
+  }, [allLogs, allPayments]);
 
   if (!isOpen || !workerId) return null;
 
@@ -557,175 +610,107 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       </div>
 
-      {/* Tab Navigation (Navbar-style Dock: Large Icons, Active-only Text, Smooth Transitions) */}
-      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shrink-0 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-start sm:justify-center">
-          <nav className="flex items-center gap-1.5 sm:gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-            {[
-              { id: 'overview', label: 'مشخصات و خلاصه', icon: User, count: null },
-              { id: 'attendance', label: 'سوابق کارکرد', icon: Calendar, count: allLogs.length },
-              { id: 'advances', label: 'مساعده‌ها و واریزی‌ها', icon: DollarSign, count: filteredPayments.length },
-              { id: 'settlements', label: 'رسیدهای تسویه', icon: Receipt, count: settlementReceipts.length },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  aria-label={tab.label}
-                  title={tab.label}
-                  className={`relative p-2.5 sm:px-3.5 rounded-xl transition-all duration-300 ease-out flex items-center gap-2 shrink-0 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
-                  }`}
-                >
-                  {/* Enlarged Icon (w-5.5 h-5.5) with hover scale transition */}
-                  <Icon className="w-5.5 h-5.5 transition-transform duration-200 hover:scale-110 shrink-0" />
-                  
-                  {/* Text Label only visible on active tab with fade/slide transition */}
-                  {isActive && (
-                    <span className="text-xs sm:text-sm font-semibold whitespace-nowrap px-0.5 animate-in fade-in slide-in-from-left-1 duration-200">
-                      {tab.label}
-                    </span>
-                  )}
-
-                  {/* Badge Count */}
-                  {tab.count !== null && (
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono transition-colors ${
-                      isActive 
-                        ? 'bg-white/25 text-white font-bold' 
-                        : 'bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  )}
-
-                  {/* Active dot indicator underneath */}
-                  {isActive && (
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      </div>
-
-      {/* Tab Body Contents */}
+      {/* بدنه یکپارچه بدون تب: ساختار دو ستونه پرونده و تایم‌لاین فعالیت‌ها */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6 pb-28">
-
-          {/* TAB 1: OVERVIEW & PERSONAL INFO */}
-          {activeTab === 'overview' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Personal Info Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
-                    <User className="w-4 h-4 text-sky-500" />
-                    <span>اطلاعات پرسنلی و شغلی</span>
+        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 pb-32">
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            
+            {/* ستون راست (۵ ستون دسکتاپ): دوسیه پرسنل، شرایط کاری و ماتریس کارکرد */}
+            <div className="lg:col-span-5 space-y-4">
+              
+              {/* کارت ۱: شرایط شغلی و دستمزد */}
+              <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                  <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-emerald-500" />
+                    <span>شرایط کاری و دستمزد</span>
                   </h3>
-                  
-                  <div className="space-y-3 text-xs">
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">نام و نام خانوادگی:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{worker?.name}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">سمت شغلی (تخصص):</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{worker?.role || 'مشخص نشده'}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">نقش در تیم:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {worker?.teamRole === 'master' ? 'استادکار / سرتیم' : 'نیروی کار'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">گروه کاری:</span>
-                      <span className="font-bold text-purple-600 dark:text-purple-400">
-                        {group?.name || 'بدون گروه (انفرادی)'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">شماره تلفن:</span>
-                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
-                        {worker?.phone || 'ثبت نشده'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1">
-                      <span className="text-slate-500 dark:text-slate-400">وضعیت همکاری:</span>
-                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${
-                        worker?.isActive !== false
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                      }`}>
-                        {worker?.isActive !== false ? 'فعال و شاغل' : 'غیرفعال / پایان همکاری'}
-                      </span>
-                    </div>
-                  </div>
+                  <span className="text-[10px] text-slate-400 font-bold font-mono">
+                    {worker?.teamRole === 'master' ? 'استادکار / سرتیم' : 'نیروی کار'}
+                  </span>
                 </div>
 
-                {/* Wage & Working Conditions */}
-                <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
-                    <Briefcase className="w-4 h-4 text-emerald-500" />
-                    <span>شرایط دستمزد و ساعات کاری</span>
-                  </h3>
-                  
-                  <div className="space-y-3 text-xs">
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">دستمزد پایه هر روز کاری:</span>
-                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                        {formatCurrency(worker?.dailyRate || 0, currency, language)}
-                      </span>
-                    </div>
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="text-slate-500 dark:text-slate-400">دستمزد پایه هر روز:</span>
+                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                      {formatCurrency(worker?.dailyRate || 0, currency, language)}
+                    </span>
+                  </div>
 
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">نرخ هر ساعت اضافه کاری:</span>
-                      <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-sm">
-                        {formatCurrency(worker?.overtimeHourlyRate || 0, currency, language)}
-                      </span>
-                    </div>
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="text-slate-500 dark:text-slate-400">نرخ اضافه کاری:</span>
+                    <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-sm">
+                      {formatCurrency(worker?.overtimeHourlyRate || 0, currency, language)}/ساعت
+                    </span>
+                  </div>
 
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">ساعت کار استاندارد روز:</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {worker?.standardHours || 8} ساعت در روز
-                      </span>
-                    </div>
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="text-slate-500 dark:text-slate-400">ساعت کار استاندارد:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {worker?.standardHours || 8} ساعت
+                    </span>
+                  </div>
 
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400">روزهای کاری در هفته:</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {worker?.workingDaysPerWeek || 6} روز
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1">
-                      <span className="text-slate-500 dark:text-slate-400">تاریخ شروع به کار:</span>
-                      <span className="font-mono text-slate-700 dark:text-slate-300">
-                        {worker?.startDate ? formatFullDateWithWeekday(worker.startDate, language) : 'ثبت نشده'}
-                      </span>
-                    </div>
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-slate-500 dark:text-slate-400">تاریخ شروع به کار:</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">
+                      {worker?.startDate ? formatFullDateWithWeekday(worker.startDate, language) : 'ثبت نشده'}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Notes or Personal Instructions */}
+              {/* کارت ۲: ماتریس تفکیک کارکرد جاری */}
+              <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                  <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-sky-500" />
+                    <span>تفکیک کارکرد جاری</span>
+                  </h4>
+                  <span className="text-[10px] text-sky-600 dark:text-sky-400 font-bold">
+                    {stats.unsettledDaysCount} روز کارکرد
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="p-2.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                    <span className="text-[10px] text-slate-400 block mb-0.5">روز کامل</span>
+                    <span className="text-base font-black text-slate-800 dark:text-slate-100 font-mono">
+                      {stats.unsettledFullDays}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 text-center">
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 block mb-0.5">نیم‌روز</span>
+                    <span className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">
+                      {stats.unsettledHalfDays}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-center">
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 block mb-0.5">ساعتی</span>
+                    <span className="text-base font-black text-purple-600 dark:text-purple-400 font-mono">
+                      {stats.unsettledHourlyDays}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-center">
+                    <span className="text-[10px] text-sky-600 dark:text-sky-400 block mb-0.5">اضافه کاری</span>
+                    <span className="text-xs font-black text-sky-600 dark:text-sky-400 font-mono">
+                      {formatHoursAndMinutes(stats.unsettledOvertimeHours)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* کارت ۳: یادداشت‌ها و توضیحات */}
               {worker?.notes && (
-                <div className="p-4 sm:p-5 rounded-3xl bg-amber-50/70 dark:bg-amber-950/30 backdrop-blur-md border border-amber-200/70 dark:border-amber-900/40 shadow-xs">
-                  <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1 flex items-center gap-1.5">
+                <div className="p-4 rounded-3xl bg-amber-50/70 dark:bg-amber-950/30 backdrop-blur-md border border-amber-200/70 dark:border-amber-900/40 shadow-xs space-y-1">
+                  <h4 className="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5" />
-                    <span>یادداشت‌ها و توضیحات پرسنل:</span>
+                    <span>یادداشت پرسنل:</span>
                   </h4>
                   <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
                     {worker.notes}
@@ -733,387 +718,199 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 </div>
               )}
 
-              {/* Attendance Breakdown Tiles */}
-              <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
-                <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-sky-500" />
-                  <span>تفکیک کارکرد و روزهای حضور جاری (تسویه نشده):</span>
-                </h4>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">روز کامل</span>
-                    <span className="text-lg font-black text-slate-900 dark:text-white font-mono">
-                      {stats.unsettledFullDays}
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 text-center">
-                    <span className="text-[11px] text-amber-600 dark:text-amber-400 block mb-1">نیم‌روز</span>
-                    <span className="text-lg font-black text-amber-600 dark:text-amber-400 font-mono">
-                      {stats.unsettledHalfDays}
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-center">
-                    <span className="text-[11px] text-purple-600 dark:text-purple-400 block mb-1">ساعتی</span>
-                    <span className="text-lg font-black text-purple-600 dark:text-purple-400 font-mono">
-                      {stats.unsettledHourlyDays}
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-center">
-                    <span className="text-[11px] text-sky-600 dark:text-sky-400 block mb-1">اضافه کاری جاری</span>
-                    <span className="text-lg font-black text-sky-600 dark:text-sky-400 font-mono">
-                      {formatHoursAndMinutes(stats.unsettledOvertimeHours)}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
-          )}
 
-          {/* TAB 2: ATTENDANCE RECORDS */}
-          {activeTab === 'attendance' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
-              {/* Filter Buttons */}
-              <div className="flex items-center justify-between gap-2 flex-wrap pb-1">
-                <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setAttendanceFilter('all')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                      attendanceFilter === 'all'
-                        ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    همه ({allLogs.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAttendanceFilter('unsettled')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                      attendanceFilter === 'unsettled'
-                        ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    جاری / تسویه نشده ({stats.unsettledDaysCount})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAttendanceFilter('settled')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                      attendanceFilter === 'settled'
-                        ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    تسویه شده / آرشیو ({stats.settledDaysCount})
-                  </button>
+            {/* ستون چپ (۷ ستون دسکتاپ): فید یکپارچه فعالیت‌ها، کارکردها و پرداخت‌ها */}
+            <div className="lg:col-span-7 space-y-3.5">
+              
+              {/* نوار فیلتر کپسولی تایم‌لاین یکپارچه */}
+              <div className="p-3 sm:px-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-2.5">
+                {/* فیلتر نوع رویداد */}
+                <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-x-auto custom-scrollbar">
+                  {[
+                    { id: 'all', label: 'همه', count: activityCounts.all },
+                    { id: 'attendance', label: 'کارکردها', count: activityCounts.attendance },
+                    { id: 'advance', label: 'مساعده‌ها', count: activityCounts.advances },
+                    { id: 'settlement', label: 'تسویه‌ها', count: activityCounts.settlements }
+                  ].map((chip) => (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => setActivityTypeFilter(chip.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                        activityTypeFilter === chip.id
+                          ? 'bg-sky-500 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <span>{chip.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                        activityTypeFilter === chip.id ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                      }`}>
+                        {chip.count}
+                      </span>
+                    </button>
+                  ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAttendanceOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>ثبت روزهای کاری</span>
-                </button>
-              </div>
-
-              {/* Records List */}
-              {filteredLogs.length === 0 ? (
-                <div className="py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6">
-                  <Calendar className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
-                    هیچ رکورد کارکردی در این فیلتر ثبت نشده است.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredLogs.map((log) => {
-                    const isSettled = fin?.isLogSettled(log);
-
-                    return (
-                      <div
-                        key={log.id}
-                        className={`p-3 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          isSettled
-                            ? 'bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-200/60 dark:border-emerald-900/40'
-                            : 'bg-white dark:bg-slate-800/70 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300'
-                        }`}
-                      >
-                        {/* Date & Details */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <div className={`w-8 h-8 rounded-xl font-bold flex items-center justify-center text-xs shrink-0 ${
-                            isSettled
-                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300'
-                          }`}>
-                            <Calendar className="w-4 h-4" />
-                          </div>
-
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
-                                {formatFullDateWithWeekday(log.date, language)}
-                              </span>
-
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                log.type === 'half'
-                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                  : log.type === 'hourly'
-                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                                  : 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
-                              }`}>
-                                {log.type === 'half' ? 'نیم‌روز' : log.type === 'hourly' ? 'ساعتی' : 'روز کامل'}
-                              </span>
-
-                              {isSettled ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
-                                  <Lock className="w-2.5 h-2.5" />
-                                  <span>تسویه شده</span>
-                                </span>
-                              ) : (
-                                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-semibold">
-                                  جاری
-                                </span>
-                              )}
-                            </div>
-
-                            {Number(log.overtimeHours) > 0 && (
-                              <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-mono mt-0.5">
-                                <Clock className="w-3 h-3" />
-                                <span>اضافه کاری: {formatHoursAndMinutes(log.overtimeHours)}</span>
-                              </div>
-                            )}
-
-                            {log.notes && (
-                              <p className="text-[11px] text-slate-400 italic mt-0.5 truncate max-w-sm">
-                                "{log.notes}"
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Pay and Edit Button */}
-                        <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
-                          <div className="text-end">
-                            <span className="text-xs text-slate-400 block">دستمزد روز:</span>
-                            <span className="font-mono font-black text-sm text-slate-900 dark:text-white">
-                              {formatCurrency(log.totalDayPay || 0, currency, language)}
-                            </span>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => setEditingLog(log)}
-                            className="p-2 rounded-xl text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                            title={isSettled ? 'مشاهده رکورد قفل شده' : 'ویرایش رکورد'}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 3: ADVANCES & PAYMENTS */}
-          {activeTab === 'advances' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between gap-2 flex-wrap pb-1">
-                <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                {/* فیلتر وضعیت تسویه */}
+                <div className="flex items-center gap-1 text-xs">
                   <button
                     type="button"
-                    onClick={() => setAdvancesFilter('all')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                      advancesFilter === 'all'
-                        ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    onClick={() => setActivityStatusFilter('all')}
+                    className={`px-2.5 py-1 rounded-xl font-bold transition-all ${
+                      activityStatusFilter === 'all'
+                        ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     همه
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAdvancesFilter('unsettled')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                      advancesFilter === 'unsettled'
-                        ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    onClick={() => setActivityStatusFilter('unsettled')}
+                    className={`px-2.5 py-1 rounded-xl font-bold transition-all ${
+                      activityStatusFilter === 'unsettled'
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-amber-600'
                     }`}
                   >
-                    معوق / کسر نشده
+                    جاری
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAdvancesFilter('settled')}
-                    className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                      advancesFilter === 'settled'
-                        ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    onClick={() => setActivityStatusFilter('settled')}
+                    className={`px-2.5 py-1 rounded-xl font-bold transition-all ${
+                      activityStatusFilter === 'settled'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-emerald-600'
                     }`}
                   >
-                    کسر شده در تسویه
+                    آرشیو
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsAdvanceModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>ثبت مساعده جدید</span>
-                </button>
               </div>
 
-              {filteredPayments.length === 0 ? (
-                <div className="py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6">
-                  <CreditCard className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
-                    هیچ مساعده یا پرداختی ثبت نشده است.
-                  </p>
+              {/* لیست کارت‌های رویداد تایم‌لاین */}
+              {combinedActivityEvents.length === 0 ? (
+                <div className="py-16 text-center rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-dashed border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+                  <Clock className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  <h4 className="text-sm font-black text-slate-700 dark:text-slate-300 mb-1">هیچ رکوردی در این فیلتر یافت نشد</h4>
+                  <p className="text-xs text-slate-400">می‌توانید با داک بالای صفحه کارکرد یا مساعده جدید ثبت کنید.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {filteredPayments.map((p) => {
-                    const isSettled = fin?.isPaymentSettled(p);
+                <div className="space-y-2.5">
+                  {combinedActivityEvents.map((ev) => {
+                    const isAttendance = ev.kind === 'attendance';
+                    const isAdvance = ev.kind === 'advance';
+                    const isSettlement = ev.kind === 'settlement';
 
                     return (
                       <div
-                        key={p.id}
-                        className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                          isSettled
-                            ? 'bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-200/60 dark:border-emerald-900/40'
-                            : 'bg-white dark:bg-slate-800/70 border-slate-200/80 dark:border-slate-700/80'
+                        key={ev.id}
+                        className={`p-3.5 sm:p-4 rounded-3xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs hover:shadow-md ${
+                          isSettlement
+                            ? 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-200/80 dark:border-purple-800/60'
+                            : ev.isSettled
+                            ? 'bg-emerald-50/30 dark:bg-emerald-950/15 border-emerald-200/60 dark:border-emerald-800/40'
+                            : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-white/60 dark:border-slate-800/80'
                         }`}
                       >
+                        {/* جزییات و آیکون نوع رویداد */}
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl font-bold flex items-center justify-center text-xs shrink-0 ${
-                            isSettled
-                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs ${
+                            isSettlement
+                              ? 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300'
+                              : isAdvance
+                              ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300'
+                              : 'bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300'
                           }`}>
-                            <DollarSign className="w-4 h-4" />
+                            {isSettlement ? (
+                              <Receipt className="w-5 h-5" />
+                            ) : isAdvance ? (
+                              <DollarSign className="w-5 h-5" />
+                            ) : (
+                              <Calendar className="w-5 h-5" />
+                            )}
                           </div>
 
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
-                                {formatFullDateWithWeekday(p.date, language)}
+                              <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                                {formatFullDateWithWeekday(ev.date, language)}
                               </span>
 
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                {p.type || 'مساعده'}
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                                isSettlement
+                                  ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300'
+                                  : isAdvance
+                                  ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300'
+                                  : 'bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300'
+                              }`}>
+                                {isSettlement ? 'تسویه نهایی' : isAdvance ? 'مساعده' : (ev.type === 'half' ? 'نیم‌روز' : ev.type === 'hourly' ? 'ساعتی' : 'روز کامل')}
                               </span>
 
-                              {isSettled ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                              {ev.isSettled ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
                                   <Lock className="w-2.5 h-2.5" />
-                                  <span>کسر شده در تسویه</span>
+                                  <span>تسویه شده</span>
                                 </span>
                               ) : (
-                                <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-200/60">
-                                  در انتظار کسر از حساب
+                                <span className="px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-200/60">
+                                  جاری / تسویه نشده
                                 </span>
                               )}
                             </div>
 
-                            {p.notes && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                {p.notes}
+                            {/* ساعت اضافه کاری یا یادداشت */}
+                            {isAttendance && Number(ev.overtimeHours) > 0 && (
+                              <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+                                <Clock className="w-3 h-3" />
+                                <span>اضافه کاری: {formatHoursAndMinutes(ev.overtimeHours)}</span>
+                              </div>
+                            )}
+
+                            {ev.notes && (
+                              <p className="text-[11px] text-slate-400 italic mt-0.5 truncate max-w-sm">
+                                "{ev.notes}"
                               </p>
                             )}
                           </div>
                         </div>
 
-                        <div className="text-end shrink-0">
-                          <span className="font-mono font-black text-sm sm:text-base text-slate-900 dark:text-white">
-                            {formatCurrency(p.amount || 0, currency, language)}
-                          </span>
+                        {/* مبلغ و دکمه ویرایش (در صورت کارکرد) */}
+                        <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+                          <div className="text-end">
+                            <span className="text-[10px] text-slate-400 block">
+                              {isSettlement ? 'مبلغ تسویه:' : isAdvance ? 'پرداخت مساعده:' : 'دستمزد ناخالص:'}
+                            </span>
+                            <span className={`font-mono font-black text-sm sm:text-base ${
+                              isSettlement ? 'text-purple-600 dark:text-purple-400' : isAdvance ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                            }`} dir="ltr">
+                              {isAdvance ? `-${formatAmount(ev.amount, currency)}` : `+${formatAmount(ev.amount, currency)}`} {getCurrencySymbol(currency, language)}
+                            </span>
+                          </div>
+
+                          {isAttendance && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingLog(ev.data)}
+                              className="p-2 rounded-xl text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                              title={ev.isSettled ? 'مشاهده رکورد قفل شده' : 'ویرایش رکورد'}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
+
             </div>
-          )}
 
-          {/* TAB 4: SETTLEMENTS */}
-          {activeTab === 'settlements' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  سوابق و برگه‌های تسویه‌حساب نهایی:
-                </h4>
-
-                <button
-                  type="button"
-                  onClick={() => setIsSettlementModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>تسویه حساب جدید</span>
-                </button>
-              </div>
-
-              {settlementReceipts.length === 0 ? (
-                <div className="py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6">
-                  <Receipt className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
-                    تاکنون هیچ برگه تسویه‌ای برای این پرسنل ثبت نشده است.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {settlementReceipts.map((st) => (
-                    <div
-                      key={st.id}
-                      className="p-4 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3 shadow-xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold flex items-center justify-center text-sm shrink-0">
-                          <Receipt className="w-5 h-5" />
-                        </div>
-
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-slate-900 dark:text-white">
-                              برگه تسویه نهایی
-                            </span>
-                            <span className="font-mono text-xs text-slate-400">
-                              ({formatDateDisplay(st.date, language)})
-                            </span>
-                          </div>
-                          {st.notes && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                              {st.notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-end">
-                        <span className="text-[11px] text-slate-400 block">مبلغ تسویه شده:</span>
-                        <span className="font-mono font-black text-base text-purple-600 dark:text-purple-400">
-                          {formatCurrency(st.amount || 0, currency, language)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          </div>
 
         </div>
       </div>
