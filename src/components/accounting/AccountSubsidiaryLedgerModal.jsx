@@ -251,6 +251,14 @@ export function AccountSubsidiaryLedgerModal({
   const totalOutflow = isWorker ? workerTransactionsData.totalOutflow : (Number(effectiveAccountData?.totalOutflow) || 0);
   const isPositive = currentBalance >= 0;
 
+  const statusBadgeText = isWorker
+    ? (isPositive 
+        ? (language === 'fa' ? 'طلبکار' : 'شایستەی وەرگرتن') 
+        : (language === 'fa' ? 'بدهکار' : 'قەرزدار'))
+    : (isPositive 
+        ? (language === 'fa' ? 'تراز مثبت' : 'باڵانسی ئەرێنی') 
+        : (language === 'fa' ? 'تراز منفی' : 'باڵانسی نەرێنی'));
+
   const rawTransactions = isWorker ? workerTransactionsData.rawTransactions : (effectiveAccountData?.transactions || []);
 
   // فیلتر تراکنش‌ها
