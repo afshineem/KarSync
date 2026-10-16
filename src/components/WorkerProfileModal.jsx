@@ -312,18 +312,18 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       dir={direction}
       className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-[#f3f6f4] dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none"
     >
-      {/* Top Header / Profile Hero (Modern Clean Theme-Harmonized Styling) */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-20 shadow-xs">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-            {/* Worker Avatar & Identity */}
-            <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+      {/* هدر بالایی تمام‌صفحه و بنر هویت پرسنل (Apple Liquid Glass Executive Identity Banner) */}
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shrink-0 z-20 shadow-xs">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+            {/* مشخصات و هویت پرسنل */}
+            <div className="flex items-center gap-3.5 min-w-0">
               <div className="relative shrink-0">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-extrabold text-lg sm:text-xl flex items-center justify-center shadow-md shadow-sky-500/20 border-2 border-white dark:border-slate-800">
+                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-xl flex items-center justify-center shadow-lg shadow-sky-500/25 border border-white/60 dark:border-slate-800">
                   {worker?.name ? worker.name.charAt(0) : <User className="w-6 h-6" />}
                 </div>
                 <span 
-                  className={`absolute -bottom-1 -end-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
+                  className={`absolute -bottom-1 -end-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
                     worker?.isActive !== false ? 'bg-emerald-500' : 'bg-rose-500'
                   }`} 
                   title={worker?.isActive !== false ? 'فعال' : 'غیرفعال'}
@@ -332,17 +332,17 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate tracking-tight">
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
                     {worker?.name || '...'}
                   </h2>
                   {worker?.role && (
-                    <span className="px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 text-xs font-bold">
+                    <span className="px-2.5 py-0.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 text-xs font-bold">
                       {worker.role}
                     </span>
                   )}
                   {group?.name && (
-                    <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1">
-                      <Layers className="w-3 h-3 text-sky-500" />
+                    <span className="px-2.5 py-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-sky-500" />
                       <span>{group.name}</span>
                     </span>
                   )}
@@ -352,7 +352,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   {worker?.phone ? (
                     <a 
                       href={`tel:${worker.phone}`} 
-                      className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline font-mono font-bold transition-colors"
+                      className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400 hover:underline font-mono font-bold transition-colors"
                       title="تماس تلفنی"
                     >
                       <Phone className="w-3.5 h-3.5" />
@@ -363,30 +363,29 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   )}
 
                   <span className="text-slate-300 dark:text-slate-700">•</span>
-                  <span>نرخ روزانه: <strong className="text-slate-900 dark:text-white font-mono">{formatCurrency(worker?.dailyRate || 0, currency, language)}</strong></span>
+                  <span>نرخ روزانه: <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker?.dailyRate || 0, currency, language)}</strong></span>
                   
                   {Number(worker?.overtimeHourlyRate) > 0 && (
                     <>
                       <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <span>نرخ اضافه کاری: <strong className="text-slate-900 dark:text-white font-mono">{formatCurrency(worker.overtimeHourlyRate, currency, language)}</strong>/ساعت</span>
+                      <span>اضافه کاری: <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker.overtimeHourlyRate, currency, language)}</strong>/ساعت</span>
                     </>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Action Buttons Dock (Opposite Worker Info) + Close Button */}
-            <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-center shrink-0">
-              {/* Quick Actions Dock: Exactly matching other headers (h-[52px] sm:h-[58px], icons w-5.5 h-5.5 sm:w-6 sm:h-6) */}
-              <div className="h-[52px] sm:h-[58px] flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex-shrink-0">
+            {/* نوار داک ابزارهای سریع پرسنل و بستن */}
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <div className="h-11 sm:h-12 flex items-center gap-1 p-1 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs shrink-0">
                 {worker?.phone && (
                   <a
                     href={`tel:${worker.phone}`}
                     aria-label="تماس مستقیم"
                     title="تماس مستقیم"
-                    className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 group flex items-center justify-center"
+                    className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                   >
-                    <PhoneCall className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                    <PhoneCall className="w-4.5 h-4.5" />
                   </a>
                 )}
 
@@ -395,9 +394,9 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   onClick={() => setIsAdvanceModalOpen(true)}
                   aria-label="ثبت مساعده جدید"
                   title="ثبت مساعده جدید"
-                  className="h-full aspect-square text-slate-500 hover:text-amber-600 hover:bg-white dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 group flex items-center justify-center"
+                  className="h-full aspect-square text-slate-500 hover:text-amber-600 hover:bg-white dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                 >
-                  <DollarSign className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                  <DollarSign className="w-4.5 h-4.5" />
                 </button>
 
                 <button
@@ -405,9 +404,9 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   onClick={() => setIsQuickAttendanceOpen(true)}
                   aria-label="ثبت سریع ماهانه"
                   title="ثبت سریع ماهانه"
-                  className="h-full aspect-square text-slate-500 hover:text-sky-600 hover:bg-white dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 group flex items-center justify-center"
+                  className="h-full aspect-square text-slate-500 hover:text-sky-600 hover:bg-white dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                 >
-                  <CalendarCheck className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                  <CalendarCheck className="w-4.5 h-4.5" />
                 </button>
 
                 <button
@@ -415,9 +414,9 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   onClick={() => setIsSettlementModalOpen(true)}
                   aria-label="صدور تسویه‌حساب"
                   title="صدور تسویه‌حساب"
-                  className="h-full aspect-square text-slate-500 hover:text-indigo-600 hover:bg-white dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 group flex items-center justify-center cursor-pointer"
+                  className="h-full aspect-square text-slate-500 hover:text-indigo-600 hover:bg-white dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                 >
-                  <Receipt className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                  <Receipt className="w-4.5 h-4.5" />
                 </button>
 
                 <button
@@ -436,9 +435,9 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   }}
                   aria-label="دفتر معین پرسنل"
                   title="دفتر معین و صورت‌حساب پرسنل"
-                  className="h-full aspect-square text-slate-500 hover:text-purple-600 hover:bg-white dark:text-slate-400 dark:hover:text-purple-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 group flex items-center justify-center cursor-pointer"
+                  className="h-full aspect-square text-slate-500 hover:text-purple-600 hover:bg-white dark:text-slate-400 dark:hover:text-purple-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                 >
-                  <FileSpreadsheet className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                  <FileSpreadsheet className="w-4.5 h-4.5" />
                 </button>
 
                 <button
@@ -446,28 +445,28 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   onClick={handleOpenQRModal}
                   aria-label="لینک یا بارکد ورود پرسنل"
                   title="لینک یا بارکد ورود پرسنل"
-                  className="h-full aspect-square text-slate-500 hover:text-sky-600 hover:bg-white dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 group flex items-center justify-center cursor-pointer"
+                  className="h-full aspect-square text-slate-500 hover:text-sky-600 hover:bg-white dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                 >
-                  <Lock className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                  <Lock className="w-4.5 h-4.5" />
                 </button>
               </div>
 
-              {/* Close Button - matching dock height */}
+              {/* دکمه بستن */}
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="بستن (Esc)"
                 title="بستن (Esc)"
-                className="h-[52px] sm:h-[58px] aspect-square rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all duration-150 active:scale-95 border border-slate-200/90 dark:border-slate-700/80 shadow-xs shrink-0"
+                className="h-11 sm:h-12 w-11 sm:w-12 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all duration-150 active:scale-95 border border-slate-200/90 dark:border-slate-700/80 shadow-xs shrink-0 cursor-pointer"
               >
-                <X className="w-5.5 h-5.5 sm:w-6 sm:h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Wrongly-settled work warning: settled days dated AFTER the settlement that paid them or unpaid partial settlements */}
+      {/* هشدار کارکرد اشتباه تسویه شده */}
       {fin?.suspiciousSettledLogs?.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-300 dark:border-amber-800 shrink-0">
           <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
@@ -489,59 +488,61 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       )}
 
-      {/* Financial Highlights Bar (Harmonized Cards) */}
-      <div className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 shrink-0">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* Net Balance Due */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+      {/* نوار کارت‌های شاخص مالی پرسنل (Liquid Glass KPI Cards) */}
+      <div className="no-print px-4 py-3 sm:px-6 lg:px-8 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
+        <div className="max-w-7xl mx-auto w-full grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* ۱. طلب / مانده حساب جاری */}
+          <div className={`p-4 rounded-3xl backdrop-blur-md border shadow-md flex flex-col justify-between transition-all ${
+            stats.netBalanceDue >= 0
+              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/60 text-white shadow-emerald-500/20'
+              : 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400/60 text-white shadow-rose-500/20'
+          }`}>
+            <span className="text-[11px] font-bold block mb-1 opacity-90 text-white">
               طلب / مانده حساب جاری
             </span>
-            <div className={`text-sm sm:text-base font-black truncate font-mono ${
-              stats.netBalanceDue >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-            }`}>
+            <div className="text-base sm:text-lg font-black font-mono truncate text-white" dir="ltr">
               {formatCurrency(stats.netBalanceDue, currency, language)}
             </div>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">
+            <span className="text-[10px] mt-1 block opacity-80 text-white">
               {stats.netBalanceDue >= 0 ? 'طلبکار از کارگاه' : 'بدهکار مساعده'}
             </span>
           </div>
 
-          {/* Unsettled Gross Pay */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
+          {/* ۲. کارکرد معوق ناخالص */}
+          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
               کارکرد معوق (ناخالص)
             </span>
-            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate font-mono">
+            <div className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-white truncate" dir="ltr">
               {formatCurrency(stats.unsettledGrossPay, currency, language)}
             </div>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">
+            <span className="text-[10px] text-slate-400 mt-1 block">
               {stats.unsettledDaysCount} روز کارکرد جاری
             </span>
           </div>
 
-          {/* Unsettled Advances */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+          {/* ۳. مساعده‌های کسر نشده */}
+          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-amber-300 dark:hover:border-amber-700 transition-all">
+            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 block mb-1">
               مساعده‌های کسر نشده
             </span>
-            <div className="text-sm sm:text-base font-black text-amber-600 dark:text-amber-400 truncate font-mono">
+            <div className="text-base sm:text-lg font-black font-mono text-amber-600 dark:text-amber-400 truncate" dir="ltr">
               {formatCurrency(stats.unsettledAdvances, currency, language)}
             </div>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">
+            <span className="text-[10px] text-slate-400 mt-1 block">
               کسر در زمان تسویه
             </span>
           </div>
 
-          {/* Settled All-Time */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+          {/* ۴. کل مبالغ تسویه شده */}
+          <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:border-sky-300 dark:hover:border-sky-700 transition-all">
+            <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 block mb-1">
               کل مبالغ تسویه شده
             </span>
-            <div className="text-sm sm:text-base font-black text-sky-600 dark:text-sky-400 truncate font-mono">
+            <div className="text-base sm:text-lg font-black font-mono text-sky-600 dark:text-sky-400 truncate" dir="ltr">
               {formatCurrency(stats.settledGrossPay, currency, language)}
             </div>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">
+            <span className="text-[10px] text-slate-400 mt-1 block">
               {stats.settledDaysCount} روز در آرشیو
             </span>
           </div>
@@ -606,55 +607,55 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       </div>
 
       {/* Tab Body Contents */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6 pb-28">
 
           {/* TAB 1: OVERVIEW & PERSONAL INFO */}
           {activeTab === 'overview' && (
             <div className="space-y-6 animate-in fade-in duration-150">
               {/* Personal Info Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-3">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <User className="w-4 h-4 text-sky-500" />
                     <span>اطلاعات پرسنلی و شغلی</span>
                   </h3>
                   
-                  <div className="space-y-2.5 text-xs">
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                  <div className="space-y-3 text-xs">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">نام و نام خانوادگی:</span>
                       <span className="font-bold text-slate-900 dark:text-white">{worker?.name}</span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">سمت شغلی (تخصص):</span>
                       <span className="font-bold text-slate-900 dark:text-white">{worker?.role || 'مشخص نشده'}</span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">نقش در تیم:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {worker?.teamRole === 'master' ? 'استادکار / سرتیم' : 'نیروی کار'}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">گروه کاری:</span>
                       <span className="font-bold text-purple-600 dark:text-purple-400">
                         {group?.name || 'بدون گروه (انفرادی)'}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">شماره تلفن:</span>
-                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
                         {worker?.phone || 'ثبت نشده'}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between py-1">
                       <span className="text-slate-500 dark:text-slate-400">وضعیت همکاری:</span>
-                      <span className={`px-2 py-0.5 rounded-full font-bold text-[11px] ${
+                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${
                         worker?.isActive !== false
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                           : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
@@ -666,35 +667,35 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 </div>
 
                 {/* Wage & Working Conditions */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/80 shadow-xs space-y-3">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <Briefcase className="w-4 h-4 text-emerald-500" />
                     <span>شرایط دستمزد و ساعات کاری</span>
                   </h3>
                   
-                  <div className="space-y-2.5 text-xs">
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                  <div className="space-y-3 text-xs">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">دستمزد پایه هر روز کاری:</span>
                       <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                         {formatCurrency(worker?.dailyRate || 0, currency, language)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">نرخ هر ساعت اضافه کاری:</span>
                       <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-sm">
                         {formatCurrency(worker?.overtimeHourlyRate || 0, currency, language)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">ساعت کار استاندارد روز:</span>
                       <span className="font-bold text-slate-800 dark:text-slate-200">
                         {worker?.standardHours || 8} ساعت در روز
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400">روزهای کاری در هفته:</span>
                       <span className="font-bold text-slate-800 dark:text-slate-200">
                         {worker?.workingDaysPerWeek || 6} روز
@@ -713,7 +714,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
               {/* Notes or Personal Instructions */}
               {worker?.notes && (
-                <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
+                <div className="p-4 sm:p-5 rounded-3xl bg-amber-50/70 dark:bg-amber-950/30 backdrop-blur-md border border-amber-200/70 dark:border-amber-900/40 shadow-xs">
                   <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1 flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5" />
                     <span>یادداشت‌ها و توضیحات پرسنل:</span>
@@ -725,37 +726,37 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
               )}
 
               {/* Attendance Breakdown Tiles */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2.5 flex items-center gap-2">
+              <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-sky-500" />
                   <span>تفکیک کارکرد و روزهای حضور جاری (تسویه نشده):</span>
                 </h4>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-center">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">روز کامل</span>
-                    <span className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
+                  <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">روز کامل</span>
+                    <span className="text-lg font-black text-slate-900 dark:text-white font-mono">
                       {stats.unsettledFullDays}
                     </span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-center">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">نیم‌روز</span>
-                    <span className="text-base font-extrabold text-amber-600 dark:text-amber-400 font-mono">
+                  <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 text-center">
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400 block mb-1">نیم‌روز</span>
+                    <span className="text-lg font-black text-amber-600 dark:text-amber-400 font-mono">
                       {stats.unsettledHalfDays}
                     </span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-center">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">ساعتی</span>
-                    <span className="text-base font-extrabold text-purple-600 dark:text-purple-400 font-mono">
+                  <div className="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-center">
+                    <span className="text-[11px] text-purple-600 dark:text-purple-400 block mb-1">ساعتی</span>
+                    <span className="text-lg font-black text-purple-600 dark:text-purple-400 font-mono">
                       {stats.unsettledHourlyDays}
                     </span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-center">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">اضافه کاری جاری</span>
-                    <span className="text-base font-extrabold text-sky-600 dark:text-sky-400 font-mono">
+                  <div className="p-3.5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-center">
+                    <span className="text-[11px] text-sky-600 dark:text-sky-400 block mb-1">اضافه کاری جاری</span>
+                    <span className="text-lg font-black text-sky-600 dark:text-sky-400 font-mono">
                       {formatHoursAndMinutes(stats.unsettledOvertimeHours)}
                     </span>
                   </div>
@@ -1109,19 +1110,43 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       </div>
 
-      {/* Modal Footer */}
-      <div className="border-t border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 shadow-xs">
-        <div className="max-w-7xl mx-auto w-full p-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs">
-          <span className="text-slate-400">
-            شناسه سیستمی: <span className="font-mono text-slate-500">{worker?.id}</span>
-          </span>
+      {/* داک چسبان شیشه‌ای پایین (Sticky Apple Liquid Glass Bottom Dock) */}
+      <div className="no-print fixed bottom-0 start-0 end-0 z-30 p-3 sm:px-6 lg:px-8 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex items-center justify-between">
+        <div className="flex items-center gap-3 sm:gap-6">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">مانده حساب پرسنل:</span>
+            <span className={`text-base sm:text-lg font-black font-mono tracking-tight ${
+              stats.netBalanceDue >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+            }`} dir="ltr">
+              {formatCurrency(stats.netBalanceDue, currency, language)}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+              stats.netBalanceDue >= 0
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+            }`}>
+              {stats.netBalanceDue >= 0 ? 'طلبکار' : 'بدهکار'}
+            </span>
+          </div>
 
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
+
+          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>شناسه پرسنل:</span>
+            <span className="font-mono text-slate-700 dark:text-slate-300">{worker?.id}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold transition-colors"
+            className="px-4 sm:px-5 h-10 rounded-2xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
-            بستن (ESC)
+            <span>بستن</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-slate-700 dark:bg-slate-200 text-slate-200 dark:text-slate-700 rounded-md font-mono">
+              ESC
+            </kbd>
           </button>
         </div>
       </div>
