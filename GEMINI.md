@@ -66,3 +66,26 @@ Whenever this trigger phrase or a request to update a modal/view to the new desi
 * **Quick Chips & Segments:**
   - Amount chips, status toggles, and payment methods must use pill-shaped containers with smooth active-indicator animations (`transition-all duration-300`).
 
+## Trilingual Localization & Zero-Leakage Translation Protocol
+**Trigger Phrase:** «[بخش/صفحه مورد نظر] رو ترجمه کن» (e.g. «داشبورد رو ترجمه کن», «مودال ثبت کارکرد روزانه رو ترجمه کن»)
+
+Whenever this trigger phrase is issued for a specific section, page, or modal, you MUST execute the following mandatory localization protocol:
+
+### 1. Bottom-Up, Line-by-Line Audit & Translation (بررسی خط‌به‌خط از پایین به بالا):
+1. **Strict Bottom-to-Top Traversal:** Inspect the target file(s) **line-by-line from the very last line up to line 1** (bottom-up). This guarantees that footers, modals, tooltips, `title` attributes, `placeholder` texts, `aria-label`s, toast messages, `window.confirm`/`alert` dialogs, table headers, badges, empty states, and fallback values are never overlooked.
+2. **Full 3-Language Support (`fa`, `ku`, `en`):** Every single user-facing text must be translated accurately into all three languages:
+   - **Persian (`fa` - فارسی):** Professional Persian terminology appropriate for workshop, HR, and accounting systems.
+   - **Kurdish (`ku` - کوردی سۆرانی):** Authentic, natural Sorani Kurdish (Central Kurdish script).
+   - **English (`en` - English):** Idiomatic, professional English.
+
+### 2. Zero-Leakage Rules (قانون عدم نشت واژه بین زبان‌ها):
+* **No Cross-Language Leakage:**
+  - **Ban Binary Ternaries:** Never use two-way ternaries like `language === 'fa' ? '...' : '...'` (which either leaks English into Kurdish or Kurdish/Persian into English). Always provide all three branches (`language === 'fa' ? '...' : language === 'ku' ? '...' : '...'`) or use verified keys in `src/i18n/translations.js`.
+  - **Eliminate Hardcoded Strings:** Replace all hardcoded Persian, Kurdish, or English strings in JSX, helper functions, default state values, and data fallbacks (e.g., `worker.role || ...`, default section names, currency/time units like `'روز'`, `'نفر'`, `'ساعت'`) with trilingual equivalents.
+  - **Prevent Raw Key Leakage:** Because `t('key')` returns `'key'` (a truthy string) when a key is missing from `src/i18n/translations.js`, `t('missingKey') || 'fallback'` will leak the raw English identifier `'missingKey'` into the UI. Every `t(...)` key used in the component MUST be defined in `translations.fa`, `translations.ku`, and `translations.en`.
+* **Language Purity in RTL (`fa` & `ku`) and LTR (`en`):**
+  - When in an RTL language (`fa` or `ku`), 100% of the UI must be strictly in that language—no Persian words leaking into Kurdish, no Kurdish words leaking into Persian, and no English words appearing except unavoidable universal technical terms/acronyms (`PDF`, `Excel`, `CSV`, `QR`, `2FA`, `UTC`, `KarSync`).
+  - When in English (`en`), zero Persian or Kurdish characters/words may appear anywhere on screen.
+
+### 3. Execution, Build & Commit:
+* Apply all bottom-up translation fixes in the target component and `src/i18n/translations.js`, verify with `node ./node_modules/vite/bin/vite.js build` (`0 errors`), and auto-commit locally.
