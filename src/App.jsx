@@ -37,6 +37,8 @@ import { LockScreenModal } from './components/LockScreenModal';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { SubsidiarySearchModal } from './components/accounting/SubsidiarySearchModal';
 import { AccountSubsidiaryLedgerModal } from './components/accounting/AccountSubsidiaryLedgerModal';
+import { NotificationProvider } from './context/NotificationContext';
+import { ToastContainer } from './components/ToastContainer';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted, linkLogin, retryLinkLogin, dismissLinkLogin } = useAuth();
@@ -87,18 +89,24 @@ function AppContent() {
   const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
   const [selectedLedgerEntity, setSelectedLedgerEntity] = useState(null);
 
-  // Global listeners for Workers & Counterparties modals
+  // Global listeners for Workers, Counterparties & Daily Logging modals
   useEffect(() => {
     const handleOpenWorkers = () => setIsWorkersModalOpen(true);
     const handleOpenAddWorker = () => setIsAddWorkerModalOpen(true);
     const handleOpenCounterparties = () => setIsCounterpartiesModalOpen(true);
+    const handleOpenDailyLoggingEvent = (e) => {
+      setLoggingModalDate(e.detail?.date || null);
+      setIsLoggingModalOpen(true);
+    };
     window.addEventListener('karsync-open-workers-modal', handleOpenWorkers);
     window.addEventListener('karsync-open-new-worker', handleOpenAddWorker);
     window.addEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
+    window.addEventListener('karsync-open-daily-logging', handleOpenDailyLoggingEvent);
     return () => {
       window.removeEventListener('karsync-open-workers-modal', handleOpenWorkers);
       window.removeEventListener('karsync-open-new-worker', handleOpenAddWorker);
       window.removeEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
+      window.removeEventListener('karsync-open-daily-logging', handleOpenDailyLoggingEvent);
     };
   }, []);
 
@@ -557,7 +565,10 @@ export default function App() {
         <AuthProvider>
           <RBACProvider>
             <ProjectProvider>
-              <AppContent />
+              <NotificationProvider>
+                <AppContent />
+                <ToastContainer />
+              </NotificationProvider>
             </ProjectProvider>
           </RBACProvider>
         </AuthProvider>

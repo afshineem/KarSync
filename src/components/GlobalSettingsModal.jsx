@@ -58,7 +58,8 @@ import {
   Shield,
   ShieldAlert,
   Landmark,
-  RotateCcw
+  RotateCcw,
+  BellRing
 } from 'lucide-react';
 import { TwoFactorModal } from './TwoFactorModal';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
@@ -67,6 +68,7 @@ import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import ExpenseCategoriesTab from './accounting/ExpenseCategoriesTab';
 import DataSyncSettingsTab from './accounting/DataSyncSettingsTab';
 import UsersSettingsTab from "./UsersSettingsTab";
+import NotificationsSettingsTab from './NotificationsSettingsTab';
 import { useAccounting } from '../hooks/useAccounting';
 
 export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
@@ -165,6 +167,12 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
       id: 'general',
       label: language === 'fa' ? 'عمومی و ظاهر' : language === 'ku' ? 'گشتی و ڕووکار' : 'General & Theme',
       icon: Settings,
+      color: 'text-sky-500'
+    },
+    {
+      id: 'notifications',
+      label: language === 'fa' ? 'اعلان‌ها و یادآورها' : language === 'ku' ? 'ئاگادارکردنەوەکان' : 'Notifications & Alerts',
+      icon: BellRing,
       color: 'text-sky-500'
     },
     {
@@ -2522,6 +2530,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
                 </div>
               </div>
+            )}
+
+            {/* ---------------------------------------------------- */}
+            {/* TAB: NOTIFICATIONS & SMART ALERTS */}
+            {/* ---------------------------------------------------- */}
+            {activeTab === 'notifications' && (
+              <NotificationsSettingsTab />
             )}
 
             {/* ---------------------------------------------------- */}

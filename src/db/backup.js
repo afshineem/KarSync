@@ -1,4 +1,5 @@
 import { db, seedInitialDataIfEmpty } from './db';
+import { emitToast } from '../context/NotificationContext';
 
 /**
  * Exports all data from IndexedDB into a formatted JSON string and triggers download
@@ -13,10 +14,11 @@ export async function exportDatabaseToJSON() {
   const financialAccounts = db.financialAccounts ? await db.financialAccounts.toArray() : [];
   const accountTransfers = db.accountTransfers ? await db.accountTransfers.toArray() : [];
 
+  const exportedAt = new Date().toISOString();
   const backupData = {
     version: 5,
     appName: 'KarSync',
-    exportedAt: new Date().toISOString(),
+    exportedAt,
     currency: 'IQD',
     data: {
       workers,
@@ -35,12 +37,22 @@ export async function exportDatabaseToJSON() {
   )}`;
 
   const downloadAnchor = document.createElement('a');
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = exportedAt.split('T')[0];
   downloadAnchor.setAttribute('href', jsonString);
   downloadAnchor.setAttribute('download', `workshop_backup_${dateStr}.json`);
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
   downloadAnchor.remove();
+
+  try {
+    localStorage.setItem('karsync_last_backup_at', exportedAt);
+  } catch (_) {}
+
+  emitToast({
+    type: 'success',
+    title: 'پشتیبان‌گیری موفق',
+    message: `فایل پشتیبان (${dateStr}) با موفقیت دانلود و ذخیره شد.`
+  });
 
   return backupData;
 }

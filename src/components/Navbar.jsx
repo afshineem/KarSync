@@ -4,6 +4,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { ProjectSwitcher } from './ProjectSwitcher';
 import { SettingsDropdown } from './SettingsDropdown';
+import { NotificationDropdown } from './NotificationDropdown';
+import { useNotifications } from '../context/NotificationContext';
 import { useProject } from '../context/ProjectContext';
 import { 
   LayoutDashboard, 
@@ -13,7 +15,8 @@ import {
   WalletCards,
   Receipt,
   Landmark,
-  Briefcase
+  Briefcase,
+  Bell
 } from 'lucide-react';
 
 export function Navbar({ 
@@ -27,10 +30,12 @@ export function Navbar({
   onOpenInstallModal,
   onOpenUsersModal
 }) {
-  const { t, language } = useLanguage();
+  const { t, language, formatNumber } = useLanguage();
   const { user } = useAuth();
   const { openProjectSettings, openGlobalSettings } = useProject();
+  const { unreadCount } = useNotifications();
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
+  const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
 
   // Global keyboard shortcut: Shift + , to open settings
   useEffect(() => {
@@ -160,15 +165,59 @@ export function Navbar({
               </nav>
             </div>
 
-            {/* Right Controls: Compact ProjectSwitcher + Settings Dropdown Trigger */}
+            {/* Right Controls: Compact ProjectSwitcher + Notification Bell + Settings Dropdown Trigger */}
             <div className="flex items-center gap-2 flex-shrink-0 relative">
               <ProjectSwitcher />
+
+              {/* Notification Center Bell Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNotificationDropdownOpen((prev) => !prev);
+                    setIsSettingsDropdownOpen(false);
+                  }}
+                  title={
+                    language === 'fa'
+                      ? 'مرکز اعلان‌ها و هشدارها'
+                      : language === 'ku'
+                      ? 'ناوەندی ئاگادارکردنەوەکان'
+                      : 'Notifications'
+                  }
+                  aria-label="Notifications"
+                  className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border transition-all shadow-xs flex items-center justify-center group hover:scale-105 active:scale-95 ${
+                    isNotificationDropdownOpen
+                      ? 'ring-2 ring-sky-500 shadow-md border-transparent bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                      : 'bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border-white/60 dark:border-white/10 backdrop-blur-md text-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  <Bell className={`w-4.5 h-4.5 sm:w-5 sm:h-5 transition-transform ${unreadCount > 0 ? 'group-hover:rotate-12' : ''}`} />
+
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -end-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 text-[10px] font-black text-white flex items-center justify-center leading-none shadow-xs">
+                      {formatNumber(unreadCount > 9 ? '9+' : unreadCount)}
+                    </span>
+                  )}
+                </button>
+
+                <NotificationDropdown
+                  isOpen={isNotificationDropdownOpen}
+                  onClose={() => setIsNotificationDropdownOpen(false)}
+                  onOpenNotificationSettings={() => {
+                    setIsNotificationDropdownOpen(false);
+                    if (openGlobalSettings) openGlobalSettings('notifications');
+                  }}
+                />
+              </div>
 
               {/* User Avatar & Settings Trigger Button */}
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
+                  onClick={() => {
+                    setIsSettingsDropdownOpen((prev) => !prev);
+                    setIsNotificationDropdownOpen(false);
+                  }}
                   title={user?.name || t('settings')}
                   aria-label={user?.name || t('settings')}
                   className={`relative p-0.5 sm:p-1 rounded-2xl border transition-all shadow-xs flex items-center justify-center group hover:scale-105 active:scale-95 ${

@@ -232,6 +232,25 @@ export async function logAuditAction(payload) {
     }
     // -----------------------
 
+    // Emit instant visual Toast feedback for user actions (unless suppressed by batch operations)
+    if (!payload.silentToast && details?.description && action_type !== 'SYSTEM_INIT') {
+      const isDelete = action_type.includes('DELETE') || action_type.includes('REMOVE');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('karsync-toast', {
+            detail: {
+              id: 'tst_aud_' + logRecord.id,
+              type: isDelete ? 'warning' : 'success',
+              title: isDelete ? 'حذف رکورد انجام شد' : 'عملیات با موفقیت ثبت شد',
+              message: details.description,
+              duration: 3600,
+              createdAt: Date.now()
+            }
+          })
+        );
+      }
+    }
+
     // IMPORTANT: Even if workspace_id or user_id is null, we still try to insert.
     // Supabase RLS will naturally reject it if it requires them, which is exactly the intended secure behavior.
     if (navigator.onLine && supabase) {

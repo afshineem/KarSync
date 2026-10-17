@@ -1,5 +1,6 @@
 import { logAuditAction, getSafeAuthContext } from "../services/auditLogger";
 import { pushLogsLive } from '../services/realtimeSync';
+import { emitToast } from '../context/NotificationContext';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -417,12 +418,20 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
     if (entryMode === 'group') {
       if (!selectedGroupId) {
-        alert('لطفا یک گروه انتخاب کنید');
+        emitToast({
+          type: 'warning',
+          title: 'انتخاب گروه الزامی است',
+          message: 'لطفاً ابتدا یک گروه کاری را برای ثبت کارکرد انتخاب کنید.'
+        });
         return;
       }
       checkedWorkerIds = unloggedWorkers.filter(w => w.groupId === selectedGroupId).map(w => w.id);
       if (checkedWorkerIds.length === 0) {
-        alert('تمام پرسنل این گروه قبلا در این تاریخ ثبت شده‌اند یا پرسنلی در گروه وجود ندارد.');
+        emitToast({
+          type: 'warning',
+          title: 'عدم وجود پرسنل قابل ثبت',
+          message: 'تمام پرسنل این گروه قبلاً در این تاریخ ثبت شده‌اند یا پرسنلی در گروه وجود ندارد.'
+        });
         return;
       }
     } else {
@@ -432,7 +441,11 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     }
 
     if (checkedWorkerIds.length === 0) {
-      alert(t('noWorkerSelectedError'));
+      emitToast({
+        type: 'warning',
+        title: 'پرسنلی انتخاب نشده است',
+        message: t('noWorkerSelectedError')
+      });
       return;
     }
 
@@ -440,7 +453,11 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     const duplicates = checkedWorkerIds.filter((id) => existingWorkerLogMap[id]);
     if (duplicates.length > 0) {
       const names = duplicates.map((id) => workers.find((w) => w.id === id)?.name || id).join(', ');
-      alert(t('workerAlreadyLoggedError', { name: names }));
+      emitToast({
+        type: 'error',
+        title: 'رکورد تکراری',
+        message: t('workerAlreadyLoggedError', { name: names })
+      });
       return;
     }
 
@@ -516,7 +533,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             updated_by_user_id: user?.id
           };
 
-await db.attendanceLogs.put(newRecord);
+          await db.attendanceLogs.put(newRecord);
           savedLogs.push({ newRecord, existingLog, workerName: worker.name, type: cfg.type });
         }
       });
@@ -526,6 +543,7 @@ await db.attendanceLogs.put(newRecord);
       for (const logInfo of savedLogs) {
         const { newRecord, existingLog, workerName, type } = logInfo;
         await logAuditAction({
+          silentToast: true,
           workspaceId: safeAuth.workspaceId,
           userId: safeAuth.userId,
           userName: safeAuth.userName,
@@ -551,15 +569,26 @@ await db.attendanceLogs.put(newRecord);
         pushLogsLive(logsToPush).catch((err) => console.warn('Supabase live push warning:', err));
       }
 
-      setToastMessage(t('batchSavedSuccess', { count: checkedWorkerIds.length }));
+      const successMsg = t('batchSavedSuccess', { count: checkedWorkerIds.length });
+      emitToast({
+        type: 'success',
+        title: language === 'fa' ? 'ثبت کارکرد روزانه انجام شد' : 'کارکرد بە سەرکەوتوویی تۆمارکرا',
+        message: successMsg
+      });
+
+      setToastMessage(successMsg);
       setTimeout(() => {
         setToastMessage('');
         onClose();
-      }, 900);
+      }, 650);
 
     } catch (err) {
       console.error('Error saving batch attendance:', err);
-      alert('Error: ' + err.message);
+      emitToast({
+        type: 'error',
+        title: language === 'fa' ? 'خطا در ثبت کارکرد' : 'هەڵە لە تۆمارکردنی کارکرد',
+        message: err.message || 'خطای غیرمنتظره‌ای رخ داد.'
+      });
     } finally {
       setIsSaving(false);
     }
