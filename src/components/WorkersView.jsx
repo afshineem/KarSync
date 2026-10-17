@@ -559,11 +559,11 @@ export function WorkersView() {
             </div>
           </div>
 
-          {/* ستون چپ: تب‌های وضعیت شاغلین / بازیافت و دکمه‌های اکشن اصلی */}
-          <div className="flex flex-col sm:flex-row lg:flex-col items-stretch lg:items-end gap-3 shrink-0">
+          {/* ستون چپ: تب‌های وضعیت پرسنل و دکمه‌های اکشن اصلی با عرض کاملاً هماهنگ */}
+          <div className="flex flex-col items-stretch sm:items-end gap-3 shrink-0">
             
-            {/* سگمنت چهارگانه با تم برنامه [APP_THEME_BUTTON] */}
-            <div className="flex items-center gap-1 p-1 bg-white/10 dark:bg-black/40 backdrop-blur-md rounded-2xl border border-white/15 shadow-inner">
+            {/* ردیف ۱: سگمنت چهارگانه وضعیت با عرض ثابت و هماهنگ */}
+            <div className="w-full sm:w-[320px] flex items-center justify-between p-1 bg-white/10 dark:bg-black/40 backdrop-blur-md rounded-2xl border border-white/15 shadow-inner">
               {[
                 { id: 'active', label: 'پرسنل فعال', count: activeWorkersList.length, icon: UserCheck },
                 { id: 'inactive', label: 'پرسنل غیرفعال', count: inactiveWorkersList.length, icon: UserX },
@@ -579,10 +579,10 @@ export function WorkersView() {
                     onClick={() => setStatusTab(tab.id)}
                     aria-label={`${tab.label} (${tab.count})`}
                     title={`${tab.label} (${tab.count} نفر)`}
-                    className={`h-10 px-3.5 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center gap-2 cursor-pointer ${
+                    className={`h-10 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center justify-center gap-1.5 cursor-pointer ${
                       isSelected
-                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 font-bold border border-sky-400/40 scale-[1.02]'
-                        : 'text-slate-300 hover:text-white hover:bg-white/10'
+                        ? 'flex-1 px-3 bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 border border-sky-400/40'
+                        : 'px-2.5 text-slate-300 hover:text-white hover:bg-white/10 shrink-0'
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
@@ -603,25 +603,25 @@ export function WorkersView() {
               })}
             </div>
 
-            {/* دکمه‌های اکشن اصلی */}
-            <div className="flex items-center gap-2.5">
+            {/* ردیف ۲: دکمه‌های اکشن اصلی با عرض کاملاً متقارن با ردیف بالا */}
+            <div className="w-full sm:w-[320px] grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setIsManageGroupsModalOpen(true)}
-                className="px-4 h-11 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                className="h-11 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 title="مدیریت گروه‌ها و دسته‌بندی‌های کارگاه"
               >
-                <FolderTree className="w-4 h-4 text-indigo-400" />
-                <span>مدیریت گروه‌ها</span>
+                <FolderTree className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span className="truncate">مدیریت گروه‌ها</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleOpenAddModal}
-                className="px-5 h-11 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black text-xs shadow-lg shadow-sky-500/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                className="h-11 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black text-xs shadow-lg shadow-sky-500/25 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <UserPlus className="w-4.5 h-4.5" />
-                <span>+ ثبت پرسنل جدید</span>
+                <UserPlus className="w-4 h-4 shrink-0" />
+                <span className="truncate">+ ثبت پرسنل</span>
               </button>
             </div>
 
