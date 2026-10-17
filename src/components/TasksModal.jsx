@@ -7,22 +7,13 @@ import {
   Plus,
   Edit2,
   Trash2,
-  CheckCircle2,
-  Circle,
   Clock,
   Calendar,
   Users,
   Search,
-  Filter,
-  Layers,
   ChevronDown,
   ChevronRight,
   ListTodo,
-  CheckSquare,
-  Square,
-  AlertCircle,
-  Sparkles,
-  ArrowRight,
   Check,
   Columns3,
   List
@@ -39,7 +30,8 @@ export function TasksModal({
   onGoToGroupPerformance,
   targetProjectId = null
 }) {
-  const { language, direction } = useLanguage();
+  const { language, direction, convertDigits, numberFormat } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('all');
@@ -75,13 +67,134 @@ export function TasksModal({
   // Expand all parent tasks by default when modal is first opened
   useEffect(() => {
     if (isOpen && tasks.length > 0) {
-      setExpandedTaskIds(prev => {
-        if (prev.size > 0) return prev; // Keep user's expanded state intact
-        const parentIds = tasks.filter(t => !t.parent_id).map(t => t.id);
+      setExpandedTaskIds((prev) => {
+        if (prev.size > 0) return prev;
+        const parentIds = tasks.filter((t) => !t.parent_id).map((t) => t.id);
         return new Set(parentIds);
       });
     }
-  }, [isOpen]);
+  }, [isOpen, tasks]);
+
+  // Trilingual dictionary
+  const copy = {
+    fa: {
+      title: 'مدیریت و برنامه‌ریزی تسک‌ها',
+      tasksUnit: 'مورد',
+      subtitle: 'برنامه‌ریزی اجرایی، تفکیک وظایف و کنترل پیشرفت فیزیکی کارگاه',
+      searchPlaceholder: 'جستجو در تسک‌ها...',
+      allGroups: 'همه گروه‌ها',
+      boardViewTitle: 'نمایش ستونی (Board)',
+      listViewTitle: 'نمایش لیستی (List)',
+      newTaskBtn: 'تسک جدید',
+      closeEsc: 'بستن (Esc)',
+      notStarted: 'شروع نشده',
+      inProgress: 'در حال انجام',
+      completed: 'پایان یافته',
+      shortcutLabel: 'میانبر باز کردن:',
+      loadingTasks: 'در حال بارگذاری تسک‌ها...',
+      noTasksFound: 'تسکی برای نمایش وجود ندارد',
+      filterNoMatch: 'با فیلترهای انتخاب شده هیچ موردی یافت نشد.',
+      emptyTasksPrompt: 'برای شروع برنامه‌ریزی کارگاه، اولین تسک پروژه را ثبت کنید.',
+      createFirstTaskBtn: 'ثبت اولین تسک',
+      emptyColumn: 'هیچ تسکی در این وضعیت نیست',
+      deleteModalTitle: 'حذف تسک',
+      deleteConfirmText: (title) =>
+        `آیا از حذف تسک «${title}» و سابتسک‌های تابعه اطمینان دارید؟ این عملیات غیرقابل بازگشت است.`,
+      cancelBtn: 'انصراف',
+      confirmDeleteBtn: 'حذف قطعی',
+      markNotStarted: 'تغییر به شروع‌نشده',
+      markCompleted: 'علامت‌گذاری به عنوان پایان یافته',
+      markInProgress: 'علامت‌گذاری به عنوان در حال انجام',
+      viewEditTitle: 'مشاهده و ویرایش جزییات تسک',
+      editBtn: 'ویرایش',
+      deleteBtn: 'حذف',
+      groupReportTitle: 'مشاهده کارکرد و گزارش این گروه',
+      priorityHigh: 'فوری',
+      priorityMedium: 'متوسط',
+      priorityLow: 'کم',
+      hoursUnit: 'ساعت',
+      subtasksTitle: 'سابتسک‌ها',
+      addSubtaskBtn: 'افزودن سابتسک'
+    },
+    ku: {
+      title: 'بەڕێوەبردنی ئەرکەکانی پڕۆژە',
+      tasksUnit: 'ئەرک',
+      subtitle: 'پلانی جێبەجێکردن، دابەشکردنی کارەکان و پێشکەوتنی تیمی کارگە',
+      searchPlaceholder: 'گەڕان لە ئەرکەکان...',
+      allGroups: 'هەموو گرووپەکان',
+      boardViewTitle: 'نمای ستوونی (Board)',
+      listViewTitle: 'نمای لیستی (List)',
+      newTaskBtn: 'ئەرکی نوێ',
+      closeEsc: 'داخستن (Esc)',
+      notStarted: 'دەستپێنەکراو',
+      inProgress: 'لە جێبەجێکردندا',
+      completed: 'تەواوکراو',
+      shortcutLabel: 'کورتەڕێی کردنەوە:',
+      loadingTasks: 'لە حاڵەتی بارکردنی ئەرکەکاندا...',
+      noTasksFound: 'هیچ ئەرکێک نەدۆزرایەوە',
+      filterNoMatch: 'بەپێی ئەم فلتەرانە هیچ ئەرکێک نەدۆزرایەوە.',
+      emptyTasksPrompt: 'بۆ دەستپێکردنی پلانی کارگە، یەکەم ئەرک تۆمار بکە.',
+      createFirstTaskBtn: 'تۆمارکردنی یەکەم ئەرک',
+      emptyColumn: 'هیچ ئەرکێک لەم دۆخەدا نییە',
+      deleteModalTitle: 'سڕینەوەی ئەرک',
+      deleteConfirmText: (title) =>
+        `ئایا دڵنیایت لە سڕینەوەی ئەرکی «${title}» و سابتسکەکانی ژێردەستی؟ ئەم کارە ناگەڕێتەوە.`,
+      cancelBtn: 'پاشگەزبوونەوە',
+      confirmDeleteBtn: 'سڕینەوەی یەکجارەکی',
+      markNotStarted: 'گۆڕین بۆ دەستپێنەکراو',
+      markCompleted: 'دیاریکردن وەک تەواوکراو',
+      markInProgress: 'دیاریکردن وەک لە جێبەجێکردندا',
+      viewEditTitle: 'بینین و دەستکاریکردنی وردەکاری ئەرک',
+      editBtn: 'دەستکاری',
+      deleteBtn: 'سڕینەوە',
+      groupReportTitle: 'بینینی کارکرد و ڕاپۆرتی ئەم گرووپە',
+      priorityHigh: 'فۆری',
+      priorityMedium: 'مامناوەند',
+      priorityLow: 'کەم',
+      hoursUnit: 'کاتژمێر',
+      subtasksTitle: 'سابتسکەکان',
+      addSubtaskBtn: 'زیادکردنی سابتسک'
+    },
+    en: {
+      title: 'Task Management & Planning',
+      tasksUnit: 'tasks',
+      subtitle: 'Operational planning, work breakdown, and progress tracking',
+      searchPlaceholder: 'Search tasks...',
+      allGroups: 'All Groups',
+      boardViewTitle: 'Board View',
+      listViewTitle: 'List View',
+      newTaskBtn: 'New Task',
+      closeEsc: 'Close (Esc)',
+      notStarted: 'Not Started',
+      inProgress: 'In Progress',
+      completed: 'Completed',
+      shortcutLabel: 'Quick shortcut:',
+      loadingTasks: 'Loading tasks...',
+      noTasksFound: 'No tasks found',
+      filterNoMatch: 'No tasks matched your search or filters.',
+      emptyTasksPrompt: 'Create your first task to start organizing workshop activities.',
+      createFirstTaskBtn: 'Create First Task',
+      emptyColumn: 'No tasks in this stage',
+      deleteModalTitle: 'Delete Task',
+      deleteConfirmText: (title) =>
+        `Are you sure you want to delete "${title}" and all its subtasks? This action cannot be undone.`,
+      cancelBtn: 'Cancel',
+      confirmDeleteBtn: 'Delete Permanently',
+      markNotStarted: 'Mark as Not Started',
+      markCompleted: 'Mark as Completed',
+      markInProgress: 'Mark as In Progress',
+      viewEditTitle: 'View and edit task details',
+      editBtn: 'Edit',
+      deleteBtn: 'Delete',
+      groupReportTitle: 'View reports for this group',
+      priorityHigh: 'High',
+      priorityMedium: 'Medium',
+      priorityLow: 'Low',
+      hoursUnit: 'h',
+      subtasksTitle: 'Subtasks',
+      addSubtaskBtn: 'Add Subtask'
+    }
+  }[langKey];
 
   // Separate parent tasks and subtasks
   const { parentTasks, subtasksMap, uniqueGroups } = useMemo(() => {
@@ -89,7 +202,7 @@ export function TasksModal({
     const subMap = {};
     const groupsSet = new Set();
 
-    tasks.forEach(task => {
+    tasks.forEach((task) => {
       if (task.group_name) groupsSet.add(task.group_name);
       if (task.parent_id) {
         if (!subMap[task.parent_id]) subMap[task.parent_id] = [];
@@ -108,21 +221,19 @@ export function TasksModal({
 
   // Filtered parent tasks
   const filteredTasks = useMemo(() => {
-    return parentTasks.filter(task => {
-      // Search matching either parent title/desc or any subtask title
+    return parentTasks.filter((task) => {
       const childs = subtasksMap[task.id] || [];
       const matchSearch =
         !searchQuery.trim() ||
         task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.group_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        childs.some(c => c.title?.toLowerCase().includes(searchQuery.toLowerCase()));
+        childs.some((c) => c.title?.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      // Group filter
       const matchGroup =
         selectedGroupFilter === 'all' ||
         task.group_name === selectedGroupFilter ||
-        childs.some(c => c.group_name === selectedGroupFilter);
+        childs.some((c) => c.group_name === selectedGroupFilter);
 
       return matchSearch && matchGroup;
     });
@@ -130,20 +241,20 @@ export function TasksModal({
 
   // Categorize parent tasks by status
   const notStartedTasks = useMemo(
-    () => filteredTasks.filter(t => t.status === 'not_started' || !t.status),
+    () => filteredTasks.filter((t) => t.status === 'not_started' || !t.status),
     [filteredTasks]
   );
   const inProgressTasks = useMemo(
-    () => filteredTasks.filter(t => t.status === 'in_progress'),
+    () => filteredTasks.filter((t) => t.status === 'in_progress'),
     [filteredTasks]
   );
   const completedTasks = useMemo(
-    () => filteredTasks.filter(t => t.status === 'completed'),
+    () => filteredTasks.filter((t) => t.status === 'completed'),
     [filteredTasks]
   );
 
   const toggleExpand = (taskId) => {
-    setExpandedTaskIds(prev => {
+    setExpandedTaskIds((prev) => {
       const next = new Set(prev);
       if (next.has(taskId)) {
         next.delete(taskId);
@@ -212,37 +323,35 @@ export function TasksModal({
       style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}
       dir={direction}
     >
-      {/* ========================================================= */}
-      {/* 1. HEADER (بخش هدر: ثبت تسک جدید، فیلترها و کلیدهای میانبر) */}
-      {/* ========================================================= */}
+      {/* ─────────────────────────────────────────────────────────── */}
+      {/* 1. HEADER                                                   */}
+      {/* ─────────────────────────────────────────────────────────── */}
       <header className="flex-shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm px-4 sm:px-8 py-3.5 sm:py-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          
-          {/* Right: Title & Stats */}
+
+          {/* Right/Start: Title & Stats */}
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 flex-shrink-0">
               <ListTodo className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  {language === 'ku' ? 'بەڕێوەبردنی ئەرکەکانی پڕۆژە' : 'مدیریت و برنامه‌ریزی تسک‌ها'}
+                  {copy.title}
                 </h1>
                 <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50">
-                  {tasks.length} {language === 'ku' ? 'ئەرک' : 'مورد'}
+                  {convertDigits(tasks.length, numberFormat)} {copy.tasksUnit}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">
-                {language === 'ku'
-                  ? 'پلانی جێبەجێکردن، دابەشکردنی کارەکان و پێشکەوتنی تیمی کارگاه'
-                  : 'برنامه‌ریزی اجرایی، تفکیک وظایف و کنترل پیشرفت فیزیکی کارگاه'}
+                {copy.subtitle}
               </p>
             </div>
           </div>
 
-          {/* Center & Left Controls: Search, View Mode, New Task Button & Close */}
+          {/* Controls: Search, View Mode, New Task Button & Close */}
           <div className="flex items-center flex-wrap gap-2.5 sm:gap-3">
-            
+
             {/* Search Input */}
             <div className="relative flex-1 sm:w-64 sm:flex-initial">
               <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -250,13 +359,13 @@ export function TasksModal({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={language === 'ku' ? 'گەڕان لە ئەرکەکان...' : 'جستجو در تسک‌ها...'}
-                className="w-full ps-9 pe-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500"
+                placeholder={copy.searchPlaceholder}
+                className="w-full ps-9 pe-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -268,10 +377,10 @@ export function TasksModal({
               <select
                 value={selectedGroupFilter}
                 onChange={(e) => setSelectedGroupFilter(e.target.value)}
-                className="px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className="px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-indigo-500/50 cursor-pointer"
               >
-                <option value="all">{language === 'ku' ? 'هەموو گرووپەکان' : 'همه گروه‌ها'}</option>
-                {uniqueGroups.map(g => (
+                <option value="all">{copy.allGroups}</option>
+                {uniqueGroups.map((g) => (
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
@@ -282,10 +391,11 @@ export function TasksModal({
               <button
                 type="button"
                 onClick={() => setViewMode('board')}
-                title="نمایش ستونی (Board)"
-                className={`p-1.5 rounded-lg transition-colors ${
+                title={copy.boardViewTitle}
+                aria-label={copy.boardViewTitle}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   viewMode === 'board'
-                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                 }`}
               >
@@ -294,10 +404,11 @@ export function TasksModal({
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
-                title="نمایش لیستی (List)"
-                className={`p-1.5 rounded-lg transition-colors ${
+                title={copy.listViewTitle}
+                aria-label={copy.listViewTitle}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   viewMode === 'list'
-                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                 }`}
               >
@@ -305,14 +416,14 @@ export function TasksModal({
               </button>
             </div>
 
-            {/* NEW TASK BUTTON (دکمه ثبت تسک جدید) */}
+            {/* NEW TASK BUTTON */}
             <button
               type="button"
               onClick={handleOpenNewTask}
               className="flex items-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-xs sm:text-sm shadow-md shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              <span>{language === 'ku' ? 'ئەرکی نوێ' : 'تسک جدید'}</span>
+              <span>{copy.newTaskBtn}</span>
             </button>
 
             {/* Close Modal Button (X) */}
@@ -324,7 +435,8 @@ export function TasksModal({
                 type="button"
                 onClick={onClose}
                 className="p-2 sm:p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                title="بستن (Esc)"
+                title={copy.closeEsc}
+                aria-label={copy.closeEsc}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -338,69 +450,65 @@ export function TasksModal({
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-              {language === 'ku' ? 'دەستپێنەکراو:' : 'شروع نشده:'} <strong className="text-slate-700 dark:text-slate-300 font-mono">{notStartedTasks.length}</strong>
+              {copy.notStarted}: <strong className="text-slate-700 dark:text-slate-300 font-mono">{convertDigits(notStartedTasks.length, numberFormat)}</strong>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
-              {language === 'ku' ? 'لە جێبەجێکردندا:' : 'در حال انجام:'} <strong className="text-sky-600 dark:text-sky-400 font-mono">{inProgressTasks.length}</strong>
+              {copy.inProgress}: <strong className="text-sky-600 dark:text-sky-400 font-mono">{convertDigits(inProgressTasks.length, numberFormat)}</strong>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              {language === 'ku' ? 'تەواوکراو:' : 'پایان یافته:'} <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{completedTasks.length}</strong>
+              {copy.completed}: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{convertDigits(completedTasks.length, numberFormat)}</strong>
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span>میانبر باز کردن:</span>
+            <span>{copy.shortcutLabel}</span>
             <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-[10px] font-mono text-slate-600 dark:text-slate-300 font-bold">Shift + T</kbd>
           </div>
         </div>
       </header>
 
-      {/* ========================================================= */}
-      {/* 2. BODY (بدنه: لیست تسک‌ها و سابتسک‌ها با تفکیک بصری وضعیت‌ها) */}
-      {/* ========================================================= */}
+      {/* ─────────────────────────────────────────────────────────── */}
+      {/* 2. BODY                                                     */}
+      {/* ─────────────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        
+
         {isLoading ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 py-20">
             <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-600 rounded-full animate-spin"></div>
-            <p className="text-sm font-bold">در حال بارگذاری تسک‌ها...</p>
+            <p className="text-sm font-bold">{copy.loadingTasks}</p>
           </div>
         ) : filteredTasks.length === 0 ? (
-          <div className="max-w-md mx-auto my-16 text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="max-w-md mx-auto my-16 text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
               <ListTodo className="w-8 h-8" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
-                {language === 'ku' ? 'هیچ ئەرکێک نەدۆزرایەوە' : 'تسکی برای نمایش وجود ندارد'}
+                {copy.noTasksFound}
               </h3>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                 {searchQuery || selectedGroupFilter !== 'all'
-                  ? 'با فیلترهای انتخاب شده هیچ موردی یافت نشد.'
-                  : 'برای شروع برنامه‌ریزی کارگاه، اولین تسک پروژه را ثبت کنید.'}
+                  ? copy.filterNoMatch
+                  : copy.emptyTasksPrompt}
               </p>
             </div>
             <button
               onClick={handleOpenNewTask}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>{language === 'ku' ? 'تۆمارکردنی یەکەم ئەرک' : 'ثبت اولین تسک'}</span>
+              <span>{copy.createFirstTaskBtn}</span>
             </button>
           </div>
         ) : viewMode === 'board' ? (
-          
-          /* ---------------------------------------------------- */
-          /* BOARD VIEW: 3 DISTINCT COLUMNS (تفکیک بصری ۳ وضعیت) */
-          /* ---------------------------------------------------- */
+
+          /* BOARD VIEW */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start max-w-7xl mx-auto">
-            
-            {/* Column 1: شروع نشده (Not Started) */}
             <TaskColumn
-              title={language === 'ku' ? 'دەستپێنەکراو' : 'شروع نشده'}
-              count={notStartedTasks.length}
+              title={copy.notStarted}
+              count={convertDigits(notStartedTasks.length, numberFormat)}
               tasks={notStartedTasks}
               subtasksMap={subtasksMap}
               expandedTaskIds={expandedTaskIds}
@@ -412,14 +520,15 @@ export function TasksModal({
               onAddSubtask={handleOpenNewSubtask}
               onGoToGroup={handleGoToGroup}
               themeVariant="neutral"
-              language={language}
+              copy={copy}
+              numberFormat={numberFormat}
+              convertDigits={convertDigits}
               direction={direction}
             />
 
-            {/* Column 2: در حال انجام (In Progress) */}
             <TaskColumn
-              title={language === 'ku' ? 'لە جێبەجێکردندا' : 'در حال انجام'}
-              count={inProgressTasks.length}
+              title={copy.inProgress}
+              count={convertDigits(inProgressTasks.length, numberFormat)}
               tasks={inProgressTasks}
               subtasksMap={subtasksMap}
               expandedTaskIds={expandedTaskIds}
@@ -431,14 +540,15 @@ export function TasksModal({
               onAddSubtask={handleOpenNewSubtask}
               onGoToGroup={handleGoToGroup}
               themeVariant="primary"
-              language={language}
+              copy={copy}
+              numberFormat={numberFormat}
+              convertDigits={convertDigits}
               direction={direction}
             />
 
-            {/* Column 3: پایان یافته (Completed) */}
             <TaskColumn
-              title={language === 'ku' ? 'تەواوکراو' : 'پایان یافته'}
-              count={completedTasks.length}
+              title={copy.completed}
+              count={convertDigits(completedTasks.length, numberFormat)}
               tasks={completedTasks}
               subtasksMap={subtasksMap}
               expandedTaskIds={expandedTaskIds}
@@ -450,19 +560,18 @@ export function TasksModal({
               onAddSubtask={handleOpenNewSubtask}
               onGoToGroup={handleGoToGroup}
               themeVariant="success"
-              language={language}
+              copy={copy}
+              numberFormat={numberFormat}
+              convertDigits={convertDigits}
               direction={direction}
             />
-
           </div>
 
         ) : (
 
-          /* ---------------------------------------------------- */
-          /* LIST VIEW: UNIFIED LIST WITH COLLAPSIBLE SECTIONS   */
-          /* ---------------------------------------------------- */
+          /* LIST VIEW */
           <div className="max-w-4xl mx-auto space-y-4">
-            {filteredTasks.map(task => (
+            {filteredTasks.map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}
@@ -475,7 +584,9 @@ export function TasksModal({
                 onDeleteTask={() => setTaskToDelete(task)}
                 onAddSubtask={() => handleOpenNewSubtask(task)}
                 onGoToGroup={handleGoToGroup}
-                language={language}
+                copy={copy}
+                numberFormat={numberFormat}
+                convertDigits={convertDigits}
                 direction={direction}
               />
             ))}
@@ -485,9 +596,9 @@ export function TasksModal({
 
       </main>
 
-      {/* ========================================================= */}
-      {/* 3. DEDICATED MODALS: Create/Edit Form & Delete Confirm   */}
-      {/* ========================================================= */}
+      {/* ─────────────────────────────────────────────────────────── */}
+      {/* 3. MODALS: Create/Edit Form & Delete Confirm                */}
+      {/* ─────────────────────────────────────────────────────────── */}
       {isFormOpen && (
         <TaskFormModal
           isOpen={isFormOpen}
@@ -502,32 +613,32 @@ export function TasksModal({
       {/* Delete Confirmation Dialog */}
       {taskToDelete && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
           onClick={() => setTaskToDelete(null)}
           dir={direction}
         >
           <div
             className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
               <Trash2 className="w-6 h-6" />
             </div>
             <div className="text-center">
               <h4 className="text-base font-black text-slate-900 dark:text-white">
-                {language === 'ku' ? 'سڕینەوەی ئەرک' : 'حذف تسک'}
+                {copy.deleteModalTitle}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                آیا از حذف تسک «<strong className="text-slate-800 dark:text-slate-200">{taskToDelete.title}</strong>» و سابتسک‌های تابعه اطمینان دارید؟ این عملیات غیرقابل بازگشت است.
+                {copy.deleteConfirmText(taskToDelete.title)}
               </p>
             </div>
             <div className="flex items-center gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setTaskToDelete(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
-                انصراف
+                {copy.cancelBtn}
               </button>
               <button
                 type="button"
@@ -536,9 +647,9 @@ export function TasksModal({
                   setTaskToDelete(null);
                   await onDeleteTask(id);
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-colors"
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-colors cursor-pointer"
               >
-                حذف قطعی
+                {copy.confirmDeleteBtn}
               </button>
             </div>
           </div>
@@ -551,9 +662,6 @@ export function TasksModal({
   return createPortal(modalContent, document.body);
 }
 
-// =========================================================
-// SUB-COMPONENT: Column Container for Board View
-// =========================================================
 function TaskColumn({
   title,
   count,
@@ -568,7 +676,9 @@ function TaskColumn({
   onAddSubtask,
   onGoToGroup,
   themeVariant = 'neutral',
-  language,
+  copy,
+  numberFormat,
+  convertDigits,
   direction
 }) {
   const variantStyles = {
@@ -595,7 +705,7 @@ function TaskColumn({
   const style = variantStyles[themeVariant];
 
   return (
-    <div className={`rounded-3xl border ${style.border} bg-white/70 dark:bg-slate-900/75 backdrop-blur-md overflow-hidden flex flex-col shadow-sm`}>
+    <div className={`rounded-3xl border ${style.border} bg-white/70 dark:bg-slate-900/75 backdrop-blur-md overflow-hidden flex flex-col shadow-xs`}>
       {/* Column Header */}
       <div className={`px-5 py-3.5 flex items-center justify-between border-b ${style.border} ${style.headerBg}`}>
         <div className="flex items-center gap-2.5 ms-0.5">
@@ -611,10 +721,10 @@ function TaskColumn({
       <div className="p-3.5 space-y-3 min-h-[350px] max-h-[calc(100vh-250px)] overflow-y-auto">
         {tasks.length === 0 ? (
           <div className="h-44 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 text-xs text-center border-2 border-dashed border-slate-200 dark:border-slate-800/80 rounded-2xl">
-            <span>هیچ تسکی در این وضعیت نیست</span>
+            <span>{copy.emptyColumn}</span>
           </div>
         ) : (
-          tasks.map(task => (
+          tasks.map((task) => (
             <TaskCard
               key={task.id}
               task={task}
@@ -627,7 +737,9 @@ function TaskColumn({
               onDeleteTask={() => onDeleteTask(task)}
               onAddSubtask={() => onAddSubtask(task)}
               onGoToGroup={onGoToGroup}
-              language={language}
+              copy={copy}
+              numberFormat={numberFormat}
+              convertDigits={convertDigits}
               direction={direction}
             />
           ))
@@ -637,9 +749,6 @@ function TaskColumn({
   );
 }
 
-// =========================================================
-// SUB-COMPONENT: Individual Task Card with Subtasks
-// =========================================================
 function TaskCard({
   task,
   subtasks = [],
@@ -651,14 +760,15 @@ function TaskCard({
   onDeleteTask,
   onAddSubtask,
   onGoToGroup,
-  language,
+  copy,
+  numberFormat,
+  convertDigits,
   direction
 }) {
   const isCompleted = task.status === 'completed';
   const isInProgress = task.status === 'in_progress';
 
-  // Completed subtasks count
-  const completedSubsCount = subtasks.filter(s => s.status === 'completed').length;
+  const completedSubsCount = subtasks.filter((s) => s.status === 'completed').length;
   const progressPercent = subtasks.length > 0 ? Math.round((completedSubsCount / subtasks.length) * 100) : 0;
 
   return (
@@ -667,14 +777,14 @@ function TaskCard({
         isCompleted
           ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/30'
           : isInProgress
-          ? 'bg-sky-50/40 dark:bg-sky-950/20 border-sky-200/80 dark:border-sky-900/40 shadow-sm'
+          ? 'bg-sky-50/40 dark:bg-sky-950/20 border-sky-200/80 dark:border-sky-900/40 shadow-xs'
           : 'bg-white dark:bg-slate-800/70 border-slate-200/80 dark:border-slate-700/60 hover:border-indigo-300 dark:hover:border-indigo-600/50'
       }`}
     >
       <div>
         {/* Top Meta: Status Checkbox, Title & Actions */}
         <div className="flex items-start justify-between gap-2.5">
-          
+
           <div className="flex items-start gap-3 flex-1 min-w-0">
             {/* Quick Status Toggle Button */}
             <button
@@ -682,14 +792,21 @@ function TaskCard({
               onClick={onToggleStatus}
               title={
                 isCompleted
-                  ? 'تغییر به شروع‌نشده'
+                  ? copy.markNotStarted
                   : isInProgress
-                  ? 'علامت‌گذاری به عنوان پایان یافته'
-                  : 'علامت‌گذاری به عنوان در حال انجام'
+                  ? copy.markCompleted
+                  : copy.markInProgress
+              }
+              aria-label={
+                isCompleted
+                  ? copy.markNotStarted
+                  : isInProgress
+                  ? copy.markCompleted
+                  : copy.markInProgress
               }
               className={`mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
                 isCompleted
-                  ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
+                  ? 'border-emerald-500 bg-emerald-500 text-white shadow-xs shadow-emerald-500/30'
                   : isInProgress
                   ? 'border-sky-500 bg-sky-50 dark:bg-sky-950 text-sky-500 hover:bg-sky-500 hover:text-white'
                   : 'border-slate-300 dark:border-slate-600 hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/20 text-transparent'
@@ -708,17 +825,18 @@ function TaskCard({
             <div
               className="flex-1 min-w-0 cursor-pointer"
               onClick={() => onOpenEdit(task)}
-              title="مشاهده و ویرایش جزییات تسک"
+              title={copy.viewEditTitle}
             >
-              <h4 className={`text-sm font-bold leading-snug break-words group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${
-                isCompleted
-                  ? 'line-through text-slate-400 dark:text-slate-500'
-                  : 'text-slate-900 dark:text-white'
-              }`}>
+              <h4
+                className={`text-sm font-bold leading-snug break-words group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${
+                  isCompleted
+                    ? 'line-through text-slate-400 dark:text-slate-500'
+                    : 'text-slate-900 dark:text-white'
+                }`}
+              >
                 {task.title}
               </h4>
 
-              {/* Description preview */}
               {task.description && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
                   {task.description}
@@ -731,17 +849,19 @@ function TaskCard({
           <div className="flex items-center gap-1 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               type="button"
-              onClick={onOpenEdit}
-              className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
-              title="ویرایش"
+              onClick={() => onOpenEdit(task)}
+              className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
+              title={copy.editBtn}
+              aria-label={copy.editBtn}
             >
               <Edit2 className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
-              onClick={onDeleteTask}
-              className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-              title="حذف"
+              onClick={() => onDeleteTask(task)}
+              className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+              title={copy.deleteBtn}
+              aria-label={copy.deleteBtn}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -750,7 +870,7 @@ function TaskCard({
 
         {/* Badges Bar: Group, Priority, Hours, Dates */}
         <div className="flex items-center flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-[11px]">
-          
+
           {/* Work Group Badge */}
           {task.group_name && (
             <button
@@ -762,7 +882,7 @@ function TaskCard({
                 }
               }}
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
-              title={language === 'ku' ? 'چوون بۆ کارکردی ئەم گرووپە' : 'مشاهده کارکرد و گزارش این گروه'}
+              title={copy.groupReportTitle}
             >
               <Users className="w-3 h-3 text-indigo-500" />
               <span>{task.group_name}</span>
@@ -772,17 +892,17 @@ function TaskCard({
           {/* Priority Badge */}
           {task.priority === 'high' && (
             <span className="px-2 py-0.5 rounded-md font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300">
-              فوری
+              {copy.priorityHigh}
             </span>
           )}
           {task.priority === 'medium' && (
             <span className="px-2 py-0.5 rounded-md font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-              متوسط
+              {copy.priorityMedium}
             </span>
           )}
           {task.priority === 'low' && (
             <span className="px-2 py-0.5 rounded-md font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-              کم
+              {copy.priorityLow}
             </span>
           )}
 
@@ -790,7 +910,9 @@ function TaskCard({
           {task.estimated_hours > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800">
               <Clock className="w-3 h-3 text-sky-500" />
-              <span>{task.estimated_hours} ساعت</span>
+              <span>
+                {convertDigits(task.estimated_hours, numberFormat)} {copy.hoursUnit}
+              </span>
             </span>
           )}
 
@@ -798,49 +920,45 @@ function TaskCard({
           {task.due_date && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800">
               <Calendar className="w-3 h-3 text-amber-500" />
-              <span>{task.due_date}</span>
+              <span>{convertDigits(task.due_date, numberFormat)}</span>
             </span>
           )}
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* SUBTASKS SECTION (سابتسک‌ها و فهرست وظایف فرعی)           */}
-      {/* ========================================================= */}
+      {/* Subtasks Accordion */}
       <div className="mt-3.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
-        
-        {/* Subtasks Accordion Header & Add Subtask Button */}
         <div className="flex items-center justify-between text-xs">
           <button
             type="button"
             onClick={onToggleExpand}
-            className="flex items-center gap-1.5 font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            className="flex items-center gap-1.5 font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
           >
             {isExpanded ? (
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             ) : (
-              <ChevronRight className={`w-3.5 h-3.5 text-slate-400 ${direction === 'rtl' ? 'rotate-180' : ''}`} />
+              <ChevronRight
+                className={`w-3.5 h-3.5 text-slate-400 ${direction === 'rtl' ? 'rotate-180' : ''}`}
+              />
             )}
-            <span>سابتسک‌ها</span>
+            <span>{copy.subtasksTitle}</span>
             {subtasks.length > 0 && (
               <span className="ms-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                {completedSubsCount}/{subtasks.length}
+                {convertDigits(completedSubsCount, numberFormat)}/{convertDigits(subtasks.length, numberFormat)}
               </span>
             )}
           </button>
 
-          {/* "+ افزودن سابتسک" */}
           <button
             type="button"
             onClick={onAddSubtask}
             className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
           >
             <Plus className="w-3 h-3" />
-            <span>افزودن سابتسک</span>
+            <span>{copy.addSubtaskBtn}</span>
           </button>
         </div>
 
-        {/* Subtask Progress Bar if has subtasks */}
         {subtasks.length > 0 && (
           <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
             <div
@@ -852,10 +970,9 @@ function TaskCard({
           </div>
         )}
 
-        {/* Subtasks List */}
         {isExpanded && subtasks.length > 0 && (
           <div className="mt-2.5 space-y-1.5 ps-1">
-            {subtasks.map(sub => {
+            {subtasks.map((sub) => {
               const subCompleted = sub.status === 'completed';
               return (
                 <div
@@ -867,35 +984,38 @@ function TaskCard({
                       type="checkbox"
                       checked={subCompleted}
                       onChange={() => onToggleSubtask(sub)}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                      className="rounded-sm border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
                     />
-                    <span className={`truncate text-xs ${
-                      subCompleted
-                        ? 'line-through text-slate-400 dark:text-slate-500'
-                        : 'text-slate-700 dark:text-slate-300 font-medium'
-                    }`}>
+                    <span
+                      className={`truncate text-xs ${
+                        subCompleted
+                          ? 'line-through text-slate-400 dark:text-slate-500'
+                          : 'text-slate-700 dark:text-slate-300 font-medium'
+                      }`}
+                    >
                       {sub.title}
                     </span>
                   </label>
 
-                  {/* Subtask micro badges */}
                   <div className="flex items-center gap-1 opacity-70 group-hover/sub:opacity-100">
                     {sub.estimated_hours > 0 && (
                       <span className="text-[10px] font-mono text-slate-400">
-                        {sub.estimated_hours}h
+                        {convertDigits(sub.estimated_hours, numberFormat)}{copy.hoursUnit}
                       </span>
                     )}
                     <button
                       type="button"
                       onClick={() => onOpenEdit(sub)}
-                      className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors"
+                      className="p-1 text-slate-400 hover:text-indigo-600 rounded-sm transition-colors cursor-pointer"
+                      title={copy.editBtn}
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
                     <button
                       type="button"
                       onClick={() => onDeleteTask(sub)}
-                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                      className="p-1 text-slate-400 hover:text-rose-600 rounded-sm transition-colors cursor-pointer"
+                      title={copy.deleteBtn}
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>

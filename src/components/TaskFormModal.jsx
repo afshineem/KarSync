@@ -18,7 +18,6 @@ import {
   Flag,
   ArrowRight,
   Layers,
-  Sparkles,
   ListTodo,
   Timer,
   CalendarClock,
@@ -33,26 +32,215 @@ export function TaskFormModal({
   parentTask = null,
   targetProjectId = null
 }) {
-  const { language, direction, formatNumber } = useLanguage();
+  const { language, direction, formatNumber, convertDigits, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const isRtl = direction === 'rtl';
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
 
   const effectiveProjectId = targetProjectId || currentProject?.id || DEFAULT_PROJECT_ID;
 
-  // Load project groups for quick pill selection
-  const dbGroups = useLiveQuery(
-    async () => {
-      const list = await db.groups.toArray();
-      if (!effectiveProjectId) return list;
-      return list.filter(
-        (g) =>
-          !g.projectId ||
-          g.projectId === effectiveProjectId ||
-          g.projectId === DEFAULT_PROJECT_ID
-      );
+  // Trilingual dictionary
+  const copy = {
+    fa: {
+      editTaskTitle: 'ویرایش مشخصات تسک اجرایی',
+      addSubtaskTitle: 'افزودن زیرمجموعه (سابتسک) جدید',
+      createTaskTitle: 'تعریف و ثبت تسک جدید کارگاه',
+      activeProject: 'پروژه فعال',
+      parentTaskContext: (t) => `زیرمجموعه تسک مادر: «${t}»`,
+      defaultSubtitle: 'برنامه‌ریزی شرح فعالیت، تخصیص به تیم اجرایی، تعیین اولویت و تخمین نفر-ساعت',
+      closeEsc: 'بستن (ESC)',
+      taskSpecsTitle: 'عنوان و شرح فنی عملیات',
+      subtaskBadge: 'سابتسک زیرمجموعه',
+      parentTaskLabel: 'تسک اصلی:',
+      subtaskTitleLabel: 'عنوان سابتسک اجرایی',
+      taskTitleLabel: 'عنوان تسک / فعالیت کارگاهی',
+      taskTitlePlaceholder: 'مثال: آرماتوربندی و قالب‌بندی ستون‌های محور شمالی طبقه اول...',
+      taskDescLabel: 'مشخصات اجرایی، مصالح موردنیاز و نکات کنترلی',
+      taskDescPlaceholder: 'جزئیات فنی، استانداردهای اجرایی، ابزارآلات یا نکات ایمنی مربوط به این تسک را وارد کنید...',
+      workTeamTitle: 'تیم یا گروه کاری مجری',
+      workTeamDesc: 'مشخص کنید کدام اکیپ یا گروه کاری مسئول اجرای این فعالیت است',
+      generalNoGroup: 'عمومی / بدون گروه خاص',
+      customGroupBtn: 'نام گروه سفارشی',
+      customGroupPlaceholder: 'نام اکیپ، پیمانکار یا گروه مجری را بنویسید...',
+      statusAndPriorityTitle: 'وضعیت اجرا و درجه اهمیت',
+      currentStatusLabel: 'وضعیت فعلی تسک:',
+      statusNotStarted: 'شروع نشده',
+      statusInProgress: 'در حال انجام',
+      statusCompleted: 'پایان یافته',
+      priorityLevelLabel: 'سطح اولویت و فوریت:',
+      priorityLow: 'کم / عادی',
+      priorityMedium: 'متوسط',
+      priorityHigh: 'فوری / بالا',
+      timeScheduleTitle: 'برآورد نفر-ساعت و زمان‌بندی',
+      estimatedHoursLabel: 'تخمین حجم کار (نفر-ساعت):',
+      hoursUnit: 'ساعت',
+      hoursPlaceholder: 'مثال: ۸',
+      startDateLabel: 'تاریخ شروع',
+      dueDateLabel: 'موعد تحویل / سررسید',
+      quickDueSelect: 'انتخاب سریع سررسید:',
+      today: 'امروز',
+      tomorrow: 'فردا',
+      in3Days: '۳ روز دیگر',
+      in1Week: '۱ هفته دیگر',
+      cancelBtn: 'انصراف',
+      saving: 'در حال ذخیره...',
+      saveChangesBtn: 'ذخیره تغییرات تسک',
+      submitSubtaskBtn: 'ثبت نهایی سابتسک',
+      submitTaskBtn: 'ثبت نهایی تسک',
+      errorMissingTitle: 'لطفاً عنوان تسک را وارد کنید.',
+      errorMissingTitleToast: 'نقص اطلاعات',
+      serverErrorToast: 'خطا در ثبت تسک در سرور',
+      taskUpdatedToast: 'تسک ویرایش شد',
+      subtaskCreatedToast: 'سابتسک جدید ثبت شد',
+      taskCreatedToast: 'تسک جدید با موفقیت ثبت شد',
+      customGroupFallback: 'گروه سفارشی',
+      generalWorkshopFallback: 'عمومی کارگاه',
+      h2Preset: '۲ ساعت',
+      h4Preset: '۴ ساعت (نیم‌روز)',
+      h8Preset: '۸ ساعت (۱ روز کاری)',
+      h16Preset: '۱۶ ساعت (۲ روز)',
+      h24Preset: '۲۴ ساعت (۳ روز)',
+      h40Preset: '۴۰ ساعت (۱ هفته)'
     },
-    [effectiveProjectId]
-  ) || [];
+    ku: {
+      editTaskTitle: 'دەستکاریکردنی ئەرک',
+      addSubtaskTitle: 'تۆمارکردنی سابتسکی نوێ',
+      createTaskTitle: 'تۆمارکردنی ئەرکی نوێ',
+      activeProject: 'پڕۆژەی چالاک',
+      parentTaskContext: (t) => `سەر بە ئەرکی: «${t}»`,
+      defaultSubtitle: 'دیاریکردنی وردەکاری، گرووپی جێبەجێکار، ئەولەویەت و کاتی تەواوبوونی کارەکە',
+      closeEsc: 'داخستن (ESC)',
+      taskSpecsTitle: 'ناونیشان و وردەکاری جێبەجێکردن',
+      subtaskBadge: 'سابتسک',
+      parentTaskLabel: 'ئەرکی سەرەکی:',
+      subtaskTitleLabel: 'ناونیشانی سابتسک',
+      taskTitleLabel: 'ناونیشانی ئەرک',
+      taskTitlePlaceholder: 'نموونە: ئامادەکردنی داربەست و چیمەنتۆی نهۆمی یەکەم...',
+      taskDescLabel: 'وردەکاری، کەرەستە و تێبینییەکانی جێبەجێکردن',
+      taskDescPlaceholder: 'تێبینی و ڕێنماییە پێویستەکان بۆ جێبەجێکردن لێرە بنووسە...',
+      workTeamTitle: 'تیم یان گرووپی جێبەجێکار',
+      workTeamDesc: 'ئەم ئەرکە دەدرێت بە کام گرووپی کارگە؟',
+      generalNoGroup: 'گشتی / بێ گرووپ',
+      customGroupBtn: 'گرووپی تایبەت / نوێ',
+      customGroupPlaceholder: 'ناوی گرووپی جێبەجێکار بنووسە...',
+      statusAndPriorityTitle: 'دۆخی جێبەجێکردن و ئەولەویەت',
+      currentStatusLabel: 'دۆخی ئێستای ئەرک:',
+      statusNotStarted: 'دەستپێنەکراو',
+      statusInProgress: 'لە جێبەجێکردندا',
+      statusCompleted: 'تەواوکراو',
+      priorityLevelLabel: 'ئاستی ئەولەویەت:',
+      priorityLow: 'کەم',
+      priorityMedium: 'مامناوەند',
+      priorityHigh: 'فۆری / بەرز',
+      timeScheduleTitle: 'خەمڵاندنی کات و خشتەی زەمەنی',
+      estimatedHoursLabel: 'خەمڵاندنی کاتژمێری کار:',
+      hoursUnit: 'کاتژمێر',
+      hoursPlaceholder: 'نموونە: 8',
+      startDateLabel: 'بەرواری دەستپێک',
+      dueDateLabel: 'بەرواری تەواوبوون',
+      quickDueSelect: 'دیاریکردنی خێرای مۆڵەت:',
+      today: 'ئەمڕۆ',
+      tomorrow: 'سبەینێ',
+      in3Days: '٣ ڕۆژی تر',
+      in1Week: '١ هەفتەی تر',
+      cancelBtn: 'پاشگەزبوونەوە',
+      saving: 'تکایە چاوەڕێ بن...',
+      saveChangesBtn: 'پاشەکەوتکردنی گۆڕانکاری',
+      submitSubtaskBtn: 'تۆمارکردنی سابتسک',
+      submitTaskBtn: 'تۆمارکردنی ئەرک',
+      errorMissingTitle: 'تکایە ناونیشانی ئەرکەکە بنووسە',
+      errorMissingTitleToast: 'زانیاری ناتەواو',
+      serverErrorToast: 'هەڵە لە تۆمارکردنی ئەرک لە سێرڤەر',
+      taskUpdatedToast: 'ئەرکەکە نوێکرایەوە',
+      subtaskCreatedToast: 'سابتسکی نوێ تۆمارکرا',
+      taskCreatedToast: 'ئەرکی نوێ تۆمارکرا',
+      customGroupFallback: 'گرووپی تایبەت',
+      generalWorkshopFallback: 'گشتی کارگە',
+      h2Preset: '٢ کاتژمێر',
+      h4Preset: '٤ کاتژمێر (نیوەڕۆژ)',
+      h8Preset: '٨ کاتژمێر (١ ڕۆژی کاری)',
+      h16Preset: '١٦ کاتژمێر (٢ ڕۆژ)',
+      h24Preset: '٢٤ کاتژمێر (٣ ڕۆژ)',
+      h40Preset: '٤٠ کاتژمێر (١ هەفتە)'
+    },
+    en: {
+      editTaskTitle: 'Edit Task',
+      addSubtaskTitle: 'Add New Subtask',
+      createTaskTitle: 'Create New Workshop Task',
+      activeProject: 'Active Project',
+      parentTaskContext: (t) => `Subtask of: "${t}"`,
+      defaultSubtitle: 'Operational planning, crew assignment, priority, and effort estimation',
+      closeEsc: 'Close (ESC)',
+      taskSpecsTitle: 'Task Title & Technical Specs',
+      subtaskBadge: 'Subtask',
+      parentTaskLabel: 'Parent Task:',
+      subtaskTitleLabel: 'Subtask Title',
+      taskTitleLabel: 'Task Title / Activity',
+      taskTitlePlaceholder: 'e.g. Scaffolding and concrete pouring for 1st floor...',
+      taskDescLabel: 'Execution specs, required materials & notes',
+      taskDescPlaceholder: 'Enter technical details, standards, tools or safety notes...',
+      workTeamTitle: 'Assigned Work Team / Crew',
+      workTeamDesc: 'Select the work group or crew responsible for this task',
+      generalNoGroup: 'General / No Crew',
+      customGroupBtn: 'Custom Crew Name',
+      customGroupPlaceholder: 'Enter crew or contractor name...',
+      statusAndPriorityTitle: 'Execution Status & Priority Level',
+      currentStatusLabel: 'Current Task Status:',
+      statusNotStarted: 'Not Started',
+      statusInProgress: 'In Progress',
+      statusCompleted: 'Completed',
+      priorityLevelLabel: 'Priority Level:',
+      priorityLow: 'Low',
+      priorityMedium: 'Medium',
+      priorityHigh: 'High / Urgent',
+      timeScheduleTitle: 'Effort Estimation & Timeline',
+      estimatedHoursLabel: 'Estimated Effort (Hours):',
+      hoursUnit: 'h',
+      hoursPlaceholder: 'e.g. 8',
+      startDateLabel: 'Start Date',
+      dueDateLabel: 'Due Date',
+      quickDueSelect: 'Quick Due Date:',
+      today: 'Today',
+      tomorrow: 'Tomorrow',
+      in3Days: '+3 Days',
+      in1Week: '+1 Week',
+      cancelBtn: 'Cancel',
+      saving: 'Saving...',
+      saveChangesBtn: 'Save Changes',
+      submitSubtaskBtn: 'Save Subtask',
+      submitTaskBtn: 'Save Task',
+      errorMissingTitle: 'Please enter a task title.',
+      errorMissingTitleToast: 'Missing Info',
+      serverErrorToast: 'Server error saving task',
+      taskUpdatedToast: 'Task updated',
+      subtaskCreatedToast: 'Subtask created',
+      taskCreatedToast: 'Task created successfully',
+      customGroupFallback: 'Custom Crew',
+      generalWorkshopFallback: 'General Workshop',
+      h2Preset: '2h',
+      h4Preset: '4h (Half day)',
+      h8Preset: '8h (1 workday)',
+      h16Preset: '16h (2 days)',
+      h24Preset: '24h (3 days)',
+      h40Preset: '40h (1 week)'
+    }
+  }[langKey];
+
+  // Load project groups for quick pill selection
+  const dbGroups =
+    useLiveQuery(
+      async () => {
+        const list = await db.groups.toArray();
+        if (!effectiveProjectId) return list;
+        return list.filter(
+          (g) =>
+            !g.projectId ||
+            g.projectId === effectiveProjectId ||
+            g.projectId === DEFAULT_PROJECT_ID
+        );
+      },
+      [effectiveProjectId]
+    ) || [];
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -85,7 +273,6 @@ export function TaskFormModal({
       setSelectedGroup(grp || '');
       setCustomGroup('');
     } else {
-      // Defaults for new task / subtask
       setTitle('');
       setDescription('');
       setStatus('not_started');
@@ -117,7 +304,6 @@ export function TaskFormModal({
   const isEditing = Boolean(taskToEdit);
   const isSubtask = Boolean(parentTask || taskToEdit?.parent_id);
 
-  // Quick date offset helper for Due Date chips
   const applyDueDateOffset = (daysToAdd) => {
     const base = startDate ? new Date(startDate) : new Date();
     if (isNaN(base.getTime())) return;
@@ -127,35 +313,29 @@ export function TaskFormModal({
   };
 
   const hourPresets = [
-    { val: '2', label: language === 'fa' ? '۲ ساعت' : language === 'ku' ? '٢ کاتژمێر' : '2h' },
-    { val: '4', label: language === 'fa' ? '۴ ساعت (نیم‌روز)' : language === 'ku' ? '٤ کاتژمێر' : '4h' },
-    { val: '8', label: language === 'fa' ? '۸ ساعت (۱ روز کاری)' : language === 'ku' ? '٨ کاتژمێر (١ ڕۆژ)' : '8h (1d)' },
-    { val: '16', label: language === 'fa' ? '۱۶ ساعت (۲ روز)' : language === 'ku' ? '١٦ کاتژمێر' : '16h' },
-    { val: '24', label: language === 'fa' ? '۲۴ ساعت (۳ روز)' : language === 'ku' ? '٢٤ کاتژمێر' : '24h' },
-    { val: '40', label: language === 'fa' ? '۴۰ ساعت (۱ هفته)' : language === 'ku' ? '٤٠ کاتژمێر' : '40h' }
+    { val: '2', label: copy.h2Preset },
+    { val: '4', label: copy.h4Preset },
+    { val: '8', label: copy.h8Preset },
+    { val: '16', label: copy.h16Preset },
+    { val: '24', label: copy.h24Preset },
+    { val: '40', label: copy.h40Preset }
   ];
 
   const duePresets = [
-    { days: 0, label: language === 'fa' ? 'امروز' : language === 'ku' ? 'ئەمڕۆ' : 'Today' },
-    { days: 1, label: language === 'fa' ? 'فردا' : language === 'ku' ? 'سبەینێ' : 'Tomorrow' },
-    { days: 3, label: language === 'fa' ? '۳ روز دیگر' : language === 'ku' ? '٣ ڕۆژی تر' : '+3 Days' },
-    { days: 7, label: language === 'fa' ? '۱ هفته دیگر' : language === 'ku' ? '١ هەفتەی تر' : '+1 Week' }
+    { days: 0, label: copy.today },
+    { days: 1, label: copy.tomorrow },
+    { days: 3, label: copy.in3Days },
+    { days: 7, label: copy.in1Week }
   ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      const msg =
-        language === 'ku'
-          ? 'تکایە ناونیشانی ئەرکەکە بنووسە'
-          : language === 'fa'
-          ? 'لطفاً عنوان تسک را وارد کنید.'
-          : 'Please enter a task title.';
-      setFormError(msg);
+      setFormError(copy.errorMissingTitle);
       emitToast({
         type: 'warning',
-        title: language === 'fa' ? 'نقص اطلاعات' : 'زانیاری ناتەواو',
-        message: msg
+        title: copy.errorMissingTitleToast,
+        message: copy.errorMissingTitle
       });
       return;
     }
@@ -191,11 +371,11 @@ export function TaskFormModal({
 
       const res = await onSubmit(payload, taskToEdit ? taskToEdit.id : null);
       if (res && res.success === false) {
-        const errMsg = res.error || (language === 'fa' ? 'خطا در ثبت تسک در سرور' : 'هەڵە لە تۆمارکردنی ئەرک');
+        const errMsg = res.error || copy.serverErrorToast;
         setFormError(errMsg);
         emitToast({
           type: 'error',
-          title: language === 'fa' ? 'خطا در ثبت تسک' : 'هەڵە ڕوویدا',
+          title: copy.serverErrorToast,
           message: errMsg
         });
         return;
@@ -204,29 +384,21 @@ export function TaskFormModal({
       emitToast({
         type: 'success',
         title: isEditing
-          ? language === 'fa'
-            ? 'تسک ویرایش شد'
-            : 'ئەرکەکە نوێکرایەوە'
+          ? copy.taskUpdatedToast
           : isSubtask
-          ? language === 'fa'
-            ? 'سابتسک جدید ثبت شد'
-            : 'سابتسکی نوێ تۆمارکرا'
-          : language === 'fa'
-          ? 'تسک جدید با موفقیت ثبت شد'
-          : 'ئەرکی نوێ تۆمارکرا',
-        message: `«${title.trim()}» ${
-          finalGroupName ? `(${finalGroupName})` : ''
-        }`
+          ? copy.subtaskCreatedToast
+          : copy.taskCreatedToast,
+        message: `«${title.trim()}» ${finalGroupName ? `(${finalGroupName})` : ''}`
       });
 
       onClose();
     } catch (err) {
       console.error('Error submitting task form:', err);
-      const errMsg = err.message || (language === 'fa' ? 'خطا در ثبت تسک' : 'هەڵە لە تۆمارکردنی ئەرک');
+      const errMsg = err.message || copy.serverErrorToast;
       setFormError(errMsg);
       emitToast({
         type: 'error',
-        title: language === 'fa' ? 'خطا در ثبت تسک' : 'هەڵە ڕوویدا',
+        title: copy.serverErrorToast,
         message: errMsg
       });
     } finally {
@@ -234,20 +406,19 @@ export function TaskFormModal({
     }
   };
 
-  // Helper labels for Sticky Bottom Dock summary
   const statusMeta = {
     not_started: {
-      label: language === 'fa' ? 'شروع نشده' : language === 'ku' ? 'دەستپێنەکراو' : 'Not Started',
+      label: copy.statusNotStarted,
       badgeClass:
         'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
     },
     in_progress: {
-      label: language === 'fa' ? 'در حال انجام' : language === 'ku' ? 'لە جێبەجێکردندا' : 'In Progress',
+      label: copy.statusInProgress,
       badgeClass:
         'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
     },
     completed: {
-      label: language === 'fa' ? 'پایان یافته' : language === 'ku' ? 'تەواوکراو' : 'Completed',
+      label: copy.statusCompleted,
       badgeClass:
         'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
     }
@@ -258,17 +429,17 @@ export function TaskFormModal({
 
   const priorityMeta = {
     low: {
-      label: language === 'fa' ? 'اولویت کم' : language === 'ku' ? 'ئەولەویەتی کەم' : 'Low Priority',
+      label: copy.priorityLow,
       badgeClass:
         'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
     },
     medium: {
-      label: language === 'fa' ? 'اولویت متوسط' : language === 'ku' ? 'ئەولەویەتی مامناوەند' : 'Medium Priority',
+      label: copy.priorityMedium,
       badgeClass:
         'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
     },
     high: {
-      label: language === 'fa' ? 'فوری / بالا' : language === 'ku' ? 'فۆری / بەرز' : 'High Priority',
+      label: copy.priorityHigh,
       badgeClass:
         'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
     }
@@ -276,8 +447,8 @@ export function TaskFormModal({
 
   const activeGroupLabel =
     selectedGroup === 'custom'
-      ? customGroup.trim() || (language === 'fa' ? 'گروه سفارشی' : 'گرووپی تایبەت')
-      : selectedGroup || (language === 'fa' ? 'عمومی کارگاه' : 'گشتی');
+      ? customGroup.trim() || copy.customGroupFallback
+      : selectedGroup || copy.generalWorkshopFallback;
 
   const modalContent = (
     <div
@@ -288,9 +459,9 @@ export function TaskFormModal({
       dir={direction}
     >
       <div className="bg-[#f3f6f4] dark:bg-slate-950 rounded-3xl w-full max-w-5xl max-h-[93vh] flex flex-col shadow-[0_24px_60px_rgba(0,0,0,0.28)] border border-white/60 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
-        {/* ========================================================= */}
-        {/* 1. APPLE GLASS TOP HEADER                                 */}
-        {/* ========================================================= */}
+        {/* ─────────────────────────────────────────────────────────── */}
+        {/* 1. HEADER                                                   */}
+        {/* ─────────────────────────────────────────────────────────── */}
         <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3.5 shrink-0 z-20">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -316,33 +487,19 @@ export function TaskFormModal({
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                     {isEditing
-                      ? language === 'ku'
-                        ? 'دەستکاریکردنی ئەرک'
-                        : language === 'fa'
-                        ? 'ویرایش مشخصات تسک اجرایی'
-                        : 'Edit Task'
+                      ? copy.editTaskTitle
                       : isSubtask
-                      ? language === 'ku'
-                        ? 'تۆمارکردنی سابتسکی نوێ'
-                        : language === 'fa'
-                        ? 'افزودن زیرمجموعه (سابتسک) جدید'
-                        : 'Add New Subtask'
-                      : language === 'ku'
-                      ? 'تۆمارکردنی ئەرکی نوێ'
-                      : language === 'fa'
-                      ? 'تعریف و ثبت تسک جدید کارگاه'
-                      : 'Create New Workshop Task'}
+                      ? copy.addSubtaskTitle
+                      : copy.createTaskTitle}
                   </h2>
                   <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
-                    {currentProject?.name || (language === 'fa' ? 'پروژه فعال' : 'پڕۆژەی چالاک')}
+                    {currentProject?.name || copy.activeProject}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate">
                   {parentTask
-                    ? `${language === 'ku' ? 'سەر بە ئەرکی: ' : 'زیرمجموعه تسک مادر: '} «${parentTask.title}»`
-                    : language === 'ku'
-                    ? 'دیاریکردنی وردەکاری، گرووپی جێبەجێکار، ئەولەویەت و کاتی تەواوبوونی کارەکە'
-                    : 'برنامه‌ریزی شرح فعالیت، تخصیص به تیم اجرایی، تعیین اولویت و تخمین نفر-ساعت'}
+                    ? copy.parentTaskContext(parentTask.title)
+                    : copy.defaultSubtitle}
                 </p>
               </div>
             </div>
@@ -351,16 +508,17 @@ export function TaskFormModal({
               type="button"
               onClick={onClose}
               className="p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer shrink-0"
-              title={language === 'fa' ? 'بستن (ESC)' : 'Close (ESC)'}
+              title={copy.closeEsc}
+              aria-label={copy.closeEsc}
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* ========================================================= */}
-        {/* 2. SCROLLABLE 12-COLUMN APPLE LIQUID GLASS BODY           */}
-        {/* ========================================================= */}
+        {/* ─────────────────────────────────────────────────────────── */}
+        {/* 2. BODY                                                     */}
+        {/* ─────────────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto bg-[#f3f6f4] dark:bg-slate-950 p-4 sm:p-6">
           <form id="task-glass-form" onSubmit={handleSubmit} className="space-y-5">
             {formError && (
@@ -371,11 +529,8 @@ export function TaskFormModal({
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-              {/* ─────────────────────────────────────────────────────────── */}
-              {/* PRIMARY COLUMN (7 Cols): Title, Specs & Work Group          */}
-              {/* ─────────────────────────────────────────────────────────── */}
+              {/* PRIMARY COLUMN (7 Cols) */}
               <div className="lg:col-span-7 space-y-5">
-                {/* Card 1: Task Title & Execution Specs */}
                 <div className="p-5 rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
                   <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
@@ -383,27 +538,23 @@ export function TaskFormModal({
                         <FileText className="w-4 h-4" />
                       </div>
                       <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                        {language === 'fa'
-                          ? 'عنوان و شرح فنی عملیات'
-                          : language === 'ku'
-                          ? 'ناونیشان و وردەکاری جێبەجێکردن'
-                          : 'Task Title & Technical Specs'}
+                        {copy.taskSpecsTitle}
                       </span>
                     </div>
                     {isSubtask && (
                       <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                        {language === 'fa' ? 'سابتسک زیرمجموعه' : 'سابتسک'}
+                        {copy.subtaskBadge}
                       </span>
                     )}
                   </div>
 
-                  {/* Parent Task Context Banner (when creating a subtask) */}
+                  {/* Parent Task Context Banner */}
                   {parentTask && (
                     <div className="p-3 rounded-2xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/70 dark:border-sky-800/50 flex items-center gap-2.5 text-xs">
                       <Layers className="w-4 h-4 text-sky-500 shrink-0" />
                       <div className="truncate">
                         <span className="text-slate-500 dark:text-slate-400 font-medium">
-                          {language === 'fa' ? 'تسک اصلی: ' : 'ئەرکی سەرەکی: '}
+                          {copy.parentTaskLabel}{' '}
                         </span>
                         <span className="font-black text-sky-900 dark:text-sky-200">
                           {parentTask.title}
@@ -415,13 +566,7 @@ export function TaskFormModal({
                   {/* Task Title Input */}
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {isSubtask
-                        ? language === 'ku'
-                          ? 'ناونیشانی سابتسک'
-                          : 'عنوان سابتسک اجرایی'
-                        : language === 'ku'
-                        ? 'ناونیشانی ئەرک'
-                        : 'عنوان تسک / فعالیت کارگاهی'}{' '}
+                      {isSubtask ? copy.subtaskTitleLabel : copy.taskTitleLabel}{' '}
                       <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -429,11 +574,7 @@ export function TaskFormModal({
                       required
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder={
-                        language === 'ku'
-                          ? 'نموونە: ئامادەکردنی داربەست و چیمەنتۆی نهۆمی یەکەم...'
-                          : 'مثال: آرماتوربندی و قالب‌بندی ستون‌های محور شمالی طبقه اول...'
-                      }
+                      placeholder={copy.taskTitlePlaceholder}
                       className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80 text-slate-900 dark:text-white text-sm font-bold focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden transition-all placeholder:font-normal placeholder:text-slate-400"
                       autoFocus
                     />
@@ -442,25 +583,19 @@ export function TaskFormModal({
                   {/* Description / Technical Notes */}
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {language === 'ku'
-                        ? 'وردەکاری، کەرەستە و تێبینییەکانی جێبەجێکردن'
-                        : 'مشخصات اجرایی، مصالح موردنیاز و نکات کنترلی'}
+                      {copy.taskDescLabel}
                     </label>
                     <textarea
                       rows={4}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder={
-                        language === 'ku'
-                          ? 'تێبینی و ڕێنماییە پێویستەکان بۆ جێبەجێکردن لێرە بنووسە...'
-                          : 'جزئیات فنی، استانداردهای اجرایی، ابزارآلات یا نکات ایمنی مربوط به این تسک را وارد کنید...'
-                      }
+                      placeholder={copy.taskDescPlaceholder}
                       className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80 text-slate-900 dark:text-white text-xs sm:text-sm leading-relaxed focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden transition-all placeholder:text-slate-400 resize-none"
                     />
                   </div>
                 </div>
 
-                {/* Card 2: Assigned Work Team / Group (Interactive Quick Pills + Custom) */}
+                {/* Card 2: Assigned Work Team / Group */}
                 <div className="p-5 rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
                   <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
@@ -469,14 +604,10 @@ export function TaskFormModal({
                       </div>
                       <div>
                         <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white block">
-                          {language === 'ku'
-                            ? 'تیم یان گرووپی جێبەجێکار'
-                            : 'تیم یا گروه کاری مجری'}
+                          {copy.workTeamTitle}
                         </span>
                         <span className="text-[11px] text-slate-400">
-                          {language === 'ku'
-                            ? 'ئەم ئەرکە دەدرێت بە کام گرووپی کارگە؟'
-                            : 'مشخص کنید کدام اکیپ یا گروه کاری مسئول اجرای این فعالیت است'}
+                          {copy.workTeamDesc}
                         </span>
                       </div>
                     </div>
@@ -494,9 +625,7 @@ export function TaskFormModal({
                       }`}
                     >
                       {selectedGroup === '' && <Check className="w-3.5 h-3.5" />}
-                      <span>
-                        {language === 'ku' ? 'گشتی / بێ گرووپ' : 'عمومی / بدون گروه خاص'}
-                      </span>
+                      <span>{copy.generalNoGroup}</span>
                     </button>
 
                     {dbGroups.map((g) => {
@@ -522,7 +651,6 @@ export function TaskFormModal({
                       );
                     })}
 
-                    {/* Legacy custom group value when editing */}
                     {selectedGroup &&
                       selectedGroup !== 'custom' &&
                       !dbGroups.some((g) => g.name === selectedGroup) && (
@@ -546,9 +674,7 @@ export function TaskFormModal({
                       }`}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>
-                        {language === 'ku' ? 'گرووپی تایبەت / نوێ' : 'نام گروه سفارشی'}
-                      </span>
+                      <span>{copy.customGroupBtn}</span>
                     </button>
                   </div>
 
@@ -558,11 +684,7 @@ export function TaskFormModal({
                         type="text"
                         value={customGroup}
                         onChange={(e) => setCustomGroup(e.target.value)}
-                        placeholder={
-                          language === 'ku'
-                            ? 'ناوی گرووپی جێبەجێکار بنووسە...'
-                            : 'نام اکیپ، پیمانکار یا گروه مجری را بنویسید...'
-                        }
+                        placeholder={copy.customGroupPlaceholder}
                         className="w-full px-4 py-2.5 rounded-2xl border border-sky-300 dark:border-sky-700 bg-sky-50/40 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm font-bold focus:ring-2 focus:ring-sky-500 outline-hidden transition-all"
                         autoFocus
                       />
@@ -571,20 +693,15 @@ export function TaskFormModal({
                 </div>
               </div>
 
-              {/* ─────────────────────────────────────────────────────────── */}
-              {/* SECONDARY COLUMN (5 Cols): Status, Priority & Timeline      */}
-              {/* ─────────────────────────────────────────────────────────── */}
+              {/* SECONDARY COLUMN (5 Cols) */}
               <div className="lg:col-span-5 space-y-5">
-                {/* Card 3: Execution Status & Priority Level */}
                 <div className="p-5 rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
                   <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                       <Flag className="w-4 h-4" />
                     </div>
                     <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                      {language === 'ku'
-                        ? 'دۆخی جێبەجێکردن و ئەولەویەت'
-                        : 'وضعیت اجرا و درجه اهمیت'}
+                      {copy.statusAndPriorityTitle}
                     </span>
                   </div>
 
@@ -592,9 +709,7 @@ export function TaskFormModal({
                   <div className="space-y-2">
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>
-                        {language === 'ku' ? 'دۆخی ئێستای ئەرک:' : 'وضعیت فعلی تسک:'}
-                      </span>
+                      <span>{copy.currentStatusLabel}</span>
                     </label>
                     <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
                       <button
@@ -602,11 +717,11 @@ export function TaskFormModal({
                         onClick={() => setStatus('not_started')}
                         className={`py-2 px-2 text-xs font-bold rounded-xl transition-all duration-300 cursor-pointer ${
                           status === 'not_started'
-                            ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                            ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                       >
-                        {language === 'ku' ? 'دەستپێنەکراو' : 'شروع نشده'}
+                        {copy.statusNotStarted}
                       </button>
                       <button
                         type="button"
@@ -617,7 +732,7 @@ export function TaskFormModal({
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                       >
-                        {language === 'ku' ? 'لە جێبەجێکردندا' : 'در حال انجام'}
+                        {copy.statusInProgress}
                       </button>
                       <button
                         type="button"
@@ -628,7 +743,7 @@ export function TaskFormModal({
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                       >
-                        {language === 'ku' ? 'تەواوکراو' : 'پایان یافته'}
+                        {copy.statusCompleted}
                       </button>
                     </div>
                   </div>
@@ -637,9 +752,7 @@ export function TaskFormModal({
                   <div className="space-y-2 pt-1">
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                       <Flag className="w-3.5 h-3.5 text-amber-500" />
-                      <span>
-                        {language === 'ku' ? 'ئاستی ئەولەویەت:' : 'سطح اولویت و فوریت:'}
-                      </span>
+                      <span>{copy.priorityLevelLabel}</span>
                     </label>
                     <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
                       <button
@@ -647,11 +760,11 @@ export function TaskFormModal({
                         onClick={() => setPriority('low')}
                         className={`py-2 px-2 text-xs font-bold rounded-xl transition-all duration-300 cursor-pointer ${
                           priority === 'low'
-                            ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
+                            ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-xs'
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                       >
-                        {language === 'ku' ? 'کەم' : 'کم / عادی'}
+                        {copy.priorityLow}
                       </button>
                       <button
                         type="button"
@@ -662,7 +775,7 @@ export function TaskFormModal({
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                       >
-                        {language === 'ku' ? 'مامناوەند' : 'متوسط'}
+                        {copy.priorityMedium}
                       </button>
                       <button
                         type="button"
@@ -673,22 +786,20 @@ export function TaskFormModal({
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                       >
-                        {language === 'ku' ? 'فۆری / بەرز' : 'فوری / بالا'}
+                        {copy.priorityHigh}
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Card 4: Time Estimation & Schedule (with Quick Chips) */}
+                {/* Card 4: Time Estimation & Schedule */}
                 <div className="p-5 rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
                   <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                       <CalendarClock className="w-4 h-4" />
                     </div>
                     <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                      {language === 'ku'
-                        ? 'خەمڵاندنی کات و خشتەی زەمەنی'
-                        : 'برآورد نفر-ساعت و زمان‌بندی'}
+                      {copy.timeScheduleTitle}
                     </span>
                   </div>
 
@@ -697,12 +808,11 @@ export function TaskFormModal({
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
                         <Timer className="w-3.5 h-3.5 text-emerald-500" />
-                        {language === 'ku' ? 'خەمڵاندنی کاتژمێری کار:' : 'تخمین حجم کار (نفر-ساعت):'}
+                        {copy.estimatedHoursLabel}
                       </span>
                       {estimatedHours && (
                         <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">
-                          {formatNumber(estimatedHours)}{' '}
-                          {language === 'ku' ? 'کاتژمێر' : 'ساعت'}
+                          {formatNumber(estimatedHours)} {copy.hoursUnit}
                         </span>
                       )}
                     </label>
@@ -714,11 +824,11 @@ export function TaskFormModal({
                         step="0.5"
                         value={estimatedHours}
                         onChange={(e) => setEstimatedHours(e.target.value)}
-                        placeholder={language === 'ku' ? 'نموونە: 8' : 'مثال: ۸'}
+                        placeholder={copy.hoursPlaceholder}
                         className="w-full ps-4 pe-14 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80 text-slate-900 dark:text-white text-sm font-black font-mono outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500 transition-all"
                       />
                       <span className="absolute end-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
-                        {language === 'ku' ? 'کاتژمێر' : 'ساعت'}
+                        {copy.hoursUnit}
                       </span>
                     </div>
 
@@ -730,9 +840,7 @@ export function TaskFormModal({
                           <button
                             key={item.val}
                             type="button"
-                            onClick={() =>
-                              setEstimatedHours(isSelected ? '' : item.val)
-                            }
+                            onClick={() => setEstimatedHours(isSelected ? '' : item.val)}
                             className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all duration-300 cursor-pointer ${
                               isSelected
                                 ? 'bg-emerald-600 text-white shadow-xs'
@@ -751,7 +859,7 @@ export function TaskFormModal({
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5 text-sky-500" />
-                        <span>{language === 'ku' ? 'بەرواری دەستپێک' : 'تاریخ شروع'}</span>
+                        <span>{copy.startDateLabel}</span>
                       </label>
                       <input
                         type="date"
@@ -764,9 +872,7 @@ export function TaskFormModal({
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5 text-rose-500" />
-                        <span>
-                          {language === 'ku' ? 'بەرواری تەواوبوون' : 'موعد تحویل / سررسید'}
-                        </span>
+                        <span>{copy.dueDateLabel}</span>
                       </label>
                       <input
                         type="date"
@@ -780,7 +886,7 @@ export function TaskFormModal({
                   {/* Quick Due Date Chips */}
                   <div className="flex items-center justify-between flex-wrap gap-1.5 pt-1">
                     <span className="text-[10px] font-bold text-slate-400">
-                      {language === 'ku' ? 'دیاریکردنی خێرای مۆڵەت:' : 'انتخاب سریع سررسید:'}
+                      {copy.quickDueSelect}
                     </span>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {duePresets.map((p) => (
@@ -801,12 +907,11 @@ export function TaskFormModal({
           </form>
         </div>
 
-        {/* ========================================================= */}
-        {/* 3. STICKY APPLE GLASS BOTTOM DOCK (Summary + Actions)     */}
-        {/* ========================================================= */}
+        {/* ─────────────────────────────────────────────────────────── */}
+        {/* 3. STICKY BOTTOM DOCK                                       */}
+        {/* ─────────────────────────────────────────────────────────── */}
         <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3.5 shrink-0 shadow-lg z-20">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Live Summary Chips (Start Side) */}
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-black border ${statusMeta.badgeClass}`}
@@ -833,14 +938,12 @@ export function TaskFormModal({
                 <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                   <Clock className="w-3.5 h-3.5" />
                   <span>
-                    {formatNumber(estimatedHours)}{' '}
-                    {language === 'ku' ? 'کاتژمێر' : 'ساعت'}
+                    {formatNumber(estimatedHours)} {copy.hoursUnit}
                   </span>
                 </span>
               )}
             </div>
 
-            {/* Action Buttons (End Side) */}
             <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
@@ -848,7 +951,7 @@ export function TaskFormModal({
                 disabled={isSubmitting}
                 className="px-5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
               >
-                {language === 'ku' ? 'پاشگەزبوونەوە' : 'انصراف'}
+                {copy.cancelBtn}
               </button>
 
               <button
@@ -864,23 +967,15 @@ export function TaskFormModal({
                 }`}
               >
                 {isSubmitting ? (
-                  <span>
-                    {language === 'ku' ? 'تکایە چاوەڕێ بن...' : 'در حال ذخیره...'}
-                  </span>
+                  <span>{copy.saving}</span>
                 ) : (
                   <>
                     <span>
                       {isEditing
-                        ? language === 'ku'
-                          ? 'پاشەکەوتکردنی گۆڕانکاری'
-                          : 'ذخیره تغییرات تسک'
+                        ? copy.saveChangesBtn
                         : isSubtask
-                        ? language === 'ku'
-                          ? 'تۆمارکردنی سابتسک'
-                          : 'ثبت نهایی سابتسک'
-                        : language === 'ku'
-                        ? 'تۆمارکردنی ئەرک'
-                        : 'ثبت نهایی تسک'}
+                        ? copy.submitSubtaskBtn
+                        : copy.submitTaskBtn}
                     </span>
                     <ArrowRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
                   </>
