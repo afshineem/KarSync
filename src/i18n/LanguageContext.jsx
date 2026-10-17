@@ -217,7 +217,14 @@ export function LanguageProvider({ children }) {
       formatTime,
       formatDate,
       convertDigits,
-      formatDigits: (val) => convertDigits(val, numberFormat)
+      formatDigits: (val) => convertDigits(val, numberFormat),
+      formatNumber: (val) => {
+        if (val === undefined || val === null) return '';
+        if (typeof val === 'number' && !isNaN(val)) {
+          return convertDigits(val.toLocaleString('en-US'), numberFormat);
+        }
+        return convertDigits(String(val), numberFormat);
+      }
     }}>
       {children}
     </LanguageContext.Provider>
