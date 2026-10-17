@@ -342,7 +342,7 @@ export function SettingsDropdown({
       <div className="pt-1 border-t border-slate-200/40 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 px-1">
         <span className="flex items-center gap-1">
           <Sparkles className="w-3 h-3 text-sky-500" />
-          <span>KarSync v0.8.8</span>
+          <span>KarSync v0.9.0</span>
         </span>
         <button
           type="button"
