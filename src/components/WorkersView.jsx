@@ -1088,48 +1088,49 @@ export function WorkersView() {
                       })}
                     </div>
                   ) : (
-                    /* نمایش جدولی و فشرده (List Mode) */
-                    <div className="rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 overflow-hidden shadow-xs divide-y divide-slate-100 dark:divide-slate-800">
+                    /* نمایش جدولی و فشرده (List Mode - Responsive 2 Columns on Tablet/Desktop) */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {group.workers.map(worker => {
                         const fin = workerFinancialsMap.get(worker.id);
                         return (
                           <div 
                             key={worker.id}
-                            className="p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                            className="p-3.5 sm:px-4 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 flex items-center justify-between gap-3 shadow-xs hover:shadow-md hover:border-sky-300 dark:hover:border-sky-800 transition-all group"
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <div 
                                 onClick={() => openWorkerProfile(worker.id)}
-                                className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 cursor-pointer"
+                                className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 cursor-pointer shadow-xs hover:scale-105 active:scale-95 transition-transform"
                               >
                                 {worker.name ? worker.name.charAt(0) : <Users className="w-4 h-4" />}
                               </div>
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5">
                                   <h4 
                                     onClick={() => openWorkerProfile(worker.id)}
-                                    className="font-bold text-sm text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600"
+                                    className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 transition-colors"
+                                    title="مشاهده پروفایل جامع پرسنل"
                                   >
                                     {worker.name}
                                   </h4>
                                   <span className={`w-2 h-2 rounded-full shrink-0 ${worker.isActive !== 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                                 </div>
-                                <span className="text-xs text-slate-400 block truncate mt-0.5">
+                                <span className="text-[11px] text-slate-400 block truncate mt-0.5">
                                   {worker.role || 'پرسنل'} {worker.phone ? `• ${worker.phone}` : ''}
                                 </span>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-4 shrink-0">
+                            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
                               <div className="text-end hidden sm:block">
-                                <span className="text-[10px] text-slate-400 block">دستمزد روزانه:</span>
-                                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
+                                <span className="text-[9px] text-slate-400 block">روزانه:</span>
+                                <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300" dir="ltr">
                                   {worker.wageType === 'contract' ? 'توافقی' : formatCurrency(worker.dailyRate, currency, language)}
                                 </span>
                               </div>
 
                               <div className="text-end">
-                                <span className="text-[10px] text-slate-400 block">مانده حساب:</span>
+                                <span className="text-[9px] text-slate-400 block">مانده:</span>
                                 {fin ? (
                                   <span className={`text-xs font-mono font-black ${
                                     fin.netBalanceDue > 0 ? 'text-emerald-600 dark:text-emerald-400' : fin.netBalanceDue < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
@@ -1145,7 +1146,7 @@ export function WorkersView() {
                                 className="p-2 rounded-xl text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                 title="مشاهده پروفایل"
                               >
-                                <History className="w-4.5 h-4.5" />
+                                <History className="w-4 h-4" />
                               </button>
                             </div>
                           </div>
