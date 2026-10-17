@@ -1005,7 +1005,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                         <button 
                           type="button" 
                           onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: Math.max(0, prev.overtimeHours - 0.5)}))} 
-                          className="w-10 h-8 bg-white dark:bg-slate-700 hover:bg-slate-100 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
+                          className="w-10 h-8 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
                         >
                           -
                         </button>
@@ -1015,7 +1015,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                         <button 
                           type="button" 
                           onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: prev.overtimeHours + 0.5}))} 
-                          className="w-10 h-8 bg-white dark:bg-slate-700 hover:bg-slate-100 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
+                          className="w-10 h-8 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
                         >
                           +
                         </button>
@@ -1197,28 +1197,68 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                                   </span>
 
                                   {/* Hours */}
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="24"
-                                    value={hours}
-                                    onChange={(e) => handleHoursChange(worker.id, e.target.value)}
-                                    className="w-7 text-center font-black font-mono text-xs bg-white dark:bg-slate-900 rounded-lg py-0.5 text-slate-900 dark:text-white focus:outline-none"
-                                  />
+                                  <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-700/80 rounded-lg px-1 py-0.5">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="24"
+                                      value={hours}
+                                      onChange={(e) => handleHoursChange(worker.id, e.target.value)}
+                                      className="w-5 text-center font-black font-mono text-xs bg-transparent text-slate-900 dark:text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <div className="flex flex-col ms-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleHoursChange(worker.id, Math.min(24, hours + 1))}
+                                        className="text-slate-400 dark:text-slate-500 hover:text-sky-500 dark:hover:text-sky-400 transition-colors leading-none cursor-pointer"
+                                        title="افزایش ساعت"
+                                      >
+                                        <ChevronUp className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleHoursChange(worker.id, Math.max(0, hours - 1))}
+                                        className="text-slate-400 dark:text-slate-500 hover:text-sky-500 dark:hover:text-sky-400 transition-colors leading-none cursor-pointer"
+                                        title="کاهش ساعت"
+                                      >
+                                        <ChevronDown className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
                                   <span className="text-[10px] text-slate-400 font-bold">{t('hourShort')}</span>
 
                                   <span className="font-bold text-slate-400">:</span>
 
                                   {/* Minutes */}
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="59"
-                                    step="5"
-                                    value={minutes}
-                                    onChange={(e) => handleMinutesChange(worker.id, e.target.value)}
-                                    className="w-7 text-center font-black font-mono text-xs bg-white dark:bg-slate-900 rounded-lg py-0.5 text-slate-900 dark:text-white focus:outline-none"
-                                  />
+                                  <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-700/80 rounded-lg px-1 py-0.5">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      step="5"
+                                      value={minutes}
+                                      onChange={(e) => handleMinutesChange(worker.id, e.target.value)}
+                                      className="w-5 text-center font-black font-mono text-xs bg-transparent text-slate-900 dark:text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <div className="flex flex-col ms-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => addTime(worker.id, 5)}
+                                        className="text-slate-400 dark:text-slate-500 hover:text-sky-500 dark:hover:text-sky-400 transition-colors leading-none cursor-pointer"
+                                        title="افزایش دقیقه"
+                                      >
+                                        <ChevronUp className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => addTime(worker.id, -5)}
+                                        className="text-slate-400 dark:text-slate-500 hover:text-sky-500 dark:hover:text-sky-400 transition-colors leading-none cursor-pointer"
+                                        title="کاهش دقیقه"
+                                      >
+                                        <ChevronDown className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
                                   <span className="text-[10px] text-slate-400 font-bold">{t('minuteShort')}</span>
                                 </div>
 

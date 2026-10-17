@@ -403,7 +403,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                       max="24"
                       value={hours}
                       onChange={(e) => handleHoursChange(e.target.value)}
-                      className="w-full bg-transparent text-base font-black text-slate-900 dark:text-white text-center focus:outline-none"
+                      className="w-full bg-transparent text-base font-black text-slate-900 dark:text-white text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <div className="flex flex-col ms-1">
                       <button
@@ -436,7 +436,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                       max="59"
                       value={minutes}
                       onChange={(e) => handleMinutesChange(e.target.value)}
-                      className="w-full bg-transparent text-base font-black text-slate-900 dark:text-white text-center focus:outline-none"
+                      className="w-full bg-transparent text-base font-black text-slate-900 dark:text-white text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <div className="flex flex-col ms-1">
                       <button
