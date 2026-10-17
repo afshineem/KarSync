@@ -207,6 +207,21 @@ export const translations = {
     testDirectoryWriteBtn: 'تاقیکردنەوەی پاشەکەوت لە بوخچە',
     connectedFolderLabel: 'بوخچەی پەیوەستکراو:',
 
+    // Google Drive Cloud Sync
+    gdriveCloudTitle: 'پاشەکەوتی کلاود لە Google Drive (کلاودی کەسی بەکارهێنەر)',
+    gdriveCloudSubtitle: 'بارکردنی ئۆتۆماتیکی فایلەکان لەناو بوخچەی تایبەتی KarSync لە درایڤی کەسیی خۆت بەبێ پێویستی بە هیچ هەنگاوێکی تەکنیکی.',
+    gdriveStatusConnected: 'پەیوەستکراوە بە هەژماری Google Drive',
+    gdriveStatusDisconnected: 'هەژماری گووگڵ پەیوەست نەکراوە',
+    gdriveConnectBtn: 'پەیوەستکردنی Google Drive',
+    gdriveDisconnectBtn: 'پچڕاندنی پەیوەندی',
+    gdriveTestUploadBtn: 'تاقیکردنەوەی بارکردن لە درایڤ',
+    gdriveOpenFolderBtn: 'بینینی بوخچە لە درایڤ',
+    gdriveConnectedEmailLabel: 'هەژماری پەیوەستکراو:',
+    gdriveClientIdModalTitle: 'ڕێکخستنی ناسنامەی کڕیاری گووگڵ (Client ID)',
+    gdriveClientIdDesc: 'بۆ تایبەتکردنی پەیوەندی درایڤ، ناسنامەی Client ID لە Google Console لێرە دابنێ:',
+    gdriveSaveClientIdBtn: 'پاشەکەوتکردنی ناسنامە',
+    gdriveConfigBtn: 'ڕێکخستنی Client ID',
+
     // Print & Report Header
     reportHeaderTitle: 'ڕاپۆرتی مووچە و ئامادەبوونی کارگە',
     reportGeneratedAt: 'کاتی دەرکردنی ڕاپۆرت',
@@ -832,6 +847,21 @@ export const translations = {
     testDirectoryWriteBtn: 'تست ذخیره آنی در پوشه',
     connectedFolderLabel: 'پوشه متصل:',
 
+    // Google Drive Cloud Sync
+    gdriveCloudTitle: 'پشتیبان‌گیری ابری در Google Drive (کلاد شخصی کاربر)',
+    gdriveCloudSubtitle: 'آپلود خودکار و مستقل نسخه‌های پشتیبان در پوشه اختصاصی KarSync در حساب Google Drive شخصی شما بدون نیاز به مراحل پیچیده فنی.',
+    gdriveStatusConnected: 'متصل به حساب Google Drive',
+    gdriveStatusDisconnected: 'حساب گوگل متصل نیست',
+    gdriveConnectBtn: 'اتصال به Google Drive (ورود با حساب گوگل)',
+    gdriveDisconnectBtn: 'قطع اتصال حساب گوگل',
+    gdriveTestUploadBtn: 'تست آپلود آنی در Google Drive',
+    gdriveOpenFolderBtn: 'مشاهده پوشه در گوگل درایو',
+    gdriveConnectedEmailLabel: 'حساب متصل:',
+    gdriveClientIdModalTitle: 'تنظیم شناسه برنامه گوگل (Google OAuth Client ID)',
+    gdriveClientIdDesc: 'برای راه‌اندازی یا اختصاصی‌سازی اتصال به درایو، شناسه Client ID کنسول گوگل خود را وارد کنید:',
+    gdriveSaveClientIdBtn: 'ذخیره شناسه',
+    gdriveConfigBtn: 'تنظیم Client ID',
+
     // Print & Report Header
     reportHeaderTitle: 'صورت وضعیت کارکرد و تسویه حقوق کارگاه',
     reportGeneratedAt: 'تاریخ صدور گزارش',
@@ -1456,6 +1486,21 @@ export const translations = {
     disconnectDirectoryBtn: 'Disconnect',
     testDirectoryWriteBtn: 'Test Save to Folder',
     connectedFolderLabel: 'Connected folder:',
+
+    // Google Drive Cloud Sync
+    gdriveCloudTitle: 'Personal Cloud Backup (Google Drive)',
+    gdriveCloudSubtitle: 'Silently and automatically uploads backup snapshots directly into a dedicated KarSync Backups folder in your personal Google Drive.',
+    gdriveStatusConnected: 'Connected to Google Drive',
+    gdriveStatusDisconnected: 'Google account not connected',
+    gdriveConnectBtn: 'Connect Google Drive',
+    gdriveDisconnectBtn: 'Disconnect',
+    gdriveTestUploadBtn: 'Test Upload Now',
+    gdriveOpenFolderBtn: 'Open in Google Drive',
+    gdriveConnectedEmailLabel: 'Connected Account:',
+    gdriveClientIdModalTitle: 'Google OAuth Client ID Configuration',
+    gdriveClientIdDesc: 'Enter your Google Cloud OAuth Client ID to configure or customize Google Drive sync:',
+    gdriveSaveClientIdBtn: 'Save Client ID',
+    gdriveConfigBtn: 'Configure Client ID',
 
     // Print & Report Header
     reportHeaderTitle: 'Workshop Attendance & Payroll Statement',

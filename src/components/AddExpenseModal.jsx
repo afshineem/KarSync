@@ -554,7 +554,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
       if (!overdraftCheck.hasSufficientFunds) {
         if (overdraftCheck.effectivePolicy === 'never_allow') {
           setOverdraftPromptData({
-            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            accountName: overdraftCheck.account?.name || c.selectedAccountDefaultName,
             currentBalance: overdraftCheck.currentBalance,
             requestedAmount: numericAmount,
             shortfall: overdraftCheck.shortfall,
@@ -564,7 +564,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
           return;
         } else if (overdraftCheck.effectivePolicy === 'ask_each_time') {
           setOverdraftPromptData({
-            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            accountName: overdraftCheck.account?.name || c.selectedAccountDefaultName,
             currentBalance: overdraftCheck.currentBalance,
             requestedAmount: numericAmount,
             shortfall: overdraftCheck.shortfall,
@@ -650,7 +650,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         
         
         details: {
-          description: expenseToEdit ? `ویرایش هزینه: ${expenseRecord.title}` : `ثبت هزینه جدید: ${expenseRecord.title}`,
+          description: expenseToEdit ? `${c.editTitle}: ${expenseRecord.title}` : `${c.newTitle}: ${expenseRecord.title}`,
           amount: expenseRecord.amount
         }
       });
@@ -1277,7 +1277,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                     {c.finalAmountLabel}
                   </span>
                   <span className="text-sm font-black text-slate-800 dark:text-slate-100 font-mono tracking-tight">
-                    {formData.amount ? Number(formData.amount).toLocaleString() : "۰"}
+                    {formData.amount ? Number(formData.amount).toLocaleString(langKey === 'fa' ? 'fa-IR' : langKey === 'ku' ? 'ckb-IR' : 'en-US') : (langKey === 'en' ? '0' : '۰')}
                   </span>
                   <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
                     {CURRENCIES.find((c) => c.code === formData.currency)?.symbol || formData.currency}

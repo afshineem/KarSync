@@ -128,6 +128,12 @@ export async function createAutoSnapshot(triggerType = 'auto', label = '') {
     writeBackupToConnectedDirectory(payload).catch(() => {});
   } catch (_) {}
 
+  // Also silently upload to Google Drive if connected
+  try {
+    const { uploadBackupToGoogleDrive } = await import('../services/googleDriveService');
+    uploadBackupToGoogleDrive(payload).catch(() => {});
+  } catch (_) {}
+
   return snapshot;
 }
 

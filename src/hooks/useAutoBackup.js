@@ -15,12 +15,20 @@ import {
   disconnectBackupDirectory,
   writeBackupToConnectedDirectory
 } from '../services/localDirectoryBackup';
+import {
+  getGoogleDriveSyncStatus,
+  connectGoogleDrive,
+  disconnectGoogleDrive,
+  uploadBackupToGoogleDrive,
+  setCustomGoogleClientId
+} from '../services/googleDriveService';
 import { emitToast } from '../context/NotificationContext';
 
 export function useAutoBackup() {
   const [isTakingSnapshot, setIsTakingSnapshot] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [isConnectingDir, setIsConnectingDir] = useState(false);
+  const [isGdriveLoading, setIsGdriveLoading] = useState(false);
 
   // Directory Sync state
   const [dirStatus, setDirStatus] = useState(() => ({
@@ -30,6 +38,16 @@ export function useAutoBackup() {
     permissionState: 'none'
   }));
 
+  // Google Drive state
+  const [gdriveStatus, setGdriveStatus] = useState(() => ({
+    isConfigured: false,
+    isConnected: false,
+    userEmail: null,
+    folderId: null,
+    lastUploadAt: null,
+    clientId: ''
+  }));
+
   const refreshDirStatus = useCallback(async () => {
     try {
       const status = await getDirectorySyncStatus();
@@ -37,9 +55,17 @@ export function useAutoBackup() {
     } catch (_) {}
   }, []);
 
+  const refreshGdriveStatus = useCallback(async () => {
+    try {
+      const status = await getGoogleDriveSyncStatus();
+      setGdriveStatus(status);
+    } catch (_) {}
+  }, []);
+
   useEffect(() => {
     refreshDirStatus();
-  }, [refreshDirStatus]);
+    refreshGdriveStatus();
+  }, [refreshDirStatus, refreshGdriveStatus]);
 
   // Configuration state
   const [config, setConfig] = useState(() => {
@@ -246,6 +272,75 @@ export function useAutoBackup() {
     }
   }, []);
 
+  // Google Drive actions
+  const connectGdrive = useCallback(async (clientIdOverride = null) => {
+    try {
+      setIsGdriveLoading(true);
+      const res = await connectGoogleDrive(clientIdOverride);
+      if (res?.success) {
+        await refreshGdriveStatus();
+      }
+      return res;
+    } catch (err) {
+      if (err.message === 'NO_CLIENT_ID') {
+        throw err;
+      }
+      emitToast({
+        type: 'error',
+        title: 'خطا در اتصال به Google Drive',
+        message: err.message || 'ورود توسط کاربر لغو شد یا دسترسی داده نشد.'
+      });
+      throw err;
+    } finally {
+      setIsGdriveLoading(false);
+    }
+  }, [refreshGdriveStatus]);
+
+  const disconnectGdrive = useCallback(async () => {
+    await disconnectGoogleDrive();
+    await refreshGdriveStatus();
+  }, [refreshGdriveStatus]);
+
+  const testGdriveUpload = useCallback(async () => {
+    try {
+      setIsGdriveLoading(true);
+      const res = await uploadBackupToGoogleDrive();
+      if (res.uploaded) {
+        emitToast({
+          type: 'success',
+          title: 'آپلود در Google Drive',
+          message: `فایل «${res.fileName}» با موفقیت در پوشه KarSync در درایو شما ذخیره گردید.`
+        });
+        await refreshGdriveStatus();
+      } else if (res.reason === 'token_expired') {
+        emitToast({
+          type: 'warning',
+          title: 'نشست منقضی شده است',
+          message: 'لطفاً یک‌بار دیگر دکمه اتصال به Google Drive را کلیک نمایید تا توکن شما تمدید گردد.'
+        });
+      } else {
+        emitToast({
+          type: 'error',
+          title: 'خطا در آپلود ابری',
+          message: res.error || 'حساب گوگل متصل نیست.'
+        });
+      }
+    } catch (err) {
+      emitToast({
+        type: 'error',
+        title: 'خطا',
+        message: err.message
+      });
+    } finally {
+      setIsGdriveLoading(false);
+    }
+  }, [refreshGdriveStatus]);
+
+  const updateGdriveClientId = useCallback((newId) => {
+    setCustomGoogleClientId(newId);
+    refreshGdriveStatus();
+  }, [refreshGdriveStatus]);
+
   return {
     snapshots,
     config,
@@ -261,6 +356,12 @@ export function useAutoBackup() {
     isConnectingDir,
     connectDirectory,
     disconnectDirectory,
-    testDirectorySync
+    testDirectorySync,
+    gdriveStatus,
+    isGdriveLoading,
+    connectGdrive,
+    disconnectGdrive,
+    testGdriveUpload,
+    updateGdriveClientId
   };
 }
