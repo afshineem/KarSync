@@ -8,7 +8,6 @@ import { pullRemoteChangesSilently } from '../services/realtimeSync';
 import { refreshWorkerPortalData } from '../services/workerAccess';
 import {
   formatAmount,
-  formatHoursAndMinutes,
   getCurrentYearMonth,
   roundCurrency,
   getCurrencySymbol
@@ -31,22 +30,45 @@ import {
   AlertCircle,
   Building2,
   WalletCards,
-  Banknote,
   Receipt,
   Users,
-  Archive,
   Search,
   Layers,
   Sparkles,
   X,
   RefreshCw,
-  Filter,
   Globe
 } from 'lucide-react';
 
+// Format decimal hours into H:MM clock format (e.g., 1.333 -> 1:20, 1.5 -> 1:30)
+function formatOvertimeClock(hoursVal) {
+  const num = Number(hoursVal) || 0;
+  const totalMinutes = Math.round(num * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
+// Extract day of month number (e.g. "2026-10-16" -> "16")
+function getDayOfMonthNumber(dateStr) {
+  if (!dateStr) return '—';
+  const parts = String(dateStr).split('-');
+  if (parts.length === 3) {
+    const dayNum = parseInt(parts[2], 10);
+    if (!isNaN(dayNum)) return String(dayNum);
+  }
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return String(d.getDate());
+  } catch {
+    // fallback
+  }
+  return dateStr;
+}
+
 export function WorkerViewPortal({ theme, toggleTheme }) {
   const { user, logout } = useAuth();
-  const { t, language, changeLanguage, direction } = useLanguage();
+  const { language, changeLanguage, direction } = useLanguage();
   const { addToast } = useNotifications();
 
   // Mode for supervisors: 'personal' (حساب و کارکرد شخصی من) | 'group' (پنل سرپرستی گروه)
@@ -55,7 +77,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
   // Subordinate selection in group mode: 'all' or workerId
   const [selectedSubordinateId, setSelectedSubordinateId] = useState('all');
 
-  // Period Tab: 'all' (سوابق و کل کارکرد) | 'current' (کارکرد جاری و مطالبات معوقه) | 'settled' (سوابق تسویه شده)
+  // Period Tab: 'all' (سوابق و کل کارکرد) | 'current' (کارکرد جاری و معوقه) | 'settled' (سوابق تسویه‌شده)
   const [periodTab, setPeriodTab] = useState('all');
 
   // Quick Filter for attendance log types: 'all' | 'full' | 'half' | 'overtime'
@@ -518,6 +540,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     }
   };
 
+  // Explicit localized labels (avoiding missing translation keys)
   const labels = {
     myPersonalAccount:
       language === 'ku' ? 'حیساب و کارکردی کەسی من' : language === 'en' ? 'My Personal Account' : 'حساب و کارکرد شخصی من',
@@ -555,7 +578,18 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         ? 'گەڕان بەپێی بەروار، ناو یان تێبینی...'
         : language === 'en'
         ? 'Search by date, name or notes...'
-        : 'جستجو بر اساس تاریخ، نام یا یادداشت...'
+        : 'جستجو بر اساس تاریخ، نام یا توضیحات...',
+    fullDayLabel: language === 'ku' ? 'ڕۆژی تەواو' : language === 'en' ? 'Full Day' : 'روز کامل',
+    halfDayLabel: language === 'ku' ? 'نیو ڕۆژ' : language === 'en' ? 'Half Day' : 'نیم‌روز',
+    hourlyLabel: language === 'ku' ? 'کاتژمێری' : language === 'en' ? 'Hourly' : 'ساعتی',
+    overtimeLabel: language === 'ku' ? 'سەروەخت' : language === 'en' ? 'Overtime' : 'اضافه‌کاری',
+    dateColTitle: language === 'ku' ? 'بەروار' : language === 'en' ? 'Date' : 'تاریخ',
+    workerNameColTitle: language === 'ku' ? 'ناوی کرێکار' : language === 'en' ? 'Worker' : 'نام نیرو',
+    workTypeColTitle: language === 'ku' ? 'جۆری کار' : language === 'en' ? 'Work Type' : 'نوع کار',
+    totalDayColTitle: language === 'ku' ? 'کۆی ڕۆژ' : language === 'en' ? 'Total Pay' : 'مجموع کل روز',
+    statusColTitle: language === 'ku' ? 'دۆخ' : language === 'en' ? 'Status' : 'وضعیت',
+    notesColTitle: language === 'ku' ? 'تێبینی' : language === 'en' ? 'Notes' : 'توضیحات',
+    daysUnit: language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'
   };
 
   if (!worker) {
@@ -579,7 +613,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       ? {
           subjectName: worker.name,
           dailyRate: Number(worker.dailyRate) || 0,
-          titleDays: t('totalMonthWorkedDays') || 'کل کارکرد',
+          titleDays: language === 'ku' ? 'ڕۆژانی کارکردن' : language === 'en' ? 'Worked Days' : 'کل کارکرد',
           days:
             periodTab === 'all'
               ? (personalFinancials?.effectiveDays || 0) + (personalFinancials?.settledEffectiveDays || 0)
@@ -592,14 +626,25 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? personalFinancials?.fullDays || 0
               : personalFinancials?.settledFullDays || 0
-          } ${t('fullDayWork') || 'روز کامل'}`,
+          } ${labels.fullDayLabel}`,
           otHours:
             periodTab === 'all'
               ? (personalFinancials?.otHours || 0) + (personalFinancials?.settledOtHours || 0)
               : periodTab === 'current'
               ? personalFinancials?.otHours || 0
               : personalFinancials?.settledOtHours || 0,
-          titleEarnings: t('totalCalculatedPayroll') || 'کل حقوق کارکرد',
+          titleEarnings:
+            periodTab === 'all'
+              ? language === 'ku'
+                ? 'کۆی گشتی مووچەی کارکرد'
+                : 'کل حقوق و کارکرد ثبت‌شده'
+              : periodTab === 'current'
+              ? language === 'ku'
+                ? 'کارکردی ئێستا'
+                : 'حقوق کارکرد جاری'
+              : language === 'ku'
+              ? 'کارکردی تەسویەکراو'
+              : 'کل کارکرد تسویه‌شده',
           earnings:
             periodTab === 'all'
               ? (personalFinancials?.unsettledGross || 0) + (personalFinancials?.settledGross || 0)
@@ -608,10 +653,16 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : personalFinancials?.settledGross || 0,
           titleAdvances:
             periodTab === 'all'
-              ? t('totalPaid') || 'کل دریافتی و تسویه'
+              ? language === 'ku'
+                ? 'کۆی وەرگیراو و تەسویە'
+                : 'کل دریافتی و تسویه‌شده'
               : periodTab === 'current'
-              ? t('totalPaidAdvances') || 'مساعده و دریافتی'
-              : t('totalPaid') || 'مجموع تسویه شده',
+              ? language === 'ku'
+                ? 'پێشەکی وەرگیراو'
+                : 'مساعده دریافتی جاری'
+              : language === 'ku'
+              ? 'کۆی تەسویەکراو'
+              : 'مجموع پرداختی تسویه‌شده',
           advances:
             periodTab === 'all'
               ? (personalFinancials?.unsettledAdvances || 0) +
@@ -620,7 +671,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? personalFinancials?.unsettledAdvances || 0
               : (personalFinancials?.totalSettlementPaid || 0) + (personalFinancials?.settledAdvances || 0),
-          titleDue: t('netBalanceDue') || 'مانده معوق طلب',
+          titleDue:
+            language === 'ku' ? 'ماوەی شایستەی وەرگرتن' : language === 'en' ? 'Net Balance Due' : 'مانده معوق طلب',
           due: personalFinancials?.netBalanceDue || 0,
           isSettled: (personalFinancials?.netBalanceDue || 0) <= 0
         }
@@ -685,7 +737,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       : {
           subjectName: activeSubordinateData?.member.name || '',
           dailyRate: Number(activeSubordinateData?.member.dailyRate) || 0,
-          titleDays: `${t('totalMonthWorkedDays') || 'روزهای کارکرد'}`,
+          titleDays: language === 'ku' ? 'ڕۆژانی کارکردن' : 'روزهای کارکرد',
           days:
             periodTab === 'all'
               ? (activeSubordinateData?.effectiveDays || 0) + (activeSubordinateData?.settledEffectiveDays || 0)
@@ -698,14 +750,14 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? activeSubordinateData?.fullDays || 0
               : activeSubordinateData?.settledFullDays || 0
-          } ${t('fullDayWork') || 'روز کامل'}`,
+          } ${labels.fullDayLabel}`,
           otHours:
             periodTab === 'all'
               ? (activeSubordinateData?.otHours || 0) + (activeSubordinateData?.settledOtHours || 0)
               : periodTab === 'current'
               ? activeSubordinateData?.otHours || 0
               : activeSubordinateData?.settledOtHours || 0,
-          titleEarnings: t('totalCalculatedPayroll') || 'حقوق کارکرد',
+          titleEarnings: language === 'ku' ? 'کۆی مووچەی کارکرد' : 'کل حقوق کارکرد',
           earnings:
             periodTab === 'all'
               ? (activeSubordinateData?.unsettledGross || 0) + (activeSubordinateData?.settledGross || 0)
@@ -714,10 +766,16 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : activeSubordinateData?.settledGross || 0,
           titleAdvances:
             periodTab === 'all'
-              ? t('totalPaid') || 'کل دریافتی و تسویه'
+              ? language === 'ku'
+                ? 'کۆی وەرگیراو'
+                : 'کل دریافتی و تسویه'
               : periodTab === 'current'
-              ? t('totalPaidAdvances') || 'مساعده و دریافتی'
-              : t('totalPaid') || 'تسویه شده',
+              ? language === 'ku'
+                ? 'پێشەکی'
+                : 'مساعده و دریافتی'
+              : language === 'ku'
+              ? 'تەسویەکراو'
+              : 'مجموع تسویه‌شده',
           advances:
             periodTab === 'all'
               ? (activeSubordinateData?.unsettledAdvances || 0) +
@@ -726,16 +784,59 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? activeSubordinateData?.unsettledAdvances || 0
               : (activeSubordinateData?.totalSettlementPaid || 0) + (activeSubordinateData?.settledAdvances || 0),
-          titleDue: t('netBalanceDue') || 'مانده خالص طلب',
+          titleDue: language === 'ku' ? 'ماوەی قەرز' : 'مانده معوق طلب',
           due: activeSubordinateData?.netBalanceDue || 0,
           isSettled: (activeSubordinateData?.netBalanceDue || 0) <= 0
+        };
+
+  // Dynamic Hero Primary Amount & Subtitle based on active periodTab!
+  const heroPrimaryDisplay =
+    periodTab === 'all'
+      ? {
+          amount: activeMetrics.earnings,
+          caption:
+            language === 'ku'
+              ? 'کۆی گشتی کارکرد و مووچەی تۆمارکراو (ئێستا و تەسویەکراو)'
+              : language === 'en'
+              ? 'Total All-Time Gross Earnings (Open & Settled)'
+              : 'مجموع کل حقوق و کارکرد ثبت‌شده (جاری و تسویه‌شده)',
+          rightSubLabel: activeMetrics.titleDue,
+          rightSubAmount: Math.max(0, activeMetrics.due),
+          rightSubColor: 'text-amber-400'
+        }
+      : periodTab === 'current'
+      ? {
+          amount: Math.max(0, activeMetrics.due),
+          caption:
+            language === 'ku'
+              ? 'پوختەی قەرز و شایستەی ماوە (دوای لێدەرکردنی پێشەکی)'
+              : language === 'en'
+              ? 'Current Net Unsettled Balance Due (After Advances)'
+              : 'مانده خالص طلب معوقه فعلی (پس از کسر مساعده‌های جاری)',
+          rightSubLabel: activeMetrics.titleEarnings,
+          rightSubAmount: activeMetrics.earnings,
+          rightSubColor: 'text-sky-300'
+        }
+      : {
+          amount: activeMetrics.advances,
+          caption:
+            language === 'ku'
+              ? 'کۆی گشتی مووچە و پارەی تەسویەکراوی پێشوو'
+              : language === 'en'
+              ? 'Total Settled & Paid Historical Amount'
+              : 'مجموع کل مبالغ تسویه‌شده و دریافتی در سوابق تسویه',
+          rightSubLabel: activeMetrics.titleEarnings,
+          rightSubAmount: activeMetrics.earnings,
+          rightSubColor: 'text-sky-300'
         };
 
   // Calculate payout ratio for visual progress bar
   const grossEarningsVal = Number(activeMetrics.earnings) || 0;
   const paidAdvancesVal = Number(activeMetrics.advances) || 0;
   const payoutProgressPercent =
-    grossEarningsVal <= 0
+    periodTab === 'settled'
+      ? 100
+      : grossEarningsVal <= 0
       ? activeMetrics.isSettled
         ? 100
         : 0
@@ -744,13 +845,19 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
   const currencySymbol = getCurrencySymbol(currency, language);
   const userInitials = (user?.name || worker?.name || 'K').slice(0, 2).toUpperCase();
 
+  const periodNavItems = [
+    { id: 'all', label: labels.allTab, icon: Layers },
+    { id: 'current', label: labels.currentTab, icon: Clock },
+    { id: 'settled', label: labels.settledTab, icon: CheckCircle2 }
+  ];
+
   return (
     <div
       className="min-h-screen bg-[#f3f6f4] dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300"
       dir={direction}
     >
       {/* ===================================================================== */}
-      {/* 1. TOP NAVBAR (Matches Main App Navbar + User Settings Dropdown)      */}
+      {/* 1. TOP NAVBAR (With [APP_THEME_BUTTON] Dock & Avatar Dropdown)        */}
       {/* ===================================================================== */}
       <header className="sticky top-0 z-40 no-print transition-all duration-300">
         <div className="absolute inset-0 bg-white/55 dark:bg-slate-950/55 backdrop-blur-3xl backdrop-saturate-200 border-b border-slate-200/50 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_0_rgba(0,0,0,0.4)] -z-10 pointer-events-none" />
@@ -771,7 +878,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   <h1 className="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">
                     KarSync
                   </h1>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                  <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
                     {isSupervisor
                       ? language === 'ku'
                         ? 'پۆرتالی سەرپەرشتیار'
@@ -781,39 +888,55 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       : 'پرتال پرسنل'}
                   </span>
                 </div>
-                <p className="hidden sm:block text-[11px] text-slate-500 dark:text-slate-400 leading-none mt-0.5">
+                <p className="hidden md:block text-[11px] text-slate-500 dark:text-slate-400 leading-none mt-0.5">
                   {project?.name || (language === 'fa' ? 'پروژه فعال' : 'Active Project')}
                 </p>
               </div>
             </div>
 
-            {/* Center Dock: Period Tabs (Desktop) */}
-            <div className="hidden md:flex items-center justify-center">
-              <div className="flex items-center gap-1.5 bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 p-1.5 rounded-2xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.06)]">
-                {[
-                  { id: 'all', label: labels.allTab, icon: Layers },
-                  { id: 'current', label: labels.currentTab, icon: Clock },
-                  { id: 'settled', label: labels.settledTab, icon: CheckCircle2 }
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = periodTab === tab.id;
+            {/* Center Dock: [APP_THEME_BUTTON] Segmented Period Tabs */}
+            <div className="flex items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+              <nav className="flex items-center gap-1.5 bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 p-1.5 sm:p-2 rounded-2xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.1),0_2px_12px_0_rgba(0,0,0,0.3)]">
+                {periodNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = periodTab === item.id;
                   return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setPeriodTab(tab.id)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 cursor-pointer ${
-                        isActive
-                          ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25'
-                          : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/[0.08]'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span>{tab.label}</span>
-                    </button>
+                    <div key={item.id} className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => setPeriodTab(item.id)}
+                        aria-label={item.label}
+                        className={`relative p-2.5 rounded-xl transition-all duration-300 ease-in-out flex items-center gap-2 cursor-pointer ${
+                          isActive
+                            ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
+
+                        {/* Active tab displays BOTH icon and text label; Inactive tab displays ONLY icon */}
+                        {isActive && (
+                          <span className="text-xs font-bold px-1 animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
+                            {item.label}
+                          </span>
+                        )}
+
+                        {isActive && (
+                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs" />
+                        )}
+                      </button>
+
+                      {/* Hover Micro-Tooltip when inactive */}
+                      {!isActive && (
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                          {item.label}
+                          <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </div>
+              </nav>
             </div>
 
             {/* End Controls: Sync Button + User Profile Dropdown */}
@@ -832,7 +955,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen((prev) => !prev)}
-                className={`relative p-0.5 sm:p-1 rounded-2xl border transition-all shadow-xs flex items-center gap-2 pe-2.5 group cursor-pointer ${
+                className={`relative p-0.5 sm:p-1 rounded-2xl border transition-all shadow-xs flex items-center gap-2 sm:pe-2.5 group cursor-pointer ${
                   isDropdownOpen
                     ? 'ring-2 ring-sky-500 shadow-md border-transparent bg-white dark:bg-slate-900'
                     : 'bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border-white/60 dark:border-white/10 backdrop-blur-md'
@@ -844,7 +967,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   </div>
                   <span className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
                 </div>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hidden sm:inline max-w-[110px] truncate">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hidden lg:inline max-w-[110px] truncate">
                   {user?.name || worker?.name}
                 </span>
               </button>
@@ -869,7 +992,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-bold border border-sky-500/20">
-                              {worker?.role || t('workerRole')}
+                              {worker?.role || labels.workerRoleLabel}
                             </span>
                           )}
                           {workerGroup && (
@@ -893,26 +1016,30 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       <button
                         type="button"
                         onClick={() => theme !== 'light' && toggleTheme()}
-                        className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 cursor-pointer ${
+                        className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
                           theme === 'light'
                             ? 'bg-sky-600 text-white shadow-xs'
                             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                         }`}
                       >
                         <Sun className="w-3.5 h-3.5" />
-                        <span>{language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'Light' : 'حالت روشن'}</span>
+                        {theme === 'light' && (
+                          <span>{language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'Light' : 'حالت روشن'}</span>
+                        )}
                       </button>
                       <button
                         type="button"
                         onClick={() => theme !== 'dark' && toggleTheme()}
-                        className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 cursor-pointer ${
+                        className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
                           theme === 'dark'
                             ? 'bg-sky-600 text-white shadow-xs'
                             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                         }`}
                       >
                         <Moon className="w-3.5 h-3.5" />
-                        <span>{language === 'ku' ? 'شەو' : language === 'en' ? 'Dark' : 'حالت تاریک'}</span>
+                        {theme === 'dark' && (
+                          <span>{language === 'ku' ? 'شەو' : language === 'en' ? 'Dark' : 'حالت تاریک'}</span>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -935,7 +1062,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                           onClick={() => changeLanguage(lang.id)}
                           className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             language === lang.id
-                              ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs'
+                              ? 'bg-sky-600 text-white shadow-xs'
                               : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                           }`}
                         >
@@ -955,7 +1082,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
                   >
                     <Printer className="w-4 h-4 text-sky-500" />
-                    <span>{t('printMyPayslip') || 'چاپ فیش حقوقی و کارکرد'}</span>
+                    <span>{language === 'ku' ? 'چاپکردنی پسوولەی مووچە' : 'چاپ فیش حقوقی و کارکرد'}</span>
                   </button>
 
                   {/* Logout Action */}
@@ -985,7 +1112,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       {/* 2. MAIN CONTENT CONTAINER (Matches DashboardView Layout)              */}
       {/* ===================================================================== */}
       <main className="space-y-6 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {/* Top Liquid Glass Welcome & Mode Capsule (Matches DashboardView Header Capsule) */}
+        {/* Top Liquid Glass Welcome & Mode Capsule */}
         <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/30 transition-all duration-300">
           <div className="absolute -top-24 -right-24 w-60 h-60 bg-sky-500/10 dark:bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-indigo-500/10 dark:bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
@@ -1007,7 +1134,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     </span>
                   ) : (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                      {worker?.role || t('workerRole')}
+                      {worker?.role || labels.workerRoleLabel}
                     </span>
                   )}
                   {workerGroup && (
@@ -1028,65 +1155,47 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               </div>
             </div>
 
-            {/* Supervisor Mode Switcher or Mobile Period Tabs */}
-            <div className="flex flex-wrap items-center gap-2 no-print">
-              {isSupervisor && (
-                <div className="inline-flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPortalMode('personal');
-                      setSelectedSubordinateId('all');
-                    }}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
-                      portalMode === 'personal'
-                        ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/25'
-                        : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    <span>{labels.myPersonalAccount}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPortalMode('group')}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
-                      portalMode === 'group'
-                        ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/25'
-                        : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{labels.groupManagement}</span>
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/20">
-                      {groupMembers.length}
-                    </span>
-                  </button>
-                </div>
-              )}
-
-              {/* Mobile Period Selector (< md) */}
-              <div className="flex md:hidden items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full sm:w-auto">
-                {[
-                  { id: 'all', label: labels.allTab },
-                  { id: 'current', label: labels.currentTab },
-                  { id: 'settled', label: labels.settledTab }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setPeriodTab(tab.id)}
-                    className={`flex-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
-                      periodTab === tab.id
-                        ? 'bg-sky-600 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+            {/* Supervisor Mode Switcher ([APP_THEME_BUTTON] Segmented Control) */}
+            {isSupervisor && (
+              <div className="inline-flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner self-start md:self-auto no-print">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPortalMode('personal');
+                    setSelectedSubordinateId('all');
+                  }}
+                  title={labels.myPersonalAccount}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
+                    portalMode === 'personal'
+                      ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/25'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <User className="w-4 h-4 shrink-0" />
+                  {portalMode === 'personal' && <span>{labels.myPersonalAccount}</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPortalMode('group')}
+                  title={labels.groupManagement}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
+                    portalMode === 'group'
+                      ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/25'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  {portalMode === 'group' && (
+                    <>
+                      <span>{labels.groupManagement}</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/20">
+                        {groupMembers.length}
+                      </span>
+                    </>
+                  )}
+                </button>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Group Subordinates Selector (When Supervisor is in Group Mode) */}
@@ -1094,7 +1203,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             <div className="relative z-10 mt-5 pt-4 border-t border-slate-200/60 dark:border-slate-800 space-y-3 no-print">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-purple-500" />
+                  <Users className="w-4 h-4 text-sky-500" />
                   <span>
                     {language === 'ku'
                       ? 'دیاریکردنی کرێکار بۆ بینینی کارکرد و حسابات:'
@@ -1112,7 +1221,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   onClick={() => setSelectedSubordinateId('all')}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                     selectedSubordinateId === 'all'
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25'
+                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
@@ -1150,7 +1259,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       >
                         {gf.netBalanceDue > 0
                           ? `${formatAmount(gf.netBalanceDue, currency)} ${currencySymbol}`
-                          : `${totalDays} ${t('daysShort') || 'روز'}`}
+                          : `${totalDays} ${labels.daysUnit}`}
                       </span>
                     </button>
                   );
@@ -1161,7 +1270,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         </div>
 
         {/* ================================================================= */}
-        {/* 3. EXECUTIVE HERO BANNER (Exact DashboardView & ExpensesView Hero)*/}
+        {/* 3. EXECUTIVE HERO BANNER (Dynamic Number per Period Tab!)         */}
         {/* ================================================================= */}
         <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
           <div className="absolute top-0 right-1/4 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -1170,41 +1279,39 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
             {/* Main Financial Statement (Col-span 7) */}
             <div className="lg:col-span-7 space-y-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider flex-wrap">
                 <WalletCards className="w-4 h-4" />
                 <span>
-                  {portalMode === 'personal'
-                    ? language === 'fa'
-                      ? 'خلاصه کارکرد و وضعیت فعلی حساب من'
-                      : 'My Work & Financial Pulse'
-                    : `${labels.groupManagement} • ${activeMetrics.subjectName}`}
-                </span>
-                <span
-                  className={`ms-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                    activeMetrics.isSettled
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  }`}
-                >
-                  {activeMetrics.isSettled
-                    ? t('workerSettledStatus') || 'تسویه شده'
-                    : t('workerPendingStatus') || 'دارای معوقه پرداخت'}
-                </span>
-              </div>
-
-              <div>
-                <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
-                  <span>{formatAmount(Math.max(0, activeMetrics.due), currency)}</span>
-                  <span className="text-sm sm:text-base font-bold text-sky-400">{currencySymbol}</span>
-                </div>
-                <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                  {activeMetrics.titleDue} •{' '}
                   {periodTab === 'all'
                     ? labels.allTab
                     : periodTab === 'current'
                     ? labels.currentTab
                     : labels.settledTab}
-                </p>
+                </span>
+                <span
+                  className={`ms-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                    periodTab === 'settled' || activeMetrics.isSettled
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}
+                >
+                  {periodTab === 'settled' || activeMetrics.isSettled
+                    ? language === 'ku'
+                      ? 'تەسویەکراو'
+                      : 'تسویه شده'
+                    : language === 'ku'
+                    ? 'قەرزی ماوە'
+                    : 'دارای معوقه پرداخت'}
+                </span>
+              </div>
+
+              {/* Dynamic Big Hero Number that updates when switching tabs */}
+              <div>
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+                  <span>{formatAmount(heroPrimaryDisplay.amount, currency)}</span>
+                  <span className="text-sm sm:text-base font-bold text-sky-400">{currencySymbol}</span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">{heroPrimaryDisplay.caption}</p>
               </div>
 
               {/* Progress Gauge */}
@@ -1214,9 +1321,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     <ShieldCheck className="w-3.5 h-3.5" />
                     {activeMetrics.titleAdvances}: {formatAmount(activeMetrics.advances, currency)} {currencySymbol}
                   </span>
-                  <span className="text-sky-300 flex items-center gap-1.5">
+                  <span className={`${heroPrimaryDisplay.rightSubColor} flex items-center gap-1.5`}>
                     <Coins className="w-3.5 h-3.5" />
-                    {activeMetrics.titleEarnings}: {formatAmount(activeMetrics.earnings, currency)} {currencySymbol}
+                    {heroPrimaryDisplay.rightSubLabel}: {formatAmount(heroPrimaryDisplay.rightSubAmount, currency)}{' '}
+                    {currencySymbol}
                   </span>
                 </div>
                 <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden p-0.5">
@@ -1230,7 +1338,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     {payoutProgressPercent}% {language === 'fa' ? 'دریافت و تسویه شده' : 'Cleared'}
                   </span>
                   <span>
-                    {displayedLogs.length} {language === 'fa' ? 'ردیف کارکرد ثبت‌شده' : 'logged shifts'}
+                    {displayedLogs.length} {language === 'fa' ? 'ردیف کارکرد در این نما' : 'records in view'}
                   </span>
                 </div>
               </div>
@@ -1243,19 +1351,19 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 <span className="text-[11px] text-slate-400 block">{activeMetrics.titleDays}</span>
                 <span className="text-xl font-black text-white mt-0.5 block font-mono">
                   {activeMetrics.days}{' '}
-                  <span className="text-xs font-normal text-slate-400">{t('daysShort') || 'روز'}</span>
+                  <span className="text-xs font-normal text-slate-400">{labels.daysUnit}</span>
                 </span>
                 <span className="text-[10px] text-emerald-400 mt-1 block">{activeMetrics.daysSub}</span>
               </div>
 
-              {/* Tile 2: Overtime Hours */}
+              {/* Tile 2: Overtime Hours (Formatted as H:MM) */}
               <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                <span className="text-[11px] text-slate-400 block">{t('overtimeHours') || 'اضافه‌کاری'}</span>
+                <span className="text-[11px] text-slate-400 block">{labels.overtimeLabel}</span>
                 <span className="text-xl font-black text-white mt-0.5 block font-mono">
-                  {activeMetrics.otHours > 0 ? formatHoursAndMinutes(activeMetrics.otHours) : '0'}
+                  {activeMetrics.otHours > 0 ? formatOvertimeClock(activeMetrics.otHours) : '0:00'}
                 </span>
                 <span className="text-[10px] text-sky-400 mt-1 block">
-                  {language === 'fa' ? 'مجموع ساعات اضافه' : 'Total OT Hours'}
+                  {language === 'fa' ? 'مجموع ساعت اضافه' : 'Total OT Hours'}
                 </span>
               </div>
 
@@ -1266,7 +1374,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95 no-print"
               >
                 <Printer className="w-4 h-4" />
-                <span>{t('printMyPayslip') || 'چاپ فیش'}</span>
+                <span>{language === 'ku' ? 'چاپکردن' : 'چاپ فیش'}</span>
               </button>
 
               {/* Quick Action 2: Sync / Refresh */}
@@ -1277,14 +1385,14 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95 no-print"
               >
                 <RefreshCw className={`w-4 h-4 text-sky-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>{language === 'fa' ? 'بروزرسانی' : 'Refresh'}</span>
+                <span>{language === 'ku' ? 'نوێکردنەوە' : 'بروزرسانی'}</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* ================================================================= */}
-        {/* 4. FULL-WIDTH ATTENDANCE REPORT (No Horizontal Scroll!)           */}
+        {/* 4. FULL-WIDTH ATTENDANCE REPORT ("گزارش کارکرد من")               */}
         {/* ================================================================= */}
         <div className="rounded-3xl backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 overflow-hidden">
           {/* Header & Filters */}
@@ -1296,7 +1404,9 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <div>
                 <h3 className="text-base font-bold text-slate-800 dark:text-white">
                   {portalMode === 'personal'
-                    ? t('myMonthlyReport') || 'گزارش کارکرد من'
+                    ? language === 'ku'
+                      ? 'ڕاپۆرتی کارکردی من'
+                      : 'گزارش کارکرد من'
                     : selectedSubordinateId === 'all'
                     ? `${
                         language === 'ku'
@@ -1315,13 +1425,13 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
             {/* Filter Chips + Month Selector + Search */}
             <div className="flex flex-wrap items-center gap-2.5 no-print">
-              {/* Quick Log Type Chips */}
+              {/* Quick Log Type Chips (Localized in Persian/Kurdish) */}
               <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
                 {[
                   { id: 'all', label: language === 'ku' ? 'هەموو' : 'همه' },
-                  { id: 'full', label: t('fullDay') || 'روز کامل' },
-                  { id: 'half', label: t('halfDay') || 'نیم‌روز' },
-                  { id: 'overtime', label: language === 'ku' ? 'سەروەخت' : 'اضافه‌کاری' }
+                  { id: 'full', label: labels.fullDayLabel },
+                  { id: 'half', label: labels.halfDayLabel },
+                  { id: 'overtime', label: labels.overtimeLabel }
                 ].map((chip) => (
                   <button
                     key={chip.id}
@@ -1386,23 +1496,23 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           {/* Responsive Zero-Horizontal-Scroll Attendance List */}
           {displayedLogs.length === 0 ? (
             <div className="p-12 text-center text-slate-400 dark:text-slate-500 text-xs">
-              {t('noLogsForMonth') || 'هیچ رکورد کارکردی در این بخش ثبت نشده است.'}
+              {language === 'ku'
+                ? 'هیچ تۆمارێکی کارکردن لەم بەشەدا نییە.'
+                : 'هیچ رکورد کارکردی در این بخش ثبت نشده است.'}
             </div>
           ) : (
             <div className="divide-y divide-slate-200/50 dark:divide-slate-800/70">
-              {/* Desktop Header Bar (Hidden on small screens, zero horizontal overflow) */}
-              <div className="hidden md:grid md:grid-cols-12 gap-3 px-6 py-3 bg-slate-100/60 dark:bg-slate-800/50 text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                <div className="col-span-2">{t('date') || 'تاریخ'}</div>
-                {portalMode === 'group' && selectedSubordinateId === 'all' ? (
-                  <div className="col-span-2">{t('workerName') || 'نام نیرو'}</div>
-                ) : null}
-                <div className={portalMode === 'group' && selectedSubordinateId === 'all' ? 'col-span-2' : 'col-span-3'}>
-                  {t('workType') || 'نوع کارکرد و اضافه‌کاری'}
-                </div>
-                <div className="col-span-2">{language === 'ku' ? 'مووچەی بنەڕەت / سەروەخت' : 'مزد پایه / اضافه‌کاری'}</div>
-                <div className="col-span-2">{language === 'ku' ? 'کۆی ڕۆژ' : 'مجموع کل روز'}</div>
-                <div className={portalMode === 'group' && selectedSubordinateId === 'all' ? 'col-span-2' : 'col-span-3'}>
-                  {t('status') || 'وضعیت و توضیحات'}
+              {/* Desktop Header Bar (Compact columns + wide Notes column with title) */}
+              <div className="hidden md:grid md:grid-cols-12 gap-3 px-6 py-3 bg-slate-100/60 dark:bg-slate-800/50 text-[11px] font-bold text-slate-500 dark:text-slate-400 items-center">
+                <div className="col-span-1 text-center">{labels.dateColTitle}</div>
+                {portalMode === 'group' && selectedSubordinateId === 'all' && (
+                  <div className="col-span-2">{labels.workerNameColTitle}</div>
+                )}
+                <div className="col-span-2">{labels.workTypeColTitle}</div>
+                <div className="col-span-2">{labels.totalDayColTitle}</div>
+                <div className="col-span-2 text-center">{labels.statusColTitle}</div>
+                <div className={portalMode === 'group' && selectedSubordinateId === 'all' ? 'col-span-3' : 'col-span-5'}>
+                  {labels.notesColTitle}
                 </div>
               </div>
 
@@ -1417,32 +1527,32 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   );
                   isSettled = workerFin?.isLogSettled?.(l) || false;
                 }
-                const effectiveRate = Number(l.workerDailyRate) || Number(worker.dailyRate);
-                const baseWage =
-                  l.calculatedDailyWage || (l.type === 'half' ? effectiveRate * 0.5 : effectiveRate);
                 const hasOt = Number(l.overtimeHours) > 0;
 
                 return (
                   <div
                     key={l.id || `${l.workerId}_${l.date}_${idx}`}
-                    className="px-4 sm:px-6 py-3.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors grid grid-cols-1 md:grid-cols-12 gap-2.5 md:gap-3 items-center text-xs"
+                    className="px-4 sm:px-6 py-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors grid grid-cols-1 md:grid-cols-12 gap-2.5 md:gap-3 items-center text-xs"
                   >
-                    {/* 1. Date & Day Name */}
-                    <div className="md:col-span-2 flex items-center justify-between md:block">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-mono text-slate-400 w-5">{idx + 1}.</span>
-                        <div>
-                          <div className="font-black font-mono text-slate-800 dark:text-slate-100">{l.date}</div>
-                          <div className="text-[11px] text-slate-400">{getDayName(l.date)}</div>
-                        </div>
+                    {/* 1. Date: Day of Month in Large Bold Font + Weekday in Small Font Underneath */}
+                    <div
+                      className="md:col-span-1 flex items-center justify-between md:justify-center"
+                      title={l.date}
+                    >
+                      <div className="flex flex-col items-center justify-center min-w-[44px] py-1 px-2 rounded-2xl bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
+                        <span className="text-base sm:text-lg font-black font-mono leading-none text-slate-900 dark:text-white">
+                          {getDayOfMonthNumber(l.date)}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1 leading-none">
+                          {getDayName(l.date)}
+                        </span>
                       </div>
 
-                      {/* Mobile Total Pay Pill */}
+                      {/* Mobile Total Pay (Pure Amount without Currency Unit) */}
                       <div className="md:hidden text-end">
                         <span className="text-sm font-black font-mono text-sky-600 dark:text-sky-400">
                           {formatAmount(l.totalDayPay, currency)}
                         </span>
-                        <span className="text-[10px] text-slate-400 ms-1">{currencySymbol}</span>
                       </div>
                     </div>
 
@@ -1458,60 +1568,38 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       </div>
                     )}
 
-                    {/* 3. Work Type + Overtime Hours */}
-                    <div
-                      className={`${
-                        portalMode === 'group' && selectedSubordinateId === 'all' ? 'md:col-span-2' : 'md:col-span-3'
-                      } flex items-center gap-1.5 flex-wrap`}
-                    >
+                    {/* 3. Work Type (Persian) + Overtime formatted as 1:20 */}
+                    <div className="md:col-span-2 flex items-center gap-1.5 flex-wrap">
                       {l.type === 'full' && (
                         <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          {t('fullDay') || 'روز کامل'}
+                          {labels.fullDayLabel}
                         </span>
                       )}
                       {l.type === 'half' && (
                         <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                          {t('halfDay') || 'نیم‌روز'}
+                          {labels.halfDayLabel}
                         </span>
                       )}
                       {l.type === 'hourly' && (
                         <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                          {t('hourlyOnly') || 'ساعتی'}
+                          {labels.hourlyLabel}
                         </span>
                       )}
                       {hasOt && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold font-mono bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                           <Clock className="w-3 h-3" />
-                          <span>+{formatHoursAndMinutes(l.overtimeHours)}</span>
+                          <span>{formatOvertimeClock(l.overtimeHours)}</span>
                         </span>
                       )}
                     </div>
 
-                    {/* 4. Base Wage & Overtime Wage Breakdown */}
-                    <div className="md:col-span-2 flex md:block items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 font-mono">
-                      <div>
-                        <span className="text-slate-400 md:hidden me-1">مزد پایه:</span>
-                        <span className="font-bold">{formatAmount(baseWage, currency)}</span>
-                      </div>
-                      {Number(l.calculatedOvertimeWage) > 0 && (
-                        <div className="text-amber-600 dark:text-amber-400 font-bold">
-                          +{formatAmount(l.calculatedOvertimeWage, currency)}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 5. Total Day Pay (Desktop) */}
+                    {/* 4. Total Day Pay (Desktop - Pure Amount without Currency Unit) */}
                     <div className="hidden md:block md:col-span-2 font-black text-sm text-sky-600 dark:text-sky-400 font-mono">
-                      {formatAmount(l.totalDayPay, currency)}{' '}
-                      <span className="text-[10px] font-normal text-slate-400">{currencySymbol}</span>
+                      {formatAmount(l.totalDayPay, currency)}
                     </div>
 
-                    {/* 6. Status Badge & Notes */}
-                    <div
-                      className={`${
-                        portalMode === 'group' && selectedSubordinateId === 'all' ? 'md:col-span-2' : 'md:col-span-3'
-                      } flex items-center justify-between md:justify-start gap-2 min-w-0`}
-                    >
+                    {/* 5. Status Badge */}
+                    <div className="md:col-span-2 flex items-center md:justify-center">
                       {periodTab === 'settled' || isSettled ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
                           <CheckCircle2 className="w-3 h-3" />
@@ -1523,12 +1611,15 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                           <span>{labels.unsettledBadge}</span>
                         </span>
                       )}
+                    </div>
 
-                      {l.notes && (
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={l.notes}>
-                          {l.notes}
-                        </span>
-                      )}
+                    {/* 6. Notes (Wide Column) */}
+                    <div
+                      className={`${
+                        portalMode === 'group' && selectedSubordinateId === 'all' ? 'md:col-span-3' : 'md:col-span-5'
+                      } text-slate-600 dark:text-slate-300 leading-relaxed break-words`}
+                    >
+                      {l.notes || <span className="text-slate-300 dark:text-slate-600">—</span>}
                     </div>
                   </div>
                 );
@@ -1543,14 +1634,12 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 <div className="flex flex-wrap items-center gap-4 font-mono">
                   {filteredLogsTotals.totalOtHours > 0 && (
                     <span className="text-purple-600 dark:text-purple-400">
-                      اضافه‌کاری: {formatHoursAndMinutes(filteredLogsTotals.totalOtHours)}
+                      {labels.overtimeLabel}: {formatOvertimeClock(filteredLogsTotals.totalOtHours)}
                     </span>
                   )}
-                  <span className="text-slate-700 dark:text-slate-300">
-                    مزد پایه: {formatAmount(filteredLogsTotals.totalBase, currency)} {currencySymbol}
-                  </span>
                   <span className="text-sm font-black text-sky-600 dark:text-sky-400">
-                    مجموع کل: {formatAmount(filteredLogsTotals.totalNet, currency)} {currencySymbol}
+                    {language === 'ku' ? 'کۆی گشتی:' : 'مجموع کل:'} {formatAmount(filteredLogsTotals.totalNet, currency)}{' '}
+                    {currencySymbol}
                   </span>
                 </div>
               </div>
@@ -1570,11 +1659,13 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <div>
                 <h3 className="text-base font-bold text-slate-800 dark:text-white">
                   {portalMode === 'personal'
-                    ? t('myPaymentsLedger') || 'دفتر پرداخت‌ها و مساعده‌ها'
+                    ? language === 'ku'
+                      ? 'دەفتەری پارەدان و پێشەکییەکان'
+                      : 'دفتر پرداخت‌ها و مساعده‌ها'
                     : `${language === 'ku' ? 'تۆماری پارەدان و مساعدەی گرووپ' : 'دفتر پرداخت‌ها و مساعده‌های گروه'}`}
                 </h3>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {displayedPayments.length} {t('paymentRecordsCount') || 'تراکنش ثبت‌شده'}
+                  {displayedPayments.length} {language === 'ku' ? 'تۆمار' : 'تراکنش ثبت‌شده'}
                 </span>
               </div>
             </div>
@@ -1582,7 +1673,9 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
           {displayedPayments.length === 0 ? (
             <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs bg-slate-50/60 dark:bg-slate-800/30 rounded-2xl border border-slate-200/50 dark:border-slate-800">
-              {t('noPaymentsRecorded') || 'هیچ پرداخت یا مساعده‌ای در این دوره ثبت نشده است.'}
+              {language === 'ku'
+                ? 'هیچ پارەدان یان پێشەکییەک لەم ماوەیەدا تۆمار نەکراوە.'
+                : 'هیچ پرداخت یا مساعده‌ای در این دوره ثبت نشده است.'}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -1606,7 +1699,13 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         >
                           {isSettlement ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                           <span>
-                            {isSettlement ? t('settlementType') || 'تسویه حساب' : t('advanceType') || 'مساعده'}
+                            {isSettlement
+                              ? language === 'ku'
+                                ? 'تەسویەی حیساب'
+                                : 'تسویه حساب'
+                              : language === 'ku'
+                              ? 'پێشەکی (مساعدە)'
+                              : 'مساعده'}
                           </span>
                         </span>
                         <span className="text-xs font-bold font-mono text-slate-700 dark:text-slate-300">
@@ -1644,11 +1743,15 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         {/* Dual Signature Blocks (Visible when printing Payslip) */}
         <div className="hidden print:flex justify-around items-end pt-16 pb-6 mt-8 border-t border-slate-300 text-xs font-bold text-slate-800">
           <div className="text-center">
-            <p className="mb-14">{t('receiptWorkerSign') || 'امضای پرسنل / سرپرست'}</p>
+            <p className="mb-14">
+              {language === 'ku' ? 'واژۆی کارمەند / سەرپەرشتیار' : 'امضای پرسنل / سرپرست'}
+            </p>
             <div className="w-44 border-b border-slate-600" />
           </div>
           <div className="text-center">
-            <p className="mb-14">{t('receiptManagerSign') || 'امضای مدیریت کارگاه'}</p>
+            <p className="mb-14">
+              {language === 'ku' ? 'واژۆی بەڕێوەبەری کارگە' : 'امضای مدیریت کارگاه'}
+            </p>
             <div className="w-44 border-b border-slate-600" />
           </div>
         </div>
