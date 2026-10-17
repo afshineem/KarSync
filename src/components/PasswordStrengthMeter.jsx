@@ -15,7 +15,7 @@ export function PasswordStrengthMeter({ password = '', showChecks = true }) {
     { key: 'length', text: { fa: 'حداقل ۸ کاراکتر', ku: 'لانیکەم ٨ پیت', en: 'At least 8 characters' } },
     { key: 'hasLower', text: { fa: 'حروف کوچک (a-z)', ku: 'پیتی بچووک (a-z)', en: 'Lowercase letters (a-z)' } },
     { key: 'hasUpper', text: { fa: 'حروف بزرگ (A-Z)', ku: 'پیتی گەورە (A-Z)', en: 'Uppercase letters (A-Z)' } },
-    { key: 'hasNumber', text: { fa: 'اعداد (0-9)', ku: 'ژمارەکان (0-9)', en: 'Numbers (0-9)' } },
+    { key: 'hasNumber', text: { fa: 'اعداد (۰ تا ۹)', ku: 'ژمارەکان (٠ تا ٩)', en: 'Numbers (0-9)' } },
     { key: 'hasSpecial', text: { fa: 'نمادها و علائم (!@#$...)', ku: 'هێماکان (!@#$...)', en: 'Symbols (!@#$...)' } },
   ];
 

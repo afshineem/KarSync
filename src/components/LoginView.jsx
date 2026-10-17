@@ -61,9 +61,10 @@ export function LoginView({ theme, toggleTheme }) {
   // Rate Limiting Lock Countdown
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
-  // Trilingual UI Dictionary for Login & Signup View
+  // Trilingual UI Dictionary for Login & Signup View (Zero Cross-Language Leakage)
   const copy = {
     fa: {
+      versionBadge: 'نسخه ۰.۹.۰',
       brandSubtitle: 'سامانه هوشمند مدیریت کارگاه، حضور و غیاب و مهندسی مالی',
       heroBadge: 'نسل جدید مدیریت کارگاه و پروژه',
       heroTitle: 'مدیریت یکپارچه کارکرد، دستمزد و حسابداری کارگاه',
@@ -85,9 +86,9 @@ export function LoginView({ theme, toggleTheme }) {
       workspaceCodeLabel: 'کد کارگاه',
       workspaceCodeHint: 'کد اختصاصی کارگاه (مثال: KARS-101)',
       identifierLabel: 'ایمیل، نام کاربری یا کد پرسنلی',
-      identifierPlaceholder: 'admin / email@domain.com',
+      identifierPlaceholder: 'نام کاربری، ایمیل یا کد پرسنلی',
       passwordLabel: 'رمز عبور',
-      showPasswordTitle: 'نمایش / مخفی‌سازی رمز عبور',
+      showPasswordTitle: 'نمایش یا مخفی‌سازی رمز عبور',
       loginBtn: 'ورود به سیستم',
       loggingIn: 'در حال بررسی و ورود...',
       workEmailLabel: 'ایمیل کاری (حساب مدیر)',
@@ -100,10 +101,11 @@ export function LoginView({ theme, toggleTheme }) {
       createAccountBtn: 'ایجاد کارگاه و ورود به برنامه',
       creatingAccount: 'در حال ساخت کارگاه...',
       twoFaTitle: 'تایید هویت دو مرحله‌ای (2FA)',
-      twoFaTotpDesc: 'کد ۶ رقمی نمایش داده شده در برنامه Authenticator خود را وارد کنید:',
+      twoFaTotpDesc: 'کد ۶ رقمی نمایش داده شده در برنامه تایید هویت دو مرحله‌ای را وارد کنید:',
       twoFaBackupDesc: 'یکی از کدهای بازیابی اضطراری ۸ کاراکتری خود را وارد کنید:',
+      totpPlaceholder: '۰۰۰۰۰۰',
       verifyAndSignIn: 'تایید کد و ورود به سیستم',
-      useAuthenticatorApp: 'ورود با کد ۶ رقمی Authenticator',
+      useAuthenticatorApp: 'ورود با کد ۶ رقمی برنامه تایید هویت',
       useBackupCode: 'استفاده از کد بازیابی اضطراری',
       backToSignIn: 'بازگشت به صفحه ورود',
       lockoutBanner: (time) => `ورود به سیستم موقتاً قفل است. زمان باقی‌مانده: ${time}`,
@@ -111,6 +113,12 @@ export function LoginView({ theme, toggleTheme }) {
       errMissingSignInFields: 'لطفاً کد کارگاه، نام کاربری و رمز عبور را به طور کامل وارد کنید.',
       errRateLimited: 'تعداد تلاش‌های ناموفق بیش از حد مجاز بود. ورود به مدت ۵ دقیقه قفل شد.',
       errInvalidCredentials: 'کد کارگاه، نام کاربری یا رمز عبور اشتباه است.',
+      errInvalidWorkspaceCode: 'کد کارگاه وارد شده یافت نشد. لطفاً کد کارگاه را بررسی کنید.',
+      errAccountBlocked: 'این حساب کاربری غیرفعال شده است. لطفاً با مدیر کارگاه تماس بگیرید.',
+      errNetwork: 'خطا در برقراری ارتباط با سرور. لطفاً اتصال اینترنت خود را بررسی کنید.',
+      errUserAlreadyExists: 'این ایمیل قبلاً ثبت شده است. لطفاً از بخش ورود به حساب استفاده کنید.',
+      errEmailNotConfirmed: 'ایمیل شما هنوز تایید نشده است. لطفاً صندوق ورودی ایمیل خود را بررسی کنید.',
+      errInvalidEmailFormat: 'ساختار ایمیل وارد شده معتبر نیست.',
       err2faRateLimited: 'به دلیل تلاش‌های ناموفق مکرر، ورود موقتاً قفل شد.',
       err2faInvalid: 'کد تایید یا کد بازیابی وارد شده نامعتبر است. دوباره تلاش کنید.',
       errMissingSignUpFields: 'وارد کردن ایمیل کاری و رمز عبور الزامی است.',
@@ -123,6 +131,7 @@ export function LoginView({ theme, toggleTheme }) {
       switchToSignInPrompt: 'قبلاً کارگاه خود را ثبت کرده‌اید؟'
     },
     ku: {
+      versionBadge: 'وەشانی ٠.٩.٠',
       brandSubtitle: 'سیستەمی زیرەکی بەڕێوەبردنی کارگە، کارکرد و ژمێریاری دارایی',
       heroBadge: 'نەوەی نوێی بەڕێوەبردنی کارگە و پڕۆژە',
       heroTitle: 'بەڕێوەبردنی یەکگرتووی کارکرد، کرێ و ژمێریاری کارگە',
@@ -144,9 +153,9 @@ export function LoginView({ theme, toggleTheme }) {
       workspaceCodeLabel: 'کۆدی کارگە',
       workspaceCodeHint: 'کۆدی تایبەتی کارگە (نموونە: KARS-101)',
       identifierLabel: 'ئیمەیڵ، ناوی بەکارهێنەر یان کۆدی کرێکار',
-      identifierPlaceholder: 'admin / email@domain.com',
+      identifierPlaceholder: 'ناوی بەکارهێنەر، ئیمەیڵ یان کۆدی کرێکار',
       passwordLabel: 'تێپەڕەوشە',
-      showPasswordTitle: 'پیشاندان / شاردنەوەی تێپەڕەوشە',
+      showPasswordTitle: 'پیشاندان یان شاردنەوەی تێپەڕەوشە',
       loginBtn: 'چوونەژوورەوە بۆ سیستەم',
       loggingIn: 'لە حاڵەتی چوونەژوورەوەدا...',
       workEmailLabel: 'ئیمەیڵی کار (هەژماری بەڕێوەبەر)',
@@ -159,10 +168,11 @@ export function LoginView({ theme, toggleTheme }) {
       createAccountBtn: 'دروستکردنی کارگە و چوونەژوورەوە',
       creatingAccount: 'لە حاڵەتی دروستکردنی کارگەدا...',
       twoFaTitle: 'پشتڕاستکردنەوەی دوو هەنگاوی (2FA)',
-      twoFaTotpDesc: 'کۆدی ٦ ژمارەیی ناو بەرنامەی Authenticator بنووسە:',
+      twoFaTotpDesc: 'کۆدی ٦ ژمارەیی ناو بەرنامەی پشتڕاستکردنەوەی دوو هەنگاوی بنووسە:',
       twoFaBackupDesc: 'یەکێک لە کۆدە فریاگوزارییە ٨ پیتییەکانت بنووسە:',
+      totpPlaceholder: '٠٠٠٠٠٠',
       verifyAndSignIn: 'پشتڕاستکردنەوە و چوونەژوورەوە',
-      useAuthenticatorApp: 'چوونەژوورەوە بە بەرنامەی Authenticator',
+      useAuthenticatorApp: 'چوونەژوورەوە بە کۆدی ٦ ژمارەیی بەرنامەی پشتڕاستکردنەوە',
       useBackupCode: 'بەکارهێنانی کۆدی فریاگوزاری یەدەگ',
       backToSignIn: 'گەڕانەوە بۆ چوونەژوورەوە',
       lockoutBanner: (time) => `چوونەژوورەوە بە شێوەی کاتی قفڵ کراوە. کاتی ماوە: ${time}`,
@@ -170,6 +180,12 @@ export function LoginView({ theme, toggleTheme }) {
       errMissingSignInFields: 'تکایە کۆدی کارگە، ناوی بەکارهێنەر و تێپەڕەوشە بە تەواوی بنووسە.',
       errRateLimited: 'هەوڵی هەڵەی زۆر درا. چوونەژوورەوە بۆ ماوەی ٥ خولەک قفڵ کرا.',
       errInvalidCredentials: 'کۆدی کارگە، ناوی بەکارهێنەر یان تێپەڕەوشە هەڵەیە.',
+      errInvalidWorkspaceCode: 'کۆدی کارگە نەدۆزرایەوە. تکایە کۆدی کارگەکە بپشکنە.',
+      errAccountBlocked: 'ئەم هەژمارە ناچالاک کراوە. تکایە پەیوەندی بە بەڕێوەبەری کارگەوە بکە.',
+      errNetwork: 'هەڵە لە پەیوەستبوون بە سێرڤەر. تکایە هێڵی ئینتەرنێتەکەت بپشکنە.',
+      errUserAlreadyExists: 'ئەم ئیمەیڵە پێشتر تۆمار کراوە. تکایە لە بەشی چوونەژوورەوە هەوڵ بدە.',
+      errEmailNotConfirmed: 'ئیمەیڵەکەت هێشتا پشتڕاست نەکراوەتەوە. تکایە سندوقی ئیمەیڵەکەت بپشکنە.',
+      errInvalidEmailFormat: 'شێوازی ئیمەیڵی نووسراو دروست نییە.',
       err2faRateLimited: 'بەهۆی هەوڵی هەڵەی بەردەوام، چوونەژوورەوە قفڵ کرا.',
       err2faInvalid: 'کۆدی پشتڕاستکردنەوە یان کۆدی یەدەگ هەڵەیە. دووبارە هەوڵ بدەوە.',
       errMissingSignUpFields: 'نووسینی ئیمەیڵی کار و تێپەڕەوشە پێویستە.',
@@ -182,6 +198,7 @@ export function LoginView({ theme, toggleTheme }) {
       switchToSignInPrompt: 'پێشتر کارگەکەت تۆمار کردووە؟'
     },
     en: {
+      versionBadge: 'v0.9.0',
       brandSubtitle: 'Smart Workshop Attendance, Payroll & Financial Engineering Suite',
       heroBadge: 'Next-Gen Workshop & Project ERP',
       heroTitle: 'Unified Attendance, Payroll & Financial Ledger',
@@ -203,7 +220,7 @@ export function LoginView({ theme, toggleTheme }) {
       workspaceCodeLabel: 'Workspace Code',
       workspaceCodeHint: 'Your unique workshop ID (e.g. KARS-101)',
       identifierLabel: 'Email, Username or Worker ID',
-      identifierPlaceholder: 'admin / email@domain.com',
+      identifierPlaceholder: 'username or email@company.com',
       passwordLabel: 'Password',
       showPasswordTitle: 'Toggle password visibility',
       loginBtn: 'Sign In to Workspace',
@@ -220,6 +237,7 @@ export function LoginView({ theme, toggleTheme }) {
       twoFaTitle: 'Two-Factor Authentication (2FA)',
       twoFaTotpDesc: 'Enter the 6-digit verification code from your Authenticator app:',
       twoFaBackupDesc: 'Enter one of your 8-character emergency recovery codes:',
+      totpPlaceholder: '000000',
       verifyAndSignIn: 'Verify & Sign In',
       useAuthenticatorApp: 'Use 6-digit Authenticator code',
       useBackupCode: 'Use emergency backup code',
@@ -229,6 +247,12 @@ export function LoginView({ theme, toggleTheme }) {
       errMissingSignInFields: 'Please enter your workspace code, username/email, and password.',
       errRateLimited: 'Too many failed attempts. Sign-in is locked for 5 minutes.',
       errInvalidCredentials: 'Invalid workspace code, username, or password.',
+      errInvalidWorkspaceCode: 'Workspace code not found. Please check your workshop code.',
+      errAccountBlocked: 'This account has been deactivated. Please contact your workshop administrator.',
+      errNetwork: 'Could not connect to server. Please check your internet connection.',
+      errUserAlreadyExists: 'An account with this email already exists. Please sign in instead.',
+      errEmailNotConfirmed: 'Your email is not confirmed yet. Please check your inbox.',
+      errInvalidEmailFormat: 'Please enter a valid email address.',
       err2faRateLimited: 'Too many failed verification attempts. Sign-in locked.',
       err2faInvalid: 'Invalid verification or recovery code. Please try again.',
       errMissingSignUpFields: 'Work email and password are required.',
@@ -241,6 +265,53 @@ export function LoginView({ theme, toggleTheme }) {
       switchToSignInPrompt: 'Already have a registered workshop?'
     }
   }[langKey];
+
+  // Maps internal AuthContext error codes and raw Supabase errors to pure localized strings
+  const localizeAuthError = (rawError, fallbackMsg) => {
+    if (!rawError) return fallbackMsg;
+    const errStr = String(rawError).trim();
+    const lower = errStr.toLowerCase();
+
+    if (errStr === 'invalidCredentials' || lower.includes('invalid login credentials')) {
+      return copy.errInvalidCredentials;
+    }
+    if (errStr === 'invalidWorkspaceCode') {
+      return copy.errInvalidWorkspaceCode;
+    }
+    if (errStr === 'accountBlocked') {
+      return copy.errAccountBlocked;
+    }
+    if (errStr === 'networkError' || lower.includes('failed to fetch') || lower.includes('network')) {
+      return copy.errNetwork;
+    }
+    if (errStr === 'missingCredentials') {
+      return authMode === 'signup' ? copy.errMissingSignUpFields : copy.errMissingSignInFields;
+    }
+    if (errStr === 'rateLimited' || lower.includes('rate limit') || lower.includes('too many requests')) {
+      return copy.errRateLimited;
+    }
+    if (errStr === 'invalid2FACode' || errStr === '2faNotActive') {
+      return copy.err2faInvalid;
+    }
+    if (lower.includes('already registered') || lower.includes('already exists')) {
+      return copy.errUserAlreadyExists;
+    }
+    if (lower.includes('email not confirmed')) {
+      return copy.errEmailNotConfirmed;
+    }
+    if (lower.includes('invalid format') || lower.includes('invalid email')) {
+      return copy.errInvalidEmailFormat;
+    }
+    if (lower.includes('password should be')) {
+      return copy.errWeakPassword;
+    }
+
+    // Never leak raw English exception messages when UI is in Persian or Kurdish
+    if (langKey !== 'en' && /^[A-Za-z0-9\s.,:;'?!()_-]+$/.test(errStr)) {
+      return fallbackMsg;
+    }
+    return errStr;
+  };
 
   useEffect(() => {
     const status = getLoginLockStatus();
@@ -263,10 +334,10 @@ export function LoginView({ theme, toggleTheme }) {
         try {
           const res = await login(w, u, p);
           if (!res.success) {
-            setErrorMessage(res.error === 'invalidCredentials' ? copy.errInvalidCredentials : res.error);
+            setErrorMessage(localizeAuthError(res.error, copy.errInvalidCredentials));
           }
         } catch (err) {
-          setErrorMessage(err.message);
+          setErrorMessage(localizeAuthError(err?.message, copy.errInvalidCredentials));
         } finally {
           setIsSubmitting(false);
           window.history.replaceState({}, document.title, window.location.pathname);
@@ -321,7 +392,7 @@ export function LoginView({ theme, toggleTheme }) {
           setRemainingSeconds(res.remainingSeconds || 300);
           setErrorMessage(copy.errRateLimited);
         } else {
-          setErrorMessage(res.error === 'invalidCredentials' ? copy.errInvalidCredentials : res.error);
+          setErrorMessage(localizeAuthError(res.error, copy.errInvalidCredentials));
         }
       } else if (res.requires2FA) {
         setAuthMode('2fa');
@@ -329,7 +400,7 @@ export function LoginView({ theme, toggleTheme }) {
         setIsUsingBackup(false);
       }
     } catch (err) {
-      setErrorMessage(err.message || copy.errInvalidCredentials);
+      setErrorMessage(localizeAuthError(err?.message, copy.errInvalidCredentials));
     } finally {
       setIsSubmitting(false);
     }
@@ -349,11 +420,11 @@ export function LoginView({ theme, toggleTheme }) {
           setRemainingSeconds(300);
           setErrorMessage(copy.err2faRateLimited);
         } else {
-          setErrorMessage(copy.err2faInvalid);
+          setErrorMessage(localizeAuthError(res.error, copy.err2faInvalid));
         }
       }
     } catch (err) {
-      setErrorMessage(err.message || copy.err2faInvalid);
+      setErrorMessage(localizeAuthError(err?.message, copy.err2faInvalid));
     } finally {
       setIsSubmitting(false);
     }
@@ -383,12 +454,12 @@ export function LoginView({ theme, toggleTheme }) {
       });
 
       if (!res.success) {
-        setErrorMessage(res.error || copy.errSignUpFailed);
+        setErrorMessage(localizeAuthError(res.error, copy.errSignUpFailed));
       } else if (res.message === 'checkEmailConfirmation') {
         setSuccessMessage(copy.msgEmailConfirmation);
       }
     } catch (err) {
-      setErrorMessage(err.message || copy.errSignUpFailed);
+      setErrorMessage(localizeAuthError(err?.message, copy.errSignUpFailed));
     } finally {
       setIsSubmitting(false);
     }
@@ -425,8 +496,8 @@ export function LoginView({ theme, toggleTheme }) {
           <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white">
             KarSync
           </span>
-          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-            v0.9.0
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+            {copy.versionBadge}
           </span>
         </div>
 
@@ -716,10 +787,13 @@ export function LoginView({ theme, toggleTheme }) {
                       <input
                         type="text"
                         autoComplete="username"
+                        dir={identifier ? 'ltr' : direction}
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
                         placeholder={copy.identifierPlaceholder}
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
+                        className={`w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all ${
+                          identifier ? 'text-left' : 'text-start'
+                        }`}
                       />
                     </div>
 
@@ -783,7 +857,7 @@ export function LoginView({ theme, toggleTheme }) {
                           autoFocus
                           value={totpCode}
                           onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                          placeholder="000000"
+                          placeholder={copy.totpPlaceholder}
                           required
                           className="w-full text-center tracking-[0.45em] font-mono text-2xl font-black px-4 py-3.5 bg-white dark:bg-slate-900 border-2 border-sky-500/40 rounded-2xl text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500 shadow-inner"
                         />

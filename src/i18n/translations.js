@@ -206,7 +206,7 @@ export const translations = {
     appOwnership: 'خاوەنداریەتی و گەشەپێدانی سیستەم',
     developedBy: 'دیزاین و پرۆگرامسازی تایبەت بۆ بەڕێوەبردنی کارگە',
     ownerName: 'خاوەن و بەڕێوەبەر: ئەفشین زارعی',
-    allRightsReserved: 'هەموو مافەکان پارێزراون © ۲۰۲۶',
+    allRightsReserved: 'هەموو مافەکان پارێزراون © ٢٠٢٦',
     socialLinks: 'پەیوەندی لە تۆڕە کۆمەڵایەتییەکان',
 
     // Cloud Sync Modal
