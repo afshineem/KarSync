@@ -29,7 +29,11 @@ import {
   CheckCircle2,
   HardDrive,
   CalendarClock,
-  Settings2
+  Settings2,
+  FolderSync,
+  FolderCheck,
+  FolderPlus,
+  FolderOpen
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAutoBackup } from '../../hooks/useAutoBackup';
@@ -65,7 +69,12 @@ export default function DataSyncSettingsTab({
     triggerManualSnapshot,
     handleRestore,
     handleDelete,
-    handleDownload
+    handleDownload,
+    dirStatus,
+    isConnectingDir,
+    connectDirectory,
+    disconnectDirectory,
+    testDirectorySync
   } = useAutoBackup();
 
   // Restore confirmation modal state
@@ -637,7 +646,126 @@ export default function DataSyncSettingsTab({
         </div>
       </div>
 
-      {/* 4. Physical Backup File Export & Import Hub (برای انتقال دستی بین سیستم‌ها) */}
+      {/* 4. NATIVE LOCAL DIRECTORY SYNC (پشتیبان‌گیری روی پوشه فیزیکی سیستم) */}
+      <div className="p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 backdrop-blur-md shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-start gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500/20 via-orange-500/20 to-sky-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 border border-amber-500/20 shadow-xs">
+              <FolderSync className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  {t('localDirSyncTitle')}
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  {language === 'fa' ? 'دیسک سخت' : language === 'ku' ? 'هارددیسک' : 'Hard Drive'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                {t('localDirSyncSubtitle')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Directory Status Box */}
+        {!dirStatus.supported ? (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span>{t('dirStatusUnsupported')}</span>
+          </div>
+        ) : dirStatus.connected ? (
+          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+                  <FolderCheck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      {t('dirStatusConnected')}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5 truncate">
+                    <span>{t('connectedFolderLabel')}</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-700/60 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600 truncate">
+                      {dirStatus.dirName}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons Toolbar [APP_THEME_BUTTON] */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={testDirectorySync}
+                  disabled={isConnectingDir}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition-all shadow-sm active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Download className={`w-3.5 h-3.5 ${isConnectingDir ? 'animate-spin' : ''}`} />
+                  <span>{t('testDirectoryWriteBtn')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={connectDirectory}
+                  disabled={isConnectingDir}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-slate-300 transition-all flex items-center gap-1.5"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>{t('changeDirectoryBtn')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={disconnectDirectory}
+                  disabled={isConnectingDir}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all flex items-center gap-1.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>{t('disconnectDirectoryBtn')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/30 border border-dashed border-slate-300 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center flex-shrink-0">
+                <FolderPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {t('dirStatusDisconnected')}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {language === 'fa'
+                    ? 'با انتخاب یک پوشه، نسخه‌های پشتیبان بدون نیاز به اینترنت و بدون باز کردن پنجره دانلود، مستقیماً روی رایانه شما ذخیره می‌شوند.'
+                    : language === 'ku'
+                    ? 'بە دیاریکردنی بوخچەیەک، فایلەکان بەبێ ئینتەرنێت و بێدەنگ ڕاستەوخۆ لەسەر کۆمپیوتەرەکەت پاشەکەوت دەکرێن.'
+                    : 'Select a local directory to silently save scheduled backup files to your hard drive.'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={connectDirectory}
+              disabled={isConnectingDir}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-2xl text-xs font-bold bg-primary hover:bg-primary-hover text-white transition-all shadow-md shadow-primary/20 active:scale-95 flex items-center justify-center gap-2 flex-shrink-0"
+            >
+              <FolderPlus className={`w-4 h-4 ${isConnectingDir ? 'animate-spin' : ''}`} />
+              <span>{t('selectDirectoryBtn')}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 5. Physical Backup File Export & Import Hub (برای انتقال دستی بین سیستم‌ها) */}
       <div className="p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs space-y-5">
         <div>
           <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">

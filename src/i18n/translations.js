@@ -195,6 +195,18 @@ export const translations = {
     snapshotSizeLabel: 'قەبارە:',
     snapshotRecordsCount: 'تۆمار',
 
+    // Local Directory Sync
+    localDirSyncTitle: 'هاوکاتکردن لەگەڵ بوخچەی کۆمپیوتەر (Local Directory Sync)',
+    localDirSyncSubtitle: 'پاشەکەوتکردنی ئۆتۆماتیکی و بێدەنگی فایلەکان لەناو بوخچەیەکی کۆمپیوتەر یان بوخچەی هاوکاتکراوی OneDrive / Google Drive.',
+    dirStatusConnected: 'بوخچەکە پەیوەستکراوە و چالاکە',
+    dirStatusDisconnected: 'هیچ بوخچەیەک بۆ پاشەکەوتی ڕاستەوخۆ دیاری نەکراوە',
+    dirStatusUnsupported: 'ئەم تایبەتمەندییە تایبەتە بە وێبگەڕەکانی کۆمپیوتەر (وەک Chrome و Edge)',
+    selectDirectoryBtn: 'دیاریکردنی بوخچە لە کۆمپیوتەر',
+    changeDirectoryBtn: 'گۆڕینی بوخچە',
+    disconnectDirectoryBtn: 'پچڕاندنی پەیوەندی',
+    testDirectoryWriteBtn: 'تاقیکردنەوەی پاشەکەوت لە بوخچە',
+    connectedFolderLabel: 'بوخچەی پەیوەستکراو:',
+
     // Print & Report Header
     reportHeaderTitle: 'ڕاپۆرتی مووچە و ئامادەبوونی کارگە',
     reportGeneratedAt: 'کاتی دەرکردنی ڕاپۆرت',
@@ -808,6 +820,18 @@ export const translations = {
     snapshotSizeLabel: 'اندازه:',
     snapshotRecordsCount: 'رکورد',
 
+    // Local Directory Sync
+    localDirSyncTitle: 'همگام‌سازی با پوشه اختصاصی رایانه (Local Directory Sync)',
+    localDirSyncSubtitle: 'ذخیره خودکار و بی‌صدای فایل‌های پشتیبان در یک پوشه فیزیکی روی هارددیسک یا پوشه متصل به OneDrive / Google Drive رایانه شما.',
+    dirStatusConnected: 'پوشه متصل و فعال است',
+    dirStatusDisconnected: 'پوشه‌ای برای ذخیره مستقیم انتخاب نشده است',
+    dirStatusUnsupported: 'این قابلیت ویژه مرورگرهای دسکتاپ (مانند Chrome و Edge) است',
+    selectDirectoryBtn: 'انتخاب پوشه در رایانه',
+    changeDirectoryBtn: 'تغییر پوشه',
+    disconnectDirectoryBtn: 'قطع اتصال پوشه',
+    testDirectoryWriteBtn: 'تست ذخیره آنی در پوشه',
+    connectedFolderLabel: 'پوشه متصل:',
+
     // Print & Report Header
     reportHeaderTitle: 'صورت وضعیت کارکرد و تسویه حقوق کارگاه',
     reportGeneratedAt: 'تاریخ صدور گزارش',
@@ -1420,6 +1444,18 @@ export const translations = {
     deleteActionBtn: 'Delete',
     snapshotSizeLabel: 'Size:',
     snapshotRecordsCount: 'records',
+
+    // Local Directory Sync
+    localDirSyncTitle: 'Physical Directory Auto-Sync',
+    localDirSyncSubtitle: 'Silently and automatically saves backup snapshots directly into a designated local computer folder (or OneDrive / Google Drive desktop sync folder).',
+    dirStatusConnected: 'Directory connected & active',
+    dirStatusDisconnected: 'No physical folder selected yet',
+    dirStatusUnsupported: 'Direct directory write is available on desktop Chromium browsers (Chrome, Edge, Brave)',
+    selectDirectoryBtn: 'Select Local Folder',
+    changeDirectoryBtn: 'Change Folder',
+    disconnectDirectoryBtn: 'Disconnect',
+    testDirectoryWriteBtn: 'Test Save to Folder',
+    connectedFolderLabel: 'Connected folder:',
 
     // Print & Report Header
     reportHeaderTitle: 'Workshop Attendance & Payroll Statement',

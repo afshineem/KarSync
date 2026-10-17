@@ -122,6 +122,12 @@ export async function createAutoSnapshot(triggerType = 'auto', label = '') {
     localStorage.setItem('karsync_last_snapshot_id', id);
   } catch (_) {}
 
+  // Also silently save to physical local directory if connected
+  try {
+    const { writeBackupToConnectedDirectory } = await import('../services/localDirectoryBackup');
+    writeBackupToConnectedDirectory(payload).catch(() => {});
+  } catch (_) {}
+
   return snapshot;
 }
 

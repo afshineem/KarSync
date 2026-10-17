@@ -44,9 +44,267 @@ const CURRENCIES = [
   { code: 'USD', symbol: '$', label: 'دلار ($)' },
 ];
 
+
+const COPY = {
+  fa: {
+    currencyLabels: {
+      IQD: 'د.ع (IQD)',
+      IRT: 'تومان (IRT)',
+      USD: 'دلار ($)',
+    },
+    imageTooLarge: 'حجم تصویر نباید بیشتر از ۱۰ مگابایت باشد.',
+    approvedLockedError: 'این هزینه قبلاً تایید نهایی شده است و غیرقابل ویرایش می‌باشد.',
+    titleRequired: 'لطفاً عنوان هزینه را وارد کنید.',
+    amountInvalid: 'لطفاً مبلغ معتبری وارد کنید.',
+    overdraftNeverAllow: (acc) => 'موجودی حساب انتخابی (' + acc + ') کافی نیست و بر اساس سیاست تعیین شده، برداشت بیش از موجودی غیرمجاز است.',
+    saveError: 'خطا در ذخیره هزینه',
+    overdraftNegativeNotice: (acc, val) => 'هزینه ثبت شد. توجه: موجودی حساب «' + acc + '» به منفی ' + val + ' رسید.',
+    editSuccess: 'هزینه با موفقیت ویرایش شد.',
+    createSuccess: 'هزینه جدید با موفقیت ثبت شد.',
+    editTitle: 'ویرایش سند هزینه',
+    newTitle: 'ثبت هزینه جدید پروژه',
+    defaultProject: 'پروژه کارگاه',
+    headerSubtitle: 'ثبت فاکتور، خرید مصالح، خدمات، کرایه و هزینه‌های عمومی کارگاه',
+    closeEsc: 'بستن (ESC)',
+    lockedTitle: 'سند تایید نهایی شده (قفل و غیرقابل تغییر)',
+    lockedDesc: (approver, date) => 'این هزینه توسط «' + approver + '» ' + (date ? 'در تاریخ ' + date + ' ' : '') + 'تایید نهایی گردیده و طبق اصول حسابداری غیرقابل ویرایش یا حذف است.',
+    defaultApprover: 'مدیر ارشد',
+    invoiceSpecs: 'مشخصات و مبلغ فاکتور',
+    titleLabel: 'عنوان هزینه / شرح فاکتور',
+    titlePlaceholder: 'مثال: خرید سیمان تیپ ۲، کرایه خاور، ابزار و پذیرایی...',
+    amountLabel: 'مبلغ پرداختی فاکتور',
+    categoryCascadeTitle: 'سرفصل هزینه (انتخاب ۳ مرحله‌ای آبشاری)',
+    customCategoryBtn: '+ سرفصل سفارشی',
+    newCategoryPlaceholder: 'نام سرفصل جدید...',
+    addBtn: 'افزودن',
+    mainGroup: '۱. گروه اصلی',
+    selectMainGroup: '— انتخاب گروه —',
+    subGroup: '۲. زیرگروه',
+    selectSubGroup: '— انتخاب زیرگروه —',
+    microItem: '۳. هزینه خرد / آیتم',
+    selectMicroItem: '— انتخاب آیتم —',
+    payeeAndSection: 'طرف‌حساب و بخش کارگاه',
+    payeeLabel: 'طرف‌حساب / دریافت‌کننده وجه',
+    selectFromWorkers: 'انتخاب از پرسنل',
+    customPersonBtn: '+ شخص متفرقه/فروشنده',
+    customPersonPlaceholder: 'نام فروشنده، راننده، یا شخص متفرقه...',
+    noPersonAssigned: '— بدون انتساب به شخص —',
+    sectionLabel: 'بخش پروژه (Section)',
+    generalSection: 'عمومی (کل پروژه)',
+    paymentSection: 'وضعیت و محل پرداخت',
+    paymentStatusLabel: 'وضعیت تسویه فاکتور:',
+    paidStatus: 'تسویه شده',
+    unpaidStatus: 'پرداخت نشده (نسیه)',
+    accountLabel: 'محل / حساب پرداخت:',
+    defaultAccountPrefix: '⭐ پیش‌فرض: ',
+    bankCardPrefix: '💳 کارت بانکی: ',
+    cashPrefix: '🪙 صندوق نقدی: ',
+    balancePrefix: ' - موجودی: ',
+    defaultTag: ' ⭐ [پیش‌فرض]',
+    defaultCashAccount: 'صندوق اصلی کارگاه (نقدی)',
+    defaultBankAccount: 'حساب بانکی / کارت به کارت',
+    defaultPettyCash: 'تنخواه سرپرست / مدیر کارگاه',
+    selectedAccountDefaultName: 'حساب انتخابی',
+    defaultCashboxName: 'صندوق/بانک',
+    overdraftNeverAllowTitle: 'کسری موجودی - ثبت غیرمجاز',
+    overdraftAlwaysAllowTitle: 'هشدار کسری موجودی (مجاز در تنظیمات)',
+    overdraftAskTitle: 'هشدار کسری موجودی حساب',
+    overdraftNeverAllowDesc: (balance, shortfall) => 'موجودی حساب انتخابی (' + balance + ') کافی نیست (کسری: ' + shortfall + ').',
+    overdraftWarningDesc: (balance, shortfall) => 'مبلغ هزینه از موجودی حساب (' + balance + ') بیشتر است (کسری: ' + shortfall + ').',
+    expenseDateLabel: 'تاریخ ثبت فاکتور',
+    descriptionLabel: 'توضیح یا شماره فاکتور',
+    descriptionPlaceholder: 'شماره فاکتور، فروشگاه...',
+    receiptImageLabel: 'تصویر فاکتور یا رسید پرداختی',
+    receiptAttached: 'تصویر فاکتور ضمیمه شد',
+    readyToSave: 'آماده ذخیره',
+    changeBtn: 'تغییر',
+    deleteImageTitle: 'حذف تصویر',
+    clickToUpload: 'کلیک جهت انتخاب یا عکاسی از فاکتور',
+    uploadLimits: 'JPG, PNG, WebP (حداکثر ۱۰ مگابایت)',
+    finalAmountLabel: 'مبلغ نهایی:',
+    paidBadge: 'پرداخت نقدی',
+    creditBadge: 'ثبت به عنوان بدهی (نسیه)',
+    cancelBtn: 'انصراف (ESC)',
+    submittingBtn: 'در حال ثبت...',
+    overdraftBlockedBtn: 'کسری موجودی (غیرمجاز)',
+    saveChangesBtn: 'ذخیره تغییرات',
+    submitExpenseBtn: 'ثبت فاکتور هزینه'
+  },
+  ku: {
+    currencyLabels: {
+      IQD: 'د.ع (IQD)',
+      IRT: 'تۆمەن (IRT)',
+      USD: 'دۆلار ($)',
+    },
+    imageTooLarge: 'قەبارەی وێنە نابێت لە ١٠ مێگابایت زیاتر بێت.',
+    approvedLockedError: 'ئەم خەرجییە پێشتر پەسەند کراوە و دەستکاری ناکرێت.',
+    titleRequired: 'تکایە ناونیشانی خەرجی بنووسە.',
+    amountInvalid: 'تکایە بڕە پارەیەکی دروست بنووسە.',
+    overdraftNeverAllow: (acc) => 'باڵانسی حیسابی دیاریکراو (' + acc + ') بەش ناکات و کەمبوون ڕێگەپێدراو نییە.',
+    saveError: 'هەڵە لە پاشەکەوتکردنی خەرجی',
+    overdraftNegativeNotice: (acc, val) => 'خەرجی تۆمارکرا. ئاگاداری: باڵانسی حیسابی «' + acc + '» گەیشتە نێگەتیڤی ' + val + '.',
+    editSuccess: 'خەرجی بە سەرکەوتوویی دەستکاری کرا.',
+    createSuccess: 'خەرجی نوێ بە سەرکەوتوویی تۆمارکرا.',
+    editTitle: 'دەستکاریکردنی بەڵگەنامەی خەرجی',
+    newTitle: 'تۆمارکردنی خەرجی نوێی پڕۆژە',
+    defaultProject: 'پڕۆژەی کارگە',
+    headerSubtitle: 'تۆمارکردنی فاکتۆر، کڕینی مەواد، خزمەتگوزاری، کرێ و خەرجییە گشتییەکانی کارگە',
+    closeEsc: 'داخستن (ESC)',
+    lockedTitle: 'بەڵگەنامەی پەسەندکراو (داخراو و ناگۆڕدرێت)',
+    lockedDesc: (approver, date) => 'ئەم خەرجییە لەلایەن «' + approver + '» ' + (date ? 'لە بەرواری ' + date + ' ' : '') + 'پەسەند کراوە و دەستکاری یان سڕینەوەی ناکرێت.',
+    defaultApprover: 'بەڕێوەبەری باڵا',
+    invoiceSpecs: 'زانیاری و بڕی فاکتۆر',
+    titleLabel: 'ناونیشانی خەرجی / بابەت',
+    titlePlaceholder: 'نموونە: کڕینی چیمەنتۆ، کرێی سەیارە، کەرەستە و پێداویستی...',
+    amountLabel: 'بڕی پارەی فاکتۆر',
+    categoryCascadeTitle: 'پۆلێنکردنی خەرجی (٣ قۆناغی)',
+    customCategoryBtn: '+ پۆلی نوێ',
+    newCategoryPlaceholder: 'ناوی پۆلی نوێ...',
+    addBtn: 'زیادکردن',
+    mainGroup: '١. گرووپی سەرەکی',
+    selectMainGroup: '— دیاریکردنی گرووپ —',
+    subGroup: '٢. ژێرگرووپ',
+    selectSubGroup: '— دیاریکردنی ژێرگرووپ —',
+    microItem: '٣. خەرجی ورد / بڕگە',
+    selectMicroItem: '— دیاریکردنی بڕگە —',
+    payeeAndSection: 'لایەنی پەیوەندیدار و بەشی کارگە',
+    payeeLabel: 'لایەنی پەیوەندیدار / وەرگری پارە',
+    selectFromWorkers: 'دیاریکردن لە کارمەندان',
+    customPersonBtn: '+ کەسی دەرەکی / فرۆشیار',
+    customPersonPlaceholder: 'ناوی فرۆشیار، شۆفێر، یان کەسی دەرەکی...',
+    noPersonAssigned: '— بێ کەسی پەیوەندیدار —',
+    sectionLabel: 'بەشی پڕۆژە (Section)',
+    generalSection: 'گشتی (هەموو پڕۆژە)',
+    paymentSection: 'دۆخ و شێوازی پارەدان',
+    paymentStatusLabel: 'دۆخی پارەدانی فاکتۆر:',
+    paidStatus: 'پارەدراو (کاش)',
+    unpaidStatus: 'نەدراو (قەرز)',
+    accountLabel: 'شێواز / حیسابی پارەدان:',
+    defaultAccountPrefix: '⭐ بنەڕەتی: ',
+    bankCardPrefix: '💳 کارتی بانکی: ',
+    cashPrefix: '🪙 سندوقی کاش: ',
+    balancePrefix: ' - باڵانس: ',
+    defaultTag: ' ⭐ [بنەڕەتی]',
+    defaultCashAccount: 'سندوقی سەرەکیی کارگە (کاش)',
+    defaultBankAccount: 'حیسابی بانکی / کارت بە کارت',
+    defaultPettyCash: 'تەنخوای سەرپەرشتیار / بەڕێوەبەر',
+    selectedAccountDefaultName: 'حیسابی دیاریکراو',
+    defaultCashboxName: 'سندوق/بانک',
+    overdraftNeverAllowTitle: 'کەمیی باڵانس - ڕێگەنەدراو',
+    overdraftAlwaysAllowTitle: 'ئاگاداری کەمیی باڵانس (ڕێگەپێدراو لە ڕێکخستنەکان)',
+    overdraftAskTitle: 'ئاگاداری کەمیی باڵانسی حیساب',
+    overdraftNeverAllowDesc: (balance, shortfall) => 'باڵانسی حیسابی دیاریکراو (' + balance + ') بەش ناکات (کەمی: ' + shortfall + ').',
+    overdraftWarningDesc: (balance, shortfall) => 'بڕی خەرجی لە باڵانسی حیساب (' + balance + ') زیاترە (کەمی: ' + shortfall + ').',
+    expenseDateLabel: 'بەرواری فاکتۆر',
+    descriptionLabel: 'تێبینی یان ژمارەی فاکتۆر',
+    descriptionPlaceholder: 'ژمارەی فاکتۆر، فرۆشگا...',
+    receiptImageLabel: 'وێنەی فاکتۆر یان پسوولەی پارەدان',
+    receiptAttached: 'وێنەی فاکتۆر هاوپێچ کرا',
+    readyToSave: 'ئامادەیە بۆ پاشەکەوتکردن',
+    changeBtn: 'گۆڕین',
+    deleteImageTitle: 'سڕینەوەی وێنە',
+    clickToUpload: 'کلیک بکە بۆ دیاریکردن یان وێنەگرتنی فاکتۆر',
+    uploadLimits: 'JPG, PNG, WebP (زۆرینە ١٠ مێگابایت)',
+    finalAmountLabel: 'بڕی کۆتایی:',
+    paidBadge: 'پارەدانی کاش',
+    creditBadge: 'تۆمارکردن وەکوو قەرز',
+    cancelBtn: 'پاشگەزبوونەوە (ESC)',
+    submittingBtn: 'تۆماردەکرێت...',
+    overdraftBlockedBtn: 'کەمیی باڵانس (ڕێگەنەدراو)',
+    saveChangesBtn: 'پاشەکەوتکردنی گۆڕانکارییەکان',
+    submitExpenseBtn: 'تۆمارکردنی فاکتۆری خەرجی'
+  },
+  en: {
+    currencyLabels: {
+      IQD: 'IQD (د.ع)',
+      IRT: 'IRT (Toman)',
+      USD: 'USD ($)',
+    },
+    imageTooLarge: 'Image size must not exceed 10 MB.',
+    approvedLockedError: 'This expense has been approved and cannot be edited.',
+    titleRequired: 'Please enter the expense title.',
+    amountInvalid: 'Please enter a valid amount.',
+    overdraftNeverAllow: (acc) => 'Insufficient funds in selected account (' + acc + '), and overdraft is not permitted.',
+    saveError: 'Error saving expense',
+    overdraftNegativeNotice: (acc, val) => 'Expense recorded. Notice: Account balance of "' + acc + '" dropped to -' + val + '.',
+    editSuccess: 'Expense updated successfully.',
+    createSuccess: 'New expense recorded successfully.',
+    editTitle: 'Edit Expense Document',
+    newTitle: 'Record New Project Expense',
+    defaultProject: 'Workshop Project',
+    headerSubtitle: 'Record invoices, materials, services, rent, and general workshop expenses',
+    closeEsc: 'Close (ESC)',
+    lockedTitle: 'Document Approved (Locked & Read-only)',
+    lockedDesc: (approver, date) => 'This expense was approved by "' + approver + '" ' + (date ? 'on ' + date + ' ' : '') + 'and cannot be edited or deleted.',
+    defaultApprover: 'Senior Manager',
+    invoiceSpecs: 'Invoice Details & Amount',
+    titleLabel: 'Expense Title / Description',
+    titlePlaceholder: 'e.g. Type 2 cement purchase, freight, tools, hospitality...',
+    amountLabel: 'Invoice Paid Amount',
+    categoryCascadeTitle: 'Expense Category (3-Level Cascade)',
+    customCategoryBtn: '+ Custom Category',
+    newCategoryPlaceholder: 'New category name...',
+    addBtn: 'Add',
+    mainGroup: '1. Main Group',
+    selectMainGroup: '— Select Group —',
+    subGroup: '2. Subgroup',
+    selectSubGroup: '— Select Subgroup —',
+    microItem: '3. Detail Item',
+    selectMicroItem: '— Select Item —',
+    payeeAndSection: 'Payee & Project Section',
+    payeeLabel: 'Payee / Recipient',
+    selectFromWorkers: 'Select from Staff',
+    customPersonBtn: '+ External Person/Vendor',
+    customPersonPlaceholder: 'Vendor, driver, or external payee name...',
+    noPersonAssigned: '— No Person Assigned —',
+    sectionLabel: 'Project Section',
+    generalSection: 'General (Entire Project)',
+    paymentSection: 'Payment Status & Source',
+    paymentStatusLabel: 'Invoice Settlement Status:',
+    paidStatus: 'Paid (Settled)',
+    unpaidStatus: 'Unpaid (Credit)',
+    accountLabel: 'Payment Account / Source:',
+    defaultAccountPrefix: '⭐ Default: ',
+    bankCardPrefix: '💳 Bank Card: ',
+    cashPrefix: '🪙 Cash Register: ',
+    balancePrefix: ' - Balance: ',
+    defaultTag: ' ⭐ [Default]',
+    defaultCashAccount: 'Workshop Main Cash Register',
+    defaultBankAccount: 'Bank Account / Card Transfer',
+    defaultPettyCash: 'Site Supervisor Petty Cash',
+    selectedAccountDefaultName: 'Selected Account',
+    defaultCashboxName: 'Cash/Bank',
+    overdraftNeverAllowTitle: 'Insufficient Funds - Blocked',
+    overdraftAlwaysAllowTitle: 'Overdraft Warning (Allowed in Settings)',
+    overdraftAskTitle: 'Account Overdraft Warning',
+    overdraftNeverAllowDesc: (balance, shortfall) => 'Insufficient funds in selected account (' + balance + ') (Shortfall: ' + shortfall + ').',
+    overdraftWarningDesc: (balance, shortfall) => 'Expense amount exceeds account balance (' + balance + ') (Shortfall: ' + shortfall + ').',
+    expenseDateLabel: 'Invoice Date',
+    descriptionLabel: 'Description or Invoice #',
+    descriptionPlaceholder: 'Invoice number, vendor notes...',
+    receiptImageLabel: 'Invoice Photo or Receipt',
+    receiptAttached: 'Receipt image attached',
+    readyToSave: 'Ready to save',
+    changeBtn: 'Change',
+    deleteImageTitle: 'Remove Image',
+    clickToUpload: 'Click to select or capture receipt photo',
+    uploadLimits: 'JPG, PNG, WebP (Max 10 MB)',
+    finalAmountLabel: 'Final Amount:',
+    paidBadge: 'Cash Payment',
+    creditBadge: 'Recorded as Credit (Unpaid)',
+    cancelBtn: 'Cancel (ESC)',
+    submittingBtn: 'Submitting...',
+    overdraftBlockedBtn: 'Insufficient Balance (Blocked)',
+    saveChangesBtn: 'Save Changes',
+    submitExpenseBtn: 'Record Expense'
+  }
+};
+
 export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, onSuccess }) {
   const { currentProject } = useProject();
   const { t, language, direction } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = COPY[langKey];
   const { user } = useAuth();
   const { currentUser } = usePermissions();
   const isApprovedAndLocked = expenseToEdit?.status === 'approved';
@@ -219,7 +477,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
-        setErrorMessage(language === 'fa' ? 'حجم تصویر نباید بیشتر از ۱۰ مگابایت باشد.' : 'قەبارەی وێنە نابێت لە ١٠ مێگابایت زیاتر بێت.');
+        setErrorMessage(c.imageTooLarge);
         return;
       }
       setFormData((prev) => ({ ...prev, receiptFile: file }));
@@ -275,18 +533,18 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     setErrorMessage('');
 
     if (isApprovedAndLocked) {
-      setErrorMessage(language === 'fa' ? 'این هزینه قبلاً تایید نهایی شده است و غیرقابل ویرایش می‌باشد.' : 'Approved documents cannot be edited.');
+      setErrorMessage(c.approvedLockedError);
       return;
     }
 
     if (!formData.title.trim()) {
-      setErrorMessage(language === 'fa' ? 'لطفاً عنوان هزینه را وارد کنید.' : 'تکایە ناونیشانی خەرجی بنووسە.');
+      setErrorMessage(c.titleRequired);
       return;
     }
 
     const numericAmount = Number(String(formData.amount).replace(/,/g, ''));
     if (!numericAmount || numericAmount <= 0) {
-      setErrorMessage(language === 'fa' ? 'لطفاً مبلغ معتبری وارد کنید.' : 'تکایە بڕە پارەیەکی دروست بنووسە.');
+      setErrorMessage(c.amountInvalid);
       return;
     }
 
@@ -302,11 +560,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
             shortfall: overdraftCheck.shortfall,
             isBlocked: true
           });
-          setErrorMessage(
-            language === 'fa'
-              ? `موجودی حساب انتخابی (${overdraftCheck.account?.name || 'صندوق/بانک'}) کافی نیست و بر اساس سیاست تعیین شده، برداشت بیش از موجودی غیرمجاز است.`
-              : 'باڵانسی حیساب بەش ناکات و کەمبوون ڕێگەپێدراو نییە.'
-          );
+          setErrorMessage(c.overdraftNeverAllow(overdraftCheck.account?.name || c.defaultCashboxName));
           return;
         } else if (overdraftCheck.effectivePolicy === 'ask_each_time') {
           setOverdraftPromptData({
@@ -413,16 +667,12 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         const resultingNeg = Math.abs(finalCheck.currentBalance - numericAmount);
         setToastMessage({
           type: 'warning',
-          text: language === 'fa'
-            ? `هزینه ثبت شد. توجه: موجودی حساب «${finalCheck.account?.name || 'صندوق'}» به منفی ${formatCurrency(resultingNeg, formData.currency || projectCurrency, language)} رسید.`
-            : 'خەرجی تۆمارکرا. باڵانسی حیساب بووە بە نێگەتیڤ.'
+          text: c.overdraftNegativeNotice(finalCheck.account?.name || c.defaultCashboxName, formatCurrency(resultingNeg, formData.currency || projectCurrency, language))
         });
       } else {
         setToastMessage({
           type: 'success',
-          text: expenseToEdit 
-            ? (language === 'fa' ? 'هزینه با موفقیت ویرایش شد.' : 'خەرجی بە سەرکەوتوویی دەستکاری کرا.') 
-            : (language === 'fa' ? 'هزینه جدید با موفقیت ثبت شد.' : 'خەرجی نوێ بە سەرکەوتوویی تۆمارکرا.')
+          text: expenseToEdit ? c.editSuccess : c.createSuccess
         });
       }
 
@@ -436,7 +686,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
 
     } catch (err) {
       console.error('Error saving expense:', err);
-      setErrorMessage(err.message || 'خطا در ذخیره هزینه');
+      setErrorMessage(err.message || c.saveError);
       setIsSubmitting(false);
     }
   };
@@ -468,16 +718,14 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  {expenseToEdit 
-                    ? (language === 'fa' ? 'ویرایش سند هزینه' : 'دەستکاریکردنی خەرجی') 
-                    : (language === 'fa' ? 'ثبت هزینه جدید پروژه' : 'تۆمارکردنی خەرجی نوێ')}
+                  {expenseToEdit ? c.editTitle : c.newTitle}
                 </h2>
                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/60">
-                  {currentProject?.name || 'پروژه کارگاه'}
+                  {currentProject?.name || c.defaultProject}
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {language === 'fa' ? 'ثبت فاکتور، خرید مصالح، خدمات، کرایه و هزینه‌های عمومی کارگاه' : 'تۆمارکردنی خەرجی و پسوولەکانی کارگە'}
+                {c.headerSubtitle}
               </p>
             </div>
           </div>
@@ -486,7 +734,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
             type="button"
             onClick={onClose}
             className="p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
-            title="بستن (ESC)"
+            title={c.closeEsc}
           >
             <X className="w-5 h-5" />
           </button>
@@ -508,11 +756,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
             <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-bold flex items-center gap-3">
               <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
               <div>
-                <div>{language === 'fa' ? 'سند تایید نهایی شده (قفل و غیرقابل تغییر)' : 'بەڵگەنامەی پەسەندکراو (داخراو)'}</div>
+                <div>{c.lockedTitle}</div>
                 <div className="text-[11px] font-normal text-amber-700 dark:text-amber-300 mt-0.5">
-                  {language === 'fa' 
-                    ? `این هزینه توسط «${expenseToEdit.approvedBy || 'مدیر ارشد'}» ${expenseToEdit.approvedAt ? `در تاریخ ${expenseToEdit.approvedAt.slice(0, 10)}` : ''} تایید نهایی گردیده و طبق اصول حسابداری غیرقابل ویرایش یا حذف است.`
-                    : 'ئەم بەڵگەنامەیە پەسەندکراوە و دەستکاری ناکرێت.'}
+                  {c.lockedDesc(expenseToEdit.approvedBy || c.defaultApprover, expenseToEdit.approvedAt ? expenseToEdit.approvedAt.slice(0, 10) : '')}
                 </div>
               </div>
             </div>
@@ -531,28 +777,28 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
                   <DollarSign className="w-4 h-4 text-rose-500" />
                   <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                    {language === "fa" ? "مشخصات و مبلغ فاکتور" : "زانیاری و بڕی پارە"}
+                    {c.invoiceSpecs}
                   </span>
                 </div>
 
                 <div className="space-y-3.5">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {language === "fa" ? "عنوان هزینه / شرح فاکتور" : "ناونیشانی خەرجی / بابەت"} <span className="text-rose-500">*</span>
+                      {c.titleLabel} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       required
                       type="text"
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder={language === "fa" ? "مثال: خرید سیمان تیپ ۲، کرایه خاور، ابزار و پذیرایی..." : "نموونە: کڕینی چیمەنتۆ، کرێی سەیارە..."}
+                      placeholder={c.titlePlaceholder}
                       className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all"
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {language === "fa" ? "مبلغ پرداختی فاکتور" : "بڕی پارە"} <span className="text-rose-500">*</span>
+                      {c.amountLabel} <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative flex rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 focus-within:ring-2 focus-within:ring-rose-500 overflow-hidden shadow-xs">
                       <input
@@ -572,9 +818,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                         onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
                         className="bg-slate-200/80 dark:bg-slate-700 px-3 py-2 text-xs font-black font-mono text-slate-700 dark:text-slate-200 border-s border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
                       >
-                        <option value="IQD">د.ع (IQD)</option>
-                        <option value="IRT">تومان (IRT)</option>
-                        <option value="USD">دلار ($)</option>
+                        <option value="IQD">{c.currencyLabels.IQD}</option>
+                        <option value="IRT">{c.currencyLabels.IRT}</option>
+                        <option value="USD">{c.currencyLabels.USD}</option>
                       </select>
                     </div>
                   </div>
@@ -587,7 +833,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                   <div className="flex items-center gap-2">
                     <FolderTree className="w-4 h-4 text-rose-500" />
                     <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                      {language === "fa" ? "سرفصل هزینه (انتخاب ۳ مرحله‌ای آبشاری)" : "پۆلێنکردنی خەرجی (٣ قۆناغی)"}
+                      {c.categoryCascadeTitle}
                     </span>
                   </div>
                   <button
@@ -596,7 +842,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                     className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
-                    <span>{language === "fa" ? "+ سرفصل سفارشی" : "+ پۆلی نوێ"}</span>
+                    <span>{c.customCategoryBtn}</span>
                   </button>
                 </div>
 
@@ -607,7 +853,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       type="text"
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder={language === "fa" ? "نام سرفصل جدید..." : "ناوی پۆلی نوێ..."}
+                      placeholder={c.newCategoryPlaceholder}
                       className="flex-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none"
                     />
                     <button
@@ -615,7 +861,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       onClick={handleCreateNewCategory}
                       className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
                     >
-                      {language === "fa" ? "افزودن" : "زیادکردن"}
+                      {c.addBtn}
                     </button>
                   </div>
                 )}
@@ -624,7 +870,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                   {/* Step 1: Main Group */}
                   <div className="space-y-1">
                     <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                      ۱. {language === "fa" ? "گروه اصلی" : "گرووپی سەرەکی"}
+                      {c.mainGroup}
                     </label>
                     <select
                       value={formData.mainCategoryId}
@@ -638,7 +884,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       }}
                       className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none cursor-pointer shadow-xs"
                     >
-                      <option value="">{language === "fa" ? "— انتخاب گروه —" : "— دیاریکردن —"}</option>
+                      <option value="">{c.selectMainGroup}</option>
                       {mainCategories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
@@ -648,7 +894,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                   {/* Step 2: Sub Group */}
                   <div className="space-y-1">
                     <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                      ۲. {language === "fa" ? "زیرگروه" : "ژێرگرووپ"}
+                      {c.subGroup}
                     </label>
                     <select
                       disabled={!formData.mainCategoryId || subCategories.length === 0}
@@ -663,7 +909,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none disabled:opacity-50 cursor-pointer shadow-xs"
                     >
                       <option value="">
-                        {formData.mainCategoryId ? (language === "fa" ? "— انتخاب زیرگروه —" : "— ژێرگرووپ —") : "—"}
+                        {formData.mainCategoryId ? c.selectSubGroup : "—"}
                       </option>
                       {subCategories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
@@ -674,7 +920,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                   {/* Step 3: Micro Category */}
                   <div className="space-y-1">
                     <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                      ۳. {language === "fa" ? "هزینه خرد / آیتم" : "وردەکاری"}
+                      {c.microItem}
                     </label>
                     <select
                       disabled={!formData.subCategoryId || microCategories.length === 0}
@@ -683,7 +929,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none disabled:opacity-50 cursor-pointer shadow-xs"
                     >
                       <option value="">
-                        {formData.subCategoryId ? (language === "fa" ? "— انتخاب آیتم —" : "— وردەکاری —") : "—"}
+                        {formData.subCategoryId ? c.selectMicroItem : "—"}
                       </option>
                       {microCategories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
@@ -698,7 +944,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
                   <User className="w-4 h-4 text-rose-500" />
                   <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                    {language === "fa" ? "طرف‌حساب و بخش کارگاه" : "لایەنی پەیوەندیدار"}
+                    {c.payeeAndSection}
                   </span>
                 </div>
 
@@ -707,7 +953,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {language === "fa" ? "طرف‌حساب / دریافت‌کننده وجه" : "وەرگر"}
+                        {c.payeeLabel}
                       </label>
                       <button
                         type="button"
@@ -717,9 +963,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                         }}
                         className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline font-bold cursor-pointer"
                       >
-                        {customPayeeActive 
-                          ? (language === "fa" ? "انتخاب از پرسنل" : "لە کرێکاران") 
-                          : (language === "fa" ? "+ شخص متفرقه/فروشنده" : "+ کەسی دەرەکی")}
+                        {customPayeeActive ? c.selectFromWorkers : c.customPersonBtn}
                       </button>
                     </div>
 
@@ -728,7 +972,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                         type="text"
                         value={formData.personName}
                         onChange={(e) => setFormData({ ...formData, personName: e.target.value })}
-                        placeholder={language === "fa" ? "نام فروشنده، راننده، یا شخص متفرقه..." : "ناوی فرۆشیار..."}
+                        placeholder={c.customPersonPlaceholder}
                         className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
                       />
                     ) : (
@@ -745,7 +989,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                         }}
                         className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer shadow-xs"
                       >
-                        <option value="">{language === "fa" ? "— بدون انتساب به شخص —" : "— بێ کەسی پەیوەندیدار —"}</option>
+                        <option value="">{c.noPersonAssigned}</option>
                         {workers.map((w) => (
                           <option key={w.id} value={w.id}>
                             {w.name} {w.role ? `(${w.role})` : ""}
@@ -758,14 +1002,14 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                   {/* Project Section */}
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {language === "fa" ? "بخش پروژه (Section)" : "بەشی پڕۆژە"}
+                      {c.sectionLabel}
                     </label>
                     <select
                       value={formData.sectionId}
                       onChange={(e) => setFormData({ ...formData, sectionId: e.target.value })}
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer shadow-xs"
                     >
-                      <option value="">{language === "fa" ? "عمومی (کل پروژه)" : "گشتی (هەموو پڕۆژە)"}</option>
+                      <option value="">{c.generalSection}</option>
                       {projectSections.map((sec) => (
                         <option key={sec.id} value={sec.id}>
                           {sec.name}
@@ -788,14 +1032,14 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
                   <CreditCard className="w-4 h-4 text-rose-500" />
                   <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                    {language === "fa" ? "وضعیت و محل پرداخت" : "پارەدان و دۆخ"}
+                    {c.paymentSection}
                   </span>
                 </div>
 
                 {/* [APP_THEME_BUTTON] Payment Status Switcher */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {language === "fa" ? "وضعیت تسویه فاکتور:" : "دۆخی پارەدان:"}
+                    {c.paymentStatusLabel}
                   </label>
                   <div className="h-11 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner w-full">
                     <button
@@ -808,7 +1052,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       }`}
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>{language === "fa" ? "تسویه شده" : "پارەدراو (کاش)"}</span>
+                      <span>{c.paidStatus}</span>
                     </button>
 
                     <button
@@ -821,7 +1065,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       }`}
                     >
                       <Clock className="w-4 h-4" />
-                      <span>{language === "fa" ? "پرداخت نشده (نسیه)" : "قەرز / نەدراو"}</span>
+                      <span>{c.unpaidStatus}</span>
                     </button>
                   </div>
                 </div>
@@ -829,10 +1073,10 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 {/* Payment Account Dropdown */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                    <span>{language === "fa" ? "محل / حساب پرداخت:" : "شێوازی پارەدان:"}</span>
+                    <span>{c.accountLabel}</span>
                     {defaultAccount && (
                       <span className="text-[10px] text-amber-500 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-900/40">
-                        ⭐ پیش‌فرض: {defaultAccount.name}
+                        {c.defaultAccountPrefix}{defaultAccount.name}
                       </span>
                     )}
                   </label>
@@ -864,16 +1108,15 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                         const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
                         return (
                           <option key={acc.id} value={acc.id}>
-                            {acc.type === "bank" ? "💳 کارت بانکی: " : "🪙 صندوق نقدی: "}
-                            {acc.name} {acc.bankName ? `(${acc.bankName})` : ""} - موجودی: {formatCurrency(b, formData.currency || projectCurrency, language)} {acc.isDefault ? "⭐ [پیش‌فرض]" : ""}
+                            {acc.type === "bank" ? c.bankCardPrefix : c.cashPrefix}{acc.name}{acc.bankName ? ' (' + acc.bankName + ')' : ''}{c.balancePrefix}{formatCurrency(b, formData.currency || projectCurrency, language)}{acc.isDefault ? c.defaultTag : ''}
                           </option>
                         );
                       })
                     ) : (
                       <>
-                        <option value="cash">{language === "fa" ? "صندوق اصلی کارگاه (نقدی)" : "سندوقی سەرەکی (کاش)"}</option>
-                        <option value="bank">{language === "fa" ? "حساب بانکی / کارت به کارت" : "حسابی بانکی / کارت"}</option>
-                        <option value="petty_cash">{language === "fa" ? "تنخواه سرپرست / مدیر کارگاه" : "تەنخوای سەرپەرشتیار"}</option>
+                        <option value="cash">{c.defaultCashAccount}</option>
+                        <option value="bank">{c.defaultBankAccount}</option>
+                        <option value="petty_cash">{c.defaultPettyCash}</option>
                       </>
                     )}
                   </select>
@@ -893,15 +1136,15 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       <div className="space-y-0.5">
                         <div className="font-bold">
                           {currentOverdraft.effectivePolicy === "never_allow"
-                            ? "کسری موجودی - ثبت غیرمجاز"
+                            ? c.overdraftNeverAllowTitle
                             : currentOverdraft.effectivePolicy === "always_allow"
-                              ? "هشدار کسری موجودی (مجاز در تنظیمات)"
-                              : "هشدار کسری موجودی حساب"}
+                              ? c.overdraftAlwaysAllowTitle
+                              : c.overdraftAskTitle}
                         </div>
                         <div className="text-[11px] leading-relaxed opacity-90">
                           {currentOverdraft.effectivePolicy === "never_allow"
-                            ? `موجودی حساب انتخابی (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) کافی نیست (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}).`
-                            : `مبلغ هزینه از موجودی حساب (${formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language)}).`}
+                            ? c.overdraftNeverAllowDesc(formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language), formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language))
+                            : c.overdraftWarningDesc(formatCurrency(currentOverdraft.currentBalance, formData.currency || projectCurrency, language), formatCurrency(currentOverdraft.shortfall, formData.currency || projectCurrency, language))}
                         </div>
                       </div>
                     </div>
@@ -912,7 +1155,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {language === "fa" ? "تاریخ ثبت فاکتور" : "بەرواری فاکتۆر"}
+                      {c.expenseDateLabel}
                     </label>
                     <input
                       type="date"
@@ -924,13 +1167,13 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {language === "fa" ? "توضیح یا شماره فاکتور" : "ژمارەی فاکتۆر"}
+                      {c.descriptionLabel}
                     </label>
                     <input
                       type="text"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder={language === "fa" ? "شماره فاکتور، فروشگاه..." : "تێبینی..."}
+                      placeholder={c.descriptionPlaceholder}
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
                     />
                   </div>
@@ -942,7 +1185,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
                   <ImageIcon className="w-4 h-4 text-rose-500" />
                   <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                    {language === "fa" ? "تصویر فاکتور یا رسید پرداختی" : "وێنەی فاکتۆر"}
+                    {c.receiptImageLabel}
                   </span>
                 </div>
 
@@ -965,10 +1208,10 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       />
                       <div className="truncate">
                         <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                          {formData.receiptFile?.name || (language === "fa" ? "تصویر فاکتور ضمیمه شد" : "وێنە زیادکرا")}
+                          {formData.receiptFile?.name || c.receiptAttached}
                         </p>
                         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> {language === "fa" ? "آماده ذخیره" : "ئامادەیە"}
+                          <CheckCircle2 className="w-3.5 h-3.5" /> {c.readyToSave}
                         </p>
                       </div>
                     </div>
@@ -979,13 +1222,13 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                         onClick={() => fileInputRef.current?.click()}
                         className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                       >
-                        {language === "fa" ? "تغییر" : "گۆڕین"}
+                        {c.changeBtn}
                       </button>
                       <button
                         type="button"
                         onClick={removeReceipt}
                         className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-colors cursor-pointer"
-                        title="حذف تصویر"
+                        title={c.deleteImageTitle}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1002,9 +1245,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                     </div>
                     <div className="text-center">
                       <span className="text-xs font-black text-slate-700 dark:text-slate-200">
-                        {language === "fa" ? "کلیک جهت انتخاب یا عکاسی از فاکتور" : "کلیک بکە بۆ بارکردنی وێنە"}
+                        {c.clickToUpload}
                       </span>
-                      <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG, WebP (حداکثر ۱۰ مگابایت)</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{c.uploadLimits}</p>
                     </div>
                   </button>
                 )}
@@ -1031,7 +1274,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                   <span className="text-[11px] font-bold text-slate-400">
-                    {language === "fa" ? "مبلغ نهایی:" : "بڕی کۆتایی:"}
+                    {c.finalAmountLabel}
                   </span>
                   <span className="text-sm font-black text-slate-800 dark:text-slate-100 font-mono tracking-tight">
                     {formData.amount ? Number(formData.amount).toLocaleString() : "۰"}
@@ -1049,9 +1292,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                  {formData.paymentStatus === "paid"
-                    ? (language === "fa" ? "پرداخت نقدی" : "نەقد")
-                    : (language === "fa" ? "ثبت به عنوان بدهی (نسیه)" : "قەرز")}
+                  {formData.paymentStatus === "paid" ? c.paidBadge : c.creditBadge}
                 </div>
               </div>
             )}
@@ -1063,7 +1304,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
               onClick={onClose}
               className="px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              {language === 'fa' ? 'انصراف (ESC)' : 'پاشگەزبوونەوە'}
+              {c.cancelBtn}
             </button>
             <button
               type="submit"
@@ -1078,20 +1319,18 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>{language === 'fa' ? 'در حال ثبت...' : 'تۆماردەکرێت...'}</span>
+                  <span>{c.submittingBtn}</span>
                 </>
               ) : currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow' ? (
                 <>
                   <Ban className="w-4 h-4" />
-                  <span>کسری موجودی (غیرمجاز)</span>
+                  <span>{c.overdraftBlockedBtn}</span>
                 </>
               ) : (
                 <>
                   <PlusCircle className="w-4 h-4" />
                   <span>
-                    {expenseToEdit 
-                      ? (language === 'fa' ? 'ذخیره تغییرات' : 'پاشەکەوتکردنی گۆڕانکاری') 
-                      : (language === 'fa' ? 'ثبت فاکتور هزینه' : 'تۆمارکردنی خەرجی')}
+                    {expenseToEdit ? c.saveChangesBtn : c.submitExpenseBtn}
                   </span>
                 </>
               )}

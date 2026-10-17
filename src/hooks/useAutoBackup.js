@@ -8,11 +8,38 @@ import {
   downloadSnapshotAsFile,
   checkAndRunAutoBackup
 } from '../db/backup';
+import {
+  isFileSystemAccessSupported,
+  getDirectorySyncStatus,
+  chooseBackupDirectory,
+  disconnectBackupDirectory,
+  writeBackupToConnectedDirectory
+} from '../services/localDirectoryBackup';
 import { emitToast } from '../context/NotificationContext';
 
 export function useAutoBackup() {
   const [isTakingSnapshot, setIsTakingSnapshot] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [isConnectingDir, setIsConnectingDir] = useState(false);
+
+  // Directory Sync state
+  const [dirStatus, setDirStatus] = useState(() => ({
+    supported: isFileSystemAccessSupported(),
+    connected: false,
+    dirName: null,
+    permissionState: 'none'
+  }));
+
+  const refreshDirStatus = useCallback(async () => {
+    try {
+      const status = await getDirectorySyncStatus();
+      setDirStatus(status);
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    refreshDirStatus();
+  }, [refreshDirStatus]);
 
   // Configuration state
   const [config, setConfig] = useState(() => {
@@ -50,12 +77,10 @@ export function useAutoBackup() {
 
   // Background auto-backup trigger on launch + periodic interval
   useEffect(() => {
-    // Delay check 5 seconds to let DB and auth initialize smoothly
     const timer = setTimeout(() => {
       checkAndRunAutoBackup();
     }, 5000);
 
-    // Periodic check every 30 minutes while app remains open
     const interval = setInterval(() => {
       checkAndRunAutoBackup();
     }, 30 * 60 * 1000);
@@ -163,6 +188,64 @@ export function useAutoBackup() {
     }
   }, []);
 
+  // Directory connection actions
+  const connectDirectory = useCallback(async () => {
+    try {
+      setIsConnectingDir(true);
+      const res = await chooseBackupDirectory();
+      if (!res.canceled) {
+        await refreshDirStatus();
+      }
+    } catch (err) {
+      emitToast({
+        type: 'error',
+        title: 'عدم دسترسی به پوشه',
+        message: err.message || 'انتخاب پوشه توسط کاربر لغو گردید یا مجوز داده نشد.'
+      });
+    } finally {
+      setIsConnectingDir(false);
+    }
+  }, [refreshDirStatus]);
+
+  const disconnectDirectory = useCallback(async () => {
+    await disconnectBackupDirectory();
+    await refreshDirStatus();
+  }, [refreshDirStatus]);
+
+  const testDirectorySync = useCallback(async () => {
+    try {
+      setIsConnectingDir(true);
+      const res = await writeBackupToConnectedDirectory();
+      if (res.written) {
+        emitToast({
+          type: 'success',
+          title: 'ذخیره در پوشه رایانه',
+          message: `فایل «${res.fileName}» با موفقیت در پوشه «${res.dirName}» ذخیره شد.`
+        });
+      } else if (res.reason === 'permission_required') {
+        emitToast({
+          type: 'warning',
+          title: 'مجوز لازم است',
+          message: 'لطفاً یک‌بار دیگر دکمه انتخاب پوشه را بزنید تا مجوز نوشتن تایید گردد.'
+        });
+      } else {
+        emitToast({
+          type: 'error',
+          title: 'خطا در ذخیره پوشه',
+          message: res.error || 'پوشه‌ای متصل نیست.'
+        });
+      }
+    } catch (err) {
+      emitToast({
+        type: 'error',
+        title: 'خطا',
+        message: err.message
+      });
+    } finally {
+      setIsConnectingDir(false);
+    }
+  }, []);
+
   return {
     snapshots,
     config,
@@ -173,6 +256,11 @@ export function useAutoBackup() {
     triggerManualSnapshot,
     handleRestore,
     handleDelete,
-    handleDownload
+    handleDownload,
+    dirStatus,
+    isConnectingDir,
+    connectDirectory,
+    disconnectDirectory,
+    testDirectorySync
   };
 }
