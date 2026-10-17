@@ -312,7 +312,7 @@ export function WorkersView() {
 
       return true;
     });
-  }, [workers, statusTab, searchTerm, filterActive, filterSection, filterGroup]);
+  }, [workers, statusTab, searchTerm, filterSection, filterGroup]);
 
   // گروه‌بندی و مرتب‌سازی پرسنل
   const groupedWorkers = useMemo(() => {
