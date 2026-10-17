@@ -12,6 +12,7 @@ import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 import { EditRecordModal } from './EditRecordModal';
 import { WorkerFinancialProfileModal } from './WorkerFinancialProfileModal';
 import { ManageGroupsModal } from './ManageGroupsModal';
+import { AddWorkerModal } from './AddWorkerModal';
 import { 
   Users, 
   UserPlus, 
@@ -354,21 +355,6 @@ export function WorkersView() {
   // Open modal to add worker
   const handleOpenAddModal = () => {
     setEditingWorker(null);
-    setFormData({
-      name: '',
-      phone: '',
-      role: '',
-      groupId: '',
-      teamRole: 'Worker',
-    wageType: 'standard',
-    dailyRate: '35000',
-      overtimeHourlyRate: '5000',
-      defaultSectionId: '',
-      isActive: 1,
-      username: '',
-      password: ''
-    });
-    setFormError('');
     setIsFormModalOpen(true);
   };
 
@@ -384,22 +370,6 @@ export function WorkersView() {
   // Open modal to edit worker
   const handleOpenEditModal = (worker) => {
     setEditingWorker(worker);
-    const creds = workerCreds[worker.id] || {};
-    setFormData({
-      name: worker.name,
-      phone: worker.phone || '',
-      role: worker.role || '',
-      groupId: worker.groupId || '',
-      teamRole: worker.teamRole || 'Worker',
-      wageType: worker.wageType || 'standard',
-      dailyRate: String(worker.dailyRate),
-      overtimeHourlyRate: String(worker.overtimeHourlyRate),
-      defaultSectionId: worker.defaultSectionId || '',
-      isActive: worker.isActive,
-      username: creds.username || worker.username || '',
-      password: creds.password || worker.password || ''
-    });
-    setFormError('');
     setIsFormModalOpen(true);
   };
 
@@ -1570,260 +1540,19 @@ export function WorkersView() {
         </div>
       )}
 
-      {/* Add / Edit Worker Modal */}
-      {isFormModalOpen && typeof document !== 'undefined' && createPortal(
-        <div 
-          className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden text-slate-900 dark:text-white"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsFormModalOpen(false);
-          }}
-        >
-          {/* Header */}
-          <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4 flex-shrink-0">
-            <div className="max-w-xl mx-auto w-full flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-500 flex items-center justify-center font-bold">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                    {editingWorker ? t('editWorker') : t('addNewWorker')}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {editingWorker ? 'ویرایش مشخصات، دستمزد و حساب کاربری پرسنل' : 'ثبت مشخصات، گروه کاری، دستمزد و اطلاعات ورود پرسنل'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsFormModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
-                title="بستن (Esc)"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-            <div className="max-w-xl mx-auto w-full">
-              {formError && (
-                <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 rounded-xl flex items-center gap-2 text-rose-700 dark:text-rose-300 text-xs">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              <form id="worker-form" onSubmit={handleSaveWorker} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('fullName')} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="ئاراس ئەحمەد / علی رضایی / Worker Name"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('roleOrTitle')}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    placeholder="وەستا / جوشکار / Master Craftsman"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('phoneNumber')}
-                  </label>
-                  <input
-                    type="text"
-                    dir="ltr"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="0750 123 4567"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                      <span>گروه کاری</span>
-                      <span className="text-[10px] text-slate-400 font-normal">(اختیاری)</span>
-                    </label>
-                    <select
-                      value={formData.groupId || ''}
-                      onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white cursor-pointer"
-                    >
-                      <option value="">بدون گروه</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                      <span>نقش در گروه</span>
-                    </label>
-                    <select
-                      value={formData.teamRole || 'Worker'}
-                      onChange={(e) => setFormData({ ...formData, teamRole: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white cursor-pointer"
-                    >
-                      <option value="Worker">کارگر (عادی)</option>
-                      <option value="Master">استادکار (سرپرست)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {projectSections.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Layers className="w-3.5 h-3.5 text-sky-500" />
-                        <span>{t('defaultSection') || 'بخش پیش‌فرض کاری'}</span>
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-normal">({t('optional') || 'اختیاری'})</span>
-                    </label>
-                    <select
-                      value={formData.defaultSectionId || ''}
-                      onChange={(e) => setFormData({ ...formData, defaultSectionId: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white cursor-pointer"
-                    >
-                      <option value="">{t('noSection') || 'بدون بخش (عمومی)'}</option>
-                      {projectSections.map((sec) => (
-                        <option key={sec.id} value={sec.id}>{sec.name}</option>
-                      ))}
-                    </select>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      {t('defaultSectionHint') || 'این بخش در ثبت روزانه به صورت خودکار برای پرسنل لود می‌شود اما برای هر روز قابل تغییر است.'}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mb-3">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span>{language === 'fa' ? 'نوع دستمزد' : 'جۆری کرێ'}</span>
-                  </label>
-                  <select
-                    value={formData.wageType || 'standard'}
-                    onChange={(e) => setFormData({ ...formData, wageType: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white cursor-pointer"
-                  >
-                    <option value="standard">{language === 'fa' ? 'عادی (مزد روزانه)' : 'ستاندارد (کرێی ڕۆژانە)'}</option>
-                    <option value="contract">{language === 'fa' ? 'کنتراکت (توافقی / مقاطعه)' : 'گرێبەست (بڕاوە)'}</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3" style={{ opacity: formData.wageType === 'contract' ? 0.5 : 1, pointerEvents: formData.wageType === 'contract' ? 'none' : 'auto' }}>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      {t('dailyRateLabel')} *
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="500"
-                      required
-                      value={formData.dailyRate}
-                      onChange={(e) => setFormData({ ...formData, dailyRate: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      {t('overtimeRateLabel')} *
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="500"
-                      required
-                      value={formData.overtimeHourlyRate}
-                      onChange={(e) => setFormData({ ...formData, overtimeHourlyRate: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Worker Portal Login Credentials Section */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{t('workerLoginCredentials')}</span>
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
-                        {t('username')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.username || ''}
-                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                        placeholder="e.g. feryad"
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
-                        {t('password')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.password || ''}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="e.g. 1234"
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500 text-slate-900 dark:text-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4 flex-shrink-0">
-            <div className="max-w-xl mx-auto w-full flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-400 hidden sm:inline">
-                کلید <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-mono">Esc</kbd> برای بستن
-              </span>
-              <div className="flex items-center gap-3 ms-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsFormModalOpen(false)}
-                  className="px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  type="submit"
-                  form="worker-form"
-                  className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold rounded-xl shadow-md shadow-sky-600/20 transition-colors"
-                >
-                  {t('saveWorker')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* Add / Edit Worker Modal (Apple Liquid Glass) */}
+      <AddWorkerModal
+        isOpen={isFormModalOpen}
+        onClose={() => {
+          setIsFormModalOpen(false);
+          setEditingWorker(null);
+        }}
+        workerToEdit={editingWorker}
+        onSuccess={() => {
+          setIsFormModalOpen(false);
+          setEditingWorker(null);
+        }}
+      />
 
       {/* Quick Month Attendance Modal (Mini Calendar for fast entry) */}
       <QuickMonthAttendanceModal
