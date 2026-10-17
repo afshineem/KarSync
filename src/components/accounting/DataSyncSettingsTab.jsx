@@ -143,7 +143,7 @@ export default function DataSyncSettingsTab({
   };
 
   return (
-    <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
+    <div className="space-y-6 w-full animate-in fade-in duration-150">
       
       {/* 1. Supabase Cloud Sync Card (Health & Sync Monitor) */}
       <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 shadow-xs space-y-4">

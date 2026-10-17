@@ -962,7 +962,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB 1: GENERAL & THEME */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'general' && (
-              <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
+              <div className="space-y-6 w-full animate-in fade-in duration-150">
                 
                 {/* 1. Header card with Live Clock, Date & Quick Reset Button */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent dark:from-sky-950/40 dark:via-sky-900/20 border border-sky-200/80 dark:border-sky-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1295,7 +1295,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
               </div>
             )}
             {activeTab === 'projects' && (
-              <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
+              <div className="space-y-6 w-full animate-in fade-in duration-150">
                 {/* 1. Projects Carousel / Cards Bar */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -1825,7 +1825,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB: FINANCIAL ACCOUNTS & CASH BOXES */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'accounting_accounts' && (
-              <div className="max-w-4xl animate-in fade-in duration-150">
+              <div className="w-full animate-in fade-in duration-150">
                 <AccountsSettingsTab
                   accounts={financialAccounts}
                   accountBalances={accountBalances}
@@ -1867,7 +1867,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB: KEYBOARD SHORTCUTS */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'shortcuts' && (
-              <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
+              <div className="space-y-6 w-full animate-in fade-in duration-150">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80 dark:border-slate-800">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -2176,7 +2176,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* TAB 5: ACCOUNT & SECURITY */}
             {/* ---------------------------------------------------- */}
             {activeTab === 'account' && (
-              <div className="space-y-6 max-w-4xl animate-in fade-in duration-150">
+              <div className="space-y-6 w-full animate-in fade-in duration-150">
                 {/* 2-Column Responsive Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                   

@@ -191,7 +191,7 @@ export default function ExpenseCategoriesTab({
   const totalL3 = categories.filter((c) => c.level === 3).length;
 
   return (
-    <div className="space-y-5 max-w-4xl animate-in fade-in duration-150">
+    <div className="space-y-5 w-full animate-in fade-in duration-150">
       {/* Header Info */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
