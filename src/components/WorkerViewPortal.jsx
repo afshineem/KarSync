@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -20,7 +20,6 @@ import {
   Calendar,
   Clock,
   Coins,
-  Briefcase,
   Printer,
   ChevronRight,
   ChevronLeft,
@@ -34,8 +33,6 @@ import {
   WalletCards,
   Banknote,
   Receipt,
-  ArrowDownLeft,
-  ArrowUpRight,
   Users,
   Archive,
   Search,
@@ -43,7 +40,8 @@ import {
   Sparkles,
   X,
   RefreshCw,
-  Filter
+  Filter,
+  Globe
 } from 'lucide-react';
 
 export function WorkerViewPortal({ theme, toggleTheme }) {
@@ -66,53 +64,97 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
   // Refreshing state for manual sync button
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // User/Settings Dropdown state
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   // Month navigation for historical settled records
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
 
   // Timesheet search input
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
   // Manual & background refresh handler
-  const triggerRefresh = useCallback(async (showFeedback = false) => {
-    if (!navigator.onLine) {
-      if (showFeedback) {
-        addToast({
-          type: 'warning',
-          title: language === 'ku' ? 'هێڵی ئینتەرنێت نییە' : language === 'en' ? 'Offline Mode' : 'عدم اتصال به اینترنت',
-          message: language === 'ku' ? 'زانیارییە پاشەکەوتکراوەکان پیشان دەدرێن.' : language === 'en' ? 'Showing cached local records.' : 'اطلاعات ذخیره‌شده آفلاین نمایش داده می‌شود.'
-        });
-      }
-      return;
-    }
-
-    if (showFeedback) setIsRefreshing(true);
-    const isLinkSession = user?.via === 'access-link';
-
-    try {
-      if (!isLinkSession) {
-        await pullRemoteChangesSilently(true);
-      } else {
-        const res = await refreshWorkerPortalData();
-        if (!res.success && (res.error === 'invalid_token' || res.error === 'account_blocked')) {
-          logout();
-          return;
+  const triggerRefresh = useCallback(
+    async (showFeedback = false) => {
+      if (!navigator.onLine) {
+        if (showFeedback) {
+          addToast({
+            type: 'warning',
+            title:
+              language === 'ku'
+                ? 'هێڵی ئینتەرنێت نییە'
+                : language === 'en'
+                ? 'Offline Mode'
+                : 'عدم اتصال به اینترنت',
+            message:
+              language === 'ku'
+                ? 'زانیارییە پاشەکەوتکراوەکان پیشان دەدرێن.'
+                : language === 'en'
+                ? 'Showing cached local records.'
+                : 'اطلاعات ذخیره‌شده آفلاین نمایش داده می‌شود.'
+          });
         }
+        return;
       }
-      if (showFeedback) {
-        addToast({
-          type: 'success',
-          title: language === 'ku' ? 'نوێکرایەوە' : language === 'en' ? 'Synchronized' : 'بروزرسانی انجام شد',
-          message: language === 'ku' ? 'دوایین زانیارییەکان وەرگیران.' : language === 'en' ? 'Latest attendance and financial records loaded.' : 'آخرین اطلاعات کارکرد و مالی با موفقیت دریافت شد.'
-        });
-      }
-    } catch {
-      // Ignore silent background errors
-    } finally {
-      if (showFeedback) setIsRefreshing(false);
-    }
-  }, [user?.via, logout, addToast, language]);
 
-  // Proactively load fresh data when the portal opens (and when the app returns to the foreground).
+      if (showFeedback) setIsRefreshing(true);
+      const isLinkSession = user?.via === 'access-link';
+
+      try {
+        if (!isLinkSession) {
+          await pullRemoteChangesSilently(true);
+        } else {
+          const res = await refreshWorkerPortalData();
+          if (!res.success && (res.error === 'invalid_token' || res.error === 'account_blocked')) {
+            logout();
+            return;
+          }
+        }
+        if (showFeedback) {
+          addToast({
+            type: 'success',
+            title:
+              language === 'ku'
+                ? 'نوێکرایەوە'
+                : language === 'en'
+                ? 'Synchronized'
+                : 'بروزرسانی انجام شد',
+            message:
+              language === 'ku'
+                ? 'دوایین زانیارییەکان وەرگیران.'
+                : language === 'en'
+                ? 'Latest attendance and financial records loaded.'
+                : 'آخرین اطلاعات کارکرد و مالی با موفقیت دریافت شد.'
+          });
+        }
+      } catch {
+        // Ignore silent background errors
+      } finally {
+        if (showFeedback) setIsRefreshing(false);
+      }
+    },
+    [user?.via, logout, addToast, language]
+  );
+
+  // Proactively load fresh data when the portal opens
   useEffect(() => {
     let lastRun = 0;
     const refresh = () => {
@@ -366,7 +408,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     searchQuery
   ]);
 
-  // 5. Payment Records to Display (Fixed 'all' tab to include both unsettled & settled payments)
+  // 5. Payment Records to Display
   const displayedPayments = useMemo(() => {
     let list = [];
     if (portalMode === 'personal') {
@@ -411,7 +453,6 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         }));
     }
 
-    // Deduplicate payments by id
     const seenIds = new Set();
     list = list.filter((p) => {
       if (!p.id) return true;
@@ -441,7 +482,9 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     let totalNet = 0;
     displayedLogs.forEach((l) => {
       const effectiveRate = Number(l.workerDailyRate) || Number(worker?.dailyRate) || 0;
-      const base = Number(l.calculatedDailyWage) || (l.type === 'half' ? effectiveRate * 0.5 : l.type === 'full' ? effectiveRate : 0);
+      const base =
+        Number(l.calculatedDailyWage) ||
+        (l.type === 'half' ? effectiveRate * 0.5 : l.type === 'full' ? effectiveRate : 0);
       const ot = Number(l.calculatedOvertimeWage) || 0;
       const net = Number(l.totalDayPay) || base + ot;
       totalBase += base;
@@ -530,13 +573,13 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     );
   }
 
-  // Active metrics to display in Hero & KPI Bento Cards
+  // Active metrics to display in Hero Banner
   const activeMetrics =
     portalMode === 'personal'
       ? {
           subjectName: worker.name,
           dailyRate: Number(worker.dailyRate) || 0,
-          titleDays: t('totalMonthWorkedDays') || 'روزهای کارکرد',
+          titleDays: t('totalMonthWorkedDays') || 'کل کارکرد',
           days:
             periodTab === 'all'
               ? (personalFinancials?.effectiveDays || 0) + (personalFinancials?.settledEffectiveDays || 0)
@@ -577,7 +620,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? personalFinancials?.unsettledAdvances || 0
               : (personalFinancials?.totalSettlementPaid || 0) + (personalFinancials?.settledAdvances || 0),
-          titleDue: t('netBalanceDue') || 'مانده خالص قابل دریافت',
+          titleDue: t('netBalanceDue') || 'مانده معوق طلب',
           due: personalFinancials?.netBalanceDue || 0,
           isSettled: (personalFinancials?.netBalanceDue || 0) <= 0
         }
@@ -699,949 +742,903 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       : Math.min(100, Math.max(0, Math.round((paidAdvancesVal / grossEarningsVal) * 100)));
 
   const currencySymbol = getCurrencySymbol(currency, language);
+  const userInitials = (user?.name || worker?.name || 'K').slice(0, 2).toUpperCase();
 
   return (
     <div
-      className="min-h-screen bg-[#f3f6f4] dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300 relative overflow-x-hidden"
+      className="min-h-screen bg-[#f3f6f4] dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300"
       dir={direction}
     >
-      {/* Subtle Ambient Apple Liquid Glass Background Glows */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0 no-print">
-        <div className="absolute -top-32 -end-32 w-96 h-96 rounded-full bg-sky-400/10 dark:bg-sky-500/5 blur-3xl" />
-        <div className="absolute top-1/3 -start-32 w-96 h-96 rounded-full bg-emerald-400/10 dark:bg-emerald-500/5 blur-3xl" />
-      </div>
+      {/* ===================================================================== */}
+      {/* 1. TOP NAVBAR (Matches Main App Navbar + User Settings Dropdown)      */}
+      {/* ===================================================================== */}
+      <header className="sticky top-0 z-40 no-print transition-all duration-300">
+        <div className="absolute inset-0 bg-white/55 dark:bg-slate-950/55 backdrop-blur-3xl backdrop-saturate-200 border-b border-slate-200/50 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_0_rgba(0,0,0,0.4)] -z-10 pointer-events-none" />
 
-      {/* ===================================================================== */}
-      {/* 1. FLOATING APPLE LIQUID GLASS HEADER                                 */}
-      {/* ===================================================================== */}
-      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-white/60 dark:border-slate-800/80 sticky top-0 z-40 px-4 sm:px-6 py-3 shadow-[0_4px_24px_rgb(0,0,0,0.03)] no-print">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap">
-          {/* Identity & Role Capsule */}
-          <div className="flex items-center gap-3.5">
-            <div className="relative">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500/15 to-indigo-500/15 dark:from-sky-500/20 dark:to-indigo-500/20 border border-sky-500/20 flex items-center justify-center p-1.5 shadow-inner">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-3">
+            {/* Brand & Identity */}
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center flex-shrink-0">
                 <img
                   src="/karsync-icon.png"
                   alt="KarSync"
                   className="w-full h-full object-contain drop-shadow-sm"
                 />
               </div>
-              <span
-                className="w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900 absolute -bottom-0.5 -end-0.5"
-                title="Online"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">
-                  {user?.name || worker?.name}
-                </h1>
-
-                {worker?.teamRole === 'Master' ? (
-                  <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[11px] font-bold border border-purple-500/20 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-purple-500" />
-                    <span>{labels.masterRole}</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">
+                    KarSync
+                  </h1>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                    {isSupervisor
+                      ? language === 'ku'
+                        ? 'پۆرتالی سەرپەرشتیار'
+                        : 'پرتال سرپرست'
+                      : language === 'ku'
+                      ? 'پۆرتالی کارمەند'
+                      : 'پرتال پرسنل'}
                   </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full bg-sky-500/10 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[11px] font-bold border border-sky-500/20">
-                    {worker?.role || t('workerRole')}
-                  </span>
-                )}
-
-                {workerGroup && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 text-[11px] font-bold flex items-center gap-1 border border-slate-200/80 dark:border-slate-700/80">
-                    <Building2 className="w-3 h-3 text-sky-500" />
-                    <span>{workerGroup.name}</span>
-                  </span>
-                )}
+                </div>
+                <p className="hidden sm:block text-[11px] text-slate-500 dark:text-slate-400 leading-none mt-0.5">
+                  {project?.name || (language === 'fa' ? 'پروژه فعال' : 'Active Project')}
+                </p>
               </div>
-
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>
-                  {project?.name ? `${project.name} • ` : ''}
-                  {isSupervisor
-                    ? language === 'ku'
-                      ? 'پۆرتالی سەرپەرشتیاری و کارمەندان'
-                      : 'پرتال هوشمند سرپرستی و پرسنل'
-                    : t('readOnlyNotice') || 'پرتال اختصاصی مشاهده کارکرد و صورت‌حساب'}
-                </span>
-              </p>
             </div>
-          </div>
 
-          {/* Center Supervisor Switcher (Desktop inline, mobile full width below) */}
-          {isSupervisor && (
-            <div className="hidden xl:flex items-center p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70">
+            {/* Center Dock: Period Tabs (Desktop) */}
+            <div className="hidden md:flex items-center justify-center">
+              <div className="flex items-center gap-1.5 bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 p-1.5 rounded-2xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.06)]">
+                {[
+                  { id: 'all', label: labels.allTab, icon: Layers },
+                  { id: 'current', label: labels.currentTab, icon: Clock },
+                  { id: 'settled', label: labels.settledTab, icon: CheckCircle2 }
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = periodTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setPeriodTab(tab.id)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+                        isActive
+                          ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/[0.08]'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* End Controls: Sync Button + User Profile Dropdown */}
+            <div className="flex items-center gap-2 relative" ref={dropdownRef}>
               <button
                 type="button"
-                onClick={() => {
-                  setPortalMode('personal');
-                  setSelectedSubordinateId('all');
-                }}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
-                  portalMode === 'personal'
-                    ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/25'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                onClick={() => triggerRefresh(true)}
+                disabled={isRefreshing}
+                title={language === 'ku' ? 'نوێکردنەوەی زانیارییەکان' : 'بروزرسانی اطلاعات'}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border border-white/60 dark:border-white/10 backdrop-blur-md text-slate-700 dark:text-slate-200 flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-95"
               >
-                <User className="w-3.5 h-3.5" />
-                <span>{labels.myPersonalAccount}</span>
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-sky-500' : ''}`} />
               </button>
 
+              {/* User Avatar Dropdown Trigger */}
               <button
                 type="button"
-                onClick={() => setPortalMode('group')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
-                  portalMode === 'group'
-                    ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/25'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                onClick={() => setIsDropdownOpen((prev) => !prev)}
+                className={`relative p-0.5 sm:p-1 rounded-2xl border transition-all shadow-xs flex items-center gap-2 pe-2.5 group cursor-pointer ${
+                  isDropdownOpen
+                    ? 'ring-2 ring-sky-500 shadow-md border-transparent bg-white dark:bg-slate-900'
+                    : 'bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border-white/60 dark:border-white/10 backdrop-blur-md'
                 }`}
               >
-                <Users className="w-3.5 h-3.5" />
-                <span>{labels.groupManagement}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                    portalMode === 'group'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  {groupMembers.length}
+                <div className="relative">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-xs">
+                    {userInitials}
+                  </div>
+                  <span className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
+                </div>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hidden sm:inline max-w-[110px] truncate">
+                  {user?.name || worker?.name}
                 </span>
               </button>
+
+              {/* Liquid Glass User & Settings Dropdown (Language, Dark Mode, Logout) */}
+              {isDropdownOpen && (
+                <div className="absolute top-full mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-white/85 dark:bg-slate-950/85 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/70 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6)] z-50 p-3 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 rtl:left-0 space-y-2.5">
+                  {/* User Identity Card */}
+                  <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-md shadow-sky-500/20 shrink-0">
+                        {userInitials}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white truncate">
+                          {user?.name || worker?.name}
+                        </h4>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                          {worker?.teamRole === 'Master' ? (
+                            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-bold border border-purple-500/20">
+                              {labels.masterRole}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-bold border border-sky-500/20">
+                              {worker?.role || t('workerRole')}
+                            </span>
+                          )}
+                          {workerGroup && (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold">
+                              {workerGroup.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Theme Switcher ([APP_THEME_BUTTON] Segmented Control) */}
+                  <div className="p-2 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5 space-y-1.5">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                        {language === 'ku' ? 'ڕووکاری بەرنامە' : language === 'en' ? 'Appearance' : 'حالت نمایش'}
+                      </span>
+                    </div>
+                    <div className="flex rounded-xl bg-slate-200/70 dark:bg-slate-900 p-1 border border-slate-300/40 dark:border-white/5">
+                      <button
+                        type="button"
+                        onClick={() => theme !== 'light' && toggleTheme()}
+                        className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 cursor-pointer ${
+                          theme === 'light'
+                            ? 'bg-sky-600 text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        <Sun className="w-3.5 h-3.5" />
+                        <span>{language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'Light' : 'حالت روشن'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => theme !== 'dark' && toggleTheme()}
+                        className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 cursor-pointer ${
+                          theme === 'dark'
+                            ? 'bg-sky-600 text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        <Moon className="w-3.5 h-3.5" />
+                        <span>{language === 'ku' ? 'شەو' : language === 'en' ? 'Dark' : 'حالت تاریک'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Language Selector */}
+                  <div className="p-2 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 px-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      <Globe className="w-3.5 h-3.5 text-sky-500" />
+                      <span>{language === 'ku' ? 'زمانی سیستم' : language === 'en' ? 'Language' : 'زبان برنامه'}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl">
+                      {[
+                        { id: 'fa', label: 'فارسی' },
+                        { id: 'ku', label: 'کوردی' },
+                        { id: 'en', label: 'English' }
+                      ].map((lang) => (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => changeLanguage(lang.id)}
+                          className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            language === lang.id
+                              ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                          }`}
+                        >
+                          {lang.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Print Payslip Shortcut */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      window.print();
+                    }}
+                    className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 text-sky-500" />
+                    <span>{t('printMyPayslip') || 'چاپ فیش حقوقی و کارکرد'}</span>
+                  </button>
+
+                  {/* Logout Action */}
+                  <div className="border-t border-slate-200/60 dark:border-white/10 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        logout();
+                      }}
+                      className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-500" />
+                      <span>
+                        {language === 'fa' ? 'خروج از حساب کاربری' : language === 'ku' ? 'چوونەدەرەوە' : 'Sign Out'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* Action Controls: Sync, Theme, Language, Logout */}
-          <div className="flex items-center gap-2">
-            {/* Manual Sync Button */}
-            <button
-              type="button"
-              onClick={() => triggerRefresh(true)}
-              disabled={isRefreshing}
-              className="p-2.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer"
-              title={language === 'ku' ? 'نوێکردنەوەی زانیارییەکان' : 'بروزرسانی اطلاعات'}
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-sky-500' : ''}`} />
-            </button>
-
-            {/* Theme Switcher */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer"
-              title={theme === 'dark' ? 'حالت روشن' : 'حالت تاریک'}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-            </button>
-
-            {/* Language Pill Switcher */}
-            <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 text-xs font-bold gap-0.5">
-              {['ku', 'fa', 'en'].map((langKey) => (
-                <button
-                  key={langKey}
-                  type="button"
-                  onClick={() => changeLanguage(langKey)}
-                  className={`px-2.5 py-1 rounded-xl transition-all duration-200 cursor-pointer ${
-                    language === langKey
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {langKey === 'ku' ? 'کو' : langKey === 'fa' ? 'فا' : 'EN'}
-                </button>
-              ))}
-            </div>
-
-            {/* Logout Button */}
-            <button
-              type="button"
-              onClick={logout}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-500/20 transition-all active:scale-95 cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t('logout')}</span>
-            </button>
           </div>
         </div>
       </header>
 
       {/* ===================================================================== */}
-      {/* 2. MAIN APPLE LIQUID GLASS CONTENT CONTAINER                          */}
+      {/* 2. MAIN CONTENT CONTAINER (Matches DashboardView Layout)              */}
       {/* ===================================================================== */}
-      <main className="relative z-10 max-w-7xl mx-auto p-4 sm:p-6 space-y-6 pb-28">
-        {/* Supervisor Switcher on Tablet/Mobile (< xl) */}
-        {isSupervisor && (
-          <div className="flex xl:hidden justify-center w-full no-print">
-            <div className="inline-flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  setPortalMode('personal');
-                  setSelectedSubordinateId('all');
-                }}
-                className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
-                  portalMode === 'personal'
-                    ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <User className="w-4 h-4" />
-                <span>{labels.myPersonalAccount}</span>
-              </button>
+      <main className="space-y-6 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        {/* Top Liquid Glass Welcome & Mode Capsule (Matches DashboardView Header Capsule) */}
+        <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/30 transition-all duration-300">
+          <div className="absolute -top-24 -right-24 w-60 h-60 bg-sky-500/10 dark:bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-indigo-500/10 dark:bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
 
-              <button
-                type="button"
-                onClick={() => setPortalMode('group')}
-                className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
-                  portalMode === 'group'
-                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                <span>
-                  {labels.groupManagement} ({workerGroup?.name || 'گروه'})
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-white/20 text-white font-bold">
-                  {groupMembers.length}
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Group Subordinates Pill Dock (Only visible in Group Mode) */}
-        {isSupervisor && portalMode === 'group' && (
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5 no-print">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800/80 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                  <Users className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                    {language === 'ku'
-                      ? 'دیاریکردنی کرێکار بۆ بینینی کارکرد و حسابات'
-                      : 'انتخاب پرسنل زیرمجموعه جهت مشاهده کارکرد و حساب'}
-                  </h3>
-                </div>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-sky-500/25 flex-shrink-0">
+                {userInitials}
               </div>
-
-              <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <span className="font-bold">
-                  {groupMembers.length} {language === 'ku' ? 'ئەندام لە گرووپ' : 'نفر عضو گروه'}
-                </span>
-                {groupAggregates.archivedCount > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-500/20">
-                    {groupAggregates.archivedCount} {labels.archivedBadge}
-                  </span>
-                )}
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
+                    {user?.name || worker?.name}
+                  </h2>
+                  {worker?.teamRole === 'Master' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                      <Sparkles className="w-3 h-3" />
+                      <span>{labels.masterRole}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                      {worker?.role || t('workerRole')}
+                    </span>
+                  )}
+                  {workerGroup && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <Building2 className="w-3 h-3" />
+                      <span>{workerGroup.name}</span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  {activeMetrics.dailyRate > 0
+                    ? `${language === 'ku' ? 'مووچەی ڕۆژانە:' : 'نرخ پایه روزانه:'} ${formatAmount(
+                        activeMetrics.dailyRate,
+                        currency
+                      )} ${currencySymbol}`
+                    : `${project?.name || ''} • ${labels.allGroupMembers}`}
+                </p>
               </div>
             </div>
 
-            {/* Horizontal Scrollable Worker Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
-              <button
-                type="button"
-                onClick={() => setSelectedSubordinateId('all')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-300 shrink-0 cursor-pointer border ${
-                  selectedSubordinateId === 'all'
-                    ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/25'
-                    : 'bg-slate-100/80 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 border-slate-200/70 dark:border-slate-700/70 hover:bg-slate-200/70 dark:hover:bg-slate-700'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>{labels.allGroupMembers}</span>
-              </button>
-
-              {groupMembersFinancials.map((gf) => {
-                const isSelected = String(gf.member.id) === String(selectedSubordinateId);
-                const isArchived = gf.member.isArchived || gf.member.status === 'archived';
-                const isMaster = gf.member.teamRole === 'Master';
-                const totalDays = (gf.effectiveDays || 0) + (gf.settledEffectiveDays || 0);
-
-                return (
+            {/* Supervisor Mode Switcher or Mobile Period Tabs */}
+            <div className="flex flex-wrap items-center gap-2 no-print">
+              {isSupervisor && (
+                <div className="inline-flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner">
                   <button
-                    key={gf.member.id}
                     type="button"
-                    onClick={() => setSelectedSubordinateId(String(gf.member.id))}
-                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-300 shrink-0 border cursor-pointer ${
-                      isSelected
-                        ? 'bg-sky-600 text-white border-sky-500 shadow-md shadow-sky-600/25'
-                        : isArchived
-                        ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20 hover:bg-amber-500/15'
-                        : 'bg-white/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700/80 hover:border-sky-500/40'
+                    onClick={() => {
+                      setPortalMode('personal');
+                      setSelectedSubordinateId('all');
+                    }}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
+                      portalMode === 'personal'
+                        ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/25'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
                     }`}
                   >
-                    <span>{gf.member.name}</span>
-                    {isMaster && (
-                      <span
-                        className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold ${
-                          isSelected
-                            ? 'bg-white/20 text-white'
-                            : 'bg-purple-500/10 text-purple-700 dark:text-purple-300'
-                        }`}
-                      >
-                        {labels.masterRole}
-                      </span>
-                    )}
-                    {isArchived && (
-                      <span
-                        className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold flex items-center gap-0.5 ${
-                          isSelected
-                            ? 'bg-white/20 text-white'
-                            : 'bg-amber-500/20 text-amber-900 dark:text-amber-200'
-                        }`}
-                      >
-                        <Archive className="w-2.5 h-2.5" />
-                        <span>{labels.archivedBadge}</span>
-                      </span>
-                    )}
-                    <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
-                        isSelected
-                          ? 'bg-white/20 text-white'
-                          : gf.netBalanceDue > 0
-                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                          : totalDays > 0
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      {gf.netBalanceDue > 0
-                        ? `${formatAmount(gf.netBalanceDue, currency)} ${currencySymbol}`
-                        : `${totalDays} ${t('daysShort') || 'روز'}`}
+                    <User className="w-3.5 h-3.5" />
+                    <span>{labels.myPersonalAccount}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPortalMode('group')}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
+                      portalMode === 'group'
+                        ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/25'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>{labels.groupManagement}</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/20">
+                      {groupMembers.length}
                     </span>
                   </button>
-                );
-              })}
-            </div>
-
-            {activeSubordinateData &&
-              (activeSubordinateData.member.isArchived || activeSubordinateData.member.status === 'archived') && (
-                <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-medium">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
-                  <span>{labels.archivedMemberNotice}</span>
                 </div>
               )}
-          </div>
-        )}
 
-        {/* ================================================================= */}
-        {/* 3. PERIOD SELECTOR BAR & MONTH NAVIGATION                         */}
-        {/* ================================================================= */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-3 sm:p-4 rounded-3xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col md:flex-row items-center justify-between gap-3 no-print">
-          {/* Segmented Period Control */}
-          <div className="inline-flex items-center gap-1.5 bg-slate-200/60 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 w-full md:w-auto overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setPeriodTab('all')}
-              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-300 cursor-pointer ${
-                periodTab === 'all'
-                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 shrink-0" />
-              <span>{labels.allTab}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPeriodTab('current')}
-              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-300 cursor-pointer ${
-                periodTab === 'current'
-                  ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/25'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>{labels.currentTab}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPeriodTab('settled')}
-              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-300 cursor-pointer ${
-                periodTab === 'settled'
-                  ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/25'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>{labels.settledTab}</span>
-            </button>
-          </div>
-
-          {/* Month Selector & Quick Print Button */}
-          <div className="flex items-center gap-2.5 flex-wrap justify-between md:justify-end w-full md:w-auto">
-            {periodTab === 'settled' && (
-              <div className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 px-3 py-1.5 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => handleShiftMonth(-1)}
-                  className="p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white cursor-pointer"
-                >
-                  {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-                </button>
-                <div className="flex items-center gap-1.5 font-bold text-xs font-mono text-slate-700 dark:text-slate-200 px-1">
-                  <Calendar className="w-3.5 h-3.5 text-sky-500" />
-                  <span>{selectedMonth}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleShiftMonth(1)}
-                  className="p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white cursor-pointer"
-                >
-                  {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                </button>
+              {/* Mobile Period Selector (< md) */}
+              <div className="flex md:hidden items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full sm:w-auto">
+                {[
+                  { id: 'all', label: labels.allTab },
+                  { id: 'current', label: labels.currentTab },
+                  { id: 'settled', label: labels.settledTab }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setPeriodTab(tab.id)}
+                    className={`flex-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                      periodTab === tab.id
+                        ? 'bg-sky-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+          </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium px-2">
-              <span>
-                {displayedLogs.length} {language === 'ku' ? 'ڕۆژی کار' : 'رکورد کارکرد'}
-              </span>
-              <span>•</span>
-              <span>
-                {displayedPayments.length} {language === 'ku' ? 'پارەدان' : 'تراکنش مالی'}
-              </span>
+          {/* Group Subordinates Selector (When Supervisor is in Group Mode) */}
+          {isSupervisor && portalMode === 'group' && (
+            <div className="relative z-10 mt-5 pt-4 border-t border-slate-200/60 dark:border-slate-800 space-y-3 no-print">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-purple-500" />
+                  <span>
+                    {language === 'ku'
+                      ? 'دیاریکردنی کرێکار بۆ بینینی کارکرد و حسابات:'
+                      : 'انتخاب پرسنل زیرمجموعه جهت مشاهده کارکرد و حساب:'}
+                  </span>
+                </span>
+                <span className="text-slate-400">
+                  {groupMembers.length} {language === 'ku' ? 'ئەندام' : 'نفر'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSubordinateId('all')}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                    selectedSubordinateId === 'all'
+                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{labels.allGroupMembers}</span>
+                </button>
+
+                {groupMembersFinancials.map((gf) => {
+                  const isSelected = String(gf.member.id) === String(selectedSubordinateId);
+                  const isArchived = gf.member.isArchived || gf.member.status === 'archived';
+                  const totalDays = (gf.effectiveDays || 0) + (gf.settledEffectiveDays || 0);
+
+                  return (
+                    <button
+                      key={gf.member.id}
+                      type="button"
+                      onClick={() => setSelectedSubordinateId(String(gf.member.id))}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 border cursor-pointer ${
+                        isSelected
+                          ? 'bg-sky-600 text-white border-sky-500 shadow-md shadow-sky-600/25'
+                          : isArchived
+                          ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20'
+                          : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200/70 dark:border-slate-700'
+                      }`}
+                    >
+                      <span>{gf.member.name}</span>
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                          isSelected
+                            ? 'bg-white/20 text-white'
+                            : gf.netBalanceDue > 0
+                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                            : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                        }`}
+                      >
+                        {gf.netBalanceDue > 0
+                          ? `${formatAmount(gf.netBalanceDue, currency)} ${currencySymbol}`
+                          : `${totalDays} ${t('daysShort') || 'روز'}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ================================================================= */}
+        {/* 3. EXECUTIVE HERO BANNER (Exact DashboardView & ExpensesView Hero)*/}
+        {/* ================================================================= */}
+        <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
+          <div className="absolute top-0 right-1/4 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-10 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            {/* Main Financial Statement (Col-span 7) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
+                <WalletCards className="w-4 h-4" />
+                <span>
+                  {portalMode === 'personal'
+                    ? language === 'fa'
+                      ? 'خلاصه کارکرد و وضعیت فعلی حساب من'
+                      : 'My Work & Financial Pulse'
+                    : `${labels.groupManagement} • ${activeMetrics.subjectName}`}
+                </span>
+                <span
+                  className={`ms-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                    activeMetrics.isSettled
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}
+                >
+                  {activeMetrics.isSettled
+                    ? t('workerSettledStatus') || 'تسویه شده'
+                    : t('workerPendingStatus') || 'دارای معوقه پرداخت'}
+                </span>
+              </div>
+
+              <div>
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+                  <span>{formatAmount(Math.max(0, activeMetrics.due), currency)}</span>
+                  <span className="text-sm sm:text-base font-bold text-sky-400">{currencySymbol}</span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                  {activeMetrics.titleDue} •{' '}
+                  {periodTab === 'all'
+                    ? labels.allTab
+                    : periodTab === 'current'
+                    ? labels.currentTab
+                    : labels.settledTab}
+                </p>
+              </div>
+
+              {/* Progress Gauge */}
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between items-center text-xs font-semibold flex-wrap gap-2">
+                  <span className="text-emerald-400 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    {activeMetrics.titleAdvances}: {formatAmount(activeMetrics.advances, currency)} {currencySymbol}
+                  </span>
+                  <span className="text-sky-300 flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5" />
+                    {activeMetrics.titleEarnings}: {formatAmount(activeMetrics.earnings, currency)} {currencySymbol}
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden p-0.5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-400 transition-all duration-700 shadow-md"
+                    style={{ width: `${payoutProgressPercent}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-400">
+                  <span>
+                    {payoutProgressPercent}% {language === 'fa' ? 'دریافت و تسویه شده' : 'Cleared'}
+                  </span>
+                  <span>
+                    {displayedLogs.length} {language === 'fa' ? 'ردیف کارکرد ثبت‌شده' : 'logged shifts'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Metrics & Quick Action Dock (Col-span 5) */}
+            <div className="lg:col-span-5 grid grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+              {/* Tile 1: Working Days */}
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-[11px] text-slate-400 block">{activeMetrics.titleDays}</span>
+                <span className="text-xl font-black text-white mt-0.5 block font-mono">
+                  {activeMetrics.days}{' '}
+                  <span className="text-xs font-normal text-slate-400">{t('daysShort') || 'روز'}</span>
+                </span>
+                <span className="text-[10px] text-emerald-400 mt-1 block">{activeMetrics.daysSub}</span>
+              </div>
+
+              {/* Tile 2: Overtime Hours */}
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-[11px] text-slate-400 block">{t('overtimeHours') || 'اضافه‌کاری'}</span>
+                <span className="text-xl font-black text-white mt-0.5 block font-mono">
+                  {activeMetrics.otHours > 0 ? formatHoursAndMinutes(activeMetrics.otHours) : '0'}
+                </span>
+                <span className="text-[10px] text-sky-400 mt-1 block">
+                  {language === 'fa' ? 'مجموع ساعات اضافه' : 'Total OT Hours'}
+                </span>
+              </div>
+
+              {/* Quick Action 1: Print Payslip */}
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95 no-print"
+              >
+                <Printer className="w-4 h-4" />
+                <span>{t('printMyPayslip') || 'چاپ فیش'}</span>
+              </button>
+
+              {/* Quick Action 2: Sync / Refresh */}
+              <button
+                type="button"
+                onClick={() => triggerRefresh(true)}
+                disabled={isRefreshing}
+                className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95 no-print"
+              >
+                <RefreshCw className={`w-4 h-4 text-sky-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{language === 'fa' ? 'بروزرسانی' : 'Refresh'}</span>
+              </button>
             </div>
           </div>
         </div>
 
         {/* ================================================================= */}
-        {/* 4. DESKTOP 12-COLUMN BENTO GRID                                   */}
+        {/* 4. FULL-WIDTH ATTENDANCE REPORT (No Horizontal Scroll!)           */}
         {/* ================================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* ─────────────────────────────────────────────────────────────── */}
-          {/* START COLUMN (lg:col-span-5): Financial Hero, KPIs & Payments   */}
-          {/* ─────────────────────────────────────────────────────────────── */}
-          <div className="lg:col-span-5 space-y-6">
-            {/* A. Hero Settlement & Net Balance Card */}
-            <div
-              className={`rounded-3xl p-6 backdrop-blur-xl border shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all relative overflow-hidden ${
-                activeMetrics.isSettled
-                  ? 'bg-gradient-to-br from-emerald-500/10 via-white/85 to-emerald-500/5 dark:from-emerald-950/40 dark:via-slate-900/85 dark:to-emerald-950/20 border-emerald-500/30 dark:border-emerald-500/20'
-                  : 'bg-gradient-to-br from-amber-500/10 via-white/85 to-sky-500/5 dark:from-amber-950/35 dark:via-slate-900/85 dark:to-sky-950/20 border-amber-500/30 dark:border-amber-500/20'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
-                      activeMetrics.isSettled
-                        ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-                        : 'bg-amber-500 text-white shadow-amber-500/25'
+        <div className="rounded-3xl backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 overflow-hidden">
+          {/* Header & Filters */}
+          <div className="p-5 sm:p-6 border-b border-slate-200/60 dark:border-slate-800/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                  {portalMode === 'personal'
+                    ? t('myMonthlyReport') || 'گزارش کارکرد من'
+                    : selectedSubordinateId === 'all'
+                    ? `${
+                        language === 'ku'
+                          ? 'ڕاپۆرتی گشتی کارکردی ئەندامانی گرووپ'
+                          : 'گزارش کارکرد تجمیعی پرسنل گروه'
+                      } (${workerGroup?.name || ''})`
+                    : `${language === 'ku' ? 'ڕاپۆرتی کارکردی' : 'گزارش کارکرد'} ${
+                        activeSubordinateData?.member.name
+                      }`}
+                </h3>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {displayedLogs.length} {language === 'ku' ? 'تۆمار' : 'روز کاری ثبت‌شده'}
+                </span>
+              </div>
+            </div>
+
+            {/* Filter Chips + Month Selector + Search */}
+            <div className="flex flex-wrap items-center gap-2.5 no-print">
+              {/* Quick Log Type Chips */}
+              <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                {[
+                  { id: 'all', label: language === 'ku' ? 'هەموو' : 'همه' },
+                  { id: 'full', label: t('fullDay') || 'روز کامل' },
+                  { id: 'half', label: t('halfDay') || 'نیم‌روز' },
+                  { id: 'overtime', label: language === 'ku' ? 'سەروەخت' : 'اضافه‌کاری' }
+                ].map((chip) => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setLogTypeFilter(chip.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      logTypeFilter === chip.id
+                        ? 'bg-sky-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    {activeMetrics.isSettled ? (
-                      <CheckCircle2 className="w-6 h-6" />
-                    ) : (
-                      <WalletCards className="w-6 h-6" />
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">
-                      {t('settlementStatus') || 'وضعیت حساب پرسنل'}
-                    </span>
-                    <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2 flex-wrap mt-0.5">
-                      <span
-                        className={
-                          activeMetrics.isSettled
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-amber-600 dark:text-amber-400'
-                        }
-                      >
-                        {activeMetrics.isSettled
-                          ? t('workerSettledStatus') || 'تسویه کامل'
-                          : t('workerPendingStatus') || 'دارای معوقه پرداخت'}
-                      </span>
-                    </h2>
-                  </div>
-                </div>
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
 
-                {activeMetrics.dailyRate > 0 && (
-                  <div className="px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 text-end">
-                    <span className="text-[10px] font-bold text-slate-400 block">
-                      {language === 'ku' ? 'مووچەی ڕۆژانە' : 'نرخ پایه روزانه'}
-                    </span>
-                    <span className="text-xs font-black font-mono text-slate-800 dark:text-slate-200">
-                      {formatAmount(activeMetrics.dailyRate, currency)} {currencySymbol}
-                    </span>
-                  </div>
+              {periodTab === 'settled' && (
+                <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 px-2.5 py-1.5 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => handleShiftMonth(-1)}
+                    className="p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+                  >
+                    {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                  </button>
+                  <span className="text-xs font-bold font-mono px-1.5 text-slate-700 dark:text-slate-200">
+                    {selectedMonth}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleShiftMonth(1)}
+                    className="p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+                  >
+                    {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  </button>
+                </div>
+              )}
+
+              {/* Search Box */}
+              <div className="relative flex-1 sm:flex-initial sm:w-56">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={labels.searchLogsPlaceholder}
+                  className="w-full ps-8 pe-7 py-2 text-xs bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sky-500/40 text-slate-900 dark:text-white"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
+            </div>
+          </div>
 
-              {/* Main Net Balance Display Box */}
-              <div className="mt-5 p-4 rounded-2xl bg-white/90 dark:bg-slate-950/70 border border-slate-200/70 dark:border-slate-800/80 flex items-center justify-between gap-3">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">
-                    {activeMetrics.titleDue}
-                  </span>
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 block">
-                    {activeMetrics.subjectName}
-                  </span>
+          {/* Responsive Zero-Horizontal-Scroll Attendance List */}
+          {displayedLogs.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 dark:text-slate-500 text-xs">
+              {t('noLogsForMonth') || 'هیچ رکورد کارکردی در این بخش ثبت نشده است.'}
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-200/50 dark:divide-slate-800/70">
+              {/* Desktop Header Bar (Hidden on small screens, zero horizontal overflow) */}
+              <div className="hidden md:grid md:grid-cols-12 gap-3 px-6 py-3 bg-slate-100/60 dark:bg-slate-800/50 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                <div className="col-span-2">{t('date') || 'تاریخ'}</div>
+                {portalMode === 'group' && selectedSubordinateId === 'all' ? (
+                  <div className="col-span-2">{t('workerName') || 'نام نیرو'}</div>
+                ) : null}
+                <div className={portalMode === 'group' && selectedSubordinateId === 'all' ? 'col-span-2' : 'col-span-3'}>
+                  {t('workType') || 'نوع کارکرد و اضافه‌کاری'}
                 </div>
-                <div className="text-end">
-                  <div className="flex items-baseline gap-1.5 justify-end">
-                    <span
-                      className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                        activeMetrics.due <= 0
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-amber-600 dark:text-amber-400'
-                      }`}
-                    >
-                      {formatAmount(Math.max(0, activeMetrics.due), currency)}
-                    </span>
-                    <span className="text-xs font-bold text-slate-500">{currencySymbol}</span>
-                  </div>
+                <div className="col-span-2">{language === 'ku' ? 'مووچەی بنەڕەت / سەروەخت' : 'مزد پایه / اضافه‌کاری'}</div>
+                <div className="col-span-2">{language === 'ku' ? 'کۆی ڕۆژ' : 'مجموع کل روز'}</div>
+                <div className={portalMode === 'group' && selectedSubordinateId === 'all' ? 'col-span-2' : 'col-span-3'}>
+                  {t('status') || 'وضعیت و توضیحات'}
                 </div>
               </div>
 
-              {/* Settlement Progress Indicator */}
-              <div className="mt-4 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    {language === 'ku' ? 'ڕێژەی وەرگیراو لە کۆی کارکرد' : 'نسبت دریافتی و تسویه به کل کارکرد'}
-                  </span>
-                  <span className="font-mono text-slate-700 dark:text-slate-300">{payoutProgressPercent}%</span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-slate-200/80 dark:bg-slate-800 overflow-hidden">
+              {/* Attendance Rows */}
+              {displayedLogs.map((l, idx) => {
+                let isSettled = false;
+                if (portalMode === 'personal') {
+                  isSettled = personalFinancials?.isLogSettled?.(l) || false;
+                } else {
+                  const workerFin = groupMembersFinancials.find(
+                    (gf) => String(gf.member.id) === String(l.workerId)
+                  );
+                  isSettled = workerFin?.isLogSettled?.(l) || false;
+                }
+                const effectiveRate = Number(l.workerDailyRate) || Number(worker.dailyRate);
+                const baseWage =
+                  l.calculatedDailyWage || (l.type === 'half' ? effectiveRate * 0.5 : effectiveRate);
+                const hasOt = Number(l.overtimeHours) > 0;
+
+                return (
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      activeMetrics.isSettled ? 'bg-emerald-500' : 'bg-sky-500'
-                    }`}
-                    style={{ width: `${payoutProgressPercent}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* B. 4-Card KPI Bento Grid (2x2) */}
-            <div className="grid grid-cols-2 gap-3.5">
-              {/* KPI 1: Worked Days */}
-              <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 rounded-3xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {activeMetrics.titleDays}
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <Calendar className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-black font-mono text-slate-900 dark:text-white">
-                      {activeMetrics.days}
-                    </span>
-                    <span className="text-xs font-bold text-slate-400">{t('daysShort') || 'روز'}</span>
-                  </div>
-                  <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
-                    {activeMetrics.daysSub}
-                  </span>
-                </div>
-              </div>
-
-              {/* KPI 2: Overtime Hours */}
-              <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 rounded-3xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {t('overtimeHours') || 'ساعات اضافه‌کاری'}
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-xl sm:text-2xl font-black font-mono text-purple-600 dark:text-purple-400">
-                      {activeMetrics.otHours > 0 ? formatHoursAndMinutes(activeMetrics.otHours) : '0'}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
-                    {language === 'ku' ? 'کۆی سەروەخت' : 'مجموع اضافه‌کاری ثبت‌شده'}
-                  </span>
-                </div>
-              </div>
-
-              {/* KPI 3: Gross Earnings */}
-              <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 rounded-3xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {activeMetrics.titleEarnings}
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                    <Coins className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <span className="text-lg sm:text-xl font-black text-sky-600 dark:text-sky-400 font-mono block">
-                    {formatAmount(activeMetrics.earnings, currency)}
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-bold">{currencySymbol}</span>
-                </div>
-              </div>
-
-              {/* KPI 4: Total Advances / Paid */}
-              <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 rounded-3xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {activeMetrics.titleAdvances}
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                    <Banknote className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <span className="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-400 font-mono block">
-                    {formatAmount(activeMetrics.advances, currency)}
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-bold">{currencySymbol}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* C. Payments & Advances Ledger Card */}
-            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-              <div className="p-4 sm:p-5 border-b border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                    <Receipt className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-sm text-slate-900 dark:text-white">
-                      {portalMode === 'personal'
-                        ? t('myPaymentsLedger') || 'دفتر پرداخت‌ها و مساعده‌ها'
-                        : `${language === 'ku' ? 'تۆماری پارەدان و مساعدەی گرووپ' : 'دفتر پرداخت‌ها و مساعده‌های گروه'}`}
-                    </h3>
-                    <span className="text-[11px] text-slate-400 block">
-                      {displayedPayments.length} {t('paymentRecordsCount') || 'تراکنش ثبت‌شده'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {displayedPayments.length === 0 ? (
-                <div className="py-12 px-4 text-center text-slate-400 text-xs">
-                  {t('noPaymentsRecorded') || 'هیچ پرداخت یا مساعده‌ای در این دوره ثبت نشده است.'}
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-200/50 dark:divide-slate-800/70 max-h-[460px] overflow-y-auto">
-                  {displayedPayments.map((p) => {
-                    const isSettlement =
-                      p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled';
-
-                    return (
-                      <div
-                        key={p.id || `${p.date}_${p.amount}`}
-                        className="p-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors flex items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                                isSettlement
-                                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
-                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
-                              }`}
-                            >
-                              {isSettlement ? (
-                                <CheckCircle2 className="w-3 h-3" />
-                              ) : (
-                                <Clock className="w-3 h-3" />
-                              )}
-                              <span>
-                                {isSettlement
-                                  ? t('settlementType') || 'تسویه حساب'
-                                  : t('advanceType') || 'مساعده'}
-                              </span>
-                            </span>
-
-                            <span className="text-xs font-bold font-mono text-slate-700 dark:text-slate-300">
-                              {p.date}
-                            </span>
-
-                            {portalMode === 'group' && (
-                              <span className="text-xs font-bold text-slate-900 dark:text-white">
-                                • {p.workerName}
-                              </span>
-                            )}
-                          </div>
-
-                          {(p.notes || p.referenceNumber) && (
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-2 flex-wrap">
-                              {p.referenceNumber && (
-                                <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px]">
-                                  #{p.referenceNumber}
-                                </span>
-                              )}
-                              {p.notes && <span className="truncate">{p.notes}</span>}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="text-end shrink-0">
-                          <span className="text-sm font-black font-mono text-slate-900 dark:text-white block">
-                            {formatAmount(p.amount, currency)}
-                          </span>
-                          <span className="text-[10px] font-bold text-slate-400">{currencySymbol}</span>
+                    key={l.id || `${l.workerId}_${l.date}_${idx}`}
+                    className="px-4 sm:px-6 py-3.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors grid grid-cols-1 md:grid-cols-12 gap-2.5 md:gap-3 items-center text-xs"
+                  >
+                    {/* 1. Date & Day Name */}
+                    <div className="md:col-span-2 flex items-center justify-between md:block">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono text-slate-400 w-5">{idx + 1}.</span>
+                        <div>
+                          <div className="font-black font-mono text-slate-800 dark:text-slate-100">{l.date}</div>
+                          <div className="text-[11px] text-slate-400">{getDayName(l.date)}</div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* ─────────────────────────────────────────────────────────────── */}
-          {/* END COLUMN (lg:col-span-7): Detailed Attendance Timesheet       */}
-          {/* ─────────────────────────────────────────────────────────────── */}
-          <div className="lg:col-span-7">
-            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-              {/* Timesheet Card Header */}
-              <div className="p-4 sm:p-5 border-b border-slate-200/60 dark:border-slate-800/80 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                      <FileText className="w-5 h-5" />
+                      {/* Mobile Total Pay Pill */}
+                      <div className="md:hidden text-end">
+                        <span className="text-sm font-black font-mono text-sky-600 dark:text-sky-400">
+                          {formatAmount(l.totalDayPay, currency)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 ms-1">{currencySymbol}</span>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white">
-                        {portalMode === 'personal'
-                          ? t('myMonthlyReport') || 'ریز کارکرد و حضور و غیاب'
-                          : selectedSubordinateId === 'all'
-                          ? `${
-                              language === 'ku'
-                                ? 'ڕاپۆرتی گشتی کارکردی ئەندامانی گرووپ'
-                                : 'ریز کارکرد تجمیعی پرسنل گروه'
-                            } (${workerGroup?.name || ''})`
-                          : `${language === 'ku' ? 'ڕاپۆرتی کارکردی' : 'ریز کارکرد'} ${
-                              activeSubordinateData?.member.name
-                            }`}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {periodTab === 'all'
-                          ? labels.allTab
-                          : periodTab === 'current'
-                          ? labels.currentTab
-                          : labels.settledTab}{' '}
-                        • {displayedLogs.length} {language === 'ku' ? 'تۆمار' : 'ردیف کارکرد'}
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Search Input */}
-                  <div className="relative w-full sm:w-64 no-print">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={labels.searchLogsPlaceholder}
-                      className="w-full ps-9 pe-8 py-2 text-xs bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sky-500/40 text-slate-900 dark:text-white transition-all"
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchQuery('')}
-                        className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                    {/* 2. Worker Name (Group All mode only) */}
+                    {portalMode === 'group' && selectedSubordinateId === 'all' && (
+                      <div className="md:col-span-2 font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                        <span className="truncate">{l.workerName}</span>
+                        {l.workerTeamRole === 'Master' && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold">
+                            {labels.masterRole}
+                          </span>
+                        )}
+                      </div>
                     )}
-                  </div>
-                </div>
 
-                {/* Quick Filter Chips for Log Type */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-print">
-                  <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 me-1 shrink-0">
-                    <Filter className="w-3 h-3" />
-                    <span>{language === 'ku' ? 'فلتەر:' : 'فیلتر نوع:'}</span>
-                  </span>
-                  {[
-                    { id: 'all', label: language === 'ku' ? 'هەموو' : 'همه روزها' },
-                    { id: 'full', label: t('fullDay') || 'روز کامل' },
-                    { id: 'half', label: t('halfDay') || 'نیم‌روز' },
-                    { id: 'overtime', label: language === 'ku' ? 'سەروەخت' : 'دارای اضافه‌کاری' }
-                  ].map((chip) => (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      onClick={() => setLogTypeFilter(chip.id)}
-                      className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-200 shrink-0 cursor-pointer ${
-                        logTypeFilter === chip.id
-                          ? 'bg-sky-600 text-white shadow-xs'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700'
-                      }`}
+                    {/* 3. Work Type + Overtime Hours */}
+                    <div
+                      className={`${
+                        portalMode === 'group' && selectedSubordinateId === 'all' ? 'md:col-span-2' : 'md:col-span-3'
+                      } flex items-center gap-1.5 flex-wrap`}
                     >
-                      {chip.label}
-                    </button>
-                  ))}
+                      {l.type === 'full' && (
+                        <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          {t('fullDay') || 'روز کامل'}
+                        </span>
+                      )}
+                      {l.type === 'half' && (
+                        <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          {t('halfDay') || 'نیم‌روز'}
+                        </span>
+                      )}
+                      {l.type === 'hourly' && (
+                        <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                          {t('hourlyOnly') || 'ساعتی'}
+                        </span>
+                      )}
+                      {hasOt && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold font-mono bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                          <Clock className="w-3 h-3" />
+                          <span>+{formatHoursAndMinutes(l.overtimeHours)}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 4. Base Wage & Overtime Wage Breakdown */}
+                    <div className="md:col-span-2 flex md:block items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 font-mono">
+                      <div>
+                        <span className="text-slate-400 md:hidden me-1">مزد پایه:</span>
+                        <span className="font-bold">{formatAmount(baseWage, currency)}</span>
+                      </div>
+                      {Number(l.calculatedOvertimeWage) > 0 && (
+                        <div className="text-amber-600 dark:text-amber-400 font-bold">
+                          +{formatAmount(l.calculatedOvertimeWage, currency)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 5. Total Day Pay (Desktop) */}
+                    <div className="hidden md:block md:col-span-2 font-black text-sm text-sky-600 dark:text-sky-400 font-mono">
+                      {formatAmount(l.totalDayPay, currency)}{' '}
+                      <span className="text-[10px] font-normal text-slate-400">{currencySymbol}</span>
+                    </div>
+
+                    {/* 6. Status Badge & Notes */}
+                    <div
+                      className={`${
+                        portalMode === 'group' && selectedSubordinateId === 'all' ? 'md:col-span-2' : 'md:col-span-3'
+                      } flex items-center justify-between md:justify-start gap-2 min-w-0`}
+                    >
+                      {periodTab === 'settled' || isSettled ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{labels.settledBadge}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0">
+                          <Clock className="w-3 h-3" />
+                          <span>{labels.unsettledBadge}</span>
+                        </span>
+                      )}
+
+                      {l.notes && (
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={l.notes}>
+                          {l.notes}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Summary Footer Bar */}
+              <div className="px-6 py-4 bg-slate-100/80 dark:bg-slate-800/70 flex flex-wrap items-center justify-between gap-4 text-xs font-bold">
+                <span className="text-slate-700 dark:text-slate-200">
+                  {language === 'ku' ? 'کۆی گشتی ئەم خشتەیە:' : 'جمع کل کارکردهای لیست بالا:'} ({displayedLogs.length}{' '}
+                  {language === 'ku' ? 'تۆمار' : 'ردیف'})
+                </span>
+                <div className="flex flex-wrap items-center gap-4 font-mono">
+                  {filteredLogsTotals.totalOtHours > 0 && (
+                    <span className="text-purple-600 dark:text-purple-400">
+                      اضافه‌کاری: {formatHoursAndMinutes(filteredLogsTotals.totalOtHours)}
+                    </span>
+                  )}
+                  <span className="text-slate-700 dark:text-slate-300">
+                    مزد پایه: {formatAmount(filteredLogsTotals.totalBase, currency)} {currencySymbol}
+                  </span>
+                  <span className="text-sm font-black text-sky-600 dark:text-sky-400">
+                    مجموع کل: {formatAmount(filteredLogsTotals.totalNet, currency)} {currencySymbol}
+                  </span>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
 
-              {/* Timesheet Content */}
-              {displayedLogs.length === 0 ? (
-                <div className="p-14 text-center text-slate-400 text-xs">
-                  {t('noLogsForMonth') || 'هیچ رکورد کارکردی مطابق با فیلترهای انتخابی یافت نشد.'}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-start text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-b border-slate-200/70 dark:border-slate-800">
-                        <th className="py-3.5 px-4 text-start font-bold">#</th>
-                        {portalMode === 'group' && selectedSubordinateId === 'all' && (
-                          <th className="py-3.5 px-4 text-start font-bold">{t('workerName') || 'نام نیرو'}</th>
-                        )}
-                        <th className="py-3.5 px-4 text-start font-bold">{t('date')}</th>
-                        <th className="py-3.5 px-4 text-start font-bold">{t('workType')}</th>
-                        <th className="py-3.5 px-4 text-start font-bold">{t('overtimeHours')}</th>
-                        <th className="py-3.5 px-4 text-start font-bold">
-                          {language === 'ku' ? 'مووچەی بنەڕەت' : 'مزد پایه'}
-                        </th>
-                        <th className="py-3.5 px-4 text-start font-bold">
-                          {language === 'ku' ? 'سەروەخت' : 'اضافه‌کاری'}
-                        </th>
-                        <th className="py-3.5 px-4 text-start font-bold">
-                          {language === 'ku' ? 'کۆی ڕۆژ' : 'مجموع روز'}
-                        </th>
-                        <th className="py-3.5 px-4 text-center font-bold">{t('status')}</th>
-                        <th className="py-3.5 px-4 text-start font-bold">{t('taskNotesTitle')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/70">
-                      {displayedLogs.map((l, idx) => {
-                        let isSettled = false;
-                        if (portalMode === 'personal') {
-                          isSettled = personalFinancials?.isLogSettled?.(l) || false;
-                        } else {
-                          const workerFin = groupMembersFinancials.find(
-                            (gf) => String(gf.member.id) === String(l.workerId)
-                          );
-                          isSettled = workerFin?.isLogSettled?.(l) || false;
-                        }
-                        const effectiveRate = Number(l.workerDailyRate) || Number(worker.dailyRate);
-
-                        return (
-                          <tr
-                            key={l.id || `${l.workerId}_${l.date}_${idx}`}
-                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                          >
-                            <td className="py-3.5 px-4 font-mono text-slate-400">{idx + 1}</td>
-                            {portalMode === 'group' && selectedSubordinateId === 'all' && (
-                              <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                                <div className="flex items-center gap-1.5">
-                                  <span>{l.workerName}</span>
-                                  {l.workerTeamRole === 'Master' && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 font-bold">
-                                      {labels.masterRole}
-                                    </span>
-                                  )}
-                                  {l.isWorkerArchived && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold">
-                                      {labels.archivedBadge}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                            <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                              <div className="font-mono">{l.date}</div>
-                              <div className="text-[10px] text-slate-400 font-normal">{getDayName(l.date)}</div>
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              {l.type === 'full' && (
-                                <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                  {t('fullDay') || 'روز کامل'}
-                                </span>
-                              )}
-                              {l.type === 'half' && (
-                                <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                  {t('halfDay') || 'نیم‌روز'}
-                                </span>
-                              )}
-                              {l.type === 'hourly' && (
-                                <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                                  {t('hourlyOnly') || 'ساعتی'}
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-slate-600 dark:text-slate-300 font-mono whitespace-nowrap">
-                              {Number(l.overtimeHours) > 0 ? formatHoursAndMinutes(l.overtimeHours) : '—'}
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                              {formatAmount(
-                                l.calculatedDailyWage || (l.type === 'half' ? effectiveRate * 0.5 : effectiveRate),
-                                currency
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-amber-600 dark:text-amber-400 font-mono whitespace-nowrap">
-                              {Number(l.calculatedOvertimeWage) > 0
-                                ? formatAmount(l.calculatedOvertimeWage, currency)
-                                : '—'}
-                            </td>
-                            <td className="py-3.5 px-4 font-black text-sky-600 dark:text-sky-400 font-mono whitespace-nowrap">
-                              {formatAmount(l.totalDayPay, currency)}
-                            </td>
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                              {periodTab === 'settled' || isSettled ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  <span>{labels.settledBadge}</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">
-                                  <Clock className="w-3 h-3" />
-                                  <span>{labels.unsettledBadge}</span>
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">
-                              {l.notes || '—'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    {/* Summary Footer Row */}
-                    <tfoot>
-                      <tr className="bg-slate-100/90 dark:bg-slate-800/80 font-black text-xs border-t-2 border-slate-200 dark:border-slate-700">
-                        <td
-                          colSpan={portalMode === 'group' && selectedSubordinateId === 'all' ? 4 : 3}
-                          className="py-3.5 px-4 text-start text-slate-700 dark:text-slate-200"
-                        >
-                          {language === 'ku' ? 'کۆی گشتی ئەم خشتەیە:' : 'جمع کل ردیف‌های جدول:'}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-purple-600 dark:text-purple-400 whitespace-nowrap">
-                          {filteredLogsTotals.totalOtHours > 0
-                            ? formatHoursAndMinutes(filteredLogsTotals.totalOtHours)
-                            : '—'}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                          {formatAmount(filteredLogsTotals.totalBase, currency)}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                          {filteredLogsTotals.totalOtPay > 0
-                            ? formatAmount(filteredLogsTotals.totalOtPay, currency)
-                            : '—'}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-sky-600 dark:text-sky-400 whitespace-nowrap">
-                          {formatAmount(filteredLogsTotals.totalNet, currency)} {currencySymbol}
-                        </td>
-                        <td colSpan={2} />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
+        {/* ================================================================= */}
+        {/* 5. PAYMENTS & ADVANCES LEDGER CAPSULE                             */}
+        {/* ================================================================= */}
+        <div className="rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                  {portalMode === 'personal'
+                    ? t('myPaymentsLedger') || 'دفتر پرداخت‌ها و مساعده‌ها'
+                    : `${language === 'ku' ? 'تۆماری پارەدان و مساعدەی گرووپ' : 'دفتر پرداخت‌ها و مساعده‌های گروه'}`}
+                </h3>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {displayedPayments.length} {t('paymentRecordsCount') || 'تراکنش ثبت‌شده'}
+                </span>
+              </div>
             </div>
           </div>
+
+          {displayedPayments.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs bg-slate-50/60 dark:bg-slate-800/30 rounded-2xl border border-slate-200/50 dark:border-slate-800">
+              {t('noPaymentsRecorded') || 'هیچ پرداخت یا مساعده‌ای در این دوره ثبت نشده است.'}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {displayedPayments.map((p) => {
+                const isSettlement =
+                  p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled';
+
+                return (
+                  <div
+                    key={p.id || `${p.date}_${p.amount}`}
+                    className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between gap-3 hover:border-sky-500/30 transition-all"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            isSettlement
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                          }`}
+                        >
+                          {isSettlement ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                          <span>
+                            {isSettlement ? t('settlementType') || 'تسویه حساب' : t('advanceType') || 'مساعده'}
+                          </span>
+                        </span>
+                        <span className="text-xs font-bold font-mono text-slate-700 dark:text-slate-300">
+                          {p.date}
+                        </span>
+                      </div>
+
+                      {portalMode === 'group' && (
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">
+                          {p.workerName}
+                        </div>
+                      )}
+
+                      {(p.notes || p.referenceNumber) && (
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+                          {p.referenceNumber ? `#${p.referenceNumber} ` : ''}
+                          {p.notes || ''}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-end shrink-0">
+                      <div className="text-base font-black font-mono text-slate-900 dark:text-white">
+                        {formatAmount(p.amount, currency)}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400">{currencySymbol}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Dual Signature Blocks (Visible when printing Payslip) */}
@@ -1656,80 +1653,6 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           </div>
         </div>
       </main>
-
-      {/* ===================================================================== */}
-      {/* 5. STICKY APPLE LIQUID GLASS BOTTOM ACTION & SUMMARY DOCK             */}
-      {/* ===================================================================== */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] no-print">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Live Calculation Summary on Start Side */}
-          <div className="flex items-center gap-3 sm:gap-6 overflow-x-auto">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 block">
-                {activeMetrics.titleDue}
-              </span>
-              <div className="flex items-baseline gap-1">
-                <span
-                  className={`text-base sm:text-lg font-black font-mono ${
-                    activeMetrics.due <= 0
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-amber-600 dark:text-amber-400'
-                  }`}
-                >
-                  {formatAmount(Math.max(0, activeMetrics.due), currency)}
-                </span>
-                <span className="text-[11px] font-bold text-slate-500">{currencySymbol}</span>
-              </div>
-            </div>
-
-            <div className="h-7 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
-
-            <div className="hidden sm:block">
-              <span className="text-[10px] font-bold text-slate-400 block">
-                {activeMetrics.titleDays}
-              </span>
-              <span className="text-sm font-black text-slate-800 dark:text-slate-200 font-mono">
-                {activeMetrics.days} <span className="text-xs font-normal text-slate-400">{t('daysShort') || 'روز'}</span>
-              </span>
-            </div>
-
-            <div className="h-7 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
-
-            <div className="hidden md:block">
-              <span className="text-[10px] font-bold text-slate-400 block">
-                {activeMetrics.titleEarnings}
-              </span>
-              <span className="text-sm font-black text-sky-600 dark:text-sky-400 font-mono">
-                {formatAmount(activeMetrics.earnings, currency)} <span className="text-xs font-normal text-slate-400">{currencySymbol}</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Actions on End Side */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => triggerRefresh(true)}
-              disabled={isRefreshing}
-              className="px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200/70 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-sky-500' : ''}`} />
-              <span className="hidden sm:inline">
-                {language === 'ku' ? 'نوێکردنەوە' : language === 'en' ? 'Refresh' : 'بروزرسانی'}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
-            >
-              <Printer className="w-4 h-4" />
-              <span>{t('printMyPayslip') || 'چاپ فیش حقوقی'}</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
