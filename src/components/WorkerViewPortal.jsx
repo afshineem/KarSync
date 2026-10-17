@@ -10,7 +10,8 @@ import {
   formatAmount,
   getCurrentYearMonth,
   roundCurrency,
-  getCurrencySymbol
+  getCurrencySymbol,
+  formatMonthOnly
 } from '../utils/formatters';
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
 import {
@@ -23,6 +24,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Sun,
+  Sunrise,
   Moon,
   FileText,
   ShieldCheck,
@@ -64,6 +66,16 @@ function getDayOfMonthNumber(dateStr) {
     // fallback
   }
   return dateStr;
+}
+
+// Format YYYY-MM or YYYY-MM-DD into localized "MonthName YYYY" (e.g. "اکتبر 2026")
+function formatMonthWithYear(dateOrMonthStr, lang = 'fa') {
+  if (!dateOrMonthStr) return '';
+  const parts = String(dateOrMonthStr).split('-');
+  if (parts.length < 2) return dateOrMonthStr;
+  const ym = `${parts[0]}-${parts[1]}`;
+  const mName = formatMonthOnly(ym, lang);
+  return mName ? `${mName} ${parts[0]}` : ym;
 }
 
 export function WorkerViewPortal({ theme, toggleTheme }) {
@@ -1397,55 +1409,93 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         <div className="rounded-3xl backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 overflow-hidden">
           {/* Header & Filters */}
           <div className="p-5 sm:p-6 border-b border-slate-200/60 dark:border-slate-800/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold shrink-0">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                  {portalMode === 'personal'
-                    ? language === 'ku'
-                      ? 'ڕاپۆرتی کارکردی من'
-                      : 'گزارش کارکرد من'
-                    : selectedSubordinateId === 'all'
-                    ? `${
-                        language === 'ku'
-                          ? 'ڕاپۆرتی گشتی کارکردی ئەندامانی گرووپ'
-                          : 'گزارش کارکرد تجمیعی پرسنل گروه'
-                      } (${workerGroup?.name || ''})`
-                    : `${language === 'ku' ? 'ڕاپۆرتی کارکردی' : 'گزارش کارکرد'} ${
-                        activeSubordinateData?.member.name
-                      }`}
-                </h3>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                    {portalMode === 'personal'
+                      ? language === 'ku'
+                        ? 'ڕاپۆرتی کارکردی من'
+                        : 'گزارش کارکرد من'
+                      : selectedSubordinateId === 'all'
+                      ? `${
+                          language === 'ku'
+                            ? 'ڕاپۆرتی گشتی کارکردی ئەندامانی گرووپ'
+                            : 'گزارش کارکرد تجمیعی پرسنل گروه'
+                        } (${workerGroup?.name || ''})`
+                      : `${language === 'ku' ? 'ڕاپۆرتی کارکردی' : 'گزارش کارکرد'} ${
+                          activeSubordinateData?.member.name
+                        }`}
+                  </h3>
+
+                  {/* Active Month Name Badge */}
+                  {(displayedLogs[0]?.date || selectedMonth) && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold bg-sky-500/10 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300 border border-sky-500/20">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      {formatMonthWithYear(
+                        periodTab === 'settled' ? selectedMonth : displayedLogs[0]?.date || selectedMonth,
+                        language
+                      )}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
                   {displayedLogs.length} {language === 'ku' ? 'تۆمار' : 'روز کاری ثبت‌شده'}
                 </span>
               </div>
             </div>
 
-            {/* Filter Chips + Month Selector + Search */}
+            {/* Filter Chips ([APP_THEME_BUTTON]) + Month Selector + Search */}
             <div className="flex flex-wrap items-center gap-2.5 no-print">
-              {/* Quick Log Type Chips (Localized in Persian/Kurdish) */}
-              <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+              {/* [APP_THEME_BUTTON] Segmented Log Type Tabs (Exact Navbar Pattern) */}
+              <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 backdrop-blur-2xl p-1.5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.8),0_2px_10px_rgba(0,0,0,0.04)] dark:shadow-none">
                 {[
-                  { id: 'all', label: language === 'ku' ? 'هەموو' : 'همه' },
-                  { id: 'full', label: labels.fullDayLabel },
-                  { id: 'half', label: labels.halfDayLabel },
-                  { id: 'overtime', label: labels.overtimeLabel }
-                ].map((chip) => (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => setLogTypeFilter(chip.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      logTypeFilter === chip.id
-                        ? 'bg-sky-600 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
+                  { id: 'all', label: language === 'ku' ? 'هەموو' : 'همه', icon: Layers },
+                  { id: 'full', label: labels.fullDayLabel, icon: Sun },
+                  { id: 'half', label: labels.halfDayLabel, icon: Sunrise },
+                  { id: 'overtime', label: labels.overtimeLabel, icon: Clock }
+                ].map((chip) => {
+                  const Icon = chip.icon;
+                  const isActive = logTypeFilter === chip.id;
+                  return (
+                    <div key={chip.id} className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => setLogTypeFilter(chip.id)}
+                        aria-label={chip.label}
+                        className={`relative p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out flex items-center gap-2 cursor-pointer ${
+                          isActive
+                            ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform group-hover:scale-110 flex-shrink-0" />
+
+                        {/* Active tab displays BOTH icon and text label; Inactive tab displays ONLY icon */}
+                        {isActive && (
+                          <span className="text-xs font-bold px-1 animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
+                            {chip.label}
+                          </span>
+                        )}
+
+                        {isActive && (
+                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-sky-200 rounded-full shadow-xs" />
+                        )}
+                      </button>
+
+                      {/* Hover Micro-Tooltip when inactive */}
+                      {!isActive && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                          {chip.label}
+                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-solid border-t-slate-900/90 border-t-4 border-x-transparent border-x-4 border-b-0" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               {periodTab === 'settled' && (
@@ -1457,8 +1507,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   >
                     {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                   </button>
-                  <span className="text-xs font-bold font-mono px-1.5 text-slate-700 dark:text-slate-200">
-                    {selectedMonth}
+                  <span className="text-xs font-bold px-1.5 text-slate-700 dark:text-slate-200">
+                    {formatMonthWithYear(selectedMonth, language)}
                   </span>
                   <button
                     type="button"
@@ -1516,7 +1566,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 </div>
               </div>
 
-              {/* Attendance Rows */}
+              {/* Attendance Rows (Grouped with Month Section Headers) */}
               {displayedLogs.map((l, idx) => {
                 let isSettled = false;
                 if (portalMode === 'personal') {
@@ -1529,17 +1579,37 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 }
                 const hasOt = Number(l.overtimeHours) > 0;
 
+                const currentMonthKey = (l.date || '').slice(0, 7);
+                const prevMonthKey = idx > 0 ? (displayedLogs[idx - 1]?.date || '').slice(0, 7) : null;
+                const showMonthDivider = currentMonthKey && currentMonthKey !== prevMonthKey;
+
                 return (
-                  <div
-                    key={l.id || `${l.workerId}_${l.date}_${idx}`}
-                    className="px-4 sm:px-6 py-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors grid grid-cols-1 md:grid-cols-12 gap-2.5 md:gap-3 items-center text-xs"
-                  >
-                    {/* 1. Date: Day of Month in Large Bold Font + Weekday in Small Font Underneath */}
+                  <React.Fragment key={l.id || `${l.workerId}_${l.date}_${idx}`}>
+                    {showMonthDivider && (
+                      <div className="px-4 sm:px-6 py-2.5 bg-sky-50/70 dark:bg-sky-950/25 border-y border-sky-200/50 dark:border-sky-800/40 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
+                          <Calendar className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                          <span className="text-xs font-extrabold text-sky-900 dark:text-sky-200">
+                            {language === 'ku' ? 'مانگی' : 'ماه'}{' '}
+                            {formatMonthWithYear(l.date, language)}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-mono font-bold text-sky-700/80 dark:text-sky-300/70 bg-white/70 dark:bg-slate-900/60 px-2.5 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/50">
+                          {currentMonthKey}
+                        </span>
+                      </div>
+                    )}
+
                     <div
-                      className="md:col-span-1 flex items-center justify-between md:justify-center"
-                      title={l.date}
+                      className="px-4 sm:px-6 py-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors grid grid-cols-1 md:grid-cols-12 gap-2.5 md:gap-3 items-center text-xs"
                     >
-                      <div className="flex flex-col items-center justify-center min-w-[44px] py-1 px-2 rounded-2xl bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
+                      {/* 1. Date: Day of Month in Large Bold Font + Weekday in Small Font Underneath */}
+                      <div
+                        className="md:col-span-1 flex items-center justify-between md:justify-center"
+                        title={l.date}
+                      >
+                        <div className="flex flex-col items-center justify-center min-w-[44px] py-1 px-2 rounded-2xl bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
                         <span className="text-base sm:text-lg font-black font-mono leading-none text-slate-900 dark:text-white">
                           {getDayOfMonthNumber(l.date)}
                         </span>
@@ -1622,6 +1692,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       {l.notes || <span className="text-slate-300 dark:text-slate-600">—</span>}
                     </div>
                   </div>
+                </React.Fragment>
                 );
               })}
 
