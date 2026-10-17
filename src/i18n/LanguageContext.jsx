@@ -26,6 +26,24 @@ export function convertDigits(input, format = 'latin') {
   return str;
 }
 
+const WEEKDAYS = {
+  fa: ['یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'],
+  ku: ['یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'هەینی', 'شەممە'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+};
+
+const GREGORIAN_MONTHS = {
+  fa: ['ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن', 'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر'],
+  ku: ['کانوونی دووەم', 'شوبات', 'ئازار', 'نیسان', 'ئایار', 'حوزەیران', 'تەممووز', 'ئاب', 'ئەیلوول', 'تشرینی یەکەم', 'تشرینی دووەم', 'کانوونی یەکەم'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+};
+
+const JALALI_MONTHS = {
+  fa: ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'],
+  ku: ['خاکەلێوە', 'گوڵان', 'جۆزەردان', 'پووشپەڕ', 'گەلاوێژ', 'خەرمانان', 'ڕەزبەر', 'گەڵاڕێزان', 'سەرماوەز', 'بەفرانبار', 'ڕێبەندان', 'ڕەشەمە'],
+  en: ['Farvardin', 'Ordibehesht', 'Khordad', 'Tir', 'Mordad', 'Shahrivar', 'Mehr', 'Aban', 'Azar', 'Dey', 'Bahman', 'Esfand']
+};
+
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
     return localStorage.getItem('workshop_lang') || 'ku';
@@ -113,6 +131,7 @@ export function LanguageProvider({ children }) {
     const tf = options.timeFormat || timeFormat;
     const tz = options.timeZone || timeZone;
     const numFmt = options.numberFormat || numberFormat;
+    const lang = options.lang || language;
     const incSec = options.includeSeconds !== undefined ? options.includeSeconds : true;
 
     const opts = {
@@ -134,6 +153,16 @@ export function LanguageProvider({ children }) {
       result = d.toLocaleTimeString('en-GB', opts);
     }
 
+    if (tf === '12h') {
+      if (lang === 'fa') {
+        result = result.replace(/\b(am|AM)\b/g, 'ق.ظ').replace(/\b(pm|PM)\b/g, 'ب.ظ');
+      } else if (lang === 'ku') {
+        result = result.replace(/\b(am|AM)\b/g, 'پ.ن').replace(/\b(pm|PM)\b/g, 'د.ن');
+      } else {
+        result = result.replace(/\b(am)\b/g, 'AM').replace(/\b(pm)\b/g, 'PM');
+      }
+    }
+
     return convertDigits(result, numFmt);
   };
 
@@ -145,6 +174,7 @@ export function LanguageProvider({ children }) {
     const tz = options.timeZone || timeZone;
     const numFmt = options.numberFormat || numberFormat;
     const lang = options.lang || language;
+    const langKey = lang === 'fa' ? 'fa' : lang === 'ku' ? 'ku' : 'en';
 
     let isJalali = false;
     if (cal === 'jalali') {
@@ -152,52 +182,63 @@ export function LanguageProvider({ children }) {
     } else if (cal === 'gregorian') {
       isJalali = false;
     } else {
-      // Auto: check browser/system calendar or fallback to language
-      try {
-        const sysCal = new Intl.DateTimeFormat().resolvedOptions().calendar;
-        if (sysCal === 'persian') {
-          isJalali = true;
-        } else if (lang === 'fa') {
-          isJalali = true;
-        } else {
-          isJalali = false;
-        }
-      } catch {
-        isJalali = lang === 'fa';
-      }
+      isJalali = langKey === 'fa';
     }
 
     const tzOpt = tz && tz !== 'auto' ? { timeZone: tz } : {};
-    let formatted = '';
+
+    // Determine weekday index (0=Sun .. 6=Sat) in target timezone
+    let weekdayIndex = d.getDay();
+    try {
+      const shortW = new Intl.DateTimeFormat('en-US', { weekday: 'short', ...tzOpt }).format(d);
+      const mapW = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      if (mapW[shortW] !== undefined) weekdayIndex = mapW[shortW];
+    } catch (_) {}
+
+    const weekdayName = (WEEKDAYS[langKey] || WEEKDAYS.en)[weekdayIndex];
 
     if (isJalali) {
       try {
-        formatted = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-          weekday: 'long',
+        const parts = new Intl.DateTimeFormat('en-US-u-ca-persian', {
           year: 'numeric',
-          month: 'long',
+          month: 'numeric',
           day: 'numeric',
           ...tzOpt
-        }).format(d);
-      } catch {
-        formatted = d.toLocaleDateString('fa-IR', tzOpt);
-      }
-    } else {
-      const loc = lang === 'fa' ? 'fa-IR-u-ca-gregory' : lang === 'ku' ? 'ckb-u-ca-gregory' : 'en-GB';
-      try {
-        formatted = new Intl.DateTimeFormat(loc, {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          ...tzOpt
-        }).format(d);
-      } catch {
-        formatted = d.toLocaleDateString('en-GB', tzOpt);
-      }
+        }).formatToParts(d);
+        const y = parts.find((p) => p.type === 'year')?.value || '';
+        const m = Number(parts.find((p) => p.type === 'month')?.value || 1);
+        const day = parts.find((p) => p.type === 'day')?.value || '';
+        const monthName = (JALALI_MONTHS[langKey] || JALALI_MONTHS.en)[m - 1] || '';
+
+        const formatted =
+          langKey === 'en'
+            ? `${weekdayName}, ${day} ${monthName} ${y}`
+            : `${weekdayName}، ${day} ${monthName} ${y}`;
+        return convertDigits(formatted, numFmt);
+      } catch (_) {}
     }
 
-    return convertDigits(formatted, numFmt);
+    // Gregorian formatting with deterministic trilingual names
+    try {
+      const parts = new Intl.DateTimeFormat('en-US-u-ca-gregory', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        ...tzOpt
+      }).formatToParts(d);
+      const y = parts.find((p) => p.type === 'year')?.value || d.getFullYear();
+      const m = Number(parts.find((p) => p.type === 'month')?.value || d.getMonth() + 1);
+      const day = parts.find((p) => p.type === 'day')?.value || d.getDate();
+      const monthName = (GREGORIAN_MONTHS[langKey] || GREGORIAN_MONTHS.en)[m - 1] || '';
+
+      const formatted =
+        langKey === 'en'
+          ? `${weekdayName}, ${day} ${monthName} ${y}`
+          : `${weekdayName}، ${day} ${monthName} ${y}`;
+      return convertDigits(formatted, numFmt);
+    } catch (_) {
+      return convertDigits(d.toLocaleDateString('en-GB', tzOpt), numFmt);
+    }
   };
 
   return (

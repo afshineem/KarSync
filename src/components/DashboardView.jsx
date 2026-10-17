@@ -3,44 +3,28 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { EditRecordModal } from './EditRecordModal';
-import { UserProfileModal } from './UserProfileModal';
 import { TasksModal } from './TasksModal';
 import { TaskFormModal } from './TaskFormModal';
 import { useProject } from '../context/ProjectContext';
 import { useTasks } from '../hooks/useTasks';
 import { pullExpensesLive } from '../services/realtimeSync';
-import { 
-  formatCurrency, 
-  formatAmount, 
-  formatNumber, 
-  getCurrentYearMonth, 
-  formatHoursAndMinutes, 
+import {
+  formatAmount,
+  getCurrentYearMonth,
   roundCurrency,
   getCurrencySymbol,
   formatMonthOnly
 } from '../utils/formatters';
 import { calculateWorkerFinancials } from '../utils/settlementCalculations';
-import { 
-  Users, 
-  Calendar, 
-  Clock, 
-  Coins, 
-  ChevronLeft, 
-  ChevronRight, 
-  PlusCircle, 
-  TrendingUp, 
-  FileText, 
-  Briefcase, 
-  CheckCircle2, 
+import {
+  Calendar,
+  Coins,
+  ChevronLeft,
+  ChevronRight,
   Banknote,
-  ArrowUpRight,
-  WalletCards,
   Layers,
-  Activity,
   UserCheck,
   Sparkles,
-  Receipt,
   ListTodo,
   Check,
   ArrowRight,
@@ -48,20 +32,241 @@ import {
   AlertCircle,
   Plus,
   PieChart,
-  BarChart3,
   CalendarCheck
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
-  const { t, language, direction, timeFormat, timeZone, calendarType, numberFormat, formatTime, formatDate, convertDigits } = useLanguage();
+  const {
+    language,
+    timeFormat,
+    timeZone,
+    calendarType,
+    numberFormat,
+    formatTime,
+    formatDate,
+    convertDigits
+  } = useLanguage();
   const { user } = useAuth();
   const { currentProject, openWorkerProfile, openGlobalSettings } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+
+  // Trilingual UI Dictionary for DashboardView (Zero Cross-Language Leakage)
+  const copy = {
+    fa: {
+      generalExpense: 'هزینه عمومی',
+      unassignedSection: 'عمومی / بدون بخش',
+      accountAndSettingsTitle: 'حساب کاربری و تنظیمات',
+      dashboardTitle: 'پیشخوان کارگاه',
+      activeProjectFallback: 'پروژه جاری',
+      prevMonthTitle: 'ماه قبل',
+      nextMonthTitle: 'ماه بعد',
+      monthlyFinancialPulse: 'نبض مالی کارگاه در این ماه',
+      totalGrossPayrollDesc: 'مجموع ناخالص حقوق و کارکرد ثبت‌شده پرسنل',
+      settledLabel: 'تسویه‌شده:',
+      pendingLabel: 'مانده معوق:',
+      clearedSuffix: 'پوشش داده شده',
+      totalAccumulatedDebtLabel: 'بدهی کل انباشته کارگاه:',
+      totalWorkDaysLabel: 'کل کارکرد',
+      daysUnit: 'روز',
+      overtimeHoursSuffix: 'ساعت اضافه',
+      activeForceLabel: 'پرسنل فعال',
+      workersUnit: 'نفر',
+      fullySettledSuffix: 'تسویه کامل',
+      logShiftBtn: 'ثبت کارکرد',
+      tasksBtn: 'تسک‌ها',
+      todayAttendanceTitle: 'وضعیت حضور امروز',
+      shiftRecordedToday: 'تکمیل شیفت امروز',
+      recordedPresentLabel: 'حاضرین ثبت‌شده:',
+      absentTodayLabel: 'غایبین امروز:',
+      pendingLogLabel: 'ثبت‌نشده / بدون کارکرد:',
+      quickLogTodayBtn: 'ثبت ورود یا کارکرد امروز کارگاه',
+      costBreakdownTitle: 'توزیع مخارج ماه',
+      costBreakdownSubtitle: 'دستمزد پرسنل در برابر فاکتورهای پروژه',
+      payrollLabel: 'حقوق و دستمزد',
+      expensesLabel: 'هزینه‌ها و تنخواه',
+      viewFinancialLedgerBtn: 'مشاهده دفتر مالی و ثبت هزینه‌ها',
+      activeSectionsTitle: 'بخش‌های فعال کارگاه',
+      activeSectionsSubtitle: 'توزیع هزینه و نفر-روز در بخش‌های کارگاه',
+      manageSectionsBtn: 'مدیریت بخش‌ها',
+      noSectionLogsThisMonth: 'هنوز کارکردی برای بخش‌های کارگاه در این ماه ثبت نشده است.',
+      workDaysSuffix: 'روز کارکرد',
+      shareOfPayrollSuffix: 'سهم از حقوق',
+      priorityTasksTitle: 'تسک‌های فوری امروز',
+      openTasksSuffix: 'تسک در جریان',
+      viewAllTasksBtn: 'مشاهده همه',
+      noPendingTasksMsg: 'هیچ تسک در جریانی وجود ندارد. همه کارها انجام شده‌اند!',
+      completeTaskTitle: 'تکمیل تسک',
+      priorityHighBadge: 'فوری',
+      priorityNormalBadge: 'عادی',
+      createNewTaskBtn: 'افزودن تسک جدید',
+      topSettlementPrioritiesTitle: 'اولویت‌های تسویه حساب پرسنل',
+      topSettlementPrioritiesSubtitle: 'پرسنل دارای بیشترین مطالبات پرداخت‌نشده',
+      openSettlementDeskBtn: 'ورود به میز تسویه کامل',
+      allAccountsSettledMsg: 'تبریک! تمام حساب‌های پرسنل کاملاً تسویه هستند و بدهی معوقی وجود ندارد.',
+      defaultWorkerRole: 'کارگر',
+      pendingSettlementLabel: 'طلب معوق نیازمند پرداخت'
+    },
+    ku: {
+      generalExpense: 'خەرجی گشتی',
+      unassignedSection: 'گشتی / بێ بەش',
+      accountAndSettingsTitle: 'هەژماری بەکارهێنەر و ڕێکخستنەکان',
+      dashboardTitle: 'داشبۆردی کارگە',
+      activeProjectFallback: 'پڕۆژەی چالاک',
+      prevMonthTitle: 'مانگی پێشوو',
+      nextMonthTitle: 'مانگی داهاتوو',
+      monthlyFinancialPulse: 'لێدانی دارایی کارگە لەم مانگەدا',
+      totalGrossPayrollDesc: 'کۆی گشتی مووچە و کارکردی تۆمارکراوی کرێکاران',
+      settledLabel: 'پاکتاوکراو:',
+      pendingLabel: 'ماوەی دواکەوتوو:',
+      clearedSuffix: 'پاکتاوکراو',
+      totalAccumulatedDebtLabel: 'کۆی قەرزی کەڵەکەبووی کارگە:',
+      totalWorkDaysLabel: 'کۆی کارکرد',
+      daysUnit: 'ڕۆژ',
+      overtimeHoursSuffix: 'کاتژمێر زیادە',
+      activeForceLabel: 'کرێکارانی چالاک',
+      workersUnit: 'کەس',
+      fullySettledSuffix: 'پاکتاوکراو',
+      logShiftBtn: 'تۆماری کارکرد',
+      tasksBtn: 'ئەرکەکان',
+      todayAttendanceTitle: 'دۆخی ئامادەبوونی ئەمڕۆ',
+      shiftRecordedToday: 'تەواوبوونی شەفتی ئەمڕۆ',
+      recordedPresentLabel: 'ئامادەبووانی تۆمارکراو:',
+      absentTodayLabel: 'ئامادەنەبووانی ئەمڕۆ:',
+      pendingLogLabel: 'تۆمارنەکراو / بێ تۆمار:',
+      quickLogTodayBtn: 'تۆمارکردنی ئامادەبوون و کارکردی ئەمڕۆ',
+      costBreakdownTitle: 'دابەشبوونی خەرجییەکانی مانگ',
+      costBreakdownSubtitle: 'مووچەی کرێکاران بەرامبەر پسووڵە و خەرجییەکانی پڕۆژە',
+      payrollLabel: 'مووچە و حەقدەست',
+      expensesLabel: 'خەرجییەکان و سندوق',
+      viewFinancialLedgerBtn: 'بینینی دەفتەری دارایی و تۆمارکردنی خەرجییەکان',
+      activeSectionsTitle: 'بەشە چالاکەکانی کارگە',
+      activeSectionsSubtitle: 'دابەشبوونی تێچوو و ڕۆژەکار لە بەشەکانی کارگە',
+      manageSectionsBtn: 'بەڕێوەبردنی بەشەکان',
+      noSectionLogsThisMonth: 'هێشتا هیچ کارکردێک بۆ بەشەکانی کارگە لەم مانگەدا تۆمار نەکراوە.',
+      workDaysSuffix: 'ڕۆژ کارکرد',
+      shareOfPayrollSuffix: 'پشک لە مووچە',
+      priorityTasksTitle: 'ئەرکە گرنگەکانی ئەمڕۆ',
+      openTasksSuffix: 'ئەرکی بەردەوام',
+      viewAllTasksBtn: 'بینینی هەمووان',
+      noPendingTasksMsg: 'هیچ ئەرکێکی بەردەوام نییە. هەموو کارەکان ئەنجام دراون!',
+      completeTaskTitle: 'تەواوکردنی ئەرک',
+      priorityHighBadge: 'فۆری',
+      priorityNormalBadge: 'ئاسایی',
+      createNewTaskBtn: 'زیادکردنی ئەرکی نوێ',
+      topSettlementPrioritiesTitle: 'ئەولەویەتەکانی پاکتاوی حیسابی کرێکاران',
+      topSettlementPrioritiesSubtitle: 'ئەو کرێکارانەی زۆرترین شایستەی نەدراویان هەیە',
+      openSettlementDeskBtn: 'چوونە ناو مێزی پاکتاوی تەواو',
+      allAccountsSettledMsg: 'پیرۆزە! تەواوی حیسابی کرێکاران پاکتاو کراوە و هیچ قەرزێکی دواکەوتوو نییە.',
+      defaultWorkerRole: 'کرێکار',
+      pendingSettlementLabel: 'بڕە پارەی شایستەی دواکەوتوو'
+    },
+    en: {
+      generalExpense: 'General Expense',
+      unassignedSection: 'General / Unassigned',
+      accountAndSettingsTitle: 'Account & Settings',
+      dashboardTitle: 'Workshop Dashboard',
+      activeProjectFallback: 'Active Project',
+      prevMonthTitle: 'Previous Month',
+      nextMonthTitle: 'Next Month',
+      monthlyFinancialPulse: 'Monthly Financial Pulse',
+      totalGrossPayrollDesc: 'Total Gross Payroll for Selected Month',
+      settledLabel: 'Settled:',
+      pendingLabel: 'Pending:',
+      clearedSuffix: 'Cleared',
+      totalAccumulatedDebtLabel: 'Total Outstanding Debt:',
+      totalWorkDaysLabel: 'Work Days',
+      daysUnit: 'days',
+      overtimeHoursSuffix: 'hrs OT',
+      activeForceLabel: 'Active Force',
+      workersUnit: 'workers',
+      fullySettledSuffix: 'settled',
+      logShiftBtn: 'Log Shift',
+      tasksBtn: 'Tasks',
+      todayAttendanceTitle: 'Today Attendance Pulse',
+      shiftRecordedToday: 'Shift recorded today',
+      recordedPresentLabel: 'Recorded Present:',
+      absentTodayLabel: 'Absent Today:',
+      pendingLogLabel: 'Pending Log:',
+      quickLogTodayBtn: 'Quick Log Today Attendance',
+      costBreakdownTitle: 'Monthly Cost Breakdown',
+      costBreakdownSubtitle: 'Payroll vs Project Expenses',
+      payrollLabel: 'Payroll',
+      expensesLabel: 'Expenses',
+      viewFinancialLedgerBtn: 'View Financial Ledger & Expenses',
+      activeSectionsTitle: 'Active Workshop Sections',
+      activeSectionsSubtitle: 'Cost & person-days allocation by section',
+      manageSectionsBtn: 'Manage Sections',
+      noSectionLogsThisMonth: 'No section logs recorded this month.',
+      workDaysSuffix: 'days',
+      shareOfPayrollSuffix: 'of payroll',
+      priorityTasksTitle: 'Priority Tasks',
+      openTasksSuffix: 'open tasks',
+      viewAllTasksBtn: 'View All',
+      noPendingTasksMsg: 'No pending tasks! All clear.',
+      completeTaskTitle: 'Complete Task',
+      priorityHighBadge: 'High',
+      priorityNormalBadge: 'Normal',
+      createNewTaskBtn: 'Create New Task',
+      topSettlementPrioritiesTitle: 'Top Settlement Priorities',
+      topSettlementPrioritiesSubtitle: 'Workers with highest pending balances',
+      openSettlementDeskBtn: 'Open Settlement Desk',
+      allAccountsSettledMsg: 'All worker accounts are settled! Zero outstanding debt.',
+      defaultWorkerRole: 'Worker',
+      pendingSettlementLabel: 'Pending settlement'
+    }
+  }[langKey];
+
+  // Localize default seeded project names so they never leak Persian into Kurdish or English
+  const localizeProjectName = (name) => {
+    const raw = (name || '').trim();
+    if (!raw) return copy.activeProjectFallback;
+    const defaultProjectNames = new Set([
+      'پروژه مرکزی (کارگاه)',
+      'کارگاه مرکزی (پیش‌فرض)',
+      'کارگاه مرکزی',
+      'کارگاه من',
+      'پروژه نمونه'
+    ]);
+    if (defaultProjectNames.has(raw)) {
+      if (langKey === 'ku') return 'پڕۆژەی سەرەکی (کارگە)';
+      if (langKey === 'en') return 'Main Workshop Project';
+      return raw;
+    }
+    return raw;
+  };
+
+  // Localize default section names
+  const localizeSectionName = (name) => {
+    const raw = (name || '').trim();
+    if (!raw) return copy.unassignedSection;
+    if (raw === 'عمومی / بدون بخش' || raw === 'بخش عمومی' || raw === 'عمومی') {
+      return copy.unassignedSection;
+    }
+    return raw;
+  };
+
+  // Localize common default worker roles if stored in Persian/Kurdish/English
+  const localizeWorkerRole = (role) => {
+    const raw = (role || '').trim();
+    if (!raw) return copy.defaultWorkerRole;
+    const roleMap = {
+      'کارگر': { fa: 'کارگر', ku: 'کرێکار', en: 'Worker' },
+      'کارگر ساده': { fa: 'کارگر ساده', ku: 'کرێکاری سادە', en: 'General Worker' },
+      'استادکار': { fa: 'استادکار', ku: 'وەستا', en: 'Master Craftsman' },
+      'سرپرست': { fa: 'سرپرست', ku: 'سەرپەرشتیار', en: 'Supervisor' },
+      'جوشکار': { fa: 'جوشکار', ku: 'لەحیمچی', en: 'Welder' },
+      'شاگرد': { fa: 'شاگرد', ku: 'شاگرد', en: 'Apprentice' },
+      'برق‌کار': { fa: 'برق‌کار', ku: 'کارەباچی', en: 'Electrician' },
+      'تکنسین': { fa: 'تکنسین', ku: 'تەکنیکار', en: 'Technician' }
+    };
+    if (roleMap[raw]) return roleMap[raw][langKey];
+    return raw;
+  };
+
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
-  const [selectedSectionId, setSelectedSectionId] = useState('all');
-  const [editingLog, setEditingLog] = useState(null);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [selectedTaskForDetails, setSelectedTaskForDetails] = useState(null);
@@ -70,12 +275,17 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       const target = e.target;
-      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
       if (isInput) return;
 
       if (e.shiftKey && (e.key === 'T' || e.key === 't' || e.code === 'KeyT')) {
         e.preventDefault();
-        setIsTasksModalOpen(prev => !prev);
+        setIsTasksModalOpen((prev) => !prev);
       }
     };
     const handleCustomOpen = () => setIsTasksModalOpen(true);
@@ -94,119 +304,122 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   }, [targetProjectId, fetchTasks]);
 
   const activeTasksList = useMemo(() => {
-    let active = tasks.filter(t => t.status !== 'completed');
+    const active = tasks.filter((tItem) => tItem.status !== 'completed');
     const pWeight = { high: 3, medium: 2, low: 1 };
     active.sort((a, b) => (pWeight[b.priority || 'medium'] || 0) - (pWeight[a.priority || 'medium'] || 0));
     return active.slice(0, 4);
   }, [tasks]);
 
-  const activeTasksCount = tasks.filter(t => t.status !== 'completed').length;
+  const activeTasksCount = tasks.filter((tItem) => tItem.status !== 'completed').length;
 
   // Fetch reactive data from Dexie scoped to active project
-  const workers = useLiveQuery(
-    async () => {
-      const list = await db.workers.toArray();
-      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
-    },
-    [targetProjectId]
-  ) || [];
+  const workers =
+    useLiveQuery(
+      async () => {
+        const list = await db.workers.toArray();
+        return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      },
+      [targetProjectId]
+    ) || [];
 
-  const allPayments = useLiveQuery(
-    async () => {
-      const [list, wList] = await Promise.all([
-        db.payments.toArray(),
-        db.workers.toArray()
-      ]);
-      const projectWorkerIds = new Set(
-        wList
-          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
-          .map((w) => String(w.id))
-      );
-      return list.filter((p) => 
-        (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
-        projectWorkerIds.has(String(p.workerId))
-      );
-    },
-    [targetProjectId]
-  ) || [];
+  const allPayments =
+    useLiveQuery(
+      async () => {
+        const [list, wList] = await Promise.all([db.payments.toArray(), db.workers.toArray()]);
+        const projectWorkerIds = new Set(
+          wList
+            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+            .map((w) => String(w.id))
+        );
+        return list.filter(
+          (p) =>
+            (p.projectId || DEFAULT_PROJECT_ID) === targetProjectId ||
+            projectWorkerIds.has(String(p.workerId))
+        );
+      },
+      [targetProjectId]
+    ) || [];
 
-  const allAllLogs = useLiveQuery(
-    async () => {
-      const [list, wList] = await Promise.all([
-        db.attendanceLogs.toArray(),
-        db.workers.toArray()
-      ]);
-      const projectWorkerIds = new Set(
-        wList
-          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
-          .map((w) => String(w.id))
-      );
-      return list.filter((l) => 
-        (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
-        projectWorkerIds.has(String(l.workerId))
-      );
-    },
-    [targetProjectId]
-  ) || [];
+  const allAllLogs =
+    useLiveQuery(
+      async () => {
+        const [list, wList] = await Promise.all([db.attendanceLogs.toArray(), db.workers.toArray()]);
+        const projectWorkerIds = new Set(
+          wList
+            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+            .map((w) => String(w.id))
+        );
+        return list.filter(
+          (l) =>
+            (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId ||
+            projectWorkerIds.has(String(l.workerId))
+        );
+      },
+      [targetProjectId]
+    ) || [];
 
-  const rawLogs = useLiveQuery(
-    async () => {
-      const [list, wList] = await Promise.all([
-        db.attendanceLogs.toArray(),
-        db.workers.toArray()
-      ]);
-      const projectWorkerIds = new Set(
-        wList
-          .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
-          .map((w) => String(w.id))
-      );
-      const projLogs = list.filter((l) => 
-        (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId || 
-        projectWorkerIds.has(String(l.workerId))
-      );
-      return projLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
-    },
-    [targetProjectId, selectedMonth]
-  ) || [];
+  const rawLogs =
+    useLiveQuery(
+      async () => {
+        const [list, wList] = await Promise.all([db.attendanceLogs.toArray(), db.workers.toArray()]);
+        const projectWorkerIds = new Set(
+          wList
+            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+            .map((w) => String(w.id))
+        );
+        const projLogs = list.filter(
+          (l) =>
+            (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId ||
+            projectWorkerIds.has(String(l.workerId))
+        );
+        return projLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
+      },
+      [targetProjectId, selectedMonth]
+    ) || [];
 
-  const projectSections = useLiveQuery(
-    async () => {
-      if (!targetProjectId) return [];
-      return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
-    },
-    [targetProjectId]
-  ) || [];
+  const projectSections =
+    useLiveQuery(
+      async () => {
+        if (!targetProjectId) return [];
+        return await db.projectSections.where('projectId').equals(targetProjectId).toArray();
+      },
+      [targetProjectId]
+    ) || [];
 
   // Project expenses
-  const projectExpenses = useLiveQuery(
-    async () => {
-      const [listA, listB] = await Promise.all([
-        db.expenses.toArray(),
-        db.projectExpenses.toArray()
-      ]);
-      const combinedMap = new Map();
-      listB.forEach((e) => {
-        combinedMap.set(e.id, {
-          ...e,
-          expenseDate: e.date || e.expenseDate || e.createdAt?.slice(0, 10),
-          title: e.title || e.category || 'هزینه عمومی'
+  const projectExpenses =
+    useLiveQuery(
+      async () => {
+        const [listA, listB] = await Promise.all([
+          db.expenses.toArray(),
+          db.projectExpenses.toArray()
+        ]);
+        const combinedMap = new Map();
+        listB.forEach((e) => {
+          combinedMap.set(e.id, {
+            ...e,
+            expenseDate: e.date || e.expenseDate || e.createdAt?.slice(0, 10),
+            title: e.title || e.category || copy.generalExpense
+          });
         });
-      });
-      listA.forEach((e) => {
-        combinedMap.set(e.id, {
-          ...e,
-          date: e.expenseDate || e.date,
-          expenseDate: e.expenseDate || e.date || e.createdAt?.slice(0, 10)
+        listA.forEach((e) => {
+          combinedMap.set(e.id, {
+            ...e,
+            date: e.expenseDate || e.date,
+            expenseDate: e.expenseDate || e.date || e.createdAt?.slice(0, 10)
+          });
         });
-      });
-      const list = Array.from(combinedMap.values());
-      return list.filter((e) => 
-        !e.deletedAt && 
-        (!targetProjectId || (e.projectId || DEFAULT_PROJECT_ID) === targetProjectId || targetProjectId === DEFAULT_PROJECT_ID)
-      );
-    },
-    [targetProjectId]
-  ) || [];
+        const list = Array.from(combinedMap.values());
+        return list.filter(
+          (e) =>
+            !e.deletedAt &&
+            (!targetProjectId ||
+              (e.projectId || DEFAULT_PROJECT_ID) === targetProjectId ||
+              targetProjectId === DEFAULT_PROJECT_ID)
+        );
+      },
+      [targetProjectId, copy.generalExpense]
+    ) || [];
 
   const monthlyExpenses = useMemo(() => {
     return projectExpenses.filter((e) => {
@@ -241,7 +454,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
   const liveTimeString = useMemo(() => {
     return formatTime(currentDateTime, { includeSeconds: true });
-  }, [currentDateTime, formatTime, timeFormat, timeZone, numberFormat]);
+  }, [currentDateTime, formatTime, timeFormat, timeZone, numberFormat, language]);
 
   const liveDateString = useMemo(() => {
     return formatDate(currentDateTime);
@@ -255,14 +468,6 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     const d = String(now.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }, []);
-
-  // Format hours float to digital HH:mm format
-  const formatDigitalHours = (hoursFloat) => {
-    const totalMins = Math.round(Math.max(0, Number(hoursFloat) || 0) * 60);
-    const h = Math.floor(totalMins / 60);
-    const m = totalMins % 60;
-    return convertDigits(`${h}:${String(m).padStart(2, '0')}`, numberFormat);
-  };
 
   // Deduplicate logs in memory by workerId + date
   const logs = useMemo(() => {
@@ -287,10 +492,12 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const settledLogIds = useMemo(() => {
     const ids = new Set();
     workers.forEach((w) => {
-      const workerLogs = allAllLogs.filter(l => String(l.workerId) === String(w.id));
-      const workerPayments = allPayments.filter(p => String(p.workerId) === String(w.id) || (w.groupId && p.groupId === w.groupId));
+      const workerLogs = allAllLogs.filter((l) => String(l.workerId) === String(w.id));
+      const workerPayments = allPayments.filter(
+        (p) => String(p.workerId) === String(w.id) || (w.groupId && p.groupId === w.groupId)
+      );
       const fin = calculateWorkerFinancials(w, workerLogs, workerPayments);
-      workerLogs.forEach(l => {
+      workerLogs.forEach((l) => {
         if (fin.isLogSettled(l)) {
           ids.add(String(l.id));
         }
@@ -363,7 +570,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       }
     });
 
-    const totalDaysCount = totalNormalDays + (totalHalfDays * 0.5);
+    const totalDaysCount = totalNormalDays + totalHalfDays * 0.5;
 
     return {
       activeCount: activeWorkers.length,
@@ -448,7 +655,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
     map['unassigned'] = {
       id: 'unassigned',
-      name: language === 'fa' ? 'عمومی / بدون بخش' : language === 'ku' ? 'گشتی / بێ بەش' : 'General / Unassigned',
+      name: copy.unassignedSection,
       days: 0,
       otHours: 0,
       totalCost: 0,
@@ -471,7 +678,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     return Object.values(map)
       .filter((b) => b.entriesCount > 0)
       .sort((a, b) => b.totalCost - a.totalCost);
-  }, [logs, projectSections, language]);
+  }, [logs, projectSections, copy.unassignedSection]);
 
   // Month navigation helpers
   const handlePrevMonth = () => {
@@ -494,12 +701,15 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
   // Expense vs Payroll Ratio
   const totalCombinedMonthlyCost = monthlyStats.totalPayroll + monthlyExpensesTotal;
-  const payrollCostRatio = totalCombinedMonthlyCost > 0 ? Math.round((monthlyStats.totalPayroll / totalCombinedMonthlyCost) * 100) : 0;
+  const payrollCostRatio =
+    totalCombinedMonthlyCost > 0
+      ? Math.round((monthlyStats.totalPayroll / totalCombinedMonthlyCost) * 100)
+      : 0;
   const expenseCostRatio = totalCombinedMonthlyCost > 0 ? 100 - payrollCostRatio : 0;
 
   return (
     <div className="space-y-6 pb-24 max-w-7xl mx-auto px-1 sm:px-2">
-      
+
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* 1. LIQUID GLASS HEADER CAPSULE                                      */}
       {/* ─────────────────────────────────────────────────────────────────── */}
@@ -514,12 +724,13 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               type="button"
               onClick={() => openGlobalSettings('account')}
               className="relative group p-0.5 rounded-full ring-2 ring-sky-500/20 hover:ring-sky-500/60 transition-all duration-300 cursor-pointer overflow-hidden flex-shrink-0"
-              title={language === 'fa' ? 'حساب کاربری و تنظیمات' : 'Account & Settings'}
+              title={copy.accountAndSettingsTitle}
+              aria-label={copy.accountAndSettingsTitle}
             >
               {user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url ? (
                 <img
                   src={user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url}
-                  alt="Avatar"
+                  alt={copy.accountAndSettingsTitle}
                   className="w-20 h-20 rounded-full object-cover"
                 />
               ) : (
@@ -533,13 +744,13 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </button>
 
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
-                  {language === 'fa' ? 'پیشخوان کارگاه' : language === 'ku' ? 'داشبۆردی کارگە' : 'Workshop Dashboard'}
+                  {copy.dashboardTitle}
                 </h1>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {currentProject?.name || (language === 'fa' ? 'پروژه جاری' : 'Active Project')}
+                  {localizeProjectName(currentProject?.name)}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
@@ -554,8 +765,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           <div className="flex items-center self-start md:self-auto gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner">
             <button
               onClick={handlePrevMonth}
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all"
-              title={language === 'fa' ? 'ماه قبل' : 'Previous Month'}
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all cursor-pointer"
+              title={copy.prevMonthTitle}
+              aria-label={copy.prevMonthTitle}
             >
               <ChevronRight className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
             </button>
@@ -565,8 +777,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </div>
             <button
               onClick={handleNextMonth}
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all"
-              title={language === 'fa' ? 'ماه بعد' : 'Next Month'}
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all cursor-pointer"
+              title={copy.nextMonthTitle}
+              aria-label={copy.nextMonthTitle}
             >
               <ChevronLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
             </button>
@@ -582,71 +795,83 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         <div className="absolute -bottom-10 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          
+
           {/* Main Financial Statement */}
           <div className="lg:col-span-7 space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
               <Banknote className="w-4 h-4" />
-              <span>{language === 'fa' ? 'نبض مالی کارگاه در این ماه' : 'Monthly Financial Pulse'}</span>
+              <span>{copy.monthlyFinancialPulse}</span>
             </div>
 
             <div>
               <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
-                <span>{formatAmount(monthlyStats.totalPayroll, numberFormat)}</span>
-                <span className="text-sm sm:text-base font-bold text-sky-400">{getCurrencySymbol(currency, language)}</span>
+                <span>{formatAmount(monthlyStats.totalPayroll, currency, numberFormat)}</span>
+                <span className="text-sm sm:text-base font-bold text-sky-400">
+                  {getCurrencySymbol(currency, language)}
+                </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                {language === 'fa' ? 'مجموع ناخالص حقوق و کارکرد ثبت‌شده پرسنل' : 'Total Gross Payroll for Selected Month'}
+                {copy.totalGrossPayrollDesc}
               </p>
             </div>
 
             {/* Progress Gauge */}
             <div className="space-y-2 pt-2">
-              <div className="flex justify-between items-center text-xs font-semibold">
+              <div className="flex justify-between items-center text-xs font-semibold flex-wrap gap-2">
                 <span className="text-emerald-400 flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  {language === 'fa' ? 'تسویه‌شده:' : 'Settled:'} {formatAmount(monthlyStats.settledPayroll, numberFormat)} {getCurrencySymbol(currency, language)}
+                  {copy.settledLabel} {formatAmount(monthlyStats.settledPayroll, currency, numberFormat)}{' '}
+                  {getCurrencySymbol(currency, language)}
                 </span>
                 <span className="text-amber-400 flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5" />
-                  {language === 'fa' ? 'مانده معوق:' : 'Pending:'} {formatAmount(monthlyStats.unsettledPayroll, numberFormat)} {getCurrencySymbol(currency, language)}
+                  {copy.pendingLabel} {formatAmount(monthlyStats.unsettledPayroll, currency, numberFormat)}{' '}
+                  {getCurrencySymbol(currency, language)}
                 </span>
               </div>
               <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden p-0.5">
-                <div 
+                <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-400 transition-all duration-700 shadow-md"
                   style={{ width: `${settlementPercentage}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[11px] text-slate-400">
-                <span>{convertDigits(`${settlementPercentage}%`, numberFormat)} {language === 'fa' ? 'پوشش داده شده' : 'Cleared'}</span>
-                <span>{language === 'fa' ? 'بدهی کل انباشته کارگاه:' : 'Total Debt:'} {formatAmount(financialSummary.totalWorkshopOutstanding, numberFormat)} {getCurrencySymbol(currency, language)}</span>
+              <div className="flex justify-between text-[11px] text-slate-400 flex-wrap gap-2">
+                <span>
+                  {convertDigits(`${settlementPercentage}%`, numberFormat)} {copy.clearedSuffix}
+                </span>
+                <span>
+                  {copy.totalAccumulatedDebtLabel}{' '}
+                  {formatAmount(financialSummary.totalWorkshopOutstanding, currency, numberFormat)}{' '}
+                  {getCurrencySymbol(currency, language)}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Quick Metrics & Action Dock */}
           <div className="lg:col-span-5 grid grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
-            
+
             {/* Metric: Working Days */}
             <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-              <span className="text-[11px] text-slate-400 block">{language === 'fa' ? 'کل کارکرد' : 'Work Days'}</span>
+              <span className="text-[11px] text-slate-400 block">{copy.totalWorkDaysLabel}</span>
               <span className="text-xl font-black text-white mt-0.5 block">
-                {convertDigits(monthlyStats.totalDaysCount, numberFormat)} <span className="text-xs font-normal text-slate-400">{language === 'fa' ? 'روز' : 'days'}</span>
+                {convertDigits(monthlyStats.totalDaysCount, numberFormat)}{' '}
+                <span className="text-xs font-normal text-slate-400">{copy.daysUnit}</span>
               </span>
               <span className="text-[10px] text-slate-400 mt-1 block">
-                {convertDigits(monthlyStats.totalOvertimeHours, numberFormat)} {language === 'fa' ? 'ساعت اضافه' : 'hrs OT'}
+                {convertDigits(monthlyStats.totalOvertimeHours, numberFormat)} {copy.overtimeHoursSuffix}
               </span>
             </div>
 
             {/* Metric: Active Force */}
             <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-              <span className="text-[11px] text-slate-400 block">{language === 'fa' ? 'پرسنل فعال' : 'Active Force'}</span>
+              <span className="text-[11px] text-slate-400 block">{copy.activeForceLabel}</span>
               <span className="text-xl font-black text-white mt-0.5 block">
-                {convertDigits(monthlyStats.activeCount, numberFormat)} <span className="text-xs font-normal text-slate-400">{language === 'fa' ? 'نفر' : 'workers'}</span>
+                {convertDigits(monthlyStats.activeCount, numberFormat)}{' '}
+                <span className="text-xs font-normal text-slate-400">{copy.workersUnit}</span>
               </span>
               <span className="text-[10px] text-emerald-400 mt-1 block">
-                {convertDigits(financialSummary.settledCount, numberFormat)} {language === 'fa' ? 'تسویه کامل' : 'settled'}
+                {convertDigits(financialSummary.settledCount, numberFormat)} {copy.fullySettledSuffix}
               </span>
             </div>
 
@@ -656,7 +881,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
             >
               <CalendarCheck className="w-4 h-4" />
-              <span>{language === 'fa' ? 'ثبت کارکرد' : 'Log Shift'}</span>
+              <span>{copy.logShiftBtn}</span>
             </button>
 
             {/* Quick Action 2: Manage Tasks */}
@@ -665,7 +890,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
             >
               <ListTodo className="w-4 h-4 text-sky-400" />
-              <span>{language === 'fa' ? 'تسک‌ها' : 'Tasks'}</span>
+              <span>{copy.tasksBtn}</span>
               {activeTasksCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-500 text-white font-black">
                   {convertDigits(activeTasksCount, numberFormat)}
@@ -692,16 +917,17 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                    {language === 'fa' ? 'وضعیت حضور امروز' : 'Today Attendance Pulse'}
+                    {copy.todayAttendanceTitle}
                   </h3>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {todayAttendance.ratePercent}% {language === 'fa' ? 'تکمیل شیفت امروز' : 'Shift recorded'}
+                    {convertDigits(`${todayAttendance.ratePercent}%`, numberFormat)} {copy.shiftRecordedToday}
                   </span>
                 </div>
               </div>
 
               <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50">
-                {convertDigits(todayAttendance.presentCount, numberFormat)} / {convertDigits(todayAttendance.totalActive, numberFormat)}
+                {convertDigits(todayAttendance.presentCount, numberFormat)} /{' '}
+                {convertDigits(todayAttendance.totalActive, numberFormat)}
               </span>
             </div>
 
@@ -715,23 +941,19 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
             <div className="grid grid-cols-2 gap-3 text-xs mb-4">
               <div className="p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/15">
-                <span className="text-slate-500 dark:text-slate-400 block">{language === 'fa' ? 'حاضرین ثبت‌شده:' : 'Recorded:'}</span>
+                <span className="text-slate-500 dark:text-slate-400 block">
+                  {copy.recordedPresentLabel}
+                </span>
                 <span className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 block">
-                  {convertDigits(todayAttendance.presentCount, numberFormat)} {language === 'fa' ? 'نفر' : 'workers'}
+                  {convertDigits(todayAttendance.presentCount, numberFormat)} {copy.workersUnit}
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/15">
                 <span className="text-slate-500 dark:text-slate-400 block">
-                  {todayAttendance.isShiftLogged
-                    ? language === 'fa'
-                      ? 'غایبین امروز:'
-                      : 'Absent Today:'
-                    : language === 'fa'
-                    ? 'ثبت‌نشده / بدون لاگ:'
-                    : 'Pending Log:'}
+                  {todayAttendance.isShiftLogged ? copy.absentTodayLabel : copy.pendingLogLabel}
                 </span>
                 <span className="text-base font-black text-amber-600 dark:text-amber-400 mt-1 block">
-                  {convertDigits(todayAttendance.unloggedCount, numberFormat)} {language === 'fa' ? 'نفر' : 'workers'}
+                  {convertDigits(todayAttendance.unloggedCount, numberFormat)} {copy.workersUnit}
                 </span>
               </div>
             </div>
@@ -742,7 +964,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-200/60 dark:border-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>{language === 'fa' ? 'ثبت ورود یا کارکرد امروز کارگاه' : 'Quick Log Today Attendance'}</span>
+            <span>{copy.quickLogTodayBtn}</span>
           </button>
         </div>
 
@@ -756,31 +978,32 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                    {language === 'fa' ? 'توزیع مخارج ماه' : 'Cost Breakdown'}
+                    {copy.costBreakdownTitle}
                   </h3>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {language === 'fa' ? 'دستمزد پرسنل در برابر فاکتورهای پروژه' : 'Payroll vs Project Expenses'}
+                    {copy.costBreakdownSubtitle}
                   </span>
                 </div>
               </div>
 
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
-                {formatAmount(totalCombinedMonthlyCost, numberFormat)} {getCurrencySymbol(currency, language)}
+                {formatAmount(totalCombinedMonthlyCost, currency, numberFormat)}{' '}
+                {getCurrencySymbol(currency, language)}
               </span>
             </div>
 
             {/* Split Distribution Bar */}
             <div className="space-y-3 mb-5">
               <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
-                <div 
-                  className="bg-sky-500 transition-all duration-500" 
-                  style={{ width: `${payrollCostRatio}%` }} 
-                  title={`دستمزد: ${payrollCostRatio}%`}
+                <div
+                  className="bg-sky-500 transition-all duration-500"
+                  style={{ width: `${payrollCostRatio}%` }}
+                  title={`${copy.payrollLabel}: ${convertDigits(`${payrollCostRatio}%`, numberFormat)}`}
                 />
-                <div 
-                  className="bg-purple-500 transition-all duration-500" 
-                  style={{ width: `${expenseCostRatio}%` }} 
-                  title={`هزینه‌ها: ${expenseCostRatio}%`}
+                <div
+                  className="bg-purple-500 transition-all duration-500"
+                  style={{ width: `${expenseCostRatio}%` }}
+                  title={`${copy.expensesLabel}: ${convertDigits(`${expenseCostRatio}%`, numberFormat)}`}
                 />
               </div>
 
@@ -788,20 +1011,26 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                 <div className="p-3 rounded-2xl bg-sky-500/5 border border-sky-500/15">
                   <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-semibold mb-1">
                     <span className="w-2 h-2 rounded-full bg-sky-500" />
-                    <span>{language === 'fa' ? 'حقوق و دستمزد' : 'Payroll'} ({convertDigits(`${payrollCostRatio}%`, numberFormat)})</span>
+                    <span>
+                      {copy.payrollLabel} ({convertDigits(`${payrollCostRatio}%`, numberFormat)})
+                    </span>
                   </div>
                   <span className="text-sm font-black text-slate-700 dark:text-slate-200 block">
-                    {formatAmount(monthlyStats.totalPayroll, numberFormat)} {getCurrencySymbol(currency, language)}
+                    {formatAmount(monthlyStats.totalPayroll, currency, numberFormat)}{' '}
+                    {getCurrencySymbol(currency, language)}
                   </span>
                 </div>
 
                 <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/15">
                   <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-semibold mb-1">
                     <span className="w-2 h-2 rounded-full bg-purple-500" />
-                    <span>{language === 'fa' ? 'هزینه‌ها و تنخواه' : 'Expenses'} ({convertDigits(`${expenseCostRatio}%`, numberFormat)})</span>
+                    <span>
+                      {copy.expensesLabel} ({convertDigits(`${expenseCostRatio}%`, numberFormat)})
+                    </span>
                   </div>
                   <span className="text-sm font-black text-slate-700 dark:text-slate-200 block">
-                    {formatAmount(monthlyExpensesTotal, numberFormat)} {getCurrencySymbol(currency, language)}
+                    {formatAmount(monthlyExpensesTotal, currency, numberFormat)}{' '}
+                    {getCurrencySymbol(currency, language)}
                   </span>
                 </div>
               </div>
@@ -812,7 +1041,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             onClick={() => setActiveTab('accounting')}
             className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 border border-purple-200/60 dark:border-purple-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>{language === 'fa' ? 'مشاهده دفتر مالی و ثبت هزینه‌ها' : 'View Financial Ledger'}</span>
+            <span>{copy.viewFinancialLedgerBtn}</span>
             <ArrowRight className="w-4 h-4 rtl:rotate-180" />
           </button>
         </div>
@@ -833,10 +1062,10 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                  {language === 'fa' ? 'بخش‌های فعال کارگاه' : 'Active Workshop Sections'}
+                  {copy.activeSectionsTitle}
                 </h3>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {language === 'fa' ? 'توزیع هزینه و نفر-روز در بخش‌های ساختمانی' : 'Cost & Days allocation by section'}
+                  {copy.activeSectionsSubtitle}
                 </span>
               </div>
             </div>
@@ -845,37 +1074,51 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
               onClick={() => openGlobalSettings('projects')}
               className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
             >
-              {language === 'fa' ? 'مدیریت بخش‌ها' : 'Manage'}
+              {copy.manageSectionsBtn}
             </button>
           </div>
 
           {sectionBreakdown.length === 0 ? (
             <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-xs">
-              {language === 'fa' ? 'هنوز کارکردی برای بخش‌های کارگاه در این ماه ثبت نشده است.' : 'No section logs recorded this month.'}
+              {copy.noSectionLogsThisMonth}
             </div>
           ) : (
             <div className="space-y-3">
               {sectionBreakdown.slice(0, 4).map((sec) => {
-                const percentOfTotal = monthlyStats.totalPayroll > 0 ? Math.round((sec.totalCost / monthlyStats.totalPayroll) * 100) : 0;
+                const percentOfTotal =
+                  monthlyStats.totalPayroll > 0
+                    ? Math.round((sec.totalCost / monthlyStats.totalPayroll) * 100)
+                    : 0;
                 return (
-                  <div key={sec.id} className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 hover:border-blue-500/30 transition-all">
+                  <div
+                    key={sec.id}
+                    className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 hover:border-blue-500/30 transition-all"
+                  >
                     <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{sec.name}</span>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {localizeSectionName(sec.name)}
+                      </span>
                       <span className="text-xs font-black text-slate-700 dark:text-slate-300">
-                        {formatAmount(sec.totalCost, numberFormat)} {getCurrencySymbol(currency, language)}
+                        {formatAmount(sec.totalCost, currency, numberFormat)}{' '}
+                        {getCurrencySymbol(currency, language)}
                       </span>
                     </div>
 
                     <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
-                      <div 
+                      <div
                         className="h-full bg-blue-500 rounded-full transition-all duration-500"
                         style={{ width: `${percentOfTotal}%` }}
                       />
                     </div>
 
                     <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
-                      <span>{convertDigits(sec.days, numberFormat)} {language === 'fa' ? 'روز کارکرد' : 'days'} • {convertDigits(sec.otHours, numberFormat)} {language === 'fa' ? 'ساعت اضافه' : 'hrs OT'}</span>
-                      <span className="font-semibold">{convertDigits(`${percentOfTotal}%`, numberFormat)} {language === 'fa' ? 'سهم از حقوق' : 'share'}</span>
+                      <span>
+                        {convertDigits(sec.days, numberFormat)} {copy.workDaysSuffix} •{' '}
+                        {convertDigits(sec.otHours, numberFormat)} {copy.overtimeHoursSuffix}
+                      </span>
+                      <span className="font-semibold">
+                        {convertDigits(`${percentOfTotal}%`, numberFormat)} {copy.shareOfPayrollSuffix}
+                      </span>
                     </div>
                   </div>
                 );
@@ -894,25 +1137,25 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                    {language === 'fa' ? 'تسک‌های فوری امروز' : 'Priority Tasks'}
+                    {copy.priorityTasksTitle}
                   </h3>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {convertDigits(activeTasksCount, numberFormat)} {language === 'fa' ? 'تسک در جریان' : 'open tasks'}
+                    {convertDigits(activeTasksCount, numberFormat)} {copy.openTasksSuffix}
                   </span>
                 </div>
               </div>
 
               <button
                 onClick={() => setIsTasksModalOpen(true)}
-                className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline"
+                className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
               >
-                {language === 'fa' ? 'مشاهده همه' : 'View All'}
+                {copy.viewAllTasksBtn}
               </button>
             </div>
 
             {activeTasksList.length === 0 ? (
               <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-xs">
-                {language === 'fa' ? 'هیچ تسک در جریانی وجود ندارد. همه کارها انجام شده‌اند!' : 'No pending tasks! All clear.'}
+                {copy.noPendingTasksMsg}
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -929,7 +1172,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                             if (task.id) await updateTask(task.id, { status: 'completed' });
                           }}
                           className="w-5 h-5 rounded-lg border border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex items-center justify-center flex-shrink-0 group/check cursor-pointer"
-                          title={language === 'fa' ? 'تکمیل تسک' : 'Complete Task'}
+                          title={copy.completeTaskTitle}
+                          aria-label={copy.completeTaskTitle}
                         >
                           <Check className="w-3.5 h-3.5 text-transparent group-hover/check:text-emerald-500" />
                         </button>
@@ -938,12 +1182,14 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                         </span>
                       </div>
 
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                        isHigh 
-                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20' 
-                          : 'bg-slate-200/50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400'
-                      }`}>
-                        {isHigh ? (language === 'fa' ? 'فوری' : 'High') : (language === 'fa' ? 'عادی' : 'Normal')}
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                          isHigh
+                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                            : 'bg-slate-200/50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        {isHigh ? copy.priorityHighBadge : copy.priorityNormalBadge}
                       </span>
                     </div>
                   );
@@ -957,7 +1203,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             className="w-full mt-4 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>{language === 'fa' ? 'افزودن تسک جدید' : 'Create New Task'}</span>
+            <span>{copy.createNewTaskBtn}</span>
           </button>
         </div>
 
@@ -974,10 +1220,10 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                {language === 'fa' ? 'اولویت‌های تسویه حساب پرسنل' : 'Top Settlement Priorities'}
+                {copy.topSettlementPrioritiesTitle}
               </h3>
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                {language === 'fa' ? 'پرسنل دارای بیشترین مطالبات پرداخت‌نشده' : 'Workers with highest pending balances'}
+                {copy.topSettlementPrioritiesSubtitle}
               </span>
             </div>
           </div>
@@ -991,14 +1237,14 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             }}
             className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline self-start sm:self-auto flex items-center gap-1 cursor-pointer"
           >
-            <span>{language === 'fa' ? 'ورود به میز تسویه کامل' : 'Open Settlement Tab'}</span>
+            <span>{copy.openSettlementDeskBtn}</span>
             <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
           </button>
         </div>
 
         {financialSummary.topCreditors.length === 0 ? (
           <div className="py-8 text-center text-emerald-600 dark:text-emerald-400 text-xs font-semibold bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-            {language === 'fa' ? 'تبریک! تمام حساب‌های پرسنل کاملاً تسویه هستند و بدهی معوقی وجود ندارد.' : 'All worker accounts are settled! Zero outstanding debt.'}
+            {copy.allAccountsSettledMsg}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1013,15 +1259,15 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                     {worker.name}
                   </span>
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                    {worker.role || (language === 'fa' ? 'کارگر' : 'Worker')}
+                    {localizeWorkerRole(worker.role)}
                   </span>
                 </div>
 
                 <div className="text-base font-black text-rose-600 dark:text-rose-400 mt-2">
-                  {formatAmount(netDebt, numberFormat)} {getCurrencySymbol(currency, language)}
+                  {formatAmount(netDebt, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                 </div>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                  {language === 'fa' ? 'طلب معوق نیازمند پرداخت' : 'Pending settlement'}
+                  {copy.pendingSettlementLabel}
                 </span>
               </div>
             ))}
