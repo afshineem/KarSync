@@ -77,6 +77,19 @@ export function WorkersView() {
     localStorage.setItem('workshop_workers_view_mode', mode);
   };
 
+  // حالت نمایش: گروه‌بندی شده (true) یا پیوسته / یکدست (false)
+  const [isGroupedView, setIsGroupedView] = useState(() => {
+    const saved = localStorage.getItem('workshop_workers_grouped_mode');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const handleToggleGroupedView = () => {
+    setIsGroupedView(prev => {
+      const next = !prev;
+      localStorage.setItem('workshop_workers_grouped_mode', String(next));
+      return next;
+    });
+  };
+
   // Group accordion collapse state
   const [collapsedGroupIds, setCollapsedGroupIds] = useState(new Set());
   const toggleGroupCollapse = (groupId) => {
@@ -369,6 +382,36 @@ export function WorkersView() {
 
     return Object.values(groupsObj).filter(g => g.workers.length > 0);
   }, [filteredWorkers, groups, sortBy, sortOrder, language, workerFinancialsMap]);
+
+  // لیست پیوسته و یکدست بدون دسته‌بندی (Flat List)
+  const flatSortedWorkers = useMemo(() => {
+    const list = [...filteredWorkers];
+    list.sort((a, b) => {
+      let compare = 0;
+      if (sortBy === 'name') {
+        compare = (a.name || '').localeCompare(b.name || '', language === 'fa' ? 'fa' : 'ckb');
+      } else if (sortBy === 'balance') {
+        const finA = workerFinancialsMap.get(a.id)?.netBalanceDue || 0;
+        const finB = workerFinancialsMap.get(b.id)?.netBalanceDue || 0;
+        compare = finB - finA;
+      } else if (sortBy === 'dailyRate') {
+        compare = (Number(a.dailyRate) || 0) - (Number(b.dailyRate) || 0);
+      } else if (sortBy === 'role') {
+        compare = (a.role || '').localeCompare(b.role || '');
+      } else if (sortBy === 'createdAt') {
+        compare = (a.createdAt || '').localeCompare(b.createdAt || '');
+      }
+
+      if (compare !== 0) {
+        return sortOrder === 'asc' ? compare : -compare;
+      }
+
+      if (a?.teamRole === 'Master' && b?.teamRole !== 'Master') return -1;
+      if (b?.teamRole === 'Master' && a?.teamRole !== 'Master') return 1;
+      return (a?.name || '').localeCompare(b?.name || '');
+    });
+    return list;
+  }, [filteredWorkers, sortBy, sortOrder, language, workerFinancialsMap]);
 
   // اکشن‌ها
   const handleOpenAddModal = () => {
@@ -718,6 +761,36 @@ export function WorkersView() {
             </button>
           </div>
 
+          {/* سوییچ ساختار نمایش: گروه‌بندی شده یا پیوسته */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+            <button
+              type="button"
+              onClick={() => { if (!isGroupedView) handleToggleGroupedView(); }}
+              className={`p-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                isGroupedView
+                  ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+              title="نمایش تفکیک‌شده بر اساس گروه‌ها"
+            >
+              <FolderTree className="w-4 h-4" />
+              <span className="hidden sm:inline">گروه‌بندی</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (isGroupedView) handleToggleGroupedView(); }}
+              className={`p-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                !isGroupedView
+                  ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+              title="نمایش پیوسته همه پرسنل بدون سرگروه"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">همه پرسنل</span>
+            </button>
+          </div>
+
           {/* سوییچ چیدمان: گرید کارت / لیست */}
           <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
             <button
@@ -765,7 +838,7 @@ export function WorkersView() {
       {/* ───────────────────────────────────────────────────────────── */}
       {/* 3. لیست پرسنل و دسته‌ها: چیدمان کارتی یا سطری                 */}
       {/* ───────────────────────────────────────────────────────────── */}
-      {groupedWorkers.length === 0 ? (
+      {filteredWorkers.length === 0 ? (
         <div className="p-12 text-center rounded-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80">
           <Users className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
@@ -777,7 +850,8 @@ export function WorkersView() {
               : 'آیتمی در این بخش وجود ندارد.'}
           </p>
         </div>
-      ) : (
+      ) : isGroupedView ? (
+        /* حالت اول: نمایش تفکیک‌شده بر اساس گروه‌های کاری با هدرهای تاشو */
         <div className="space-y-6">
           {groupedWorkers.map(group => {
             const isCollapsed = collapsedGroupIds.has(group.id);
@@ -821,314 +895,12 @@ export function WorkersView() {
                 {!isCollapsed && (
                   layoutMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {group.workers.map(worker => {
-                        const fin = workerFinancialsMap.get(worker.id);
-                        const isMenuOpen = activeMenuWorkerId === worker.id;
-
-                        return (
-                          <div 
-                            key={worker.id}
-                            className={`rounded-3xl p-5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border transition-all duration-200 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-md flex flex-col justify-between ${
-                              worker.isActive !== 0
-                                ? 'border-white/80 dark:border-slate-800/80'
-                                : 'border-rose-200/80 dark:border-rose-950/80 bg-rose-50/10'
-                            }`}
-                          >
-                            <div className="space-y-4">
-                              {/* هدر کارت: آواتار، نام و منوی عملیات */}
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div 
-                                    onClick={() => openWorkerProfile(worker.id)}
-                                    className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-lg font-black shrink-0 shadow-md shadow-sky-500/20 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-                                  >
-                                    {worker.name ? worker.name.charAt(0) : <Users className="w-5 h-5" />}
-                                  </div>
-
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <h4 
-                                        onClick={() => openWorkerProfile(worker.id)}
-                                        className="font-black text-sm sm:text-base text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
-                                        title="مشاهده پروفایل جامع پرسنل"
-                                      >
-                                        {worker.name}
-                                      </h4>
-                                      <span className={`w-2 h-2 rounded-full shrink-0 ${
-                                        worker.isActive !== 0 ? 'bg-emerald-500' : 'bg-rose-500'
-                                      }`} title={worker.isActive !== 0 ? 'شاغل' : 'غیرفعال'} />
-                                    </div>
-
-                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                      <span className="text-xs text-sky-600 dark:text-sky-400 font-bold">
-                                        {worker.role || 'پرسنل کارگاه'}
-                                      </span>
-                                      {worker.teamRole === 'Master' && (
-                                        <span className="text-[10px] px-2 py-0.2 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 font-bold">
-                                          استادکار
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* منوی عملیات سه‌نقطه */}
-                                <div className="relative" data-worker-menu>
-                                  <button
-                                    type="button"
-                                    onClick={() => setActiveMenuWorkerId(prev => prev === worker.id ? null : worker.id)}
-                                    className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                                  >
-                                    <MoreHorizontal className="w-5 h-5" />
-                                  </button>
-
-                                  {isMenuOpen && (
-                                    <div className="absolute end-0 top-full mt-1 w-48 rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
-                                      {statusTab === 'active' && (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setActiveMenuWorkerId(null);
-                                              setQuickAttendanceWorker(worker);
-                                            }}
-                                            className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/50 hover:text-sky-600 flex items-center gap-2 cursor-pointer text-start"
-                                          >
-                                            <Calendar className="w-4 h-4 text-sky-500" />
-                                            <span>ثبت تقویم ماهانه</span>
-                                          </button>
-
-                                          <button
-                                            type="button"
-                                            onClick={() => handleOpenEditModal(worker)}
-                                            className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-start"
-                                          >
-                                            <Edit2 className="w-4 h-4 text-slate-500" />
-                                            <span>ویرایش پرونده</span>
-                                          </button>
-
-                                          <button
-                                            type="button"
-                                            onClick={() => handleToggleActive(worker)}
-                                            className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-start"
-                                          >
-                                            {worker.isActive === 1 ? (
-                                              <>
-                                                <XCircle className="w-4 h-4 text-rose-500" />
-                                                <span>مرخص / غیرفعال‌سازی</span>
-                                              </>
-                                            ) : (
-                                              <>
-                                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                                <span>فعال‌سازی مجدد</span>
-                                              </>
-                                            )}
-                                          </button>
-
-                                          <button
-                                            type="button"
-                                            onClick={() => handleArchiveWorker(worker)}
-                                            className="w-full px-3.5 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 cursor-pointer text-start"
-                                          >
-                                            <Archive className="w-4 h-4" />
-                                            <span>بایگانی پرسنل</span>
-                                          </button>
-
-                                          <button
-                                            type="button"
-                                            onClick={() => handleMoveToRecycle(worker)}
-                                            className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer text-start"
-                                          >
-                                            <RotateCcw className="w-4 h-4" />
-                                            <span>انتقال به بازیافت</span>
-                                          </button>
-                                        </>
-                                      )}
-
-                                      {statusTab === 'archived' && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setActiveMenuWorkerId(null);
-                                            handleUnarchiveWorker(worker);
-                                          }}
-                                          className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center gap-2 cursor-pointer text-start"
-                                        >
-                                          <Check className="w-4 h-4" />
-                                          <span>خروج از بایگانی</span>
-                                        </button>
-                                      )}
-
-                                      {statusTab === 'recycle' && (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setActiveMenuWorkerId(null);
-                                              handleRestoreFromRecycle(worker);
-                                            }}
-                                            className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center gap-2 cursor-pointer text-start"
-                                          >
-                                            <RotateCcw className="w-4 h-4" />
-                                            <span>بازیابی مجدد به شاغلین</span>
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setActiveMenuWorkerId(null);
-                                              handlePermanentDelete(worker);
-                                            }}
-                                            className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer text-start"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                            <span>حذف دائمی از حافظه</span>
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* اطلاعات تماس و بخش کاری */}
-                              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-                                {worker.phone ? (
-                                  <a 
-                                    href={`tel:${worker.phone}`}
-                                    className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-sky-600 font-mono"
-                                    title="تماس مستقیم"
-                                  >
-                                    <Phone className="w-3.5 h-3.5 text-sky-500" />
-                                    <span>{worker.phone}</span>
-                                  </a>
-                                ) : (
-                                  <span className="text-[11px] text-slate-400">بدون تلفن</span>
-                                )}
-
-                                {worker.defaultSectionId && sectionMap[worker.defaultSectionId] && (
-                                  <>
-                                    <span>•</span>
-                                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
-                                      <Layers className="w-3 h-3 text-slate-400" />
-                                      <span className="truncate max-w-[110px]">{sectionMap[worker.defaultSectionId]?.name}</span>
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-
-                              {/* باکس شیشه‌ای دستمزد و مانده حساب */}
-                              <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 space-y-2">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-400">نرخ روزانه:</span>
-                                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
-                                    {worker.wageType === 'contract' ? 'کنتراکت' : formatCurrency(worker.dailyRate, currency, language)}
-                                  </span>
-                                </div>
-
-                                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
-                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                                    مانده حساب جاری:
-                                  </span>
-                                  {fin ? (
-                                    <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-lg ${
-                                      fin.netBalanceDue > 0
-                                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60'
-                                        : fin.netBalanceDue < 0
-                                        ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/60'
-                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                                    }`} dir="ltr">
-                                      {formatCurrency(Math.abs(fin.netBalanceDue), currency, language)}
-                                      <span className="text-[9px] ms-1 font-normal font-sans">
-                                        {fin.netBalanceDue > 0 ? 'طلبکار' : fin.netBalanceDue < 0 ? 'بدهکار' : 'تسویه'}
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-slate-400">—</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* فوتر کارت: دکمه اقدام مستقیم کارنامه */}
-                            <div className="pt-4 mt-2">
-                              <button
-                                type="button"
-                                onClick={() => openWorkerProfile(worker.id)}
-                                className="w-full py-2.5 rounded-2xl bg-sky-50 dark:bg-sky-950/50 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold text-xs border border-sky-200/60 dark:border-sky-800/60 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
-                              >
-                                <History className="w-4 h-4" />
-                                <span>مشاهده کارنامه و پروفایل پرسنل</span>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {group.workers.map(worker => renderWorkerCard(worker))}
                     </div>
                   ) : (
                     /* نمایش جدولی و فشرده (List Mode - Responsive 2 Columns on Tablet/Desktop) */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {group.workers.map(worker => {
-                        const fin = workerFinancialsMap.get(worker.id);
-                        return (
-                          <div 
-                            key={worker.id}
-                            className="p-3.5 sm:px-4 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 flex items-center justify-between gap-3 shadow-xs hover:shadow-md hover:border-sky-300 dark:hover:border-sky-800 transition-all group"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div 
-                                onClick={() => openWorkerProfile(worker.id)}
-                                className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 cursor-pointer shadow-xs hover:scale-105 active:scale-95 transition-transform"
-                              >
-                                {worker.name ? worker.name.charAt(0) : <Users className="w-4 h-4" />}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <h4 
-                                    onClick={() => openWorkerProfile(worker.id)}
-                                    className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 transition-colors"
-                                    title="مشاهده پروفایل جامع پرسنل"
-                                  >
-                                    {worker.name}
-                                  </h4>
-                                  <span className={`w-2 h-2 rounded-full shrink-0 ${worker.isActive !== 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                                </div>
-                                <span className="text-[11px] text-slate-400 block truncate mt-0.5">
-                                  {worker.role || 'پرسنل'} {worker.phone ? `• ${worker.phone}` : ''}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-                              <div className="text-end hidden sm:block">
-                                <span className="text-[9px] text-slate-400 block">روزانه:</span>
-                                <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300" dir="ltr">
-                                  {worker.wageType === 'contract' ? 'توافقی' : formatCurrency(worker.dailyRate, currency, language)}
-                                </span>
-                              </div>
-
-                              <div className="text-end">
-                                <span className="text-[9px] text-slate-400 block">مانده:</span>
-                                {fin ? (
-                                  <span className={`text-xs font-mono font-black ${
-                                    fin.netBalanceDue > 0 ? 'text-emerald-600 dark:text-emerald-400' : fin.netBalanceDue < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
-                                  }`} dir="ltr">
-                                    {formatCurrency(Math.abs(fin.netBalanceDue), currency, language)}
-                                  </span>
-                                ) : '—'}
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => openWorkerProfile(worker.id)}
-                                className="p-2 rounded-xl text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                                title="مشاهده پروفایل"
-                              >
-                                <History className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {group.workers.map(worker => renderWorkerRow(worker))}
                     </div>
                   )
                 )}
@@ -1137,6 +909,17 @@ export function WorkersView() {
             );
           })}
         </div>
+      ) : (
+        /* حالت دوم: نمایش پیوسته و یکدست همه پرسنل (Flat View) بدون تقسیم‌بندی دسته‌ها */
+        layoutMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {flatSortedWorkers.map(worker => renderWorkerCard(worker))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {flatSortedWorkers.map(worker => renderWorkerRow(worker))}
+          </div>
+        )
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
