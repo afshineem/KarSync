@@ -318,11 +318,13 @@ export function NotificationProvider({ children }) {
   useEffect(() => {
     const handleGlobalToast = (e) => {
       if (!e.detail) return;
+      // Strict isolation: workers must never see admin/system global toasts unless explicitly scoped to workerPortal
+      if (isWorker && !e.detail.workerPortal) return;
       addToast(e.detail);
     };
 
     const handleSystemNotif = (e) => {
-      if (!e.detail) return;
+      if (!e.detail || isWorker) return;
       const item = e.detail;
       setCustomNotifications((prev) => {
         const filtered = item.dedupKey ? prev.filter((n) => n.dedupKey !== item.dedupKey) : prev;
@@ -339,7 +341,7 @@ export function NotificationProvider({ children }) {
       window.removeEventListener('karsync-toast', handleGlobalToast);
       window.removeEventListener('karsync-system-notification', handleSystemNotif);
     };
-  }, [addToast]);
+  }, [addToast, isWorker]);
 
   // 4. Live Database Queries for Smart Alert Evaluation
   const dbSnapshot = useLiveQuery(
@@ -865,7 +867,9 @@ export function NotificationProvider({ children }) {
   ]);
 
   // Combine smart alerts + custom notifications, filtering out dismissed ones
+  // Strict isolation: Worker sessions must never receive admin customNotifications
   const allNotifications = useMemo(() => {
+    if (isWorker) return [];
     const combined = [...smartNotifications, ...customNotifications];
     return combined
       .filter((n) => !dismissedMap[n.dedupKey || n.id])
@@ -873,7 +877,7 @@ export function NotificationProvider({ children }) {
         ...n,
         isRead: Boolean(readMap[n.dedupKey || n.id])
       }));
-  }, [smartNotifications, customNotifications, dismissedMap, readMap]);
+  }, [isWorker, smartNotifications, customNotifications, dismissedMap, readMap]);
 
   const unreadCount = useMemo(
     () => allNotifications.filter((n) => !n.isRead).length,

@@ -4,8 +4,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
-import { pullRemoteChangesSilently } from '../services/realtimeSync';
-import { refreshWorkerPortalData } from '../services/workerAccess';
+import { supabase, pullRemoteChangesSilently } from '../services/realtimeSync';
+import { refreshWorkerPortalData, getStoredWorkerAccessToken } from '../services/workerAccess';
 import {
   formatAmount,
   getCurrentYearMonth,
@@ -39,7 +39,11 @@ import {
   Sparkles,
   X,
   RefreshCw,
-  Globe
+  Globe,
+  Bell,
+  BellRing,
+  Check,
+  Smartphone
 } from 'lucide-react';
 
 // Format decimal hours into H:MM clock format (e.g., 1.333 -> 1:20, 1.5 -> 1:30)
@@ -98,9 +102,61 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
   // Refreshing state for manual sync button
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // User/Settings Dropdown state
+  // User/Settings Dropdown & Worker Notification Bell Popover states
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef(null);
+
+  // Worker-scoped notification state (STRICTLY only this worker's attendance & settlements)
+  const workerNotifStorageKey = `karsync_worker_notifs_v1_${user?.workerId || 'anon'}`;
+  const workerSnapshotStorageKey = `karsync_worker_snapshot_v1_${user?.workerId || 'anon'}`;
+  const workerPushStorageKey = `karsync_worker_push_enabled_${user?.workerId || 'anon'}`;
+
+  const [workerNotifications, setWorkerNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`karsync_worker_notifs_v1_${user?.workerId || 'anon'}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [notifPermission, setNotifPermission] = useState(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission;
+    }
+    return 'unsupported';
+  });
+
+  const [workerPushEnabled, setWorkerPushEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`karsync_worker_push_enabled_${user?.workerId || 'anon'}`);
+      if (saved !== null) return JSON.parse(saved);
+      return typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
+    } catch {
+      return false;
+    }
+  });
+
+  // Persist worker notifications per workerId
+  useEffect(() => {
+    if (!user?.workerId) return;
+    try {
+      localStorage.setItem(workerNotifStorageKey, JSON.stringify(workerNotifications.slice(0, 40)));
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [workerNotifications, workerNotifStorageKey, user?.workerId]);
+
+  useEffect(() => {
+    if (!user?.workerId) return;
+    try {
+      localStorage.setItem(workerPushStorageKey, JSON.stringify(workerPushEnabled));
+    } catch {
+      // ignore
+    }
+  }, [workerPushEnabled, workerPushStorageKey, user?.workerId]);
 
   // Month navigation for historical settled records
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
@@ -108,14 +164,17 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
   // Timesheet search input
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Close dropdown when clicking outside
+  // Close dropdown & notification popover when clicking outside
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsDropdownOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setIsNotifOpen(false);
+      }
     }
-    if (isDropdownOpen) {
+    if (isDropdownOpen || isNotifOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('touchstart', handleClickOutside);
     }
@@ -123,7 +182,175 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [isDropdownOpen]);
+  }, [isDropdownOpen, isNotifOpen]);
+
+  // Helper: Send Mobile / OS Native Notification via Service Worker (works even when app is in background on mobile)
+  const sendMobileOsNotification = useCallback(async ({ title, body, tag }) => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && typeof reg.showNotification === 'function') {
+          await reg.showNotification(title, {
+            body,
+            icon: '/karsync-icon-192.png',
+            badge: '/karsync-icon.png',
+            tag: tag || `karsync_worker_${Date.now()}`,
+            renotify: true,
+            vibrate: [200, 100, 200],
+            data: { url: '/#portal', workerOnly: true }
+          });
+          return;
+        }
+      }
+    } catch {
+      // Fallback to window Notification below
+    }
+
+    try {
+      new Notification(title, {
+        body,
+        icon: '/karsync-icon.png',
+        tag: tag || `karsync_worker_${Date.now()}`
+      });
+    } catch {
+      // Ignore if mobile browser requires SW showNotification
+    }
+  }, []);
+
+  // Helper: Sync worker state to Service Worker IndexedDB & register background sync for closed-app notifications
+  const syncWorkerStateToServiceWorker = useCallback(
+    async ({ logSigs, paymentIds, enabled, currSymbol }) => {
+      if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !user?.workerId) return;
+      try {
+        const token = getStoredWorkerAccessToken();
+        const payload = {
+          enabled: Boolean(enabled && Notification.permission === 'granted'),
+          token: token || null,
+          workerId: user.workerId,
+          supabaseUrl: 'https://akeferuiyijsmgmjqnqc.supabase.co',
+          supabaseKey: 'sb_publishable_mDz14UqQ3Qukv5RmWPlsVg_uxQg0XQk',
+          language,
+          currencySymbol: currSymbol || 'د.ع',
+          initialized: true,
+          knownLogSigs: logSigs || {},
+          knownPaymentIds: paymentIds || [],
+          updatedAt: Date.now()
+        };
+
+        const reg = await navigator.serviceWorker.ready;
+        if (reg?.active) {
+          reg.active.postMessage({ type: 'SYNC_WORKER_SW_STATE', payload });
+        }
+
+        if (payload.enabled && reg) {
+          if ('periodicSync' in reg) {
+            try {
+              await reg.periodicSync.register('karsync-worker-bg-check', {
+                minInterval: 15 * 60 * 1000
+              });
+            } catch {
+              // Periodic sync optional on browsers without permission
+            }
+          }
+          if ('sync' in reg) {
+            try {
+              await reg.sync.register('karsync-worker-sync');
+            } catch {
+              // Background sync optional
+            }
+          }
+        }
+      } catch {
+        // Ignore SW messaging errors
+      }
+    },
+    [user?.workerId, language]
+  );
+
+  // Request or toggle external mobile notification permission for the worker
+  const handleToggleWorkerPush = useCallback(async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      addToast({
+        type: 'warning',
+        workerPortal: true,
+        force: true,
+        title: language === 'ku' ? 'پشتگیری ناکرێت' : 'عدم پشتیبانی مرورگر',
+        message:
+          language === 'ku'
+            ? 'ئەم وێبگەڕە پشتگیری ئاگادارکردنەوەی دەرەکی ناکات.'
+            : 'مرورگر دستگاه شما از اعلان خارجی سیستم‌عامل پشتیبانی نمی‌کند.'
+      });
+      return;
+    }
+
+    if (Notification.permission !== 'granted') {
+      try {
+        const perm = await Notification.requestPermission();
+        setNotifPermission(perm);
+        if (perm === 'granted') {
+          setWorkerPushEnabled(true);
+          addToast({
+            type: 'success',
+            workerPortal: true,
+            force: true,
+            title: language === 'ku' ? 'ئاگادارکردنەوە چالاک کرا' : 'اعلان موبایل فعال شد',
+            message:
+              language === 'ku'
+                ? 'لە کاتی تۆمارکردنی کارکرد یان تەسویەحیساب، پەیامت بۆ دێت.'
+                : 'هنگام ثبت کارکرد یا تسویه‌حساب جدید، حتی اگر برنامه بسته باشد به شما پیام داده می‌شود.'
+          });
+          await sendMobileOsNotification({
+            title: language === 'ku' ? 'ئاگادارکردنەوەی مۆبایل چالاک کرا • KarSync' : 'نوتیفیکیشن موبایل فعال شد • KarSync',
+            body:
+              language === 'ku'
+                ? 'هەر کاتێک کارکرد یان تەسویەحیسابت بۆ تۆمار بکرێت ئاگادار دەکرێیتەوە.'
+                : 'هر زمان کارکرد یا تسویه‌حسابی برای شما ثبت شود، بلافاصله روی موبایل مطلع خواهید شد.',
+            tag: 'karsync_worker_push_enabled'
+          });
+        } else {
+          setWorkerPushEnabled(false);
+          addToast({
+            type: 'error',
+            workerPortal: true,
+            force: true,
+            title: language === 'ku' ? 'دەستڕاگەیشتن ڕەتکرایەوە' : 'مجوز نوتیفیکیشن رد شد',
+            message:
+              language === 'ku'
+                ? 'تکایە لە ڕێکخستنەکانی مۆبایل مۆڵەتی ئاگادارکردنەوە بدە.'
+                : 'لطفاً از تنظیمات مرورگر موبایل، مجوز ارسال اعلان (Notifications) را فعال کنید.'
+          });
+        }
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    const nextState = !workerPushEnabled;
+    setWorkerPushEnabled(nextState);
+    addToast({
+      type: nextState ? 'success' : 'info',
+      workerPortal: true,
+      force: true,
+      title: nextState
+        ? language === 'ku'
+          ? 'ئاگادارکردنەوەی دەرەکی چالاک کرا'
+          : 'اعلان خارجی موبایل فعال شد'
+        : language === 'ku'
+        ? 'ئاگادارکردنەوەی دەرەکی ڕاگیرا'
+        : 'اعلان خارجی موبایل غیرفعال شد',
+      message: nextState
+        ? language === 'ku'
+          ? 'پەیامەکانی کارکرد و تەسویە لەسەر مۆبایل پیشان دەدرێن.'
+          : 'اعلان‌های ثبت کارکرد و تسویه‌حساب در پس‌زمینه موبایل ارسال خواهند شد.'
+        : language === 'ku'
+        ? 'تەنها لە ناو بەرنامەکەدا ئاگادارکردنەوەکان دەبینیت.'
+        : 'اعلان‌ها فقط در داخل پرتال نمایش داده می‌شوند.'
+    });
+  }, [workerPushEnabled, language, addToast, sendMobileOsNotification]);
 
   // Manual & background refresh handler
   const triggerRefresh = useCallback(
@@ -132,6 +359,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         if (showFeedback) {
           addToast({
             type: 'warning',
+            workerPortal: true,
             title:
               language === 'ku'
                 ? 'هێڵی ئینتەرنێت نییە'
@@ -165,6 +393,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         if (showFeedback) {
           addToast({
             type: 'success',
+            workerPortal: true,
             title:
               language === 'ku'
                 ? 'نوێکرایەوە'
@@ -188,24 +417,73 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     [user?.via, logout, addToast, language]
   );
 
-  // Proactively load fresh data when the portal opens
+  // Continuous background polling (every 25s) + visibilitychange + online + Realtime subscription
   useEffect(() => {
     let lastRun = 0;
     const refresh = () => {
       const now = Date.now();
-      if (now - lastRun < 20000) return;
+      if (now - lastRun < 15000) return;
       lastRun = now;
       triggerRefresh(false);
     };
 
     refresh();
 
+    const intervalId = setInterval(() => {
+      refresh();
+    }, 25000);
+
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh();
     };
+    const onOnline = () => refresh();
+
+    const onSwMessage = (event) => {
+      if (event.data?.type === 'WORKER_NOTIFICATION_CLICKED') {
+        triggerRefresh(false);
+      }
+    };
+
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [triggerRefresh]);
+    window.addEventListener('online', onOnline);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', onSwMessage);
+    }
+
+    // Also subscribe to Supabase Realtime changes for this worker's attendance_logs and payments
+    let channel = null;
+    if (user?.workerId && supabase) {
+      try {
+        channel = supabase
+          .channel(`worker_portal_live_${user.workerId}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'attendance_logs', filter: `worker_id=eq.${user.workerId}` },
+            () => triggerRefresh(false)
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'payments', filter: `worker_id=eq.${user.workerId}` },
+            () => triggerRefresh(false)
+          )
+          .subscribe();
+      } catch {
+        // Ignore realtime subscription errors
+      }
+    }
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', onSwMessage);
+      }
+      if (channel && supabase) {
+        supabase.removeChannel(channel).catch(() => {});
+      }
+    };
+  }, [triggerRefresh, user?.workerId]);
 
   // 1. Live Queries from Dexie
   const worker = useLiveQuery(
@@ -223,6 +501,276 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
   const allGroups = useLiveQuery(() => db.groups.toArray()) || [];
   const allLogs = useLiveQuery(() => db.attendanceLogs.toArray()) || [];
   const allPayments = useLiveQuery(() => db.payments.toArray()) || [];
+
+  // Strict Worker-Only Attendance & Settlement Notification Detector
+  useEffect(() => {
+    if (!user?.workerId || !worker) return;
+    const workerIdStr = String(user.workerId);
+
+    // Strictly filter ONLY this worker's own attendance logs and payments
+    const myLogs = allLogs.filter((l) => !l.deletedAt && String(l.workerId) === workerIdStr);
+    const myPayments = allPayments.filter((p) => !p.deletedAt && String(p.workerId) === workerIdStr);
+
+    if (myLogs.length === 0 && myPayments.length === 0) return;
+
+    const currSym = getCurrencySymbol(currency, language);
+    const getWorkTypeText = (t) => {
+      if (language === 'ku') {
+        return t === 'full' ? 'ڕۆژی تەواو' : t === 'half' ? 'نیو ڕۆژ' : 'کاتژمێری';
+      }
+      return t === 'full' ? 'روز کامل' : t === 'half' ? 'نیم‌روز' : 'ساعتی';
+    };
+
+    const nextLogSigs = {};
+    myLogs.forEach((l) => {
+      nextLogSigs[l.id] = `${l.type || 'full'}|${Number(l.overtimeHours) || 0}|${Number(l.totalDayPay) || 0}|${l.isSettled ? 1 : 0}`;
+    });
+    const nextPayIds = myPayments.map((p) => p.id);
+
+    let prevSnapshot = null;
+    try {
+      const raw = localStorage.getItem(workerSnapshotStorageKey);
+      if (raw) prevSnapshot = JSON.parse(raw);
+    } catch {
+      prevSnapshot = null;
+    }
+
+    // First time on this device: initialize baseline snapshot and seed recent history (marked as read)
+    if (!prevSnapshot) {
+      try {
+        localStorage.setItem(
+          workerSnapshotStorageKey,
+          JSON.stringify({ logSigs: nextLogSigs, paymentIds: nextPayIds, updatedAt: Date.now() })
+        );
+      } catch {
+        // ignore
+      }
+
+      setWorkerNotifications((existing) => {
+        if (existing && existing.length > 0) return existing;
+        const seeded = [];
+
+        const recentPayments = [...myPayments]
+          .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+          .slice(0, 3);
+        recentPayments.forEach((p) => {
+          const isSettle = p.type === 'settlement';
+          seeded.push({
+            id: `seed_pay_${p.id}`,
+            category: isSettle ? 'settlement' : 'advance',
+            date: p.date,
+            title: isSettle
+              ? language === 'ku'
+                ? 'تۆمارکردنی تەسویەحیساب'
+                : 'ثبت تسویه‌حساب'
+              : language === 'ku'
+              ? 'تۆمارکردنی پێشەکی (مساعده)'
+              : 'ثبت پرداختی / مساعده',
+            message: isSettle
+              ? language === 'ku'
+                ? `بڕی ${formatAmount(p.amount, currency)} ${currSym} وەک تەسویەحیساب لە بەرواری ${p.date} بۆ تۆ تۆمار کرا.`
+                : `مبلغ ${formatAmount(p.amount, currency)} ${currSym} بابت تسویه‌حساب در تاریخ ${p.date} برای شما ثبت شد.`
+              : language === 'ku'
+              ? `بڕی ${formatAmount(p.amount, currency)} ${currSym} وەک پێشەکی لە بەرواری ${p.date} بۆ تۆ تۆمار کرا.`
+              : `مبلغ ${formatAmount(p.amount, currency)} ${currSym} بابت مساعده در تاریخ ${p.date} برای شما ثبت شد.`,
+            createdAt: p.createdAt || new Date().toISOString(),
+            isRead: true,
+            targetTab: isSettle ? 'settled' : 'current'
+          });
+        });
+
+        const recentLogs = [...myLogs]
+          .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+          .slice(0, 4);
+        recentLogs.forEach((l) => {
+          const wType = getWorkTypeText(l.type);
+          const ot = Number(l.overtimeHours) || 0;
+          seeded.push({
+            id: `seed_log_${l.id}`,
+            category: 'attendance',
+            date: l.date,
+            title: language === 'ku' ? 'تۆمارکردنی کارکرد' : 'ثبت کارکرد روزانه',
+            message:
+              language === 'ku'
+                ? `کارکردی ڕۆژی ${l.date} (${wType}${ot > 0 ? ` + ${formatOvertimeClock(ot)} سەروەخت` : ''}) بە بڕی ${formatAmount(l.totalDayPay, currency)} ${currSym} تۆمار کرا.`
+                : `کارکرد تاریخ ${l.date} (${wType}${ot > 0 ? ` + ${formatOvertimeClock(ot)} اضافه‌کاری` : ''}) به مبلغ ${formatAmount(l.totalDayPay, currency)} ${currSym} ثبت شد.`,
+            createdAt: l.createdAt || new Date().toISOString(),
+            isRead: true,
+            targetTab: l.isSettled ? 'settled' : 'current'
+          });
+        });
+
+        return seeded.slice(0, 15);
+      });
+
+      syncWorkerStateToServiceWorker({
+        logSigs: nextLogSigs,
+        paymentIds: nextPayIds,
+        enabled: workerPushEnabled,
+        currSymbol: currSym
+      });
+      return;
+    }
+
+    // Compare current records against previous snapshot to detect NEW attendance logs or settlements
+    const prevLogSigs = prevSnapshot.logSigs || {};
+    const prevPayIds = new Set(prevSnapshot.paymentIds || []);
+    const newlyDetected = [];
+
+    myLogs.forEach((l) => {
+      const sig = nextLogSigs[l.id];
+      const prevSig = prevLogSigs[l.id];
+      const wType = getWorkTypeText(l.type);
+      const ot = Number(l.overtimeHours) || 0;
+
+      if (!prevSig) {
+        newlyDetected.push({
+          id: `ntf_log_${l.id}_${Date.now()}`,
+          category: 'attendance',
+          date: l.date,
+          title: language === 'ku' ? 'تۆمارکردنی کارکردی نوێ' : 'ثبت کارکرد جدید',
+          message:
+            language === 'ku'
+              ? `کارکردی ڕۆژی ${l.date} (${wType}${ot > 0 ? ` + ${formatOvertimeClock(ot)} سەروەخت` : ''}) بە بڕی ${formatAmount(l.totalDayPay, currency)} ${currSym} بۆ تۆ تۆمار کرا.`
+              : `کارکرد تاریخ ${l.date} (${wType}${ot > 0 ? ` + ${formatOvertimeClock(ot)} اضافه‌کاری` : ''}) به مبلغ ${formatAmount(l.totalDayPay, currency)} ${currSym} برای شما ثبت شد.`,
+          createdAt: new Date().toISOString(),
+          isRead: false,
+          targetTab: 'current'
+        });
+      } else if (prevSig !== sig) {
+        const wasSettled = prevSig.endsWith('|1');
+        const isNowSettled = sig.endsWith('|1');
+        if (!wasSettled && isNowSettled) {
+          newlyDetected.push({
+            id: `ntf_log_settled_${l.id}_${Date.now()}`,
+            category: 'settlement',
+            date: l.date,
+            title: language === 'ku' ? 'تەسویەکردنی کارکرد' : 'تسویه‌حساب کارکرد',
+            message:
+              language === 'ku'
+                ? `کارکردی ڕۆژی ${l.date} تەسویە کرا.`
+                : `کارکرد تاریخ ${l.date} شما تسویه‌حساب شد.`,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            targetTab: 'settled'
+          });
+        } else {
+          newlyDetected.push({
+            id: `ntf_log_upd_${l.id}_${Date.now()}`,
+            category: 'attendance',
+            date: l.date,
+            title: language === 'ku' ? 'نوێکردنەوەی کارکرد' : 'بروزرسانی کارکرد روزانه',
+            message:
+              language === 'ku'
+                ? `کارکردی ڕۆژی ${l.date} (${wType}) بە بڕی ${formatAmount(l.totalDayPay, currency)} ${currSym} نوێکرایەوە.`
+                : `کارکرد تاریخ ${l.date} (${wType}) به مبلغ ${formatAmount(l.totalDayPay, currency)} ${currSym} بروزرسانی شد.`,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            targetTab: isNowSettled ? 'settled' : 'current'
+          });
+        }
+      }
+    });
+
+    myPayments.forEach((p) => {
+      if (!prevPayIds.has(p.id)) {
+        const isSettle = p.type === 'settlement';
+        newlyDetected.push({
+          id: `ntf_pay_${p.id}_${Date.now()}`,
+          category: isSettle ? 'settlement' : 'advance',
+          date: p.date,
+          title: isSettle
+            ? language === 'ku'
+              ? 'تۆمارکردنی تەسویەحیسابی نوێ'
+              : 'ثبت تسویه‌حساب جدید'
+            : language === 'ku'
+            ? 'تۆمارکردنی پێشەکی (مساعده)'
+            : 'ثبت پرداختی / مساعده جدید',
+          message: isSettle
+            ? language === 'ku'
+              ? `بڕی ${formatAmount(p.amount, currency)} ${currSym} وەک تەسویەحیساب لە بەرواری ${p.date} بۆ تۆ تۆمار کرا.`
+              : `مبلغ ${formatAmount(p.amount, currency)} ${currSym} بابت تسویه‌حساب در تاریخ ${p.date} برای شما ثبت شد.`
+            : language === 'ku'
+            ? `بڕی ${formatAmount(p.amount, currency)} ${currSym} وەک پێشەکی لە بەرواری ${p.date} بۆ تۆ تۆمار کرا.`
+            : `مبلغ ${formatAmount(p.amount, currency)} ${currSym} بابت مساعده در تاریخ ${p.date} برای شما ثبت شد.`,
+          createdAt: new Date().toISOString(),
+          isRead: false,
+          targetTab: isSettle ? 'settled' : 'current'
+        });
+      }
+    });
+
+    // Save updated snapshot
+    try {
+      localStorage.setItem(
+        workerSnapshotStorageKey,
+        JSON.stringify({ logSigs: nextLogSigs, paymentIds: nextPayIds, updatedAt: Date.now() })
+      );
+    } catch {
+      // ignore
+    }
+
+    syncWorkerStateToServiceWorker({
+      logSigs: nextLogSigs,
+      paymentIds: nextPayIds,
+      enabled: workerPushEnabled,
+      currSymbol: currSym
+    });
+
+    if (newlyDetected.length > 0) {
+      setWorkerNotifications((prev) => [...newlyDetected, ...prev].slice(0, 40));
+
+      newlyDetected.slice(0, 2).forEach((notif) => {
+        addToast({
+          type: 'success',
+          workerPortal: true,
+          force: true,
+          title: notif.title,
+          message: notif.message,
+          duration: 5500
+        });
+
+        if (workerPushEnabled && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          sendMobileOsNotification({
+            title: `${notif.title} • KarSync`,
+            body: notif.message,
+            tag: notif.id
+          });
+        }
+      });
+    }
+  }, [
+    allLogs,
+    allPayments,
+    user?.workerId,
+    worker,
+    currency,
+    language,
+    workerSnapshotStorageKey,
+    workerPushEnabled,
+    addToast,
+    sendMobileOsNotification,
+    syncWorkerStateToServiceWorker
+  ]);
+
+  const unreadWorkerNotifCount = useMemo(
+    () => workerNotifications.filter((n) => !n.isRead).length,
+    [workerNotifications]
+  );
+
+  const markAllWorkerNotifsRead = useCallback(() => {
+    setWorkerNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  }, []);
+
+  const markSingleWorkerNotifRead = useCallback((id, targetTab) => {
+    setWorkerNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+    if (targetTab) {
+      setPeriodTab(targetTab);
+    }
+    setIsNotifOpen(false);
+  }, []);
 
   // 2. Identify Worker Group & Supervisor Status
   const workerGroup = useMemo(() => {
@@ -951,8 +1499,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               </nav>
             </div>
 
-            {/* End Controls: Sync Button + User Profile Dropdown */}
-            <div className="flex items-center gap-2 relative" ref={dropdownRef}>
+            {/* End Controls: Sync Button + Worker Notification Bell + User Profile Dropdown */}
+            <div className="flex items-center gap-2 relative">
               <button
                 type="button"
                 onClick={() => triggerRefresh(true)}
@@ -963,158 +1511,363 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-sky-500' : ''}`} />
               </button>
 
-              {/* User Avatar Dropdown Trigger */}
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen((prev) => !prev)}
-                className={`relative p-0.5 sm:p-1 rounded-2xl border transition-all shadow-xs flex items-center gap-2 sm:pe-2.5 group cursor-pointer ${
-                  isDropdownOpen
-                    ? 'ring-2 ring-sky-500 shadow-md border-transparent bg-white dark:bg-slate-900'
-                    : 'bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border-white/60 dark:border-white/10 backdrop-blur-md'
-                }`}
-              >
-                <div className="relative">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-xs">
-                    {userInitials}
-                  </div>
-                  <span className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
-                </div>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hidden lg:inline max-w-[110px] truncate">
-                  {user?.name || worker?.name}
-                </span>
-              </button>
+              {/* Dedicated Worker Notification Bell (Strictly Attendance & Settlements Only) */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNotifOpen((prev) => !prev);
+                    setIsDropdownOpen(false);
+                  }}
+                  title={language === 'ku' ? 'ئاگادارکردنەوەکانی کارکرد و تەسویە' : 'اعلان‌های کارکرد و تسویه‌حساب'}
+                  className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border backdrop-blur-md flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-95 ${
+                    isNotifOpen
+                      ? 'ring-2 ring-sky-500 border-transparent bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400'
+                      : 'bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border-white/60 dark:border-white/10 text-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  {unreadWorkerNotifCount > 0 ? (
+                    <BellRing className="w-4 h-4 text-sky-600 dark:text-sky-400 animate-pulse" />
+                  ) : (
+                    <Bell className="w-4 h-4" />
+                  )}
+                  {unreadWorkerNotifCount > 0 && (
+                    <span className="absolute -top-1 -end-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-white dark:border-slate-950 shadow-xs">
+                      {unreadWorkerNotifCount > 9 ? '9+' : unreadWorkerNotifCount}
+                    </span>
+                  )}
+                </button>
 
-              {/* Liquid Glass User & Settings Dropdown (Language, Dark Mode, Logout) */}
-              {isDropdownOpen && (
-                <div className="absolute top-full mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-white/85 dark:bg-slate-950/85 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/70 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6)] z-50 p-3 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 rtl:left-0 space-y-2.5">
-                  {/* User Identity Card */}
-                  <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/10">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-md shadow-sky-500/20 shrink-0">
-                        {userInitials}
+                {/* Worker Notification Popover */}
+                {isNotifOpen && (
+                  <div className="absolute top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] bg-white/90 dark:bg-slate-950/90 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/70 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.22)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.65)] z-50 overflow-hidden text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 rtl:left-0">
+                    {/* Popover Header */}
+                    <div className="p-3.5 sm:p-4 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                          <BellRing className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                            {language === 'ku' ? 'ئاگادارکردنەوەکانی من' : 'اعلان‌های کارکرد و تسویه من'}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            {language === 'ku'
+                              ? 'تەنها کارکرد و تەسویەحیسابی تایبەت بە خۆت'
+                              : 'فقط اعلان‌های ثبت کارکرد و تسویه‌حساب اختصاصی شما'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-sm font-black text-slate-900 dark:text-white truncate">
-                          {user?.name || worker?.name}
-                        </h4>
-                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                          {worker?.teamRole === 'Master' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-bold border border-purple-500/20">
-                              {labels.masterRole}
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-bold border border-sky-500/20">
-                              {worker?.role || labels.workerRoleLabel}
-                            </span>
-                          )}
-                          {workerGroup && (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold">
-                              {workerGroup.name}
-                            </span>
-                          )}
+
+                      {unreadWorkerNotifCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={markAllWorkerNotifsRead}
+                          className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 transition-colors cursor-pointer shrink-0"
+                        >
+                          {language === 'ku' ? 'خوێندنەوەی هەموو' : 'خواندن همه'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* External Mobile Push Notification Banner / Toggle */}
+                    <div className="p-3 bg-slate-100/80 dark:bg-slate-900/70 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                            workerPushEnabled && notifPermission === 'granted'
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          <Smartphone className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">
+                            {language === 'ku' ? 'ئاگادارکردنەوەی دەرەکی مۆبایل' : 'نوتیفیکیشن خارجی موبایل'}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                            {workerPushEnabled && notifPermission === 'granted'
+                              ? language === 'ku'
+                                ? 'چالاکە (تەنانەت کاتێک بەرنامەکە داخراوە)'
+                                : 'فعال (ارسال پیام حتی در زمان بسته بودن برنامه)'
+                              : language === 'ku'
+                              ? 'بۆ وەرگرتنی پەیام لەسەر مۆبایل چالاکی بکە'
+                              : 'دریافت پیام روی موبایل حتی وقتی برنامه باز نیست'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleToggleWorkerPush}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition-all shrink-0 cursor-pointer ${
+                          workerPushEnabled && notifPermission === 'granted'
+                            ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
+                            : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-500/30'
+                        }`}
+                      >
+                        {workerPushEnabled && notifPermission === 'granted'
+                          ? language === 'ku'
+                            ? 'چالاکە ✓'
+                            : 'فعال ✓'
+                          : language === 'ku'
+                          ? 'چالاککردن'
+                          : 'فعالسازی'}
+                      </button>
+                    </div>
+
+                    {/* Notification Feed List */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-200/50 dark:divide-slate-800/70">
+                      {workerNotifications.length === 0 ? (
+                        <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500">
+                          {language === 'ku'
+                            ? 'هیچ ئاگادارکردنەوەیەکی نوێ نییە.'
+                            : 'هنوز اعلانی برای ثبت کارکرد یا تسویه‌حساب ثبت نشده است.'}
+                        </div>
+                      ) : (
+                        workerNotifications.map((n) => {
+                          const isSettle = n.category === 'settlement' || n.category === 'advance';
+                          return (
+                            <button
+                              key={n.id}
+                              type="button"
+                              onClick={() => markSingleWorkerNotifRead(n.id, n.targetTab)}
+                              className={`w-full text-start p-3.5 transition-colors flex items-start gap-3 cursor-pointer ${
+                                !n.isRead
+                                  ? 'bg-sky-50/70 dark:bg-sky-950/30 hover:bg-sky-100/70 dark:hover:bg-sky-900/30'
+                                  : 'hover:bg-slate-50 dark:hover:bg-slate-900/50'
+                              }`}
+                            >
+                              <div
+                                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                                  isSettle
+                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                    : 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
+                                }`}
+                              >
+                                {isSettle ? <CheckCircle2 className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                                    {n.title}
+                                  </span>
+                                  {n.date && (
+                                    <span className="text-[10px] font-mono font-bold text-slate-400 shrink-0">
+                                      {n.date}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mt-1">
+                                  {n.message}
+                                </p>
+                              </div>
+
+                              {!n.isRead && (
+                                <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0 mt-2" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* User Avatar Dropdown Trigger */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDropdownOpen((prev) => !prev);
+                    setIsNotifOpen(false);
+                  }}
+                  className={`relative p-0.5 sm:p-1 rounded-2xl border transition-all shadow-xs flex items-center gap-2 sm:pe-2.5 group cursor-pointer ${
+                    isDropdownOpen
+                      ? 'ring-2 ring-sky-500 shadow-md border-transparent bg-white dark:bg-slate-900'
+                      : 'bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border-white/60 dark:border-white/10 backdrop-blur-md'
+                  }`}
+                >
+                  <div className="relative">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-xs">
+                      {userInitials}
+                    </div>
+                    <span className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hidden lg:inline max-w-[110px] truncate">
+                    {user?.name || worker?.name}
+                  </span>
+                </button>
+
+                {/* Liquid Glass User & Settings Dropdown (Language, Dark Mode, Mobile Push, Logout) */}
+                {isDropdownOpen && (
+                  <div className="absolute top-full mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-white/85 dark:bg-slate-950/85 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/70 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6)] z-50 p-3 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 rtl:left-0 space-y-2.5">
+                    {/* User Identity Card */}
+                    <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-md shadow-sky-500/20 shrink-0">
+                          {userInitials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm font-black text-slate-900 dark:text-white truncate">
+                            {user?.name || worker?.name}
+                          </h4>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                            {worker?.teamRole === 'Master' ? (
+                              <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-bold border border-purple-500/20">
+                                {labels.masterRole}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-bold border border-sky-500/20">
+                                {worker?.role || labels.workerRoleLabel}
+                              </span>
+                            )}
+                            {workerGroup && (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold">
+                                {workerGroup.name}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Theme Switcher ([APP_THEME_BUTTON] Segmented Control) */}
-                  <div className="p-2 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5 space-y-1.5">
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                        {language === 'ku' ? 'ڕووکاری بەرنامە' : language === 'en' ? 'Appearance' : 'حالت نمایش'}
+                    {/* External Mobile Notification Toggle inside Dropdown */}
+                    <button
+                      type="button"
+                      onClick={handleToggleWorkerPush}
+                      className="w-full p-2.5 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] hover:bg-slate-200/70 dark:hover:bg-white/[0.08] border border-slate-200/50 dark:border-white/5 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <BellRing className="w-4 h-4 text-sky-500 shrink-0" />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                          {language === 'ku' ? 'ئاگادارکردنەوەی دەرەکی مۆبایل' : 'اعلان کارکرد و تسویه در موبایل'}
+                        </span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold shrink-0 ${
+                          workerPushEnabled && notifPermission === 'granted'
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                        }`}
+                      >
+                        {workerPushEnabled && notifPermission === 'granted'
+                          ? language === 'ku'
+                            ? 'چالاک'
+                            : 'فعال'
+                          : language === 'ku'
+                          ? 'ناچالاک'
+                          : 'فعالسازی'}
                       </span>
-                    </div>
-                    <div className="flex rounded-xl bg-slate-200/70 dark:bg-slate-900 p-1 border border-slate-300/40 dark:border-white/5">
-                      <button
-                        type="button"
-                        onClick={() => theme !== 'light' && toggleTheme()}
-                        className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
-                          theme === 'light'
-                            ? 'bg-sky-600 text-white shadow-xs'
-                            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                      >
-                        <Sun className="w-3.5 h-3.5" />
-                        {theme === 'light' && (
-                          <span>{language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'Light' : 'حالت روشن'}</span>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => theme !== 'dark' && toggleTheme()}
-                        className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
-                          theme === 'dark'
-                            ? 'bg-sky-600 text-white shadow-xs'
-                            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                      >
-                        <Moon className="w-3.5 h-3.5" />
-                        {theme === 'dark' && (
-                          <span>{language === 'ku' ? 'شەو' : language === 'en' ? 'Dark' : 'حالت تاریک'}</span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                    </button>
 
-                  {/* Language Selector */}
-                  <div className="p-2 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5 space-y-1.5">
-                    <div className="flex items-center gap-1.5 px-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                      <Globe className="w-3.5 h-3.5 text-sky-500" />
-                      <span>{language === 'ku' ? 'زمانی سیستم' : language === 'en' ? 'Language' : 'زبان برنامه'}</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl">
-                      {[
-                        { id: 'fa', label: 'فارسی' },
-                        { id: 'ku', label: 'کوردی' },
-                        { id: 'en', label: 'English' }
-                      ].map((lang) => (
+                    {/* Theme Switcher ([APP_THEME_BUTTON] Segmented Control) */}
+                    <div className="p-2 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5 space-y-1.5">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                          {language === 'ku' ? 'ڕووکاری بەرنامە' : language === 'en' ? 'Appearance' : 'حالت نمایش'}
+                        </span>
+                      </div>
+                      <div className="flex rounded-xl bg-slate-200/70 dark:bg-slate-900 p-1 border border-slate-300/40 dark:border-white/5">
                         <button
-                          key={lang.id}
                           type="button"
-                          onClick={() => changeLanguage(lang.id)}
-                          className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            language === lang.id
+                          onClick={() => theme !== 'light' && toggleTheme()}
+                          className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
+                            theme === 'light'
                               ? 'bg-sky-600 text-white shadow-xs'
-                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                           }`}
                         >
-                          {lang.label}
+                          <Sun className="w-3.5 h-3.5" />
+                          {theme === 'light' && (
+                            <span>{language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'Light' : 'حالت روشن'}</span>
+                          )}
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => theme !== 'dark' && toggleTheme()}
+                          className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
+                            theme === 'dark'
+                              ? 'bg-sky-600 text-white shadow-xs'
+                              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                          }`}
+                        >
+                          <Moon className="w-3.5 h-3.5" />
+                          {theme === 'dark' && (
+                            <span>{language === 'ku' ? 'شەو' : language === 'en' ? 'Dark' : 'حالت تاریک'}</span>
+                          )}
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Print Payslip Shortcut */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      window.print();
-                    }}
-                    className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
-                  >
-                    <Printer className="w-4 h-4 text-sky-500" />
-                    <span>{language === 'ku' ? 'چاپکردنی پسوولەی مووچە' : 'چاپ فیش حقوقی و کارکرد'}</span>
-                  </button>
+                    {/* Language Selector */}
+                    <div className="p-2 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5 space-y-1.5">
+                      <div className="flex items-center gap-1.5 px-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                        <Globe className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{language === 'ku' ? 'زمانی سیستم' : language === 'en' ? 'Language' : 'زبان برنامه'}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl">
+                        {[
+                          { id: 'fa', label: 'فارسی' },
+                          { id: 'ku', label: 'کوردی' },
+                          { id: 'en', label: 'English' }
+                        ].map((lang) => (
+                          <button
+                            key={lang.id}
+                            type="button"
+                            onClick={() => changeLanguage(lang.id)}
+                            className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              language === lang.id
+                                ? 'bg-sky-600 text-white shadow-xs'
+                                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                            }`}
+                          >
+                            {lang.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                  {/* Logout Action */}
-                  <div className="border-t border-slate-200/60 dark:border-white/10 pt-2">
+                    {/* Print Payslip Shortcut */}
                     <button
                       type="button"
                       onClick={() => {
                         setIsDropdownOpen(false);
-                        logout();
+                        window.print();
                       }}
-                      className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                      className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
                     >
-                      <LogOut className="w-4 h-4 text-rose-500" />
-                      <span>
-                        {language === 'fa' ? 'خروج از حساب کاربری' : language === 'ku' ? 'چوونەدەرەوە' : 'Sign Out'}
-                      </span>
+                      <Printer className="w-4 h-4 text-sky-500" />
+                      <span>{language === 'ku' ? 'چاپکردنی پسوولەی مووچە' : 'چاپ فیش حقوقی و کارکرد'}</span>
                     </button>
+
+                    {/* Logout Action */}
+                    <div className="border-t border-slate-200/60 dark:border-white/10 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsDropdownOpen(false);
+                          if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.ready
+                              .then((reg) => reg?.active?.postMessage({ type: 'CLEAR_WORKER_SW_STATE' }))
+                              .catch(() => {});
+                          }
+                          logout();
+                        }}
+                        className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4 text-rose-500" />
+                        <span>
+                          {language === 'fa' ? 'خروج از حساب کاربری' : language === 'ku' ? 'چوونەدەرەوە' : 'Sign Out'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
