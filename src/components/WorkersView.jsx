@@ -1,12 +1,11 @@
-import { pushWorkerLive, deleteWorkerLive, pushGroupLive, deleteGroupLive } from '../services/realtimeSync';
-import React, { useState, useMemo, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateId, DEFAULT_PROJECT_ID } from '../db/db';
+import { pushWorkerLive, deleteWorkerLive } from '../services/realtimeSync';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
-import { formatCurrency, formatHoursAndMinutes, getCurrencySymbol } from '../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 import { calculateWorkerFinancials } from '../utils/settlementCalculations';
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 import { EditRecordModal } from './EditRecordModal';
@@ -25,7 +24,9 @@ import {
   Briefcase, 
   Coins, 
   Clock, 
-  History, Calendar, Sparkles, 
+  History, 
+  Calendar, 
+  Sparkles, 
   CheckCircle2, 
   XCircle, 
   X, 
@@ -37,16 +38,21 @@ import {
   Layers,
   Archive,
   RotateCcw,
+  RefreshCw,
   ChevronDown,
-  ChevronUp,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Lock,
   WalletCards,
-  Banknote
+  MoreHorizontal,
+  FolderTree,
+  Building2,
+  DollarSign,
+  TrendingUp,
+  ShieldCheck,
+  Check
 } from 'lucide-react';
-import { canDeleteWorker } from '../db/db';
 
 export function WorkersView() {
   const { t, language, direction } = useLanguage();
@@ -55,10 +61,14 @@ export function WorkersView() {
   const currency = currentProject?.currency || 'IQD';
 
   const workerCreds = getWorkerCredentialsMap();
+  const searchInputRef = useRef(null);
+
+  // States
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState('all'); // 'all' | 'active' | 'inactive'
   const [filterSection, setFilterSection] = useState('all'); // 'all' | 'unassigned' | secId
-  const [statusTab, setStatusTab] = useState('active'); // 'active' | 'archived' | 'trash'
+  const [filterGroup, setFilterGroup] = useState('all'); // 'all' | 'unassigned' | groupId
+  const [statusTab, setStatusTab] = useState('active'); // 'active' | 'archived' | 'recycle'
   
   const [layoutMode, setLayoutMode] = useState(() => {
     return localStorage.getItem('workshop_workers_view_mode') || 'grid';
@@ -83,7 +93,7 @@ export function WorkersView() {
   };
 
   // Sort state
-  const [sortBy, setSortBy] = useState('name'); // 'name' | 'dailyRate' | 'overtimeRate' | 'role' | 'status' | 'createdAt'
+  const [sortBy, setSortBy] = useState('name'); // 'name' | 'balance' | 'dailyRate' | 'role' | 'createdAt'
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
   const handleSortChange = (newSortBy) => {
     if (sortBy === newSortBy) {
@@ -99,42 +109,47 @@ export function WorkersView() {
   const [isManageGroupsModalOpen, setIsManageGroupsModalOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState(null);
   const [historyWorker, setHistoryWorker] = useState(null);
-  const [historyTab, setHistoryTab] = useState('logs'); // 'logs' | 'payments'
   const [quickAttendanceWorker, setQuickAttendanceWorker] = useState(null);
   const [editingLog, setEditingLog] = useState(null);
-
-  // Escape key listener for Add/Edit Worker modal
-  useEffect(() => {
-    if (!isFormModalOpen) return;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setIsFormModalOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFormModalOpen]);
-
-  // Form inputs
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    role: '',
-    groupId: '',
-    teamRole: 'Worker',
-    wageType: 'standard',
-    dailyRate: '35000',
-    overtimeHourlyRate: '5000',
-    defaultSectionId: '',
-    isActive: 1,
-    username: '',
-    password: ''
-  });
-  const [formError, setFormError] = useState('');
+  const [activeMenuWorkerId, setActiveMenuWorkerId] = useState(null);
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
-  // Live query project sections for current project
+  // ─────────────────────────────────────────────────────────────
+  // کلید میانبر کیبورد: زدن "/" یا "\" برای فوکوس آنی روی سرچ
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // اگر داخل یک اینپوت یا تکست‌اریا نیستیم
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      const isInputFocused = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
+      
+      if (!isInputFocused && (e.key === '/' || e.key === '\\')) {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // بستن منوی سه‌نقطه با کلیک خارج از آن
+  useEffect(() => {
+    if (!activeMenuWorkerId) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-worker-menu]')) {
+        setActiveMenuWorkerId(null);
+      }
+    };
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [activeMenuWorkerId]);
+
+  // Live queries
   const projectSections = useLiveQuery(
     async () => {
       if (!targetProjectId) return [];
@@ -151,7 +166,6 @@ export function WorkersView() {
     return map;
   }, [projectSections]);
 
-  // Live query from Dexie scoped to active project with fallback for legacy records
   const workers = useLiveQuery(
     async () => {
       const list = await db.workers.toArray();
@@ -160,20 +174,19 @@ export function WorkersView() {
     [targetProjectId]
   ) || [];
 
-  // Live query groups for workshop
   const groups = useLiveQuery(
     async () => {
       try {
         const list = await db.groups.toArray();
-        return list.filter((g) => !g.deletedAt);
+        return list.filter((g) => !g.deletedAt && (!g.projectId || g.projectId === targetProjectId));
       } catch (_) {
         return [];
       }
     },
-    []
+    [targetProjectId]
   ) || [];
 
-  // پرسنلی که دارای سابقه کارکرد یا اسناد مالی هستند تحت هیچ شرایطی نباید قابل حذف باشند
+  // پرسنلی که دارای سابقه کارکرد یا اسناد مالی هستند تحت هیچ شرایطی نباید حذف قطعی شوند
   const undeletableWorkerIds = useLiveQuery(
     async () => {
       const logs = await db.attendanceLogs.toArray();
@@ -187,34 +200,16 @@ export function WorkersView() {
         if (p.workerId) set.add(String(p.workerId));
       });
       expenses.forEach((e) => {
-        if (e.personId) set.add(String(e.personId));
+        if (e.workerId) set.add(String(e.workerId));
       });
       return set;
     },
     []
   ) || new Set();
 
-  const rawWorkerHistoryLogs = useLiveQuery(
-    async () => {
-      if (!historyWorker?.id) return [];
-      const list = await db.attendanceLogs.toArray();
-      return list.filter((l) => String(l.workerId) === String(historyWorker.id));
-    },
-    [historyWorker?.id]
-  ) || [];
-
-  // Live query all logs and payments for calculating real-time balances
   const allLogs = useLiveQuery(() => db.attendanceLogs.toArray(), []) || [];
   const allPayments = useLiveQuery(() => db.payments.toArray(), []) || [];
 
-  const workerPayments = useMemo(() => {
-    if (!historyWorker?.id) return [];
-    return allPayments
-      .filter((p) => String(p.workerId) === String(historyWorker.id) && !p.deletedAt)
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [allPayments, historyWorker?.id]);
-
-  // Single-source-of-truth financial balance map for all workers
   const workerFinancialsMap = useMemo(() => {
     const map = new Map();
     workers.forEach((w) => {
@@ -224,26 +219,7 @@ export function WorkersView() {
     return map;
   }, [workers, allLogs, allPayments, currency]);
 
-  const workerHistoryLogs = useMemo(() => {
-    if (!Array.isArray(rawWorkerHistoryLogs)) return [];
-    const map = new Map();
-    rawWorkerHistoryLogs.forEach((l) => {
-      if (!l || !l.date) return;
-      const existing = map.get(l.date);
-      if (!existing) {
-        map.set(l.date, l);
-      } else {
-        const timeL = l.updatedAt || l.createdAt || '';
-        const timeEx = existing.updatedAt || existing.createdAt || '';
-        if (timeL.localeCompare(timeEx) > 0) {
-          map.set(l.date, l);
-        }
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
-  }, [rawWorkerHistoryLogs]);
-
-  // Active, Archived, and Trash lists for accurate counts
+  // لیست‌های وضعیت سه‌گانه
   const activeWorkersList = useMemo(() => {
     return (workers || []).filter(w => !w.deletedAt && !w.isArchived && w.status !== 'archived');
   }, [workers]);
@@ -252,38 +228,68 @@ export function WorkersView() {
     return (workers || []).filter(w => !w.deletedAt && (w.isArchived || w.status === 'archived'));
   }, [workers]);
 
-  const trashWorkersList = useMemo(() => {
+  const recycleWorkersList = useMemo(() => {
     return (workers || []).filter(w => !!w.deletedAt);
   }, [workers]);
 
-  // Filtered workers list based on statusTab, search, section, and active/inactive subfilter
+  // محاسبات شاخص‌های هیرو مدیریتی
+  const heroMetrics = useMemo(() => {
+    let totalUnsettledDue = 0;
+    let activeTodayCount = 0;
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const todayWorkerIds = new Set();
+    allLogs.forEach(l => {
+      if (l.date === todayStr && l.workerId && (l.status === 'present' || l.hours > 0)) {
+        todayWorkerIds.add(String(l.workerId));
+      }
+    });
+    activeTodayCount = todayWorkerIds.size;
+
+    activeWorkersList.forEach(w => {
+      const fin = workerFinancialsMap.get(w.id);
+      if (fin && fin.netBalanceDue > 0) {
+        totalUnsettledDue += fin.netBalanceDue;
+      }
+    });
+
+    return {
+      activeCount: activeWorkersList.length,
+      activeTodayCount,
+      totalUnsettledDue,
+      groupsCount: groups.length
+    };
+  }, [activeWorkersList, allLogs, workerFinancialsMap, groups]);
+
+  // فیلتر اصلی پرسنل
   const filteredWorkers = useMemo(() => {
     return (workers || []).filter((w) => {
       if (!w) return false;
 
-      // 1. Status Tab filter
+      // ۱. تب وضعیت اصلی
       if (statusTab === 'active') {
         if (w.deletedAt || w.isArchived || w.status === 'archived') return false;
         if (filterActive === 'active' && w.isActive !== 1) return false;
         if (filterActive === 'inactive' && w.isActive !== 0) return false;
       } else if (statusTab === 'archived') {
         if (w.deletedAt || (!w.isArchived && w.status !== 'archived')) return false;
-      } else if (statusTab === 'trash') {
+      } else if (statusTab === 'recycle') {
         if (!w.deletedAt) return false;
       }
 
-      // 2. Search
+      // ۲. فیلتر سرچ متن
       const wName = (w.name || '').toLowerCase();
-      const s = (searchTerm || '').toLowerCase();
-      const matchSearch = 
-        wName.includes(s) ||
-        (w.role && w.role.toLowerCase().includes(s)) ||
-        (w.phone && String(w.phone).includes(searchTerm));
-      
-      if (!matchSearch) return false;
+      const s = (searchTerm || '').trim().toLowerCase();
+      if (s) {
+        const match = 
+          wName.includes(s) ||
+          (w.role && w.role.toLowerCase().includes(s)) ||
+          (w.phone && String(w.phone).includes(s));
+        if (!match) return false;
+      }
 
-      // 3. Section filter (applied in active & archived views)
-      if (statusTab !== 'trash' && filterSection !== 'all') {
+      // ۳. فیلتر بخش پروژه
+      if (statusTab !== 'recycle' && filterSection !== 'all') {
         if (filterSection === 'unassigned') {
           if (w.defaultSectionId) return false;
         } else {
@@ -291,25 +297,34 @@ export function WorkersView() {
         }
       }
 
+      // ۴. فیلتر گروه
+      if (statusTab !== 'recycle' && filterGroup !== 'all') {
+        if (filterGroup === 'unassigned') {
+          if (w.groupId) return false;
+        } else {
+          if (String(w.groupId) !== String(filterGroup)) return false;
+        }
+      }
+
       return true;
     });
-  }, [workers, statusTab, searchTerm, filterActive, filterSection]);
+  }, [workers, statusTab, searchTerm, filterActive, filterSection, filterGroup]);
 
+  // گروه‌بندی و مرتب‌سازی پرسنل
   const groupedWorkers = useMemo(() => {
     const groupsObj = { 
       unassigned: { 
         id: 'unassigned', 
-        name: language === 'ku' ? 'کارمەندانی گشتی (بێ گرووپ)' : 'پرسنل عمومی (بدون گروه)', 
+        name: language === 'ku' ? 'پرسنلی گشتی (بێ گرووپ)' : 'پرسنل عمومی (بدون گروه)', 
+        description: language === 'ku' ? 'کرێکارانی ئازاد و بێ بەشین' : 'نیروهای انفرادی و عمومی کارگاه',
         workers: [] 
       } 
     };
     
-    // Initialize groups from DB
     (groups || []).forEach(g => {
       groupsObj[g.id] = { ...g, workers: [] };
     });
     
-    // Populate workers
     filteredWorkers.forEach(w => {
       if (w.groupId && groupsObj[w.groupId]) {
         groupsObj[w.groupId].workers.push(w);
@@ -318,21 +333,21 @@ export function WorkersView() {
       }
     });
 
-    // Sort workers inside each group according to user's sortBy and sortOrder
+    // مرتب‌سازی اعضای هر گروه
     Object.values(groupsObj).forEach(g => {
       if (g.workers) {
         g.workers.sort((a, b) => {
           let compare = 0;
           if (sortBy === 'name') {
             compare = (a.name || '').localeCompare(b.name || '', language === 'fa' ? 'fa' : 'ckb');
+          } else if (sortBy === 'balance') {
+            const finA = workerFinancialsMap.get(a.id)?.netBalanceDue || 0;
+            const finB = workerFinancialsMap.get(b.id)?.netBalanceDue || 0;
+            compare = finB - finA;
           } else if (sortBy === 'dailyRate') {
             compare = (Number(a.dailyRate) || 0) - (Number(b.dailyRate) || 0);
-          } else if (sortBy === 'overtimeRate') {
-            compare = (Number(a.overtimeHourlyRate) || 0) - (Number(b.overtimeHourlyRate) || 0);
           } else if (sortBy === 'role') {
             compare = (a.role || '').localeCompare(b.role || '');
-          } else if (sortBy === 'status') {
-            compare = (b.isActive || 0) - (a.isActive || 0);
           } else if (sortBy === 'createdAt') {
             compare = (a.createdAt || '').localeCompare(b.createdAt || '');
           }
@@ -341,7 +356,6 @@ export function WorkersView() {
             return sortOrder === 'asc' ? compare : -compare;
           }
 
-          // Fallback tie-breaker: Masters first, then name
           if (a?.teamRole === 'Master' && b?.teamRole !== 'Master') return -1;
           if (b?.teamRole === 'Master' && a?.teamRole !== 'Master') return 1;
           return (a?.name || '').localeCompare(b?.name || '');
@@ -350,133 +364,22 @@ export function WorkersView() {
     });
 
     return Object.values(groupsObj).filter(g => g.workers.length > 0);
-  }, [filteredWorkers, groups, sortBy, sortOrder, language]);
+  }, [filteredWorkers, groups, sortBy, sortOrder, language, workerFinancialsMap]);
 
-  // Open modal to add worker
+  // اکشن‌ها
   const handleOpenAddModal = () => {
     setEditingWorker(null);
     setIsFormModalOpen(true);
   };
 
-  // Listen for global shortcut event to open new worker modal
-  useEffect(() => {
-    const handleAddWorkerEvent = () => {
-      handleOpenAddModal();
-    };
-    window.addEventListener('karsync-open-new-worker', handleAddWorkerEvent);
-    return () => window.removeEventListener('karsync-open-new-worker', handleAddWorkerEvent);
-  }, []);
-
-  // Open modal to edit worker
   const handleOpenEditModal = (worker) => {
+    setActiveMenuWorkerId(null);
     setEditingWorker(worker);
     setIsFormModalOpen(true);
   };
 
-  // Save Worker (Create or Update)
-  const handleSaveWorker = async (e) => {
-    e.preventDefault();
-    setFormError('');
-
-    if (!formData.name.trim()) {
-      setFormError(t('validationNameRequired'));
-      return;
-    }
-
-    const isContract = formData.wageType === 'contract';
-    const dailyRate = isContract ? 0 : Number(formData.dailyRate);
-    const overtimeRate = isContract ? 0 : Number(formData.overtimeHourlyRate);
-
-    if (isNaN(dailyRate) || dailyRate < 0 || isNaN(overtimeRate) || overtimeRate < 0) {
-      setFormError(t('validationRatesPositive'));
-      return;
-    }
-
-    try {
-      let targetWorkerId = null;
-      if (editingWorker) {
-        targetWorkerId = editingWorker.id;
-        // Update
-        const updatedWorker = {
-          ...editingWorker,
-          projectId: editingWorker.projectId || currentProject?.id || 'prj_default_main',
-          userId: editingWorker.userId || user?.id || 'default_user',
-          name: formData.name.trim(),
-          phone: formData.phone.trim(),
-          role: formData.role.trim(),
-          groupId: formData.groupId ? String(formData.groupId) : null,
-          teamRole: formData.teamRole || 'Worker',
-          wageType: formData.wageType || 'standard',
-          dailyRate: dailyRate,
-          overtimeHourlyRate: overtimeRate,
-          defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
-          isActive: Number(formData.isActive),
-          username: (formData.username || '').trim(),
-          password: (formData.password || '').trim(),
-          updatedAt: new Date().toISOString()
-        };
-        await db.workers.update(editingWorker.id, updatedWorker);
-        await pushWorkerLive(updatedWorker);
-
-        // Migrate past attendance records to the new section if default section was changed
-        const oldSection = editingWorker.defaultSectionId;
-        const newSection = updatedWorker.defaultSectionId;
-        if (newSection && oldSection !== newSection) {
-          const logs = await db.attendanceLogs.where('workerId').equals(editingWorker.id).toArray();
-          const logsToUpdate = logs.filter(l => !l.sectionId || l.sectionId === oldSection);
-          
-          if (logsToUpdate.length > 0) {
-            const now = new Date().toISOString();
-            const bulkUpdates = logsToUpdate.map(l => ({
-              ...l,
-              sectionId: newSection,
-              updatedAt: now
-            }));
-            await db.attendanceLogs.bulkPut(bulkUpdates);
-            
-            // To ensure the global views refresh
-            window.dispatchEvent(new CustomEvent('workshop-logs-updated'));
-          }
-        }
-      } else {
-        // Create
-        targetWorkerId = generateId();
-        const newWorker = {
-          id: targetWorkerId,
-          projectId: currentProject?.id || 'prj_default_main',
-          userId: user?.id || 'default_user',
-          name: formData.name.trim(),
-          phone: formData.phone.trim(),
-          role: formData.role.trim(),
-          groupId: formData.groupId ? String(formData.groupId) : null,
-          teamRole: formData.teamRole || 'Worker',
-          wageType: formData.wageType || 'standard',
-          dailyRate: dailyRate,
-          overtimeHourlyRate: overtimeRate,
-          defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
-          isActive: 1,
-          username: (formData.username || '').trim(),
-          password: (formData.password || '').trim(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        await db.workers.add(newWorker);
-        await pushWorkerLive(newWorker);
-      }
-
-      // Save portal credentials
-      if (targetWorkerId) {
-        await setWorkerCredentials(targetWorkerId, formData.username, formData.password);
-      }
-
-      setIsFormModalOpen(false);
-    } catch (err) {
-      setFormError(err.message || 'Error saving worker');
-    }
-  };
-
-  // Toggle worker active/inactive status
   const handleToggleActive = async (worker) => {
+    setActiveMenuWorkerId(null);
     const newStatus = worker.isActive === 1 ? 0 : 1;
     const updated = {
       ...worker,
@@ -490,8 +393,8 @@ export function WorkersView() {
     pushWorkerLive(updated).catch(console.error);
   };
 
-  // Archive worker
   const handleArchiveWorker = async (worker) => {
+    setActiveMenuWorkerId(null);
     const updated = {
       ...worker,
       isArchived: true,
@@ -506,7 +409,6 @@ export function WorkersView() {
     pushWorkerLive(updated).catch(console.error);
   };
 
-  // Unarchive worker
   const handleUnarchiveWorker = async (worker) => {
     const updated = {
       ...worker,
@@ -522,12 +424,12 @@ export function WorkersView() {
     pushWorkerLive(updated).catch(console.error);
   };
 
-  // Move worker to Trash (Soft Delete) - ممنوعیت حذف در صورت داشتن کارکرد یا سند مالی
-  const handleMoveToTrash = async (worker) => {
+  const handleMoveToRecycle = async (worker) => {
+    setActiveMenuWorkerId(null);
     if (undeletableWorkerIds.has(String(worker.id))) {
       alert(language === 'fa' 
-        ? 'این پرسنل به دلیل داشتن سابقه کارکرد یا اسناد مالی در سیستم، به جهت حفظ یکپارچگی حسابداری و قوانین مالیاتی تحت هیچ شرایطی قابل حذف نیست. شما می‌توانید وضعیت ایشان را به "بایگانی" تغییر دهید.' 
-        : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری کار یان بەڵگەنامەی دارایی ناتوانرێت بسڕدرێتەوە. دەتوانیت ئەرشیفی بکەیت.');
+        ? 'این پرسنل به دلیل داشتن سابقه کارکرد یا اسناد مالی در سیستم، به جهت حفظ یکپارچگی حسابداری تحت هیچ شرایطی قابل حذف نیست. شما می‌توانید وضعیت ایشان را به "بایگانی" تغییر دهید.' 
+        : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری کار یان بەڵگەنامەی دارایی ناتوانرێت بسڕدرێتەوە.');
       return;
     }
     const updated = {
@@ -542,8 +444,7 @@ export function WorkersView() {
     pushWorkerLive(updated).catch(console.error);
   };
 
-  // Restore worker from Trash
-  const handleRestoreWorker = async (worker) => {
+  const handleRestoreFromRecycle = async (worker) => {
     const updated = {
       ...worker,
       deletedAt: null,
@@ -556,32 +457,30 @@ export function WorkersView() {
     pushWorkerLive(updated).catch(console.error);
   };
 
-  // Permanent Delete - ممنوعیت حذف قطعی برای پرسنل دارای گردش کارکرد یا مالی
-  const handlePermanentDeleteWorker = async (worker) => {
+  const handlePermanentDelete = async (worker) => {
     if (undeletableWorkerIds.has(String(worker.id))) {
       alert(language === 'fa' 
         ? 'این پرسنل دارای سوابق رسمی کارکرد یا اسناد مالی است و حذف دائمی آن غیرقانونی است. لطفاً پرسنل را بازیابی و بایگانی نمایید.' 
         : 'ئەم کارمەندە ناتوانرێت بسڕدرێتەوە.');
       return;
     }
-    if (window.confirm(t('confirmPermanentDelete') || 'آیا از حذف دائمی این پرسنل اطمینان دارید؟')) {
+    if (window.confirm(language === 'fa' ? 'آیا از حذف دائمی این پرسنل مطمئن هستید؟ این عملیات غیرقابل بازگشت است.' : 'دڵنیایت لە سڕینەوەی یەکجاری؟')) {
       await db.workers.delete(worker.id);
       deleteWorkerLive(worker.id).catch(console.error);
     }
   };
 
-  // Empty Trash for workers (تنها پرسنل بدون سابقه قابل تخلیه قطعی هستند)
-  const handleEmptyWorkersTrash = async () => {
-    if (trashWorkersList.length === 0) return;
-    const deletableTrash = trashWorkersList.filter(w => !undeletableWorkerIds.has(String(w.id)));
-    if (deletableTrash.length === 0) {
+  const handleEmptyRecycleBin = async () => {
+    if (recycleWorkersList.length === 0) return;
+    const deletableList = recycleWorkersList.filter(w => !undeletableWorkerIds.has(String(w.id)));
+    if (deletableList.length === 0) {
       alert(language === 'fa' 
-        ? 'پرسنل موجود در سطل آشغال دارای سوابق کارکرد یا سند مالی هستند و طبق قوانین مالیاتی امکان حذف قطعی آن‌ها وجود ندارد. لطفاً آن‌ها را بازیابی و بایگانی فرمایید.' 
+        ? 'پرسنل موجود در بخش بازیافت دارای سوابق کارکرد یا اسناد مالی هستند و امکان حذف قطعی آن‌ها وجود ندارد.' 
         : 'کارمەندەکان ناتوانرێن بسڕدرێنەوە.');
       return;
     }
-    if (window.confirm(t('confirmEmptyTrash') || 'آیا از خالی کردن سطل آشغال و حذف قطعی پرسنل مجاز اطمینان دارید؟')) {
-      for (const w of deletableTrash) {
+    if (window.confirm(language === 'fa' ? `آیا از حذف دائمی ${deletableList.length} پرسنل قابل حذف در بازیافت مطمئن هستید؟` : 'دڵنیایت؟')) {
+      for (const w of deletableList) {
         await db.workers.delete(w.id);
         deleteWorkerLive(w.id).catch(console.error);
       }
@@ -589,958 +488,684 @@ export function WorkersView() {
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-24" dir={direction}>
       
-      {/* Top Bar: Title, Status Tabs, and Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-6 h-6 text-sky-500" />
-            <span>{t('workers')}</span>
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {statusTab === 'active' && `${t('activeWorkersTab') || 'پرسنل فعال'}: ${activeWorkersList.length}`}
-            {statusTab === 'archived' && `${t('archived') || 'بایگانی‌شده'}: ${archivedWorkersList.length}`}
-            {statusTab === 'trash' && `${t('trash') || 'سطل آشغال'}: ${trashWorkersList.length}`}
-          </p>
-        </div>
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 1. هیرو بنر مدیریتی دارک و شاخص (Executive Personnel Hero)     */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950 text-white shadow-xl border border-slate-800 p-5 sm:p-7">
+        {/* اورب‌های نوری بلورین */}
+        <div className="absolute -top-16 -end-16 w-64 h-64 bg-sky-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -start-16 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Main Status Tabs: Active | Archived | Trash */}
-          {/* Main Status Tabs: Active | Archived | Trash (Navbar Style) */}
-          <div className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/60 p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-            {(() => {
-              const TABS = [
-                { id: 'active', icon: Users, label: t('activeWorkersTab') || 'پرسنل فعال' },
-                { id: 'archived', icon: Archive, label: t('archived') || 'بایگانی' },
-                { id: 'trash', icon: Trash2, label: t('trash') || 'سطل آشغال' }
-              ];
-              
-              return TABS.map((tab) => {
-                const isActive = statusTab === tab.id;
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          
+          {/* ستون راست: عنوان و شاخص‌های آماری پرسنل */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-400 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/25">
+                <Users className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                    {language === 'fa' ? 'مدیریت پرسنل و کارکنان' : 'بەڕێوەبردنی کرێکاران و پرسنل'}
+                  </h1>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-sky-300 border border-white/10">
+                    {currentProject?.name || 'کارگاه فعال'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  {language === 'fa' 
+                    ? 'سازماندهی تیم‌های کاری، دستمزدها، کارنامه و وضعیت مالی پرسنل' 
+                    : 'ڕێکخستنی تیمەکانی کار، حەقدەست و دۆخی دارایی'}
+                </p>
+              </div>
+            </div>
+
+            {/* کارت‌های شیشه‌ای شاخص‌های کلیدی (KPIs) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                <span className="text-[11px] text-slate-400 block truncate">کل پرسنل فعال:</span>
+                <span className="text-lg font-black font-mono text-white mt-0.5 block">
+                  {heroMetrics.activeCount} <span className="text-xs font-normal text-slate-400">نفر</span>
+                </span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-md">
+                <span className="text-[11px] text-emerald-300 block truncate">مشغول به کار امروز:</span>
+                <span className="text-lg font-black font-mono text-emerald-400 mt-0.5 block">
+                  {heroMetrics.activeTodayCount} <span className="text-xs font-normal text-emerald-300">حاضر</span>
+                </span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 backdrop-blur-md">
+                <span className="text-[11px] text-amber-300 block truncate">مجموع مانده طلب معوق:</span>
+                <span className="text-sm sm:text-base font-black font-mono text-amber-400 mt-1 block truncate" dir="ltr">
+                  {formatCurrency(heroMetrics.totalUnsettledDue, currency, language)}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md">
+                <span className="text-[11px] text-indigo-300 block truncate">گروه‌های تخصصی:</span>
+                <span className="text-lg font-black font-mono text-indigo-300 mt-0.5 block">
+                  {heroMetrics.groupsCount} <span className="text-xs font-normal text-indigo-400">تیم</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ستون چپ: تب‌های وضعیت شاغلین / بازیافت و دکمه‌های اکشن اصلی */}
+          <div className="flex flex-col sm:flex-row lg:flex-col items-stretch lg:items-end gap-3 shrink-0">
+            
+            {/* سگمنت شکیل وضعیت: فعال | بایگانی | بازیافت */}
+            <div className="flex items-center p-1.5 bg-white/10 dark:bg-black/30 backdrop-blur-md rounded-2xl border border-white/15">
+              {[
+                { id: 'active', label: 'شاغلین (فعال)', count: activeWorkersList.length, icon: Users },
+                { id: 'archived', label: 'بایگانی', count: archivedWorkersList.length, icon: Archive },
+                { id: 'recycle', label: 'بازیافت', count: recycleWorkersList.length, icon: RefreshCw }
+              ].map(tab => {
+                const isSelected = statusTab === tab.id;
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setStatusTab(tab.id)}
-                    className={`relative p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 ${
-                      isActive
-                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 transition-transform hover:scale-110" />
-                    {isActive && (
-                      <span className="text-xs font-semibold px-1 whitespace-nowrap animate-fade-in">
-                        {tab.label}
-                      </span>
-                    )}
-                  </button>
-                );
-              });
-            })()}
-          </div>
-
-          {/* Action Button: Manage Groups */}
-          <button
-            type="button"
-            onClick={() => setIsManageGroupsModalOpen(true)}
-            aria-label={language === 'ku' ? 'بەڕێوەبردنی گرووپەکان' : 'مدیریت گروه‌ها'}
-            title={language === 'ku' ? 'بەڕێوەبردنی گرووپەکان (بینین، زیادکردن، سڕینەوە و ئەرشیڤ)' : 'مدیریت گروه‌ها (مشاهده، ثبت، حذف و آرشیو)'}
-            className="p-2.5 sm:p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-md shadow-indigo-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-indigo-500/30 cursor-pointer group"
-          >
-            <Users className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
-          </button>
-
-          {/* Action Button: Add Worker (always visible) */}
-          <button
-            type="button"
-            onClick={handleOpenAddModal}
-            aria-label={t('addNewWorker')}
-            title={t('addNewWorker')}
-            className="p-2.5 sm:p-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center border border-sky-500/30 cursor-pointer group"
-          >
-            <UserPlus className="w-5.5 h-5.5 transition-transform group-hover:scale-110" />
-          </button>
-
-          {statusTab === 'trash' && trashWorkersList.length > 0 && (
-            <button
-              type="button"
-              onClick={handleEmptyWorkersTrash}
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-300 rounded-2xl text-xs font-bold border border-rose-200 dark:border-rose-800 shadow-xs transition-colors"
-              title={t('emptyTrash')}
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{t('emptyTrash') || 'خالی کردن سطل آشغال'}</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Search & Status Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-        
-        {/* Search Bar */}
-        <div className="relative w-full sm:w-80">
-          <Search className="w-5 h-5 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('searchWorkerPlaceholder')}
-            className="w-full ps-10 pe-4 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm"
-          />
-        </div>
-
-        {/* Section Filter Dropdown (in active & archived) */}
-        {statusTab !== 'trash' && projectSections.length > 0 && (
-          <div className="relative w-full sm:w-56">
-            <Layers className="w-4 h-4 text-sky-500 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <select
-              value={filterSection}
-              onChange={(e) => setFilterSection(e.target.value)}
-              className="w-full ps-9 pe-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm text-slate-800 dark:text-slate-200 cursor-pointer"
-            >
-              <option value="all">{t('allSections') || 'همه بخش‌ها'}</option>
-              {projectSections.map((sec) => (
-                <option key={sec.id} value={sec.id}>{sec.name}</option>
-              ))}
-              <option value="unassigned">{t('noSection') || 'بدون بخش (عمومی)'}</option>
-            </select>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end flex-wrap">
-          {/* Active/Inactive Subfilter (Only in Active Tab) */}
-          {statusTab === 'active' && (
-            <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-              {[
-                { id: 'all', label: t('allWorkers') || 'همه', count: activeWorkersList.length, icon: Users },
-                { id: 'active', label: t('active') || 'فعال', count: activeWorkersList.filter(w => w.isActive === 1).length, icon: UserCheck },
-                { id: 'inactive', label: t('inactive') || 'غیرفعال', count: activeWorkersList.filter(w => w.isActive === 0).length, icon: UserX },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isSelected = filterActive === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setFilterActive(tab.id)}
-                    aria-label={`${tab.label} (${tab.count})`}
-                    title={`${tab.label} (${tab.count})`}
-                    className={`relative flex items-center gap-2 rounded-xl transition-all duration-200 ${
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                       isSelected
-                        ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 font-bold py-2 px-3'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60 p-2'
+                        ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
+                        : 'text-slate-300 hover:text-white hover:bg-white/10'
                     }`}
                   >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    {isSelected && (
-                      <span className="text-xs font-semibold whitespace-nowrap animate-fade-in flex items-center gap-1.5">
-                        <span>{tab.label}</span>
-                        <span className="text-[10px] bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded-full font-mono">
-                          {tab.count}
-                        </span>
-                      </span>
-                    )}
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 font-mono">
+                      {tab.count}
+                    </span>
                   </button>
                 );
               })}
             </div>
+
+            {/* دکمه‌های اکشن اصلی */}
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsManageGroupsModalOpen(true)}
+                className="px-4 h-11 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                title="مدیریت گروه‌ها و دسته‌بندی‌های کارگاه"
+              >
+                <FolderTree className="w-4 h-4 text-indigo-400" />
+                <span>مدیریت گروه‌ها</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenAddModal}
+                className="px-5 h-11 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black text-xs shadow-lg shadow-sky-500/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+              >
+                <UserPlus className="w-4.5 h-4.5" />
+                <span>+ ثبت پرسنل جدید</span>
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 2. نوار کنترل و فیلتر شیشه‌ای یکپارچه (Single-Row Command Bar)  */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="p-3 sm:p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-3">
+        
+        {/* اینپوت سرچ با کلید میانبر کیبورد */}
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search className="w-4.5 h-4.5 text-slate-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="جستجوی پرسنل با نام، سمت یا موبایل..."
+            className="w-full ps-10 pe-16 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 focus:outline-none transition-all"
+          />
+          {searchTerm ? (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          ) : (
+            <kbd className="absolute end-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-md font-mono pointer-events-none hidden sm:inline-block">
+              /
+            </kbd>
+          )}
+        </div>
+
+        {/* فیلترهای گروهی، بخش و وضعیت کارکرد */}
+        <div className="flex items-center gap-2 flex-wrap">
+          
+          {/* فیلتر گروه */}
+          {statusTab !== 'recycle' && groups.length > 0 && (
+            <select
+              value={filterGroup}
+              onChange={(e) => setFilterGroup(e.target.value)}
+              className="px-3 py-2 bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-sky-500/30 focus:outline-none cursor-pointer"
+            >
+              <option value="all">همه گروه‌ها</option>
+              {groups.map(g => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+              <option value="unassigned">پرسنل انفرادی (بدون گروه)</option>
+            </select>
           )}
 
-          {/* Sort Dropdown & Order Toggle */}
-          <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-            <div className="flex items-center gap-1.5 ps-2 pe-1 text-slate-500 dark:text-slate-400">
-              <ArrowUpDown className="w-3.5 h-3.5" />
+          {/* فیلتر بخش پروژه */}
+          {statusTab !== 'recycle' && projectSections.length > 0 && (
+            <select
+              value={filterSection}
+              onChange={(e) => setFilterSection(e.target.value)}
+              className="px-3 py-2 bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-sky-500/30 focus:outline-none cursor-pointer"
+            >
+              <option value="all">همه بخش‌ها</option>
+              {projectSections.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+              <option value="unassigned">عمومی (بدون بخش)</option>
+            </select>
+          )}
+
+          {/* فیلتر فعال / غیرفعال (در تب شاغلین) */}
+          {statusTab === 'active' && (
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => setFilterActive('all')}
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  filterActive === 'all'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                همه
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterActive('active')}
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  filterActive === 'active'
+                    ? 'bg-emerald-500 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                فعال
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterActive('inactive')}
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  filterActive === 'inactive'
+                    ? 'bg-rose-500 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                غیرفعال
+              </button>
             </div>
+          )}
+
+          {/* مرتب‌سازی */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="py-1 px-1 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
-              title={language === 'ku' ? 'ڕیزکردن بەپێی' : 'مرتب‌سازی بر اساس'}
+              className="px-2 py-1 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
             >
-              <option value="name" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'ناو (ئەلفوبێ)' : 'نام (الفبایی)'}</option>
-              <option value="dailyRate" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'حەقدەستی ڕۆژانە' : 'دستمزد روزانه'}</option>
-              <option value="overtimeRate" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'نرخی زیادەکاری' : 'نرخ اضافه‌کاری'}</option>
-              <option value="role" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'پیشە / تخصص' : 'سمت / مهارت'}</option>
-              <option value="status" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'دۆخی چالاکی' : 'وضعیت فعالیت'}</option>
-              <option value="createdAt" className="bg-white dark:bg-slate-900">{language === 'ku' ? 'کاتی تۆمارکردن' : 'تاریخ ثبت'}</option>
+              <option value="name">نام (الفبایی)</option>
+              <option value="balance">مانده حساب (بیشترین طلب)</option>
+              <option value="dailyRate">دستمزد روزانه</option>
+              <option value="role">تخصص / سمت</option>
+              <option value="createdAt">تاریخ ثبت</option>
             </select>
             <button
               type="button"
-              onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-              className="p-1.5 rounded-xl hover:bg-white/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-              title={sortOrder === 'asc' ? (language === 'ku' ? 'سەرووژێر (صعودی)' : 'صعودی (A-Z)') : (language === 'ku' ? 'ژێرسەروو (نزولی)' : 'نزولی (Z-A)')}
-              aria-label="Toggle sort order"
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="p-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+              title={sortOrder === 'asc' ? 'صعودی' : 'نزولی'}
             >
-              {sortOrder === 'asc' ? (
-                <ArrowUp className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              ) : (
-                <ArrowDown className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              )}
+              {sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-sky-500" /> : <ArrowDown className="w-3.5 h-3.5 text-sky-500" />}
             </button>
           </div>
 
-          {/* Grid vs List View Switcher */}
-          <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+          {/* سوییچ چیدمان: گرید کارت / لیست */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
             <button
               type="button"
               onClick={() => handleSetLayoutMode('grid')}
-              className={`p-2.5 rounded-xl transition-all duration-200 ${
+              className={`p-1.5 rounded-xl transition-all cursor-pointer ${
                 layoutMode === 'grid'
-                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
+                  ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
-              title={t('gridView') || 'کارت‌ها'}
-              aria-label={t('gridView') || 'کارت‌ها'}
+              title="نمایش کارتی"
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={() => handleSetLayoutMode('list')}
-              className={`p-2.5 rounded-xl transition-all duration-200 ${
+              className={`p-1.5 rounded-xl transition-all cursor-pointer ${
                 layoutMode === 'list'
-                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/60'
+                  ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
-              title={t('listView') || 'فهرست'}
-              aria-label={t('listView') || 'فهرست'}
+              title="نمایش جدولی و فشرده"
             >
               <List className="w-4 h-4" />
             </button>
           </div>
+
+          {/* دکمه خالی کردن بازیافت در تب بازیافت */}
+          {statusTab === 'recycle' && recycleWorkersList.length > 0 && (
+            <button
+              type="button"
+              onClick={handleEmptyRecycleBin}
+              className="px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 rounded-2xl text-xs font-bold border border-rose-200 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>تخلیه جعبه بازیافت</span>
+            </button>
+          )}
+
         </div>
 
       </div>
 
-      {/* Workers View: Grid Mode vs List Mode */}
-      {layoutMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {groupedWorkers.map((group) => (
-            <React.Fragment key={group.id}>
-              <div 
-                onClick={() => toggleGroupCollapse(group.id)}
-                className="col-span-full mt-4 flex items-center justify-between gap-2 cursor-pointer select-none bg-slate-100/70 dark:bg-slate-800/50 hover:bg-slate-200/70 dark:hover:bg-slate-800 p-2.5 rounded-2xl transition-colors border border-slate-200/60 dark:border-slate-700/60"
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`p-1 rounded-lg bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 transition-transform duration-200 ${collapsedGroupIds.has(group.id) ? (direction === 'rtl' ? 'rotate-90' : '-rotate-90') : ''}`}>
-                    <ChevronDown className="w-4 h-4" />
-                  </span>
-                  <div className="font-black text-sm sm:text-base text-slate-800 dark:text-slate-200">{group.name}</div>
-                  {group.description && (
-                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400 hidden sm:inline max-w-sm truncate">
-                      — {group.description}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-600">
-                    {group.workers.length} {language === 'ku' ? 'کەس' : 'نفر'}
-                  </span>
-                  <span className="text-xs text-slate-400 font-medium">
-                    {collapsedGroupIds.has(group.id) ? (language === 'ku' ? 'کردنەوە' : 'باز کردن') : (language === 'ku' ? 'داخستن' : 'بستن')}
-                  </span>
-                </div>
-              </div>
-              {!collapsedGroupIds.has(group.id) && group.workers.map((worker) => (
-            <div
-              key={worker.id}
-              className={`bg-white dark:bg-slate-900 rounded-2xl p-5 border transition-all shadow-sm hover:shadow-md flex flex-col justify-between ${
-                worker.isActive === 1
-                  ? 'border-slate-200 dark:border-slate-800'
-                  : 'border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/10'
-              }`}
-            >
-              <div>
-                {/* Header: Name & Icon-Only Actions (No Wrapping!) */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 
-                      onClick={() => openWorkerProfile(worker.id)}
-                      className="font-bold text-base sm:text-lg text-slate-900 dark:text-white cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate"
-                      title="مشاهده پروفایل جامع پرسنل"
-                    >
-                      {worker.name}
-                    </h3>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{worker.role || t('workerRole')}</span>
-                      </div>
-                      {worker.defaultSectionId && sectionMap[worker.defaultSectionId] && (
-                        <span 
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/60"
-                          title={t('defaultSection')}
-                        >
-                          <Layers className="w-3 h-3 text-sky-500 flex-shrink-0" />
-                          <span className="truncate max-w-[120px]">{sectionMap[worker.defaultSectionId]?.name}</span>
-                        </span>
-                      )}
-                      {(workerCreds[worker.id]?.username || worker.username) && (
-                        <span 
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-800/60"
-                          title="مشخصات ورود پرتال کارگر فعال است"
-                        >
-                          <Key className="w-3 h-3" />
-                          <span>{workerCreds[worker.id]?.username || worker.username}</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Clean Icon-Only Action Buttons */}
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {statusTab === 'active' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setQuickAttendanceWorker(worker)}
-                          title={t('quickMonthlyAttendance')}
-                          aria-label={t('quickMonthlyAttendance')}
-                          className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/60 border border-sky-200/60 dark:border-sky-800/60 transition-colors"
-                        >
-                          <Calendar className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(worker)}
-                          className={`p-2 rounded-xl border transition-colors ${
-                            worker.isActive === 1
-                              ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700'
-                          }`}
-                          title={worker.isActive === 1 ? t('deactivate') : t('activate')}
-                          aria-label={worker.isActive === 1 ? t('deactivate') : t('activate')}
-                        >
-                          {worker.isActive === 1 ? (
-                            <CheckCircle2 className="w-4 h-4" />
-                          ) : (
-                            <XCircle className="w-4 h-4" />
-                          )}
-                        </button>
-                      </>
-                    )}
-                    {statusTab === 'archived' && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
-                        <Archive className="w-3 h-3" />
-                        <span>{t('archived')}</span>
-                      </span>
-                    )}
-                    {statusTab === 'trash' && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300">
-                        <Trash2 className="w-3 h-3" />
-                        <span>{t('trash')}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Phone number */}
-                {worker.phone && (
-                  <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                    <Phone className="w-3.5 h-3.5 text-sky-500" />
-                    <span dir="ltr">{worker.phone}</span>
-                  </div>
-                )}
-
-                {/* Wage Rates Breakdown & Real-Time Financial Balance Badge */}
-                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <Coins className="w-3.5 h-3.5 text-sky-500" />
-                      <span>{t('dailyRateLabel')}:</span>
-                    </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">
-                      {worker.wageType === 'contract' ? (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 font-normal">توافقی (کنتراکت)</span>
-                      ) : (
-                        <span className="font-mono">{formatCurrency(worker.dailyRate, currency, language)}</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{t('overtimeRateLabel')}:</span>
-                    </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">
-                      {worker.wageType === 'contract' ? (
-                        <span className="text-slate-400 text-xs">-</span>
-                      ) : (
-                        <span className="font-mono">{formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr</span>
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Real-Time Outstanding Balance Badge */}
-                  {(() => {
-                    const fin = workerFinancialsMap.get(worker.id);
-                    if (!fin) return null;
-                    const { netBalanceDue, status } = fin;
-                    return (
-                      <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-xs font-bold">
-                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                          <WalletCards className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>وضعیت مانده:</span>
-                        </span>
-                        {netBalanceDue > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 font-mono">
-                            {formatCurrency(netBalanceDue, currency, language)}
-                            <span className="text-[9px] font-normal">طلبکار</span>
-                          </span>
-                        ) : netBalanceDue < 0 ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 font-mono">
-                            {formatCurrency(Math.abs(netBalanceDue), currency, language)}
-                            <span className="text-[9px] font-normal">بدهکار</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300">
-                            تسویه کامل
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Footer Action Buttons */}
-              <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                {statusTab === 'active' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => openWorkerProfile(worker.id)}
-                      className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-medium py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      title="مشاهده پروفایل جامع پرسنل"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                      <span>{t('history')}</span>
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditModal(worker)}
-                        className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        title={t('edit')}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleArchiveWorker(worker)}
-                        className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
-                        title={t('archive') || 'بایگانی پرسنل'}
-                      >
-                        <Archive className="w-4 h-4" />
-                      </button>
-                      {undeletableWorkerIds.has(String(worker.id)) ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            alert(language === 'fa' 
-                              ? 'این پرسنل دارای گردش کارکرد یا اسناد مالی است و طبق قوانین مالیاتی غیرقابل حذف می‌باشد. در صورت پایان همکاری، وضعیت ایشان را به «بایگانی» تغییر دهید.' 
-                              : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری دارایی یان کار ناتوانرێت بسڕدرێتەوە. تکایە ئەرشیفی بکە.');
-                          }}
-                          className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
-                          title={language === 'fa' ? 'غیرقابل حذف (دارای کارکرد یا سند مالی) - امکان بایگانی در دسترس است' : 'سڕینەوە قەدەغەیە'}
-                        >
-                          <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleMoveToTrash(worker)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                          title={t('moveToTrash') || 'انتقال به سطل آشغال'}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {statusTab === 'archived' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setHistoryWorker(worker)}
-                      className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-medium py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                      <span>{t('history')}</span>
-                    </button>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleUnarchiveWorker(worker)}
-                        className="flex items-center gap-1 px-2.5 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-lg font-bold text-[11px] transition-colors"
-                        title={t('unarchive') || 'خروج از بایگانی'}
-                      >
-                        <Archive className="w-3.5 h-3.5" />
-                        <span>{t('unarchive') || 'خروج از بایگانی'}</span>
-                      </button>
-                      {undeletableWorkerIds.has(String(worker.id)) ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            alert(language === 'fa' 
-                              ? 'این پرسنل دارای گردش کارکرد یا اسناد مالی است و طبق قوانین مالیاتی غیرقابل حذف می‌باشد.' 
-                              : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری دارایی یان کار ناتوانرێت بسڕدرێتەوە.');
-                          }}
-                          className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
-                          title={language === 'fa' ? 'غیرقابل حذف (دارای کارکرد یا سند مالی)' : 'سڕینەوە قەدەغەیە'}
-                        >
-                          <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleMoveToTrash(worker)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                          title={t('moveToTrash') || 'انتقال به سطل آشغال'}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {statusTab === 'trash' && (
-                  <>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      {worker.deletedAt ? String(worker.deletedAt).substring(0, 10) : ''}
-                    </span>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleRestoreWorker(worker)}
-                        className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-lg font-bold text-[11px] transition-colors"
-                        title={t('restore') || 'بازیابی'}
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>{t('restore') || 'بازیابی'}</span>
-                      </button>
-                      {undeletableWorkerIds.has(String(worker.id)) ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            alert(language === 'fa' 
-                              ? 'این پرسنل دارای سوابق رسمی کارکرد یا اسناد مالی است و حذف قطعی آن غیرقانونی است. لطفاً پرسنل را بازیابی و بایگانی نمایید.' 
-                              : 'سڕینەوەی یەکجاری قەدەغەیە.');
-                          }}
-                          className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
-                          title="غیرقابل حذف قطعی (دارای سوابق رسمی) - بازیابی و بایگانی فرمایید"
-                        >
-                          <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handlePermanentDeleteWorker(worker)}
-                          className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg transition-colors"
-                          title={t('permanentDelete') || 'حذف دائمی'}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-            </React.Fragment>
-          ))}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 3. لیست پرسنل و دسته‌ها: چیدمان کارتی یا سطری                 */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {groupedWorkers.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80">
+          <Users className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+            {searchTerm ? 'هیچ پرسنلی با این مشخصات یافت نشد' : 'هنوز پرسنلی در این بخش ثبت نشده است'}
+          </h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            {statusTab === 'active' 
+              ? 'می‌توانید با زدن دکمه «+ ثبت پرسنل جدید»، اولین کارگر یا استادکار را تعریف کنید.' 
+              : 'آیتمی در این بخش وجود ندارد.'}
+          </p>
         </div>
       ) : (
-        /* List Mode: High-Density Minimal Table */
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold">
-                <tr>
-                  <th 
-                    onClick={() => handleSortChange('status')}
-                    className="py-3 px-3 text-center w-12 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
-                    title={t('sortByStatus') || 'مرتب‌سازی بر اساس وضعیت'}
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{t('status')}</span>
-                      {sortBy === 'status' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
-                    </div>
-                  </th>
-                  <th 
-                    onClick={() => handleSortChange('name')}
-                    className="py-3 px-3.5 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
-                    title={t('sortByName') || 'مرتب‌سازی بر اساس نام'}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>{t('fullName')}</span>
-                      {sortBy === 'name' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
-                    </div>
-                  </th>
-                  <th 
-                    onClick={() => handleSortChange('role')}
-                    className="py-3 px-3.5 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
-                    title={t('sortByRole') || 'مرتب‌سازی بر اساس نقش'}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>{t('workerRole')}</span>
-                      {sortBy === 'role' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
-                    </div>
-                  </th>
-                  <th className="py-3 px-3.5">{t('section') || 'بخش'}</th>
-                  <th className="py-3 px-3.5">{t('phoneNumber')}</th>
-                  <th 
-                    onClick={() => handleSortChange('dailyRate')}
-                    className="py-3 px-3.5 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
-                    title={t('sortByDailyRate') || 'مرتب‌سازی بر اساس دستمزد'}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>{t('dailyRateLabel')}</span>
-                      {sortBy === 'dailyRate' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
-                    </div>
-                  </th>
-                  <th 
-                    onClick={() => handleSortChange('overtimeRate')}
-                    className="py-3 px-3.5 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 select-none transition-colors"
-                    title={t('sortByOvertimeRate') || 'مرتب‌سازی بر اساس نرخ اضافه‌کاری'}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>{t('overtimeRateLabel')}</span>
-                      {sortBy === 'overtimeRate' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />)}
-                    </div>
-                  </th>
-                  <th className="py-3 px-3.5 text-center">مانده معوقه</th>
-                  <th className="py-3 px-3.5 text-center">{t('actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {groupedWorkers.map((group) => {
-                  const isCollapsed = collapsedGroupIds.has(group.id);
-                  return (
-                    <React.Fragment key={group.id}>
-                      <tr 
-                        onClick={() => toggleGroupCollapse(group.id)}
-                        className="bg-slate-100/90 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/60 cursor-pointer transition-colors select-none"
-                      >
-                        <td colSpan="9" className="py-2.5 px-4 font-bold text-slate-700 dark:text-slate-200">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="p-1 rounded-md bg-white dark:bg-slate-700 shadow-xs text-slate-500">
-                                {isCollapsed ? (
-                                  <ChevronDown className="w-4 h-4" />
-                                ) : (
-                                  <ChevronUp className="w-4 h-4" />
-                                )}
-                              </span>
-                              <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{group.name}</span>
-                              {group.description && (
-                                <span className="text-xs text-slate-500 dark:text-slate-400 font-normal truncate max-w-xs">
-                                  — {group.description}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
-                              {group.workers.length} {t('workersCount') || 'نفر'}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                      {!isCollapsed && group.workers.map((worker) => (
-                    <tr key={worker.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group">
-                      <td className="py-2.5 px-3 text-center">
-                        <span 
-                          className={`inline-block w-2.5 h-2.5 rounded-full ${
-                            worker.deletedAt
-                              ? 'bg-rose-500 ring-4 ring-rose-500/20'
-                              : worker.isArchived || worker.status === 'archived'
-                              ? 'bg-amber-500 ring-4 ring-amber-500/20'
-                              : worker.isActive === 1
-                              ? 'bg-emerald-500 ring-4 ring-emerald-500/20'
-                              : 'bg-slate-300 dark:bg-slate-600'
-                          }`}
-                          title={
-                            worker.deletedAt
-                              ? t('trash')
-                              : worker.isArchived
-                              ? t('archived')
-                              : worker.isActive === 1
-                              ? t('active')
-                              : t('inactive')
-                          }
-                        />
-                      </td>
-                      <td className="py-2.5 px-3.5 font-bold text-slate-900 dark:text-white">
-                        <span 
-                          className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                          onClick={() => openWorkerProfile(worker.id)}
-                          title="مشاهده پروفایل جامع پرسنل"
-                        >
-                          {worker.name}
+        <div className="space-y-6">
+          {groupedWorkers.map(group => {
+            const isCollapsed = collapsedGroupIds.has(group.id);
+            return (
+              <div key={group.id} className="space-y-3.5">
+                
+                {/* بنر سرگروه تاشو (Collapsible Group Header) */}
+                <div 
+                  onClick={() => toggleGroupCollapse(group.id)}
+                  className="flex items-center justify-between p-3.5 sm:px-5 rounded-2xl bg-white/70 dark:bg-slate-900/70 hover:bg-white dark:hover:bg-slate-900 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-xs cursor-pointer select-none transition-all group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-transform duration-200 ${
+                      isCollapsed ? (direction === 'rtl' ? 'rotate-90' : '-rotate-90') : ''
+                    }`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white truncate">
+                          {group.name}
+                        </h3>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/60 font-bold font-mono">
+                          {group.workers.length} نفر
                         </span>
-                      </td>
-                      <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400">
-                        {worker.role || '-'}
-                      </td>
-                      <td className="py-2.5 px-3.5">
-                        {worker.defaultSectionId && sectionMap[worker.defaultSectionId] ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/60">
-                            <Layers className="w-3 h-3 text-sky-500 flex-shrink-0" />
-                            <span>{sectionMap[worker.defaultSectionId].name}</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">-</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 font-mono" dir="ltr">
-                        {worker.phone || '-'}
-                      </td>
-                      <td className="py-2.5 px-3.5 font-bold text-slate-800 dark:text-slate-200">
-                        {worker.wageType === 'contract' ? (
-                          <span className="text-[11px] px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 font-normal">توافقی (کنتراکت)</span>
-                        ) : (
-                          <span className="font-mono">{formatCurrency(worker.dailyRate, currency, language)}</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3.5 font-medium text-slate-700 dark:text-slate-300">
-                        {worker.wageType === 'contract' ? (
-                          <span className="text-slate-400 text-xs">-</span>
-                        ) : (
-                          <span className="font-mono">{formatCurrency(worker.overtimeHourlyRate, currency, language)} / hr</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-center font-mono">
-                        {(() => {
-                          const fin = workerFinancialsMap.get(worker.id);
-                          if (!fin) return <span className="text-slate-400">-</span>;
-                          const { netBalanceDue } = fin;
-                          if (netBalanceDue > 0) {
-                            return (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
-                                {formatCurrency(netBalanceDue, currency, language)}
-                              </span>
-                            );
-                          }
-                          if (netBalanceDue < 0) {
-                            return (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300">
-                                {formatCurrency(Math.abs(netBalanceDue), currency, language)} بدهی
-                              </span>
-                            );
-                          }
-                          return (
-                            <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
-                              تسویه
-                            </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {statusTab === 'active' && (
-                            <>
+                      </div>
+                      {group.description && (
+                        <p className="text-[11px] text-slate-400 truncate max-w-md mt-0.5">
+                          {group.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <span className="text-xs text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors font-medium">
+                    {isCollapsed ? 'نمایش اعضا' : 'بستن گروه'}
+                  </span>
+                </div>
+
+                {/* اعضای گروه در حالت باز */}
+                {!isCollapsed && (
+                  layoutMode === 'grid' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {group.workers.map(worker => {
+                        const fin = workerFinancialsMap.get(worker.id);
+                        const isMenuOpen = activeMenuWorkerId === worker.id;
+
+                        return (
+                          <div 
+                            key={worker.id}
+                            className={`rounded-3xl p-5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border transition-all duration-200 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-md flex flex-col justify-between ${
+                              worker.isActive !== 0
+                                ? 'border-white/80 dark:border-slate-800/80'
+                                : 'border-rose-200/80 dark:border-rose-950/80 bg-rose-50/10'
+                            }`}
+                          >
+                            <div className="space-y-4">
+                              {/* هدر کارت: آواتار، نام و منوی عملیات */}
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div 
+                                    onClick={() => openWorkerProfile(worker.id)}
+                                    className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-lg font-black shrink-0 shadow-md shadow-sky-500/20 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                                  >
+                                    {worker.name ? worker.name.charAt(0) : <Users className="w-5 h-5" />}
+                                  </div>
+
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <h4 
+                                        onClick={() => openWorkerProfile(worker.id)}
+                                        className="font-black text-sm sm:text-base text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                                        title="مشاهده پروفایل جامع پرسنل"
+                                      >
+                                        {worker.name}
+                                      </h4>
+                                      <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                        worker.isActive !== 0 ? 'bg-emerald-500' : 'bg-rose-500'
+                                      }`} title={worker.isActive !== 0 ? 'شاغل' : 'غیرفعال'} />
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                      <span className="text-xs text-sky-600 dark:text-sky-400 font-bold">
+                                        {worker.role || 'پرسنل کارگاه'}
+                                      </span>
+                                      {worker.teamRole === 'Master' && (
+                                        <span className="text-[10px] px-2 py-0.2 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 font-bold">
+                                          استادکار
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* منوی عملیات سه‌نقطه */}
+                                <div className="relative" data-worker-menu>
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveMenuWorkerId(prev => prev === worker.id ? null : worker.id)}
+                                    className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                                  >
+                                    <MoreHorizontal className="w-5 h-5" />
+                                  </button>
+
+                                  {isMenuOpen && (
+                                    <div className="absolute end-0 top-full mt-1 w-48 rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+                                      {statusTab === 'active' && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveMenuWorkerId(null);
+                                              setQuickAttendanceWorker(worker);
+                                            }}
+                                            className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/50 hover:text-sky-600 flex items-center gap-2 cursor-pointer text-start"
+                                          >
+                                            <Calendar className="w-4 h-4 text-sky-500" />
+                                            <span>ثبت تقویم ماهانه</span>
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenEditModal(worker)}
+                                            className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-start"
+                                          >
+                                            <Edit2 className="w-4 h-4 text-slate-500" />
+                                            <span>ویرایش پرونده</span>
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleToggleActive(worker)}
+                                            className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-start"
+                                          >
+                                            {worker.isActive === 1 ? (
+                                              <>
+                                                <XCircle className="w-4 h-4 text-rose-500" />
+                                                <span>مرخص / غیرفعال‌سازی</span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                <span>فعال‌سازی مجدد</span>
+                                              </>
+                                            )}
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleArchiveWorker(worker)}
+                                            className="w-full px-3.5 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 cursor-pointer text-start"
+                                          >
+                                            <Archive className="w-4 h-4" />
+                                            <span>بایگانی پرسنل</span>
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveToRecycle(worker)}
+                                            className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer text-start"
+                                          >
+                                            <RotateCcw className="w-4 h-4" />
+                                            <span>انتقال به بازیافت</span>
+                                          </button>
+                                        </>
+                                      )}
+
+                                      {statusTab === 'archived' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveMenuWorkerId(null);
+                                            handleUnarchiveWorker(worker);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center gap-2 cursor-pointer text-start"
+                                        >
+                                          <Check className="w-4 h-4" />
+                                          <span>خروج از بایگانی</span>
+                                        </button>
+                                      )}
+
+                                      {statusTab === 'recycle' && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveMenuWorkerId(null);
+                                              handleRestoreFromRecycle(worker);
+                                            }}
+                                            className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center gap-2 cursor-pointer text-start"
+                                          >
+                                            <RotateCcw className="w-4 h-4" />
+                                            <span>بازیابی مجدد به شاغلین</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveMenuWorkerId(null);
+                                              handlePermanentDelete(worker);
+                                            }}
+                                            className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer text-start"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                            <span>حذف دائمی از حافظه</span>
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* اطلاعات تماس و بخش کاری */}
+                              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                                {worker.phone ? (
+                                  <a 
+                                    href={`tel:${worker.phone}`}
+                                    className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-sky-600 font-mono"
+                                    title="تماس مستقیم"
+                                  >
+                                    <Phone className="w-3.5 h-3.5 text-sky-500" />
+                                    <span>{worker.phone}</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400">بدون تلفن</span>
+                                )}
+
+                                {worker.defaultSectionId && sectionMap[worker.defaultSectionId] && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                                      <Layers className="w-3 h-3 text-slate-400" />
+                                      <span className="truncate max-w-[110px]">{sectionMap[worker.defaultSectionId]?.name}</span>
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* باکس شیشه‌ای دستمزد و مانده حساب */}
+                              <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-400">نرخ روزانه:</span>
+                                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
+                                    {worker.wageType === 'contract' ? 'کنتراکت' : formatCurrency(worker.dailyRate, currency, language)}
+                                  </span>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                    مانده حساب جاری:
+                                  </span>
+                                  {fin ? (
+                                    <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-lg ${
+                                      fin.netBalanceDue > 0
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60'
+                                        : fin.netBalanceDue < 0
+                                        ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/60'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                    }`} dir="ltr">
+                                      {formatCurrency(Math.abs(fin.netBalanceDue), currency, language)}
+                                      <span className="text-[9px] ms-1 font-normal font-sans">
+                                        {fin.netBalanceDue > 0 ? 'طلبکار' : fin.netBalanceDue < 0 ? 'بدهکار' : 'تسویه'}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-slate-400">—</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* فوتر کارت: دکمه اقدام مستقیم کارنامه */}
+                            <div className="pt-4 mt-2">
                               <button
                                 type="button"
-                                onClick={() => handleToggleActive(worker)}
-                                className={`p-1.5 rounded-lg border transition-colors ${
-                                  worker.isActive === 1
-                                    ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                }`}
-                                title={worker.isActive === 1 ? (t('deactivate') || 'غیرفعال‌سازی') : (t('activate') || 'فعال‌سازی')}
-                              >
-                                {worker.isActive === 1 ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setQuickAttendanceWorker(worker)}
-                                title={t('quickMonthlyAttendance')}
-                                className="p-1.5 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/60 rounded-lg transition-colors"
-                              >
-                                <Calendar className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setHistoryWorker(worker)}
-                                title={t('history')}
-                                className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                                onClick={() => openWorkerProfile(worker.id)}
+                                className="w-full py-2.5 rounded-2xl bg-sky-50 dark:bg-sky-950/50 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold text-xs border border-sky-200/60 dark:border-sky-800/60 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
                               >
                                 <History className="w-4 h-4" />
+                                <span>مشاهده کارنامه و پروفایل پرسنل</span>
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditModal(worker)}
-                                title={t('edit')}
-                                className="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* نمایش جدولی و فشرده (List Mode) */
+                    <div className="rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 overflow-hidden shadow-xs divide-y divide-slate-100 dark:divide-slate-800">
+                      {group.workers.map(worker => {
+                        const fin = workerFinancialsMap.get(worker.id);
+                        return (
+                          <div 
+                            key={worker.id}
+                            className="p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div 
+                                onClick={() => openWorkerProfile(worker.id)}
+                                className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 cursor-pointer"
                               >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleArchiveWorker(worker)}
-                                title={t('archive')}
-                                className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
-                              >
-                                <Archive className="w-4 h-4" />
-                              </button>
-                              {undeletableWorkerIds.has(String(worker.id)) ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    alert(language === 'fa' 
-                                      ? 'این پرسنل دارای گردش کارکرد یا اسناد مالی است و طبق قوانین مالیاتی غیرقابل حذف می‌باشد. در صورت پایان همکاری، وضعیت ایشان را به «بایگانی» تغییر دهید.' 
-                                      : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری دارایی یان کار ناتوانرێت بسڕدرێتەوە.');
-                                  }}
-                                  className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
-                                  title={language === 'fa' ? 'غیرقابل حذف (دارای کارکرد یا سند مالی) - امکان بایگانی در دسترس است' : 'سڕینەوە قەدەغەیە'}
-                                >
-                                  <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleMoveToTrash(worker)}
-                                  title={t('moveToTrash')}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </>
-                          )}
+                                {worker.name ? worker.name.charAt(0) : <Users className="w-4 h-4" />}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h4 
+                                    onClick={() => openWorkerProfile(worker.id)}
+                                    className="font-bold text-sm text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600"
+                                  >
+                                    {worker.name}
+                                  </h4>
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${worker.isActive !== 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                </div>
+                                <span className="text-xs text-slate-400 block truncate mt-0.5">
+                                  {worker.role || 'پرسنل'} {worker.phone ? `• ${worker.phone}` : ''}
+                                </span>
+                              </div>
+                            </div>
 
-                        {statusTab === 'archived' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setHistoryWorker(worker)}
-                              title={t('history')}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                            >
-                              <History className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUnarchiveWorker(worker)}
-                              title={t('unarchive')}
-                              className="flex items-center gap-1 px-2 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors"
-                            >
-                              <Archive className="w-3.5 h-3.5" />
-                              <span>{t('unarchive')}</span>
-                            </button>
-                            {undeletableWorkerIds.has(String(worker.id)) ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  alert(language === 'fa' 
-                                    ? 'این پرسنل دارای گردش کارکرد یا اسناد مالی است و طبق قوانین مالیاتی غیرقابل حذف می‌باشد.' 
-                                    : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری دارایی یان کار ناتوانرێت بسڕدرێتەوە.');
-                                }}
-                                className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
-                                title={language === 'fa' ? 'غیرقابل حذف (دارای کارکرد یا سند مالی)' : 'سڕینەوە قەدەغەیە'}
-                              >
-                                <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveToTrash(worker)}
-                                title={t('moveToTrash')}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </>
-                        )}
+                            <div className="flex items-center gap-4 shrink-0">
+                              <div className="text-end hidden sm:block">
+                                <span className="text-[10px] text-slate-400 block">دستمزد روزانه:</span>
+                                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
+                                  {worker.wageType === 'contract' ? 'توافقی' : formatCurrency(worker.dailyRate, currency, language)}
+                                </span>
+                              </div>
 
-                        {statusTab === 'trash' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleRestoreWorker(worker)}
-                              title={t('restore')}
-                              className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              <span>{t('restore')}</span>
-                            </button>
-                            {undeletableWorkerIds.has(String(worker.id)) ? (
+                              <div className="text-end">
+                                <span className="text-[10px] text-slate-400 block">مانده حساب:</span>
+                                {fin ? (
+                                  <span className={`text-xs font-mono font-black ${
+                                    fin.netBalanceDue > 0 ? 'text-emerald-600 dark:text-emerald-400' : fin.netBalanceDue < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
+                                  }`} dir="ltr">
+                                    {formatCurrency(Math.abs(fin.netBalanceDue), currency, language)}
+                                  </span>
+                                ) : '—'}
+                              </div>
+
                               <button
                                 type="button"
-                                onClick={() => {
-                                  alert(language === 'fa' 
-                                    ? 'این پرسنل دارای سوابق رسمی کارکرد یا اسناد مالی است و حذف قطعی آن غیرقانونی است. لطفاً پرسنل را بازیابی و بایگانی نمایید.' 
-                                    : 'سڕینەوەی یەکجاری قەدەغەیە.');
-                                }}
-                                className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-500 rounded-lg transition-colors cursor-not-allowed"
-                                title="غیرقابل حذف قطعی (دارای سوابق رسمی) - بازیابی و بایگانی فرمایید"
+                                onClick={() => openWorkerProfile(worker.id)}
+                                className="p-2 rounded-xl text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                title="مشاهده پروفایل"
                               >
-                                <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                                <History className="w-4.5 h-4.5" />
                               </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handlePermanentDeleteWorker(worker)}
-                                title={t('permanentDelete')}
-                                className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                  </React.Fragment>
-                );
-              })}
-              </tbody>
-            </table>
-          </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                )}
+
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {filteredWorkers.length === 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800">
-          {statusTab === 'trash' ? (
-            <>
-              <Trash2 className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-700 dark:text-slate-300 text-sm font-bold">
-                {t('emptyTrashDesc') || 'سطل آشغال در حال حاضر خالی است.'}
-              </p>
-            </>
-          ) : statusTab === 'archived' ? (
-            <>
-              <Archive className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-700 dark:text-slate-300 text-sm font-bold">
-                هیچ پرسنل بایگانی‌شده‌ای وجود ندارد.
-              </p>
-            </>
-          ) : (
-            <>
-              <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-                {t('noWorkerSelectedError')}
-              </p>
-            </>
-          )}
-        </div>
-      )}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 4. مودال‌های زیرسیستم پرسنل                                    */}
+      {/* ───────────────────────────────────────────────────────────── */}
 
-      {/* Add / Edit Worker Modal (Apple Liquid Glass) */}
+      {/* مودال پرچمدار و جدید تعریف و ویرایش پرسنل */}
       <AddWorkerModal
         isOpen={isFormModalOpen}
         onClose={() => {
@@ -1554,31 +1179,29 @@ export function WorkersView() {
         }}
       />
 
-      {/* Quick Month Attendance Modal (Mini Calendar for fast entry) */}
+      {/* ثبت تقویم ماهانه سریع */}
       <QuickMonthAttendanceModal
         worker={quickAttendanceWorker}
         isOpen={!!quickAttendanceWorker}
         onClose={() => setQuickAttendanceWorker(null)}
       />
 
-      {/* Worker Attendance History Modal */}
+      {/* کارنامه مالی پرسنل */}
       <WorkerFinancialProfileModal
         worker={historyWorker}
-        logs={workerHistoryLogs}
-        payments={workerPayments}
         currency={currency}
         onClose={() => setHistoryWorker(null)}
         onEditLog={setEditingLog}
       />
 
-      {/* Dedicated Edit Record Modal */}
+      {/* ویرایش رکورد کارکرد */}
       <EditRecordModal
         log={editingLog}
         isOpen={!!editingLog}
         onClose={() => setEditingLog(null)}
       />
 
-      {/* Manage Groups Modal */}
+      {/* مدیریت گروه‌های تخصصی */}
       {isManageGroupsModalOpen && (
         <ManageGroupsModal 
           onClose={() => setIsManageGroupsModalOpen(false)} 
