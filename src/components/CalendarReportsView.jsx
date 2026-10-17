@@ -72,7 +72,407 @@ const TIMELINE_SORT_KEY = 'karsync_timeline_sort_ascending';
 const CALENDAR_VIEW_MODE_KEY = 'karsync_calendar_view_mode';
 
 export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsumed }) {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, numberFormat } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+
+  // Comprehensive Trilingual Dictionary for Attendance & Reports (Zero Cross-Language Leakage)
+  const copy = {
+    fa: {
+      pageTitle: 'گزارش کارکرد',
+      pageSubtitle: 'ثبت و پایش شیفت‌های کاری، ساعات اضافه‌کار و گزارش‌گیری تفکیکی پروژه',
+      tabTimeline: 'تفکیک روزانه',
+      tabCalendar: 'ماه‌نما',
+      tabLogs: 'گزارش و بیلان جامع',
+      personnelButton: 'پرسنل',
+      personnelTooltip: 'مدیریت و بانک پرسنل (Shift + P)',
+      recycleBinLabel: 'سطل بازیافت کارکردهای حذف‌شده',
+      recycleBinShort: 'سطل زباله',
+      exportExcel: 'خروجی اکسل',
+      printPdf: 'چاپ گزارش',
+      monthlyPulse: 'نبض کارکرد و دستمزد ماه',
+      totalGrossWages: 'مجموع ناخالص حقوق و کارکرد ثبت‌شده در این ماه',
+      workingDays: 'روزهای کاری:',
+      totalOvertime: 'کل اضافه‌کاری:',
+      entriesCount: 'ثبت‌ها:',
+      logDailyAttendance: 'ثبت کارکرد روزانه',
+      quickAddLog: 'ثبت کار',
+      quickAddLogTooltip: 'ثبت کارکرد برای این روز',
+      prevMonth: 'ماه قبل',
+      nextMonth: 'ماه بعد',
+      collapseAll: 'بستن همه',
+      expandAll: 'باز کردن همه',
+      sortAscendingTitle: 'مرتب‌سازی: صعودی',
+      sortDescendingTitle: 'مرتب‌سازی: نزولی',
+      sortAscendingLabel: 'قدیمی به جدید',
+      sortDescendingLabel: 'جدید به قدیمی',
+      searchPlaceholder: 'جستجو در روزها، نام پرسنل، توضیحات...',
+      friday: 'جمعه',
+      fullDaysBadge: 'کامل',
+      halfDaysBadge: 'نیمه',
+      hourlyDaysBadge: 'ساعتی',
+      unitWorkers: 'نفر',
+      unitDays: 'روز',
+      unitShifts: 'شیفت',
+      registeredShifts: 'شیفت ثبت‌شده',
+      unitRecords: 'رکورد',
+      overtimeDayTitle: 'اضافه کاری روز',
+      dayTotalPayTitle: 'مجموع دستمزد ناخالص روز',
+      presentWorkersTitle: 'کارگر حاضر',
+      viewWorkerProfile: 'مشاهده پروفایل جامع پرسنل',
+      settledLockedTitle: 'مشاهده جزئیات (تسویه شده - قفل)',
+      locked: 'قفل',
+      settledBadge: 'تسویه شده',
+      currentBadge: 'جاری',
+      generalSection: 'عمومی / بدون بخش',
+      general: 'عمومی',
+      allSections: 'همه بخش‌ها',
+      independentWorkers: 'پرسنل مستقل (بدون گروه)',
+      noLogsThisDay: 'هیچ کارکردی در این روز ثبت نشده است',
+      noLogsForMonth: 'هیچ کارکردی در این ماه ثبت نشده است',
+      noDataForMonth: 'هیچ داده‌ای در این بازه زمانی یافت نشد.',
+      totalEntries: 'مجموع رکوردها',
+      quickAddLogThisDate: 'ثبت کارکرد در این روز',
+      searchWorkerOrGroup: 'جستجوی پرسنل یا گروه... (کلید / یا \\)',
+      clearFiltersTooltip: 'پاک کردن انتخاب و فیلترها',
+      noResultsFound: 'موردی یافت نشد',
+      workGroups: 'گروه‌های کاری',
+      workshopWorkers: 'پرسنل کارگاه',
+      thisMonth: 'این ماه',
+      lastMonth: 'ماه قبل',
+      last30Days: '۳۰ روز اخیر',
+      allTime: 'کل دوره',
+      filters: 'فیلترها',
+      advancedFiltersTitle: 'فیلترهای پیشرفته',
+      resetFilters: 'آمار کل',
+      resetFiltersTooltip: 'پاک کردن تمام فیلترها و بازگشت به آمار کل',
+      advancedFiltersHeader: 'تنظیمات و فیلترهای تکمیلی گزارش',
+      closeDrawer: 'بستن کشو',
+      workerStatement: 'کارنامه کارکرد و دستمزد:',
+      groupAggregate: 'بیلان تجمیعی گروه:',
+      projectIntelligence: 'بیلان جامع کارکرد و هزینه‌های کل پروژه',
+      grossLaborCostLabel: 'مجموع دستمزد ناخالص کارکرد در این بازه',
+      showDetailedLogs: 'نمایش ریز کارکرد و روزها',
+      hideDetailedLogs: 'بستن ریز کارکرد',
+      viewFullProfile: 'مشاهده پرونده کامل مالی',
+      settlementStatusTitle: 'وضعیت تسویه و تعهدات نقدینگی',
+      settledPercentLabel: 'تسویه شده',
+      settledAndPaid: 'تسویه و پرداخت‌شده',
+      unsettledDue: 'مانده تسویه‌نشده (تعهد)',
+      filterSettledTooltip: 'کلیک جهت فیلتر رکوردهای تسویه شده',
+      filterUnsettledTooltip: 'کلیک جهت فیلتر رکوردهای تسویه نشده',
+      shiftDistributionRatio: 'ترکیب و سهم شیفت‌های کاری',
+      aggregatedDays: 'مجموع روزهای کار',
+      aggregatedOvertime: 'مجموع اضافه کاری',
+      basePay: 'مجموع دستمزد پایه',
+      logsForWorker: 'ریز روزهای کارکرد:',
+      logsForGroup: 'ریز کارکرد گروه:',
+      detailedAuditLedger: 'ریز اقلام و روزهای ثبت‌شده',
+      showAllWorkers: 'بازگشت به آمار کل',
+      workerSummariesHeader: 'کارنامه خلاصه پرسنل در این دوره (جهت فیلتر لمس کنید):',
+      cardsView: 'کارت',
+      listView: 'لیست',
+      gridViewTooltip: 'نمایش کارتی',
+      listViewTooltip: 'نمایش لیستی',
+      totalPayLabel: 'مجموع دستمزد',
+      dateColumn: 'تاریخ',
+      workerName: 'نام کارگر',
+      typeColumn: 'نوع شیفت',
+      overtimeHours: 'اضافه‌کاری',
+      sectionColumn: 'بخش پروژه',
+      settlementStatusColumn: 'وضعیت تسویه',
+      notesColumn: 'توضیحات / یادداشت',
+      actions: 'عملیات',
+      edit: 'ویرایش',
+      delete: 'حذف',
+      cancel: 'انصراف',
+      deleteLockedAlert: 'این رکورد در امور مالی تسویه شده و کاملاً قفل است. امکان حذف آن وجود ندارد.',
+      deleteConfirm: 'آیا از حذف این کارکرد اطمینان دارید؟',
+      daysCountFullTooltip: 'روزهای کامل',
+      daysCountHalfTooltip: 'نیمه‌روز',
+      overtimeTooltip: 'اضافه‌کاری',
+      unknownWorker: 'نامشخص',
+      weekDays: ['یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه']
+    },
+    ku: {
+      pageTitle: 'ڕاپۆرتی کارکردن',
+      pageSubtitle: 'تۆمارکردن و چاودێریی دەوام، کاتژمێری زیادە و ڕاپۆرتی جیاکراوەی پڕۆژە',
+      tabTimeline: 'لیستی ڕۆژانە',
+      tabCalendar: 'تەقویم',
+      tabLogs: 'ڕاپۆرت و بیلان',
+      personnelButton: 'کارمەندان',
+      personnelTooltip: 'بەڕێوەبردنی کارمەندان (Shift + P)',
+      recycleBinLabel: 'سەبەتەی کارکردی سڕاوە',
+      recycleBinShort: 'سڕاوەکان',
+      exportExcel: 'دەرکردن بۆ ئەکسڵ',
+      printPdf: 'چاپکردنی ڕاپۆرت',
+      monthlyPulse: 'کۆی کارکرد و حەقدەستی مانگ',
+      totalGrossWages: 'کۆی گشتیی حەقدەستی تۆمارکراو لەم مانگەدا',
+      workingDays: 'ڕۆژانی کاری:',
+      totalOvertime: 'کۆی زیادەکاری:',
+      entriesCount: 'تۆمارەکان:',
+      logDailyAttendance: 'تۆمارکردنی کارکردی ڕۆژانە',
+      quickAddLog: 'تۆمار',
+      quickAddLogTooltip: 'تۆمارکردنی کارکرد بۆ ئەم ڕۆژە',
+      prevMonth: 'مانگی پێشوو',
+      nextMonth: 'مانگی داهاتوو',
+      collapseAll: 'داخستنی هەموو',
+      expandAll: 'کردنەوەی هەموو',
+      sortAscendingTitle: 'ڕیزکردن: کۆن بۆ نوێ',
+      sortDescendingTitle: 'ڕیزکردن: نوێ بۆ کۆن',
+      sortAscendingLabel: 'کۆن بۆ نوێ',
+      sortDescendingLabel: 'نوێ بۆ کۆن',
+      searchPlaceholder: 'گەڕان لە ڕۆژەکان، ناوی کرێکار، تێبینی...',
+      friday: 'هەینی',
+      fullDaysBadge: 'تەواو',
+      halfDaysBadge: 'نیوە',
+      hourlyDaysBadge: 'کاتژمێری',
+      unitWorkers: 'کەس',
+      unitDays: 'ڕۆژ',
+      unitShifts: 'شفت',
+      registeredShifts: 'شفتی تۆمارکراو',
+      unitRecords: 'تۆمار',
+      overtimeDayTitle: 'زیادەکاریی ڕۆژ',
+      dayTotalPayTitle: 'کۆی حەقدەستی ڕۆژ',
+      presentWorkersTitle: 'کرێکاری ئامادە',
+      viewWorkerProfile: 'بینینی پرۆفایلی کارمەند',
+      settledLockedTitle: 'بینینی وردەکاری (یەکلاکراوە - قفڵ)',
+      locked: 'قفڵ',
+      settledBadge: 'یەکلاکراوەتەوە',
+      currentBadge: 'جاری',
+      generalSection: 'گشتی / بێ بەش',
+      general: 'گشتی',
+      allSections: 'هەموو بەشەکان',
+      independentWorkers: 'کارمەندانی سەربەخۆ (بێ گروپ)',
+      noLogsThisDay: 'هیچ کارکردێک لەم ڕۆژەدا تۆمار نەکراوە',
+      noLogsForMonth: 'هیچ کارکردێک لەم مانگەدا تۆمار نەکراوە',
+      noDataForMonth: 'هیچ زانیارییەک لەم ماوەیەدا نەدۆزرایەوە.',
+      totalEntries: 'کۆی تۆمارەکان',
+      quickAddLogThisDate: 'تۆمارکردنی کارکرد لەم ڕۆژەدا',
+      searchWorkerOrGroup: 'گەڕان بۆ کارمەند یان گروپ... (کلیل / یان \\)',
+      clearFiltersTooltip: 'سڕینەوەی فلتەرەکان',
+      noResultsFound: 'هیچ دەرئەنجامێک نەدۆزرایەوە',
+      workGroups: 'گروپەکانی کارکردن',
+      workshopWorkers: 'کارمەندانی پڕۆژە',
+      thisMonth: 'ئەم مانگە',
+      lastMonth: 'مانگی پێشوو',
+      last30Days: '٣٠ ڕۆژی ڕابردوو',
+      allTime: 'هەموو کات',
+      filters: 'فلتەرەکان',
+      advancedFiltersTitle: 'فلتەرە پێشکەوتووەکان',
+      resetFilters: 'ئاماری گشتی',
+      resetFiltersTooltip: 'پاککردنەوەی هەموو فلتەرەکان و گەڕانەوە بۆ ئاماری گشتی',
+      advancedFiltersHeader: 'ڕێکخستن و فلتەرە زیاترەکانی ڕاپۆرت',
+      closeDrawer: 'داخستنی کشۆ',
+      workerStatement: 'ڕاپۆرتی کارکرد و حەقدەست:',
+      groupAggregate: 'کۆی گشتیی گروپ:',
+      projectIntelligence: 'بیلان و تێچووی گشتیی کارکردی پڕۆژە',
+      grossLaborCostLabel: 'کۆی گشتیی حەقدەستی دیاریکراو لەم ماوەیەدا',
+      showDetailedLogs: 'پیشاندانی وردەکاریی کارکرد و ڕۆژەکان',
+      hideDetailedLogs: 'شاردنەوەی وردەکاریی کارکرد',
+      viewFullProfile: 'بینینی پەڕگەی تەواوی دارایی',
+      settlementStatusTitle: 'دۆخی یەکلاکردنەوە و ئەرکە داراییەکان',
+      settledPercentLabel: 'یەکلاکراوەتەوە',
+      settledAndPaid: 'یەکلاکراوە و دراوە',
+      unsettledDue: 'ماوەی یەکلانەکراوە (شایستە)',
+      filterSettledTooltip: 'کلیک بکە بۆ فلتەرکردنی تۆمارە یەکلاکراوەکان',
+      filterUnsettledTooltip: 'کلیک بکە بۆ فلتەرکردنی تۆمارە یەکلانەکراوەکان',
+      shiftDistributionRatio: 'ڕێژەی دابەشبوونی دەوامەکان',
+      aggregatedDays: 'کۆی ڕۆژانی کار',
+      aggregatedOvertime: 'کۆی زیادەکاری',
+      basePay: 'کۆی حەقدەستی بنەڕەتی',
+      logsForWorker: 'وردەکاریی ڕۆژانی کارکرد:',
+      logsForGroup: 'وردەکاریی کارکردی گروپ:',
+      detailedAuditLedger: 'وردەکاریی بابەتەکان و ڕۆژە تۆمارکراوەکان',
+      showAllWorkers: 'گەڕانەوە بۆ هەموو کارمەندان',
+      workerSummariesHeader: 'پوختەی کارنامەی کارمەندان لەم ماوەیەدا (بۆ فلتەر کلیک بکە):',
+      cardsView: 'کارت',
+      listView: 'لیست',
+      gridViewTooltip: 'پیشاندانی کارتی',
+      listViewTooltip: 'پیشاندانی لیستی',
+      totalPayLabel: 'کۆی حەقدەست',
+      dateColumn: 'بەروار',
+      workerName: 'ناوی کرێکار',
+      typeColumn: 'جۆری دەوام',
+      overtimeHours: 'زیادەکاری',
+      sectionColumn: 'بەشی پڕۆژە',
+      settlementStatusColumn: 'دۆخی یەکلاکردنەوە',
+      notesColumn: 'تێبینییەکان',
+      actions: 'کردارەکان',
+      edit: 'دەستکاری',
+      delete: 'سڕینەوە',
+      cancel: 'پاشگەزبوونەوە',
+      deleteLockedAlert: 'ئەم تۆمارە لە بەشی دارایی یەکلاکراوەتەوە و قفڵە. سڕینەوەی مەحاڵە.',
+      deleteConfirm: 'ئایا دڵنیایت لە سڕینەوەی ئەم کارکردە؟',
+      daysCountFullTooltip: 'ڕۆژانی تەواو',
+      daysCountHalfTooltip: 'نیوەڕۆژ',
+      overtimeTooltip: 'زیادەکاری',
+      unknownWorker: 'نادیار',
+      weekDays: ['یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'هەینی', 'شەممە']
+    },
+    en: {
+      pageTitle: 'Attendance & Reports',
+      pageSubtitle: 'Track daily shifts, overtime hours, and comprehensive workshop attendance',
+      tabTimeline: 'Daily Timeline',
+      tabCalendar: 'Month Grid',
+      tabLogs: 'Reports & Analytics',
+      personnelButton: 'Workers',
+      personnelTooltip: 'Personnel Management (Shift + P)',
+      recycleBinLabel: 'Recycle Bin for Deleted Logs',
+      recycleBinShort: 'Recycle',
+      exportExcel: 'Export to Excel',
+      printPdf: 'Print Report',
+      monthlyPulse: 'Monthly Shift & Payroll Pulse',
+      totalGrossWages: 'Total gross wages for the selected month',
+      workingDays: 'Work Days:',
+      totalOvertime: 'Total Overtime:',
+      entriesCount: 'Entries:',
+      logDailyAttendance: 'Log Daily Attendance',
+      quickAddLog: 'Log Work',
+      quickAddLogTooltip: 'Log attendance for this day',
+      prevMonth: 'Previous Month',
+      nextMonth: 'Next Month',
+      collapseAll: 'Collapse All',
+      expandAll: 'Expand All',
+      sortAscendingTitle: 'Sort: Oldest to Newest',
+      sortDescendingTitle: 'Sort: Newest to Oldest',
+      sortAscendingLabel: 'Oldest First',
+      sortDescendingLabel: 'Newest First',
+      searchPlaceholder: 'Search days, worker name, notes...',
+      friday: 'Friday',
+      fullDaysBadge: 'Full',
+      halfDaysBadge: 'Half',
+      hourlyDaysBadge: 'Hourly',
+      unitWorkers: 'workers',
+      unitDays: 'days',
+      unitShifts: 'shifts',
+      registeredShifts: 'logged shifts',
+      unitRecords: 'records',
+      overtimeDayTitle: 'Daily Overtime',
+      dayTotalPayTitle: 'Total daily wage',
+      presentWorkersTitle: 'Present workers',
+      viewWorkerProfile: 'View Worker Profile',
+      settledLockedTitle: 'View details (settled - locked)',
+      locked: 'Locked',
+      settledBadge: 'Settled',
+      currentBadge: 'Current',
+      generalSection: 'General / Unassigned',
+      general: 'General',
+      allSections: 'All Sections',
+      independentWorkers: 'Independent Workers',
+      noLogsThisDay: 'No work logged for this day',
+      noLogsForMonth: 'No work logged for this month',
+      noDataForMonth: 'No data found for the selected range.',
+      totalEntries: 'Total Entries',
+      quickAddLogThisDate: 'Log attendance for this date',
+      searchWorkerOrGroup: 'Search worker or group... (/ or \\)',
+      clearFiltersTooltip: 'Clear filters',
+      noResultsFound: 'No results found',
+      workGroups: 'Work Groups',
+      workshopWorkers: 'Workshop Workers',
+      thisMonth: 'This Month',
+      lastMonth: 'Last Month',
+      last30Days: 'Last 30 Days',
+      allTime: 'All Time',
+      filters: 'Filters',
+      advancedFiltersTitle: 'Advanced Filters',
+      resetFilters: 'Reset',
+      resetFiltersTooltip: 'Clear all filters and reset to overall stats',
+      advancedFiltersHeader: 'Advanced Report Filters',
+      closeDrawer: 'Close Drawer',
+      workerStatement: 'Worker Statement:',
+      groupAggregate: 'Group Aggregate:',
+      projectIntelligence: 'Project Executive Intelligence',
+      grossLaborCostLabel: 'Calculated Gross Labor Cost',
+      showDetailedLogs: 'Show Detailed Logs',
+      hideDetailedLogs: 'Hide Detailed Logs',
+      viewFullProfile: 'View Full Profile',
+      settlementStatusTitle: 'Settlement & Liquidity Status',
+      settledPercentLabel: 'Settled',
+      settledAndPaid: 'Settled & Paid',
+      unsettledDue: 'Unsettled (Due)',
+      filterSettledTooltip: 'Click to filter settled records',
+      filterUnsettledTooltip: 'Click to filter unsettled records',
+      shiftDistributionRatio: 'Shift Distribution Ratio',
+      aggregatedDays: 'Total Days Worked',
+      aggregatedOvertime: 'Total Overtime',
+      basePay: 'Total Base Pay',
+      logsForWorker: 'Logs for:',
+      logsForGroup: 'Group logs for:',
+      detailedAuditLedger: 'Detailed Audit Ledger',
+      showAllWorkers: 'Show All Workers',
+      workerSummariesHeader: 'Worker Summaries (tap to inspect):',
+      cardsView: 'Cards',
+      listView: 'List',
+      gridViewTooltip: 'Grid View',
+      listViewTooltip: 'List View',
+      totalPayLabel: 'Total Pay',
+      dateColumn: 'Date',
+      workerName: 'Worker Name',
+      typeColumn: 'Shift Type',
+      overtimeHours: 'Overtime',
+      sectionColumn: 'Project Section',
+      settlementStatusColumn: 'Settlement Status',
+      notesColumn: 'Notes',
+      actions: 'Actions',
+      edit: 'Edit',
+      delete: 'Delete',
+      cancel: 'Cancel',
+      deleteLockedAlert: 'This record is settled and locked. It cannot be deleted.',
+      deleteConfirm: 'Are you sure you want to delete this attendance log?',
+      daysCountFullTooltip: 'Full days',
+      daysCountHalfTooltip: 'Half days',
+      overtimeTooltip: 'Overtime',
+      unknownWorker: 'Unknown',
+      weekDays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    }
+  }[langKey];
+
+  const localizeWorkerRole = (role) => {
+    if (!role) {
+      return langKey === 'fa' ? 'پرسنل' : langKey === 'ku' ? 'کارمەند' : 'Personnel';
+    }
+    const clean = String(role).trim().toLowerCase();
+    if (clean === 'کارگر' || clean === 'worker' || clean === 'کرێکار') {
+      return langKey === 'fa' ? 'کارگر' : langKey === 'ku' ? 'کرێکار' : 'Worker';
+    }
+    if (clean === 'استادکار' || clean === 'اوستا' || clean === 'master' || clean === 'وەستا') {
+      return langKey === 'fa' ? 'استادکار' : langKey === 'ku' ? 'وەستا' : 'Master Craftsperson';
+    }
+    if (clean === 'شاگرد' || clean === 'کمک‌استاد' || clean === 'apprentice' || clean === 'یاریدەدەر') {
+      return langKey === 'fa' ? 'شاگرد / کمک‌استاد' : langKey === 'ku' ? 'شاگرد / یاریدەدەر' : 'Apprentice / Helper';
+    }
+    if (clean === 'تکنسین' || clean === 'technician' || clean === 'تەکنیکار') {
+      return langKey === 'fa' ? 'تکنسین' : langKey === 'ku' ? 'تەکنیکار' : 'Technician';
+    }
+    if (clean === 'سرپرست' || clean === 'supervisor' || clean === 'سەرپەرشتیار') {
+      return langKey === 'fa' ? 'سرپرست' : langKey === 'ku' ? 'سەرپەرشتیار' : 'Supervisor';
+    }
+    if (clean === 'مهندس' || clean === 'engineer' || clean === 'ئەندازیار') {
+      return langKey === 'fa' ? 'مهندس' : langKey === 'ku' ? 'ئەندازیار' : 'Engineer';
+    }
+    if (clean === 'پرسنل' || clean === 'پرسنل کارگاه' || clean === 'personnel' || clean === 'کارمەند' || clean === 'کارمەندانی پڕۆژە') {
+      return langKey === 'fa' ? 'پرسنل کارگاه' : langKey === 'ku' ? 'کارمەندی پڕۆژە' : 'Workshop Personnel';
+    }
+    return role;
+  };
+
+  const localizeSectionName = (secName) => {
+    if (!secName) return copy.generalSection;
+    const clean = String(secName).trim().toLowerCase();
+    if (clean === 'عمومی' || clean === 'عمومی / بدون بخش' || clean === 'general' || clean === 'گشتی' || clean === 'گشتی / بێ بەش') {
+      return copy.generalSection;
+    }
+    return secName;
+  };
+
+  const localizeGroupName = (gName) => {
+    if (!gName) return copy.independentWorkers;
+    const clean = String(gName).trim().toLowerCase();
+    if (clean.includes('مستقل') || clean.includes('بدون گروه') || clean.includes('independent') || clean.includes('سەربەخۆ')) {
+      return copy.independentWorkers;
+    }
+    return gName;
+  };
   const { currentProject, openWorkerProfile } = useProject();
   const currency = currentProject?.currency || 'IQD';
 
@@ -551,7 +951,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       const notesList = [];
       dayLogs.forEach((l) => {
         if (l.notes && l.notes.trim()) {
-          const workerName = workerMap[l.workerId]?.name || 'نامشخص';
+          const workerName = workerMap[l.workerId]?.name || copy.unknownWorker;
           notesList.push({
             workerId: l.workerId,
             workerName,
@@ -718,7 +1118,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
     breakdown['unassigned'] = {
       id: 'unassigned',
-      name: language === 'fa' ? 'عمومی / بدون بخش' : 'General / Unassigned',
+      name: copy.generalSection,
       days: 0,
       otHours: 0,
       totalCost: 0,
@@ -851,7 +1251,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       if (!map[gId]) {
         map[gId] = {
           groupId: gId,
-          groupName: gId === 'unassigned' ? (language === 'fa' ? 'پرسنل مستقل (بدون گروه)' : 'Independent Workers') : (groupMap[gId]?.name || gId),
+          groupName: gId === 'unassigned' ? copy.independentWorkers : (groupMap[gId]?.name || gId),
           workerIds: new Set(),
           fullDays: 0,
           halfDays: 0,
@@ -888,14 +1288,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
     try {
       const target = await db.attendanceLogs.get(logId);
       if (target && isLogSettled(target)) {
-        alert(language === 'fa' 
-          ? 'این رکورد در امور مالی تسویه شده و کاملاً قفل است. امکان حذف آن وجود ندارد.' 
-          : 'This record is settled and locked. It cannot be deleted.');
+        alert(copy.deleteLockedAlert);
         return;
       }
     } catch (_) {}
 
-    if (window.confirm(t('deleteLogConfirm'))) {
+    if (window.confirm(copy.deleteConfirm)) {
       await db.attendanceLogs.delete(logId);
       deleteLogLive(logId).catch(() => {});
     }
@@ -910,11 +1308,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
     setCalendarMonth(`${newY}-${newM}`);
   };
 
-  const weekDayLabels = language === 'en'
-    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    : language === 'fa'
-    ? ['یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه']
-    : ['یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'هەینی', 'شەممە'];
+  const weekDayLabels = copy.weekDays;
 
   return (
     <div className="space-y-6 pb-20">
@@ -931,12 +1325,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
-                {language === 'fa' ? 'گزارش کارکرد' : language === 'ku' ? 'ڕاپۆرتی کارکردن' : 'Attendance & Reports'}
+                {copy.pageTitle}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {language === 'fa' 
-                  ? 'ثبت و پایش شیفت‌های کاری، ساعات اضافه‌کار و گزارش‌گیری تفکیکی پروژه' 
-                  : 'Track daily shifts, overtime hours, and comprehensive workshop attendance'}
+                {copy.pageSubtitle}
               </p>
             </div>
           </div>
@@ -946,9 +1338,9 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             {/* Pure 3-Mode Switcher */}
             <div className="h-[52px] sm:h-[56px] flex items-center gap-1 sm:gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner flex-shrink-0 backdrop-blur-md">
               {[
-                { id: 'timeline', label: language === 'fa' ? 'تفکیک روزانه' : language === 'ku' ? 'لیستی مانگانە' : 'Timeline', icon: CalendarDays },
-                { id: 'calendar', label: language === 'fa' ? 'ماه‌نما' : language === 'ku' ? 'تەقویم' : 'Month Grid', icon: LayoutGrid },
-                { id: 'logs', label: language === 'fa' ? 'گزارش و بیلان جامع' : language === 'ku' ? 'ڕاپۆرت' : 'Reports & Analytics', icon: Sparkles }
+                { id: 'timeline', label: copy.tabTimeline, icon: CalendarDays },
+                { id: 'calendar', label: copy.tabCalendar, icon: LayoutGrid },
+                { id: 'logs', label: copy.tabLogs, icon: Sparkles }
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isSelected = viewMode === tab.id;
@@ -983,11 +1375,11 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 type="button"
                 onClick={() => setIsWorkersModalOpen(true)}
                 className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
-                title={language === 'fa' ? 'مدیریت و بانک پرسنل (Shift + P)' : language === 'ku' ? 'بەڕێوەبردنی کرێکاران' : 'Personnel Management'}
-                aria-label={language === 'fa' ? 'مدیریت پرسنل' : 'Personnel'}
+                title={copy.personnelTooltip}
+                aria-label={copy.personnelButton}
               >
                 <Users className="w-4.5 h-4.5 flex-shrink-0" />
-                <span className="hidden sm:inline">{language === 'fa' ? 'پرسنل' : language === 'ku' ? 'کرێکاران' : 'Workers'}</span>
+                <span className="hidden sm:inline">{copy.personnelButton}</span>
               </button>
 
               <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
@@ -1020,8 +1412,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               <button
                 type="button"
                 onClick={() => setIsRecycleBinOpen(true)}
-                aria-label={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
-                title={language === 'fa' ? 'سطل بازیافت کارکردهای حذف‌شده' : 'Recycle Bin'}
+                aria-label={copy.recycleBinLabel}
+                title={copy.recycleBinLabel}
                 className="h-full aspect-square rounded-xl text-slate-400 hover:text-amber-500 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer"
               >
                 <Trash2 className="w-4.5 h-4.5 flex-shrink-0" />
@@ -1048,7 +1440,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
                     <CalendarCheck className="w-4 h-4" />
-                    <span>{language === 'fa' ? 'نبض کارکرد و دستمزد ماه' : 'Monthly Shift & Payroll Pulse'}</span>
+                    <span>{copy.monthlyPulse}</span>
                   </div>
 
                   {/* Compact Month Switcher Pill */}
@@ -1056,7 +1448,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     <button
                       onClick={() => handleMonthShift(direction === 'rtl' ? 1 : -1)}
                       className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white cursor-pointer"
-                      title="ماه قبل"
+                      title={copy.prevMonth}
                     >
                       {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                     </button>
@@ -1074,7 +1466,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     <button
                       onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
                       className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white cursor-pointer"
-                      title="ماه بعد"
+                      title={copy.nextMonth}
                     >
                       {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </button>
@@ -1087,26 +1479,26 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     <span className="text-sm sm:text-base font-bold text-sky-400">{getCurrencySymbol(currency, language)}</span>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                    {language === 'fa' ? 'مجموع ناخالص حقوق و کارکرد ثبت‌شده در این ماه' : 'Total gross wages for the selected month'}
+                    {copy.totalGrossWages}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
                   <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    <span className="text-slate-300">{language === 'fa' ? 'روزهای کاری:' : 'Days:'}</span>
-                    <span className="font-black text-white">{monthTimelineData.monthStats.daysWorked} {language === 'fa' ? 'روز' : 'days'}</span>
+                    <span className="text-slate-300">{copy.workingDays}</span>
+                    <span className="font-black text-white">{monthTimelineData.monthStats.daysWorked} {copy.unitDays}</span>
                   </div>
 
                   <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    <span className="text-slate-300">{language === 'fa' ? 'کل اضافه‌کاری:' : 'OT:'}</span>
+                    <span className="text-slate-300">{copy.totalOvertime}</span>
                     <span className="font-black font-mono text-white">+{formatHoursAndMinutes(monthTimelineData.monthStats.totalOvertime, language)}</span>
                   </div>
 
                   <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-sky-400" />
-                    <span className="text-slate-300">{language === 'fa' ? 'ثبت‌ها:' : 'Entries:'}</span>
+                    <span className="text-slate-300">{copy.entriesCount}</span>
                     <span className="font-black text-white">{monthTimelineData.monthStats.totalEntries}</span>
                   </div>
                 </div>
@@ -1120,7 +1512,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   className="col-span-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
                 >
                   <CalendarPlus className="w-4 h-4" />
-                  <span>{t('logDailyAttendance')}</span>
+                  <span>{copy.logDailyAttendance}</span>
                 </button>
 
                 <button
@@ -1129,7 +1521,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
                 >
                   <Users className="w-4 h-4 text-sky-400" />
-                  <span>{language === 'fa' ? 'پرسنل' : 'Workers'}</span>
+                  <span>{copy.personnelButton}</span>
                 </button>
 
                 <button
@@ -1138,7 +1530,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
                 >
                   <Trash2 className="w-4 h-4 text-amber-400" />
-                  <span>{language === 'fa' ? 'سطل زباله' : 'Recycle'}</span>
+                  <span>{copy.recycleBinShort}</span>
                 </button>
               </div>
             </div>
@@ -1152,7 +1544,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   type="text"
                   value={timelineSearch}
                   onChange={(e) => setTimelineSearch(e.target.value)}
-                  placeholder={t('timelineSearchPlaceholder')}
+                  placeholder={copy.searchPlaceholder}
                   className="w-full ps-9 pe-4 py-2 text-xs bg-white/10 border border-white/15 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
                 />
                 {timelineSearch && (
@@ -1173,20 +1565,20 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     type="button"
                     onClick={() => collapseAllDays()}
                     className="px-2.5 py-1 text-[11px] font-bold text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-all flex items-center gap-1 cursor-pointer"
-                    title={language === 'fa' ? 'بستن همه روزها' : 'Collapse All'}
+                    title={copy.collapseAll}
                   >
                     <ChevronUp className="w-3.5 h-3.5" />
-                    <span>{language === 'fa' ? 'بستن همه' : 'Collapse'}</span>
+                    <span>{copy.collapseAll}</span>
                   </button>
                   <div className="w-px h-3.5 bg-white/20" />
                   <button
                     type="button"
                     onClick={() => expandAllDays(displayedTimelineDays.map((d) => d.dateStr))}
                     className="px-2.5 py-1 text-[11px] font-bold text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-all flex items-center gap-1 cursor-pointer"
-                    title={language === 'fa' ? 'باز کردن همه روزها' : 'Expand All'}
+                    title={copy.expandAll}
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
-                    <span>{language === 'fa' ? 'باز کردن همه' : 'Expand'}</span>
+                    <span>{copy.expandAll}</span>
                   </button>
                 </div>
 
@@ -1208,16 +1600,14 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   type="button"
                   onClick={toggleSortOrder}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/15 bg-white/10 hover:bg-white/20 text-white cursor-pointer active:scale-95"
-                  title={sortAscending 
-                    ? (language === 'fa' ? 'مرتب‌سازی: صعودی' : 'Sort: Oldest to Newest')
-                    : (language === 'fa' ? 'مرتب‌سازی: نزولی' : 'Sort: Newest to Oldest')}
+                  title={sortAscending ? copy.sortAscendingTitle : copy.sortDescendingTitle}
                 >
                   {sortAscending ? (
                     <ArrowUpNarrowWide className="w-4 h-4 text-sky-400 stroke-[2.2]" />
                   ) : (
                     <ArrowDownWideNarrow className="w-4 h-4 text-amber-400 stroke-[2.2]" />
                   )}
-                  <span>{sortAscending ? (language === 'ku' ? 'کۆن بۆ نوێ' : 'قدیمی به جدید') : (language === 'ku' ? 'نوێ بۆ کۆن' : 'جدید به قدیمی')}</span>
+                  <span>{sortAscending ? copy.sortAscendingLabel : copy.sortDescendingLabel}</span>
                 </button>
               </div>
             </div>
@@ -1290,7 +1680,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             </h3>
                             {isFriday && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                {language === 'fa' ? 'جمعه' : 'Friday'}
+                                {copy.friday}
                               </span>
                             )}
                           </div>
@@ -1303,13 +1693,13 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                               </span>
                               <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
                                 {fullCount > 0 && (
-                                  <div style={{ width: `${(fullCount / dayItem.totalWorkers) * 100}%` }} className="bg-emerald-500 h-full" title={`${fullCount} کامل`} />
+                                  <div style={{ width: `${(fullCount / dayItem.totalWorkers) * 100}%` }} className="bg-emerald-500 h-full" title={`${fullCount} ${copy.fullDaysBadge}`} />
                                 )}
                                 {halfCount > 0 && (
-                                  <div style={{ width: `${(halfCount / dayItem.totalWorkers) * 100}%` }} className="bg-amber-500 h-full" title={`${halfCount} نیمه`} />
+                                  <div style={{ width: `${(halfCount / dayItem.totalWorkers) * 100}%` }} className="bg-amber-500 h-full" title={`${halfCount} ${copy.halfDaysBadge}`} />
                                 )}
                                 {hourlyCount > 0 && (
-                                  <div style={{ width: `${(hourlyCount / dayItem.totalWorkers) * 100}%` }} className="bg-purple-500 h-full" title={`${hourlyCount} ساعتی`} />
+                                  <div style={{ width: `${(hourlyCount / dayItem.totalWorkers) * 100}%` }} className="bg-purple-500 h-full" title={`${hourlyCount} ${copy.hourlyDaysBadge}`} />
                                 )}
                               </div>
                             </div>
@@ -1348,16 +1738,16 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             {/* Unified Day Metric Capsule (کپسول یکپارچه متریک‌های روز) */}
                             <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-inner backdrop-blur-md text-xs font-bold">
                               {/* 1. Worker count */}
-                              <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200" title={`${dayItem.totalWorkers} کارگر حاضر`}>
+                              <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200" title={`${dayItem.totalWorkers} ${copy.presentWorkersTitle}`}>
                                 <Users className="w-3.5 h-3.5 text-sky-500" />
-                                <span>{dayItem.totalWorkers} <span className="font-normal text-[11px] text-slate-400">{language === 'fa' ? 'نفر' : language === 'ku' ? 'کەس' : 'workers'}</span></span>
+                                <span>{dayItem.totalWorkers} <span className="font-normal text-[11px] text-slate-400">{copy.unitWorkers}</span></span>
                               </div>
 
                               {/* 2. Overtime in digital +H:MM format */}
                               {dayItem.totalOvertime > 0 && (
                                 <>
                                   <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
-                                  <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-mono" title="اضافه کاری روز">
+                                  <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-mono" title={copy.overtimeDayTitle}>
                                     <Clock className="w-3.5 h-3.5 text-amber-500" />
                                     <span>+{formatHoursDigital(dayItem.totalOvertime)}</span>
                                   </div>
@@ -1366,7 +1756,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
                               {/* 3. Total day wages */}
                               <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
-                              <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-mono font-black" title="مجموع دستمزد ناخالص روز">
+                              <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-mono font-black" title={copy.dayTotalPayTitle}>
                                 <Coins className="w-3.5 h-3.5 text-emerald-500" />
                                 <span>{formatAmount(dayItem.totalPay, currency)}</span>
                               </div>
@@ -1386,10 +1776,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             if (onOpenLoggingModal) onOpenLoggingModal(dayItem.dateStr);
                           }}
                           className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white shadow-md shadow-sky-500/25 transition-all cursor-pointer active:scale-95 border border-sky-400/30"
-                          title={language === 'fa' ? 'ثبت کارکرد برای این روز' : t('quickAddLogThisDate')}
+                          title={copy.quickAddLogTooltip}
                         >
                           <PlusCircle className="w-4 h-4" />
-                          <span className="hidden sm:inline">{language === 'fa' ? 'ثبت کار' : t('quickAddLogThisDate')}</span>
+                          <span className="hidden sm:inline">{copy.quickAddLog}</span>
                         </button>
 
                         {/* Collapse/Expand Chevron */}
@@ -1409,7 +1799,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             {/* Workers Micro-Grid / List */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
                               {dayItem.logs.map((log) => {
-                                const worker = workerMap[log.workerId] || { name: 'Unknown', role: '' };
+                                const worker = workerMap[log.workerId] || { name: copy.unknownWorker, role: '' };
                                 const logSettled = isLogSettled(log);
 
                                 return (
@@ -1426,7 +1816,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                         <h5 
                                           onClick={() => openWorkerProfile(log.workerId)}
                                           className="font-bold text-xs text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-500 transition-colors"
-                                          title="مشاهده پروفایل جامع پرسنل"
+                                          title={copy.viewWorkerProfile}
                                         >
                                           {worker.name}
                                         </h5>
@@ -1462,7 +1852,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
                                       {/* Action buttons (Minimal on hover) */}
                                       {logSettled ? (
-                                        <span className="p-1 text-emerald-500 bg-emerald-500/10 rounded-lg text-[10px] font-bold flex items-center gap-0.5" title="تسویه شده (قفل)">
+                                        <span className="p-1 text-emerald-500 bg-emerald-500/10 rounded-lg text-[10px] font-bold flex items-center gap-0.5" title={copy.settledLockedTitle}>
                                           <Lock className="w-3 h-3" />
                                         </span>
                                       ) : (
@@ -1546,7 +1936,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 <button
                   onClick={() => handleMonthShift(direction === 'rtl' ? 1 : -1)}
                   className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="ماه قبل"
+                  title={copy.prevMonth}
                 >
                   {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>
@@ -1565,7 +1955,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 <button
                   onClick={() => handleMonthShift(direction === 'rtl' ? -1 : 1)}
                   className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="ماه بعد"
+                  title={copy.nextMonth}
                 >
                   {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 </button>
@@ -1582,7 +1972,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 >
                   <CalendarPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="hidden xs:inline">{t('logDailyAttendance')}</span>
-                  <span className="xs:hidden">ثبت</span>
+                  <span className="xs:hidden">{copy.quickAddLog}</span>
                 </button>
               </div>
             </div>
@@ -1665,7 +2055,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       {hasLogs ? (
                         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-[9px] font-black text-emerald-600 dark:text-emerald-400">
                           <span>{dayItem.totalWorkers}</span>
-                          <span className="text-[8px] opacity-75">نفر</span>
+                          <span className="text-[8px] opacity-75">{copy.unitWorkers}</span>
                         </div>
                       ) : (
                         <span className="text-[9px] text-slate-300 dark:text-slate-600">-</span>
@@ -1679,7 +2069,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1 text-slate-700 dark:text-slate-200 font-bold">
                               <Users className="w-3 h-3 text-sky-500" />
-                              <span>{dayItem.totalWorkers} نفر</span>
+                              <span>{dayItem.totalWorkers} {copy.unitWorkers}</span>
                             </div>
                             {dayItem.totalOvertime > 0 && (
                               <div className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">
@@ -1730,7 +2120,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
-                    <span>{t('quickAddLogThisDate')}</span>
+                    <span>{copy.quickAddLogThisDate}</span>
                   </button>
                   <button
                     onClick={() => setInspectedDateStr(null)}
@@ -1863,7 +2253,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       ? `👤 ${workerMap[selectedWorkerId].name}`
                       : selectedGroupId !== 'all' && groupMap[selectedGroupId]
                       ? `👥 ${groupMap[selectedGroupId].name}`
-                      : (language === 'fa' ? 'جستجوی پرسنل یا گروه... (کلید / یا \\)' : 'Search worker or group... (/ or \\)')
+                      : copy.searchWorkerOrGroup
                   }
                   className="w-full pr-10 pl-9 py-2.5 text-xs bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm font-medium transition-all"
                 />
@@ -1879,7 +2269,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   <button
                     type="button"
                     onClick={clearAllFilters}
-                    title="پاک کردن انتخاب و فیلترها"
+                    title={copy.clearFiltersTooltip}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
@@ -1900,7 +2290,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     {reportSearch.trim() ? (
                       searchPickerItems.length === 0 ? (
                         <div className="py-4 text-center text-slate-400 text-xs">
-                          {language === 'fa' ? 'موردی یافت نشد' : 'No results found'}
+                          {copy.noResultsFound}
                         </div>
                       ) : (
                         searchPickerItems.map((item, idx) => {
@@ -1944,7 +2334,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                               <div className="flex items-center gap-1.5 text-[10px]">
                                 {item.type === 'group' ? (
                                   <span className={`px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'}`}>
-                                    {item.count} نفر
+                                    {item.count} {copy.unitWorkers}
                                   </span>
                                 ) : item.groupName ? (
                                   <span className={`px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
@@ -1964,7 +2354,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           <div className="space-y-1">
                             <div className="px-3 pt-1.5 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                               <Users className="w-3 h-3 text-indigo-400" />
-                              <span>{language === 'fa' ? 'گروه‌های کاری' : 'Work Groups'}</span>
+                              <span>{copy.workGroups}</span>
                             </div>
                             {groupOptions.map((g, gIdx) => {
                               const isSelected = gIdx === searchSelectedIndex;
@@ -1990,7 +2380,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                     <span>{g.name}</span>
                                   </span>
                                   <span className="text-[10px] opacity-75">
-                                    {workers.filter(w => String(w.groupId) === String(g.id)).length} نفر
+                                    {workers.filter(w => String(w.groupId) === String(g.id)).length} {copy.unitWorkers}
                                   </span>
                                 </button>
                               );
@@ -2003,7 +2393,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
                             <div className="px-3 pt-1.5 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                               <User className="w-3 h-3 text-sky-400" />
-                              <span>{language === 'fa' ? 'پرسنل کارگاه' : 'Workers'}</span>
+                              <span>{copy.workshopWorkers}</span>
                             </div>
                             {workers.map((w, wIdx) => {
                               const itemIndex = groupOptions.length + wIdx;
@@ -2053,10 +2443,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               {/* Presets */}
               <div className="inline-flex items-center gap-1 bg-white/80 dark:bg-slate-900/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
                 {[
-                  { id: 'thisMonth', label: language === 'fa' ? 'این ماه' : 'This Month' },
-                  { id: 'lastMonth', label: language === 'fa' ? 'ماه قبل' : 'Last Month' },
-                  { id: 'last30Days', label: language === 'fa' ? '۳۰ روز' : '30 Days' },
-                  { id: 'allTime', label: language === 'fa' ? 'کل دوره' : 'All Time' }
+                  { id: 'thisMonth', label: copy.thisMonth },
+                  { id: 'lastMonth', label: copy.lastMonth },
+                  { id: 'last30Days', label: copy.last30Days },
+                  { id: 'allTime', label: copy.allTime }
                 ].map((preset) => {
                   const isActive = activeDatePreset === preset.id;
                   return (
@@ -2085,10 +2475,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     ? 'bg-sky-500 text-white border-sky-400 shadow-md shadow-sky-500/25'
                     : 'bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/70 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
-                title="فیلترهای پیشرفته"
+                title={copy.advancedFiltersTitle}
               >
                 <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">{language === 'fa' ? 'فیلترها' : 'Filters'}</span>
+                <span className="hidden sm:inline">{copy.filters}</span>
                 {(selectedSettlementStatus !== 'all' || selectedType !== 'all' || selectedSectionId !== 'all') && (
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 )}
@@ -2101,10 +2491,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   type="button"
                   onClick={clearAllFilters}
                   className="px-3 py-2 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  title="پاک کردن تمام فیلترها و بازگشت به آمار کل"
+                  title={copy.resetFiltersTooltip}
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{language === 'fa' ? 'آمار کل' : 'Reset'}</span>
+                  <span className="hidden sm:inline">{copy.resetFilters}</span>
                 </button>
               )}
             </div>
@@ -2117,14 +2507,14 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <Filter className="w-4 h-4 text-sky-500" />
-                  <span>{language === 'fa' ? 'تنظیمات و فیلترهای تکمیلی گزارش' : 'Advanced Report Filters'}</span>
+                  <span>{copy.advancedFiltersHeader}</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsFilterDrawerOpen(false)}
                   className="text-xs font-bold text-sky-500 hover:text-sky-600 cursor-pointer"
                 >
-                  {language === 'fa' ? 'بستن کشو' : 'Close'}
+                  {copy.closeDrawer}
                 </button>
               </div>
 
@@ -2166,15 +2556,15 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 {projectSections.length > 0 && (
                   <div className="space-y-1">
                     <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                      {t('section') || 'بخش پروژه'}
+                      {copy.sectionColumn}
                     </label>
                     <select
                       value={selectedSectionId}
                       onChange={(e) => setSelectedSectionId(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
                     >
-                      <option value="all">{language === 'fa' ? 'همه بخش‌ها' : 'All Sections'}</option>
-                      <option value="unassigned">{language === 'fa' ? 'عمومی / بدون بخش' : 'General'}</option>
+                      <option value="all">{copy.allSections}</option>
+                      <option value="unassigned">{copy.generalSection}</option>
                       {projectSections.map((sec) => (
                         <option key={sec.id} value={sec.id}>{sec.name}</option>
                       ))}
@@ -2228,17 +2618,17 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   <Sparkles className="w-4 h-4 text-sky-400 animate-pulse" />
                   <span>
                     {selectedWorkerId !== 'all' && workerMap[selectedWorkerId]
-                      ? `👤 ${language === 'fa' ? 'کارنامه کارکرد و دستمزد:' : 'Worker Statement:'} ${workerMap[selectedWorkerId].name}`
+                      ? `👤 ${copy.workerStatement} ${workerMap[selectedWorkerId].name}`
                       : selectedGroupId !== 'all' && groupMap[selectedGroupId]
-                      ? `👥 ${language === 'fa' ? 'بیلان تجمیعی گروه:' : 'Group Aggregate:'} ${groupMap[selectedGroupId].name}`
-                      : (language === 'fa' ? 'بیلان جامع کارکرد و هزینه‌های کل پروژه' : 'Project Executive Intelligence')}
+                      ? `👥 ${copy.groupAggregate} ${groupMap[selectedGroupId].name}`
+                      : copy.projectIntelligence}
                   </span>
                 </div>
 
                 <div className="flex items-baseline justify-between gap-4 flex-wrap pt-1">
                   <div>
                     <span className="text-xs text-slate-400 font-medium block">
-                      {language === 'fa' ? 'مجموع دستمزد ناخالص کارکرد در این بازه' : 'Calculated Gross Labor Cost'}
+                      {copy.grossLaborCostLabel}
                     </span>
                     <div className="flex items-baseline gap-3 flex-wrap mt-0.5">
                       <span className="text-3xl sm:text-4xl font-black text-white tracking-tight font-mono">
@@ -2262,7 +2652,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       }`}
                     >
                       <TableProperties className="w-4 h-4" />
-                      <span>{showDetailsInHero ? (language === 'fa' ? 'بستن ریز کارکرد' : 'Hide Detailed Logs') : (language === 'fa' ? 'نمایش ریز کارکرد و روزها' : 'Show Detailed Logs')}</span>
+                      <span>{showDetailsInHero ? copy.hideDetailedLogs : copy.showDetailedLogs}</span>
                       {showDetailsInHero ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
 
@@ -2273,7 +2663,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs backdrop-blur-md border border-white/10 transition-all flex items-center gap-2 cursor-pointer"
                       >
                         <User className="w-4 h-4 text-sky-400" />
-                        <span>{language === 'fa' ? 'مشاهده پرونده کامل مالی' : 'View Full Profile'}</span>
+                        <span>{copy.viewFullProfile}</span>
                       </button>
                     )}
                   </div>
@@ -2287,10 +2677,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-300 flex items-center gap-2">
                       <Coins className="w-4 h-4 text-sky-400" />
-                      <span>{language === 'fa' ? 'وضعیت تسویه و تعهدات نقدینگی' : 'Settlement & Liquidity Status'}</span>
+                      <span>{copy.settlementStatusTitle}</span>
                     </span>
                     <span className="text-[11px] font-bold text-slate-400">
-                      {aggregatedStats.settledPercent}% {language === 'fa' ? 'تسویه شده' : 'Settled'}
+                      {aggregatedStats.settledPercent}% {copy.settledPercentLabel}
                     </span>
                   </div>
 
@@ -2304,12 +2694,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           ? 'bg-emerald-500/25 border-emerald-400/80 shadow-md shadow-emerald-500/20'
                           : 'bg-white/5 hover:bg-emerald-500/10 border-white/10 hover:border-emerald-500/30'
                       }`}
-                      title={language === 'fa' ? 'کلیک جهت فیلتر رکوردهای تسویه شده' : 'Click to filter settled'}
+                      title={copy.filterSettledTooltip}
                     >
                       <div className="flex items-center justify-between pb-1.5">
                         <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>{language === 'fa' ? 'تسویه و پرداخت‌شده' : 'Settled & Paid'}</span>
+                          <span>{copy.settledAndPaid}</span>
                         </span>
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">
                           {aggregatedStats.settledPercent}%
@@ -2320,7 +2710,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           {formatAmount(aggregatedStats.settledPay, currency)}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium">
-                          {aggregatedStats.settledEntries} رکورد
+                          {aggregatedStats.settledEntries} {copy.unitRecords}
                         </span>
                       </div>
                     </div>
@@ -2333,12 +2723,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           ? 'bg-amber-500/25 border-amber-400/80 shadow-md shadow-amber-500/20'
                           : 'bg-white/5 hover:bg-amber-500/10 border-white/10 hover:border-amber-500/30'
                       }`}
-                      title={language === 'fa' ? 'کلیک جهت فیلتر رکوردهای تسویه نشده' : 'Click to filter unsettled'}
+                      title={copy.filterUnsettledTooltip}
                     >
                       <div className="flex items-center justify-between pb-1.5">
                         <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
                           <AlertCircle className="w-4 h-4" />
-                          <span>{language === 'fa' ? 'مانده تسویه‌نشده (تعهد)' : 'Unsettled (Due)'}</span>
+                          <span>{copy.unsettledDue}</span>
                         </span>
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold">
                           {aggregatedStats.unsettledPercent}%
@@ -2349,7 +2739,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           {formatAmount(aggregatedStats.unsettledPay, currency)}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium">
-                          {aggregatedStats.unsettledEntries} رکورد
+                          {aggregatedStats.unsettledEntries} {copy.unitRecords}
                         </span>
                       </div>
                     </div>
@@ -2361,12 +2751,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       <div 
                         className="h-full bg-emerald-400 transition-all duration-500"
                         style={{ width: `${aggregatedStats.settledPercent}%` }}
-                        title={`تسویه شده: ${aggregatedStats.settledPercent}%`}
+                        title={`${copy.settledPercentLabel}: ${aggregatedStats.settledPercent}%`}
                       />
                       <div 
                         className="h-full bg-amber-400/80 transition-all duration-500"
                         style={{ width: `${aggregatedStats.unsettledPercent}%` }}
-                        title={`مانده: ${aggregatedStats.unsettledPercent}%`}
+                        title={`${copy.unsettledDue}: ${aggregatedStats.unsettledPercent}%`}
                       />
                     </div>
                   </div>
@@ -2375,7 +2765,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 {/* Left: Shift Distribution Widget */}
                 <div className="lg:col-span-5 p-4 sm:p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl flex flex-col justify-between space-y-3.5">
                   <h4 className="text-xs font-bold text-slate-300 flex items-center justify-between">
-                    <span>{language === 'fa' ? 'ترکیب و سهم شیفت‌های کاری' : 'Shift Distribution Ratio'}</span>
+                    <span>{copy.shiftDistributionRatio}</span>
                     <Award className="w-4 h-4 text-amber-400" />
                   </h4>
 
@@ -2386,7 +2776,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     <div className="flex justify-between text-[11px] pb-1">
                       <span className="text-emerald-400 font-bold">{t('normalDays')}</span>
                       <span className="font-mono text-slate-300">
-                        {summaryGroupedData.reduce((acc, r) => acc + r.fullDaysCount, 0)} روز
+                        {summaryGroupedData.reduce((acc, r) => acc + r.fullDaysCount, 0)} {copy.unitDays}
                       </span>
                     </div>
                     <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -2402,7 +2792,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     <div className="flex justify-between text-[11px] pb-1">
                       <span className="text-amber-400 font-bold">{t('halfDays')}</span>
                       <span className="font-mono text-slate-300">
-                        {summaryGroupedData.reduce((acc, r) => acc + r.halfDaysCount, 0)} روز
+                        {summaryGroupedData.reduce((acc, r) => acc + r.halfDaysCount, 0)} {copy.unitDays}
                       </span>
                     </div>
                     <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -2418,7 +2808,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     <div className="flex justify-between text-[11px] pb-1">
                       <span className="text-purple-400 font-bold">{t('hourlyOnlyOption')}</span>
                       <span className="font-mono text-slate-300">
-                        {summaryGroupedData.reduce((acc, r) => acc + r.hourlyDaysCount, 0)} شیفت
+                        {summaryGroupedData.reduce((acc, r) => acc + r.hourlyDaysCount, 0)} {copy.unitShifts}
                       </span>
                     </div>
                     <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -2462,10 +2852,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   <TableProperties className="w-4 h-4 text-sky-500" />
                   <span>
                     {selectedWorkerId !== 'all' && workerMap[selectedWorkerId]
-                      ? `${language === 'fa' ? 'ریز روزهای کارکرد:' : 'Logs for:'} ${workerMap[selectedWorkerId].name}`
+                      ? `${copy.logsForWorker} ${workerMap[selectedWorkerId].name}`
                       : selectedGroupId !== 'all' && groupMap[selectedGroupId]
-                      ? `${language === 'fa' ? 'ریز کارکرد گروه:' : 'Group logs for:'} ${groupMap[selectedGroupId].name}`
-                      : (language === 'fa' ? 'ریز اقلام و روزهای ثبت‌شده' : 'Detailed Audit Ledger')}
+                      ? `${copy.logsForGroup} ${groupMap[selectedGroupId].name}`
+                      : copy.detailedAuditLedger}
                   </span>
                 </h4>
                 <div className="flex items-center gap-2">
@@ -2474,7 +2864,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     onClick={() => setShowDetailsInHero(false)}
                     className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   >
-                    {language === 'fa' ? 'بستن ریز کارکرد' : 'Hide Logs'}
+                    {copy.hideDetailedLogs}
                   </button>
                   {(selectedWorkerId !== 'all' || selectedGroupId !== 'all') && (
                     <button
@@ -2482,7 +2872,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       onClick={clearAllFilters}
                       className="text-xs font-bold text-sky-500 hover:text-sky-600 cursor-pointer"
                     >
-                      {language === 'fa' ? 'بازگشت به آمار کل' : 'Show All Workers'}
+                      {copy.showAllWorkers}
                     </button>
                   )}
                 </div>
@@ -2502,9 +2892,9 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         <th className="px-3 py-3.5 text-center">{t('typeColumn')}</th>
                         <th className="px-3 py-3.5 text-center">{t('overtimeHours')}</th>
                         {projectSections.length > 0 && (
-                          <th className="px-3 py-3.5 text-center">{t('section') || 'بخش'}</th>
+                          <th className="px-3 py-3.5 text-center">{copy.sectionColumn}</th>
                         )}
-                        <th className="px-3 py-3.5 text-center">{t('settlementStatusColumn') || 'وضعیت تسویه'}</th>
+                        <th className="px-3 py-3.5 text-center">{copy.settlementStatusColumn}</th>
                         <th className="px-4 py-3.5 text-start">{t('notesColumn')}</th>
                         <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
                         <th className="px-4 py-3.5 text-center no-print">{t('actions')}</th>
@@ -2524,7 +2914,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                 <span 
                                   onClick={() => openWorkerProfile(log.workerId)}
                                   className="cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors font-bold"
-                                  title="مشاهده پروفایل جامع پرسنل"
+                                  title={copy.viewWorkerProfile}
                                 >
                                   {worker.name}
                                 </span>
@@ -2535,7 +2925,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[11px] text-slate-400 font-medium">{worker.role}</div>
+                              <div className="text-[11px] text-slate-400 font-medium">{localizeWorkerRole(worker.role)}</div>
                             </td>
                             <td className="px-3 py-3.5 text-center">
                               <span className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
@@ -2554,7 +2944,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             {projectSections.length > 0 && (
                               <td className="px-3 py-3.5 text-center whitespace-nowrap">
                                 <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                                  {log.sectionId && sectionMap[log.sectionId] ? sectionMap[log.sectionId].name : (language === 'fa' ? 'عمومی' : 'General')}
+                                  {log.sectionId && sectionMap[log.sectionId] ? sectionMap[log.sectionId].name : copy.general}
                                 </span>
                               </td>
                             )}
@@ -2583,10 +2973,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                   <button
                                     onClick={() => setEditingLog(log)}
                                     className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold"
-                                    title={language === 'fa' ? 'مشاهده جزئیات (تسویه شده - قفل)' : 'View details (settled - locked)'}
+                                    title={copy.settledLockedTitle}
                                   >
                                     <Lock className="w-3.5 h-3.5" />
-                                    <span className="text-[10px]">{language === 'fa' ? 'قفل' : 'Locked'}</span>
+                                    <span className="text-[10px]">{copy.locked}</span>
                                   </button>
                                 ) : (
                                   <>
@@ -2621,7 +3011,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1 flex-wrap gap-2">
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                  {language === 'fa' ? 'کارنامه خلاصه پرسنل در این دوره (جهت فیلتر لمس کنید):' : 'Worker Summaries (tap to inspect):'}
+                  {copy.workerSummariesHeader}
                 </span>
 
                 <div className="flex items-center gap-2.5">
@@ -2639,12 +3029,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           ? 'bg-sky-500 text-white shadow-sm font-bold'
                           : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                       }`}
-                      title={language === 'fa' ? 'نمایش کارتی' : 'Grid View'}
-                      aria-label="Grid"
+                      title={copy.gridViewTooltip}
+                      aria-label={copy.cardsView}
                     >
                       <LayoutGrid className="w-3.5 h-3.5" />
                       {summaryLayoutMode === 'grid' && (
-                        <span className="text-[11px] whitespace-nowrap">{language === 'fa' ? 'کارت' : 'Cards'}</span>
+                        <span className="text-[11px] whitespace-nowrap">{copy.cardsView}</span>
                       )}
                     </button>
                     <button
@@ -2655,12 +3045,12 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           ? 'bg-sky-500 text-white shadow-sm font-bold'
                           : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                       }`}
-                      title={language === 'fa' ? 'نمایش لیستی' : 'List View'}
-                      aria-label="List"
+                      title={copy.listViewTooltip}
+                      aria-label={copy.listView}
                     >
                       <List className="w-3.5 h-3.5" />
                       {summaryLayoutMode === 'list' && (
-                        <span className="text-[11px] whitespace-nowrap">{language === 'fa' ? 'لیست' : 'List'}</span>
+                        <span className="text-[11px] whitespace-nowrap">{copy.listView}</span>
                       )}
                     </button>
                   </div>
@@ -2695,7 +3085,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                               {row.worker.name}
                             </h4>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                              {row.worker.role || 'پرسنل کارگاه'}
+                              {localizeWorkerRole(row.worker.role)}
                             </p>
                           </div>
                         </div>
@@ -2736,7 +3126,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         </div>
 
                         <span className="text-[11px] font-bold text-slate-400 group-hover:text-sky-500 transition-colors">
-                          {row.fullDaysCount + row.halfDaysCount + row.hourlyDaysCount} شیفت ثبت‌شده
+                          {row.fullDaysCount + row.halfDaysCount + row.hourlyDaysCount} {copy.registeredShifts}
                         </span>
                       </div>
                     </div>
@@ -2772,23 +3162,23 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             )}
                           </div>
                           <span className="text-[10px] text-slate-400 font-medium block truncate">
-                            {row.worker.role || 'پرسنل'}
+                            {localizeWorkerRole(row.worker.role)}
                           </span>
                         </div>
                       </div>
 
                       {/* Shift Breakdown Badges */}
                       <div className="flex items-center gap-1.5 flex-shrink-0 text-[11px]">
-                        <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 font-bold text-slate-700 dark:text-slate-300" title="روزهای کامل">
-                          {row.fullDaysCount} روز
+                        <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 font-bold text-slate-700 dark:text-slate-300" title={copy.daysCountFullTooltip}>
+                          {row.fullDaysCount} {copy.unitDays}
                         </span>
                         {row.halfDaysCount > 0 && (
-                          <span className="px-1.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[10px]" title="نیمه‌روز">
-                            {row.halfDaysCount} نیم
+                          <span className="px-1.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[10px]" title={copy.daysCountHalfTooltip}>
+                            {row.halfDaysCount} {copy.halfDaysBadge}
                           </span>
                         )}
                         {row.overtimeHours > 0 && (
-                          <span className="px-1.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold text-[10px]" title="اضافه‌کاری">
+                          <span className="px-1.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold text-[10px]" title={copy.overtimeTooltip}>
                             +{formatHoursDigital(row.overtimeHours)}
                           </span>
                         )}
@@ -2800,7 +3190,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           {formatCurrency(row.totalPay, currency, language)}
                         </span>
                         <span className="text-[9px] text-slate-400 font-medium">
-                          {row.fullDaysCount + row.halfDaysCount + row.hourlyDaysCount} شیفت
+                          {row.fullDaysCount + row.halfDaysCount + row.hourlyDaysCount} {copy.unitShifts}
                         </span>
                       </div>
                     </div>
@@ -2835,7 +3225,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   <span>{inspectedDateStr}</span>
                 </h3>
                 <span className="text-xs text-slate-400">
-                  {inspectedDateLogs.length} {t('workers')} • {formatCurrency(inspectedTotalPay, currency, language)}
+                  {inspectedDateLogs.length} {copy.unitWorkers} • {formatCurrency(inspectedTotalPay, currency, language)}
                 </span>
               </div>
               <button
@@ -2861,7 +3251,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         <span 
                           onClick={() => openWorkerProfile(log.workerId)}
                           className="font-bold text-slate-900 dark:text-white block cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                          title="مشاهده پروفایل جامع پرسنل"
+                          title={copy.viewWorkerProfile}
                         >
                           {worker.name}
                         </span>
@@ -2892,10 +3282,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           <button
                             onClick={() => setEditingLog(log)}
                             className="p-1.5 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors flex items-center gap-1 text-xs font-semibold"
-                            title={language === 'fa' ? 'مشاهده جزئیات (تسویه شده - قفل)' : 'View details (settled - locked)'}
+                            title={copy.settledLockedTitle}
                           >
                             <Lock className="w-4 h-4" />
-                            <span className="text-[10px]">{language === 'fa' ? 'قفل' : 'Locked'}</span>
+                            <span className="text-[10px]">{copy.locked}</span>
                           </button>
                         ) : (
                           <>
@@ -2942,7 +3332,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 onClick={() => setInspectedDateStr(null)}
                 className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
               >
-                {t('cancel')}
+                {copy.cancel}
               </button>
             </div>
           </div>

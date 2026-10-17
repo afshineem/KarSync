@@ -40,6 +40,127 @@ import {
 
 export function EditRecordModal({ log, isOpen, onClose }) {
   const { t, language, direction } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+
+  const copy = {
+    fa: {
+      editRecordTitle: 'ویرایش کارکرد',
+      editRecordDesc: 'ویرایش حضور و غیاب، ساعات اضافه‌کاری و وضعیت روز',
+      lockedNoticeTitle: 'این رکورد کارکرد در برگه تسویه حساب نهایی قفل شده است',
+      lockedNoticeDesc: 'به منظور حفظ یکپارچگی حسابداری و اسناد تسویه، امکان تغییر ساعات یا حذف این روز وجود ندارد. برای اعمال تغییرات ابتدا باید برگه تسویه مربوطه بازبینی شود.',
+      settledBadge: 'تسویه‌شده',
+      settledLockedNotice: 'تسویه و قفل شده',
+      unmodifiable: 'غیرقابل ویرایش',
+      dayStatusLabel: 'وضعیت روز:',
+      fullDayOption: 'روز کامل',
+      halfDayOption: 'نیمه‌روز',
+      hourlyOnlyOption: 'ساعتی',
+      overtimeHours: 'ساعات اضافه‌کاری',
+      overtimeDesc: 'میزان کارکرد مازاد بر ساعات استاندارد',
+      hours: 'ساعت',
+      minutes: 'دقیقه',
+      quickPresets: 'پیش‌فرض‌های سریع:',
+      preset15Min: '{copy.preset15Min}',
+      preset30Min: '{copy.preset30Min}',
+      preset1Hour: '{copy.preset1Hour}',
+      zero: 'صفر',
+      generalEntireProject: 'عمومی / کل پروژه',
+      projectSections: 'بخش کارگاهی پروژه',
+      notesLabel: 'توضیحات و شرح کارکرد',
+      notesPlaceholder: 'شرح کارهای انجام شده توسط پرسنل در این روز...',
+      dailyRateLabel: 'نرخ دستمزد روزانه:',
+      basePlusOvertime: 'دستمزد پایه روز + اضافه‌کاری:',
+      calculatedDayTotal: 'مجموع دستمزد محاسبه‌شده:',
+      delete: 'حذف',
+      cancel: 'انصراف',
+      saveChanges: 'ذخیره تغییرات',
+      savingAttendance: 'در حال ذخیره‌سازی...',
+      closeEsc: 'بستن (ESC)',
+      deleteConfirm: 'آیا از حذف این رکورد کارکرد اطمینان دارید؟',
+      editLockedAlert: 'این رکورد در امور مالی تسویه شده و قفل است. امکان ویرایش آن وجود ندارد.',
+      deleteLockedAlert: 'این رکورد در امور مالی تسویه شده و قفل است. امکان حذف آن وجود ندارد.',
+      editRecordSuccess: 'تغییرات با موفقیت ذخیره شد',
+      personnelDefault: 'پرسنل کارگاه'
+    },
+    ku: {
+      editRecordTitle: 'دەستکاریکردنی کارکرد',
+      editRecordDesc: 'دەستکاریکردنی ئامادەبوون، کاتژمێری زیادە و دۆخی ڕۆژ',
+      lockedNoticeTitle: 'ئەم تۆمارەی کارکرد لە شایستەی کۆتایی یەکلاکراوەدا قفڵە',
+      lockedNoticeDesc: 'بەمەبەستی پاراستنی دروستیی حیسابداری و بەڵگەنامەکان، گۆڕینی کاتژمێر یان سڕینەوەی ئەم ڕۆژە ڕێگەنەدراوە. بۆ ئەنجامدانی گۆڕانکاری پێویستە پسوولەی پەیوەندیدار پێداچوونەوەی بۆ بکرێت.',
+      settledBadge: 'یەکلاکراوە',
+      settledLockedNotice: 'یەکلاکراوە و قفڵە',
+      unmodifiable: 'دەستکاری ناکرێت',
+      dayStatusLabel: 'دۆخی ڕۆژ:',
+      fullDayOption: 'ڕۆژی تەواو',
+      halfDayOption: 'نیوەڕۆژ',
+      hourlyOnlyOption: 'کاتژمێری',
+      overtimeHours: 'کاتژمێری زیادەکاری',
+      overtimeDesc: 'بڕی کارکردی زیاتر لە دەوامی ئاسایی',
+      hours: 'کاتژمێر',
+      minutes: 'خولەک',
+      quickPresets: 'دیاریکراوی خێرا:',
+      preset15Min: '+١٥ خولەک',
+      preset30Min: '+٣٠ خولەک',
+      preset1Hour: '+١ کاتژمێر',
+      zero: 'سفر',
+      generalEntireProject: 'گشتی / تەواوی پڕۆژە',
+      projectSections: 'بەشی پڕۆژە',
+      notesLabel: 'تێبینی و ڕوونکردنەوە',
+      notesPlaceholder: 'ڕوونکردنەوەی کارە ئەنجامدراوەکان لەم ڕۆژەدا...',
+      dailyRateLabel: 'نرخی کرێی ڕۆژانە:',
+      basePlusOvertime: 'حەقدەستی بنەڕەتی + زیادەکاری:',
+      calculatedDayTotal: 'کۆی گشتیی حەقدەست:',
+      delete: 'سڕینەوە',
+      cancel: 'پاشگەزبوونەوە',
+      saveChanges: 'پاشەکەوتکردنی گۆڕانکاری',
+      savingAttendance: 'خەریکی پاشەکەوتکردن...',
+      closeEsc: 'داخستن (ESC)',
+      deleteConfirm: 'ئایا دڵنیایت لە سڕینەوەی ئەم تۆمارەی کارکرد؟',
+      editLockedAlert: 'ئەم تۆمارە لە بەشی دارایی یەکلاکراوەتەوە و قفڵە. دەستکاریکردنی مەحاڵە.',
+      deleteLockedAlert: 'ئەم تۆمارە لە بەشی دارایی یەکلاکراوەتەوە و قفڵە. سڕینەوەی مەحاڵە.',
+      editRecordSuccess: 'گۆڕانکارییەکان بە سەرکەوتوویی پاشەکەوت کران',
+      personnelDefault: 'کارمەندی پڕۆژە'
+    },
+    en: {
+      editRecordTitle: 'Edit Attendance Record',
+      editRecordDesc: 'Edit attendance, overtime hours, and day shift status',
+      lockedNoticeTitle: 'This attendance log is locked in a final settlement',
+      lockedNoticeDesc: 'To preserve accounting and payroll ledger consistency, hours cannot be modified and this record cannot be deleted while locked.',
+      settledBadge: 'Settled',
+      settledLockedNotice: 'Settled & Locked',
+      unmodifiable: 'Locked / Read-only',
+      dayStatusLabel: 'Day Status:',
+      fullDayOption: 'Full Day',
+      halfDayOption: 'Half Day',
+      hourlyOnlyOption: 'Hourly',
+      overtimeHours: 'Overtime Hours',
+      overtimeDesc: 'Hours worked beyond standard day shift',
+      hours: 'Hours',
+      minutes: 'Minutes',
+      quickPresets: 'Quick Presets:',
+      preset15Min: '+15 Min',
+      preset30Min: '+30 Min',
+      preset1Hour: '+1 Hour',
+      zero: 'Zero',
+      generalEntireProject: 'General / Entire Project',
+      projectSections: 'Project Section',
+      notesLabel: 'Notes & Tasks Performed',
+      notesPlaceholder: 'Description of work performed by personnel on this day...',
+      dailyRateLabel: 'Daily Rate:',
+      basePlusOvertime: 'Base Day Wage + Overtime:',
+      calculatedDayTotal: 'Calculated Day Total:',
+      delete: 'Delete',
+      cancel: 'Cancel',
+      saveChanges: 'Save Changes',
+      savingAttendance: 'Saving...',
+      closeEsc: 'Close (ESC)',
+      deleteConfirm: 'Are you sure you want to delete this attendance log?',
+      editLockedAlert: 'This record is settled and locked. It cannot be edited.',
+      deleteLockedAlert: 'This record is settled and locked. It cannot be deleted.',
+      editRecordSuccess: 'Changes saved successfully',
+      personnelDefault: 'Workshop Personnel'
+    }
+  }[langKey];
   const { currentProject } = useProject();
   const { user } = useAuth();
   const { canModifyDate } = usePermissions();
@@ -172,7 +293,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
     e.preventDefault();
     if (!log) return;
     if (isSettled) {
-      alert(language === 'fa' ? 'این رکورد در امور مالی تسویه شده و قفل است. امکان ویرایش آن وجود ندارد.' : 'This record is settled and locked. It cannot be edited.');
+      alert(copy.editLockedAlert);
       return;
     }
 
@@ -207,7 +328,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
         console.warn('Supabase sync failed during edit:', syncErr);
       }
 
-      setToastMessage(t('editRecordSuccess') || 'تغییرات با موفقیت ذخیره شد');
+      setToastMessage(copy.editRecordSuccess);
       setTimeout(() => {
         setIsSaving(false);
         setToastMessage('');
@@ -222,10 +343,10 @@ export function EditRecordModal({ log, isOpen, onClose }) {
   const handleDelete = async () => {
     if (!log) return;
     if (isSettled) {
-      alert(language === 'fa' ? 'این رکورد در امور مالی تسویه شده و قفل است. امکان حذف آن وجود ندارد.' : 'This record is settled and locked. It cannot be deleted.');
+      alert(copy.deleteLockedAlert);
       return;
     }
-    if (window.confirm(t('deleteLogConfirm') || 'آیا از حذف این رکورد کارکرد اطمینان دارید؟')) {
+    if (window.confirm(copy.deleteConfirm)) {
       try {
         await db.attendanceLogs.delete(log.id);
         deleteLogLive(log.id).catch(() => {});
@@ -259,17 +380,17 @@ export function EditRecordModal({ log, isOpen, onClose }) {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  {t('editRecordTitle')}
+                  {copy.editRecordTitle}
                 </h2>
                 {isSettled && (
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-900/60 flex items-center gap-1">
                     <Lock className="w-2.5 h-2.5" />
-                    <span>تسویه‌شده</span>
+                    <span>{copy.settledBadge}</span>
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {language === 'fa' ? 'ویرایش حضور و غیاب، ساعات اضافه‌کاری و وضعیت روز' : t('editRecordDesc')}
+                {copy.editRecordDesc}
               </p>
             </div>
           </div>
@@ -277,7 +398,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
             type="button"
             onClick={onClose}
             className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
-            title="بستن (ESC)"
+            title={copy.closeEsc}
           >
             <X className="w-5 h-5" />
           </button>
@@ -293,9 +414,9 @@ export function EditRecordModal({ log, isOpen, onClose }) {
             <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/80 rounded-2xl flex items-start gap-3 text-xs font-bold text-emerald-800 dark:text-emerald-300 shadow-xs">
               <Lock className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <div className="text-sm font-black">این رکورد کارکرد در برگه تسویه حساب نهایی قفل شده است</div>
+                <div className="text-sm font-black">{copy.lockedNoticeTitle}</div>
                 <div className="text-[11px] leading-relaxed opacity-90 font-medium">
-                  به منظور حفظ یکپارچگی حسابداری و اسناد تسویه، امکان تغییر ساعات یا حذف این روز وجود ندارد. برای اعمال تغییرات ابتدا باید برگه تسویه مربوطه بازبینی شود.
+                  {copy.lockedNoticeDesc}
                 </div>
               </div>
             </div>
@@ -313,7 +434,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                     {worker?.name || '...'}
                   </div>
                   <div className="text-xs text-slate-400 font-medium mt-0.5">
-                    {worker?.role || 'پرسنل کارگاه'}
+                    {worker?.role || copy.personnelDefault}
                   </div>
                 </div>
               </div>
@@ -331,7 +452,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
               {/* Card 1: Day Type Segmented Control */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-xs">
                 <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-3">
-                  {t('typeColumn')} (وضعیت روز):
+                  {t('typeColumn')} ({copy.dayStatusLabel}):
                 </label>
                 <div className="grid grid-cols-3 gap-2 sm:gap-3">
                   <button
@@ -344,7 +465,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                     }`}
                   >
                     <Sun className="w-4 h-4" />
-                    <span>{t('fullDayOption')}</span>
+                    <span>{copy.fullDayOption}</span>
                   </button>
 
                   <button
@@ -357,7 +478,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                     }`}
                   >
                     <CloudSun className="w-4 h-4" />
-                    <span>{t('halfDayOption')}</span>
+                    <span>{copy.halfDayOption}</span>
                   </button>
 
                   <button
@@ -370,7 +491,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                     }`}
                   >
                     <Timer className="w-4 h-4" />
-                    <span>{t('hourlyOnlyOption')}</span>
+                    <span>{copy.hourlyOnlyOption}</span>
                   </button>
                 </div>
               </div>
@@ -487,7 +608,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                     className="px-3 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold flex items-center gap-1 transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    <span>صفر</span>
+                    <span>{copy.zero}</span>
                   </button>
                 </div>
               </div>
@@ -507,7 +628,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
                     >
                       <option value="">
-                        {language === 'fa' ? 'عمومی / کل پروژه' : 'General / Entire Project'}
+                        {copy.generalEntireProject}
                       </option>
                       {projectSections.map((sec) => (
                         <option key={sec.id} value={sec.id}>
@@ -528,7 +649,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                     rows="2"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder={t('notesPlaceholder') || 'شرح کارهای انجام شده توسط پرسنل در این روز...'}
+                    placeholder={copy.notesPlaceholder}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none leading-relaxed"
                   />
                 </div>
@@ -543,7 +664,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 py-2 border-b border-slate-100 dark:border-slate-800 font-bold">
-                  <span>دستمزد پایه روز + اضافه‌کاری:</span>
+                  <span>{copy.basePlusOvertime}</span>
                   <span className="text-slate-700 dark:text-slate-300">
                     {formatCurrency(calculatedDailyWage, currency, language)} + {formatCurrency(calculatedOvertimeWage, currency, language)}
                   </span>
@@ -567,12 +688,12 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                   className="px-4 py-2.5 rounded-xl text-xs font-black text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 transition-colors flex items-center gap-1.5"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span>{t('delete')}</span>
+                  <span>{copy.delete}</span>
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold px-3 py-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800">
                   <Lock className="w-3.5 h-3.5" />
-                  <span>تسویه و قفل شده</span>
+                  <span>{copy.settledLockedNotice}</span>
                 </div>
               )}
 
@@ -582,7 +703,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                   onClick={onClose}
                   className="px-5 py-2.5 bg-white hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors shadow-xs"
                 >
-                  {t('cancel')} (ESC)
+                  {copy.cancel} (ESC)
                 </button>
                 {!isSettled ? (
                   <button
@@ -591,11 +712,11 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                     className="px-7 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-sky-500/25 flex items-center gap-2 transition-all cursor-pointer"
                   >
                     {isSaving ? (
-                      <span>{t('savingAttendance')}</span>
+                      <span>{copy.savingAttendance}</span>
                     ) : (
                       <>
                         <Check className="w-4 h-4" />
-                        <span>{t('saveChanges')}</span>
+                        <span>{copy.saveChanges}</span>
                       </>
                     )}
                   </button>
@@ -606,7 +727,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                     className="px-5 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-not-allowed opacity-80"
                   >
                     <Lock className="w-3.5 h-3.5" />
-                    <span>غیرقابل ویرایش</span>
+                    <span>{copy.unmodifiable}</span>
                   </button>
                 )}
               </div>

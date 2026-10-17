@@ -144,15 +144,13 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
       // 6. Remove from local deleted list
       setDeletedLogs((prev) => prev.filter((item) => item.id !== log.id));
 
-      const workerName = workerMap[log.worker_id]?.name || (language === 'fa' ? 'پرسنل' : 'Worker');
-      setToastMessage(language === 'fa' 
-        ? `کارکرد ${workerName} در تاریخ ${log.date} با موفقیت بازیابی شد.` 
-        : `Record for ${workerName} (${log.date}) restored successfully.`);
+      const workerName = workerMap[log.worker_id]?.name || copy.unknownWorker;
+      setToastMessage(copy.restoreSingleSuccess(workerName, log.date));
 
       setTimeout(() => setToastMessage(''), 3000);
     } catch (err) {
       console.error('Failed to restore log:', err);
-      alert('خطا در بازیابی رکورد: ' + err.message);
+      alert(copy.errorRestore + err.message);
     } finally {
       setRestoringId(null);
     }
@@ -161,9 +159,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
   // Restore All filtered logs
   const handleRestoreAll = async () => {
     if (filteredLogs.length === 0) return;
-    const confirmMsg = language === 'fa' 
-      ? `آیا از بازیابی همه‌ی ${filteredLogs.length} رکورد حذف‌شده اطمینان دارید؟` 
-      : `Are you sure you want to restore all ${filteredLogs.length} deleted records?`;
+    const confirmMsg = copy.confirmRestoreAll(filteredLogs.length);
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -183,9 +179,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
 
   // Permanent Delete a single log
   const handlePermanentDeleteLog = async (log) => {
-    const confirmMsg = language === 'fa' 
-      ? 'آیا از حذف قطعی و دائمی این رکورد اطمینان دارید؟ این عملیات کاملاً غیرقابل بازگشت است.' 
-      : 'Are you sure you want to permanently delete this record? This cannot be undone.';
+    const confirmMsg = copy.confirmDeleteSingle;
     if (!window.confirm(confirmMsg)) return;
 
     setDeletingId(log.id);
@@ -218,14 +212,12 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
       // 4. Update UI
       setDeletedLogs((prev) => prev.filter((item) => item.id !== log.id));
 
-      const workerName = workerMap[log.worker_id]?.name || (language === 'fa' ? 'پرسنل' : 'Worker');
-      setToastMessage(language === 'fa' 
-        ? `رکورد کارکرد ${workerName} به طور دائمی حذف گردید.` 
-        : `Record for ${workerName} permanently deleted.`);
+      const workerName = workerMap[log.worker_id]?.name || copy.unknownWorker;
+      setToastMessage(copy.deleteSingleSuccess(workerName));
       setTimeout(() => setToastMessage(''), 3000);
     } catch (err) {
       console.error('Failed to permanently delete log:', err);
-      alert('خطا در حذف دائمی رکورد: ' + err.message);
+      alert(copy.errorDelete + err.message);
     } finally {
       setDeletingId(null);
     }
@@ -234,9 +226,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
   // Permanent Delete All filtered logs (Empty Recycle Bin)
   const handlePermanentDeleteAll = async () => {
     if (filteredLogs.length === 0) return;
-    const confirmMsg = language === 'fa' 
-      ? `آیا از حذف قطعی و دائمی تمام ${filteredLogs.length} رکورد در سطل بازیافت اطمینان دارید؟ این عملیات غیرقابل بازگشت است.` 
-      : `Are you sure you want to permanently delete all ${filteredLogs.length} records in the recycle bin? This cannot be undone.`;
+    const confirmMsg = copy.confirmDeleteAll(filteredLogs.length);
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -273,13 +263,11 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
 
       // 4. Update UI
       setDeletedLogs((prev) => prev.filter((l) => !ids.includes(l.id)));
-      setToastMessage(language === 'fa' 
-        ? 'تمامی رکوردهای سطل بازیافت به طور قطعی حذف شدند.' 
-        : 'All records in recycle bin permanently deleted.');
+      setToastMessage(copy.deleteAllSuccess);
       setTimeout(() => setToastMessage(''), 3000);
     } catch (err) {
       console.error('Failed to bulk delete logs:', err);
-      alert('خطا در حذف دائمی رکوردها: ' + err.message);
+      alert(copy.errorDelete + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -327,15 +315,13 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>{language === 'fa' ? 'سطل بازیافت کارکرد پرسنل' : language === 'ku' ? 'تەنەکەی خۆڵ و گەڕاندنەوە' : 'Attendance Recycle Bin'}</span>
+                <span>{copy.title}</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
                   {deletedLogs.length}
                 </span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {language === 'fa' 
-                  ? 'رکوردهای حذف‌شده در کارکرد جاری را می‌توانید با یک کلیک فوراً بازیابی کنید.' 
-                  : 'Restore deleted attendance records instantly with 1-click.'}
+                {copy.subtitle}
               </p>
             </div>
           </div>
@@ -355,7 +341,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={language === 'fa' ? 'جستجو در نام پرسنل، تاریخ یا توضیحات...' : 'Search by name, date or notes...'}
+              placeholder={copy.searchPlaceholder}
               className="w-full ps-9 pe-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
@@ -365,7 +351,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
             onClick={fetchDeletedLogs}
             disabled={isLoading}
             className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-sky-600 transition-colors shrink-0"
-            title={language === 'fa' ? 'به‌روزرسانی لیست' : 'Refresh'}
+            title={copy.refreshTooltip}
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-sky-500' : ''}`} />
           </button>
@@ -379,17 +365,17 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                 className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-95"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>{language === 'fa' ? 'بازیابی همه' : 'Restore All'}</span>
+                <span>{copy.restoreAll}</span>
               </button>
               <button
                 type="button"
                 onClick={handlePermanentDeleteAll}
                 disabled={isLoading}
                 className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-95"
-                title={language === 'fa' ? 'حذف قطعی و دائمی تمام رکوردهای سطل' : 'Empty Recycle Bin'}
+                title={copy.emptyBinTooltip}
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>{language === 'fa' ? 'خالی کردن سطل' : 'Empty Bin'}</span>
+                <span>{copy.emptyBin}</span>
               </button>
             </div>
           )}
@@ -400,7 +386,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
           {isLoading && deletedLogs.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
               <RefreshCw className="w-6 h-6 animate-spin text-sky-500" />
-              <span className="text-xs">{language === 'fa' ? 'در حال بارگذاری رکوردهای حذف‌شده...' : 'Loading deleted logs...'}</span>
+              <span className="text-xs">{copy.loadingLogs}</span>
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
@@ -408,14 +394,10 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                 ✓
               </div>
               <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                {searchTerm 
-                  ? (language === 'fa' ? 'هیچ رکوردی منطبق با جستجو پیدا نشد.' : 'No matching records found.') 
-                  : (language === 'fa' ? 'سطل بازیافت خالی است' : 'Recycle bin is empty')}
+                {searchTerm ? copy.noSearchResults : copy.binEmpty}
               </p>
               <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                {language === 'fa' 
-                  ? 'تمامی رکوردهای کارکرد در وضعیت امن قرار دارند و هیچ دیتای حذف‌شده‌ای وجود ندارد.' 
-                  : 'All attendance records are active and no deleted logs were found.'}
+                {copy.allSafeNotice}
               </p>
             </div>
           ) : (
@@ -439,9 +421,9 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                       <span 
                         onClick={() => worker?.id && openWorkerProfile(worker.id)}
                         className="font-bold text-sm text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 hover:underline transition-colors"
-                        title="مشاهده پروفایل جامع پرسنل"
+                        title={copy.viewProfileTooltip}
                       >
-                        {worker?.name || (language === 'fa' ? 'پرسنل نامشخص' : 'Unknown Worker')}
+                        {worker?.name || copy.unknownWorker}
                       </span>
 
                       {/* Date Badge */}
@@ -458,12 +440,12 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                           ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
                           : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                       }`}>
-                        {log.type === 'half' ? (language === 'fa' ? 'نیم‌روز' : 'Half') : log.type === 'hourly' ? (language === 'fa' ? 'ساعتی' : 'Hourly') : (language === 'fa' ? 'روز کامل' : 'Full')}
+                        {log.type === 'half' ? copy.halfDay : log.type === 'hourly' ? copy.hourly : copy.fullDay}
                       </span>
 
                       {isSettled && (
                         <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
-                          {language === 'fa' ? 'تسویه شده' : 'Settled'}
+                          {copy.settledBadge}
                         </span>
                       )}
                     </div>
@@ -473,7 +455,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                       {Number(log.overtime_hours) > 0 && (
                         <span className="flex items-center gap-1 font-mono text-amber-600 dark:text-amber-400">
                           <Clock className="w-3 h-3" />
-                          <span>{log.overtime_hours} ساعت اضافه</span>
+                          <span>{log.overtime_hours} {copy.overtimeHoursSuffix}</span>
                         </span>
                       )}
 
@@ -489,7 +471,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
 
                       {log.deleted_at && (
                         <span className="text-[10px] text-rose-500/80 font-mono ms-auto">
-                          حذف: {new Date(log.deleted_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
+                          {copy.deletedAtLabel} {new Date(log.deleted_at).toLocaleTimeString(language === 'fa' ? 'fa-IR' : language === 'ku' ? 'ckb-IQ' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       )}
                     </div>
@@ -504,7 +486,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                       className="px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-600 hover:text-white text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:border-transparent text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
                     >
                       <RotateCcw className={`w-3.5 h-3.5 ${isRestoring ? 'animate-spin' : ''}`} />
-                      <span>{isRestoring ? (language === 'fa' ? 'در حال بازیابی...' : 'Restoring...') : (language === 'fa' ? 'بازیابی' : 'Restore')}</span>
+                      <span>{isRestoring ? copy.restoring : copy.restore}</span>
                     </button>
 
                     <button
@@ -512,7 +494,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                       onClick={() => handlePermanentDeleteLog(log)}
                       disabled={isRestoring || isDeleting}
                       className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-transparent hover:border-rose-200 dark:hover:border-rose-800 transition-colors active:scale-95"
-                      title={language === 'fa' ? 'حذف قطعی و همیشگی رکورد' : 'Delete permanently'}
+                      title={copy.deletePermanentTooltip}
                     >
                       <Trash2 className={`w-4 h-4 ${isDeleting ? 'animate-spin text-rose-500' : ''}`} />
                     </button>
@@ -525,13 +507,13 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
 
         {/* Modal Footer */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0">
-          <span>{language === 'fa' ? 'حفاظت ابری از کارکرد پرسنل فعال است' : 'Cloud attendance protection active'}</span>
+          <span>{copy.cloudProtectionActive}</span>
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
-            {language === 'fa' ? 'بستن' : 'Close'}
+            {copy.close}
           </button>
         </div>
       </div>
