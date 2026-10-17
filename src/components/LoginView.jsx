@@ -3,15 +3,15 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { evaluatePasswordStrength } from '../utils/passwordSecurity';
-import { 
-  Lock, 
-  User, 
+import {
+  Lock,
+  User,
   Mail,
   Building2,
-  Eye, 
-  EyeOff, 
-  AlertCircle, 
-  LogIn, 
+  Eye,
+  EyeOff,
+  AlertCircle,
+  LogIn,
   UserPlus,
   Check,
   Sun,
@@ -20,13 +20,17 @@ import {
   KeyRound,
   ShieldCheck,
   Clock,
-  ArrowRight,
-  ArrowLeft
+  CalendarCheck,
+  WalletCards,
+  Sparkles,
+  Languages,
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
 
 export function LoginView({ theme, toggleTheme }) {
   const { login, signUp, completeTwoFactorLogin, getLoginLockStatus } = useAuth();
-  const { t, language, changeLanguage, direction } = useLanguage();
+  const { t, language, changeLanguage, direction, convertDigits, numberFormat } = useLanguage();
 
   const isRtl = direction === 'rtl';
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
@@ -46,6 +50,7 @@ export function LoginView({ theme, toggleTheme }) {
   // Sign Up Form State
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [signupCompanyName, setSignupCompanyName] = useState('');
   const [signupFullName, setSignupFullName] = useState('');
 
@@ -55,6 +60,187 @@ export function LoginView({ theme, toggleTheme }) {
 
   // Rate Limiting Lock Countdown
   const [remainingSeconds, setRemainingSeconds] = useState(0);
+
+  // Trilingual UI Dictionary for Login & Signup View
+  const copy = {
+    fa: {
+      brandSubtitle: 'سامانه هوشمند مدیریت کارگاه، حضور و غیاب و مهندسی مالی',
+      heroBadge: 'نسل جدید مدیریت کارگاه و پروژه',
+      heroTitle: 'مدیریت یکپارچه کارکرد، دستمزد و حسابداری کارگاه',
+      heroDesc:
+        'ثبت سریع شیفت‌های روزانه، محاسبه دقیق اضافه‌کاری و مساعده‌ها، صدور برگه‌های تسویه‌حساب و پرتال اختصاصی پرسنل با همگام‌سازی ابری و آفلاین.',
+      feat1Title: 'ثبت کارکرد و شیفت هوشمند',
+      feat1Desc: 'ثبت انفرادی و گروهی کارکرد روزانه با پشتیبانی کامل از حالت آفلاین و ابری',
+      feat2Title: 'مهندسی مالی و میز تسویه',
+      feat2Desc: 'مدیریت صندوق‌ها، تنخواه، مساعده و تسویه‌حساب شفاف با پرسنل و طرف‌حساب‌ها',
+      feat3Title: 'امنیت چندلایه و پرتال پرسنل',
+      feat3Desc: 'احراز هویت دو مرحله‌ای (2FA)، سطح‌بندی دسترسی‌ها و لینک اختصاصی کارگران',
+      securityFooter: 'محافظت‌شده با رمزنگاری ابری و قفل امنیتی دو مرحله‌ای',
+      signInTab: 'ورود به حساب',
+      signUpTab: 'ثبت‌نام کارگاه جدید',
+      signInHeaderTitle: 'ورود به پیشخوان کارگاه',
+      signInHeaderSubtitle: 'مشخصات کارگاه و حساب کاربری خود را جهت ورود وارد نمایید',
+      signUpHeaderTitle: 'ایجاد کارگاه و حساب مدیریت',
+      signUpHeaderSubtitle: 'در کمتر از یک دقیقه کارگاه جدید خود را راه‌اندازی کنید',
+      workspaceCodeLabel: 'کد کارگاه',
+      workspaceCodeHint: 'کد اختصاصی کارگاه (مثال: KARS-101)',
+      identifierLabel: 'ایمیل، نام کاربری یا کد پرسنلی',
+      identifierPlaceholder: 'admin / email@domain.com',
+      passwordLabel: 'رمز عبور',
+      showPasswordTitle: 'نمایش / مخفی‌سازی رمز عبور',
+      loginBtn: 'ورود به سیستم',
+      loggingIn: 'در حال بررسی و ورود...',
+      workEmailLabel: 'ایمیل کاری (حساب مدیر)',
+      workEmailPlaceholder: 'manager@company.com',
+      companyNameLabel: 'نام کارگاه یا پروژه',
+      companyNamePlaceholder: 'مثال: کارگاه ساختمانی پارس',
+      defaultCompanyName: 'کارگاه من',
+      managerNameLabel: 'نام و نام خانوادگی مدیر',
+      managerNamePlaceholder: 'مثال: افشین زارعی',
+      createAccountBtn: 'ایجاد کارگاه و ورود به برنامه',
+      creatingAccount: 'در حال ساخت کارگاه...',
+      twoFaTitle: 'تایید هویت دو مرحله‌ای (2FA)',
+      twoFaTotpDesc: 'کد ۶ رقمی نمایش داده شده در برنامه Authenticator خود را وارد کنید:',
+      twoFaBackupDesc: 'یکی از کدهای بازیابی اضطراری ۸ کاراکتری خود را وارد کنید:',
+      verifyAndSignIn: 'تایید کد و ورود به سیستم',
+      useAuthenticatorApp: 'ورود با کد ۶ رقمی Authenticator',
+      useBackupCode: 'استفاده از کد بازیابی اضطراری',
+      backToSignIn: 'بازگشت به صفحه ورود',
+      lockoutBanner: (time) => `ورود به سیستم موقتاً قفل است. زمان باقی‌مانده: ${time}`,
+      errAccountLocked: (time) => `حساب موقتاً قفل است. لطفاً ${time} دیگر صبر کنید.`,
+      errMissingSignInFields: 'لطفاً کد کارگاه، نام کاربری و رمز عبور را به طور کامل وارد کنید.',
+      errRateLimited: 'تعداد تلاش‌های ناموفق بیش از حد مجاز بود. ورود به مدت ۵ دقیقه قفل شد.',
+      errInvalidCredentials: 'کد کارگاه، نام کاربری یا رمز عبور اشتباه است.',
+      err2faRateLimited: 'به دلیل تلاش‌های ناموفق مکرر، ورود موقتاً قفل شد.',
+      err2faInvalid: 'کد تایید یا کد بازیابی وارد شده نامعتبر است. دوباره تلاش کنید.',
+      errMissingSignUpFields: 'وارد کردن ایمیل کاری و رمز عبور الزامی است.',
+      errWeakPassword: 'رمز عبور انتخاب شده ضعیف است. لطفاً از رمز قوی‌تر شامل حروف، اعداد یا نمادها استفاده کنید.',
+      errSignUpFailed: 'خطا در ثبت‌نام حساب جدید. لطفاً دوباره تلاش کنید.',
+      msgEmailConfirmation: 'لینک تایید به ایمیل شما ارسال شد. لطفاً صندوق ورودی ایمیل خود را بررسی کنید.',
+      themeLight: 'حالت روز',
+      themeDark: 'حالت شب',
+      switchToSignUpPrompt: 'هنوز کارگاه خود را ثبت نکرده‌اید؟',
+      switchToSignInPrompt: 'قبلاً کارگاه خود را ثبت کرده‌اید؟'
+    },
+    ku: {
+      brandSubtitle: 'سیستەمی زیرەکی بەڕێوەبردنی کارگە، کارکرد و ژمێریاری دارایی',
+      heroBadge: 'نەوەی نوێی بەڕێوەبردنی کارگە و پڕۆژە',
+      heroTitle: 'بەڕێوەبردنی یەکگرتووی کارکرد، کرێ و ژمێریاری کارگە',
+      heroDesc:
+        'تۆمارکردنی خێرای شەفتی ڕۆژانە، هەژمارکردنی وردی زیادەکاری و پێشینەکان، دەرکردنی پسووڵەی پاکتاوکردن و پۆرتاڵی تایبەتی کرێکاران بە هاوکاتکردنی هەوری و ئۆفلاین.',
+      feat1Title: 'تۆمارکردنی زیرەکی کارکرد و شەفت',
+      feat1Desc: 'تۆمارکردنی تاک و گرووپی کارکردی ڕۆژانە بە پشتگیری تەواوی ئۆفلاین و هەوری',
+      feat2Title: 'ئەندازیاری دارایی و مێزی پاکتاو',
+      feat2Desc: 'بەڕێوەبردنی سندوق، خەرجی، پێشینە و پاکتاوکردنی ڕوون لەگەڵ کرێکاران',
+      feat3Title: 'ئاسایشی چەندچین و پۆرتاڵی کرێکاران',
+      feat3Desc: 'پشتڕاستکردنەوەی دوو هەنگاوی (2FA)، دەسەڵاتەکان و بەستەری تایبەتی کرێکار',
+      securityFooter: 'پارێزراوە بە نهێنیکردنی هەوری و قفڵی ئاسایشی دوو هەنگاوی',
+      signInTab: 'چوونەژوورەوە',
+      signUpTab: 'تۆمارکردنی کارگەی نوێ',
+      signInHeaderTitle: 'چوونەژوورەوە بۆ داشبۆردی کارگە',
+      signInHeaderSubtitle: 'زانیارییەکانی کارگە و هەژمارەکەت بنووسە بۆ چوونەژوورەوە',
+      signUpHeaderTitle: 'دروستکردنی کارگە و هەژماری بەڕێوەبەر',
+      signUpHeaderSubtitle: 'لە کەمتر لە خولەکێکدا کارگە نوێیەکەت دابمەزرێنە',
+      workspaceCodeLabel: 'کۆدی کارگە',
+      workspaceCodeHint: 'کۆدی تایبەتی کارگە (نموونە: KARS-101)',
+      identifierLabel: 'ئیمەیڵ، ناوی بەکارهێنەر یان کۆدی کرێکار',
+      identifierPlaceholder: 'admin / email@domain.com',
+      passwordLabel: 'تێپەڕەوشە',
+      showPasswordTitle: 'پیشاندان / شاردنەوەی تێپەڕەوشە',
+      loginBtn: 'چوونەژوورەوە بۆ سیستەم',
+      loggingIn: 'لە حاڵەتی چوونەژوورەوەدا...',
+      workEmailLabel: 'ئیمەیڵی کار (هەژماری بەڕێوەبەر)',
+      workEmailPlaceholder: 'manager@company.com',
+      companyNameLabel: 'ناوی کارگە یان پڕۆژە',
+      companyNamePlaceholder: 'نموونە: کارگەی بیناسازی نەورۆز',
+      defaultCompanyName: 'کارگەکەم',
+      managerNameLabel: 'ناوی تەواوی بەڕێوەبەر',
+      managerNamePlaceholder: 'نموونە: ئەفشین زارعی',
+      createAccountBtn: 'دروستکردنی کارگە و چوونەژوورەوە',
+      creatingAccount: 'لە حاڵەتی دروستکردنی کارگەدا...',
+      twoFaTitle: 'پشتڕاستکردنەوەی دوو هەنگاوی (2FA)',
+      twoFaTotpDesc: 'کۆدی ٦ ژمارەیی ناو بەرنامەی Authenticator بنووسە:',
+      twoFaBackupDesc: 'یەکێک لە کۆدە فریاگوزارییە ٨ پیتییەکانت بنووسە:',
+      verifyAndSignIn: 'پشتڕاستکردنەوە و چوونەژوورەوە',
+      useAuthenticatorApp: 'چوونەژوورەوە بە بەرنامەی Authenticator',
+      useBackupCode: 'بەکارهێنانی کۆدی فریاگوزاری یەدەگ',
+      backToSignIn: 'گەڕانەوە بۆ چوونەژوورەوە',
+      lockoutBanner: (time) => `چوونەژوورەوە بە شێوەی کاتی قفڵ کراوە. کاتی ماوە: ${time}`,
+      errAccountLocked: (time) => `هەژمارەکە بە شێوەی کاتی قفڵ کراوە. تکایە ${time} چاوەڕێ بکە.`,
+      errMissingSignInFields: 'تکایە کۆدی کارگە، ناوی بەکارهێنەر و تێپەڕەوشە بە تەواوی بنووسە.',
+      errRateLimited: 'هەوڵی هەڵەی زۆر درا. چوونەژوورەوە بۆ ماوەی ٥ خولەک قفڵ کرا.',
+      errInvalidCredentials: 'کۆدی کارگە، ناوی بەکارهێنەر یان تێپەڕەوشە هەڵەیە.',
+      err2faRateLimited: 'بەهۆی هەوڵی هەڵەی بەردەوام، چوونەژوورەوە قفڵ کرا.',
+      err2faInvalid: 'کۆدی پشتڕاستکردنەوە یان کۆدی یەدەگ هەڵەیە. دووبارە هەوڵ بدەوە.',
+      errMissingSignUpFields: 'نووسینی ئیمەیڵی کار و تێپەڕەوشە پێویستە.',
+      errWeakPassword: 'تێپەڕەوشەکە لاوازە. تکایە تێپەڕەوشەیەکی بەهێزتر بە پیت و ژمارە و هێما بەکاربهێنە.',
+      errSignUpFailed: 'هەڵە لە تۆمارکردنی هەژماری نوێ. تکایە دووبارە هەوڵ بدەوە.',
+      msgEmailConfirmation: 'بەستەری پشتڕاستکردنەوە بۆ ئیمەیڵەکەت نێردرا. تکایە سندوقی ئیمەیڵەکەت بپشکنە.',
+      themeLight: 'دۆخی ڕۆژ',
+      themeDark: 'دۆخی شەو',
+      switchToSignUpPrompt: 'هێشتا کارگەکەت تۆمار نەکردووە؟',
+      switchToSignInPrompt: 'پێشتر کارگەکەت تۆمار کردووە؟'
+    },
+    en: {
+      brandSubtitle: 'Smart Workshop Attendance, Payroll & Financial Engineering Suite',
+      heroBadge: 'Next-Gen Workshop & Project ERP',
+      heroTitle: 'Unified Attendance, Payroll & Financial Ledger',
+      heroDesc:
+        'Log daily shifts in seconds, automate overtime and advance calculations, issue clean settlement receipts, and empower workers with a dedicated live portal.',
+      feat1Title: 'Smart Shift & Attendance Logging',
+      feat1Desc: 'Individual and crew-based daily logging with seamless offline-first cloud sync',
+      feat2Title: 'Financial Engineering & Settlement Desk',
+      feat2Desc: 'Manage cashboxes, expenses, advances, and transparent worker settlements',
+      feat3Title: 'Multi-Layer Security & Worker Portal',
+      feat3Desc: 'Two-Factor Authentication (2FA), role-based access, and personal worker QR links',
+      securityFooter: 'Protected by cloud encryption & Two-Factor Authentication',
+      signInTab: 'Sign In',
+      signUpTab: 'Create Workshop',
+      signInHeaderTitle: 'Sign In to Workshop Hub',
+      signInHeaderSubtitle: 'Enter your workspace code and credentials to access your dashboard',
+      signUpHeaderTitle: 'Create New Workshop Account',
+      signUpHeaderSubtitle: 'Launch your workshop management workspace in under a minute',
+      workspaceCodeLabel: 'Workspace Code',
+      workspaceCodeHint: 'Your unique workshop ID (e.g. KARS-101)',
+      identifierLabel: 'Email, Username or Worker ID',
+      identifierPlaceholder: 'admin / email@domain.com',
+      passwordLabel: 'Password',
+      showPasswordTitle: 'Toggle password visibility',
+      loginBtn: 'Sign In to Workspace',
+      loggingIn: 'Signing in...',
+      workEmailLabel: 'Work Email (Admin Account)',
+      workEmailPlaceholder: 'manager@company.com',
+      companyNameLabel: 'Workshop / Project Name',
+      companyNamePlaceholder: 'e.g. Apex Construction Workshop',
+      defaultCompanyName: 'My Workshop',
+      managerNameLabel: 'Manager Full Name',
+      managerNamePlaceholder: 'e.g. Alex Morgan',
+      createAccountBtn: 'Create Workshop & Sign In',
+      creatingAccount: 'Creating workspace...',
+      twoFaTitle: 'Two-Factor Authentication (2FA)',
+      twoFaTotpDesc: 'Enter the 6-digit verification code from your Authenticator app:',
+      twoFaBackupDesc: 'Enter one of your 8-character emergency recovery codes:',
+      verifyAndSignIn: 'Verify & Sign In',
+      useAuthenticatorApp: 'Use 6-digit Authenticator code',
+      useBackupCode: 'Use emergency backup code',
+      backToSignIn: 'Back to Sign In',
+      lockoutBanner: (time) => `Sign-in is temporarily locked. Time remaining: ${time}`,
+      errAccountLocked: (time) => `Account is temporarily locked. Please wait ${time}.`,
+      errMissingSignInFields: 'Please enter your workspace code, username/email, and password.',
+      errRateLimited: 'Too many failed attempts. Sign-in is locked for 5 minutes.',
+      errInvalidCredentials: 'Invalid workspace code, username, or password.',
+      err2faRateLimited: 'Too many failed verification attempts. Sign-in locked.',
+      err2faInvalid: 'Invalid verification or recovery code. Please try again.',
+      errMissingSignUpFields: 'Work email and password are required.',
+      errWeakPassword: 'Password is too weak. Please include letters, numbers, or symbols.',
+      errSignUpFailed: 'Could not create account. Please try again.',
+      msgEmailConfirmation: 'A verification link has been sent to your email. Please check your inbox.',
+      themeLight: 'Light Mode',
+      themeDark: 'Dark Mode',
+      switchToSignUpPrompt: "Don't have a workshop account yet?",
+      switchToSignInPrompt: 'Already have a registered workshop?'
+    }
+  }[langKey];
 
   useEffect(() => {
     const status = getLoginLockStatus();
@@ -71,24 +257,22 @@ export function LoginView({ theme, toggleTheme }) {
       setWorkspaceCode(w);
       setIdentifier(u);
       setPassword(p);
-      
+
       const autoLogin = async () => {
         setIsSubmitting(true);
         try {
           const res = await login(w, u, p);
           if (!res.success) {
-            setErrorMessage(res.error === 'invalidCredentials' ? 'مشخصات ورود نامعتبر است' : res.error);
+            setErrorMessage(res.error === 'invalidCredentials' ? copy.errInvalidCredentials : res.error);
           }
-        } catch(err) {
+        } catch (err) {
           setErrorMessage(err.message);
         } finally {
           setIsSubmitting(false);
-          // Clean up URL
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       };
-      
-      // Delay auto-login slightly to ensure AuthContext is fully ready
+
       setTimeout(autoLogin, 500);
     }
   }, []);
@@ -110,7 +294,8 @@ export function LoginView({ theme, toggleTheme }) {
   const formatLockTime = (secs) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    const raw = `${m}:${s.toString().padStart(2, '0')}`;
+    return convertDigits ? convertDigits(raw, numberFormat) : raw;
   };
 
   const handleSignIn = async (e) => {
@@ -119,18 +304,12 @@ export function LoginView({ theme, toggleTheme }) {
     setSuccessMessage('');
 
     if (remainingSeconds > 0) {
-      setErrorMessage(
-        langKey === 'fa'
-          ? `حساب موقتاً قفل است. لطفاً ${formatLockTime(remainingSeconds)} دیگر صبر کنید.`
-          : langKey === 'ku'
-          ? `هەژمارەکە قفڵ کراوە. تکایە ${formatLockTime(remainingSeconds)} چاوەڕێ بکە.`
-          : `Account locked. Please wait ${formatLockTime(remainingSeconds)}.`
-      );
+      setErrorMessage(copy.errAccountLocked(formatLockTime(remainingSeconds)));
       return;
     }
 
     if (!workspaceCode.trim() || !identifier.trim() || !password.trim()) {
-      setErrorMessage(t('invalidCredentials') || 'لطفاً کد کارگاه، نام کاربری و رمز عبور را وارد کنید');
+      setErrorMessage(copy.errMissingSignInFields);
       return;
     }
 
@@ -140,28 +319,17 @@ export function LoginView({ theme, toggleTheme }) {
       if (!res.success) {
         if (res.error === 'rateLimited') {
           setRemainingSeconds(res.remainingSeconds || 300);
-          setErrorMessage(
-            langKey === 'fa'
-              ? 'تعداد تلاش‌های ناموفق بیش از حد مجاز بود. حساب به مدت ۵ دقیقه قفل شد.'
-              : langKey === 'ku'
-              ? 'هەوڵی هەڵەی زۆر درا. بۆ ماوەی ٥ خولەک قفڵ کرا.'
-              : 'Too many failed attempts. Login locked for 5 minutes.'
-          );
+          setErrorMessage(copy.errRateLimited);
         } else {
-          setErrorMessage(
-            res.error === 'invalidCredentials'
-              ? (t('invalidCredentials') || 'مشخصات ورود اشتباه است')
-              : res.error
-          );
+          setErrorMessage(res.error === 'invalidCredentials' ? copy.errInvalidCredentials : res.error);
         }
       } else if (res.requires2FA) {
-        // Switch to 2FA view
         setAuthMode('2fa');
         setTotpCode('');
         setIsUsingBackup(false);
       }
     } catch (err) {
-      setErrorMessage(err.message || t('invalidCredentials'));
+      setErrorMessage(err.message || copy.errInvalidCredentials);
     } finally {
       setIsSubmitting(false);
     }
@@ -179,23 +347,13 @@ export function LoginView({ theme, toggleTheme }) {
       if (!res.success) {
         if (res.error === 'rateLimited') {
           setRemainingSeconds(300);
-          setErrorMessage(
-            langKey === 'fa'
-              ? 'به دلیل تلاش‌های ناموفق مکرر، ورود قفل شد.'
-              : 'Too many attempts. Account locked.'
-          );
+          setErrorMessage(copy.err2faRateLimited);
         } else {
-          setErrorMessage(
-            langKey === 'fa'
-              ? 'کد تایید یا کد پشتیبان نامعتبر است. لطفاً دوباره امتحان کنید.'
-              : langKey === 'ku'
-              ? 'کۆدی پشتڕاستکردنەوە هەڵەیە.'
-              : 'Invalid verification or backup code.'
-          );
+          setErrorMessage(copy.err2faInvalid);
         }
       }
     } catch (err) {
-      setErrorMessage(err.message || '2FA Error');
+      setErrorMessage(err.message || copy.err2faInvalid);
     } finally {
       setIsSubmitting(false);
     }
@@ -207,36 +365,30 @@ export function LoginView({ theme, toggleTheme }) {
     setSuccessMessage('');
 
     if (!signupEmail.trim() || !signupPassword.trim()) {
-      setErrorMessage(t('missingEmailPassword') || 'ایمیل و رمز عبور الزامی است');
+      setErrorMessage(copy.errMissingSignUpFields);
       return;
     }
 
     const strength = evaluatePasswordStrength(signupPassword);
     if (!strength.isAcceptable) {
-      setErrorMessage(
-        langKey === 'fa'
-          ? 'رمز عبور انتخاب شده ضعیف است. لطفاً از رمز قوی‌تر شامل حروف، اعداد یا نمادها استفاده کنید.'
-          : langKey === 'ku'
-          ? 'وشەی نهێنی لاوازە. تکایە وشەیەکی بەهێزتر بەکاربهێنە.'
-          : 'Password is too weak. Please use a stronger password with letters, digits or symbols.'
-      );
+      setErrorMessage(copy.errWeakPassword);
       return;
     }
 
     setIsSubmitting(true);
     try {
       const res = await signUp(signupEmail, signupPassword, {
-        company_name: signupCompanyName.trim() || 'کارگاه من',
+        company_name: signupCompanyName.trim() || copy.defaultCompanyName,
         full_name: signupFullName.trim() || signupEmail.split('@')[0]
       });
 
       if (!res.success) {
-        setErrorMessage(res.error || 'خطا در ثبت‌نام');
+        setErrorMessage(res.error || copy.errSignUpFailed);
       } else if (res.message === 'checkEmailConfirmation') {
-        setSuccessMessage(t('checkEmailVerification') || 'لینک تایید به ایمیل شما ارسال شد. لطفاً ایمیل خود را بررسی کنید.');
+        setSuccessMessage(copy.msgEmailConfirmation);
       }
     } catch (err) {
-      setErrorMessage(err.message || 'خطا در ثبت‌نام');
+      setErrorMessage(err.message || copy.errSignUpFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -248,385 +400,616 @@ export function LoginView({ theme, toggleTheme }) {
     { code: 'en', label: 'English' }
   ];
 
+  const DirectionalArrow = isRtl ? ArrowLeft : ArrowRight;
+
   return (
-    <div 
-      className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center p-4 selection:bg-sky-500 selection:text-white transition-colors duration-200"
+    <div
       dir={direction}
+      className="relative min-h-screen bg-[#f3f6f4] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between p-3 sm:p-6 lg:p-8 overflow-x-hidden selection:bg-sky-500 selection:text-white transition-colors duration-300"
     >
-      {/* Top Controls Bar */}
-      <div className="w-full max-w-md flex items-center justify-between mb-3">
-        {toggleTheme ? (
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-xs hover:text-sky-500 transition-colors"
-            title="Toggle theme"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
-          </button>
-        ) : <div />}
-        <div className="inline-flex bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs gap-1">
-          {languagesList.map((lang) => (
-            <button
-              key={lang.code}
-              type="button"
-              onClick={() => changeLanguage(lang.code)}
-              className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${
-                language === lang.code
-                  ? 'bg-sky-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              {lang.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Ambient Liquid Glass Glow Orbs */}
+      <div className="fixed -top-32 -right-32 w-96 h-96 bg-sky-500/12 dark:bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed -bottom-32 -left-32 w-96 h-96 bg-indigo-500/12 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Main Auth Card */}
-      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* App Logo & Header */}
-        <div className="flex flex-col items-center text-center mb-5">
-          <img 
-            src="/karsync-logo.png" 
-            alt="KarSync" 
-            className="w-16 h-16 object-contain mb-3 drop-shadow-md hover:scale-105 transition-transform"
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* 1. TOP FLOATING LIQUID GLASS CONTROL BAR                           */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <header className="relative z-20 w-full max-w-5xl mx-auto flex items-center justify-between gap-3">
+        {/* Mini Brand Pill */}
+        <div className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <img
+            src="/karsync-icon.png"
+            alt="KarSync"
+            className="w-6 h-6 object-contain drop-shadow-xs"
           />
-          <h2 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white">
             KarSync
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {langKey === 'fa' ? 'سیستم مدیریت حضور، کارکرد و تسویه حساب' : langKey === 'ku' ? 'سیستەمی بەڕێوەبردنی ئامادەبوون و مووچە' : 'Workshop Attendance & Financial Manager'}
-          </p>
+          </span>
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+            v0.9.0
+          </span>
         </div>
 
-        {/* Tab Switcher (Only in signin/signup modes) */}
-        {authMode !== '2fa' && (
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl mb-5">
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('signin');
-                setErrorMessage('');
-              }}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                authMode === 'signin'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>{t('signInTab') || 'ورود به حساب'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('signup');
-                setErrorMessage('');
-              }}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                authMode === 'signup'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{t('signUpTab') || 'ثبت‌نام جدید'}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Lockout Warning */}
-        {remainingSeconds > 0 && (
-          <div className="mb-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
-            <Clock className="w-4 h-4 shrink-0 animate-spin" />
-            <span>
-              {langKey === 'fa'
-                ? `ورود به سیستم قفل است. زمان باقیمانده: ${formatLockTime(remainingSeconds)}`
-                : `Login temporarily locked. Remaining: ${formatLockTime(remainingSeconds)}`}
-            </span>
-          </div>
-        )}
-
-        {/* Alerts */}
-        {errorMessage && (
-          <div className="mb-4 p-3 rounded-2xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs font-bold flex items-center gap-2 animate-shake">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="mb-4 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
-            <Check className="w-4 h-4 shrink-0" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* ----------------------------------------------------------- */}
-        {/* 1. Sign In Form */}
-        {/* ----------------------------------------------------------- */}
-        {authMode === 'signin' && (
-          <form onSubmit={handleSignIn} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                <span>کد کارگاه (Workspace Code)</span>
-              </label>
-              <input
-                type="text"
-                autoComplete="off"
-                autoFocus
-                value={workspaceCode}
-                onChange={(e) => setWorkspaceCode(e.target.value.toUpperCase())}
-                placeholder="KARS-101"
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition-all text-center tracking-widest dir-ltr uppercase"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-sky-500" />
-                <span>{t('emailOrUsername') || 'ایمیل یا نام کاربری / کد پرسنلی'}</span>
-              </label>
-              <input
-                type="text"
-                autoComplete="username"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="admin / email@domain.com"
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-500" />
-                <span>{t('password')}</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-11 transition-all text-left dir-ltr"
-                />
+        {/* Language & Theme Controls */}
+        <div className="flex items-center gap-2">
+          {/* Segmented Language Pill */}
+          <div className="inline-flex items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-1 rounded-2xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] gap-1">
+            <Languages className="w-3.5 h-3.5 text-slate-400 ms-2 me-0.5 hidden sm:block" />
+            {languagesList.map((lang) => {
+              const active = language === lang.code;
+              return (
                 <button
+                  key={lang.code}
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                  aria-label="Toggle password visibility"
+                  onClick={() => changeLanguage(lang.code)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-300 ease-in-out cursor-pointer ${
+                    active
+                      ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/25'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-slate-800/60'
+                  }`}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {lang.label}
                 </button>
-              </div>
-            </div>
+              );
+            })}
+          </div>
 
+          {/* Standalone Theme Button ([APP_THEME_BUTTON]) */}
+          {toggleTheme && (
             <button
-              type="submit"
-              disabled={isSubmitting || remainingSeconds > 0}
-              className="w-full mt-2 py-3 px-4 bg-sky-600 hover:bg-sky-500 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl shadow-md shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              type="button"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? copy.themeLight : copy.themeDark}
+              aria-label={theme === 'dark' ? copy.themeLight : copy.themeDark}
+              className="w-10 h-10 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 text-slate-700 dark:text-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-sky-500/40 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer"
             >
-              {isSubmitting ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              {theme === 'dark' ? (
+                <Sun className="w-4.5 h-4.5 text-amber-400" />
               ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  <span>{t('loginBtn')}</span>
-                </>
+                <Moon className="w-4.5 h-4.5 text-indigo-600" />
               )}
             </button>
-          </form>
-        )}
-
-        {/* ----------------------------------------------------------- */}
-        {/* 2. Two-Factor Authentication (2FA) Challenge Screen */}
-        {/* ----------------------------------------------------------- */}
-        {authMode === '2fa' && (
-          <form onSubmit={handleVerify2FASubmit} className="space-y-4 animate-in fade-in duration-150">
-            <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 text-center">
-              <div className="w-10 h-10 mx-auto rounded-2xl bg-sky-600 text-white flex items-center justify-center shadow-md shadow-sky-600/30 mb-2">
-                <Smartphone className="w-5 h-5" />
-              </div>
-              <h4 className="text-sm font-bold text-sky-950 dark:text-sky-200">
-                {langKey === 'fa' ? 'تایید هویت دو مرحله‌ای (2FA)' : 'Two-Factor Authentication'}
-              </h4>
-              <p className="text-xs text-sky-800/80 dark:text-sky-300/80 mt-1 leading-relaxed">
-                {isUsingBackup
-                  ? (langKey === 'fa' ? 'یکی از کدهای بازیابی ۸ رقمی خود را وارد کنید:' : 'Enter one of your 8-character emergency backup codes:')
-                  : (langKey === 'fa' ? 'کد ۶ رقمی نمایش داده شده در Google/Microsoft Authenticator را وارد کنید:' : 'Enter the 6-digit code from your Authenticator app:')}
-              </p>
-            </div>
-
-            <div>
-              {isUsingBackup ? (
-                <input
-                  type="text"
-                  autoFocus
-                  value={totpCode}
-                  onChange={(e) => setTotpCode(e.target.value)}
-                  placeholder="XXXX-XXXX"
-                  required
-                  className="w-full text-center tracking-widest font-mono text-lg font-bold px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500 uppercase"
-                />
-              ) : (
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  autoFocus
-                  value={totpCode}
-                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  required
-                  className="w-full text-center tracking-[0.4em] font-mono text-2xl font-black px-3.5 py-3 bg-slate-50 dark:bg-slate-800/80 border-2 border-sky-500/40 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500 shadow-inner"
-                />
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting || !totpCode.trim()}
-              className="w-full py-3 px-4 bg-sky-600 hover:bg-sky-500 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl shadow-md shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{langKey === 'fa' ? 'تایید و ورود به سیستم' : 'Verify & Sign In'}</span>
-                </>
-              )}
-            </button>
-
-            <div className="flex items-center justify-between pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsUsingBackup(!isUsingBackup);
-                  setTotpCode('');
-                  setErrorMessage('');
-                }}
-                className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>
-                  {isUsingBackup
-                    ? (langKey === 'fa' ? 'ورود با اپلیکیشن Authenticator' : 'Use Authenticator app')
-                    : (langKey === 'fa' ? 'استفاده از کد بازیابی اضطراری' : 'Use emergency backup code')}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode('signin');
-                  setErrorMessage('');
-                }}
-                className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              >
-                {langKey === 'fa' ? 'بازگشت' : 'Back'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* ----------------------------------------------------------- */}
-        {/* 3. Sign Up Form */}
-        {/* ----------------------------------------------------------- */}
-        {authMode === 'signup' && (
-          <form onSubmit={handleSignUp} className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-sky-500" />
-                <span>{t('workEmail') || 'ایمیل کاری'} *</span>
-              </label>
-              <input
-                type="email"
-                required
-                autoFocus
-                value={signupEmail}
-                onChange={(e) => setSignupEmail(e.target.value)}
-                placeholder="manager@company.com"
-                className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-500" />
-                <span>{t('password')} *</span>
-              </label>
-              <input
-                type="password"
-                required
-                value={signupPassword}
-                onChange={(e) => setSignupPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
-              />
-              {/* Password Strength Meter */}
-              <PasswordStrengthMeter password={signupPassword} showChecks={true} />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>{t('companyOrWorkshopName') || 'نام کارگاه / سازمان'}</span>
-              </label>
-              <input
-                type="text"
-                value={signupCompanyName}
-                onChange={(e) => setSignupCompanyName(e.target.value)}
-                placeholder={t('companyPlaceholder') || 'کارگاه فلزکاری نوین'}
-                className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-indigo-500" />
-                <span>{t('managerFullName') || 'نام مدیر'}</span>
-              </label>
-              <input
-                type="text"
-                value={signupFullName}
-                onChange={(e) => setSignupFullName(e.target.value)}
-                placeholder="افشین زارعی"
-                className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full mt-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  <span>{t('createAccountBtn') || 'ثبت‌نام و ورود'}</span>
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* Footer */}
-        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
-          <p className="text-[11px] text-slate-400">
-            {t('ownerName')} • {t('allRightsReserved')}
-          </p>
+          )}
         </div>
+      </header>
 
-      </div>
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* 2. MAIN 12-COLUMN APPLE LIQUID GLASS WORKSPACE                     */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <main className="relative z-10 w-full max-w-5xl mx-auto my-auto py-4 sm:py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+
+          {/* =============================================================== */}
+          {/* COLUMN A (5 COLS ON DESKTOP): EXECUTIVE HERO & FEATURE SHOWCASE */}
+          {/* =============================================================== */}
+          <div className="lg:col-span-5 relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl flex flex-col justify-between order-2 lg:order-1">
+            {/* Internal Decorative Glows */}
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-sky-500/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 space-y-6">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/15 border border-sky-400/25 text-sky-300 text-[11px] font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                <span>{copy.heroBadge}</span>
+              </div>
+
+              {/* Brand Hero Header */}
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md p-2 flex items-center justify-center shadow-lg">
+                    <img
+                      src="/karsync-logo.png"
+                      alt="KarSync"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-black tracking-tight text-white">
+                      KarSync
+                    </h1>
+                    <p className="text-xs text-sky-300/90 font-medium">
+                      {copy.brandSubtitle}
+                    </p>
+                  </div>
+                </div>
+
+                <h2 className="text-lg sm:text-xl font-extrabold text-white leading-snug pt-2">
+                  {copy.heroTitle}
+                </h2>
+                <p className="text-xs text-slate-300/85 leading-relaxed">
+                  {copy.heroDesc}
+                </p>
+              </div>
+
+              {/* 3 Glass Feature Capsules */}
+              <div className="space-y-3 pt-1">
+                <div className="p-3.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <CalendarCheck className="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white">
+                      {copy.feat1Title}
+                    </h3>
+                    <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
+                      {copy.feat1Desc}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <WalletCards className="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white">
+                      {copy.feat2Title}
+                    </h3>
+                    <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
+                      {copy.feat2Desc}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <ShieldCheck className="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white">
+                      {copy.feat3Title}
+                    </h3>
+                    <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
+                      {copy.feat3Desc}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Security Pill */}
+            <div className="relative z-10 mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-2 text-[11px] text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{copy.securityFooter}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* =============================================================== */}
+          {/* COLUMN B (7 COLS ON DESKTOP): APPLE GLASS AUTHENTICATION CARD   */}
+          {/* =============================================================== */}
+          <div className="lg:col-span-7 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col justify-between order-1 lg:order-2">
+
+            {/* Card Top Content */}
+            <div className="p-6 sm:p-8 space-y-6 flex-1">
+
+              {/* Header Row + Segmented Mode Switcher ([APP_THEME_BUTTON]) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/70 dark:border-slate-800">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {authMode === 'signin'
+                      ? copy.signInHeaderTitle
+                      : authMode === 'signup'
+                      ? copy.signUpHeaderTitle
+                      : copy.twoFaTitle}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {authMode === 'signin'
+                      ? copy.signInHeaderSubtitle
+                      : authMode === 'signup'
+                      ? copy.signUpHeaderSubtitle
+                      : isUsingBackup
+                      ? copy.twoFaBackupDesc
+                      : copy.twoFaTotpDesc}
+                  </p>
+                </div>
+
+                {/* [APP_THEME_BUTTON] Segmented Control for SignIn / SignUp */}
+                {authMode !== '2fa' && (
+                  <div className="h-11 inline-flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 self-start sm:self-auto shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('signin');
+                        setErrorMessage('');
+                        setSuccessMessage('');
+                      }}
+                      title={copy.signInTab}
+                      aria-label={copy.signInTab}
+                      className={`h-full flex items-center gap-2 rounded-xl transition-all duration-300 ease-in-out cursor-pointer ${
+                        authMode === 'signin'
+                          ? 'bg-sky-500 text-white font-bold px-3.5 shadow-md shadow-sky-500/25'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2.5'
+                      }`}
+                    >
+                      <LogIn className="w-4 h-4 shrink-0" />
+                      {authMode === 'signin' && (
+                        <span className="text-xs whitespace-nowrap">{copy.signInTab}</span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('signup');
+                        setErrorMessage('');
+                        setSuccessMessage('');
+                      }}
+                      title={copy.signUpTab}
+                      aria-label={copy.signUpTab}
+                      className={`h-full flex items-center gap-2 rounded-xl transition-all duration-300 ease-in-out cursor-pointer ${
+                        authMode === 'signup'
+                          ? 'bg-sky-500 text-white font-bold px-3.5 shadow-md shadow-sky-500/25'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2.5'
+                      }`}
+                    >
+                      <UserPlus className="w-4 h-4 shrink-0" />
+                      {authMode === 'signup' && (
+                        <span className="text-xs whitespace-nowrap">{copy.signUpTab}</span>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Rate-Limit Lockout Banner */}
+              {remainingSeconds > 0 && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/50 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-2.5">
+                  <Clock className="w-4.5 h-4.5 shrink-0 animate-spin text-amber-500" />
+                  <span>{copy.lockoutBanner(formatLockTime(remainingSeconds))}</span>
+                </div>
+              )}
+
+              {/* Error Alert Capsule */}
+              {errorMessage && (
+                <div className="p-3.5 rounded-2xl bg-rose-500/10 dark:bg-rose-950/50 border border-rose-500/25 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-150">
+                  <AlertCircle className="w-4.5 h-4.5 shrink-0 text-rose-500" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              {/* Success Alert Capsule */}
+              {successMessage && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/50 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-150">
+                  <Check className="w-4.5 h-4.5 shrink-0 text-emerald-500" />
+                  <span>{successMessage}</span>
+                </div>
+              )}
+
+              {/* ─────────────────────────────────────────────────────────── */}
+              {/* MODE 1: SIGN IN FORM                                        */}
+              {/* ─────────────────────────────────────────────────────────── */}
+              {authMode === 'signin' && (
+                <form id="karsync-auth-form" onSubmit={handleSignIn} className="space-y-4">
+                  {/* Featured Workspace Code Sub-Card */}
+                  <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                        <Building2 className="w-4 h-4 text-indigo-500" />
+                        <span>{copy.workspaceCodeLabel}</span>
+                      </label>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                        {copy.workspaceCodeHint}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      autoFocus
+                      value={workspaceCode}
+                      onChange={(e) => setWorkspaceCode(e.target.value.toUpperCase())}
+                      placeholder="KARS-101"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-base font-black font-mono focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-center tracking-[0.2em] dir-ltr uppercase shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Credentials Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Username / Email / Worker Code */}
+                    <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{copy.identifierLabel}</span>
+                      </label>
+                      <input
+                        type="text"
+                        autoComplete="username"
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        placeholder={copy.identifierPlaceholder}
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
+                      />
+                    </div>
+
+                    {/* Password */}
+                    <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{copy.passwordLabel}</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-10 transition-all text-left dir-ltr"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          title={copy.showPasswordTitle}
+                          aria-label={copy.showPasswordTitle}
+                          className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {/* ─────────────────────────────────────────────────────────── */}
+              {/* MODE 2: TWO-FACTOR AUTHENTICATION (2FA) CHALLENGE           */}
+              {/* ─────────────────────────────────────────────────────────── */}
+              {authMode === '2fa' && (
+                <form id="karsync-auth-form" onSubmit={handleVerify2FASubmit} className="space-y-4 animate-in fade-in duration-150">
+                  <div className="p-5 rounded-2xl bg-sky-500/5 dark:bg-sky-950/30 border border-sky-500/20 dark:border-sky-800/50 text-center space-y-3">
+                    <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25">
+                      <Smartphone className="w-6 h-6" />
+                    </div>
+
+                    <div className="max-w-xs mx-auto">
+                      {isUsingBackup ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={totpCode}
+                          onChange={(e) => setTotpCode(e.target.value)}
+                          placeholder="XXXX-XXXX"
+                          required
+                          className="w-full text-center tracking-widest font-mono text-lg font-bold px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500 uppercase"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={6}
+                          autoFocus
+                          value={totpCode}
+                          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                          placeholder="000000"
+                          required
+                          className="w-full text-center tracking-[0.45em] font-mono text-2xl font-black px-4 py-3.5 bg-white dark:bg-slate-900 border-2 border-sky-500/40 rounded-2xl text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500 shadow-inner"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 px-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUsingBackup(!isUsingBackup);
+                        setTotpCode('');
+                        setErrorMessage('');
+                      }}
+                      className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>
+                        {isUsingBackup ? copy.useAuthenticatorApp : copy.useBackupCode}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('signin');
+                        setErrorMessage('');
+                      }}
+                      className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {copy.backToSignIn}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* ─────────────────────────────────────────────────────────── */}
+              {/* MODE 3: SIGN UP FORM (2-COLUMN RESPONSIVE GRID)             */}
+              {/* ─────────────────────────────────────────────────────────── */}
+              {authMode === 'signup' && (
+                <form id="karsync-auth-form" onSubmit={handleSignUp} className="space-y-4">
+                  {/* Row 1: Workshop Name & Manager Name */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>{copy.companyNameLabel}</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={signupCompanyName}
+                        onChange={(e) => setSignupCompanyName(e.target.value)}
+                        placeholder={copy.companyNamePlaceholder}
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
+                      />
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>{copy.managerNameLabel}</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={signupFullName}
+                        onChange={(e) => setSignupFullName(e.target.value)}
+                        placeholder={copy.managerNamePlaceholder}
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 2: Work Email & Password + Strength Meter */}
+                  <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-3.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-sky-500" />
+                          <span>{copy.workEmailLabel} *</span>
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          autoFocus
+                          value={signupEmail}
+                          onChange={(e) => setSignupEmail(e.target.value)}
+                          placeholder={copy.workEmailPlaceholder}
+                          className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-amber-500" />
+                          <span>{copy.passwordLabel} *</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showSignupPassword ? 'text' : 'password'}
+                            required
+                            value={signupPassword}
+                            onChange={(e) => setSignupPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-10 transition-all text-left dir-ltr"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignupPassword(!showSignupPassword)}
+                            title={copy.showPasswordTitle}
+                            aria-label={copy.showPasswordTitle}
+                            className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                          >
+                            {showSignupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Password Strength Meter */}
+                    <PasswordStrengthMeter password={signupPassword} showChecks={true} />
+                  </div>
+                </form>
+              )}
+
+            </div>
+
+            {/* ───────────────────────────────────────────────────────────── */}
+            {/* STICKY GLASS BOTTOM ACTION DOCK                               */}
+            {/* ───────────────────────────────────────────────────────────── */}
+            <div className="px-6 sm:px-8 py-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Left/Start Context Switch Helper */}
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                {authMode === 'signin' && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span>{copy.switchToSignUpPrompt}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('signup');
+                        setErrorMessage('');
+                        setSuccessMessage('');
+                      }}
+                      className="font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                    >
+                      {copy.signUpTab}
+                    </button>
+                  </div>
+                )}
+                {authMode === 'signup' && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span>{copy.switchToSignInPrompt}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('signin');
+                        setErrorMessage('');
+                        setSuccessMessage('');
+                      }}
+                      className="font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                    >
+                      {copy.signInTab}
+                    </button>
+                  </div>
+                )}
+                {authMode === '2fa' && (
+                  <span className="font-semibold text-sky-600 dark:text-sky-400">
+                    {copy.twoFaTitle}
+                  </span>
+                )}
+              </div>
+
+              {/* Right/End Primary Submit Button */}
+              <button
+                type="submit"
+                form="karsync-auth-form"
+                disabled={
+                  isSubmitting ||
+                  (authMode === 'signin' && remainingSeconds > 0) ||
+                  (authMode === '2fa' && !totpCode.trim())
+                }
+                className={`w-full sm:w-auto min-w-[210px] py-3 px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-white shadow-lg transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50 ${
+                  authMode === 'signup'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/25'
+                    : 'bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 shadow-sky-500/25'
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>{authMode === 'signup' ? copy.creatingAccount : copy.loggingIn}</span>
+                  </>
+                ) : authMode === '2fa' ? (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{copy.verifyAndSignIn}</span>
+                  </>
+                ) : authMode === 'signup' ? (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>{copy.createAccountBtn}</span>
+                    <DirectionalArrow className="w-4 h-4" />
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>{copy.loginBtn}</span>
+                    <DirectionalArrow className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      </main>
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* 3. SUBTLE FOOTER                                                    */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <footer className="relative z-10 w-full max-w-5xl mx-auto text-center py-2">
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+          {t('ownerName')} • {t('allRightsReserved')}
+        </p>
+      </footer>
     </div>
   );
 }
