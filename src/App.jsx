@@ -17,6 +17,7 @@ import { FinanceAndAccountingView } from './components/FinanceAndAccountingView'
 import { SettlementModal } from './components/SettlementModal';
 import { DailyLoggingModal, FloatingActionButton } from './components/DailyLoggingModal';
 import { BackupModal } from './components/BackupModal';
+import { checkAndRunAutoBackup } from './db/backup';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { AboutModal } from './components/AboutModal';
 import { WorkersModal } from './components/WorkersModal';
@@ -207,6 +208,13 @@ function AppContent() {
     // Start automatic Real-Time Supabase Sync
     runEmergencyCleanup();
     initRealtimeSync();
+
+    // Check and trigger scheduled auto-backup in background
+    const backupTimer = setTimeout(() => {
+      checkAndRunAutoBackup().catch((e) => console.warn('Auto-backup check error:', e));
+    }, 6000);
+
+    return () => clearTimeout(backupTimer);
   }, [syncEnabled]);
 
   // Desktop Global Keyboard Shortcuts

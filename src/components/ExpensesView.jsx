@@ -61,7 +61,405 @@ export { AddExpenseModal, ExpenseRecycleBinModal, ExpenseAnalyticsModal };
 
 export function ExpensesView() {
   const { currentProject } = useProject();
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, numberFormat } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+
+  // Comprehensive Trilingual Dictionary for Expenses (Zero Cross-Language Leakage)
+  const copy = {
+    fa: {
+            tabActiveExpenses: 'هزینه‌های جاری',
+      tabArchivedExpenses: 'بایگانی و آرشیو',
+      tabTrashExpenses: 'سطل زباله',
+      noSpecificSection: 'بدون بخش مشخص',
+      generalProjectExpense: 'هزینه عمومی پروژه',
+      alertAdminOnlyApprove: 'فقط مدیر ارشد (Admin) مجاز به تایید نهایی اسناد است.',
+      toastExpenseApproved: 'سند هزینه با موفقیت تایید نهایی و قفل گردید.',
+      errorApproval: 'خطا در تایید سند',
+      alertApprovedCannotEdit: 'این سند تایید نهایی شده و غیرقابل تغییر است.',
+      toastRestoredSingle: 'هزینه با موفقیت بازیابی شد.',
+      pageTitle: 'مدیریت هزینه‌ها و مخارج',
+      pageSubtitle: 'ثبت هزینه‌های مصالح، ماشین‌آلات، خدمات و تنخواه کارگاه',
+      unitInvoices: 'فاکتور',
+      archiveAndTrashTooltip: 'سطل زباله و آرشیو',
+      analyticsAndExportTooltip: 'آمار و تحلیل مخارج',
+      newExpense: 'هزینه جدید',
+      newExpenseTooltip: 'ثبت هزینه جدید',
+      pulseTitle: 'نبض هزینه‌ها و مخارج پروژه',
+      totalExpensesDesc: 'مجموع فاکتورها و هزینه‌های ثبت‌شده پروژه',
+      clearedPaid: 'تسویه‌شده:',
+      pendingCredit: 'معوق (نسیه):',
+      clearedPercent: 'پرداخت شده',
+      thisMonthExpenses: 'هزینه این ماه:',
+      topSpendingSection: 'بخش پرهزینه پروژه',
+      shareOfTotal: 'سهم از کل',
+      recordInvoice: 'ثبت فاکتور',
+      excelExport: 'خروجی اکسل',
+      tabActive: 'هزینه‌های جاری',
+      tabArchived: 'بایگانی‌شده',
+      tabTrash: 'سطل زباله',
+      restoreAll: 'بازیابی همه',
+      emptyTrash: 'خالی کردن سطل زباله',
+      trashBanner: 'شما در حال مشاهده سطل زباله هستید. هزینه‌های این بخش در داشبورد و آمار جاری محاسبه نمی‌شوند و تا پیش از حذف قطعی قابل بازیابی هستند.',
+      archiveBanner: 'شما در حال مشاهده هزینه‌های بایگانی‌شده هستید. این هزینه‌ها در سوابق و گزارشات مالی حفظ شده‌اند اما در لیست فعال نمایش داده نمی‌شوند.',
+      searchPlaceholder: 'جستجو در عنوان، طرف‌حساب، توضیحات...',
+      filterAll: 'همه',
+      filterThisMonth: 'این ماه',
+      filterLastMonth: 'ماه قبل',
+      filtersButton: 'فیلترها',
+      sectionLabel: 'بخش پروژه',
+      allSections: 'همه بخش‌ها',
+      unassignedSection: 'هزینه عمومی (بدون بخش)',
+      categoryLabel: 'سرفصل هزینه',
+      allCategories: 'همه سرفصل‌ها',
+      counterpartyLabel: 'طرف‌حساب (شخص)',
+      allCounterparties: 'همه اشخاص',
+      settlementStatusLabel: 'وضعیت تسویه',
+      allStatuses: 'همه وضعیت‌ها',
+      statusPaid: 'تسویه شده',
+      statusPending: 'پرداخت نشده (نسیه)',
+      approvalStatusLabel: 'وضعیت تایید و قفل',
+      allApprovals: 'همه اسناد',
+      statusApproved: 'تایید شده (قفل)',
+      statusDraft: 'پیش‌نویس',
+      colDate: 'تاریخ',
+      colTitle: 'عنوان هزینه',
+      colCategory: 'سرفصل (۳ سطحی)',
+      colCounterparty: 'طرف‌حساب',
+      colSection: 'بخش پروژه',
+      colAmount: 'مبلغ',
+      colSettlementStatus: 'وضعیت تسویه',
+      colApprovalStatus: 'وضعیت تایید',
+      colReceipt: 'رسید',
+      colActions: 'عملیات',
+      restoreAction: 'بازیابی',
+      restoreTooltip: 'بازیابی به هزینه‌های جاری',
+      permanentDeleteTooltip: 'حذف دائمی',
+      unarchiveAction: 'خروج از آرشیو',
+      unarchiveTooltip: 'خروج از بایگانی',
+      moveToTrashTooltip: 'انتقال به سطل زباله',
+      finalApproveAction: 'تایید نهایی',
+      finalApproveTooltip: 'تایید نهایی سند و قفل‌سازی',
+      documentLockedTitle: 'این سند تایید شده و غیرقابل تغییر یا حذف است.',
+      lockedDocument: 'سند قفل',
+      archiveTooltip: 'بایگانی کردن هزینه',
+      edit: 'ویرایش',
+      viewReceiptTooltip: 'مشاهده تصویر فاکتور',
+      paidBadge: 'تسویه شده',
+      pendingBadge: 'معوق (نسیه)',
+      paidShort: 'تسویه',
+      pendingShort: 'معوق',
+      toPayee: 'به:',
+      general: 'عمومی',
+      generalExpense: 'هزینه عمومی',
+      unknownCategory: 'سرفصل نامشخص',
+      mainGroup: 'گروه اصلی',
+      projectSectionDefault: 'بخش پروژه',
+      noExpensesFound: 'هیچ فاکتور هزینه‌ای یافت نشد',
+      emptyHintActive: 'برای شروع اولین هزینه یا فاکتور پروژه را از دکمه بالا ثبت کنید.',
+      emptyHintFilters: 'با تغییر فیلترهای جستجو نتایج بیشتری مشاهده خواهید کرد.',
+      clearFilters: 'پاک کردن فیلترها',
+      receiptAttachedImage: 'تصویر فاکتور / رسید ضمیمه شده',
+      openInNewTab: 'باز کردن در تب جدید',
+      moveToTrashDialogTitle: 'انتقال هزینه به سطل زباله',
+      moveToTrashDialogDesc: (title) => `آیا از انتقال هزینه «${title}» به سطل زباله اطمینان دارید؟ این هزینه از لیست جاری خارج شده اما تا پاکسازی قطعی قابل بازیابی خواهد بود.`,
+      permanentDeleteDialogTitle: 'حذف قطعی و دائمی هزینه',
+      permanentDeleteDialogDesc: (title) => `آیا از حذف دائمی هزینه «${title}» اطمینان دارید؟ این عملیات کاملاً غیرقابل بازگشت است.`,
+      cancel: 'انصراف',
+      moveToTrashConfirm: 'انتقال به سطل زباله',
+      permanentDeleteConfirm: 'حذف قطعی',
+      alertApprovedCannotChange: 'این سند تایید نهایی شده و وضعیت آن غیرقابل تغییر است.',
+      toastArchived: 'هزینه به بخش بایگانی منتقل گردید.',
+      toastUnarchived: 'هزینه از بایگانی خارج و به لیست فعال بازگشت.',
+      alertApprovedCannotDelete: 'این سند هزینه تایید نهایی شده است و به جهت الزامات مالیاتی غیرقابل حذف قطعی می‌باشد.',
+      toastPermanentlyDeleted: 'هزینه برای همیشه حذف گردید.',
+      alertNoExpensesToExport: 'هیچ هزینه‌ای برای خروجی وجود ندارد.',
+      toastAllRestored: 'تمام هزینه‌ها بازیابی شدند.',
+      confirmEmptyTrash: 'آیا از خالی کردن سطل زباله و حذف قطعی تمام هزینه‌ها اطمینان دارید؟',
+      toastTrashEmptied: 'سطل زباله خالی شد.',
+      toastMovedToTrash: 'هزینه به سطل زباله منتقل شد.',
+      auditPermanentDelete: (title) => `حذف فاکتور/هزینه: ${title}`,
+      methodCashBox: 'صندوق نقدی',
+      methodBank: 'حساب بانکی',
+      methodPettyCash: 'تنخواه سرپرست',
+      yes: 'بله',
+      no: 'خیر',
+      excelDate: 'تاریخ فاکتور',
+      excelTitle: 'عنوان هزینه',
+      excelMainGroup: 'گروه اصلی',
+      excelSubGroup: 'زیرگروه',
+      excelItem: 'هزینه خرد',
+      excelAmount: 'مبلغ',
+      excelCurrency: 'واحد پول',
+      excelCounterparty: 'طرف‌حساب',
+      excelSection: 'بخش پروژه',
+      excelStatus: 'وضعیت تسویه',
+      excelMethod: 'روش پرداخت',
+      excelHasReceipt: 'رسید پیوست دارد؟',
+      excelNotes: 'یادداشت و توضیحات'
+    },
+    ku: {
+            tabActiveExpenses: 'خەرجییە چالاکەکان',
+      tabArchivedExpenses: 'ئەرشیفکراوەکان',
+      tabTrashExpenses: 'سەبەتەی سڕینەوە',
+      noSpecificSection: 'بێ بەشی دیاریکراو',
+      generalProjectExpense: 'خەرجی گشتیی پڕۆژە',
+      alertAdminOnlyApprove: 'تەنها بەڕێوەبەری سەرەکی (Admin) دەسەڵاتی پەسەندکردنی کۆتایی هەیە.',
+      toastExpenseApproved: 'بەڵگەنامەی خەرجی بە سەرکەوتوویی پەسەندکرا و قفڵ کرا.',
+      errorApproval: 'هەڵە لە پەسەندکردنی بەڵگەنامە',
+      alertApprovedCannotEdit: 'ئەم بەڵگەنامەیە پەسەندکراوە و دەستکاری ناکرێت.',
+      toastRestoredSingle: 'خەرجییەکە بە سەرکەوتوویی گەڕێنرایەوە.',
+      pageTitle: 'بەڕێوەبردنی خەرجییەکان',
+      pageSubtitle: 'تۆمارکردنی خەرجییەکانی کەرەستە، ئامێر، خزمەتگوزاری و تەنخوای کارگە',
+      unitInvoices: 'فاکتۆر',
+      archiveAndTrashTooltip: 'سەبەتەی سڕینەوە و ئەرشیف',
+      analyticsAndExportTooltip: 'ئامار و شیکاریی خەرجی',
+      newExpense: 'خەرجی نوێ',
+      newExpenseTooltip: 'تۆمارکردنی خەرجی نوێ',
+      pulseTitle: 'کۆی گشتیی خەرجییەکانی پڕۆژە',
+      totalExpensesDesc: 'کۆی گشتیی فاکتۆر و خەرجییە تۆمارکراوەکانی پڕۆژە',
+      clearedPaid: 'پارەدراو:',
+      pendingCredit: 'قەرز (نسیە):',
+      clearedPercent: 'دراوە',
+      thisMonthExpenses: 'خەرجی ئەم مانگە:',
+      topSpendingSection: 'پڕخەرجیترین بەشی پڕۆژە',
+      shareOfTotal: 'بەش لە کۆی گشتی',
+      recordInvoice: 'تۆمارکردنی فاکتۆر',
+      excelExport: 'دەرکردنی ئەکسڵ',
+      tabActive: 'خەرجییە چالاکەکان',
+      tabArchived: 'ئەرشیفکراو',
+      tabTrash: 'سەبەتەی سڕینەوە',
+      restoreAll: 'گەڕاندنەوەی هەمووان',
+      emptyTrash: 'بەتاڵکردنی سەبەتە',
+      trashBanner: 'ئێستا لە سەبەتەی سڕینەوەیت. تۆمارەکان لە دەشبۆرد ناژمێردرێن و دەتوانیت پێش سڕینەوەی یەکجارەکی بیانگەڕێنیتەوە.',
+      archiveBanner: 'ئێستا لە بەشی ئەرشیفیت. ئەم خەرجییانە لە تۆمارە داراییەکاندا پارێزراون بەڵام لە لیستی سەرەکیدا نین.',
+      searchPlaceholder: 'گەڕان لە ناونیشان، لایەنی بەرامبەر، تێبینی...',
+      filterAll: 'هەموو',
+      filterThisMonth: 'ئەم مانگە',
+      filterLastMonth: 'مانگی پێشوو',
+      filtersButton: 'فلتەرەکان',
+      sectionLabel: 'بەشی پڕۆژە',
+      allSections: 'هەموو بەشەکان',
+      unassignedSection: 'خەرجی گشتی (بێ بەش)',
+      categoryLabel: 'پۆلێنکردنی خەرجی',
+      allCategories: 'هەموو پۆلەکان',
+      counterpartyLabel: 'لایەنی بەرامبەر (کەس)',
+      allCounterparties: 'هەموو کەسەکان',
+      settlementStatusLabel: 'دۆخی پارەدان',
+      allStatuses: 'هەموو دۆخەکان',
+      statusPaid: 'پارەدراو',
+      statusPending: 'قەرز (نسیە)',
+      approvalStatusLabel: 'دۆخی پەسەندکردن و قفڵ',
+      allApprovals: 'هەموو بەڵگەنامەکان',
+      statusApproved: 'پەسەندکراو (قفڵ)',
+      statusDraft: 'ڕەشنووس',
+      colDate: 'بەروار',
+      colTitle: 'بابەت',
+      colCategory: 'پۆلێنکردن',
+      colCounterparty: 'لایەنی بەرامبەر',
+      colSection: 'بەش',
+      colAmount: 'بڕە پارە',
+      colSettlementStatus: 'دۆخ',
+      colApprovalStatus: 'دۆخی پەسەندکردن',
+      colReceipt: 'پسوولە',
+      colActions: 'کردار',
+      restoreAction: 'گێڕانەوە',
+      restoreTooltip: 'گێڕانەوە بۆ خەرجییە چالاکەکان',
+      permanentDeleteTooltip: 'سڕینەوەی یەکجاری',
+      unarchiveAction: 'دەرهێنان لە ئەرشیف',
+      unarchiveTooltip: 'دەرهێنان لە ئەرشیف',
+      moveToTrashTooltip: 'بردن بۆ سەبەتەی سڕینەوە',
+      finalApproveAction: 'پەسەندکردن',
+      finalApproveTooltip: 'پەسەندکردنی کۆتایی بەڵگەنامە و قفڵکردن',
+      documentLockedTitle: 'ئەم بەڵگەنامەیە پەسەندکراوە و ناگۆڕدرێت.',
+      lockedDocument: 'قفڵکراو',
+      archiveTooltip: 'ئەرشیفکردنی خەرجی',
+      edit: 'دەستکاری',
+      viewReceiptTooltip: 'بینینی وێنەی فاکتۆر',
+      paidBadge: 'پارەدراو',
+      pendingBadge: 'قەرز (نسیە)',
+      paidShort: 'دراو',
+      pendingShort: 'قەرز',
+      toPayee: 'بۆ:',
+      general: 'گشتی',
+      generalExpense: 'خەرجی گشتی',
+      unknownCategory: 'پۆلی نادیار',
+      mainGroup: 'گرووپی سەرەکی',
+      projectSectionDefault: 'بەشی پڕۆژە',
+      noExpensesFound: 'هیچ خەرجییەک نەدۆزرایەوە',
+      emptyHintActive: 'یەکەمین خەرجی پڕۆژە لە ڕێگەی دوگمەی سەرەوە تۆمار بکە.',
+      emptyHintFilters: 'فلتەرەکان پاک بکەرەوە بۆ بینینی هەموو تۆمارەکان.',
+      clearFilters: 'سڕینەوەی فلتەرەکان',
+      receiptAttachedImage: 'وێنەی فاکتۆری هاوپێچکراو',
+      openInNewTab: 'کردنەوە لە پەڕەی نوێ',
+      moveToTrashDialogTitle: 'بردن بۆ سەبەتەی سڕینەوە',
+      moveToTrashDialogDesc: (title) => `ئایا دڵنیایت لە بردن بۆ سەبەتەی سڕینەوە؟ دەتوانیت دواتر بیگەڕێنیتەوە.`,
+      permanentDeleteDialogTitle: 'سڕینەوەی یەکجاری خەرجی',
+      permanentDeleteDialogDesc: (title) => `ئایا دڵنیایت لە سڕینەوەی یەکجاری؟ ئەم کردارە ناگەڕێتەوە.`,
+      cancel: 'پاشگەزبوونەوە',
+      moveToTrashConfirm: 'بردن بۆ سەبەتە',
+      permanentDeleteConfirm: 'سڕینەوەی یەکجاری',
+      alertApprovedCannotChange: 'ئەم بەڵگەنامەیە پەسەندکراوە و ناگۆڕدرێت.',
+      toastArchived: 'خەرجییەکە ئەرشیفکرا.',
+      toastUnarchived: 'خەرجی لە ئەرشیف دەرهێندرا.',
+      alertApprovedCannotDelete: 'بەڵگەنامەی پەسەندکراو بەهۆی ڕێساکانی دارایی ناسڕدرێتەوە.',
+      toastPermanentlyDeleted: 'خەرجییەکە بە یەکجاری سڕایەوە.',
+      alertNoExpensesToExport: 'هیچ خەرجییەک نییە بۆ هەناردەکردن.',
+      toastAllRestored: 'هەموو خەرجییەکان گەڕێندرانەوە.',
+      confirmEmptyTrash: 'ئایا دڵنیایت لە بەتاڵکردنی سەبەتە و سڕینەوەی یەکجاری؟',
+      toastTrashEmptied: 'سەبەتە بەتاڵکرا.',
+      toastMovedToTrash: 'خەرجی گوازرایەوە بۆ سەبەتە.',
+      auditPermanentDelete: (title) => `سڕینەوەی فاکتۆر/خەرجی: ${title}`,
+      methodCashBox: 'کاش',
+      methodBank: 'بانک',
+      methodPettyCash: 'تەنخوا',
+      yes: 'بەڵێ',
+      no: 'نەخێر',
+      excelDate: 'بەروار',
+      excelTitle: 'بابەت',
+      excelMainGroup: 'گرووپی سەرەکی',
+      excelSubGroup: 'ژێرگرووپ',
+      excelItem: 'وردەکاری',
+      excelAmount: 'بڕە پارە',
+      excelCurrency: 'دراو',
+      excelCounterparty: 'لایەنی بەرامبەر',
+      excelSection: 'بەشی پڕۆژە',
+      excelStatus: 'دۆخی پارەدان',
+      excelMethod: 'شێوازی پارەدان',
+      excelHasReceipt: 'پسوولە هەیە؟',
+      excelNotes: 'تێبینی'
+    },
+    en: {
+            tabActiveExpenses: 'Active Expenses',
+      tabArchivedExpenses: 'Archived Expenses',
+      tabTrashExpenses: 'Recycle Bin',
+      noSpecificSection: 'Unassigned Section',
+      generalProjectExpense: 'General Project Expense',
+      alertAdminOnlyApprove: 'Only an Admin is authorized to grant final approval.',
+      toastExpenseApproved: 'Expense document approved and locked.',
+      errorApproval: 'Error approving document',
+      alertApprovedCannotEdit: 'This document is approved and locked from editing.',
+      toastRestoredSingle: 'Expense restored successfully.',
+      pageTitle: 'Expense & Cost Management',
+      pageSubtitle: 'Record materials, machinery, subcontractor services, and petty cash',
+      unitInvoices: 'invoices',
+      archiveAndTrashTooltip: 'Recycle Bin & Archive',
+      analyticsAndExportTooltip: 'Expense Analytics & Reports',
+      newExpense: 'New Expense',
+      newExpenseTooltip: 'Record New Expense',
+      pulseTitle: 'Project Expenses Pulse',
+      totalExpensesDesc: 'Total all-time expenses recorded for this project',
+      clearedPaid: 'Paid:',
+      pendingCredit: 'Pending (Credit):',
+      clearedPercent: 'Cleared',
+      thisMonthExpenses: 'This Month:',
+      topSpendingSection: 'Top Spending Section',
+      shareOfTotal: 'share of total',
+      recordInvoice: 'Add Expense',
+      excelExport: 'Excel Export',
+      tabActive: 'Active Expenses',
+      tabArchived: 'Archived',
+      tabTrash: 'Recycle Bin',
+      restoreAll: 'Restore All',
+      emptyTrash: 'Empty Recycle Bin',
+      trashBanner: 'You are viewing the recycle bin. Deleted expenses are excluded from dashboards and can be restored before permanent deletion.',
+      archiveBanner: 'You are viewing archived expenses. They remain preserved in financial records and ledger audits but are hidden from active views.',
+      searchPlaceholder: 'Search title, counterparty, description...',
+      filterAll: 'All Time',
+      filterThisMonth: 'This Month',
+      filterLastMonth: 'Last Month',
+      filtersButton: 'Filters',
+      sectionLabel: 'Project Section',
+      allSections: 'All Sections',
+      unassignedSection: 'General / Unassigned',
+      categoryLabel: 'Expense Category',
+      allCategories: 'All Categories',
+      counterpartyLabel: 'Counterparty (Person)',
+      allCounterparties: 'All Persons',
+      settlementStatusLabel: 'Payment Status',
+      allStatuses: 'All Statuses',
+      statusPaid: 'Paid',
+      statusPending: 'Pending (Credit)',
+      approvalStatusLabel: 'Approval & Lock Status',
+      allApprovals: 'All Documents',
+      statusApproved: 'Approved (Locked)',
+      statusDraft: 'Draft',
+      colDate: 'Date',
+      colTitle: 'Expense Title',
+      colCategory: 'Category',
+      colCounterparty: 'Counterparty',
+      colSection: 'Project Section',
+      colAmount: 'Amount',
+      colSettlementStatus: 'Payment Status',
+      colApprovalStatus: 'Verification',
+      colReceipt: 'Receipt',
+      colActions: 'Actions',
+      restoreAction: 'Restore',
+      restoreTooltip: 'Restore to Active Expenses',
+      permanentDeleteTooltip: 'Delete Permanently',
+      unarchiveAction: 'Unarchive',
+      unarchiveTooltip: 'Move out of Archive',
+      moveToTrashTooltip: 'Move to Recycle Bin',
+      finalApproveAction: 'Final Approve',
+      finalApproveTooltip: 'Final Approve & Lock Document',
+      documentLockedTitle: 'This document is approved and locked from modification.',
+      lockedDocument: 'Locked',
+      archiveTooltip: 'Archive Expense',
+      edit: 'Edit',
+      viewReceiptTooltip: 'View Receipt Image',
+      paidBadge: 'Paid',
+      pendingBadge: 'Pending (Credit)',
+      paidShort: 'Paid',
+      pendingShort: 'Due',
+      toPayee: 'To:',
+      general: 'General',
+      generalExpense: 'General Expense',
+      unknownCategory: 'Unknown Category',
+      mainGroup: 'Main Group',
+      projectSectionDefault: 'Project Section',
+      noExpensesFound: 'No expense invoices found',
+      emptyHintActive: 'Click the button above to record the first project expense.',
+      emptyHintFilters: 'Try clearing or modifying your search filters.',
+      clearFilters: 'Clear Filters',
+      receiptAttachedImage: 'Attached invoice / receipt image',
+      openInNewTab: 'Open in new tab',
+      moveToTrashDialogTitle: 'Move Expense to Recycle Bin',
+      moveToTrashDialogDesc: (title) => `Are you sure you want to move "${title}" to the recycle bin? It can be restored later.`,
+      permanentDeleteDialogTitle: 'Permanently Delete Expense',
+      permanentDeleteDialogDesc: (title) => `Are you sure you want to permanently delete "${title}"? This action cannot be undone.`,
+      cancel: 'Cancel',
+      moveToTrashConfirm: 'Move to Trash',
+      permanentDeleteConfirm: 'Delete Permanently',
+      alertApprovedCannotChange: 'This document has final approval and cannot be modified.',
+      toastArchived: 'Expense moved to archive.',
+      toastUnarchived: 'Expense restored to active list.',
+      alertApprovedCannotDelete: 'This document is approved and cannot be deleted due to accounting rules.',
+      toastPermanentlyDeleted: 'Expense permanently deleted.',
+      alertNoExpensesToExport: 'No expenses available to export.',
+      toastAllRestored: 'All expenses restored.',
+      confirmEmptyTrash: 'Are you sure you want to empty the recycle bin and permanently delete all records?',
+      toastTrashEmptied: 'Recycle bin emptied.',
+      toastMovedToTrash: 'Expense moved to recycle bin.',
+      auditPermanentDelete: (title) => `Permanent delete expense invoice: ${title}`,
+      methodCashBox: 'Cash Box',
+      methodBank: 'Bank Account',
+      methodPettyCash: 'Petty Cash',
+      yes: 'Yes',
+      no: 'No',
+      excelDate: 'Invoice Date',
+      excelTitle: 'Expense Title',
+      excelMainGroup: 'Main Category',
+      excelSubGroup: 'Subcategory',
+      excelItem: 'Cost Item',
+      excelAmount: 'Amount',
+      excelCurrency: 'Currency',
+      excelCounterparty: 'Counterparty',
+      excelSection: 'Project Section',
+      excelStatus: 'Payment Status',
+      excelMethod: 'Payment Method',
+      excelHasReceipt: 'Has Receipt?',
+      excelNotes: 'Notes & Description'
+    }
+  }[langKey];
   const isRtl = direction === 'rtl';
   const { canApprove, canModifyRecord, approveRecord } = useTwoStageApproval();
   const [approvingExpenseId, setApprovingExpenseId] = useState(null);
@@ -74,9 +472,17 @@ export function ExpensesView() {
     const curr = customCurr || currency;
     const num = Number(amount) || 0;
     try {
-      if (curr === 'IRT') return `${new Intl.NumberFormat('fa-IR').format(num)} تومان`;
-      if (curr === 'USD') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
-      return new Intl.NumberFormat('ar-IQ', { style: 'currency', currency: 'IQD', maximumFractionDigits: 0 }).format(num);
+      const numLocale = language === 'fa' ? 'fa-IR' : language === 'ku' ? 'ckb-IQ' : 'en-US';
+      const formattedNum = new Intl.NumberFormat(numLocale, { maximumFractionDigits: 2 }).format(num);
+      if (curr === 'IRT') {
+        const symbol = language === 'fa' ? 'تومان' : language === 'ku' ? 'تۆمەن' : 'IRT';
+        return `${formattedNum} ${symbol}`;
+      }
+      if (curr === 'USD') {
+        return `${formattedNum}`;
+      }
+      const symbol = language === 'fa' ? 'دینار' : language === 'ku' ? 'دینار' : 'IQD';
+      return `${formattedNum} ${symbol}`;
     } catch {
       return `${num.toLocaleString()} ${curr}`;
     }
@@ -167,22 +573,22 @@ export function ExpensesView() {
 
   // Quick helper to resolve full category hierarchy breadcrumbs
   const getCategoryHierarchy = (catId) => {
-    if (!catId) return { main: 'عمومی', sub: '', item: '' };
+    if (!catId) return { main: copy.general, sub: '', item: '' };
     const target = categoryMap.get(catId);
-    if (!target) return { main: 'سرفصل نامشخص', sub: '', item: '' };
+    if (!target) return { main: copy.unknownCategory, sub: '', item: '' };
 
     if (target.level === 3) {
       const parentSub = categoryMap.get(target.parentId);
       const parentMain = parentSub ? categoryMap.get(parentSub.parentId) : null;
       return {
-        main: parentMain?.name || 'گروه اصلی',
+        main: parentMain?.name || copy.mainGroup,
         sub: parentSub?.name || '',
         item: target.name
       };
     } else if (target.level === 2) {
       const parentMain = categoryMap.get(target.parentId);
       return {
-        main: parentMain?.name || 'گروه اصلی',
+        main: parentMain?.name || copy.mainGroup,
         sub: target.name,
         item: ''
       };
@@ -218,7 +624,7 @@ export function ExpensesView() {
   const viewTabs = useMemo(() => [
     {
       id: 'active',
-      label: t('activeExpensesTab') || (language === 'fa' ? 'هزینه‌های جاری' : 'خەرجییە چالاکەکان'),
+      label: copy.tabActiveExpenses,
       icon: Receipt,
       count: activeExpenses.length,
       activeGradient: 'bg-gradient-to-r from-rose-500 via-rose-600 to-pink-600 text-white shadow-lg shadow-rose-500/30 border border-rose-400/40',
@@ -226,7 +632,7 @@ export function ExpensesView() {
     },
     {
       id: 'archived',
-      label: t('archivedExpensesTab') || (language === 'fa' ? 'بایگانی و آرشیو' : 'ئەرشیفکراوەکان'),
+      label: copy.tabArchivedExpenses,
       icon: Archive,
       count: archivedExpenses.length,
       activeGradient: 'bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 text-white shadow-lg shadow-amber-500/30 border border-amber-400/40',
@@ -234,7 +640,7 @@ export function ExpensesView() {
     },
     {
       id: 'trash',
-      label: t('trashExpensesTab') || (language === 'fa' ? 'سطل زباله' : 'سەبەتەی سڕینەوە'),
+      label: copy.tabTrashExpenses,
       icon: Trash2,
       count: trashExpenses.length,
       activeGradient: 'bg-gradient-to-r from-rose-600 via-red-600 to-red-700 text-white shadow-lg shadow-rose-600/30 border border-rose-400/40',
@@ -355,15 +761,15 @@ export function ExpensesView() {
     });
 
     // Determine top spending section
-    let topSectionName = language === 'fa' ? 'بدون بخش مشخص' : 'دیارینەکراو';
+    let topSectionName = copy.noSpecificSection;
     let topSectionAmount = 0;
 
     Object.entries(sectionExpensesMap).forEach(([secId, amt]) => {
       if (amt > topSectionAmount) {
         topSectionAmount = amt;
         topSectionName = secId === 'unassigned' 
-          ? (language === 'fa' ? 'هزینه عمومی پروژه' : 'خەرجی گشتی') 
-          : (sectionMap.get(secId) || 'بخش پروژه');
+          ? copy.generalProjectExpense 
+          : (sectionMap.get(secId) || copy.projectSectionDefault);
       }
     });
 
@@ -384,17 +790,17 @@ export function ExpensesView() {
   // Actions
   const handleApproveExpense = async (exp) => {
     if (!canApprove) {
-      alert(language === 'fa' ? 'فقط مدیر ارشد (Admin) مجاز به تایید نهایی اسناد است.' : 'تەنها بەڕێوەبەر دەتوانێت بەڵگەنامە پەسەند بکات.');
+      alert(copy.alertAdminOnlyApprove);
       return;
     }
     try {
       setApprovingExpenseId(exp.id);
       await approveRecord('expenses', exp.id);
-      setToastMsg(language === 'fa' ? 'سند هزینه با موفقیت تایید نهایی و قفل گردید.' : 'بەڵگەنامەی خەرجی پەسەندکرا و قفڵکرا.');
+      setToastMsg(copy.toastExpenseApproved);
       setTimeout(() => setToastMsg(''), 3000);
     } catch (err) {
       console.error('Approve expense error:', err);
-      alert(err.message || 'خطا در تایید سند');
+      alert(err.message || copy.errorApproval);
     } finally {
       setApprovingExpenseId(null);
     }
@@ -402,7 +808,7 @@ export function ExpensesView() {
 
   const handleEdit = (exp) => {
     if (!canModifyRecord(exp)) {
-      alert(language === 'fa' ? 'این سند تایید نهایی شده و غیرقابل تغییر است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناگۆڕدرێت.');
+      alert(copy.alertApprovedCannotEdit);
       return;
     }
     setEditingExpense(exp);
@@ -412,13 +818,13 @@ export function ExpensesView() {
   const confirmDelete = async () => {
     if (!expenseToDelete) return;
     if (!canModifyRecord(expenseToDelete)) {
-      alert(language === 'fa' ? 'این سند تایید نهایی شده و غیرقابل حذف است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناسڕدرێتەوە.');
+      alert(copy.alertApprovedCannotDelete);
       setExpenseToDelete(null);
       return;
     }
     try {
       await softDeleteExpenseLive(expenseToDelete.id);
-      setToastMsg(language === 'fa' ? 'هزینه به سطل زباله منتقل شد.' : 'خەرجی بۆ سەبەتەی سڕینەوە گوێزرایەوە.');
+      setToastMsg(copy.toastMovedToTrash);
       setTimeout(() => setToastMsg(''), 3000);
       setExpenseToDelete(null);
     } catch (err) {
@@ -429,7 +835,7 @@ export function ExpensesView() {
   const handleRestore = async (expId) => {
     try {
       await restoreExpenseLive(expId);
-      setToastMsg(language === 'fa' ? 'هزینه با موفقیت بازیابی شد.' : 'خەرجییەکە گەڕێندرایەوە.');
+      setToastMsg(copy.toastRestoredSingle);
       setTimeout(() => setToastMsg(''), 3000);
     } catch (err) {
       console.error('Restore expense error:', err);
@@ -439,14 +845,12 @@ export function ExpensesView() {
   const handleArchive = async (expId, isArchived = true) => {
     const targetExp = expenses.find(e => e.id === expId);
     if (targetExp && !canModifyRecord(targetExp)) {
-      alert(language === 'fa' ? 'این سند تایید نهایی شده و وضعیت آن غیرقابل تغییر است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناگۆڕدرێت.');
+      alert(copy.alertApprovedCannotChange);
       return;
     }
     try {
       await archiveExpenseLive(expId, isArchived);
-      setToastMsg(isArchived 
-        ? (language === 'fa' ? 'هزینه به بخش بایگانی منتقل گردید.' : 'خەرجییەکە ئەرشیفکرا.') 
-        : (language === 'fa' ? 'هزینه از بایگانی خارج و به لیست فعال بازگشت.' : 'خەرجی لە ئەرشیف دەرهێندرا.'));
+      setToastMsg(isArchived ? copy.toastArchived : copy.toastUnarchived);
       setTimeout(() => setToastMsg(''), 3000);
     } catch (err) {
       console.error('Archive expense error:', err);
@@ -456,7 +860,7 @@ export function ExpensesView() {
   const handlePermanentDelete = async () => {
     if (!itemToPermanentDelete) return;
     if (itemToPermanentDelete.status === 'approved' || itemToPermanentDelete.approval_status === 'approved') {
-      alert(language === 'fa' ? 'این سند هزینه تایید نهایی شده است و به جهت الزامات مالیاتی غیرقابل حذف قطعی می‌باشد.' : 'بەڵگەنامەی پەسەندکراو ناسڕدرێتەوە.');
+      alert(copy.alertApprovedCannotDelete);
       setItemToPermanentDelete(null);
       return;
     }
@@ -469,13 +873,13 @@ export function ExpensesView() {
         entityId: itemToPermanentDelete.id,
         projectId: itemToPermanentDelete.projectId || currentProject?.id,
         details: {
-          description: `حذف فاکتور/هزینه: ${itemToPermanentDelete.title}`,
+          description: copy.auditPermanentDelete(itemToPermanentDelete.title),
           amount: itemToPermanentDelete.amount
         }
       });
 
       setItemToPermanentDelete(null);
-      setToastMsg(language === 'fa' ? 'هزینه برای همیشه حذف گردید.' : 'خەرجییەکە بە یەکجاری سڕایەوە.');
+      setToastMsg(copy.toastPermanentlyDeleted);
       setTimeout(() => setToastMsg(''), 3000);
     } catch (err) {
       console.error('Permanent delete error:', err);
@@ -485,38 +889,32 @@ export function ExpensesView() {
   // Export to Excel / CSV
   const handleExportExcel = () => {
     if (filteredExpenses.length === 0) {
-      alert(language === 'fa' ? 'هیچ هزینه‌ای برای خروجی وجود ندارد.' : 'هیچ خەرجییەک نییە بۆ هەناردەکردن.');
+      alert(copy.alertNoExpensesToExport);
       return;
     }
 
     const rows = filteredExpenses.map((exp, idx) => {
       const catInfo = getCategoryHierarchy(exp.categoryId);
       const person = exp.personName || workerMap.get(exp.personId) || '-';
-      const section = sectionMap.get(exp.sectionId) || (language === 'fa' ? 'هزینه عمومی' : 'خەرجی گشتی');
-      const statusLabel = exp.paymentStatus === 'paid' 
-        ? (language === 'fa' ? 'تسویه شده' : 'پارەدراو') 
-        : (language === 'fa' ? 'پرداخت نشده (نسیه)' : 'قەرز');
-      const methodLabel = exp.paymentMethod === 'cash' 
-        ? (language === 'fa' ? 'صندوق نقدی' : 'کاش') 
-        : exp.paymentMethod === 'bank' 
-        ? (language === 'fa' ? 'حساب بانکی' : 'بانک') 
-        : (language === 'fa' ? 'تنخواه سرپرست' : 'تەنخوا');
+      const section = sectionMap.get(exp.sectionId) || copy.generalExpense;
+      const statusLabel = exp.paymentStatus === 'paid' ? copy.statusPaid : copy.statusPending;
+      const methodLabel = exp.paymentMethod === 'cash' ? copy.methodCashBox : exp.paymentMethod === 'bank' ? copy.methodBank : copy.methodPettyCash;
 
       return {
         '#': idx + 1,
-        [language === 'fa' ? 'تاریخ فاکتور' : 'بەروار']: exp.expenseDate || '',
-        [language === 'fa' ? 'عنوان هزینه' : 'بابەت']: exp.title || '',
-        [language === 'fa' ? 'گروه اصلی' : 'گرووپی سەرەکی']: catInfo.main,
-        [language === 'fa' ? 'زیرگروه' : 'ژێرگرووپ']: catInfo.sub,
-        [language === 'fa' ? 'هزینه خرد' : 'وردەکاری']: catInfo.item,
-        [language === 'fa' ? 'مبلغ' : 'بڕە پارە']: Number(exp.amount) || 0,
-        [language === 'fa' ? 'واحد پول' : 'دراو']: exp.currency || currency,
-        [language === 'fa' ? 'طرف‌حساب' : 'لایەنی بەرامبەر']: person,
-        [language === 'fa' ? 'بخش پروژه' : 'بەشی پڕۆژە']: section,
-        [language === 'fa' ? 'وضعیت تسویه' : 'دۆخی پارەدان']: statusLabel,
-        [language === 'fa' ? 'روش پرداخت' : 'شێوازی پارەدان']: methodLabel,
-        [language === 'fa' ? 'رسید پیوست دارد؟' : 'پسوولە هەیە؟']: exp.receiptUrl ? 'بله' : 'خیر',
-        [language === 'fa' ? 'یادداشت و توضیحات' : 'تێبینی']: exp.description || ''
+        [copy.excelDate]: exp.expenseDate || '',
+        [copy.excelTitle]: exp.title || '',
+        [copy.excelMainGroup]: catInfo.main,
+        [copy.excelSubGroup]: catInfo.sub,
+        [copy.excelItem]: catInfo.item,
+        [copy.excelAmount]: Number(exp.amount) || 0,
+        [copy.excelCurrency]: exp.currency || currency,
+        [copy.excelCounterparty]: person,
+        [copy.excelSection]: section,
+        [copy.excelStatus]: statusLabel,
+        [copy.excelMethod]: methodLabel,
+        [copy.excelHasReceipt]: exp.receiptUrl ? copy.yes : copy.no,
+        [copy.excelNotes]: exp.description || ''
       };
     });
 
@@ -543,14 +941,14 @@ export function ExpensesView() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
-                  {language === 'fa' ? 'مدیریت هزینه‌ها و مخارج' : 'بەڕێوەبردنی خەرجییەکان'}
+                  {copy.pageTitle}
                 </h1>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                  {stats.count} {language === 'fa' ? 'فاکتور' : 'فاکتۆر'}
+                  {stats.count} {copy.unitInvoices}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {currentProject?.name} • {language === 'fa' ? 'ثبت هزینه‌های مصالح، ماشین‌آلات، خدمات و تنخواه کارگاه' : 'تۆماری خەرجییەکانی پڕۆژە و کارگە'}
+                {currentProject?.name} • {copy.pageSubtitle}
               </p>
             </div>
           </div>
@@ -562,7 +960,7 @@ export function ExpensesView() {
               type="button"
               onClick={() => setIsRecycleBinModalOpen(true)}
               className="relative h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center cursor-pointer"
-              title={t('expensesArchiveAndTrash') || (language === 'fa' ? 'سطل زباله و آرشیو' : 'سەبەتەی سڕینەوە و ئەرشیف')}
+              title={copy.archiveAndTrashTooltip}
             >
               <Archive className="w-5 h-5 group-hover:scale-110 transition-transform" />
               {(trashExpenses.length > 0 || archivedExpenses.length > 0) && (
@@ -577,7 +975,7 @@ export function ExpensesView() {
               type="button"
               onClick={() => setIsAnalyticsModalOpen(true)}
               className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center cursor-pointer"
-              title={t('analyticsAndExport') || (language === 'fa' ? 'آمار و تحلیل مخارج' : 'ئامار و هەناردە')}
+              title={copy.analyticsAndExportTooltip}
             >
               <BarChart3 className="w-5 h-5 group-hover:scale-110 transition-transform" />
             </button>
@@ -590,10 +988,10 @@ export function ExpensesView() {
                 setIsAddModalOpen(true);
               }}
               className="h-full px-3.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-500/25 active:scale-95 transition-all cursor-pointer"
-              title={language === 'fa' ? 'ثبت هزینه جدید' : 'تۆمارکردنی خەرجی نوێ'}
+              title={copy.newExpenseTooltip}
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span className="hidden sm:inline">{language === 'fa' ? 'هزینه جدید' : 'خەرجی نوێ'}</span>
+              <span className="hidden sm:inline">{copy.newExpense}</span>
             </button>
           </div>
         </div>
@@ -609,7 +1007,7 @@ export function ExpensesView() {
           <div className="lg:col-span-7 space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 uppercase tracking-wider">
               <Wallet className="w-4 h-4" />
-              <span>{language === 'fa' ? 'نبض هزینه‌ها و مخارج پروژه' : 'Project Expenses Pulse'}</span>
+              <span>{copy.pulseTitle}</span>
             </div>
 
             <div>
@@ -617,7 +1015,7 @@ export function ExpensesView() {
                 <span>{formatCurrency(stats.totalAll)}</span>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                {language === 'fa' ? 'مجموع فاکتورها و هزینه‌های ثبت‌شده پروژه' : 'Total all-time expenses recorded for this project'}
+                {copy.totalExpensesDesc}
               </p>
             </div>
 
@@ -626,11 +1024,11 @@ export function ExpensesView() {
               <div className="flex justify-between items-center text-xs font-semibold">
                 <span className="text-emerald-400 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  {language === 'fa' ? 'تسویه‌شده:' : 'Paid:'} {formatCurrency(stats.totalPaid)}
+                  {copy.clearedPaid} {formatCurrency(stats.totalPaid)}
                 </span>
                 <span className="text-amber-400 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5" />
-                  {language === 'fa' ? 'معوق (نسیه):' : 'Pending:'} {formatCurrency(stats.totalPending)}
+                  {copy.pendingCredit} {formatCurrency(stats.totalPending)}
                 </span>
               </div>
               <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden p-0.5">
@@ -641,10 +1039,10 @@ export function ExpensesView() {
               </div>
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span>
-                  {stats.totalAll > 0 ? Math.round((stats.totalPaid / stats.totalAll) * 100) : 0}% {language === 'fa' ? 'پرداخت شده' : 'Cleared'}
+                  {stats.totalAll > 0 ? Math.round((stats.totalPaid / stats.totalAll) * 100) : 0}% {copy.clearedPercent}
                 </span>
                 <span>
-                  {language === 'fa' ? 'هزینه این ماه:' : 'This month:'} {formatCurrency(stats.totalThisMonth)}
+                  {copy.thisMonthExpenses} {formatCurrency(stats.totalThisMonth)}
                 </span>
               </div>
             </div>
@@ -655,14 +1053,14 @@ export function ExpensesView() {
             
             {/* Tile 1: Top Spending Section */}
             <div className="col-span-2 p-3.5 rounded-xl bg-white/5 border border-white/5">
-              <span className="text-[11px] text-slate-400 block">{language === 'fa' ? 'بخش پرهزینه پروژه' : 'Top Spending Section'}</span>
+              <span className="text-[11px] text-slate-400 block">{copy.topSpendingSection}</span>
               <div className="text-base font-black text-white mt-1 truncate">
                 {stats.topSectionName}
               </div>
               <div className="flex items-center justify-between text-xs mt-1">
                 <span className="font-mono text-rose-400 font-bold">{formatCurrency(stats.topSectionAmount)}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white font-mono">
-                  {stats.topSectionPercent}% {language === 'fa' ? 'سهم از کل' : 'share'}
+                  {stats.topSectionPercent}% {copy.shareOfTotal}
                 </span>
               </div>
             </div>
@@ -676,7 +1074,7 @@ export function ExpensesView() {
               className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs shadow-lg shadow-rose-500/25 transition-all duration-300 cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>{language === 'fa' ? 'ثبت فاکتور' : 'Add Expense'}</span>
+              <span>{copy.recordInvoice}</span>
             </button>
 
             {/* Quick Action 2: Export Excel */}
@@ -685,7 +1083,7 @@ export function ExpensesView() {
               className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-              <span>{language === 'fa' ? 'خروجی اکسل' : 'Excel Export'}</span>
+              <span>{copy.excelExport}</span>
             </button>
 
           </div>
@@ -769,26 +1167,26 @@ export function ExpensesView() {
             <button
               onClick={async () => {
                 await restoreAllExpensesLive(trashExpenses.map(e => e.id));
-                setToastMsg(language === 'fa' ? 'تمام هزینه‌ها بازیابی شدند.' : 'هەموو خەرجییەکان گەڕێندرانەوە.');
+                setToastMsg(copy.toastAllRestored);
                 setTimeout(() => setToastMsg(''), 3000);
               }}
               className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <RotateCcw className="w-3.5 h-3.5 text-emerald-500" />
-              <span>{t('restoreAllExpenses') || (language === 'fa' ? 'بازیابی همه' : 'گێڕانەوەی هەمووان')}</span>
+              <span>{copy.restoreAll}</span>
             </button>
             <button
               onClick={async () => {
-                if (confirm(language === 'fa' ? 'آیا از خالی کردن سطل زباله و حذف قطعی تمام هزینه‌ها اطمینان دارید؟' : 'ئایا دڵنیایت لە بەتاڵکردنی سەبەتە؟')) {
+                if (confirm(copy.confirmEmptyTrash)) {
                   await emptyExpensesTrashLive(projectId);
-                  setToastMsg(language === 'fa' ? 'سطل زباله خالی شد.' : 'سەبەتە بەتاڵکرا.');
+                  setToastMsg(copy.toastTrashEmptied);
                   setTimeout(() => setToastMsg(''), 3000);
                 }
               }}
               className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>{t('emptyExpensesTrash') || (language === 'fa' ? 'خالی کردن سطل زباله' : 'بەتاڵکردنی سەبەتە')}</span>
+              <span>{copy.emptyTrash}</span>
             </button>
           </div>
         )}
@@ -800,9 +1198,7 @@ export function ExpensesView() {
           <div className="flex items-center gap-2">
             <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
             <span>
-              {language === 'fa' 
-                ? 'شما در حال مشاهده سطل زباله هستید. هزینه‌های این بخش در داشبورد و آمار جاری محاسبه نمی‌شوند و تا پاکسازی قطعی قابل بازیابی هستند.' 
-                : 'ئێستا لە سەبەتەی سڕینەوەیت. تۆمارەکان لێرە ناژمێردرێن و دەتوانیت بیانگەڕێنیتەوە.'}
+              {copy.trashBanner}
             </span>
           </div>
         </div>
@@ -813,9 +1209,7 @@ export function ExpensesView() {
           <div className="flex items-center gap-2">
             <Archive className="w-4 h-4 text-amber-500 shrink-0" />
             <span>
-              {language === 'fa' 
-                ? 'شما در حال مشاهده هزینه‌های بایگانی‌شده هستید. این هزینه‌ها در سوابق و گزارشات مالی حفظ شده‌اند اما از جدول جاری خارج شده‌اند.' 
-                : 'ئێستا لە بەشی ئەرشیفیت. ئەم خەرجییانە لە تۆمارە داراییەکاندا پارێزراون بەڵام لە لیستی سەرەکیدا نین.'}
+              {copy.archiveBanner}
             </span>
           </div>
         </div>
@@ -831,7 +1225,7 @@ export function ExpensesView() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={language === 'fa' ? 'جستجو در عنوان، طرف‌حساب، توضیحات...' : 'گەڕان لە ناونیشان، کەس، تێبینی...'}
+              placeholder={copy.searchPlaceholder}
               className={`w-full py-2.5 text-xs sm:text-sm bg-slate-100/70 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60 rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all ${
                 isRtl ? 'pr-10 pl-3.5' : 'pl-10 pr-3.5'
               }`}
@@ -856,7 +1250,7 @@ export function ExpensesView() {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}
             >
-              {language === 'fa' ? 'همه' : 'هەموو'}
+              {copy.filterAll}
             </button>
             <button
               onClick={() => setDateRangeFilter('this_month')}
@@ -866,7 +1260,7 @@ export function ExpensesView() {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}
             >
-              {language === 'fa' ? 'این ماه' : 'ئەم مانگە'}
+              {copy.filterThisMonth}
             </button>
             <button
               onClick={() => setDateRangeFilter('last_month')}
@@ -876,7 +1270,7 @@ export function ExpensesView() {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}
             >
-              {language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+              {copy.filterLastMonth}
             </button>
           </div>
 
@@ -890,7 +1284,7 @@ export function ExpensesView() {
             }`}
           >
             <Filter className="w-3.5 h-3.5" />
-            <span>{language === 'fa' ? 'فیلترها' : 'فلتەرەکان'}</span>
+            <span>{copy.filtersButton}</span>
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isFilterPanelExpanded ? 'rotate-180' : ''}`} />
           </button>
         </div>
@@ -901,15 +1295,15 @@ export function ExpensesView() {
             {/* Filter by Section */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                {language === 'fa' ? 'بخش پروژه' : 'بەشی پڕۆژە'}
+                {copy.sectionLabel}
               </label>
               <select
                 value={selectedSection}
                 onChange={(e) => setSelectedSection(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">{language === 'fa' ? 'همه بخش‌ها' : 'هەموو بەشەکان'}</option>
-                <option value="unassigned">{language === 'fa' ? 'هزینه عمومی (بدون بخش)' : 'گشتی'}</option>
+                <option value="all">{copy.allSections}</option>
+                <option value="unassigned">{copy.unassignedSection}</option>
                 {sections.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
@@ -919,14 +1313,14 @@ export function ExpensesView() {
             {/* Filter by Category */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                {language === 'fa' ? 'سرفصل هزینه' : 'پۆلێنکردن'}
+                {copy.categoryLabel}
               </label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">{language === 'fa' ? 'همه سرفصل‌ها' : 'هەموو پۆلەکان'}</option>
+                <option value="all">{copy.allCategories}</option>
                 {categories.filter((c) => c.level === 1 || !c.parentId).map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -936,14 +1330,14 @@ export function ExpensesView() {
             {/* Filter by Payee */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                {language === 'fa' ? 'طرف‌حساب (شخص)' : 'لایەنی بەرامبەر'}
+                {copy.counterpartyLabel}
               </label>
               <select
                 value={selectedPerson}
                 onChange={(e) => setSelectedPerson(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">{language === 'fa' ? 'همه اشخاص' : 'هەموو کەسەکان'}</option>
+                <option value="all">{copy.allCounterparties}</option>
                 {workers.map((w) => (
                   <option key={w.id} value={w.id}>{w.name}</option>
                 ))}
@@ -953,32 +1347,32 @@ export function ExpensesView() {
             {/* Filter by Settlement Status */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                {language === 'fa' ? 'وضعیت تسویه' : 'دۆخی پارەدان'}
+                {copy.settlementStatusLabel}
               </label>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">{language === 'fa' ? 'همه وضعیت‌ها' : 'هەموو دۆخەکان'}</option>
-                <option value="paid">{language === 'fa' ? 'تسویه شده' : 'پارەدراو'}</option>
-                <option value="pending">{language === 'fa' ? 'پرداخت نشده (نسیه)' : 'قەرز'}</option>
+                <option value="all">{copy.allStatuses}</option>
+                <option value="paid">{copy.statusPaid}</option>
+                <option value="pending">{copy.statusPending}</option>
               </select>
             </div>
 
             {/* Filter by Approval Status */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                {language === 'fa' ? 'وضعیت تایید و قفل' : 'دۆخی پەسەندکردن'}
+                {copy.approvalStatusLabel}
               </label>
               <select
                 value={selectedApprovalStatus}
                 onChange={(e) => setSelectedApprovalStatus(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none"
               >
-                <option value="all">{language === 'fa' ? 'همه اسناد' : 'هەموو'}</option>
-                <option value="approved">{language === 'fa' ? 'تایید شده (قفل)' : 'پەسەندکراو'}</option>
-                <option value="draft">{language === 'fa' ? 'پیش‌نویس' : 'ڕەشنووس'}</option>
+                <option value="all">{copy.allApprovals}</option>
+                <option value="approved">{copy.statusApproved}</option>
+                <option value="draft">{copy.statusDraft}</option>
               </select>
             </div>
           </div>
@@ -992,12 +1386,10 @@ export function ExpensesView() {
             <Receipt className="w-8 h-8 opacity-40" />
           </div>
           <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">
-            {language === 'fa' ? 'هیچ فاکتور هزینه‌ای یافت نشد' : 'هیچ خەرجییەک نەدۆزرایەوە'}
+            {copy.noExpensesFound}
           </h3>
           <p className="text-xs text-slate-400 mt-1 max-w-sm">
-            {expenses.length === 0 
-              ? (language === 'fa' ? 'برای شروع اولین هزینه یا فاکتور پروژه را از دکمه بالا ثبت کنید.' : 'یەکەمین خەرجی پڕۆژە لە ڕێگەی دوگمەی سەرەوە تۆمار بکە.') 
-              : (language === 'fa' ? 'با تغییر فیلترهای جستجو نتایج بیشتری مشاهده خواهید کرد.' : 'فلتەرەکان پاک بکەرەوە بۆ بینینی هەموو تۆمارەکان.')}
+            {expenses.length === 0 ? copy.emptyHintActive : copy.emptyHintFilters}
           </p>
           {expenses.length > 0 && (
             <button
@@ -1012,7 +1404,7 @@ export function ExpensesView() {
               }}
               className="mt-4 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200"
             >
-              {language === 'fa' ? 'پاک کردن فیلترها' : 'سڕینەوەی فلتەرەکان'}
+              {copy.clearFilters}
             </button>
           )}
         </div>
@@ -1024,23 +1416,23 @@ export function ExpensesView() {
               <table className="w-full text-start text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 font-bold">
-                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'تاریخ' : 'بەروار'}</th>
-                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'عنوان هزینه' : 'بابەت'}</th>
-                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'سرفصل (۳ سطحی)' : 'پۆلێنکردن'}</th>
-                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'طرف‌حساب' : 'لایەنی بەرامبەر'}</th>
-                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'بخش پروژه' : 'بەش'}</th>
-                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'مبلغ' : 'بڕە پارە'}</th>
-                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'وضعیت تسویه' : 'دۆخ'}</th>
-                    <th className="py-3.5 px-4 text-start">{language === 'fa' ? 'وضعیت تایید' : 'دۆخی پەسەندکردن'}</th>
-                    <th className="py-3.5 px-4 text-center">{language === 'fa' ? 'رسید' : 'پسوولە'}</th>
-                    <th className="py-3.5 px-4 text-end">{language === 'fa' ? 'عملیات' : 'کردار'}</th>
+                    <th className="py-3.5 px-4 text-start">{copy.colDate}</th>
+                    <th className="py-3.5 px-4 text-start">{copy.colTitle}</th>
+                    <th className="py-3.5 px-4 text-start">{copy.colCategory}</th>
+                    <th className="py-3.5 px-4 text-start">{copy.colCounterparty}</th>
+                    <th className="py-3.5 px-4 text-start">{copy.colSection}</th>
+                    <th className="py-3.5 px-4 text-start">{copy.colAmount}</th>
+                    <th className="py-3.5 px-4 text-start">{copy.colSettlementStatus}</th>
+                    <th className="py-3.5 px-4 text-start">{copy.colApprovalStatus}</th>
+                    <th className="py-3.5 px-4 text-center">{copy.colReceipt}</th>
+                    <th className="py-3.5 px-4 text-end">{copy.colActions}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredExpenses.map((exp) => {
                     const catInfo = getCategoryHierarchy(exp.categoryId);
                     const payee = exp.personName || workerMap.get(exp.personId) || '—';
-                    const sectionName = sectionMap.get(exp.sectionId) || (language === 'fa' ? 'عمومی' : 'گشتی');
+                    const sectionName = sectionMap.get(exp.sectionId) || copy.general;
                     const isPaid = exp.paymentStatus === 'paid';
 
                     return (
@@ -1104,7 +1496,7 @@ export function ExpensesView() {
                               : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/50'
                           }`}>
                             {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                            <span>{isPaid ? (language === 'fa' ? 'تسویه شده' : 'پارەدراو') : (language === 'fa' ? 'معوق (نسیه)' : 'قەرز')}</span>
+                            <span>{isPaid ? copy.paidBadge : copy.pendingBadge}</span>
                           </span>
                         </td>
 
@@ -1124,7 +1516,7 @@ export function ExpensesView() {
                             <button
                               onClick={() => setPreviewReceiptUrl(exp.receiptUrl)}
                               className="relative group p-1 inline-flex rounded-lg hover:ring-2 hover:ring-rose-400 transition-all"
-                              title="مشاهده تصویر فاکتور"
+                              title={copy.viewReceiptTooltip}
                             >
                               <img
                                 src={exp.receiptUrl}
@@ -1148,16 +1540,16 @@ export function ExpensesView() {
                                 <button
                                   onClick={() => handleRestore(exp.id)}
                                   className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-colors flex items-center gap-1 font-bold text-xs"
-                                  title={language === 'fa' ? 'بازیابی به هزینه‌های جاری' : 'گێڕانەوە'}
+                                  title={copy.restoreTooltip}
                                 >
                                   <RotateCcw className="w-4 h-4" />
-                                  <span className="hidden xl:inline">{language === 'fa' ? 'بازیابی' : 'گێڕانەوە'}</span>
+                                  <span className="hidden xl:inline">{copy.restoreAction}</span>
                                 </button>
                                 {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
                                   <button
                                     onClick={() => setItemToPermanentDelete(exp)}
                                     className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
-                                    title={language === 'fa' ? 'حذف دائمی' : 'سڕینەوەی یەکجاری'}
+                                    title={copy.permanentDeleteTooltip}
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
@@ -1168,16 +1560,16 @@ export function ExpensesView() {
                                 <button
                                   onClick={() => handleArchive(exp.id, false)}
                                   className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition-colors flex items-center gap-1 font-bold text-xs"
-                                  title={language === 'fa' ? 'خروج از بایگانی' : 'دەرهێنان لە ئەرشیف'}
+                                  title={copy.unarchiveTooltip}
                                 >
                                   <RotateCcw className="w-4 h-4" />
-                                  <span className="hidden xl:inline">{language === 'fa' ? 'خروج از آرشیو' : 'دەرهێنان'}</span>
+                                  <span className="hidden xl:inline">{copy.unarchiveAction}</span>
                                 </button>
                                 {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
                                   <button
                                     onClick={() => setExpenseToDelete(exp)}
                                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
-                                    title={language === 'fa' ? 'انتقال به سطل زباله' : 'بردن بۆ سەبەتە'}
+                                    title={copy.moveToTrashTooltip}
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
@@ -1191,14 +1583,14 @@ export function ExpensesView() {
                                     onClick={() => handleApproveExpense(exp)}
                                     disabled={approvingExpenseId === exp.id}
                                     className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl transition-all flex items-center gap-1 font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
-                                    title={language === 'fa' ? 'تایید نهایی سند و قفل‌سازی' : 'پەسەندکردنی کۆتایی'}
+                                    title={copy.finalApproveTooltip}
                                   >
                                     {approvingExpenseId === exp.id ? (
                                       <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
                                     ) : (
                                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                     )}
-                                    <span className="hidden xl:inline">{language === 'fa' ? 'تایید نهایی' : 'پەسەندکردن'}</span>
+                                    <span className="hidden xl:inline">{copy.finalApproveAction}</span>
                                   </button>
                                 )}
 
@@ -1206,11 +1598,11 @@ export function ExpensesView() {
                                 {exp.status === 'approved' ? (
                                   <div 
                                     className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center gap-1.5 text-xs font-semibold border border-slate-200/60 dark:border-slate-700/60"
-                                    title={language === 'fa' ? 'این سند تایید شده و غیرقابل تغییر یا حذف است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و قفڵ کراوە.'}
+                                    title={copy.documentLockedTitle}
                                   >
                                     <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                     <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                                      {language === 'fa' ? 'سند قفل' : 'قفڵکراو'}
+                                      {copy.lockedDocument}
                                     </span>
                                   </div>
                                 ) : (
@@ -1218,21 +1610,21 @@ export function ExpensesView() {
                                     <button
                                       onClick={() => handleArchive(exp.id, true)}
                                       className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition-colors"
-                                      title={language === 'fa' ? 'بایگانی کردن هزینه' : 'ئەرشیفکردن'}
+                                      title={copy.archiveTooltip}
                                     >
                                       <Archive className="w-4 h-4" />
                                     </button>
                                     <button
                                       onClick={() => handleEdit(exp)}
                                       className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-xl transition-colors"
-                                      title="ویرایش"
+                                      title={copy.edit}
                                     >
                                       <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button
                                       onClick={() => setExpenseToDelete(exp)}
                                       className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
-                                      title={language === 'fa' ? 'انتقال به سطل زباله' : 'سڕینەوە'}
+                                      title={copy.moveToTrashTooltip}
                                     >
                                       <Trash2 className="w-4 h-4" />
                                     </button>
@@ -1255,7 +1647,7 @@ export function ExpensesView() {
             {filteredExpenses.map((exp) => {
               const catInfo = getCategoryHierarchy(exp.categoryId);
               const payee = exp.personName || workerMap.get(exp.personId);
-              const sectionName = sectionMap.get(exp.sectionId) || (language === 'fa' ? 'عمومی' : 'گشتی');
+              const sectionName = sectionMap.get(exp.sectionId) || copy.general;
               const isPaid = exp.paymentStatus === 'paid';
 
               return (
@@ -1292,7 +1684,7 @@ export function ExpensesView() {
                             ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' 
                             : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
                         }`}>
-                          {isPaid ? (language === 'fa' ? 'تسویه' : 'دراو') : (language === 'fa' ? 'معوق' : 'قەرز')}
+                          {isPaid ? copy.paidShort : copy.pendingShort}
                         </span>
                         <VerificationBadge status={exp.status} approvedBy={exp.approvedBy} approvedAt={exp.approvedAt} />
                       </div>
@@ -1311,7 +1703,7 @@ export function ExpensesView() {
                         {sectionName}
                       </span>
                       {payee && (
-                        <span>{language === 'fa' ? 'به:' : 'بۆ:'} {payee}</span>
+                        <span>{copy.toPayee} {payee}</span>
                       )}
                     </div>
 
@@ -1320,7 +1712,7 @@ export function ExpensesView() {
                         <button
                           onClick={() => setPreviewReceiptUrl(exp.receiptUrl)}
                           className="p-1.5 text-slate-500 hover:text-rose-500 rounded-lg"
-                          title="مشاهده فاکتور"
+                          title={copy.viewReceiptTooltip}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -1330,16 +1722,16 @@ export function ExpensesView() {
                           <button
                             onClick={() => handleRestore(exp.id)}
                             className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg flex items-center gap-1 font-bold text-xs"
-                            title={language === 'fa' ? 'بازیابی' : 'گێڕانەوە'}
+                            title={copy.restoreTooltip}
                           >
                             <RotateCcw className="w-4 h-4" />
-                            <span>{language === 'fa' ? 'بازیابی' : 'گێڕانەوە'}</span>
+                            <span>{copy.restoreAction}</span>
                           </button>
                           {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
                             <button
                               onClick={() => setItemToPermanentDelete(exp)}
                               className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg"
-                              title={language === 'fa' ? 'حذف دائمی' : 'سڕینەوەی یەکجاری'}
+                              title={copy.permanentDeleteTooltip}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1350,16 +1742,16 @@ export function ExpensesView() {
                           <button
                             onClick={() => handleArchive(exp.id, false)}
                             className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg flex items-center gap-1 font-bold text-xs"
-                            title={language === 'fa' ? 'خروج از بایگانی' : 'دەرهێنان لە ئەرشیف'}
+                            title={copy.unarchiveTooltip}
                           >
                             <RotateCcw className="w-4 h-4" />
-                            <span>{language === 'fa' ? 'خروج از آرشیو' : 'دەرهێنان'}</span>
+                            <span>{copy.unarchiveAction}</span>
                           </button>
                           {exp.status !== 'approved' && exp.approval_status !== 'approved' && (
                             <button
                               onClick={() => setExpenseToDelete(exp)}
                               className="p-1.5 text-slate-500 hover:text-rose-500 rounded-lg"
-                              title={language === 'fa' ? 'انتقال به سطل زباله' : 'بردن بۆ سەبەتە'}
+                              title={copy.moveToTrashTooltip}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1373,14 +1765,14 @@ export function ExpensesView() {
                               onClick={() => handleApproveExpense(exp)}
                               disabled={approvingExpenseId === exp.id}
                               className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-1 font-bold text-[11px] shadow-xs cursor-pointer disabled:opacity-50"
-                              title={language === 'fa' ? 'تایید نهایی' : 'پەسەندکردن'}
+                              title={copy.finalApproveTooltip}
                             >
                               {approvingExpenseId === exp.id ? (
                                 <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
                               ) : (
                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                               )}
-                              <span>{language === 'fa' ? 'تایید نهایی' : 'پەسەندکردن'}</span>
+                              <span>{copy.finalApproveAction}</span>
                             </button>
                           )}
 
@@ -1388,11 +1780,11 @@ export function ExpensesView() {
                           {exp.status === 'approved' ? (
                             <div 
                               className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg flex items-center gap-1 text-[11px] font-medium"
-                              title={language === 'fa' ? 'این سند تایید شده و قفل است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و قفڵ کراوە.'}
+                              title={copy.documentLockedTitle}
                             >
                               <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                               <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                                {language === 'fa' ? 'سند قفل' : 'قفڵکراو'}
+                                {copy.lockedDocument}
                               </span>
                             </div>
                           ) : (
@@ -1400,21 +1792,21 @@ export function ExpensesView() {
                               <button
                                 onClick={() => handleArchive(exp.id, true)}
                                 className="p-1.5 text-slate-500 hover:text-amber-500 rounded-lg"
-                                title={language === 'fa' ? 'بایگانی کردن هزینه' : 'ئەرشیفکردن'}
+                                title={copy.archiveTooltip}
                               >
                                 <Archive className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleEdit(exp)}
                                 className="p-1.5 text-slate-500 hover:text-sky-500 rounded-lg"
-                                title="ویرایش"
+                                title={copy.edit}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => setExpenseToDelete(exp)}
                                 className="p-1.5 text-slate-500 hover:text-rose-500 rounded-lg"
-                                title={language === 'fa' ? 'انتقال به سطل زباله' : 'سڕینەوە'}
+                                title={copy.moveToTrashTooltip}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1459,7 +1851,7 @@ export function ExpensesView() {
               className="max-h-[80vh] w-auto object-contain rounded-2xl"
             />
             <div className="w-full pt-3 px-3 flex items-center justify-between text-xs text-slate-400">
-              <span>{language === 'fa' ? 'تصویر فاکتور / رسید ضمیمه شده' : 'وێنەی فاکتۆری هاوپێچکراو'}</span>
+              <span>{copy.receiptAttachedImage}</span>
               <a
                 href={previewReceiptUrl}
                 target="_blank"
@@ -1468,7 +1860,7 @@ export function ExpensesView() {
                 className="text-rose-400 hover:underline flex items-center gap-1 font-bold"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>{language === 'fa' ? 'باز کردن در تب جدید' : 'کردنەوە لە پەڕەی نوێ'}</span>
+                <span>{copy.openInNewTab}</span>
               </a>
             </div>
           </div>
@@ -1488,12 +1880,10 @@ export function ExpensesView() {
 
             <div className="text-center">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                {language === 'fa' ? 'انتقال هزینه به سطل زباله' : 'بردن بۆ سەبەتەی سڕینەوە'}
+                {copy.moveToTrashDialogTitle}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {language === 'fa' 
-                  ? `آیا از انتقال هزینه «${expenseToDelete.title}» به سطل زباله اطمینان دارید؟ این هزینه از لیست جاری خارج شده اما تا پاکسازی قطعی قابل بازیابی خواهد بود.` 
-                  : `ئایا دڵنیایت لە بردن بۆ سەبەتەی سڕینەوە؟ دەتوانیت دواتر بیگەڕێنیتەوە.`}
+                {copy.moveToTrashDialogDesc(expenseToDelete.title)}
               </p>
             </div>
 
@@ -1503,14 +1893,14 @@ export function ExpensesView() {
                 onClick={() => setExpenseToDelete(null)}
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
               >
-                {language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+                {copy.cancel}
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-md shadow-rose-600/30"
               >
-                {language === 'fa' ? 'انتقال به سطل زباله' : 'بردن بۆ سەبەتە'}
+                {copy.moveToTrashConfirm}
               </button>
             </div>
           </div>
@@ -1530,12 +1920,10 @@ export function ExpensesView() {
 
             <div className="text-center">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                {language === 'fa' ? 'حذف قطعی و دائمی هزینه' : 'سڕینەوەی یەکجاری خەرجی'}
+                {copy.permanentDeleteDialogTitle}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {language === 'fa' 
-                  ? `آیا از حذف دائمی هزینه «${itemToPermanentDelete.title}» اطمینان دارید؟ این عملیات کاملاً غیرقابل بازگشت است.` 
-                  : `ئایا دڵنیایت لە سڕینەوەی یەکجاری؟ ئەم کردارە ناگەڕێتەوە.`}
+                {copy.permanentDeleteDialogDesc(itemToPermanentDelete.title)}
               </p>
             </div>
 
@@ -1545,14 +1933,14 @@ export function ExpensesView() {
                 onClick={() => setItemToPermanentDelete(null)}
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
               >
-                {language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+                {copy.cancel}
               </button>
               <button
                 type="button"
                 onClick={handlePermanentDelete}
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-md shadow-rose-600/30"
               >
-                {language === 'fa' ? 'حذف قطعی' : 'سڕینەوەی یەکجاری'}
+                {copy.permanentDeleteConfirm}
               </button>
             </div>
           </div>

@@ -81,6 +81,10 @@ db.version(14).stores({
   treasuryIncomes: 'id, projectId, counterpartyId, date, accountType, status, created_by, approved_by, createdAt'
 });
 
+db.version(15).stores({
+  backupSnapshots: 'id, createdAt, triggerType, version'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
