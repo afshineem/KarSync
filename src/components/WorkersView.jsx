@@ -565,8 +565,8 @@ export function WorkersView() {
             {/* سگمنت چهارگانه با تم برنامه [APP_THEME_BUTTON] */}
             <div className="flex items-center gap-1 p-1 bg-white/10 dark:bg-black/40 backdrop-blur-md rounded-2xl border border-white/15 shadow-inner">
               {[
-                { id: 'active', label: 'شاغلین فعال', count: activeWorkersList.length, icon: UserCheck },
-                { id: 'inactive', label: 'شاغلین غیرفعال', count: inactiveWorkersList.length, icon: UserX },
+                { id: 'active', label: 'پرسنل فعال', count: activeWorkersList.length, icon: UserCheck },
+                { id: 'inactive', label: 'پرسنل غیرفعال', count: inactiveWorkersList.length, icon: UserX },
                 { id: 'archived', label: 'بایگانی', count: archivedWorkersList.length, icon: Archive },
                 { id: 'recycle', label: 'بازیافت', count: recycleWorkersList.length, icon: RefreshCw }
               ].map(tab => {
@@ -579,9 +579,9 @@ export function WorkersView() {
                     onClick={() => setStatusTab(tab.id)}
                     aria-label={`${tab.label} (${tab.count})`}
                     title={`${tab.label} (${tab.count} نفر)`}
-                    className={`h-10 px-3 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center gap-2 cursor-pointer ${
+                    className={`h-10 px-3.5 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center gap-2 cursor-pointer ${
                       isSelected
-                        ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 font-bold border border-sky-400/40 scale-[1.02]'
                         : 'text-slate-300 hover:text-white hover:bg-white/10'
                     }`}
                   >
@@ -589,7 +589,7 @@ export function WorkersView() {
                     {isSelected ? (
                       <span className="whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
                         <span>{tab.label}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 font-mono">
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 font-mono">
                           {tab.count}
                         </span>
                       </span>
