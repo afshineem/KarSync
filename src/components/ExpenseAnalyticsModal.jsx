@@ -5,6 +5,7 @@ import { db } from '../db/db';
 const DEFAULT_PROJECT_ID = 'prj_default_main';
 import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
+import { formatCurrency as formatGlobalCurrency } from '../utils/formatters';
 import * as XLSX from 'xlsx';
 import {
   BarChart3,
@@ -33,9 +34,306 @@ import {
   Table as TableIcon
 } from 'lucide-react';
 
+
+const COPY = {
+  fa: {
+    generalCategory: 'عمومی',
+    unknownCategory: 'سرفصل نامشخص',
+    generalUnassignedSection: 'عمومی / بدون بخش',
+    sectionFallback: 'بخش',
+    otherUnknownPerson: 'سایر / نامشخص',
+    noExcelRecords: 'هیچ رکوردی برای خروجی اکسل یافت نشد.',
+    statusPaid: 'تسویه شده',
+    statusCredit: 'نسیه (بدهی)',
+    methodCash: 'صندوق نقدی',
+    methodBank: 'حساب بانکی',
+    methodPettyCash: 'تنخواه سرپرست',
+    excelColDate: 'تاریخ',
+    excelColTitle: 'عنوان هزینه',
+    excelColMainGroup: 'گروه اصلی',
+    excelColSubGroup: 'زیرگروه',
+    excelColMicroItem: 'هزینه خرد',
+    excelColAmount: 'مبلغ',
+    excelColCurrency: 'واحد پول',
+    excelColPayee: 'طرف‌حساب',
+    excelColSection: 'بخش پروژه',
+    excelColStatus: 'وضعیت تسویه',
+    excelColMethod: 'روش پرداخت',
+    excelColDescription: 'توضیحات',
+    excelTotalRow: 'مجموع کل اقلام فیلترشده',
+    excelFileName: 'گزارش_تحلیلی_هزینه_ها',
+    excelSheetName: 'هزینه‌ها',
+    detailedReportTitle: 'گزارش تفصیلی هزینه‌ها و مخارج',
+    headerTitle: 'آمار، تحلیل و خروجی هزینه‌ها',
+    invoiceCountSuffix: 'فاکتور',
+    headerSubtitle: 'فیلترهای ترکیبی، تحلیل سرفصل‌ها، خروجی اکسل و پرینت',
+    excelExportBtn: 'خروجی اکسل',
+    printBtn: 'چاپ گزارش (A4)',
+    closeEsc: 'بستن (ESC)',
+    reportDateLabel: 'تاریخ تهیه گزارش:',
+    currencyLabel: 'واحد پول:',
+    filtersTitle: 'فیلترهای چندگانه و همزمان (ترکیب دلخواه)',
+    resetFilters: 'بازنشانی تمام فیلترها',
+    payeeLabel: 'طرف‌حساب / شخص',
+    allPayees: 'همه اشخاص و طرف‌های حساب',
+    staffTag: 'پرسنل',
+    sectionLabel: 'بخش پروژه',
+    allSections: 'همه بخش‌ها',
+    unassignedSection: 'عمومی / بدون بخش',
+    paymentMethodLabel: 'روش پرداخت',
+    allPaymentMethods: 'همه روش‌های پرداخت',
+    settlementStatusLabel: 'وضعیت تسویه',
+    allStatuses: 'همه وضعیت‌ها (تسویه و نسیه)',
+    statusPaidFull: 'تسویه شده (پرداخت شده)',
+    statusPendingCredit: 'معوق (پرداخت نشده / نسیه)',
+    mainGroupLabel: 'سرفصل اصلی (سطح ۱)',
+    allMainGroups: 'همه گروه‌های اصلی',
+    subGroupLabel: 'زیرگروه (سطح ۲)',
+    selectMainFirst: 'ابتدا گروه اصلی را انتخاب کنید',
+    allSubGroups: 'همه زیرگروه‌ها',
+    microItemLabel: 'هزینه خرد (سطح ۳)',
+    selectSubFirst: 'ابتدا زیرگروه را انتخاب کنید',
+    allMicroItems: 'همه ریزهزینه‌ها',
+    allTime: 'همه زمان‌ها',
+    specificMonth: 'ماه خاص',
+    singleDay: 'روز خاص',
+    dateRangeCustom: 'بازه دلخواه',
+    fromLabel: 'از:',
+    toLabel: 'تا:',
+    searchPlaceholder: 'جستجوی متن...',
+    totalFilteredAmount: 'مجموع مبالغ فیلترشده',
+    ofProjectTotal: 'از کل هزینه‌های پروژه',
+    paidCashBank: 'تسویه شده (پرداختی نقدی/بانک)',
+    ofReportIsPaid: 'از این گزارش تسویه است',
+    creditPendingDebt: 'معوق (نسیه / بدهی)',
+    creditUnsettled: 'نسیه و تسویه نشده',
+    invoicesAndAvg: 'تعداد و میانگین فاکتورها',
+    invoicesUnit: 'فقره فاکتور',
+    avgPerInvoice: 'میانگین هر فاکتور:',
+    categoryDistribution: 'تفکیک سهم سرفصل‌های هزینه',
+    sectionDistribution: 'تفکیک بر اساس بخش‌های پروژه',
+    topPayees: 'طرف‌های حساب برتر (بیشترین مبالغ)',
+    noData: 'داده‌ای وجود ندارد',
+    tableTitle: 'ریز اقلام و فاکتورهای فیلترشده',
+    rowsUnit: 'ردیف',
+    noInvoicesFound: 'هیچ فاکتوری با شرایط فیلترهای انتخابی یافت نشد.',
+    tableHeaderDate: 'تاریخ',
+    tableHeaderTitle: 'عنوان هزینه',
+    tableHeaderCategory: 'سرفصل هزینه',
+    tableHeaderPayee: 'طرف‌حساب',
+    tableHeaderSection: 'بخش پروژه',
+    tableHeaderMethod: 'روش پرداخت',
+    tableHeaderStatus: 'وضعیت',
+    tableHeaderAmount: 'مبلغ',
+    tableHeaderReceipt: 'رسید',
+    viewReceiptTitle: 'مشاهده فاکتور',
+    methodBankShort: 'بانکی',
+    methodPettyCashShort: 'تنخواه',
+    settledShort: 'تسویه',
+    creditShort: 'نسیه',
+    grandTotalFiltered: 'جمع کل مبالغ فیلترشده:'
+  },
+  ku: {
+    generalCategory: 'گشتی',
+    unknownCategory: 'نادیار',
+    generalUnassignedSection: 'گشتی / بێ بەش',
+    sectionFallback: 'بەش',
+    otherUnknownPerson: 'کەسانی تر / نادیار',
+    noExcelRecords: 'هیچ تۆمارێک بۆ هەناردەکردنی Excel نەدۆزرایەوە.',
+    statusPaid: 'پارەدراو',
+    statusCredit: 'قەرز (نەدراو)',
+    methodCash: 'سندوقی کاش',
+    methodBank: 'حیسابی بانکی',
+    methodPettyCash: 'تەنخوای سەرپەرشتیار',
+    excelColDate: 'بەروار',
+    excelColTitle: 'بابەتی خەرجی',
+    excelColMainGroup: 'گرووپی سەرەکی',
+    excelColSubGroup: 'ژێرگرووپ',
+    excelColMicroItem: 'وردەکاری',
+    excelColAmount: 'بڕە پارە',
+    excelColCurrency: 'دراو',
+    excelColPayee: 'لایەنی بەرامبەر',
+    excelColSection: 'بەشی پڕۆژە',
+    excelColStatus: 'دۆخی پارەدان',
+    excelColMethod: 'شێوازی پارەدان',
+    excelColDescription: 'تێبینی',
+    excelTotalRow: 'کۆی گشتی فلتەرکراوەکان',
+    excelFileName: 'ڕاپۆرتی_شیکاری_خەرجییەکان',
+    excelSheetName: 'خەرجییەکان',
+    detailedReportTitle: 'ڕاپۆرتی وردی خەرجییەکان',
+    headerTitle: 'ئامار، شیکاری و هەناردەی خەرجییەکان',
+    invoiceCountSuffix: 'فاکتۆر',
+    headerSubtitle: 'فلتەری تێکەڵ، شیکاری پۆلەکان، هەناردەی Excel و چاپکردن',
+    excelExportBtn: 'هەناردەی Excel',
+    printBtn: 'چاپکردنی ڕاپۆرت (A4)',
+    closeEsc: 'داخستن (ESC)',
+    reportDateLabel: 'بەرواری ئامادەکردن:',
+    currencyLabel: 'دراو:',
+    filtersTitle: 'فلتەرە فرەچەشنەکان (پێکەوەبەستنی دڵخواز)',
+    resetFilters: 'پاککردنەوەی هەموو فلتەرەکان',
+    payeeLabel: 'کەس / لایەنی بەرامبەر',
+    allPayees: 'هەموو کەسەکان و لایەنەکان',
+    staffTag: 'کارمەند',
+    sectionLabel: 'بەشی پڕۆژە',
+    allSections: 'هەموو بەشەکان',
+    unassignedSection: 'گشتی / بێ بەش',
+    paymentMethodLabel: 'شێوازی پارەدان',
+    allPaymentMethods: 'هەموو شێوازەکانی پارەدان',
+    settlementStatusLabel: 'دۆخی پارەدان',
+    allStatuses: 'هەموو دۆخەکان (کاش و قەرز)',
+    statusPaidFull: 'پارەدراو (تەواو دراو)',
+    statusPendingCredit: 'نەدراو (قەرز / ماوە)',
+    mainGroupLabel: 'گرووپی سەرەکی (ئاستی ١)',
+    allMainGroups: 'هەموو گرووپە سەرەکییەکان',
+    subGroupLabel: 'ژێرگرووپ (ئاستی ٢)',
+    selectMainFirst: 'سەرەتا گرووپی سەرەکی دیاریبکە',
+    allSubGroups: 'هەموو ژێرگرووپەکان',
+    microItemLabel: 'وردەکاری خەرجی (ئاستی ٣)',
+    selectSubFirst: 'سەرەتا ژێرگرووپ دیاریبکە',
+    allMicroItems: 'هەموو وردەکارییەکان',
+    allTime: 'هەموو کاتەکان',
+    specificMonth: 'مانگی دیاریکراو',
+    singleDay: 'ڕۆژی دیاریکراو',
+    dateRangeCustom: 'ماوەی دڵخواز',
+    fromLabel: 'لە:',
+    toLabel: 'بۆ:',
+    searchPlaceholder: 'گەڕان بەپێی دەق...',
+    totalFilteredAmount: 'کۆی گشتی فلتەرکراو',
+    ofProjectTotal: 'لە کۆی گشتی خەرجییەکانی پڕۆژە',
+    paidCashBank: 'پارەدراو (کاش/بانک)',
+    ofReportIsPaid: 'لە تەواوی ئەم ڕاپۆرتە دراوە',
+    creditPendingDebt: 'نەدراو (قەرز / ماوە)',
+    creditUnsettled: 'قەرز و نەدراو',
+    invoicesAndAvg: 'ژمارە و تێکڕای فاکتۆرەکان',
+    invoicesUnit: 'دانە فاکتۆر',
+    avgPerInvoice: 'تێکڕای هەر فاکتۆرێک:',
+    categoryDistribution: 'دابەشبوونی بەشە خەرجییەکان',
+    sectionDistribution: 'دابەشبوون بەپێی بەشەکانی پڕۆژە',
+    topPayees: 'لایەنە سەرەکییەکان (زۆرترین بڕ)',
+    noData: 'داتا بەردەست نییە',
+    tableTitle: 'وردەکاری بڕگە و فاکتۆرە فلتەرکراوەکان',
+    rowsUnit: 'تۆمار',
+    noInvoicesFound: 'هیچ فاکتۆرێک بەپێی ئەم مەرجانە نەدۆزرایەوە.',
+    tableHeaderDate: 'بەروار',
+    tableHeaderTitle: 'بابەت',
+    tableHeaderCategory: 'پۆلێنکردنی خەرجی',
+    tableHeaderPayee: 'لایەنی بەرامبەر',
+    tableHeaderSection: 'بەش',
+    tableHeaderMethod: 'شێواز',
+    tableHeaderStatus: 'دۆخ',
+    tableHeaderAmount: 'بڕە پارە',
+    tableHeaderReceipt: 'پسوولە',
+    viewReceiptTitle: 'بینینی پسوولە',
+    methodBankShort: 'بانک',
+    methodPettyCashShort: 'تەنخوا',
+    settledShort: 'دراو',
+    creditShort: 'قەرز',
+    grandTotalFiltered: 'کۆی گشتی فلتەرکراو:'
+  },
+  en: {
+    generalCategory: 'General',
+    unknownCategory: 'Unknown Category',
+    generalUnassignedSection: 'General / Unassigned',
+    sectionFallback: 'Section',
+    otherUnknownPerson: 'Other / Unassigned',
+    noExcelRecords: 'No records found for Excel export.',
+    statusPaid: 'Paid',
+    statusCredit: 'Credit (Payable)',
+    methodCash: 'Cash Register',
+    methodBank: 'Bank Account',
+    methodPettyCash: 'Site Petty Cash',
+    excelColDate: 'Date',
+    excelColTitle: 'Expense Title',
+    excelColMainGroup: 'Main Group',
+    excelColSubGroup: 'Subgroup',
+    excelColMicroItem: 'Detail Item',
+    excelColAmount: 'Amount',
+    excelColCurrency: 'Currency',
+    excelColPayee: 'Payee',
+    excelColSection: 'Project Section',
+    excelColStatus: 'Settlement Status',
+    excelColMethod: 'Payment Method',
+    excelColDescription: 'Description',
+    excelTotalRow: 'Total of Filtered Items',
+    excelFileName: 'Expense_Analytics_Report',
+    excelSheetName: 'Expenses',
+    detailedReportTitle: 'Detailed Expense & Expenditure Report',
+    headerTitle: 'Expense Analytics, Reports & Export',
+    invoiceCountSuffix: 'Invoices',
+    headerSubtitle: 'Multi-filter queries, category breakdowns, Excel export & printing',
+    excelExportBtn: 'Excel Export',
+    printBtn: 'Print Report (A4)',
+    closeEsc: 'Close (ESC)',
+    reportDateLabel: 'Report Date:',
+    currencyLabel: 'Currency:',
+    filtersTitle: 'Multi-criteria Filters',
+    resetFilters: 'Reset All Filters',
+    payeeLabel: 'Payee / Person',
+    allPayees: 'All Payees & Counterparties',
+    staffTag: 'Staff',
+    sectionLabel: 'Project Section',
+    allSections: 'All Sections',
+    unassignedSection: 'General / Unassigned',
+    paymentMethodLabel: 'Payment Method',
+    allPaymentMethods: 'All Payment Methods',
+    settlementStatusLabel: 'Settlement Status',
+    allStatuses: 'All Statuses (Paid & Credit)',
+    statusPaidFull: 'Paid (Settled)',
+    statusPendingCredit: 'Pending (Unpaid / Credit)',
+    mainGroupLabel: 'Main Group (Level 1)',
+    allMainGroups: 'All Main Groups',
+    subGroupLabel: 'Subgroup (Level 2)',
+    selectMainFirst: 'First select a main group',
+    allSubGroups: 'All Subgroups',
+    microItemLabel: 'Detail Item (Level 3)',
+    selectSubFirst: 'First select a subgroup',
+    allMicroItems: 'All Detail Items',
+    allTime: 'All Time',
+    specificMonth: 'Specific Month',
+    singleDay: 'Single Day',
+    dateRangeCustom: 'Custom Range',
+    fromLabel: 'From:',
+    toLabel: 'To:',
+    searchPlaceholder: 'Search text...',
+    totalFilteredAmount: 'Total Filtered Amount',
+    ofProjectTotal: 'of total project expenses',
+    paidCashBank: 'Paid (Cash / Bank)',
+    ofReportIsPaid: 'of this report is paid',
+    creditPendingDebt: 'Pending (Credit / Debt)',
+    creditUnsettled: 'unsettled credit',
+    invoicesAndAvg: 'Count & Average Invoice',
+    invoicesUnit: 'Invoices',
+    avgPerInvoice: 'Average per invoice:',
+    categoryDistribution: 'Category Distribution Share',
+    sectionDistribution: 'Project Section Distribution',
+    topPayees: 'Top Payees (Highest Spend)',
+    noData: 'No data available',
+    tableTitle: 'Filtered Line Items & Invoices',
+    rowsUnit: 'Rows',
+    noInvoicesFound: 'No invoices match the selected filter criteria.',
+    tableHeaderDate: 'Date',
+    tableHeaderTitle: 'Title',
+    tableHeaderCategory: 'Category',
+    tableHeaderPayee: 'Payee',
+    tableHeaderSection: 'Section',
+    tableHeaderMethod: 'Method',
+    tableHeaderStatus: 'Status',
+    tableHeaderAmount: 'Amount',
+    tableHeaderReceipt: 'Receipt',
+    viewReceiptTitle: 'View Receipt',
+    methodBankShort: 'Bank',
+    methodPettyCashShort: 'Petty Cash',
+    settledShort: 'Paid',
+    creditShort: 'Credit',
+    grandTotalFiltered: 'Grand Total of Filtered Items:'
+  }
+};
+
 export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
   const { currentProject } = useProject();
   const { t, language, direction } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = COPY[langKey];
   const isRtl = direction === 'rtl';
 
   const projectId = currentProject?.id || DEFAULT_PROJECT_ID;
@@ -93,21 +391,14 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
 
   // Formatter
   const formatCurrency = useCallback((amount) => {
-    const num = Number(amount) || 0;
-    try {
-      if (currency === 'IRT') return `${new Intl.NumberFormat('fa-IR').format(num)} تومان`;
-      if (currency === 'USD') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
-      return new Intl.NumberFormat('ar-IQ', { style: 'currency', currency: 'IQD', maximumFractionDigits: 0 }).format(num);
-    } catch {
-      return `${num.toLocaleString()} ${currency}`;
-    }
-  }, [currency]);
+    return formatGlobalCurrency(amount, currency, langKey);
+  }, [currency, langKey]);
 
   // Hierarchical category info
   const getCategoryHierarchy = useCallback((catId) => {
-    if (!catId) return { main: language === 'fa' ? 'عمومی' : 'گشتی', sub: '', item: '' };
+    if (!catId) return { main: c.generalCategory, sub: '', item: '' };
     const target = categoryMap.get(catId);
-    if (!target) return { main: language === 'fa' ? 'سرفصل نامشخص' : 'نادیار', sub: '', item: '' };
+    if (!target) return { main: c.unknownCategory, sub: '', item: '' };
 
     if (target.level === 3) {
       const parentSub = categoryMap.get(target.parentId);
@@ -332,7 +623,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
     filteredExpenses.forEach((exp) => {
       const amt = Number(exp.amount) || 0;
       const catInfo = getCategoryHierarchy(exp.categoryId);
-      const key = catInfo.main || (language === 'fa' ? 'عمومی' : 'گشتی');
+      const key = catInfo.main || c.generalCategory;
       map.set(key, (map.get(key) || 0) + amt);
     });
 
@@ -351,7 +642,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
     const map = new Map();
     filteredExpenses.forEach((exp) => {
       const amt = Number(exp.amount) || 0;
-      const name = exp.sectionId ? (sectionMap.get(exp.sectionId) || 'بخش') : (language === 'fa' ? 'عمومی / بدون بخش' : 'گشتی');
+      const name = exp.sectionId ? (sectionMap.get(exp.sectionId) || c.sectionFallback) : c.generalUnassignedSection;
       map.set(name, (map.get(name) || 0) + amt);
     });
 
@@ -370,7 +661,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
     const map = new Map();
     filteredExpenses.forEach((exp) => {
       const amt = Number(exp.amount) || 0;
-      const name = exp.personName || workerMap.get(exp.personId) || (language === 'fa' ? 'سایر / نامشخص' : 'نادیار');
+      const name = exp.personName || workerMap.get(exp.personId) || c.otherUnknownPerson;
       map.set(name, (map.get(name) || 0) + amt);
     });
 
@@ -388,60 +679,58 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
   // Export Excel
   const handleExportExcel = useCallback(() => {
     if (filteredExpenses.length === 0) {
-      alert(language === 'fa' ? 'هیچ رکوردی برای خروجی اکسل یافت نشد.' : 'هیچ خەرجییەک نییە.');
+      alert(c.noExcelRecords);
       return;
     }
 
     const rows = filteredExpenses.map((exp, idx) => {
       const catInfo = getCategoryHierarchy(exp.categoryId);
       const person = exp.personName || workerMap.get(exp.personId) || '-';
-      const section = sectionMap.get(exp.sectionId) || (language === 'fa' ? 'عمومی' : 'گشتی');
-      const statusLabel = exp.paymentStatus === 'paid' 
-        ? (language === 'fa' ? 'تسویه شده' : 'پارەدراو') 
-        : (language === 'fa' ? 'نسیه (بدهی)' : 'قەرز');
+      const section = sectionMap.get(exp.sectionId) || c.generalCategory;
+      const statusLabel = exp.paymentStatus === 'paid' ? c.statusPaid : c.statusCredit;
       const methodLabel = exp.paymentMethod === 'cash' 
-        ? (language === 'fa' ? 'صندوق نقدی' : 'کاش') 
+        ? c.methodCash 
         : exp.paymentMethod === 'bank' 
-        ? (language === 'fa' ? 'حساب بانکی' : 'بانک') 
-        : (language === 'fa' ? 'تنخواه سرپرست' : 'تەنخوا');
+        ? c.methodBank 
+        : c.methodPettyCash;
 
       return {
         '#': idx + 1,
-        [language === 'fa' ? 'تاریخ' : 'بەروار']: exp.expenseDate || '',
-        [language === 'fa' ? 'عنوان هزینه' : 'بابەت']: exp.title || '',
-        [language === 'fa' ? 'گروه اصلی' : 'گرووپی سەرەکی']: catInfo.main,
-        [language === 'fa' ? 'زیرگروه' : 'ژێرگرووپ']: catInfo.sub,
-        [language === 'fa' ? 'هزینه خرد' : 'وردەکاری']: catInfo.item,
-        [language === 'fa' ? 'مبلغ' : 'بڕە پارە']: Number(exp.amount) || 0,
-        [language === 'fa' ? 'واحد پول' : 'دراو']: exp.currency || currency,
-        [language === 'fa' ? 'طرف‌حساب' : 'لایەنی بەرامبەر']: person,
-        [language === 'fa' ? 'بخش پروژه' : 'بەشی پڕۆژە']: section,
-        [language === 'fa' ? 'وضعیت تسویه' : 'دۆخی پارەدان']: statusLabel,
-        [language === 'fa' ? 'روش پرداخت' : 'شێوازی پارەدان']: methodLabel,
-        [language === 'fa' ? 'توضیحات' : 'تێبینی']: exp.description || ''
+        [c.excelColDate]: exp.expenseDate || '',
+        [c.excelColTitle]: exp.title || '',
+        [c.excelColMainGroup]: catInfo.main,
+        [c.excelColSubGroup]: catInfo.sub,
+        [c.excelColMicroItem]: catInfo.item,
+        [c.excelColAmount]: Number(exp.amount) || 0,
+        [c.excelColCurrency]: exp.currency || currency,
+        [c.excelColPayee]: person,
+        [c.excelColSection]: section,
+        [c.excelColStatus]: statusLabel,
+        [c.excelColMethod]: methodLabel,
+        [c.excelColDescription]: exp.description || ''
       };
     });
 
     // Append summary row
     rows.push({
       '#': '',
-      [language === 'fa' ? 'تاریخ' : 'بەروار']: '',
-      [language === 'fa' ? 'عنوان هزینه' : 'بابەت']: language === 'fa' ? 'مجموع کل اقلام فیلترشده' : 'کۆی گشتی',
-      [language === 'fa' ? 'گروه اصلی' : 'گرووپی سەرەکی']: '',
-      [language === 'fa' ? 'زیرگروه' : 'ژێرگرووپ']: '',
-      [language === 'fa' ? 'هزینه خرد' : 'وردەکاری']: '',
-      [language === 'fa' ? 'مبلغ' : 'بڕە پارە']: analyticsSummary.total,
-      [language === 'fa' ? 'واحد پول' : 'دراو']: currency,
-      [language === 'fa' ? 'طرف‌حساب' : 'لایەنی بەرامبەر']: '',
-      [language === 'fa' ? 'بخش پروژه' : 'بەشی پڕۆژە']: '',
-      [language === 'fa' ? 'وضعیت تسویه' : 'دۆخی پارەدان']: '',
-      [language === 'fa' ? 'روش پرداخت' : 'شێوازی پارەدان']: '',
-      [language === 'fa' ? 'توضیحات' : 'تێبینی']: ''
+      [c.excelColDate]: '',
+      [c.excelColTitle]: c.excelTotalRow,
+      [c.excelColMainGroup]: '',
+      [c.excelColSubGroup]: '',
+      [c.excelColMicroItem]: '',
+      [c.excelColAmount]: analyticsSummary.total,
+      [c.excelColCurrency]: currency,
+      [c.excelColPayee]: '',
+      [c.excelColSection]: '',
+      [c.excelColStatus]: '',
+      [c.excelColMethod]: '',
+      [c.excelColDescription]: ''
     });
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'ExpenseAnalytics');
+    XLSX.utils.book_append_sheet(workbook, worksheet, c.excelSheetName);
     const fileName = `KarSync_Expense_Report_${currentProject?.name || 'Project'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   }, [filteredExpenses, analyticsSummary.total, getCategoryHierarchy, workerMap, sectionMap, language, currency, currentProject]);
@@ -501,13 +790,13 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <span>{t('expenseAnalyticsAndExport') || (language === 'fa' ? 'آمار، تحلیل و خروجی هزینه‌ها' : 'ئامار و هەناردەی خەرجییەکان')}</span>
+                <span>{c.headerTitle}</span>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-900/50">
-                  {filteredExpenses.length} {language === 'fa' ? 'فاکتور' : 'فاکتۆر'}
+                  {filteredExpenses.length} {c.invoiceCountSuffix}
                 </span>
               </h2>
               <p className="text-xs text-slate-400 dark:text-slate-500">
-                {currentProject?.name} • {language === 'fa' ? 'فیلترهای ترکیبی، تحلیل سرفصل‌ها، خروجی اکسل و پرینت' : 'فلتەری تێکەڵ، ڕاپۆرت و چاپی گشتگیر'}
+                {currentProject?.name} • {c.headerSubtitle}
               </p>
             </div>
           </div>
@@ -517,25 +806,25 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             <button
               onClick={handleExportExcel}
               className="px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
-              title={language === 'fa' ? 'خروجی اکسل' : 'هەناردەی Excel'}
+              title={c.excelExportBtn}
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span className="hidden sm:inline">{t('exportExcel') || (language === 'fa' ? 'خروجی اکسل' : 'هەناردەی Excel')}</span>
+              <span className="hidden sm:inline">{c.excelExportBtn}</span>
             </button>
 
             <button
               onClick={handlePrint}
               className="px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
-              title={language === 'fa' ? 'چاپ گزارش' : 'چاپکردنی ڕاپۆرت'}
+              title={c.printBtn}
             >
               <Printer className="w-4 h-4 text-sky-600" />
-              <span className="hidden sm:inline">{t('printReport') || (language === 'fa' ? 'چاپ گزارش' : 'چاپکردنی ڕاپۆرت')}</span>
+              <span className="hidden sm:inline">{c.printBtn}</span>
             </button>
 
             <button
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
-              title={language === 'fa' ? 'بستن' : 'داخستن'}
+              title={c.closeEsc}
             >
               <X className="w-5 h-5" />
             </button>
@@ -548,9 +837,9 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
         
         {/* Printable Official Header (Shown only during print) */}
         <div className="hidden print:block text-center border-b pb-4 mb-4">
-          <h1 className="text-xl font-black">{currentProject?.name} - {language === 'fa' ? 'گزارش تفصیلی هزینه‌ها و مخارج' : 'ڕاپۆرتی خەرجییەکان'}</h1>
+          <h1 className="text-xl font-black">{currentProject?.name} - {c.detailedReportTitle}</h1>
           <p className="text-xs text-slate-500 mt-1">
-            {language === 'fa' ? 'تاریخ تهیه گزارش:' : 'بەرواری ئامادەکردن:'} {new Date().toLocaleDateString(language === 'fa' ? 'fa-IR' : 'en-US')} • {language === 'fa' ? 'واحد پول:' : 'دراو:'} {currency}
+            {c.reportDateLabel} {new Date().toLocaleDateString(langKey === 'fa' ? 'fa-IR' : langKey === 'ku' ? 'ckb-IR' : 'en-US')} • {c.currencyLabel} {currency}
           </p>
         </div>
 
@@ -560,7 +849,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-rose-500" />
               <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200">
-                {language === 'fa' ? 'فیلترهای چندگانه و همزمان (ترکیب دلخواه)' : 'فلتەرە فرەچەشنەکان (پێکەوەبەستنی دڵخواز)'}
+                {c.filtersTitle}
               </span>
             </div>
 
@@ -570,7 +859,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                 className="text-[11px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 flex items-center gap-1 transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>{t('resetFilters') || (language === 'fa' ? 'بازنشانی تمام فیلترها' : 'پاککردنەوەی هەموو فلتەرەکان')}</span>
+                <span>{c.resetFilters}</span>
               </button>
             )}
           </div>
@@ -580,16 +869,16 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             {/* Filter 1: Person / Payee */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'طرف‌حساب / شخص' : 'کەس / لایەنی بەرامبەر'}
+                {c.payeeLabel}
               </label>
               <select
                 value={filterPerson}
                 onChange={(e) => setFilterPerson(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20"
               >
-                <option value="all">{language === 'fa' ? 'همه اشخاص و طرف‌های حساب' : 'هەموو کەسەکان'}</option>
+                <option value="all">{c.allPayees}</option>
                 {allPayees.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} {p.isWorker ? `(${language === 'fa' ? 'پرسنل' : 'کرێکار'})` : ''}</option>
+                  <option key={p.id} value={p.id}>{p.name} {p.isWorker ? ` (${c.staffTag})` : ''}</option>
                 ))}
               </select>
             </div>
@@ -597,15 +886,15 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             {/* Filter 2: Project Section */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'بخش پروژه' : 'بەشی پڕۆژە'}
+                {c.sectionLabel}
               </label>
               <select
                 value={filterSection}
                 onChange={(e) => setFilterSection(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20"
               >
-                <option value="all">{language === 'fa' ? 'همه بخش‌ها' : 'هەموو بەشەکان'}</option>
-                <option value="unassigned">{language === 'fa' ? 'عمومی / بدون بخش' : 'گشتی'}</option>
+                <option value="all">{c.allSections}</option>
+                <option value="unassigned">{c.unassignedSection}</option>
                 {sections.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
@@ -615,33 +904,33 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             {/* Filter 3: Payment Method */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'روش پرداخت' : 'شێوازی پارەدان'}
+                {c.paymentMethodLabel}
               </label>
               <select
                 value={filterPaymentMethod}
                 onChange={(e) => setFilterPaymentMethod(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20"
               >
-                <option value="all">{language === 'fa' ? 'همه روش‌های پرداخت' : 'هەموو شێوازەکان'}</option>
-                <option value="cash">{language === 'fa' ? 'صندوق نقدی' : 'کاش'}</option>
-                <option value="bank">{language === 'fa' ? 'حساب بانکی' : 'بانک'}</option>
-                <option value="petty_cash">{language === 'fa' ? 'تنخواه سرپرست' : 'تەنخوا'}</option>
+                <option value="all">{c.allPaymentMethods}</option>
+                <option value="cash">{c.methodCash}</option>
+                <option value="bank">{c.methodBank}</option>
+                <option value="petty_cash">{c.methodPettyCash}</option>
               </select>
             </div>
 
             {/* Filter 4: Payment Status */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'وضعیت تسویه' : 'دۆخی پارەدان'}
+                {c.settlementStatusLabel}
               </label>
               <select
                 value={filterPaymentStatus}
                 onChange={(e) => setFilterPaymentStatus(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20"
               >
-                <option value="all">{language === 'fa' ? 'همه وضعیت‌ها (تسویه و نسیه)' : 'هەموو دۆخەکان'}</option>
-                <option value="paid">{language === 'fa' ? 'تسویه شده (پرداخت شده)' : 'پارەدراو'}</option>
-                <option value="pending">{language === 'fa' ? 'معوق (پرداخت نشده / نسیه)' : 'قەرز'}</option>
+                <option value="all">{c.allStatuses}</option>
+                <option value="paid">{c.statusPaidFull}</option>
+                <option value="pending">{c.statusPendingCredit}</option>
               </select>
             </div>
           </div>
@@ -651,7 +940,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             {/* Level 1: Main Category */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'سرفصل اصلی (سطح ۱)' : 'گرووپی سەرەکی (ئاستی ١)'}
+                {c.mainGroupLabel}
               </label>
               <select
                 value={filterMainCategory}
@@ -662,7 +951,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                 }}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20"
               >
-                <option value="all">{language === 'fa' ? 'همه گروه‌های اصلی' : 'هەموو گرووپە سەرەکییەکان'}</option>
+                <option value="all">{c.allMainGroups}</option>
                 {categories.filter(c => c.level === 1 || !c.parentId).map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -672,7 +961,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             {/* Level 2: Sub-category */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'زیرگروه (سطح ۲)' : 'ژێرگرووپ (ئاستی ٢)'}
+                {c.subGroupLabel}
               </label>
               <select
                 disabled={filterMainCategory === 'all'}
@@ -684,9 +973,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20 disabled:opacity-50"
               >
                 <option value="all">
-                  {filterMainCategory === 'all' 
-                    ? (language === 'fa' ? 'ابتدا گروه اصلی را انتخاب کنید' : 'سەرەتا گرووپی سەرەکی دیاریبکە') 
-                    : (language === 'fa' ? 'همه زیرگروه‌ها' : 'هەموو ژێرگرووپەکان')}
+                  {filterMainCategory === 'all' ? c.selectMainFirst : c.allSubGroups}
                 </option>
                 {availableSubCategories.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -697,7 +984,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             {/* Level 3: Micro-expense Item */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'هزینه خرد (سطح ۳)' : 'وردەکاری خەرجی (ئاستی ٣)'}
+                {c.microItemLabel}
               </label>
               <select
                 disabled={filterSubCategory === 'all'}
@@ -706,9 +993,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20 disabled:opacity-50"
               >
                 <option value="all">
-                  {filterSubCategory === 'all' 
-                    ? (language === 'fa' ? 'ابتدا زیرگروه را انتخاب کنید' : 'سەرەتا ژێرگرووپ دیاریبکە') 
-                    : (language === 'fa' ? 'همه ریزهزینه‌ها' : 'هەموو وردەکارییەکان')}
+                  {filterSubCategory === 'all' ? c.selectSubFirst : c.allMicroItems}
                 </option>
                 {availableMicroCategories.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -728,7 +1013,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                {t('allTime') || (language === 'fa' ? 'همه زمان‌ها' : 'هەموو کاتەکان')}
+                {c.allTime}
               </button>
               <button
                 onClick={() => setDateFilterMode('month')}
@@ -738,7 +1023,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                {t('specificMonth') || (language === 'fa' ? 'ماه خاص' : 'مانگی دیاریکراو')}
+                {c.specificMonth}
               </button>
               <button
                 onClick={() => setDateFilterMode('day')}
@@ -748,7 +1033,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                {t('singleDay') || (language === 'fa' ? 'روز خاص' : 'ڕۆژی دیاریکراو')}
+                {c.singleDay}
               </button>
               <button
                 onClick={() => setDateFilterMode('range')}
@@ -758,7 +1043,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                {t('dateRangeCustom') || (language === 'fa' ? 'بازه دلخواه' : 'ماوەی بەروار')}
+                {c.dateRangeCustom}
               </button>
             </div>
 
@@ -782,14 +1067,14 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
               )}
               {dateFilterMode === 'range' && (
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-slate-400">{language === 'fa' ? 'از:' : 'لە:'}</span>
+                  <span className="text-slate-400">{c.fromLabel}</span>
                   <input
                     type="date"
                     value={dateRangeStart}
                     onChange={(e) => setDateRangeStart(e.target.value)}
                     className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono"
                   />
-                  <span className="text-slate-400">{language === 'fa' ? 'تا:' : 'بۆ:'}</span>
+                  <span className="text-slate-400">{c.toLabel}</span>
                   <input
                     type="date"
                     value={dateRangeEnd}
@@ -806,7 +1091,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={language === 'fa' ? 'جستجوی متن...' : 'گەڕان...'}
+                  placeholder={c.searchPlaceholder}
                   className="w-full ps-8 pe-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none"
                 />
               </div>
@@ -819,7 +1104,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
           {/* Card 1: Total Filtered Amount */}
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group">
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold mb-2">
-              <span>{language === 'fa' ? 'مجموع مبالغ فیلترشده' : 'کۆی گشتی فلتەرکراو'}</span>
+              <span>{c.totalFilteredAmount}</span>
               <div className="w-7 h-7 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-500 flex items-center justify-center">
                 <Wallet className="w-4 h-4" />
               </div>
@@ -828,14 +1113,14 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
               {formatCurrency(analyticsSummary.total)}
             </div>
             <div className="mt-2 text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
-              <span>{analyticsSummary.projectSharePercent}% {language === 'fa' ? 'از کل هزینه‌های پروژه' : 'لە گشتی پڕۆژە'}</span>
+              <span>{analyticsSummary.projectSharePercent}% {c.ofProjectTotal}</span>
             </div>
           </div>
 
           {/* Card 2: Settled / Paid Amount */}
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group">
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold mb-2">
-              <span>{language === 'fa' ? 'تسویه شده (پرداختی نقدی/بانک)' : 'پارەی پاکتاوکراو'}</span>
+              <span>{c.paidCashBank}</span>
               <div className="w-7 h-7 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
                 <CheckCircle2 className="w-4 h-4" />
               </div>
@@ -844,14 +1129,14 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
               {formatCurrency(analyticsSummary.paid)}
             </div>
             <div className="mt-2 text-[11px] text-slate-400">
-              {analyticsSummary.total > 0 ? Math.round((analyticsSummary.paid / analyticsSummary.total) * 100) : 0}% {language === 'fa' ? 'از این گزارش تسویه است' : 'دراوە'}
+              {analyticsSummary.total > 0 ? Math.round((analyticsSummary.paid / analyticsSummary.total) * 100) : 0}% {c.ofReportIsPaid}
             </div>
           </div>
 
           {/* Card 3: Pending / Debts */}
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group">
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold mb-2">
-              <span>{language === 'fa' ? 'معوق (نسیه / بدهی)' : 'قەرزی نەدراو'}</span>
+              <span>{c.creditPendingDebt}</span>
               <div className="w-7 h-7 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center">
                 <Clock className="w-4 h-4" />
               </div>
@@ -860,23 +1145,23 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
               {formatCurrency(analyticsSummary.pending)}
             </div>
             <div className="mt-2 text-[11px] text-slate-400">
-              {analyticsSummary.total > 0 ? Math.round((analyticsSummary.pending / analyticsSummary.total) * 100) : 0}% {language === 'fa' ? 'نسیه و تسویه نشده' : 'قەرز'}
+              {analyticsSummary.total > 0 ? Math.round((analyticsSummary.pending / analyticsSummary.total) * 100) : 0}% {c.creditUnsettled}
             </div>
           </div>
 
           {/* Card 4: Count & Average */}
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group">
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold mb-2">
-              <span>{language === 'fa' ? 'تعداد و میانگین فاکتورها' : 'ژمارە و تێکڕای فاکتۆر'}</span>
+              <span>{c.invoicesAndAvg}</span>
               <div className="w-7 h-7 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-500 flex items-center justify-center">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
             <div className="text-2xl font-black font-mono tracking-tight text-sky-600 dark:text-sky-400">
-              {analyticsSummary.count} <span className="text-xs font-medium text-slate-400">{language === 'fa' ? 'فقره فاکتور' : 'فاکتۆر'}</span>
+              {analyticsSummary.count} <span className="text-xs font-medium text-slate-400">{c.invoicesUnit}</span>
             </div>
             <div className="mt-2 text-[11px] text-slate-400">
-              {language === 'fa' ? 'میانگین هر فاکتور:' : 'تێکڕای فاکتۆر:'} <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{formatCurrency(analyticsSummary.avg)}</span>
+              {c.avgPerInvoice} <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{formatCurrency(analyticsSummary.avg)}</span>
             </div>
           </div>
         </div>
@@ -887,10 +1172,10 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
             <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
               <PieChart className="w-4 h-4 text-rose-500" />
-              <span>{t('categoryDistribution') || (language === 'fa' ? 'تفکیک سهم سرفصل‌های هزینه' : 'دابەشبوونی بەشە خەرجییەکان')}</span>
+              <span>{c.categoryDistribution}</span>
             </div>
             {categoryBreakdown.length === 0 ? (
-              <p className="text-xs text-slate-400 py-6 text-center">{language === 'fa' ? 'داده‌ای وجود ندارد' : 'داتا بەردەست نییە'}</p>
+              <p className="text-xs text-slate-400 py-6 text-center">{c.noData}</p>
             ) : (
               <div className="space-y-2.5 pt-1">
                 {categoryBreakdown.map((item, idx) => (
@@ -912,10 +1197,10 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
             <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
               <Building2 className="w-4 h-4 text-sky-500" />
-              <span>{t('sectionDistribution') || (language === 'fa' ? 'تفکیک بر اساس بخش‌های پروژه' : 'دابەشبوون بەپێی بەشەکان')}</span>
+              <span>{c.sectionDistribution}</span>
             </div>
             {sectionBreakdown.length === 0 ? (
-              <p className="text-xs text-slate-400 py-6 text-center">{language === 'fa' ? 'داده‌ای وجود ندارد' : 'داتا بەردەست نییە'}</p>
+              <p className="text-xs text-slate-400 py-6 text-center">{c.noData}</p>
             ) : (
               <div className="space-y-2.5 pt-1">
                 {sectionBreakdown.map((item, idx) => (
@@ -937,10 +1222,10 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
             <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
               <User className="w-4 h-4 text-emerald-500" />
-              <span>{language === 'fa' ? 'طرف‌های حساب برتر (بیشترین مبالغ)' : 'لایەنە سەرەکییەکان'}</span>
+              <span>{c.topPayees}</span>
             </div>
             {topPayeesBreakdown.length === 0 ? (
-              <p className="text-xs text-slate-400 py-6 text-center">{language === 'fa' ? 'داده‌ای وجود ندارد' : 'داتا بەردەست نییە'}</p>
+              <p className="text-xs text-slate-400 py-6 text-center">{c.noData}</p>
             ) : (
               <div className="space-y-2.5 pt-1">
                 {topPayeesBreakdown.map((item, idx) => (
@@ -965,17 +1250,17 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
             <div className="flex items-center gap-2">
               <TableIcon className="w-4 h-4 text-slate-500" />
               <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                {language === 'fa' ? 'ریز اقلام و فاکتورهای فیلترشده' : 'وردەکاری فاکتۆرەکان'}
+                {c.tableTitle}
               </h3>
             </div>
             <span className="text-xs font-mono font-bold text-slate-400">
-              {filteredExpenses.length} {language === 'fa' ? 'ردیف' : 'تۆمار'}
+              {filteredExpenses.length} {c.rowsUnit}
             </span>
           </div>
 
           {filteredExpenses.length === 0 ? (
             <div className="p-12 text-center text-xs text-slate-400">
-              {language === 'fa' ? 'هیچ فاکتوری با شرایط فیلترهای انتخابی یافت نشد.' : 'هیچ تۆمارێک نەدۆزرایەوە.'}
+              {c.noInvoicesFound}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -983,28 +1268,28 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 font-bold">
                     <th className="py-3 px-4 text-start">#</th>
-                    <th className="py-3 px-4 text-start">{language === 'fa' ? 'تاریخ' : 'بەروار'}</th>
-                    <th className="py-3 px-4 text-start">{language === 'fa' ? 'عنوان هزینه' : 'بابەت'}</th>
-                    <th className="py-3 px-4 text-start">{language === 'fa' ? 'سرفصل هزینه' : 'پۆلێنکردن'}</th>
-                    <th className="py-3 px-4 text-start">{language === 'fa' ? 'طرف‌حساب' : 'لایەنی بەرامبەر'}</th>
-                    <th className="py-3 px-4 text-start">{language === 'fa' ? 'بخش پروژه' : 'بەش'}</th>
-                    <th className="py-3 px-4 text-start">{language === 'fa' ? 'روش پرداخت' : 'شێواز'}</th>
-                    <th className="py-3 px-4 text-start">{language === 'fa' ? 'وضعیت' : 'دۆخ'}</th>
-                    <th className="py-3 px-4 text-start font-mono">{language === 'fa' ? 'مبلغ' : 'بڕە پارە'}</th>
-                    <th className="py-3 px-4 text-center no-print">{language === 'fa' ? 'رسید' : 'پسوولە'}</th>
+                    <th className="py-3 px-4 text-start">{c.tableHeaderDate}</th>
+                    <th className="py-3 px-4 text-start">{c.tableHeaderTitle}</th>
+                    <th className="py-3 px-4 text-start">{c.tableHeaderCategory}</th>
+                    <th className="py-3 px-4 text-start">{c.tableHeaderPayee}</th>
+                    <th className="py-3 px-4 text-start">{c.tableHeaderSection}</th>
+                    <th className="py-3 px-4 text-start">{c.tableHeaderMethod}</th>
+                    <th className="py-3 px-4 text-start">{c.tableHeaderStatus}</th>
+                    <th className="py-3 px-4 text-start font-mono">{c.tableHeaderAmount}</th>
+                    <th className="py-3 px-4 text-center no-print">{c.tableHeaderReceipt}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredExpenses.map((exp, idx) => {
                     const catInfo = getCategoryHierarchy(exp.categoryId);
                     const payee = exp.personName || workerMap.get(exp.personId) || '—';
-                    const sectionName = sectionMap.get(exp.sectionId) || (language === 'fa' ? 'عمومی' : 'گشتی');
+                    const sectionName = sectionMap.get(exp.sectionId) || c.generalCategory;
                     const isPaid = exp.paymentStatus === 'paid';
                     const methodLabel = exp.paymentMethod === 'cash' 
-                      ? (language === 'fa' ? 'صندوق نقدی' : 'کاش') 
+                      ? c.methodCash 
                       : exp.paymentMethod === 'bank' 
-                      ? (language === 'fa' ? 'بانکی' : 'بانک') 
-                      : (language === 'fa' ? 'تنخواه' : 'تەنخوا');
+                      ? c.methodBankShort 
+                      : c.methodPettyCashShort;
 
                     return (
                       <tr key={exp.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
@@ -1025,7 +1310,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
                             isPaid ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600'
                           }`}>
-                            {isPaid ? (language === 'fa' ? 'تسویه' : 'دراو') : (language === 'fa' ? 'نسیه' : 'قەرز')}
+                            {isPaid ? c.settledShort : c.creditShort}
                           </span>
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
@@ -1036,7 +1321,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                             <button
                               onClick={() => setPreviewReceiptUrl(exp.receiptUrl)}
                               className="p-1 hover:text-rose-500 rounded transition-colors inline-block"
-                              title="مشاهده فاکتور"
+                              title={c.viewReceiptTitle}
                             >
                               <Eye className="w-4 h-4 text-slate-400 hover:text-rose-500" />
                             </button>
@@ -1051,7 +1336,7 @@ export default function ExpenseAnalyticsModal({ isOpen = true, onClose }) {
                 <tfoot>
                   <tr className="bg-slate-50 dark:bg-slate-800 font-bold border-t border-slate-200 dark:border-slate-700">
                     <td colSpan={8} className="py-3.5 px-4 text-start">
-                      {language === 'fa' ? 'جمع کل مبالغ فیلترشده:' : 'کۆی گشتی فلتەرکراو:'}
+                      {c.grandTotalFiltered}
                     </td>
                     <td colSpan={2} className="py-3.5 px-4 font-mono text-sm text-rose-600 dark:text-rose-400 font-black">
                       {formatCurrency(analyticsSummary.total)}
