@@ -135,7 +135,8 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     deleteAccount
   } = useAccounting();
 
-  const [activeTab, setActiveTab] = useState(initialTab || 'general');
+  const normalizeSettingsTab = (tab) => (tab === 'project_sections' ? 'projects' : (tab || 'general'));
+  const [activeTab, setActiveTab] = useState(() => normalizeSettingsTab(initialTab));
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // User Profile tab states
@@ -155,7 +156,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
   // Sync initial tab when modal opens or initialTab prop changes
   useEffect(() => {
-    if (initialTab) setActiveTab(initialTab);
+    if (initialTab) setActiveTab(normalizeSettingsTab(initialTab));
   }, [initialTab, isOpen]);
 
   // Sidebar navigation tabs ordered logically by priority & scope:

@@ -414,7 +414,7 @@ function AppContent() {
           <ExpensesView />
         )}
 
-        {(activeTab === 'accounting' || activeTab === 'financials') && (
+        {(activeTab === 'accounting' || activeTab === 'financials' || activeTab === 'settlements') && (
           <FinanceAndAccountingView initialSubTab="payroll" />
         )}
       </main>

@@ -125,7 +125,10 @@ export function Navbar({
               <nav className="flex items-center gap-1.5 bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 p-1.5 sm:p-2 rounded-2xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.1),0_2px_12px_0_rgba(0,0,0,0.3)]">
                 {navItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = activeTab === item.id;
+                  const isActive =
+                    activeTab === item.id ||
+                    (item.id === 'accounting' && (activeTab === 'financials' || activeTab === 'settlements')) ||
+                    (item.id === 'workers' && (activeTab === 'reports' || activeTab === 'calendar'));
                   return (
                     <div key={item.id} className="relative group">
                       <button
@@ -263,7 +266,10 @@ export function Navbar({
         <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/60 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.15)] p-1.5 sm:p-2 flex items-center justify-between gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isActive =
+              activeTab === item.id ||
+              (item.id === 'accounting' && (activeTab === 'financials' || activeTab === 'settlements')) ||
+              (item.id === 'workers' && (activeTab === 'reports' || activeTab === 'calendar'));
             return (
               <button
                 key={item.id}

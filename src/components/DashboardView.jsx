@@ -809,7 +809,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           </div>
 
           <button
-            onClick={() => setActiveTab('financials')}
+            onClick={() => setActiveTab('accounting')}
             className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 border border-purple-200/60 dark:border-purple-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>{language === 'fa' ? 'مشاهده دفتر مالی و ثبت هزینه‌ها' : 'View Financial Ledger'}</span>
@@ -842,8 +842,8 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             </div>
 
             <button
-              onClick={() => openGlobalSettings('project_sections')}
-              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+              onClick={() => openGlobalSettings('projects')}
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
             >
               {language === 'fa' ? 'مدیریت بخش‌ها' : 'Manage'}
             </button>
@@ -983,8 +983,13 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           </div>
 
           <button
-            onClick={() => setActiveTab('settlements')}
-            className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline self-start sm:self-auto flex items-center gap-1"
+            onClick={() => {
+              try {
+                localStorage.setItem('karsync_financials_active_section', 'workers');
+              } catch (_) {}
+              setActiveTab('accounting');
+            }}
+            className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline self-start sm:self-auto flex items-center gap-1 cursor-pointer"
           >
             <span>{language === 'fa' ? 'ورود به میز تسویه کامل' : 'Open Settlement Tab'}</span>
             <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
