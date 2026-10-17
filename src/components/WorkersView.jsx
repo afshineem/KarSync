@@ -65,10 +65,9 @@ export function WorkersView() {
 
   // States
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterActive, setFilterActive] = useState('all'); // 'all' | 'active' | 'inactive'
   const [filterSection, setFilterSection] = useState('all'); // 'all' | 'unassigned' | secId
   const [filterGroup, setFilterGroup] = useState('all'); // 'all' | 'unassigned' | groupId
-  const [statusTab, setStatusTab] = useState('active'); // 'active' | 'archived' | 'recycle'
+  const [statusTab, setStatusTab] = useState('active'); // 'active' | 'inactive' | 'archived' | 'recycle'
   
   const [layoutMode, setLayoutMode] = useState(() => {
     return localStorage.getItem('workshop_workers_view_mode') || 'grid';
@@ -219,9 +218,13 @@ export function WorkersView() {
     return map;
   }, [workers, allLogs, allPayments, currency]);
 
-  // لیست‌های وضعیت سه‌گانه
+  // لیست‌های وضعیت چهارگانه
   const activeWorkersList = useMemo(() => {
-    return (workers || []).filter(w => !w.deletedAt && !w.isArchived && w.status !== 'archived');
+    return (workers || []).filter(w => !w.deletedAt && !w.isArchived && w.status !== 'archived' && w.isActive !== 0);
+  }, [workers]);
+
+  const inactiveWorkersList = useMemo(() => {
+    return (workers || []).filter(w => !w.deletedAt && !w.isArchived && w.status !== 'archived' && w.isActive === 0);
   }, [workers]);
 
   const archivedWorkersList = useMemo(() => {
@@ -255,22 +258,23 @@ export function WorkersView() {
 
     return {
       activeCount: activeWorkersList.length,
+      inactiveCount: inactiveWorkersList.length,
       activeTodayCount,
       totalUnsettledDue,
       groupsCount: groups.length
     };
-  }, [activeWorkersList, allLogs, workerFinancialsMap, groups]);
+  }, [activeWorkersList, inactiveWorkersList, allLogs, workerFinancialsMap, groups]);
 
   // فیلتر اصلی پرسنل
   const filteredWorkers = useMemo(() => {
     return (workers || []).filter((w) => {
       if (!w) return false;
 
-      // ۱. تب وضعیت اصلی
+      // ۱. تب وضعیت اصلی (active | inactive | archived | recycle)
       if (statusTab === 'active') {
-        if (w.deletedAt || w.isArchived || w.status === 'archived') return false;
-        if (filterActive === 'active' && w.isActive !== 1) return false;
-        if (filterActive === 'inactive' && w.isActive !== 0) return false;
+        if (w.deletedAt || w.isArchived || w.status === 'archived' || w.isActive === 0) return false;
+      } else if (statusTab === 'inactive') {
+        if (w.deletedAt || w.isArchived || w.status === 'archived' || w.isActive !== 0) return false;
       } else if (statusTab === 'archived') {
         if (w.deletedAt || (!w.isArchived && w.status !== 'archived')) return false;
       } else if (statusTab === 'recycle') {
@@ -558,10 +562,11 @@ export function WorkersView() {
           {/* ستون چپ: تب‌های وضعیت شاغلین / بازیافت و دکمه‌های اکشن اصلی */}
           <div className="flex flex-col sm:flex-row lg:flex-col items-stretch lg:items-end gap-3 shrink-0">
             
-            {/* سگمنت شکیل وضعیت: فعال | بایگانی | بازیافت */}
-            <div className="flex items-center p-1.5 bg-white/10 dark:bg-black/30 backdrop-blur-md rounded-2xl border border-white/15">
+            {/* سگمنت چهارگانه با تم برنامه [APP_THEME_BUTTON] */}
+            <div className="flex items-center gap-1 p-1 bg-white/10 dark:bg-black/40 backdrop-blur-md rounded-2xl border border-white/15 shadow-inner">
               {[
-                { id: 'active', label: 'شاغلین (فعال)', count: activeWorkersList.length, icon: Users },
+                { id: 'active', label: 'شاغلین فعال', count: activeWorkersList.length, icon: UserCheck },
+                { id: 'inactive', label: 'شاغلین غیرفعال', count: inactiveWorkersList.length, icon: UserX },
                 { id: 'archived', label: 'بایگانی', count: archivedWorkersList.length, icon: Archive },
                 { id: 'recycle', label: 'بازیافت', count: recycleWorkersList.length, icon: RefreshCw }
               ].map(tab => {
@@ -572,17 +577,27 @@ export function WorkersView() {
                     key={tab.id}
                     type="button"
                     onClick={() => setStatusTab(tab.id)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    aria-label={`${tab.label} (${tab.count})`}
+                    title={`${tab.label} (${tab.count} نفر)`}
+                    className={`h-10 px-3 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center gap-2 cursor-pointer ${
                       isSelected
-                        ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
+                        ? 'bg-primary text-white shadow-lg shadow-primary/30'
                         : 'text-slate-300 hover:text-white hover:bg-white/10'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 font-mono">
-                      {tab.count}
-                    </span>
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {isSelected ? (
+                      <span className="whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
+                        <span>{tab.label}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 font-mono">
+                          {tab.count}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {tab.count}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -679,44 +694,6 @@ export function WorkersView() {
             </select>
           )}
 
-          {/* فیلتر فعال / غیرفعال (در تب شاغلین) */}
-          {statusTab === 'active' && (
-            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-              <button
-                type="button"
-                onClick={() => setFilterActive('all')}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  filterActive === 'all'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                همه
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterActive('active')}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  filterActive === 'active'
-                    ? 'bg-emerald-500 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                فعال
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterActive('inactive')}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  filterActive === 'inactive'
-                    ? 'bg-rose-500 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                غیرفعال
-              </button>
-            </div>
-          )}
 
           {/* مرتب‌سازی */}
           <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
