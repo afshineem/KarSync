@@ -689,12 +689,14 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         };
 
   // Calculate payout ratio for visual progress bar
-  const payoutProgressPercent = useMemo(() => {
-    const gross = Number(activeMetrics.earnings) || 0;
-    const paid = Number(activeMetrics.advances) || 0;
-    if (gross <= 0) return activeMetrics.isSettled ? 100 : 0;
-    return Math.min(100, Math.max(0, Math.round((paid / gross) * 100)));
-  }, [activeMetrics.earnings, activeMetrics.advances, activeMetrics.isSettled]);
+  const grossEarningsVal = Number(activeMetrics.earnings) || 0;
+  const paidAdvancesVal = Number(activeMetrics.advances) || 0;
+  const payoutProgressPercent =
+    grossEarningsVal <= 0
+      ? activeMetrics.isSettled
+        ? 100
+        : 0
+      : Math.min(100, Math.max(0, Math.round((paidAdvancesVal / grossEarningsVal) * 100)));
 
   const currencySymbol = getCurrencySymbol(currency, language);
 
