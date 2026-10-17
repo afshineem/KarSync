@@ -308,16 +308,18 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
   // Today's Live Attendance & Logs
   const todayAttendance = useMemo(() => {
-    const todayLogs = allAllLogs.filter((l) => l.date === todayDateStr);
+    const todayLogs = allAllLogs.filter((l) => l.date === todayDateStr && l.type !== 'absent');
     const loggedWorkerIds = new Set(todayLogs.map((l) => String(l.workerId)));
     const presentCount = loggedWorkerIds.size;
     const totalActive = activeWorkers.length;
     const unloggedCount = Math.max(0, totalActive - presentCount);
+    const isShiftLogged = todayLogs.length > 0;
     return {
       todayLogs,
       presentCount,
       totalActive,
       unloggedCount,
+      isShiftLogged,
       ratePercent: totalActive > 0 ? Math.round((presentCount / totalActive) * 100) : 0
     };
   }, [allAllLogs, todayDateStr, activeWorkers]);
@@ -719,7 +721,15 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/15">
-                <span className="text-slate-500 dark:text-slate-400 block">{language === 'fa' ? 'ثبت‌نشده / بدون لاگ:' : 'Pending Log:'}</span>
+                <span className="text-slate-500 dark:text-slate-400 block">
+                  {todayAttendance.isShiftLogged
+                    ? language === 'fa'
+                      ? 'غایبین امروز:'
+                      : 'Absent Today:'
+                    : language === 'fa'
+                    ? 'ثبت‌نشده / بدون لاگ:'
+                    : 'Pending Log:'}
+                </span>
                 <span className="text-base font-black text-amber-600 dark:text-amber-400 mt-1 block">
                   {convertDigits(todayAttendance.unloggedCount, numberFormat)} {language === 'fa' ? 'نفر' : 'workers'}
                 </span>

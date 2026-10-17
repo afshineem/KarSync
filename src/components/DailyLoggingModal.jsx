@@ -225,8 +225,18 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       const initialSelected = {};
       const initialConfigs = {};
 
+      let absentSet = new Set();
+      try {
+        const raw = localStorage.getItem('karsync_daily_absent_workers_v1');
+        const map = raw ? JSON.parse(raw) : {};
+        absentSet = new Set((map[`${targetProjectId}_${selectedDate}`] || []).map(String));
+      } catch {
+        // ignore
+      }
+
       unloggedWorkers.forEach((w) => {
-        initialSelected[w.id] = true;
+        // If this worker was already unchecked (marked absent) or today's shift already has logged workers, default to unchecked
+        initialSelected[w.id] = absentSet.has(String(w.id)) || existingDateLogs.length > 0 ? false : true;
         initialConfigs[w.id] = {
           type: 'full',
           overtimeHours: 0,
@@ -269,13 +279,13 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         unloggedWorkers.forEach((w) => {
           if (updated[w.id] === undefined) {
             hasChanges = true;
-            updated[w.id] = true;
+            updated[w.id] = existingDateLogs.length > 0 ? false : true;
           }
         });
         return hasChanges ? updated : prev;
       });
     }
-  }, [isOpen, selectedDate, unloggedWorkers, initialDate]);
+  }, [isOpen, selectedDate, unloggedWorkers, existingDateLogs.length, targetProjectId, initialDate]);
 
   // Section filter within logging modal
   const [filterModalSection, setFilterModalSection] = useState('all');
@@ -440,7 +450,41 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       );
     }
 
+    // Identify unchecked workers in individual mode as absent for this date
+    const uncheckedAbsentIds =
+      entryMode !== 'group'
+        ? filteredUnloggedWorkers
+            .filter((w) => !selectedWorkers[w.id])
+            .map((w) => String(w.id))
+        : [];
+
     if (checkedWorkerIds.length === 0) {
+      if (entryMode !== 'group' && uncheckedAbsentIds.length > 0) {
+        try {
+          const storageKey = 'karsync_daily_absent_workers_v1';
+          const raw = localStorage.getItem(storageKey);
+          const map = raw ? JSON.parse(raw) : {};
+          const dayKey = `${targetProjectId}_${selectedDate}`;
+          const prevAbsent = new Set((map[dayKey] || []).map(String));
+          uncheckedAbsentIds.forEach((id) => prevAbsent.add(String(id)));
+          map[dayKey] = Array.from(prevAbsent);
+          localStorage.setItem(storageKey, JSON.stringify(map));
+          window.dispatchEvent(new CustomEvent('karsync-daily-attendance-updated'));
+        } catch {
+          // ignore storage errors
+        }
+        emitToast({
+          type: 'success',
+          title: language === 'fa' ? 'ثبت غیبت روزانه انجام شد' : 'غیاب تۆمار کرا',
+          message:
+            language === 'fa'
+              ? `غیبت ${uncheckedAbsentIds.length} نفر برای تاریخ ${selectedDate} ثبت شد.`
+              : `غیابی ${uncheckedAbsentIds.length} کەس تۆمار کرا.`
+        });
+        onClose();
+        return;
+      }
+
       emitToast({
         type: 'warning',
         title: 'پرسنلی انتخاب نشده است',
@@ -567,6 +611,22 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       // Realtime push to Supabase
       if (logsToPush.length > 0) {
         pushLogsLive(logsToPush).catch((err) => console.warn('Supabase live push warning:', err));
+      }
+
+      // Persist unchecked workers as absent for this date so the system knows their status is accounted for
+      try {
+        const storageKey = 'karsync_daily_absent_workers_v1';
+        const raw = localStorage.getItem(storageKey);
+        const map = raw ? JSON.parse(raw) : {};
+        const dayKey = `${targetProjectId}_${selectedDate}`;
+        const prevAbsent = new Set((map[dayKey] || []).map(String));
+        checkedWorkerIds.forEach((id) => prevAbsent.delete(String(id)));
+        uncheckedAbsentIds.forEach((id) => prevAbsent.add(String(id)));
+        map[dayKey] = Array.from(prevAbsent);
+        localStorage.setItem(storageKey, JSON.stringify(map));
+        window.dispatchEvent(new CustomEvent('karsync-daily-attendance-updated'));
+      } catch {
+        // ignore storage errors
       }
 
       const successMsg = t('batchSavedSuccess', { count: checkedWorkerIds.length });

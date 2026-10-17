@@ -405,11 +405,16 @@ export function NotificationProvider({ children }) {
     [projectId, user?.id, isWorker]
   );
 
-  // Minute ticker to re-evaluate time-based rules (e.g., 19:00 attendance reminder)
+  // Minute ticker & attendance update listener to re-evaluate time-based rules
   const [minuteTick, setMinuteTick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setMinuteTick((t) => t + 1), 60000);
-    return () => clearInterval(timer);
+    const onAttendanceUpdated = () => setMinuteTick((t) => t + 1);
+    window.addEventListener('karsync-daily-attendance-updated', onAttendanceUpdated);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('karsync-daily-attendance-updated', onAttendanceUpdated);
+    };
   }, []);
 
   // 5. Smart Notification Generator
@@ -436,18 +441,28 @@ export function NotificationProvider({ children }) {
 
     // ---------------------------------------------------------
     // RULE A1: Missing Daily Attendance Reminder
+    // Only remind when NO attendance has been recorded for today yet (and not all workers were unchecked as absent).
+    // Once the manager logs today's present workers (leaving absent workers unchecked), today's shift is accounted for.
     // ---------------------------------------------------------
     if (settings.dailyAttendanceReminder && workers.length > 0) {
       const todayLogs = attendanceLogs.filter((l) => l.date === todayStr);
-      const loggedWorkerIds = new Set(todayLogs.map((l) => String(l.workerId)));
-      const unloggedCount = workers.filter((w) => !loggedWorkerIds.has(String(w.id))).length;
+
+      let absentSet = new Set();
+      try {
+        const raw = localStorage.getItem('karsync_daily_absent_workers_v1');
+        const map = raw ? JSON.parse(raw) : {};
+        absentSet = new Set((map[`${projectId}_${todayStr}`] || []).map(String));
+      } catch {
+        // ignore
+      }
+
+      const isTodayShiftRecorded = todayLogs.length > 0 || absentSet.size > 0;
 
       const reminderTime = settings.dailyAttendanceReminderTime || '19:00';
       const isPastReminderTime = currentHHMM >= reminderTime;
 
-      if (unloggedCount > 0 && (isPastReminderTime || settings.dailyAttendanceAlwaysRemind)) {
-        const isAllUnlogged = unloggedCount === workers.length;
-        const dedupKey = `missing_attendance_${projectId}_${todayStr}_${unloggedCount}`;
+      if (!isTodayShiftRecorded && (isPastReminderTime || settings.dailyAttendanceAlwaysRemind)) {
+        const dedupKey = `missing_attendance_${projectId}_${todayStr}_all`;
 
         alerts.push({
           id: dedupKey,
@@ -456,24 +471,16 @@ export function NotificationProvider({ children }) {
           severity: isPastReminderTime ? 'critical' : 'warning',
           title:
             language === 'fa'
-              ? isAllUnlogged
-                ? 'کارکرد امروز هنوز ثبت نشده است'
-                : `کارکرد ${formatNumber(unloggedCount)} نفر برای امروز ثبت نشده`
+              ? 'کارکرد امروز هنوز ثبت نشده است'
               : language === 'ku'
-              ? isAllUnlogged
-                ? 'کارکردی ئەمڕۆ تۆمار نەکراوە'
-                : `کارکردی ${formatNumber(unloggedCount)} کەس بۆ ئەمڕۆ ماوە`
-              : isAllUnlogged
-              ? "Today's attendance is not logged yet"
-              : `${unloggedCount} workers unlogged for today`,
+              ? 'کارکردی ئەمڕۆ تۆمار نەکراوە'
+              : "Today's attendance is not logged yet",
           message:
             language === 'fa'
-              ? isAllUnlogged
-                ? `از مجموع ${formatNumber(workers.length)} نیروی فعال پروژه، هنوز هیچ کارکردی برای امروز (${todayStr}) ثبت نکرده‌اید.`
-                : `وضعیت حضور و غیاب ${formatNumber(unloggedCount)} نفر از ${formatNumber(workers.length)} نیروی فعال امروز مشخص نشده است.`
+              ? `از مجموع ${formatNumber(workers.length)} نیروی فعال پروژه، هنوز هیچ کارکردی برای امروز (${todayStr}) ثبت نکرده‌اید.`
               : language === 'ku'
-              ? `لە کۆی ${formatNumber(workers.length)} کرێکاری چالاک، کارکردی ${formatNumber(unloggedCount)} کەس بۆ ئەمڕۆ تۆمار نەکراوە.`
-              : `${unloggedCount} of ${workers.length} active workers have no attendance record for today.`,
+              ? `لە کۆی ${formatNumber(workers.length)} کرێکاری چالاک، هێشتا کارکردی ئەمڕۆ تۆمار نەکراوە.`
+              : `No attendance records have been logged for today (${todayStr}) yet.`,
           createdAt: now.toISOString(),
           actionLabel:
             language === 'fa'
