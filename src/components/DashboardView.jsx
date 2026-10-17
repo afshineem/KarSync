@@ -63,6 +63,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const [selectedSectionId, setSelectedSectionId] = useState('all');
   const [editingLog, setEditingLog] = useState(null);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [selectedTaskForDetails, setSelectedTaskForDetails] = useState(null);
 
   // Shortcut: Shift + T to toggle Tasks modal
@@ -942,7 +943,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           </div>
 
           <button
-            onClick={() => setIsTasksModalOpen(true)}
+            onClick={() => setIsNewTaskModalOpen(true)}
             className="w-full mt-4 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -1027,6 +1028,15 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
           onUpdateTask={updateTask}
           onDeleteTask={deleteTask}
           onSelectTaskForDetails={(task) => setSelectedTaskForDetails(task)}
+        />
+      )}
+
+      {isNewTaskModalOpen && (
+        <TaskFormModal
+          isOpen={isNewTaskModalOpen}
+          onClose={() => setIsNewTaskModalOpen(false)}
+          onSubmit={(formData) => addTask(formData)}
+          targetProjectId={targetProjectId}
         />
       )}
 

@@ -597,12 +597,12 @@ function TaskColumn({
   return (
     <div className={`rounded-3xl border ${style.border} bg-white/70 dark:bg-slate-900/75 backdrop-blur-md overflow-hidden flex flex-col shadow-sm`}>
       {/* Column Header */}
-      <div className={`px-4.5 py-3.5 flex items-center justify-between border-b ${style.border} ${style.headerBg}`}>
-        <div className="flex items-center gap-2.5">
-          <span className={`w-2.5 h-2.5 rounded-full ${style.dotColor}`}></span>
+      <div className={`px-5 py-3.5 flex items-center justify-between border-b ${style.border} ${style.headerBg}`}>
+        <div className="flex items-center gap-2.5 ms-0.5">
+          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${style.dotColor}`}></span>
           <h3 className="text-sm font-black text-slate-900 dark:text-white">{title}</h3>
         </div>
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${style.badgeBg}`}>
+        <span className={`px-2.5 py-0.5 me-0.5 rounded-full text-xs font-black ${style.badgeBg}`}>
           {count}
         </span>
       </div>
