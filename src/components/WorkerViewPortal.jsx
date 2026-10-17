@@ -906,8 +906,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               </div>
             </div>
 
-            {/* Center Dock: [APP_THEME_BUTTON] Segmented Period Tabs */}
-            <div className="flex items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+            {/* Desktop Center Dock: [APP_THEME_BUTTON] Segmented Period Tabs (Hidden on Mobile) */}
+            <div className="hidden md:flex items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-auto">
               <nav className="flex items-center gap-1.5 bg-white/40 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-200 p-1.5 sm:p-2 rounded-2xl border border-white/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.9),0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.1),0_2px_12px_0_rgba(0,0,0,0.3)]">
                 {periodNavItems.map((item) => {
                   const Icon = item.icon;
@@ -1121,9 +1121,45 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       </header>
 
       {/* ===================================================================== */}
+      {/* 1B. FLOATING BOTTOM NAVIGATION BAR FOR MOBILE (Apple Liquid Glass)    */}
+      {/* ===================================================================== */}
+      <nav className="md:hidden fixed bottom-3 inset-x-3 max-w-md mx-auto z-40 no-print">
+        <div className="bg-white/75 dark:bg-slate-950/75 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/60 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.15)] p-1.5 flex items-center justify-between gap-1.5">
+          {periodNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = periodTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setPeriodTab(item.id)}
+                aria-label={item.label}
+                title={item.label}
+                className={`relative flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-2xl transition-all duration-300 ease-in-out active:scale-95 cursor-pointer ${
+                  isActive
+                    ? 'flex-[2] bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/35 border border-sky-400/30 font-bold'
+                    : 'flex-1 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/10'
+                }`}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {isActive && (
+                  <span className="text-xs font-bold truncate animate-in fade-in zoom-in-95 duration-200">
+                    {item.label}
+                  </span>
+                )}
+                {isActive && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full shadow-xs" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* ===================================================================== */}
       {/* 2. MAIN CONTENT CONTAINER (Matches DashboardView Layout)              */}
       {/* ===================================================================== */}
-      <main className="space-y-6 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <main className="space-y-6 pb-28 md:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {/* Top Liquid Glass Welcome & Mode Capsule */}
         <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/30 transition-all duration-300">
           <div className="absolute -top-24 -right-24 w-60 h-60 bg-sky-500/10 dark:bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
