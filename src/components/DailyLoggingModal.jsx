@@ -727,9 +727,6 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
               <div>
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                   <span>{t('logDailyAttendance')}</span>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/70 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
-                    {unloggedWorkers.length} {t('readyToLog') || 'آماده ثبت'}
-                  </span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {t('workerSelectionNotice')} ({selectedCount} از {unloggedWorkers.length} انتخاب شده)
