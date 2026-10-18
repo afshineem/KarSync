@@ -16,6 +16,112 @@ import {
   Layers
 } from 'lucide-react';
 
+// Scoped dictionary for ExpenseCategoriesTab
+const COPY = {
+  fa: {
+    headerTitle: 'سرفصل‌های هزینه‌ها و مخارج',
+    headerSubtitle: 'مدیریت درختواره ۳ لایه: گروه اصلی ⬅️ زیرگروه ⬅️ هزینه خرد برای دسته‌بندی فاکتورها',
+    btnCreateL1: 'ایجاد گروه اصلی جدید',
+    metricL1: 'گروه‌های اصلی:',
+    metricL2: 'زیرگروه‌ها:',
+    metricL3: 'هزینه‌های خرد:',
+    btnExpandAll: 'باز کردن همه',
+    btnCollapseAll: 'بستن همه',
+    searchPh: 'جستجو در نام سرفصل‌ها و مخارج...',
+    lblNewL1: 'گروه اصلی جدید (سطح ۱):',
+    phNewL1: 'مثال: خرید مصالح، حمل و نقل، اداری...',
+    btnSaveGroup: 'ثبت گروه',
+    emptySearch: 'سرفصلی با این عبارت یافت نشد.',
+    emptyNoCategories: 'هنوز هیچ سرفصل هزینه‌ای تعریف نشده است.',
+    btnAddFirstCat: 'افزودن اولین سرفصل',
+    countSubgroups: (cnt) => `${cnt} زیرگروه`,
+    btnAddL2: 'افزودن زیرگروه به این گروه',
+    lblNewL2Btn: 'زیرگروه جدید',
+    tipEditName: 'ویرایش نام',
+    tipDeleteGroup: 'حذف گروه',
+    phNewL2: 'نام زیرگروه جدید (سطح ۲)...',
+    btnSave: 'ثبت',
+    emptyNoL2: 'هیچ زیرگروهی در این شاخه ثبت نشده است.',
+    btnAddL2Link: 'افزودن زیرگروه',
+    countExpenses: (cnt) => `${cnt} هزینه`,
+    btnAddL3: 'افزودن هزینه خرد',
+    lblNewL3Btn: 'هزینه خرد',
+    tipDeleteL2: 'حذف زیرگروه',
+    phNewL3: 'نام هزینه خرد (سطح ۳)...',
+    emptyNoL3: 'هیچ هزینه خردی در این زیرگروه نیست.',
+    btnAddL3Link: 'افزودن هزینه خرد',
+    tipDeleteL3: 'حذف'
+  },
+  ku: {
+    headerTitle: 'سەردێڕی خەرجییەکان',
+    headerSubtitle: 'بەڕێوەبردنی داری سێ لایەنی خەرجییەکان: گرووپی سەرەکی ⬅️ ژێرگرووپ ⬅️ وردە خەرجی',
+    btnCreateL1: 'زیادکردنی گرووپی سەرەکی',
+    metricL1: 'گرووپی سەرەکی:',
+    metricL2: 'ژێرگرووپەکان:',
+    metricL3: 'وردە خەرجییەکان:',
+    btnExpandAll: 'کردنەوەی هەموو',
+    btnCollapseAll: 'داخستنی هەموو',
+    searchPh: 'گەڕان لە نێو سەردێڕ و خەرجییەکان...',
+    lblNewL1: 'گرووپی سەرەکی نوێ (ئاستی ١):',
+    phNewL1: 'نموونە: کەرەستە، گواستنەوە، کارگێڕی...',
+    btnSaveGroup: 'تۆمارکردن',
+    emptySearch: 'هیچ بابەتێک نەدۆزرایەوە.',
+    emptyNoCategories: 'هیچ سەردێڕێکی خەرجی تۆمار نەکراوە.',
+    btnAddFirstCat: 'زیادکردنی یەکەم سەردێڕ',
+    countSubgroups: (cnt) => `${cnt} ژێرگرووپ`,
+    btnAddL2: 'زیادکردنی ژێرگرووپ',
+    lblNewL2Btn: 'ژێرگرووپی نوێ',
+    tipEditName: 'دەستکاری',
+    tipDeleteGroup: 'سڕینەوەی گرووپ',
+    phNewL2: 'ناوی ژێرگرووپ (ئاستی ٢)...',
+    btnSave: 'تۆمار',
+    emptyNoL2: 'هیچ ژێرگرووپێک نییە.',
+    btnAddL2Link: 'زیادکردنی ژێرگرووپ',
+    countExpenses: (cnt) => `${cnt} خەرجی`,
+    btnAddL3: 'زیادکردنی وردە خەرجی',
+    lblNewL3Btn: 'وردە خەرجی',
+    tipDeleteL2: 'سڕینەوەی ژێرگرووپ',
+    phNewL3: 'ناوی وردە خەرجی (ئاستی ٣)...',
+    emptyNoL3: 'هیچ وردە خەرجییەک نییە.',
+    btnAddL3Link: 'زیادکردنی خەرجی',
+    tipDeleteL3: 'سڕینەوە'
+  },
+  en: {
+    headerTitle: 'Expense & Cost Categories',
+    headerSubtitle: 'Manage 3-tier hierarchy: Main Group ⬅️ Subgroup ⬅️ Petty Expense for invoice classification',
+    btnCreateL1: 'Create New Main Group',
+    metricL1: 'Main Groups:',
+    metricL2: 'Subgroups:',
+    metricL3: 'Petty Expenses:',
+    btnExpandAll: 'Expand All',
+    btnCollapseAll: 'Collapse All',
+    searchPh: 'Search categories & expenses...',
+    lblNewL1: 'New Main Group (Level 1):',
+    phNewL1: 'e.g. Materials purchase, Transportation, Admin...',
+    btnSaveGroup: 'Save Group',
+    emptySearch: 'No categories found matching this search.',
+    emptyNoCategories: 'No expense categories defined yet.',
+    btnAddFirstCat: 'Add First Category',
+    countSubgroups: (cnt) => `${cnt} Subgroups`,
+    btnAddL2: 'Add subgroup to this group',
+    lblNewL2Btn: 'New Subgroup',
+    tipEditName: 'Edit Name',
+    tipDeleteGroup: 'Delete Group',
+    phNewL2: 'New subgroup name (Level 2)...',
+    btnSave: 'Save',
+    emptyNoL2: 'No subgroups recorded in this branch.',
+    btnAddL2Link: 'Add Subgroup',
+    countExpenses: (cnt) => `${cnt} Expenses`,
+    btnAddL3: 'Add petty expense',
+    lblNewL3Btn: 'Petty Expense',
+    tipDeleteL2: 'Delete Subgroup',
+    phNewL3: 'New petty expense name (Level 3)...',
+    emptyNoL3: 'No petty expenses in this subgroup.',
+    btnAddL3Link: 'Add Expense',
+    tipDeleteL3: 'Delete'
+  }
+};
+
 export default function ExpenseCategoriesTab({
   categories = [],
   targetProjectId,
@@ -26,6 +132,7 @@ export default function ExpenseCategoriesTab({
   onUpdateCategory,
   onDeleteCategory
 }) {
+  const txt = COPY[language] || COPY.fa;
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -197,12 +304,10 @@ export default function ExpenseCategoriesTab({
         <div>
           <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Receipt className="w-5 h-5 text-sky-500" />
-            <span>{language === 'fa' ? 'سرفصل‌های هزینه‌ها و مخارج' : 'سەردێڕی خەرجییەکان'}</span>
+            <span>{txt.headerTitle}</span>
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {language === 'fa'
-              ? 'مدیریت درختواره ۳ لایه: گروه اصلی ⬅️ زیرگروه ⬅️ هزینه خرد برای دسته‌بندی فاکتورها'
-              : 'بەڕێوەبردنی داری سێ لایەنی خەرجییەکان'}
+            {txt.headerSubtitle}
           </p>
         </div>
 
@@ -212,7 +317,7 @@ export default function ExpenseCategoriesTab({
             type="button"
             onClick={() => setIsAddingL1(true)}
             className="w-10 h-10 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white shadow-md shadow-sky-500/25 flex items-center justify-center transition-all duration-300 active:scale-95 flex-shrink-0"
-            title={language === 'fa' ? 'ایجاد گروه اصلی جدید' : 'زیادکردنی گرووپی سەرەکی'}
+            title={txt.btnCreateL1}
           >
             <Plus className="w-5 h-5 stroke-[2.5]" />
           </button>
@@ -224,17 +329,17 @@ export default function ExpenseCategoriesTab({
         <div className="flex items-center gap-2 flex-wrap text-xs font-medium text-slate-600 dark:text-slate-300">
           <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5">
             <Folder className="w-3.5 h-3.5 text-sky-500" />
-            <span className="text-slate-600 dark:text-slate-300">{language === 'fa' ? 'گروه‌های اصلی:' : 'گرووپی سەرەکی:'}</span>
+            <span className="text-slate-600 dark:text-slate-300">{txt.metricL1}</span>
             <b className="font-mono text-slate-900 dark:text-white font-bold">{totalL1}</b>
           </span>
           <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-blue-500" />
-            <span className="text-slate-600 dark:text-slate-300">{language === 'fa' ? 'زیرگروه‌ها:' : 'ژێرگرووپەکان:'}</span>
+            <span className="text-slate-600 dark:text-slate-300">{txt.metricL2}</span>
             <b className="font-mono text-slate-900 dark:text-white font-bold">{totalL2}</b>
           </span>
           <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5">
             <Tag className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-slate-600 dark:text-slate-300">{language === 'fa' ? 'هزینه‌های خرد:' : 'وردە خەرجییەکان:'}</span>
+            <span className="text-slate-600 dark:text-slate-300">{txt.metricL3}</span>
             <b className="font-mono text-slate-900 dark:text-white font-bold">{totalL3}</b>
           </span>
         </div>
@@ -245,7 +350,7 @@ export default function ExpenseCategoriesTab({
             onClick={expandAll}
             className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-700/60 transition-colors"
           >
-            {language === 'fa' ? 'باز کردن همه' : 'کردنەوەی هەموو'}
+            {txt.btnExpandAll}
           </button>
           <span className="text-slate-300 dark:text-slate-700">|</span>
           <button
@@ -253,7 +358,7 @@ export default function ExpenseCategoriesTab({
             onClick={collapseAll}
             className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-700/60 transition-colors"
           >
-            {language === 'fa' ? 'بستن همه' : 'داخستنی هەموو'}
+            {txt.btnCollapseAll}
           </button>
         </div>
       </div>
@@ -265,7 +370,7 @@ export default function ExpenseCategoriesTab({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={language === 'fa' ? 'جستجو در نام سرفصل‌ها و مخارج...' : 'گەڕان لە نێو سەردێڕ و خەرجییەکان...'}
+          placeholder={txt.searchPh}
           className={`w-full py-2.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all ${
             isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'
           }`}
@@ -289,14 +394,14 @@ export default function ExpenseCategoriesTab({
         >
           <div className="flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 flex-shrink-0">
             <FolderPlus className="w-4 h-4" />
-            <span>{language === 'fa' ? 'گروه اصلی جدید (سطح ۱):' : 'گرووپی سەرەکی نوێ:'}</span>
+            <span>{txt.lblNewL1}</span>
           </div>
           <input
             type="text"
             autoFocus
             value={newL1Name}
             onChange={(e) => setNewL1Name(e.target.value)}
-            placeholder={language === 'fa' ? 'مثال: خرید مصالح، حمل و نقل، اداری...' : 'نموونە: کەرەستە، کارگێڕی...'}
+            placeholder={txt.phNewL1}
             className="flex-1 w-full px-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-sky-500"
           />
           <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
@@ -306,7 +411,7 @@ export default function ExpenseCategoriesTab({
               className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white flex items-center gap-1 shadow-xs transition-all"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>{language === 'fa' ? 'ثبت گروه' : 'تۆمارکردن'}</span>
+              <span>{txt.btnSaveGroup}</span>
             </button>
             <button
               type="button"
@@ -328,13 +433,7 @@ export default function ExpenseCategoriesTab({
           <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/20">
             <Receipt className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
             <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
-              {searchQuery
-                ? language === 'fa'
-                  ? 'سرفصلی با این عبارت یافت نشد.'
-                  : 'هیچ بابەتێک نەدۆزرایەوە.'
-                : language === 'fa'
-                ? 'هنوز هیچ سرفصل هزینه‌ای تعریف نشده است.'
-                : 'هیچ سەردێڕێکی خەرجی تۆمار نەکراوە.'}
+              {searchQuery ? txt.emptySearch : txt.emptyNoCategories}
             </p>
             {!searchQuery && (
               <button
@@ -343,7 +442,7 @@ export default function ExpenseCategoriesTab({
                 className="mt-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{language === 'fa' ? 'افزودن اولین سرفصل' : 'زیادکردنی یەکەم سەردێڕ'}</span>
+                <span>{txt.btnAddFirstCat}</span>
               </button>
             )}
           </div>
@@ -423,7 +522,7 @@ export default function ExpenseCategoriesTab({
                           {l1.name}
                         </span>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
-                          {l2List.length} {language === 'fa' ? 'زیرگروه' : 'ژێرگرووپ'}
+                          {txt.countSubgroups(l2List.length)}
                         </span>
                       </div>
                     )}
@@ -443,10 +542,10 @@ export default function ExpenseCategoriesTab({
                         setNewL2Name('');
                       }}
                       className="px-2 py-1 rounded-lg text-[11px] font-bold bg-sky-500/10 dark:bg-sky-500/20 hover:bg-sky-500/20 dark:hover:bg-sky-500/30 text-sky-600 dark:text-sky-400 flex items-center gap-1 transition-colors"
-                      title={language === 'fa' ? 'افزودن زیرگروه به این گروه' : 'زیادکردنی ژێرگرووپ'}
+                      title={txt.btnAddL2}
                     >
                       <Plus className="w-3 h-3 stroke-[2.5]" />
-                      <span className="hidden sm:inline">{language === 'fa' ? 'زیرگروه جدید' : 'ژێرگرووپی نوێ'}</span>
+                      <span className="hidden sm:inline">{txt.lblNewL2Btn}</span>
                     </button>
 
                     {/* Edit Button */}
@@ -454,7 +553,7 @@ export default function ExpenseCategoriesTab({
                       type="button"
                       onClick={() => startEdit(l1)}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
-                      title={language === 'fa' ? 'ویرایش نام' : 'دەستکاری'}
+                      title={txt.tipEditName}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -464,7 +563,7 @@ export default function ExpenseCategoriesTab({
                       type="button"
                       onClick={() => onDeleteCategory(l1.id)}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                      title={language === 'fa' ? 'حذف گروه' : 'سڕینەوە'}
+                      title={txt.tipDeleteGroup}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -488,7 +587,7 @@ export default function ExpenseCategoriesTab({
                           autoFocus
                           value={newL2Name}
                           onChange={(e) => setNewL2Name(e.target.value)}
-                          placeholder={language === 'fa' ? 'نام زیرگروه جدید (سطح ۲)...' : 'ناوی ژێرگرووپ...'}
+                          placeholder={txt.phNewL2}
                           className="flex-1 px-2.5 py-1 text-xs rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-sky-500"
                         />
                         <button
@@ -497,7 +596,7 @@ export default function ExpenseCategoriesTab({
                           className="px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-500 disabled:opacity-50 flex items-center gap-1"
                         >
                           <Check className="w-3 h-3" />
-                          <span>{language === 'fa' ? 'ثبت' : 'تۆمار'}</span>
+                          <span>{txt.btnSave}</span>
                         </button>
                         <button
                           type="button"
@@ -516,13 +615,13 @@ export default function ExpenseCategoriesTab({
                       <div className={`py-3 px-4 text-xs text-slate-400 dark:text-slate-500 text-center rounded-xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 ${
                         isRtl ? 'mr-4' : 'ml-4'
                       }`}>
-                        <span>{language === 'fa' ? 'هیچ زیرگروهی در این شاخه ثبت نشده است.' : 'هیچ ژێرگرووپێک نییە.'}</span>
+                        <span>{txt.emptyNoL2}</span>
                         <button
                           type="button"
                           onClick={() => setAddingUnderL1Id(l1.id)}
                           className="font-bold text-sky-600 dark:text-sky-400 hover:underline mx-1.5"
                         >
-                          {language === 'fa' ? 'افزودن زیرگروه' : 'زیادکردنی ژێرگرووپ'}
+                          {txt.btnAddL2Link}
                         </button>
                       </div>
                     ) : (
@@ -603,7 +702,7 @@ export default function ExpenseCategoriesTab({
                                       {l2.name}
                                     </span>
                                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold">
-                                      {l3List.length} {language === 'fa' ? 'هزینه' : 'خەرجی'}
+                                      {txt.countExpenses(l3List.length)}
                                     </span>
                                   </div>
                                 )}
@@ -623,17 +722,17 @@ export default function ExpenseCategoriesTab({
                                     setNewL3Name('');
                                   }}
                                   className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 dark:bg-blue-500/20 hover:bg-blue-500/20 dark:hover:bg-blue-500/30 text-blue-600 dark:text-blue-400 flex items-center gap-1 transition-colors"
-                                  title={language === 'fa' ? 'افزودن هزینه خرد' : 'زیادکردنی وردە خەرجی'}
+                                  title={txt.btnAddL3}
                                 >
                                   <Plus className="w-3 h-3 stroke-[2.5]" />
-                                  <span className="hidden sm:inline">{language === 'fa' ? 'هزینه خرد' : 'وردە خەرجی'}</span>
+                                  <span className="hidden sm:inline">{txt.lblNewL3Btn}</span>
                                 </button>
 
                                 <button
                                   type="button"
                                   onClick={() => startEdit(l2)}
                                   className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                  title={language === 'fa' ? 'ویرایش نام' : 'دەستکاری'}
+                                  title={txt.tipEditName}
                                 >
                                   <Pencil className="w-3 h-3" />
                                 </button>
@@ -642,7 +741,7 @@ export default function ExpenseCategoriesTab({
                                   type="button"
                                   onClick={() => onDeleteCategory(l2.id)}
                                   className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                                  title={language === 'fa' ? 'حذف زیرگروه' : 'سڕینەوە'}
+                                  title={txt.tipDeleteL2}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -666,7 +765,7 @@ export default function ExpenseCategoriesTab({
                                       autoFocus
                                       value={newL3Name}
                                       onChange={(e) => setNewL3Name(e.target.value)}
-                                      placeholder={language === 'fa' ? 'نام هزینه خرد (سطح ۳)...' : 'ناوی وردە خەرجی...'}
+                                      placeholder={txt.phNewL3}
                                       className="flex-1 px-2 py-1 text-xs rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
                                     />
                                     <button
@@ -675,7 +774,7 @@ export default function ExpenseCategoriesTab({
                                       className="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
                                     >
                                       <Check className="w-3 h-3" />
-                                      <span>{language === 'fa' ? 'ثبت' : 'تۆمار'}</span>
+                                      <span>{txt.btnSave}</span>
                                     </button>
                                     <button
                                       type="button"
@@ -694,13 +793,13 @@ export default function ExpenseCategoriesTab({
                                   <div className={`py-2 px-3 text-[11px] text-slate-400 dark:text-slate-400 text-center rounded-lg bg-white/40 dark:bg-slate-850/60 border border-dashed border-slate-200 dark:border-slate-700 ${
                                     isRtl ? 'mr-4' : 'ml-4'
                                   }`}>
-                                    <span>{language === 'fa' ? 'هیچ هزینه خردی در این زیرگروه نیست.' : 'هیچ وردە خەرجییەک نییە.'}</span>
+                                    <span>{txt.emptyNoL3}</span>
                                     <button
                                       type="button"
                                       onClick={() => setAddingUnderL2Id(l2.id)}
                                       className="font-bold text-sky-600 dark:text-sky-400 hover:underline mx-1"
                                     >
-                                      {language === 'fa' ? 'افزودن هزینه خرد' : 'زیادکردنی خەرجی'}
+                                      {txt.btnAddL3Link}
                                     </button>
                                   </div>
                                 ) : (
@@ -754,7 +853,7 @@ export default function ExpenseCategoriesTab({
                                                   type="button"
                                                   onClick={() => startEdit(l3)}
                                                   className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                                  title={language === 'fa' ? 'ویرایش نام' : 'دەستکاری'}
+                                                  title={txt.tipEditName}
                                                 >
                                                   <Pencil className="w-3 h-3" />
                                                 </button>
@@ -762,7 +861,7 @@ export default function ExpenseCategoriesTab({
                                                   type="button"
                                                   onClick={() => onDeleteCategory(l3.id)}
                                                   className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                                                  title={language === 'fa' ? 'حذف' : 'سڕینەوە'}
+                                                  title={txt.tipDeleteL3}
                                                 >
                                                   <Trash2 className="w-3 h-3" />
                                                 </button>

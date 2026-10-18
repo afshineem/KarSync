@@ -41,12 +41,122 @@ import {
  * ۳. ورودی‌ها و تنخواه (مدیریت شارژ تنخواه، تزریق نقدینگی)
  * ۴. مدیریت حساب‌ها و کارت‌ها (تعریف، ویرایش، حساب پیش‌فرض و سقف اعتبار)
  */
+// Scoped dictionary for AccountingView
+const COPY = {
+  fa: {
+    tabOverview: 'تراز و حساب‌ها',
+    tabLedger: 'دفتر کل',
+    tabIncome: 'ورودی‌ها و تنخواه',
+    tabAccounts: 'کارت‌ها و صندوق‌ها',
+    mainTitle: 'حسابداری و خزانه‌داری',
+    projectFallback: 'پروژه کارگاه',
+    mainSubtitle: 'مدیریت یکپارچه تنخواه، تراز لحظه‌ای صندوق، کنترل هزینه‌ها و دفتر کل تراکنش‌ها',
+    prevMonth: 'ماه قبل',
+    nextMonth: 'ماه بعد',
+    selectMonth: 'انتخاب ماه',
+    customDateActive: (s, e) => `بازه سفارشی فعال: از ${s || '...'} تا ${e || '...'}`,
+    dateRangeTitle: 'بازه زمانی جهت مشاهده‌ی اسناد',
+    reportsNotice: 'بخش گزارش و آمار حرفه‌ای برای ارائه به مدیران به زودی فعال خواهد شد.',
+    reportsTitle: 'گزارش و آمار (آمارگیری دقیق و حرفه‌ای برای ارائه به مدیران)',
+    reportsAria: 'گزارش و آمار',
+    subsidiaryTitle: 'معین افراد/حساب‌ها (Shift+M)',
+    subsidiaryAria: 'معین افراد و حساب‌ها',
+    transferTitle: 'انتقال حساب به حساب',
+    transferAria: 'انتقال حساب به حساب',
+    chargeTitle: 'شارژ موجودی (واریز نقدی یا بانکی به صندوق/حساب)',
+    chargeAria: 'شارژ موجودی',
+    chargeBtn: 'شارژ موجودی (تنخواه / واریز)',
+    headerAccountsTitle: 'مدیریت و تراز کارت‌ها و صندوق‌ها',
+    headerLedgerTitle: 'دفتر کل اسناد و تراکنش‌های کارگاه',
+    headerIncomeTitle: 'ورودی‌های نقدینگی و درآمدهای پروژه',
+    headerAccountsDesc: 'کنترل سرفصل‌ها، تراز صندوق و کارت‌های بانکی فعال',
+    headerLedgerDesc: 'ثبت و تایید اسناد دو مرحله‌ای، مغایرت‌گیری و گردش حساب',
+    headerIncomeDesc: 'تزریق نقدینگی، شارژ تنخواه و واریزی‌های کارفرما',
+    bannerDraftTitle: (cnt) => `تعداد ${cnt} سند مالی موقت (پیش‌نویس) در انتظار تایید نهایی هستند.`,
+    bannerDraftDesc: 'تسویه‌حساب‌ها و هزینه‌های ثبت شده تا زمان تایید نهایی مدیر، وضعیت پیش‌نویس دارند.',
+    btnReviewApprove: 'مشاهده و تایید اسناد',
+    manageAccountsModalTitle: 'مدیریت کارت‌های بانکی و صندوق‌ها',
+    manageAccountsModalDesc: 'تعریف حساب‌ها و تعیین حساب پیش‌فرض برای واریز و پرداخت‌ها'
+  },
+  ku: {
+    tabOverview: 'هاوسەنگی و باڵانس',
+    tabLedger: 'دەفتەری گشتی',
+    tabIncome: 'داهات و تەنخوا',
+    tabAccounts: 'کارت و سندووق',
+    mainTitle: 'ژمێریاری و خەزێنەداری',
+    projectFallback: 'پڕۆژە',
+    mainSubtitle: 'بەڕێوەبردنی تەنخوا، هاوسەنگی سندووق و دەفتەری گشتی مامەڵەکان',
+    prevMonth: 'مانگی پێشوو',
+    nextMonth: 'مانگی داهاتوو',
+    selectMonth: 'هەڵبژاردنی مانگ',
+    customDateActive: (s, e) => `ماوەی دیاریکراو: لە ${s || '...'} تا ${e || '...'}`,
+    dateRangeTitle: 'ماوەی کاتی بینینی بەڵگەنامەکان',
+    reportsNotice: 'بەشی ئامار و ڕاپۆرتەکان بەم زووانە چالاک دەکرێت.',
+    reportsTitle: 'ئامار و ڕاپۆرتەکان بۆ بەڕێوەبەران',
+    reportsAria: 'ئامار و ڕاپۆرتەکان',
+    subsidiaryTitle: 'دەفتەری حیسابی کەسەکان و حیسابەکان (Shift+M)',
+    subsidiaryAria: 'دەفتەری حیسابی کەسەکان',
+    transferTitle: 'گواستنەوە لە نێوان حیسابەکان',
+    transferAria: 'گواستنەوە لە نێوان حیسابەکان',
+    chargeTitle: 'زیادکردنی باڵانس (داهات/تەنخوا)',
+    chargeAria: 'زیادکردنی باڵانس',
+    chargeBtn: 'زیادکردنی باڵانس',
+    headerAccountsTitle: 'بەڕێوەبردنی کارتەکان و سندووق',
+    headerLedgerTitle: 'دەفتەری گشتی مامەڵەکان',
+    headerIncomeTitle: 'داهات و تەنخوا',
+    headerAccountsDesc: 'کۆنترۆڵی سندووق و کارتە بانکییەکان',
+    headerLedgerDesc: 'تۆمارکردن و پەسەندکردنی بەڵگەنامەکان',
+    headerIncomeDesc: 'تەنخوا و داهاتە نوێیەکان',
+    bannerDraftTitle: (cnt) => `${cnt} بەڵگەنامەی ڕەشنووس چاوەڕوانی پەسەندکردنن.`,
+    bannerDraftDesc: 'بەڵگەنامەکان تا پەسەندکردنی کۆتایی ڕەشنووسن.',
+    btnReviewApprove: 'بینین و پەسەندکردن',
+    manageAccountsModalTitle: 'بەڕێوەبردنی کارت و سندووقەکان',
+    manageAccountsModalDesc: 'حیسابەکان و دیاریکردنی بنەڕەتی'
+  },
+  en: {
+    tabOverview: 'Balance & Accounts',
+    tabLedger: 'General Ledger',
+    tabIncome: 'Inflow & Petty Cash',
+    tabAccounts: 'Cards & Drawers',
+    mainTitle: 'Accounting & Treasury',
+    projectFallback: 'Workshop Project',
+    mainSubtitle: 'Unified management of petty cash, live drawer balance, expense control, and ledger',
+    prevMonth: 'Previous Month',
+    nextMonth: 'Next Month',
+    selectMonth: 'Select Month',
+    customDateActive: (s, e) => `Active Custom Range: ${s || '...'} to ${e || '...'}`,
+    dateRangeTitle: 'Document View Date Range',
+    reportsNotice: 'Professional reports and analytics section for managers will be available soon.',
+    reportsTitle: 'Reports & Analytics (Accurate stats for managers)',
+    reportsAria: 'Reports & Analytics',
+    subsidiaryTitle: 'Subsidiary Ledger (Shift+M)',
+    subsidiaryAria: 'Subsidiary Ledger',
+    transferTitle: 'Account to Account Transfer',
+    transferAria: 'Transfer Between Accounts',
+    chargeTitle: 'Recharge Balance (Deposit to Drawer/Account)',
+    chargeAria: 'Recharge Balance',
+    chargeBtn: 'Recharge Balance (Petty Cash / Deposit)',
+    headerAccountsTitle: 'Cards & Drawers Balance & Management',
+    headerLedgerTitle: 'Workshop General Ledger & Transactions',
+    headerIncomeTitle: 'Cash Inflows & Project Revenues',
+    headerAccountsDesc: 'Control ledger accounts, drawer balances, and active bank cards',
+    headerLedgerDesc: 'Two-stage document approval, reconciliation, and turnover',
+    headerIncomeDesc: 'Cash injection, petty cash recharge, and client deposits',
+    bannerDraftTitle: (cnt) => `${cnt} draft documents are pending final approval.`,
+    bannerDraftDesc: 'Recorded settlements and expenses remain in draft status until final manager approval.',
+    btnReviewApprove: 'View & Approve Documents',
+    manageAccountsModalTitle: 'Manage Bank Cards & Drawers',
+    manageAccountsModalDesc: 'Define accounts and set defaults for deposits and payments'
+  }
+};
+
 export function AccountingView({ 
   initialSubTab = 'overview', 
   hideInternalSubNav = false,
   hideHeader = false 
 }) {
   const { t, language, direction } = useLanguage();
+  const txt = COPY[language] || COPY.fa;
   const { currentProject, openWorkerProfile } = useProject();
 
   const [activeViewTab, setActiveViewTab] = useState(initialSubTab); // 'overview' | 'ledger' | 'income' | 'accounts'
@@ -129,26 +239,26 @@ export function AccountingView({
   const viewTabs = [
     {
       id: 'overview',
-      label: language === 'fa' ? 'تراز و حساب‌ها' : 'هاوسەنگی و باڵانس',
+      label: txt.tabOverview,
       icon: LayoutDashboard,
       count: financialAccounts.length
     },
     {
       id: 'ledger',
-      label: language === 'fa' ? 'دفتر کل' : 'دەفتەری گشتی',
+      label: txt.tabLedger,
       icon: BookOpen,
       count: ledgerStats?.total || 0,
       badge: ledgerStats?.draft > 0 ? ledgerStats.draft : null
     },
     {
       id: 'income',
-      label: language === 'fa' ? 'ورودی‌ها و تنخواه' : 'داهات و تەنخوا',
+      label: txt.tabIncome,
       icon: ArrowDownLeft,
       count: treasuryIncomes.length
     },
     {
       id: 'accounts',
-      label: language === 'fa' ? 'کارت‌ها و صندوق‌ها' : 'کارت و سندووق',
+      label: txt.tabAccounts,
       icon: CreditCard,
       count: financialAccounts.length
     }
@@ -166,16 +276,14 @@ export function AccountingView({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  {language === 'fa' ? 'حسابداری و خزانه‌داری' : 'ژمێریاری و خەزێنەداری'}
+                  {txt.mainTitle}
                 </h1>
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
-                  {currentProject?.name || (language === 'fa' ? 'پروژه کارگاه' : 'پڕۆژە')}
+                  {currentProject?.name || txt.projectFallback}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {language === 'fa' 
-                  ? 'مدیریت یکپارچه تنخواه، تراز لحظه‌ای صندوق، کنترل هزینه‌ها و دفتر کل تراکنش‌ها' 
-                  : 'بەڕێوەبردنی تەنخوا، هاوسەنگی سندووق و دەفتەری گشتی مامەڵەکان'}
+                {txt.mainSubtitle}
               </p>
             </div>
           </div>
@@ -188,8 +296,8 @@ export function AccountingView({
                 type="button"
                 onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
                 className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
-                title={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
-                aria-label={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+                title={txt.prevMonth}
+                aria-label={txt.prevMonth}
               >
                 {direction === 'rtl' ? <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
               </button>
@@ -206,7 +314,7 @@ export function AccountingView({
                     setDateFilterMode('month');
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  title={language === 'fa' ? 'انتخاب ماه' : 'هەڵبژاردنی مانگ'}
+                  title={txt.selectMonth}
                 />
               </div>
 
@@ -214,8 +322,8 @@ export function AccountingView({
                 type="button"
                 onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
                 className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
-                title={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
-                aria-label={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
+                title={txt.nextMonth}
+                aria-label={txt.nextMonth}
               >
                 {direction === 'rtl' ? <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
               </button>
@@ -234,10 +342,10 @@ export function AccountingView({
                 }`}
                 title={
                   dateFilterMode === 'custom'
-                    ? (language === 'fa' ? `بازه سفارشی فعال: از ${customStartDate || '...'} تا ${customEndDate || '...'}` : `ماوەی دیاریکراو: ${customStartDate} - ${customEndDate}`)
-                    : (language === 'fa' ? 'بازه زمانی جهت مشاهده‌ی اسناد' : 'ماوەی کاتی بینینی بەڵگەنامەکان')
+                    ? txt.customDateActive(customStartDate, customEndDate)
+                    : txt.dateRangeTitle
                 }
-                aria-label={language === 'fa' ? 'بازه زمانی جهت مشاهده‌ی اسناد' : 'ماوەی کاتی بینینی بەڵگەنامەکان'}
+                aria-label={txt.dateRangeTitle}
               >
                 <CalendarRange className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
                 {dateFilterMode === 'custom' && (
@@ -249,15 +357,11 @@ export function AccountingView({
               <button
                 type="button"
                 onClick={() => {
-                  setPlaceholderNotice(
-                    language === 'fa'
-                      ? 'بخش گزارش و آمار حرفه‌ای برای ارائه به مدیران به زودی فعال خواهد شد.'
-                      : 'بەشی ئامار و ڕاپۆرتەکان بەم زووانە چالاک دەکرێت.'
-                  );
+                  setPlaceholderNotice(txt.reportsNotice);
                 }}
                 className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-                title={language === 'fa' ? 'گزارش و آمار (آمارگیری دقیق و حرفه‌ای برای ارائه به مدیران)' : 'ئامار و ڕاپۆرتەکان بۆ بەڕێوەبەران'}
-                aria-label={language === 'fa' ? 'گزارش و آمار' : 'ئامار و ڕاپۆرتەکان'}
+                title={txt.reportsTitle}
+                aria-label={txt.reportsAria}
               >
                 <BarChart3 className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
               </button>
@@ -269,8 +373,8 @@ export function AccountingView({
                   window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'));
                 }}
                 className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-                title={language === 'fa' ? 'معین افراد/حساب‌ها (Shift+M)' : 'دەفتەری حیسابی کەسەکان و حیسابەکان (Shift+M)'}
-                aria-label={language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان'}
+                title={txt.subsidiaryTitle}
+                aria-label={txt.subsidiaryAria}
               >
                 <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
               </button>
@@ -283,8 +387,8 @@ export function AccountingView({
                   setIsTransferModalOpen(true);
                 }}
                 className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
-                title={language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە لە نێوان حیسابەکان'}
-                aria-label={language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە لە نێوان حیسابەکان'}
+                title={txt.transferTitle}
+                aria-label={txt.transferAria}
               >
                 <ArrowLeftRight className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
               </button>
@@ -297,8 +401,8 @@ export function AccountingView({
                   setIsQuickAddModalOpen(true);
                 }}
                 className="h-full aspect-square rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 group flex items-center justify-center focus:outline-hidden"
-                title={language === 'fa' ? 'شارژ موجودی (واریز نقدی یا بانکی به صندوق/حساب)' : 'زیادکردنی باڵانس (داهات/تەنخوا)'}
-                aria-label={language === 'fa' ? 'شارژ موجودی' : 'زیادکردنی باڵانس'}
+                title={txt.chargeTitle}
+                aria-label={txt.chargeAria}
               >
                 <Plus className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
               </button>
@@ -318,14 +422,14 @@ export function AccountingView({
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                {activeViewTab === 'accounts' && (language === 'fa' ? 'مدیریت و تراز کارت‌ها و صندوق‌ها' : 'بەڕێوەبردنی کارتەکان و سندووق')}
-                {activeViewTab === 'ledger' && (language === 'fa' ? 'دفتر کل اسناد و تراکنش‌های کارگاه' : 'دەفتەری گشتی مامەڵەکان')}
-                {activeViewTab === 'income' && (language === 'fa' ? 'ورودی‌های نقدینگی و درآمدهای پروژه' : 'داهات و تەنخوا')}
+                {activeViewTab === 'accounts' && txt.headerAccountsTitle}
+                {activeViewTab === 'ledger' && txt.headerLedgerTitle}
+                {activeViewTab === 'income' && txt.headerIncomeTitle}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {activeViewTab === 'accounts' && (language === 'fa' ? 'کنترل سرفصل‌ها، تراز صندوق و کارت‌های بانکی فعال' : 'کۆنترۆڵی سندووق و کارتە بانکییەکان')}
-                {activeViewTab === 'ledger' && (language === 'fa' ? 'ثبت و تایید اسناد دو مرحله‌ای، مغایرت‌گیری و گردش حساب' : 'تۆمارکردن و پەسەندکردنی بەڵگەنامەکان')}
-                {activeViewTab === 'income' && (language === 'fa' ? 'تزریق نقدینگی، شارژ تنخواه و واریزی‌های کارفرما' : 'تەنخوا و داهاتە نوێیەکان')}
+                {activeViewTab === 'accounts' && txt.headerAccountsDesc}
+                {activeViewTab === 'ledger' && txt.headerLedgerDesc}
+                {activeViewTab === 'income' && txt.headerIncomeDesc}
               </p>
             </div>
           </div>
@@ -338,8 +442,8 @@ export function AccountingView({
                 type="button"
                 onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
                 className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
-                title={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
-                aria-label={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+                title={txt.prevMonth}
+                aria-label={txt.prevMonth}
               >
                 {direction === 'rtl' ? <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
               </button>
@@ -356,7 +460,7 @@ export function AccountingView({
                     setDateFilterMode('month');
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  title={language === 'fa' ? 'انتخاب ماه' : 'هەڵبژاردنی مانگ'}
+                  title={txt.selectMonth}
                 />
               </div>
 
@@ -364,8 +468,8 @@ export function AccountingView({
                 type="button"
                 onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
                 className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
-                title={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
-                aria-label={language === 'fa' ? 'ماه بعد' : 'مانگی داهاتوو'}
+                title={txt.nextMonth}
+                aria-label={txt.nextMonth}
               >
                 {direction === 'rtl' ? <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" /> : <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />}
               </button>
@@ -379,12 +483,12 @@ export function AccountingView({
                   type="button"
                   onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'))}
                   className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center focus:outline-hidden"
-                  aria-label={language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان'}
+                  aria-label={txt.subsidiaryAria}
                 >
                   <Users className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
-                  {language === 'fa' ? 'معین افراد و حساب‌ها (Shift+M)' : 'دەفتەری حیسابی کەسەکان'}
+                  {txt.subsidiaryTitle}
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
                 </div>
               </div>
@@ -398,12 +502,12 @@ export function AccountingView({
                     setIsTransferModalOpen(true);
                   }}
                   className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center focus:outline-hidden"
-                  aria-label={language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە'}
+                  aria-label={txt.transferAria}
                 >
                   <ArrowLeftRight className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
-                  {language === 'fa' ? 'انتقال حساب به حساب' : 'گواستنەوە'}
+                  {txt.transferTitle}
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
                 </div>
               </div>
@@ -417,12 +521,12 @@ export function AccountingView({
                     setIsQuickAddModalOpen(true);
                   }}
                   className="h-full aspect-square rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 transition-all flex items-center justify-center focus:outline-hidden"
-                  aria-label={language === 'fa' ? 'شارژ موجودی' : 'زیادکردنی باڵانس'}
+                  aria-label={txt.chargeAria}
                 >
                   <Plus className="w-5.5 h-5.5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
-                  {language === 'fa' ? 'شارژ موجودی (تنخواه / واریز)' : 'زیادکردنی باڵانس'}
+                  {txt.chargeBtn}
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
                 </div>
               </div>
@@ -534,14 +638,10 @@ export function AccountingView({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-amber-950 dark:text-amber-200">
-                    {language === 'fa' 
-                      ? `تعداد ${ledgerStats.draft} سند مالی موقت (پیش‌نویس) در انتظار تایید نهایی هستند.` 
-                      : `${ledgerStats.draft} بەڵگەنامەی ڕەشنووس چاوەڕوانی پەسەندکردنن.`}
+                    {txt.bannerDraftTitle(ledgerStats.draft)}
                   </h4>
                   <p className="text-xs text-amber-800/80 dark:text-amber-300/80 mt-0.5">
-                    {language === 'fa' 
-                      ? 'تسویه‌حساب‌ها و هزینه‌های ثبت شده تا زمان تایید نهایی مدیر، وضعیت پیش‌نویس دارند.' 
-                      : 'بەڵگەنامەکان تا پەسەندکردنی کۆتایی ڕەشنووسن.'}
+                    {txt.bannerDraftDesc}
                   </p>
                 </div>
               </div>
@@ -553,7 +653,7 @@ export function AccountingView({
                 }}
                 className="px-4 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-1.5 self-start sm:self-center transition-all active:scale-95"
               >
-                <span>{language === 'fa' ? 'مشاهده و تایید اسناد' : 'بینین و پەسەندکردن'}</span>
+                <span>{txt.btnReviewApprove}</span>
                 <ChevronLeft className="w-4 h-4" />
               </button>
             </div>
@@ -716,10 +816,10 @@ export function AccountingView({
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                    {language === 'fa' ? 'مدیریت کارت‌های بانکی و صندوق‌ها' : 'بەڕێوەبردنی کارت و سندووقەکان'}
+                    {txt.manageAccountsModalTitle}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {language === 'fa' ? 'تعریف حساب‌ها و تعیین حساب پیش‌فرض برای واریز و پرداخت‌ها' : 'حیسابەکان و دیاریکردنی بنەڕەتی'}
+                    {txt.manageAccountsModalDesc}
                   </p>
                 </div>
               </div>

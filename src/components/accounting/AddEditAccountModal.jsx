@@ -21,6 +21,145 @@ import {
  * AddEditAccountModal
  * مودال تعریف و ویرایش کارت‌های بانکی و صندوق‌های نقدی کارگاه
  */
+// Scoped dictionary for AddEditAccountModal
+const COPY = {
+  fa: {
+    titleEdit: 'ویرایش حساب مالی',
+    titleAdd: 'تعریف حساب مالی جدید',
+    subtitleBank: 'ثبت مشخصات کارت و حساب بانکی',
+    subtitleCash: 'ثبت صندوق نقدی و تنخواه گردان',
+    errRequiredName: 'لطفاً عنوان حساب را مشخص کنید.',
+    errGeneral: 'خطا در ثبت حساب',
+    labelType: 'نوع حساب مالی',
+    optBank: 'کارت و حساب بانکی',
+    optCash: 'صندوق نقدی و تنخواه کارگاه',
+    labelName: 'عنوان حساب / نام نمایشی',
+    phNameBank: 'مثلاً: کارت بانک ملت تنخواه کارفرما',
+    phNameCash: 'مثلاً: صندوق نقدی اصلی کارگاه',
+    labelBankName: 'نام بانک',
+    phBankName: 'مثلاً: ملت، صادرات، ملی...',
+    labelHolder: 'صاحب کارت / حساب',
+    phHolder: 'مثلاً: مهندس احمدی',
+    labelCardNumber: 'شماره کارت ۱۶ رقمی (اختیاری)',
+    labelAccountNumber: 'شماره حساب / شبا (IBAN) (اختیاری)',
+    labelColor: 'رنگ و تم کارت بانکی',
+    colorSky: '🔵 آبی استاندارد (Sky Blue)',
+    colorIndigo: '🟣 نیلی / سرمه‌ای (Indigo)',
+    colorEmerald: '🟢 زمردی / سبز (Emerald)',
+    colorAmber: '🟡 طلایی / زرد (Amber)',
+    colorRose: '🔴 یاقوتی / قرمز (Rose)',
+    colorPurple: '🔮 بنفش (Purple)',
+    colorSlate: '⚫ دودی / خاکستری تیره (Slate)',
+    labelKeeper: 'نام مسئول / تحویل‌گیرنده صندوق',
+    phKeeper: 'مثلاً: سرپرست کارگاه / مسئول مالی',
+    labelInitialBalance: 'موجودی اولیه حساب',
+    defaultTitle: 'تنظیم به عنوان حساب پیش‌فرض',
+    defaultDesc: 'در تمام فرم‌های پرداخت دستمزد، فاکتورها و واریزی‌ها به صورت خودکار انتخاب می‌شود.',
+    labelOverdraftPolicy: 'سیاست برداشت در صورت کسری موجودی',
+    policyGlobal: '⚙️ پیروی از تنظیمات سراسری کارگاه (پیش‌فرض)',
+    policyAsk: '⚠️ هر بار پرسیده شود (هشدار کسری و تایید کاربر)',
+    policyAllow: '✅ همیشه مجاز (ثبت پرداخت حتی با مانده منفی)',
+    policyNever: '⛔ همیشه نامجاز (قفل و جلوگیری از برداشت بیش از موجودی)',
+    descOverdraftPolicy: 'تعیین می‌کند اگر مبلغ پرداختی بیشتر از موجودی این حساب باشد، چه رفتاری انجام شود.',
+    labelNotes: 'یادداشت یا توضیحات تکمیلی (اختیاری)',
+    phNotes: 'توضیحات تکمیلی در مورد نحوه استفاده از این حساب یا محل قرارگیری...',
+    cancel: 'انصراف',
+    saveChanges: 'ثبت تغییرات',
+    saveAccount: 'ذخیره حساب',
+    popularBanks: ['بانک ملت', 'بانک ملی', 'بانک صادرات', 'بانک تجارت', 'بانک سپه', 'بانک سامان', 'بلوبانک', 'بانک TBI', 'RT Bank']
+  },
+  ku: {
+    titleEdit: 'دەستکاریکردنی حیسابی دارایی',
+    titleAdd: 'پێناسەکردنی حیسابی دارایی نوێ',
+    subtitleBank: 'تۆمارکردنی کارتی بانکی و ژمارەی حیساب',
+    subtitleCash: 'تۆمارکردنی سندوقی کاش و خەرجی کارگە',
+    errRequiredName: 'تکایە ناوی حیساب دیاری بکە.',
+    errGeneral: 'هەڵە لە تۆمارکردنی حیساب',
+    labelType: 'جۆری حیسابی دارایی',
+    optBank: 'کارت و حیسابی بانکی',
+    optCash: 'سندوقی کاش و خەرجی کارگە',
+    labelName: 'ناوی حیساب / ناوی پیشاندان',
+    phNameBank: 'نموونە: کارتی بانکی TBI خاوەنکار',
+    phNameCash: 'نموونە: سندوقی نەختی سەرەکی کارگە',
+    labelBankName: 'ناوی بانک',
+    phBankName: 'نموونە: TBI، RT Bank، Cihan...',
+    labelHolder: 'خاوەنی کارت / حیساب',
+    phHolder: 'نموونە: ئەندازیار ئەحمەدی',
+    labelCardNumber: 'ژمارەی کارتی ١٦ ڕەقەمی (ئارەزوومەندانە)',
+    labelAccountNumber: 'ژمارەی حیساب / IBAN (ئارەزوومەندانە)',
+    labelColor: 'ڕەنگ و تێمی کارتی بانکی',
+    colorSky: '🔵 شینی ئاسمانی (Sky Blue)',
+    colorIndigo: '🟣 نیلی / مۆری تۆخ (Indigo)',
+    colorEmerald: '🟢 سەوزی زومڕوودی (Emerald)',
+    colorAmber: '🟡 زێڕینی / زەرد (Amber)',
+    colorRose: '🔴 سووری یاقووتی (Rose)',
+    colorPurple: '🔮 وەنەوشەیی (Purple)',
+    colorSlate: '⚫ دووکەڵی / تاریک (Slate)',
+    labelKeeper: 'ناوی بەرپرسی سندوق',
+    phKeeper: 'نموونە: سەرپەرشتیاری کارگە / بەرپرسی دارایی',
+    labelInitialBalance: 'باڵانسی سەرەتایی حیساب',
+    defaultTitle: 'دانان وەک حیسابی بنەڕەتی',
+    defaultDesc: 'لە هەموو فۆرمەکانی پێدانی مووچە، فاکتەرەکان و داهاتەکان بە شێوەی خۆکار هەڵدەبژێردرێت.',
+    labelOverdraftPolicy: 'سیاسەتی کشانەوە لە کاتی کەمیی باڵانس',
+    policyGlobal: '⚙️ پەیڕەوکردنی ڕێکخستنی گشتیی کارگە (بنەڕەتی)',
+    policyAsk: '⚠️ هەموو جارێک پرسیار بکرێت (ئاگاداری و پەسەندکردنی بەکارهێنەر)',
+    policyAllow: '✅ هەمیشە ڕێگەپێدراو (تۆمارکردن تەنانەت بە باڵانسی نێگەتیڤ)',
+    policyNever: '⛔ هەمیشە قەدەغە (ڕێگریکردن لە کشانەوەی زیاتر لە باڵانس)',
+    descOverdraftPolicy: 'دیاریدەکات ئەگەر بڕی پارەی دراو لە باڵانسی ئەم حیسابە زیاتر بوو، سیستەم چۆن هەڵسوکەوت بکات.',
+    labelNotes: 'تێبینی یان زانیاری زیاتر (ئارەزوومەندانە)',
+    phNotes: 'زانیاری زیاتر دەربارەی چۆنیەتی بەکارهێنانی ئەم حیسابە...',
+    cancel: 'پاشگەزبوونەوە',
+    saveChanges: 'پاشەکەوتکردنی گۆڕانکارییەکان',
+    saveAccount: 'تۆمارکردنی حیساب',
+    popularBanks: ['TBI Bank', 'RT Bank', 'Cihan Bank', 'FIB', 'بانکی ملت', 'بانکی ملی']
+  },
+  en: {
+    titleEdit: 'Edit Financial Account',
+    titleAdd: 'New Financial Account',
+    subtitleBank: 'Bank card and account details',
+    subtitleCash: 'Cash drawer and petty cash register',
+    errRequiredName: 'Please enter the account name.',
+    errGeneral: 'Error saving account',
+    labelType: 'Account Type',
+    optBank: 'Bank Card & Account',
+    optCash: 'Cash Drawer & Petty Cash',
+    labelName: 'Account Name / Display Title',
+    phNameBank: 'e.g. Master Bank Card / Petty Cash',
+    phNameCash: 'e.g. Workshop Main Cash Drawer',
+    labelBankName: 'Bank Name',
+    phBankName: 'e.g. TBI, RT Bank, Mellat...',
+    labelHolder: 'Account / Card Holder',
+    phHolder: 'e.g. John Doe / Workshop Manager',
+    labelCardNumber: '16-Digit Card Number (Optional)',
+    labelAccountNumber: 'Account Number / IBAN (Optional)',
+    labelColor: 'Bank Card Color & Theme',
+    colorSky: '🔵 Standard Sky Blue',
+    colorIndigo: '🟣 Indigo / Navy',
+    colorEmerald: '🟢 Emerald Green',
+    colorAmber: '🟡 Amber / Gold',
+    colorRose: '🔴 Ruby Rose / Red',
+    colorPurple: '🔮 Royal Purple',
+    colorSlate: '⚫ Slate / Dark Gray',
+    labelKeeper: 'Cashier / Custodian Name',
+    phKeeper: 'e.g. Workshop Supervisor / Accountant',
+    labelInitialBalance: 'Opening Balance',
+    defaultTitle: 'Set as Default Account',
+    defaultDesc: 'Automatically pre-selected in all payroll payments, invoices, and deposits.',
+    labelOverdraftPolicy: 'Overdraft Policy on Insufficient Funds',
+    policyGlobal: '⚙️ Follow Workshop Global Setting (Default)',
+    policyAsk: '⚠️ Ask each time (Warning & User Confirmation)',
+    policyAllow: '✅ Always allow (Record even with negative balance)',
+    policyNever: '⛔ Never allow (Strict lock on negative balance)',
+    descOverdraftPolicy: 'Specifies system behavior when a payment amount exceeds the available account balance.',
+    labelNotes: 'Notes & Extra Details (Optional)',
+    phNotes: 'Additional notes regarding usage, branch, or custody...',
+    cancel: 'Cancel',
+    saveChanges: 'Save Changes',
+    saveAccount: 'Save Account',
+    popularBanks: ['TBI Bank', 'RT Bank', 'FIB', 'Cihan Bank', 'Mellat Bank', 'Melli Bank']
+  }
+};
+
 export function AddEditAccountModal({
   isOpen,
   onClose,
@@ -29,6 +168,7 @@ export function AddEditAccountModal({
   currency = 'IQD',
   language = 'fa'
 }) {
+  const txt = COPY[language] || COPY.fa;
   const [type, setType] = useState('bank'); // 'bank' | 'cash'
   const [name, setName] = useState('');
   const [bankName, setBankName] = useState('');
@@ -45,29 +185,8 @@ export function AddEditAccountModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // بانک‌های پرکاربرد جهت انتخاب سریع
-  const popularBanks = [
-    'بانک ملت',
-    'بانک ملی',
-    'بانک صادرات',
-    'بانک تجارت',
-    'بانک سپه',
-    'بانک سامان',
-    'بانک پاسارگاد',
-    'بلوبانک',
-    'بانک TBI',
-    'RT Bank'
-  ];
+  const popularBanks = txt.popularBanks;
 
-  // پالت رنگ کارت‌ها
-  const colorOptions = [
-    { id: 'sky', label: 'آبی', bg: 'bg-sky-500' },
-    { id: 'indigo', label: 'نیلی', bg: 'bg-indigo-600' },
-    { id: 'emerald', label: 'زمردی', bg: 'bg-emerald-600' },
-    { id: 'amber', label: 'طلایی', bg: 'bg-amber-500' },
-    { id: 'rose', label: 'یاقوتی', bg: 'bg-rose-500' },
-    { id: 'purple', label: 'بنفش', bg: 'bg-purple-600' },
-    { id: 'slate', label: 'دودی', bg: 'bg-slate-700' }
-  ];
 
   useEffect(() => {
     if (initialData) {
@@ -119,7 +238,7 @@ export function AddEditAccountModal({
     setErrorMsg('');
 
     if (!name.trim()) {
-      setErrorMsg(language === 'fa' ? 'لطفاً عنوان حساب را مشخص کنید.' : 'تکایە ناوی حیساب بنووسە.');
+      setErrorMsg(txt.errRequiredName);
       return;
     }
 
@@ -141,7 +260,7 @@ export function AddEditAccountModal({
       });
       onClose();
     } catch (err) {
-      setErrorMsg(err.message || 'خطا در ثبت حساب');
+      setErrorMsg(err.message || txt.errGeneral);
     } finally {
       setIsSubmitting(false);
     }
@@ -163,14 +282,10 @@ export function AddEditAccountModal({
             </div>
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
-                {initialData 
-                  ? (language === 'fa' ? 'ویرایش حساب مالی' : 'دەستکاریکردنی حیساب')
-                  : (language === 'fa' ? 'تعریف حساب مالی جدید' : 'زیادکردنی حیسابی نوێ')}
+                {initialData ? txt.titleEdit : txt.titleAdd}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {type === 'bank' 
-                  ? (language === 'fa' ? 'ثبت مشخصات کارت و حساب بانکی' : 'زانیاری کارتی بانکی')
-                  : (language === 'fa' ? 'ثبت صندوق نقدی و تنخواه گردان' : 'زانیاری سندوقی کاش')}
+                {type === 'bank' ? txt.subtitleBank : txt.subtitleCash}
               </p>
             </div>
           </div>
@@ -196,7 +311,7 @@ export function AddEditAccountModal({
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
               <Landmark className="w-3.5 h-3.5 text-sky-500" />
-              <span>{language === 'fa' ? 'نوع حساب مالی' : 'جۆری حیساب'}</span>
+              <span>{txt.labelType}</span>
             </label>
             <select
               value={type}
@@ -207,15 +322,15 @@ export function AddEditAccountModal({
               }}
               className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
             >
-              <option value="bank">💳 {language === 'fa' ? 'کارت و حساب بانکی' : 'کارتی بانکی'}</option>
-              <option value="cash">🪙 {language === 'fa' ? 'صندوق نقدی و تنخواه کارگاه' : 'سندوقی کاش'}</option>
+              <option value="bank">💳 {txt.optBank}</option>
+              <option value="cash">🪙 {txt.optCash}</option>
             </select>
           </div>
 
           {/* عنوان حساب */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              <span>{language === 'fa' ? 'عنوان حساب / نام نمایشی' : 'ناوی حیساب'}</span>
+              <span>{txt.labelName}</span>
               <span className="text-rose-500 mx-1">*</span>
             </label>
             <input
@@ -223,7 +338,7 @@ export function AddEditAccountModal({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={type === 'bank' ? 'مثلاً: کارت بانک ملت تنخواه کارفرما' : 'مثلاً: صندوق نقدی اصلی کارگاه'}
+              placeholder={type === 'bank' ? txt.phNameBank : txt.phNameCash}
               className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-transparent"
             />
           </div>
@@ -236,13 +351,13 @@ export function AddEditAccountModal({
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                     <Building2 className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-                    <span>{language === 'fa' ? 'نام بانک' : 'ناوی بانک'}</span>
+                    <span>{txt.labelBankName}</span>
                   </label>
                   <input
                     type="text"
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
-                    placeholder="مثلاً: ملت، صادرات، ملی..."
+                    placeholder={txt.phBankName}
                     className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   />
                   {/* چیپ‌های بانک‌ها */}
@@ -264,13 +379,13 @@ export function AddEditAccountModal({
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                     <User className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-                    <span>{language === 'fa' ? 'صاحب کارت / حساب' : 'خاوەنی حیساب'}</span>
+                    <span>{txt.labelHolder}</span>
                   </label>
                   <input
                     type="text"
                     value={holderName}
                     onChange={(e) => setHolderName(e.target.value)}
-                    placeholder="مثلاً: مهندس احمدی"
+                    placeholder={txt.phHolder}
                     className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   />
                 </div>
@@ -280,7 +395,7 @@ export function AddEditAccountModal({
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   <CreditCard className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-                  <span>{language === 'fa' ? 'شماره کارت ۱۶ رقمی (اختیاری)' : 'ژمارەی کارت'}</span>
+                  <span>{txt.labelCardNumber}</span>
                 </label>
                 <input
                   type="text"
@@ -295,7 +410,7 @@ export function AddEditAccountModal({
               {/* شماره حساب یا شبا */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  <span>{language === 'fa' ? 'شماره حساب / شبا (IBAN) (اختیاری)' : 'ژمارەی حیساب'}</span>
+                  <span>{txt.labelAccountNumber}</span>
                 </label>
                 <input
                   type="text"
@@ -311,20 +426,20 @@ export function AddEditAccountModal({
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                   <Palette className="w-3.5 h-3.5 text-sky-500" />
-                  <span>{language === 'fa' ? 'رنگ و تم کارت بانکی' : 'ڕەنگ'}</span>
+                  <span>{txt.labelColor}</span>
                 </label>
                 <select
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
                 >
-                  <option value="sky">🔵 {language === 'fa' ? 'آبی استاندارد (Sky Blue)' : 'شین'}</option>
-                  <option value="indigo">🟣 {language === 'fa' ? 'نیلی / سرمه‌ای (Indigo)' : 'مۆر'}</option>
-                  <option value="emerald">🟢 {language === 'fa' ? 'زمردی / سبز (Emerald)' : 'سەوز'}</option>
-                  <option value="amber">🟡 {language === 'fa' ? 'طلایی / زرد (Amber)' : 'زەرد'}</option>
-                  <option value="rose">🔴 {language === 'fa' ? 'یاقوتی / قرمز (Rose)' : 'سوور'}</option>
-                  <option value="purple">🔮 {language === 'fa' ? 'بنفش (Purple)' : 'وەنەوشەیی'}</option>
-                  <option value="slate">⚫ {language === 'fa' ? 'دودی / خاکستری تیره (Slate)' : 'تاریک'}</option>
+                  <option value="sky">{txt.colorSky}</option>
+                  <option value="indigo">{txt.colorIndigo}</option>
+                  <option value="emerald">{txt.colorEmerald}</option>
+                  <option value="amber">{txt.colorAmber}</option>
+                  <option value="rose">{txt.colorRose}</option>
+                  <option value="purple">{txt.colorPurple}</option>
+                  <option value="slate">{txt.colorSlate}</option>
                 </select>
               </div>
             </>
@@ -334,13 +449,13 @@ export function AddEditAccountModal({
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   <User className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-                  <span>{language === 'fa' ? 'نام مسئول / تحویل‌گیرنده صندوق' : 'بەرپرسی سندوق'}</span>
+                  <span>{txt.labelKeeper}</span>
                 </label>
                 <input
                   type="text"
                   value={keeperName}
                   onChange={(e) => setKeeperName(e.target.value)}
-                  placeholder="مثلاً: سرپرست کارگاه / مسئول مالی"
+                  placeholder={txt.phKeeper}
                   className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />
               </div>
@@ -350,7 +465,7 @@ export function AddEditAccountModal({
           {/* موجودی اولیه */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              <span>{language === 'fa' ? 'موجودی اولیه حساب' : 'باڵانسی سەرەتایی'}</span>
+              <span>{txt.labelInitialBalance}</span>
               <span className="text-slate-400 font-normal">({currency})</span>
             </label>
             <input
@@ -369,12 +484,10 @@ export function AddEditAccountModal({
               <Star className={`w-5 h-5 ${isDefault ? 'text-amber-500 fill-amber-500' : 'text-slate-400'}`} />
               <div>
                 <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {language === 'fa' ? 'تنظیم به عنوان حساب پیش‌فرض' : 'دانان وەک حیسابی سەرەکی'}
+                  {txt.defaultTitle}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {language === 'fa' 
-                    ? 'در تمام فرم‌های پرداخت دستمزد، فاکتورها و واریزی‌ها به صورت خودکار انتخاب می‌شود.'
-                    : 'بەشێوەی خۆکار لە فۆرمەکان هەڵدەبژێردرێت.'}
+                  {txt.defaultDesc}
                 </div>
               </div>
             </div>
@@ -391,22 +504,20 @@ export function AddEditAccountModal({
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               <ShieldAlert className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-              <span>{language === 'fa' ? 'سیاست برداشت در صورت کسری موجودی' : 'سیاسەتی کەمبوونی باڵانس'}</span>
+              <span>{txt.labelOverdraftPolicy}</span>
             </label>
             <select
               value={overdraftPolicy}
               onChange={(e) => setOverdraftPolicy(e.target.value)}
               className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-transparent"
             >
-              <option value="global">{language === 'fa' ? '⚙️ پیروی از تنظیمات سراسری کارگاه (پیش‌فرض)' : 'پەیڕەوکردنی ڕێکخستنی گشتی'}</option>
-              <option value="ask_each_time">{language === 'fa' ? '⚠️ هر بار پرسیده شود (هشدار کسری و تایید کاربر)' : 'هەموو جارێک پرسیار بکرێت'}</option>
-              <option value="always_allow">{language === 'fa' ? '✅ همیشه مجاز (ثبت پرداخت حتی با مانده منفی)' : 'هەمیشە ڕێگەپێدراو'}</option>
-              <option value="never_allow">{language === 'fa' ? '⛔ همیشه نامجاز (قفل و جلوگیری از برداشت بیش از موجودی)' : 'هەمیشە قەدەغە'}</option>
+              <option value="global">{txt.policyGlobal}</option>
+              <option value="ask_each_time">{txt.policyAsk}</option>
+              <option value="always_allow">{txt.policyAllow}</option>
+              <option value="never_allow">{txt.policyNever}</option>
             </select>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-              {language === 'fa' 
-                ? 'تعیین می‌کند اگر مبلغ پرداختی بیشتر از موجودی این حساب باشد، چه رفتاری انجام شود.' 
-                : 'دیاریکردنی هەڵسوکەوتی سیستەم کاتێک باڵانس بەش ناکات.'}
+              {txt.descOverdraftPolicy}
             </p>
           </div>
 
@@ -414,13 +525,13 @@ export function AddEditAccountModal({
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               <FileText className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-              <span>{language === 'fa' ? 'یادداشت یا توضیحات تکمیلی (اختیاری)' : 'تێبینی'}</span>
+              <span>{txt.labelNotes}</span>
             </label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="توضیحات تکمیلی در مورد نحوه استفاده از این حساب یا محل قرارگیری..."
+              placeholder={txt.phNotes}
               className="w-full p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"
             />
           </div>
@@ -432,7 +543,7 @@ export function AddEditAccountModal({
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
-              {language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+              {txt.cancel}
             </button>
             <button
               type="submit"
@@ -440,7 +551,7 @@ export function AddEditAccountModal({
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 transition-all flex items-center gap-1.5 disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{initialData ? (language === 'fa' ? 'ثبت تغییرات' : 'پاشەکەوتکردن') : (language === 'fa' ? 'ذخیره حساب' : 'تۆمارکردن')}</span>
+              <span>{initialData ? txt.saveChanges : txt.saveAccount}</span>
             </button>
           </div>
         </form>

@@ -42,6 +42,79 @@ function normalizeSearchText(text) {
  * - ناوبری کیبورد با ArrowUp / ArrowDown / Enter / Escape
  * - فیلتر بلادرنگ با نرمال‌سازی حروف
  */
+// Scoped dictionary for SubsidiarySearchModal
+const COPY = {
+  fa: {
+    searchPh: 'جستجوی نام پرسنل (فعال/غیرفعال)، نام بانک یا صندوق...',
+    clearAria: 'پاک کردن',
+    emptyTitle: 'موردی یافت نشد',
+    emptyDesc: (q) => `هیچ پرسنل یا حسابی با عبارت «${q}» پیدا نشد. املای کلمه را بررسی کنید.`,
+    tagActive: 'فعال',
+    tagInactive: 'غیرفعال',
+    tagDefault: 'پیش‌فرض',
+    actionWorkerLedger: 'معین پرسنل',
+    actionAccountLedger: 'معین حساب',
+    kbdNavigate: 'جابه‌جایی',
+    kbdOpen: 'مشاهده معین',
+    kbdClose: 'بستن',
+    brandTag: 'معین سریع KarSync',
+    cashSubtitle: 'صندوق تنخواه نقدی کارگاه',
+    bankSubtitle: 'حساب جاری بانکی',
+    cashNameFallback: 'صندوق نقدی',
+    bankNameFallback: 'حساب بانکی',
+    workerDefaultSubtitle: 'پرسنل کارگاه',
+    workerNameFallback: 'پرسنل بدون نام',
+    workerActiveSubtitle: 'پرسنل فعال',
+    workerInactiveSubtitle: 'پرسنل غیرفعال'
+  },
+  ku: {
+    searchPh: 'گەڕان بەدوای ناوی کرێکار، بانک یان سندووق...',
+    clearAria: 'سڕینەوە',
+    emptyTitle: 'هیچ ئەنجامێک نەدۆزرایەوە',
+    emptyDesc: (q) => `هیچ کەسێک یان حیسابێک بە دەستەواژەی «${q}» نەدۆزرایەوە.`,
+    tagActive: 'چالاک',
+    tagInactive: 'ناچالاک',
+    tagDefault: 'بنەڕەتی',
+    actionWorkerLedger: 'دەفتەری کەس',
+    actionAccountLedger: 'دەفتەری حیساب',
+    kbdNavigate: 'جووڵە',
+    kbdOpen: 'بینینی دەفتەر',
+    kbdClose: 'داخستن',
+    brandTag: 'دەفتەری خێرای KarSync',
+    cashSubtitle: 'سندووقی نەختینەی کارگە',
+    bankSubtitle: 'حیسابی بانکی',
+    cashNameFallback: 'سندووقی نەختینە',
+    bankNameFallback: 'حیسابی بانکی',
+    workerDefaultSubtitle: 'کارمەندی کارگە',
+    workerNameFallback: 'کارمەندی بێ ناو',
+    workerActiveSubtitle: 'کارمەندی چالاک',
+    workerInactiveSubtitle: 'کارمەندی ناچالاک'
+  },
+  en: {
+    searchPh: 'Search staff name (active/inactive), bank or cash drawer...',
+    clearAria: 'Clear',
+    emptyTitle: 'No results found',
+    emptyDesc: (q) => `No staff or account matches "${q}". Check your spelling.`,
+    tagActive: 'Active',
+    tagInactive: 'Inactive',
+    tagDefault: 'Default',
+    actionWorkerLedger: 'Staff Ledger',
+    actionAccountLedger: 'Account Ledger',
+    kbdNavigate: 'Navigate',
+    kbdOpen: 'Open Ledger',
+    kbdClose: 'Close',
+    brandTag: 'KarSync Quick Ledger',
+    cashSubtitle: 'Workshop Cash Drawer',
+    bankSubtitle: 'Bank Current Account',
+    cashNameFallback: 'Cash Drawer',
+    bankNameFallback: 'Bank Account',
+    workerDefaultSubtitle: 'Workshop Staff',
+    workerNameFallback: 'Unnamed Staff',
+    workerActiveSubtitle: 'Active Staff',
+    workerInactiveSubtitle: 'Inactive Staff'
+  }
+};
+
 export function SubsidiarySearchModal({
   isOpen,
   onClose,
@@ -49,6 +122,7 @@ export function SubsidiarySearchModal({
   onSelectWorker,
   language = 'fa'
 }) {
+  const txt = COPY[language] || COPY.fa;
   const { currentProject, openWorkerProfile } = useProject();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -123,20 +197,16 @@ export function SubsidiarySearchModal({
       if (a.bankName) subtitleParts.push(a.bankName);
       if (accNum) subtitleParts.push(`••• ${String(accNum).slice(-4)}`);
       
-      const defaultSubtitle = isCash
-        ? (language === 'fa' ? 'صندوق تنخواه نقدی کارگاه' : 'سندووقی نەختینەی کارگە')
-        : (language === 'fa' ? 'حساب جاری بانکی' : 'حیسابی بانکی');
+      const defaultSubtitle = isCash ? txt.cashSubtitle : txt.bankSubtitle;
 
       items.push({
         id: `account_${a.id}`,
         type: 'account',
         isCash: isCash,
         isDefault: Boolean(a.isDefault),
-        title: a.name || (isCash ? (language === 'fa' ? 'صندوق نقدی' : 'سندووقی نەختینە') : (language === 'fa' ? 'حساب بانکی' : 'حیسابی بانکی')),
+        title: a.name || (isCash ? txt.cashNameFallback : txt.bankNameFallback),
         subtitle: subtitleParts.length > 0 ? subtitleParts.join(' • ') : defaultSubtitle,
-        badgeText: isCash
-          ? (language === 'fa' ? 'صندوق نقدی' : 'سندووقی نەختینە')
-          : (language === 'fa' ? 'حساب بانکی' : 'حیسابی بانکی'),
+        badgeText: isCash ? txt.cashNameFallback : txt.bankNameFallback,
         data: a
       });
     });
@@ -151,17 +221,15 @@ export function SubsidiarySearchModal({
       if (w.role) subtitleParts.push(w.role);
       if (w.phone) subtitleParts.push(w.phone);
 
-      const defaultSubtitle = language === 'fa' ? 'پرسنل کارگاه' : 'کارمەندی کارگە';
+      const defaultSubtitle = txt.workerDefaultSubtitle;
 
       items.push({
         id: `worker_${w.id}`,
         type: 'worker',
         isActive: isActive,
-        title: w.name || (language === 'fa' ? 'پرسنل بدون نام' : 'کارمەندی بێ ناو'),
+        title: w.name || txt.workerNameFallback,
         subtitle: subtitleParts.length > 0 ? subtitleParts.join(' • ') : defaultSubtitle,
-        badgeText: isActive
-          ? (language === 'fa' ? 'پرسنل فعال' : 'چالاک')
-          : (language === 'fa' ? 'پرسنل غیرفعال' : 'ناچالاک'),
+        badgeText: isActive ? txt.workerActiveSubtitle : txt.workerInactiveSubtitle,
         data: w
       });
     });
@@ -278,11 +346,7 @@ export function SubsidiarySearchModal({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={
-                language === 'fa'
-                  ? 'جستجوی نام پرسنل (فعال/غیرفعال)، نام بانک یا صندوق...'
-                  : 'گەڕان بەدوای ناوی کرێکار، بانک یان سندووق...'
-              }
+              placeholder={txt.searchPh}
               className="w-full pr-11 pl-10 py-2.5 sm:py-3 text-sm sm:text-base rounded-2xl bg-white/40 dark:bg-white/[0.05] border border-white/80 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 backdrop-blur-md transition-all shadow-inner"
             />
             {searchQuery ? (
@@ -293,7 +357,7 @@ export function SubsidiarySearchModal({
                   inputRef.current?.focus();
                 }}
                 className="absolute left-3 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors"
-                aria-label="پاک کردن"
+                aria-label={txt.clearAria}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -317,12 +381,10 @@ export function SubsidiarySearchModal({
                 <SearchX className="w-6 h-6" />
               </div>
               <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                {language === 'fa' ? 'موردی یافت نشد' : 'هیچ ئەنجامێک نەدۆزرایەوە'}
+                {txt.emptyTitle}
               </h4>
               <p className="text-xs text-slate-400 dark:text-slate-400 mt-1 max-w-xs">
-                {language === 'fa'
-                  ? `هیچ پرسنل یا حسابی با عبارت «${searchQuery}» پیدا نشد. املای کلمه را بررسی کنید.`
-                  : `هیچ کەسێک یان حیسابێک بەم ناوە نەدۆزرایەوە.`}
+                {txt.emptyDesc(searchQuery)}
               </p>
             </div>
           ) : (
@@ -388,11 +450,11 @@ export function SubsidiarySearchModal({
                         {item.type === 'worker' ? (
                           item.isActive ? (
                             <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30 shrink-0">
-                              {language === 'fa' ? 'فعال' : 'چالاک'}
+                              {txt.tagActive}
                             </span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 ring-1 ring-slate-300/60 dark:ring-slate-700 shrink-0">
-                              {language === 'fa' ? 'غیرفعال' : 'ناچالاک'}
+                              {txt.tagInactive}
                             </span>
                           )
                         ) : (
@@ -408,7 +470,7 @@ export function SubsidiarySearchModal({
                             </span>
                             {item.isDefault && (
                               <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-sky-500/15 text-sky-700 dark:text-sky-300 ring-1 ring-sky-500/30 shrink-0">
-                                {language === 'fa' ? 'پیش‌فرض' : 'بنەڕەتی'}
+                                {txt.tagDefault}
                               </span>
                             )}
                           </div>
@@ -424,9 +486,7 @@ export function SubsidiarySearchModal({
                   {/* بخش چپ: نشانگر مشاهده معین و Enter */}
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[11px] text-slate-400 dark:text-slate-400 hidden sm:inline">
-                      {item.type === 'worker'
-                        ? (language === 'fa' ? 'معین پرسنل' : 'دەفتەری کەس')
-                        : (language === 'fa' ? 'معین حساب' : 'دەفتەری حیساب')}
+                      {item.type === 'worker' ? txt.actionWorkerLedger : txt.actionAccountLedger}
                     </span>
                     {isSelected ? (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-600 text-white font-bold shadow-xs flex items-center gap-1 animate-in fade-in">
@@ -449,21 +509,21 @@ export function SubsidiarySearchModal({
             <span className="flex items-center gap-1">
               <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px]">↑</kbd>
               <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px]">↓</kbd>
-              <span>{language === 'fa' ? 'جابه‌جایی' : 'جووڵە'}</span>
+              <span>{txt.kbdNavigate}</span>
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px]">Enter</kbd>
-              <span>{language === 'fa' ? 'مشاهده معین' : 'بینینی دەفتەر'}</span>
+              <span>{txt.kbdOpen}</span>
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px]">Esc</kbd>
-              <span>{language === 'fa' ? 'بستن' : 'داخستن'}</span>
+              <span>{txt.kbdClose}</span>
             </span>
           </div>
 
           <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{language === 'fa' ? 'معین سریع KarSync' : 'دەفتەری خێرا'}</span>
+            <span>{txt.brandTag}</span>
           </div>
         </div>
       </div>

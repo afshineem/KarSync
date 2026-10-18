@@ -34,6 +34,193 @@ import { pushPaymentsLive, pushAllExpensesToCloud } from '../../services/realtim
  * تب مدیریت حساب‌های بانکی و صندوق‌های نقدی
  * قابل استفاده هم در پنجره تنظیمات سراسری (GlobalSettingsModal) و هم در تب حسابداری
  */
+// Scoped dictionary for AccountsSettingsTab
+const COPY = {
+  fa: {
+    blockedCoreTitle: 'صندوق نقدی اصلی سیستم غیرقابل حذف است',
+    blockedCoreMsg: 'این صندوق یا کارت بانکی، حساب اصلی و پایه‌ای سیستم KarSync است و برای ثبت تمامی تسویه‌ها، تنخواه‌ها و مخارج نقدی کارگاه مورد نیاز است.',
+    blockedDefaultTitle: 'حساب پیش‌فرض سیستم غیرقابل حذف است',
+    blockedDefaultMsg: 'این حساب در حال حاضر به عنوان حساب پیش‌فرض سیستم تعیین شده است. برای حذف آن، ابتدا باید حساب دیگری را از لیست به عنوان پیش‌فرض فعال فرمایید (و این حساب باید فاقد گردش مالی باشد).',
+    blockedLastTitle: (type) => `امکان حذف تنها ${type === 'cash' ? 'صندوق نقدی' : 'حساب بانکی'} وجود ندارد`,
+    blockedLastMsg: (type) => `سیستم همواره به حداقل یک ${type === 'cash' ? 'صندوق نقدی' : 'حساب بانکی'} فعال برای ثبت اسناد مالی نیاز دارد.`,
+    blockedTxTitle: 'امکان حذف حساب دارای گردش مالی و سند وجود ندارد',
+    blockedTxMsg: (cnt) => `این حساب در حال حاضر دارای ${cnt} تراکنش و سند مالی ثبت‌شده (تسویه حساب پرسنل، مساعده، فاکتور هزینه، واریزی یا انتقال وجه) می‌باشد و برای حفظ تعادل دفاتر کل و سوابق مالی، غیرقابل حذف است.`,
+    blockedBalanceMsg: 'این حساب دارای مانده موجودی غیرصفر می‌باشد. پیش از حذف، باید مانده حساب از طریق انتقال وجه تسویه و صفر گردد.',
+    sectionTitle: 'مدیریت کارت‌های بانکی و صندوق‌های نقدی',
+    sectionSubtitle: 'تعریف، سرفصل‌بندی و کنترل مانده حساب‌های مالی پروژه کارگاه',
+    btnAddAccount: 'افزودن حساب جدید',
+    tipAddAccount: 'افزودن حساب / کارت جدید',
+    tabAll: 'همه حساب‌ها',
+    tabBank: 'کارت‌های بانکی',
+    tabCash: 'صندوق‌های نقدی',
+    lblOverdraftPolicy: 'سیاست کسری:',
+    optAskEachTime: '⚠️ هر بار پرسش (پیش‌فرض)',
+    optAlwaysAllow: '✅ همیشه مجاز (تراز منفی)',
+    optBlockOverdraft: '⛔ ممانعت از کسری',
+    emptyTitle: 'هیچ حسابی در این دسته یافت نشد',
+    emptySubtitle: 'جهت تسریع در ثبت مخارج و تفکیک جریان نقدینگی، کارت یا صندوق جدیدی اضافه کنید.',
+    btnDefineAccount: 'تعریف حساب جدید',
+    fallbackBank: 'کارت بانکی',
+    fallbackCash: 'صندوق نقدی',
+    badgeMainDefault: 'پیش‌فرض اصلی',
+    btnSetDefault: 'تنظیم پیش‌فرض',
+    tipSetDefault: 'کلیک جهت انتخاب به عنوان حساب پیش‌فرض',
+    lblLiveBalance: 'موجودی زنده',
+    lblInflow: 'ورودی',
+    lblOutflow: 'خروجی',
+    badgeDefaultShort: 'پیش‌فرض',
+    tipDeposit: 'افزایش موجودی این حساب',
+    tipTransfer: 'انتقال وجه از این حساب',
+    tipEdit: 'ویرایش مشخصات حساب',
+    tipCoreSystem: 'صندوق نقدی اصلی سیستم (غیرقابل حذف)',
+    tipDefaultSystem: 'حساب پیش‌فرض سیستم (غیرقابل حذف)',
+    tipHasTx: (tx) => `حساب دارای ${tx} گردش مالی و سند (غیرقابل حذف)`,
+    tipDelete: 'حذف حساب',
+    legacySyncTitle: 'ابزار همگام‌سازی تراکنش‌های قدیمی',
+    legacySyncDesc: 'ثبت تسویه‌ها و فاکتورهای فاقد حساب از محل صندوق کارگاه',
+    applying: 'در حال اعمال...',
+    applyCashMigration: 'بروزرسانی از محل صندوق',
+    confirmDeleteTitle: 'آیا از حذف این حساب مطمئن هستید؟',
+    cancel: 'انصراف',
+    confirmDeleteBtn: 'حذف قطعی',
+    blockedDefaultModalTitle: 'امکان حذف این حساب وجود ندارد',
+    blockedDefaultModalMsg: 'این حساب به دلیل وابستگی‌های پایگاه داده یا گردش مالی فعال، امکان حذف ندارد.',
+    lblCurrentBalance: 'موجودی فعلی حساب:',
+    understood: 'متوجه شدم',
+    migrationSuccess: (p, e) => `عملیات با موفقیت انجام شد: ${p} پرداختی پرسنل و ${e} هزینه فاکتور از محل صندوق نقدی کارگاه ثبت و پرداخت شدند.`,
+    errMigration: 'خطا در اعمال عملیات',
+    errDeleteAccount: 'خطا در حذف حساب',
+    subHeaderDesc: 'تعریف حساب‌های بانکی، صندوق‌ها و تعیین حساب پیش‌فرض برای پرداخت‌ها و واریزی‌ها',
+    lblKeeper: (name) => `مسئول: ${name}`,
+    lblHolder: (name) => `دارنده: ${name}`,
+    lblActiveAccount: 'حساب فعال کارگاه',
+    badgeActiveDefault: 'پیش‌فرض فعال',
+    blockedTxStandardsMsg: 'طبق استانداردهای مالی و برای حفظ تعادل دفاتر کل، حسابی که سند خورده است و در تسویه‌ها مورد استفاده قرار گرفته، غیرقابل حذف می‌باشد. در صورت نیاز می‌توانید اطلاعات آن را ویرایش نمایید.',
+  },
+  ku: {
+    blockedCoreTitle: 'سڕینەوەی سندووقی سەرەکی ڕێگەپێنەدراوە',
+    blockedCoreMsg: 'ئەم حیسابە بنەڕەتییە و بۆ تۆمارکردنی تەسویە، تەنخوا و خەرجییەکان پێویستە.',
+    blockedDefaultTitle: 'حیسابی سەرەکی ناسڕدرێتەوە',
+    blockedDefaultMsg: 'ئەم حیسابە وەک بنەڕەتی دیاریکراوە. سەرەتا حیسابێکی تر بکە بە بنەڕەتی.',
+    blockedLastTitle: (type) => `سڕینەوەی تەنها ${type === 'cash' ? 'سندوقی کاش' : 'حیسابی بانک'} ڕێگەپێنەدراوە`,
+    blockedLastMsg: (type) => `سیستەم پێویستی بە لانیکەم یەک ${type === 'cash' ? 'سندوقی کاش' : 'حیسابی بانک'}ی چالاکە بۆ تۆمارکردن.`,
+    blockedTxTitle: 'حیسابی خاوەن دارایی و مامەڵە ناسڕدرێتەوە',
+    blockedTxMsg: (cnt) => `ئەم حیسابە خاوەنی ${cnt} مامەڵە و بەڵگەنامەی تۆمارکراوە و بۆ پاراستنی هاوسەنگی دارایی ناسڕدرێتەوە.`,
+    blockedBalanceMsg: 'باڵانسی ئەم حیسابە سفر نییە. پێش سڕینەوە، دەبێت باڵانسەکەی بگوازرێتەوە و سفر بکرێتەوە.',
+    sectionTitle: 'بەڕێوەبردنی کارتی بانکی و سندوقەکان',
+    sectionSubtitle: 'پێناسەکردن و کۆنترۆڵی باڵانسی حیسابە دارایییەکان',
+    btnAddAccount: 'حیسابی نوێ',
+    tipAddAccount: 'زیادکردنی حیسابی نوێ',
+    tabAll: 'هەموو',
+    tabBank: 'کارتەکان',
+    tabCash: 'سندوقەکان',
+    lblOverdraftPolicy: 'سیاسەت:',
+    optAskEachTime: '⚠️ پرسیار لە هەر جار (بنەڕەتی)',
+    optAlwaysAllow: '✅ هەمیشە ڕێگەپێدراو (ترازی نێگەتیڤ)',
+    optBlockOverdraft: '⛔ هەمیشە قەدەغە',
+    emptyTitle: 'هیچ حیسابێک نەدۆزرایەوە',
+    emptySubtitle: 'بۆ خێراکردنی تۆمارکردنی خەرجییەکان، حیسابێکی نوێ زیاد بکە.',
+    btnDefineAccount: 'زیادکردنی حیساب',
+    fallbackBank: 'کارتی بانکی',
+    fallbackCash: 'سندوقی کاش',
+    badgeMainDefault: 'سەرەکی',
+    btnSetDefault: 'سەرەکی',
+    tipSetDefault: 'کلیک بکە بۆ دیاریکردن وەک بنەڕەتی',
+    lblLiveBalance: 'باڵانسی ڕاستەوخۆ',
+    lblInflow: 'هاتوو',
+    lblOutflow: 'ڕۆیشتوو',
+    badgeDefaultShort: 'سەرەکی',
+    tipDeposit: 'زیادکردنی بودجەی ئەم حیسابە',
+    tipTransfer: 'گواستنەوەی پارە لەم حیسابە',
+    tipEdit: 'دەستکاریکردنی حیساب',
+    tipCoreSystem: 'سندووقی سەرەکی سیستم (ناسڕدرێتەوە)',
+    tipDefaultSystem: 'حیسابی سەرەکی سیستم (ناسڕدرێتەوە)',
+    tipHasTx: (tx) => `خاوەن ${tx} تۆماری دارایی (ناسڕدرێتەوە)`,
+    tipDelete: 'سڕینەوەی حیساب',
+    legacySyncTitle: 'هاوکاتکردنی مامەڵە کۆنەکان',
+    legacySyncDesc: 'تۆماری تەسویەکانی پێشوو لە سندوق',
+    applying: 'جێبەجێکردن...',
+    applyCashMigration: 'هاوکاتکردن',
+    confirmDeleteTitle: 'دڵنیایت لە سڕینەوەی ئەم حیسابە؟',
+    cancel: 'پاشگەزبوونەوە',
+    confirmDeleteBtn: 'سڕینەوەی تەواو',
+    blockedDefaultModalTitle: 'سڕینەوەی ئەم حیسابە ڕێگەپێنەدراوە',
+    blockedDefaultModalMsg: 'ئەم حیسابە بەهۆی پەیوەندییە دارایییەکانەوە ناسڕدرێتەوە.',
+    lblCurrentBalance: 'باڵانسی ئێستای حیساب:',
+    understood: 'تێگەیشتم',
+    migrationSuccess: (p, e) => `کردارەکە سەرکەوتوو بوو: ${p} پارەدانی کرێکاران و ${e} فاکتەری خەرجی لە سندوقی کاش جێبەجێکران.`,
+    errMigration: 'هەڵە لە جێبەجێکردن',
+    errDeleteAccount: 'هەڵە لە سڕینەوەی حیساب',
+    subHeaderDesc: 'دیاریکردنی کارتی بانکی و سندوقی تەنخوا و حیسابی سەرەکی',
+    lblKeeper: (name) => `بەرپرسیار: ${name}`,
+    lblHolder: (name) => `خاوەن: ${name}`,
+    lblActiveAccount: 'حیسابی چالاکی کارگە',
+    badgeActiveDefault: 'سەرەکی چالاک',
+    blockedTxStandardsMsg: 'بۆ پاراستنی هاوسەنگی دەفتەری دارایی ناتوانرێت بسڕدرێتەوە. لە کاتی پێویست دەتوانیت دەستکاری بکەیت.',
+  },
+  en: {
+    blockedCoreTitle: 'System core cash drawer cannot be deleted',
+    blockedCoreMsg: 'This drawer or card is a foundational KarSync account required for recording settlements, petty cash, and workshop cash expenses.',
+    blockedDefaultTitle: 'Default system account cannot be deleted',
+    blockedDefaultMsg: 'This account is currently set as the default account. To delete it, first designate another account as default (and ensure this account has no turnover).',
+    blockedLastTitle: (type) => `Cannot delete the only ${type === 'cash' ? 'cash drawer' : 'bank account'}`,
+    blockedLastMsg: (type) => `The system always requires at least one active ${type === 'cash' ? 'cash drawer' : 'bank account'} to record financial documents.`,
+    blockedTxTitle: 'Cannot delete account with recorded transactions and financial documents',
+    blockedTxMsg: (cnt) => `This account currently contains ${cnt} recorded transactions (settlements, advances, invoices, deposits, transfers) and cannot be deleted to preserve ledger balance.`,
+    blockedBalanceMsg: 'This account has a non-zero balance. Before deletion, the balance must be transferred and zeroed out.',
+    sectionTitle: 'Bank Cards & Cash Drawers Management',
+    sectionSubtitle: 'Definition, classification, and live balance control of project accounts',
+    btnAddAccount: 'Add New Account',
+    tipAddAccount: 'Add new account / card',
+    tabAll: 'All Accounts',
+    tabBank: 'Bank Cards',
+    tabCash: 'Cash Drawers',
+    lblOverdraftPolicy: 'Overdraft Policy:',
+    optAskEachTime: '⚠️ Ask Each Time (Default)',
+    optAlwaysAllow: '✅ Always Allow (Negative Balance)',
+    optBlockOverdraft: '⛔ Block Overdraft',
+    emptyTitle: 'No accounts found in this category',
+    emptySubtitle: 'Add a new card or drawer to streamline expense recording and separate cash flows.',
+    btnDefineAccount: 'Define New Account',
+    fallbackBank: 'Bank Card',
+    fallbackCash: 'Cash Drawer',
+    badgeMainDefault: 'Main Default',
+    btnSetDefault: 'Set Default',
+    tipSetDefault: 'Click to set as default account',
+    lblLiveBalance: 'Live Balance',
+    lblInflow: 'Inflow',
+    lblOutflow: 'Outflow',
+    badgeDefaultShort: 'Default',
+    tipDeposit: 'Recharge this account balance',
+    tipTransfer: 'Transfer funds from this account',
+    tipEdit: 'Edit account details',
+    tipCoreSystem: 'System core cash box (Cannot be deleted)',
+    tipDefaultSystem: 'System default account (Cannot be deleted)',
+    tipHasTx: (tx) => `Account has ${tx} financial records (Cannot be deleted)`,
+    tipDelete: 'Delete account',
+    legacySyncTitle: 'Legacy Transactions Sync Tool',
+    legacySyncDesc: 'Assign past unlinked settlements and expenses to workshop cash box',
+    applying: 'Applying...',
+    applyCashMigration: 'Sync from Cash Box',
+    confirmDeleteTitle: 'Are you sure you want to delete this account?',
+    cancel: 'Cancel',
+    confirmDeleteBtn: 'Delete Permanently',
+    blockedDefaultModalTitle: 'Cannot delete this account',
+    blockedDefaultModalMsg: 'This account cannot be deleted due to database dependencies or active financial turnover.',
+    lblCurrentBalance: 'Current Account Balance:',
+    understood: 'Understood',
+    migrationSuccess: (p, e) => `Migration successful: ${p} wage payments and ${e} invoice expenses were processed via the workshop cash drawer.`,
+    errMigration: 'Error executing migration',
+    errDeleteAccount: 'Error deleting account',
+    subHeaderDesc: 'Define bank accounts, cash boxes, and set default accounts for deposits and payments',
+    lblKeeper: (name) => `Keeper: ${name}`,
+    lblHolder: (name) => `Holder: ${name}`,
+    lblActiveAccount: 'Active Workshop Account',
+    badgeActiveDefault: 'Active Default',
+    blockedTxStandardsMsg: 'According to financial standards and to maintain ledger balance, an account with recorded transactions used in settlements cannot be deleted. You can edit its details if needed.',
+  }
+};
+
 export function AccountsSettingsTab({
   accounts = [],
   accountBalances = null,
@@ -48,6 +235,7 @@ export function AccountsSettingsTab({
   currency = 'IQD',
   language = 'fa'
 }) {
+  const txt = COPY[language] || COPY.fa;
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'bank' | 'cash'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
@@ -65,10 +253,8 @@ export function AccountsSettingsTab({
       setAccountBlockedFromDelete({
         account,
         reason: 'system_core',
-        title: language === 'fa' ? 'صندوق نقدی اصلی سیستم غیرقابل حذف است' : 'سڕینەوەی سندووقی سەرەکی ڕێگەپێنەدراوە',
-        message: language === 'fa'
-          ? 'این صندوق یا کارت بانکی، حساب اصلی و پایه‌ای سیستم KarSync است و برای ثبت تمامی تسویه‌ها، تنخواه‌ها و مخارج نقدی کارگاه مورد نیاز است.'
-          : 'ئەم حیسابە بنەڕەتییە و ناسڕدرێتەوە.',
+        title: txt.blockedCoreTitle,
+        message: txt.blockedCoreMsg,
         txCount,
         currentBalance: balData?.currentBalance ?? 0
       });
@@ -80,10 +266,8 @@ export function AccountsSettingsTab({
       setAccountBlockedFromDelete({
         account,
         reason: 'is_default',
-        title: language === 'fa' ? 'حساب پیش‌فرض سیستم غیرقابل حذف است' : 'حیسابی سەرەکی ناسڕدرێتەوە',
-        message: language === 'fa'
-          ? 'این حساب در حال حاضر به عنوان حساب پیش‌فرض سیستم تعیین شده است. برای حذف آن، ابتدا باید حساب دیگری را از لیست به عنوان پیش‌فرض فعال فرمایید (و این حساب باید فاقد گردش مالی باشد).'
-          : 'تکایە سەرەتا حیسابێکی تر بکە بە سەرەکی.',
+        title: txt.blockedDefaultTitle,
+        message: txt.blockedDefaultMsg,
         txCount,
         currentBalance: balData?.currentBalance ?? 0
       });
@@ -96,12 +280,8 @@ export function AccountsSettingsTab({
       setAccountBlockedFromDelete({
         account,
         reason: 'last_account',
-        title: language === 'fa' 
-          ? `امکان حذف تنها ${account.type === 'cash' ? 'صندوق نقدی' : 'حساب بانکی'} وجود ندارد`
-          : 'کەمترین یەک حیساب پێویستە',
-        message: language === 'fa'
-          ? `سیستم همواره به حداقل یک ${account.type === 'cash' ? 'صندوق نقدی' : 'حساب بانکی'} فعال برای ثبت اسناد مالی نیاز دارد.`
-          : 'پێویستە لانیکەم یەک حیساب هەبێت.',
+        title: txt.blockedLastTitle(account.type),
+        message: txt.blockedLastMsg(account.type),
         txCount,
         currentBalance: balData?.currentBalance ?? 0
       });
@@ -113,10 +293,8 @@ export function AccountsSettingsTab({
       setAccountBlockedFromDelete({
         account,
         reason: 'has_transactions',
-        title: language === 'fa' ? 'امکان حذف حساب دارای گردش مالی و سند وجود ندارد' : 'حیسابی خاوەن دارایی ناسڕدرێتەوە',
-        message: language === 'fa' 
-          ? `این حساب در حال حاضر دارای ${txCount} تراکنش و سند مالی ثبت‌شده (تسویه حساب پرسنل، مساعده، فاکتور هزینه، واریزی یا انتقال وجه) می‌باشد و برای حفظ تعادل دفاتر کل و سوابق مالی، غیرقابل حذف است.`
-          : `ئەم حیسابە خاوەنی ${txCount} تۆماری داراییە و ناسڕدرێتەوە.`,
+        title: txt.blockedTxTitle,
+        message: txt.blockedTxMsg(txCount),
         txCount,
         currentBalance: balData?.currentBalance ?? 0
       });
@@ -134,15 +312,13 @@ export function AccountsSettingsTab({
       pushAllExpensesToCloud().catch(() => {});
       setMigrationStatus({
         type: 'success',
-        message: language === 'fa'
-          ? `عملیات با موفقیت انجام شد: ${res.updatedPaymentsCount} پرداختی پرسنل و ${res.updatedExpensesCount} هزینه فاکتور از محل صندوق نقدی کارگاه ثبت و پرداخت شدند.`
-          : 'سەرکەوتوو بوو.'
+        message: txt.migrationSuccess(res.updatedPaymentsCount, res.updatedExpensesCount)
       });
       setTimeout(() => setMigrationStatus(null), 6000);
     } catch (err) {
       setMigrationStatus({
         type: 'error',
-        message: err.message || 'خطا در اعمال عملیات'
+        message: err.message || txt.errMigration
       });
     } finally {
       setIsMigrating(false);
@@ -163,7 +339,7 @@ export function AccountsSettingsTab({
       await onDeleteAccount(accountToDelete.id);
       setAccountToDelete(null);
     } catch (err) {
-      alert(err.message || 'خطا در حذف حساب');
+      alert(err.message || txt.errDeleteAccount);
     }
   };
 
@@ -196,12 +372,10 @@ export function AccountsSettingsTab({
         <div>
           <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Landmark className="w-5 h-5 text-sky-500" />
-            <span>{language === 'fa' ? 'مدیریت کارت‌های بانکی و صندوق‌های نقدی' : 'بەڕێوەبردنی کارتی بانکی و سندوقەکان'}</span>
+            <span>{txt.sectionTitle}</span>
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {language === 'fa' 
-              ? 'تعریف حساب‌های بانکی، صندوق‌ها و تعیین حساب پیش‌فرض برای پرداخت‌ها و واریزی‌ها' 
-              : 'دیاریکردنی کارتی بانکی و سندوقی تەنخوا و حیسابی سەرەکی'}
+            {txt.subHeaderDesc}
           </p>
         </div>
 
@@ -209,11 +383,11 @@ export function AccountsSettingsTab({
           type="button"
           onClick={() => setIsAddModalOpen(true)}
           className="h-10 sm:h-11 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-2 transition-all duration-300 ease-in-out active:scale-95 hover:scale-105 group self-start sm:self-center focus:outline-hidden"
-          title={language === 'fa' ? 'افزودن حساب / کارت جدید' : 'زیادکردنی حیسابی نوێ'}
-          aria-label={language === 'fa' ? 'افزودن حساب / کارت جدید' : 'زیادکردنی حیسابی نوێ'}
+          title={txt.tipAddAccount}
+          aria-label={txt.tipAddAccount}
         >
           <Plus className="w-5 h-5 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
-          <span>{language === 'fa' ? 'افزودن حساب جدید' : 'حیسابی نوێ'}</span>
+          <span>{txt.btnAddAccount}</span>
         </button>
       </div>
 
@@ -241,7 +415,7 @@ export function AccountsSettingsTab({
           <button
             type="button"
             onClick={() => setActiveFilter('all')}
-            title={language === 'fa' ? `همه حساب‌ها (${accounts.length})` : `هەموو (${accounts.length})`}
+            title={`${txt.tabAll} (${accounts.length})`}
             className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
               activeFilter === 'all'
                 ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -251,7 +425,7 @@ export function AccountsSettingsTab({
             <Layers className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
             {activeFilter === 'all' && (
               <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
-                <span>{language === 'fa' ? 'همه حساب‌ها' : 'هەموو'}</span>
+                <span>{txt.tabAll}</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
                   {accounts.length}
                 </span>
@@ -262,7 +436,7 @@ export function AccountsSettingsTab({
           <button
             type="button"
             onClick={() => setActiveFilter('bank')}
-            title={language === 'fa' ? `کارت‌های بانکی (${bankAccountsCount})` : `کارتەکان (${bankAccountsCount})`}
+            title={`${txt.tabBank} (${bankAccountsCount})`}
             className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
               activeFilter === 'bank'
                 ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -272,7 +446,7 @@ export function AccountsSettingsTab({
             <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
             {activeFilter === 'bank' && (
               <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
-                <span>{language === 'fa' ? 'کارت‌های بانکی' : 'کارتەکان'}</span>
+                <span>{txt.tabBank}</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
                   {bankAccountsCount}
                 </span>
@@ -283,7 +457,7 @@ export function AccountsSettingsTab({
           <button
             type="button"
             onClick={() => setActiveFilter('cash')}
-            title={language === 'fa' ? `صندوق‌های نقدی (${cashAccountsCount})` : `سندوقەکان (${cashAccountsCount})`}
+            title={`${txt.tabCash} (${cashAccountsCount})`}
             className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
               activeFilter === 'cash'
                 ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -293,7 +467,7 @@ export function AccountsSettingsTab({
             <Coins className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
             {activeFilter === 'cash' && (
               <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
-                <span>{language === 'fa' ? 'صندوق‌های نقدی' : 'سندوقەکان'}</span>
+                <span>{txt.tabCash}</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
                   {cashAccountsCount}
                 </span>
@@ -306,7 +480,7 @@ export function AccountsSettingsTab({
         <div className="flex items-center gap-2 text-xs">
           <ShieldAlert className="w-4 h-4 text-sky-500 shrink-0" />
           <span className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap hidden sm:inline">
-            {language === 'fa' ? 'سیاست کسری:' : 'سیاسەت:'}
+            {txt.lblOverdraftPolicy}
           </span>
           <select
             value={globalOverdraftPolicy}
@@ -314,13 +488,13 @@ export function AccountsSettingsTab({
             className="px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 cursor-pointer shadow-xs"
           >
             <option value="ask_each_time">
-              {language === 'fa' ? '⚠️ هر بار پرسش (پیش‌فرض)' : 'پرسیار لە هەر جار'}
+              {txt.optAskEachTime}
             </option>
             <option value="always_allow">
-              {language === 'fa' ? '✅ همیشه مجاز (تراز منفی)' : 'هەمیشە ڕێگەپێدراو'}
+              {txt.optAlwaysAllow}
             </option>
             <option value="never_allow">
-              {language === 'fa' ? '⛔ ممانعت از کسری' : 'هەمیشە قەدەغە'}
+              {txt.optBlockOverdraft}
             </option>
           </select>
         </div>
@@ -333,10 +507,10 @@ export function AccountsSettingsTab({
             <Landmark className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-            {language === 'fa' ? 'هیچ حسابی در این دسته یافت نشد' : 'هیچ حیسابێک نییە'}
+            {txt.emptyTitle}
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-            {language === 'fa' ? 'جهت تسریع در ثبت مخارج و تفکیک جریان نقدینگی، کارت یا صندوق جدیدی اضافه کنید.' : 'حیسابێک زیاد بکە.'}
+            {txt.emptySubtitle}
           </p>
           <button
             type="button"
@@ -344,7 +518,7 @@ export function AccountsSettingsTab({
             className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 text-xs font-bold border border-sky-200 dark:border-sky-800 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            <span>{language === 'fa' ? 'تعریف حساب جدید' : 'زیادکردنی حیساب'}</span>
+            <span>{txt.btnDefineAccount}</span>
           </button>
         </div>
       ) : (
@@ -383,12 +557,12 @@ export function AccountsSettingsTab({
                       {isBank ? (
                         <>
                           <CreditCard className="w-3 h-3 text-sky-400" />
-                          <span>{account.bankName || (language === 'fa' ? 'کارت بانکی' : 'کارتی بانکی')}</span>
+                          <span>{account.bankName || txt.fallbackBank}</span>
                         </>
                       ) : (
                         <>
                           <Coins className="w-3 h-3 text-amber-400" />
-                          <span>{language === 'fa' ? 'صندوق نقدی' : 'سندوقی کاش'}</span>
+                          <span>{txt.fallbackCash}</span>
                         </>
                       )}
                     </span>
@@ -396,17 +570,17 @@ export function AccountsSettingsTab({
                     {isDefault ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-400 text-amber-950 shadow-sm cursor-default">
                         <Star className="w-3 h-3 fill-amber-950" />
-                        <span>{language === 'fa' ? 'پیش‌فرض اصلی' : 'سەرەکی'}</span>
+                        <span>{txt.badgeMainDefault}</span>
                       </span>
                     ) : (
                       <button
                         type="button"
                         onClick={() => onSetDefaultAccount(account.id)}
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/10 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer"
-                        title={language === 'fa' ? 'کلیک جهت انتخاب به عنوان حساب پیش‌فرض' : 'کلیک بکە بۆ سەرەکی'}
+                        title={txt.tipSetDefault}
                       >
                         <Star className="w-3 h-3" />
-                        <span>{language === 'fa' ? 'تنظیم پیش‌فرض' : 'سەرەکی'}</span>
+                        <span>{txt.btnSetDefault}</span>
                       </button>
                     )}
                   </div>
@@ -422,7 +596,7 @@ export function AccountsSettingsTab({
                       </div>
                     ) : (
                       <div className="text-[11px] text-slate-400 mt-1">
-                        {account.keeperName ? `مسئول: ${account.keeperName}` : (account.holderName ? `دارنده: ${account.holderName}` : 'حساب فعال کارگاه')}
+                        {account.keeperName ? txt.lblKeeper(account.keeperName) : (account.holderName ? txt.lblHolder(account.holderName) : txt.lblActiveAccount)}
                       </div>
                     )}
                   </div>
@@ -430,7 +604,7 @@ export function AccountsSettingsTab({
                   {/* موجودی شاخص در کارت */}
                   <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between relative z-10">
                     <span className="text-[10px] text-slate-400 font-medium">
-                      {language === 'fa' ? 'موجودی زنده' : 'باڵانس'}
+                      {txt.lblLiveBalance}
                     </span>
                     <span className={`font-mono text-sm font-black ${
                       isNegative ? 'text-rose-400' : 'text-emerald-400'
@@ -446,7 +620,7 @@ export function AccountsSettingsTab({
                     <div className="flex items-center justify-between p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/60">
                       <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <ArrowUpRight className="w-3 h-3 text-emerald-500" />
-                        <span>{language === 'fa' ? 'ورودی' : 'هاتوو'}</span>
+                        <span>{txt.lblInflow}</span>
                       </span>
                       <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
                         {formatAmount(totalInflow, currency)}
@@ -456,7 +630,7 @@ export function AccountsSettingsTab({
                     <div className="flex items-center justify-between p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/60">
                       <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <ArrowDownRight className="w-3 h-3 text-rose-500" />
-                        <span>{language === 'fa' ? 'خروجی' : 'ڕۆیشتوو'}</span>
+                        <span>{txt.lblOutflow}</span>
                       </span>
                       <span className="font-mono font-bold text-rose-600 dark:text-rose-400" dir="ltr">
                         {formatAmount(totalOutflow, currency)}
@@ -475,12 +649,12 @@ export function AccountsSettingsTab({
                       className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 text-[11px] font-bold flex items-center gap-1.5 transition-colors"
                     >
                       <Star className="w-3.5 h-3.5" />
-                      <span>{language === 'fa' ? 'پیش‌فرض' : 'سەرەکی'}</span>
+                      <span>{txt.badgeDefaultShort}</span>
                     </button>
                   ) : (
                     <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1 bg-sky-50 dark:bg-sky-950/60 px-2 py-1 rounded-xl">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>پیش‌فرض فعال</span>
+                      <span>{txt.badgeActiveDefault}</span>
                     </span>
                   )}
 
@@ -490,7 +664,7 @@ export function AccountsSettingsTab({
                       <button
                         type="button"
                         onClick={() => onQuickDeposit(account)}
-                        title={language === 'fa' ? 'افزایش موجودی این حساب' : 'زیادکردنی بودجە'}
+                        title={txt.tipDeposit}
                         className="p-1.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
                       >
                         <Plus className="w-4 h-4 text-emerald-500" />
@@ -500,7 +674,7 @@ export function AccountsSettingsTab({
                       <button
                         type="button"
                         onClick={() => onQuickTransfer(account)}
-                        title={language === 'fa' ? 'انتقال وجه از این حساب' : 'گواستنەوەی پارە'}
+                        title={txt.tipTransfer}
                         className="p-1.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors"
                       >
                         <ArrowLeftRight className="w-4 h-4 text-indigo-500" />
@@ -509,7 +683,7 @@ export function AccountsSettingsTab({
                     <button
                       type="button"
                       onClick={() => setEditingAccount(account)}
-                      title={language === 'fa' ? 'ویرایش مشخصات حساب' : 'دەستکاری'}
+                      title={txt.tipEdit}
                       className="p-1.5 rounded-xl text-slate-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/50 transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -520,12 +694,12 @@ export function AccountsSettingsTab({
                       const tx = accountBalances?.get(String(account.id))?.transactions?.length || 0;
                       const isBlocked = isCore || isDef || tx > 0;
                       const blockTooltip = isCore
-                        ? (language === 'fa' ? 'صندوق نقدی اصلی سیستم (غیرقابل حذف)' : 'سندووقی سەرەکی')
+                        ? txt.tipCoreSystem
                         : isDef
-                          ? (language === 'fa' ? 'حساب پیش‌فرض سیستم (غیرقابل حذف)' : 'حیسابی سەرەکی')
+                          ? txt.tipDefaultSystem
                           : tx > 0
-                            ? (language === 'fa' ? `حساب دارای ${tx} گردش مالی و سند (غیرقابل حذف)` : `خاوەن ${tx} تۆماری دارایی`)
-                            : (language === 'fa' ? 'حذف حساب' : 'سڕینەوە');
+                            ? txt.tipHasTx(tx)
+                            : txt.tipDelete;
 
                       return (
                         <button
@@ -556,10 +730,10 @@ export function AccountsSettingsTab({
           <Coins className="w-4 h-4 text-slate-400 shrink-0" />
           <div>
             <div className="font-bold text-slate-700 dark:text-slate-300">
-              {language === 'fa' ? 'ابزار همگام‌سازی تراکنش‌های قدیمی' : 'هاوکاتکردنی مامەڵە کۆنەکان'}
+              {txt.legacySyncTitle}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">
-              {language === 'fa' ? 'ثبت تسویه‌ها و فاکتورهای فاقد حساب از محل صندوق کارگاه' : 'تۆماری تەسویەکانی پێشوو لە سندوق'}
+              {txt.legacySyncDesc}
             </div>
           </div>
         </div>
@@ -573,12 +747,12 @@ export function AccountsSettingsTab({
           {isMigrating ? (
             <>
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-500" />
-              <span>{language === 'fa' ? 'در حال اعمال...' : 'جێبەجێکردن...'}</span>
+              <span>{txt.applying}</span>
             </>
           ) : (
             <>
               <CheckCircle2 className="w-3.5 h-3.5 text-sky-500" />
-              <span>{language === 'fa' ? 'بروزرسانی از محل صندوق' : 'هاوکاتکردن'}</span>
+              <span>{txt.applyCashMigration}</span>
             </>
           )}
         </button>
@@ -615,7 +789,7 @@ export function AccountsSettingsTab({
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-              {language === 'fa' ? 'آیا از حذف این حساب مطمئن هستید؟' : 'دڵنیایت لە سڕینەوە؟'}
+              {txt.confirmDeleteTitle}
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">
               {accountToDelete.name}
@@ -626,14 +800,14 @@ export function AccountsSettingsTab({
                 onClick={() => setAccountToDelete(null)}
                 className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
-                {language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+                {txt.cancel}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20"
               >
-                {language === 'fa' ? 'حذف قطعی' : 'سڕینەوە'}
+                {txt.confirmDeleteBtn}
               </button>
             </div>
           </div>
@@ -650,7 +824,7 @@ export function AccountsSettingsTab({
             
             <div className="space-y-1">
               <h4 className="text-base font-black text-slate-900 dark:text-white">
-                {accountBlockedFromDelete.title || (language === 'fa' ? 'امکان حذف این حساب وجود ندارد' : 'سڕینەوەی ئەم حیسابە ڕێگەپێنەدراوە')}
+                {accountBlockedFromDelete.title || txt.blockedDefaultModalTitle}
               </h4>
               <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
                 {accountBlockedFromDelete.account?.name}
@@ -659,17 +833,13 @@ export function AccountsSettingsTab({
 
             <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 text-start space-y-2">
               <p className="leading-relaxed font-medium">
-                {accountBlockedFromDelete.message || (language === 'fa' 
-                  ? `این حساب در حال حاضر دارای ${accountBlockedFromDelete.txCount} گردش مالی و تراکنش ثبت‌شده (تسویه حساب پرسنل، مساعده، فاکتور هزینه یا واریزی) می‌باشد.`
-                  : `ئەم حیسابە خاوەنی ${accountBlockedFromDelete.txCount} تۆماری داراییە.`)}
+                {accountBlockedFromDelete.message || txt.blockedTxMsg(accountBlockedFromDelete.txCount)}
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                {language === 'fa' 
-                  ? 'طبق استانداردهای مالی و برای حفظ تعادل دفاتر کل، حسابی که سند خورده است و در تسویه‌ها مورد استفاده قرار گرفته، غیرقابل حذف می‌باشد. در صورت نیاز می‌توانید اطلاعات آن را ویرایش نمایید.'
-                  : 'بۆ پاراستنی هاوسەنگی دەفتەری دارایی ناتوانرێت بسڕدرێتەوە.'}
+                {txt.blockedTxStandardsMsg}
               </p>
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] font-bold">
-                <span>{language === 'fa' ? 'موجودی فعلی حساب:' : 'باڵانس:'}</span>
+                <span>{txt.lblCurrentBalance}</span>
                 <span className="font-mono text-emerald-600 dark:text-emerald-400" dir="ltr">
                   {formatCurrency(accountBlockedFromDelete.currentBalance, currency, language)}
                 </span>
@@ -682,7 +852,7 @@ export function AccountsSettingsTab({
                 onClick={() => setAccountBlockedFromDelete(null)}
                 className="px-6 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-md transition-all active:scale-95"
               >
-                {language === 'fa' ? 'متوجه شدم' : 'تێگەیشتم'}
+                {txt.understood}
               </button>
             </div>
           </div>

@@ -25,6 +25,94 @@ import { useTwoStageApproval } from '../../hooks/useTwoStageApproval';
  * بخش مدیریت ورودی‌ها و تنخواه
  * شامل دکمه «ثبت واریزی جدید»، جدول و لیست واریزی‌ها با قابلیت ویرایش و حذف
  */
+// Scoped dictionary for IncomeManagementSection
+const COPY = {
+  fa: {
+    alertApproved: 'این سند واریزی تایید شده و غیرقابل حذف یا ویرایش است.',
+    title: 'مدیریت ورودی‌ها و تنخواه دریافتی',
+    itemsCount: (cnt) => `${cnt} مورد`,
+    subtitle: 'ثبت و مدیریت مبالغ شارژ تنخواه، تزریق نقدینگی و واریزی‌های کارفرما',
+    btnNewIncome: 'ثبت واریزی جدید',
+    searchPh: 'جستجو در عنوان، واریزکننده یا مبلغ...',
+    totalFilteredLabel: 'مجموع موارد نمایش‌داده‌شده:',
+    emptyTitle: 'هنوز هیچ واریزی یا شارژ تنخواهی ثبت نشده است',
+    emptySubtitle: 'با ثبت اولین واریزی، تراز نقدینگی و موجودی صندوق‌ها به صورت خودکار به‌روزرسانی می‌شود.',
+    btnFirstIncome: 'ثبت اولین واریزی تنخواه',
+    thDate: 'تاریخ واریز',
+    thTitlePayer: 'عنوان و واریزکننده',
+    thAccount: 'حساب واریزی',
+    thAmount: 'مبلغ واریزی',
+    thStatus: 'وضعیت تایید',
+    thDesc: 'توضیحات',
+    thActions: 'عملیات',
+    approveTooltip: 'تایید نهایی سند واریزی',
+    btnApprove: 'تایید',
+    lockedTooltip: 'این سند تایید شده و غیرقابل تغییر است.',
+    lockedLabel: 'قفل تایید',
+    editTooltip: 'ویرایش واریزی',
+    deleteTooltip: 'حذف واریزی',
+    deleteConfirmTitle: 'آیا از حذف این واریزی مطمئن هستید؟',
+    cancel: 'انصراف',
+    confirmDelete: 'حذف قطعی'
+  },
+  ku: {
+    alertApproved: 'ئەم بەڵگەنامەیە پەسەندکراوە و ناسڕدرێتەوە یان دەستکاری ناکرێت.',
+    title: 'بەڕێوەبردنی داهات و تەنخوا',
+    itemsCount: (cnt) => `${cnt} تۆمار`,
+    subtitle: 'تۆمارکردن و بەڕێوەبردنی تەنخوا، نەختینە و داهاتی کارگە',
+    btnNewIncome: 'تۆماری داهاتی نوێ',
+    searchPh: 'گەڕان لە ناونیشان، داهاتدەر یان بڕە پارە...',
+    totalFilteredLabel: 'کۆی داهاتی فلتەرکراو:',
+    emptyTitle: 'هێشتا هیچ داهات یان تەنخوایەک تۆمار نەکراوە',
+    emptySubtitle: 'بە تۆمارکردنی یەکەم داهات، باڵانسی سندوقەکان بە شێوەی خۆکار نوێ دەبێتەوە.',
+    btnFirstIncome: 'تۆمارکردنی یەکەم داهات',
+    thDate: 'بەرواری داهات',
+    thTitlePayer: 'بابەت و پارەدەر',
+    thAccount: 'حیساب',
+    thAmount: 'بڕە پارە',
+    thStatus: 'دۆخی پەسەندکردن',
+    thDesc: 'تێبینی',
+    thActions: 'کردارەکان',
+    approveTooltip: 'پەسەندکردنی کۆتایی بەڵگەنامە',
+    btnApprove: 'پەسەندکردن',
+    lockedTooltip: 'ئەم بەڵگەنامەیە قفڵ کراوە و ناتوانرێت دەستکاری بکرێت.',
+    lockedLabel: 'قفڵکراو',
+    editTooltip: 'دەستکاری',
+    deleteTooltip: 'سڕینەوە',
+    deleteConfirmTitle: 'دڵنیایت لە سڕینەوەی ئەم داهاتە؟',
+    cancel: 'پاشگەزبوونەوە',
+    confirmDelete: 'سڕینەوە'
+  },
+  en: {
+    alertApproved: 'This deposit document is approved and locked from edits or deletion.',
+    title: 'Inflows & Petty Cash Management',
+    itemsCount: (cnt) => `${cnt} items`,
+    subtitle: 'Record & manage petty cash refills, liquidity injections, and employer deposits',
+    btnNewIncome: 'New Deposit / Inflow',
+    searchPh: 'Search title, depositor, or amount...',
+    totalFilteredLabel: 'Total Displayed Inflows:',
+    emptyTitle: 'No deposits or petty cash recharges recorded yet',
+    emptySubtitle: 'Recording deposits automatically updates treasury balances and cash drawers.',
+    btnFirstIncome: 'Record First Deposit',
+    thDate: 'Deposit Date',
+    thTitlePayer: 'Title & Depositor',
+    thAccount: 'Target Account',
+    thAmount: 'Deposit Amount',
+    thStatus: 'Approval Status',
+    thDesc: 'Description',
+    thActions: 'Actions',
+    approveTooltip: 'Final Approval of Deposit',
+    btnApprove: 'Approve',
+    lockedTooltip: 'This document is approved and locked.',
+    lockedLabel: 'Approved & Locked',
+    editTooltip: 'Edit Deposit',
+    deleteTooltip: 'Delete Deposit',
+    deleteConfirmTitle: 'Are you sure you want to delete this deposit?',
+    cancel: 'Cancel',
+    confirmDelete: 'Delete Permanently'
+  }
+};
+
 export function IncomeManagementSection({ 
   incomes = [], 
   onAddIncome, 
@@ -73,7 +161,7 @@ export function IncomeManagementSection({
   const handleConfirmDelete = async () => {
     if (!incomeToDelete) return;
     if (!canModifyRecord(incomeToDelete)) {
-      alert(language === 'fa' ? 'این سند واریزی تایید شده و غیرقابل حذف یا ویرایش است.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و ناسڕدرێتەوە.');
+      alert(txt.alertApproved);
       setIncomeToDelete(null);
       return;
     }
@@ -96,14 +184,14 @@ export function IncomeManagementSection({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-black text-slate-900 dark:text-white">
-                {language === 'fa' ? 'مدیریت ورودی‌ها و تنخواه دریافتی' : 'بەڕێوەبردنی داهات و تەنخوا'}
+                {txt.title}
               </h2>
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
-                {incomes.length} {language === 'fa' ? 'مورد' : 'تۆمار'}
+                {txt.itemsCount(incomes.length)}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {language === 'fa' ? 'ثبت و مدیریت مبالغ شارژ تنخواه، تزریق نقدینگی و واریزی‌های کارفرما' : 'تۆمار و دەستکاریکردنی تەنخوا'}
+              {txt.subtitle}
             </p>
           </div>
         </div>
@@ -116,7 +204,7 @@ export function IncomeManagementSection({
             className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-1.5 transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" />
-            <span>{language === 'fa' ? 'ثبت واریزی جدید' : 'تۆماری داهاتی نوێ'}</span>
+            <span>{txt.btnNewIncome}</span>
           </button>
         </div>
       </div>
@@ -128,7 +216,7 @@ export function IncomeManagementSection({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={language === 'fa' ? 'جستجو در عنوان، واریزکننده یا مبلغ...' : 'گەڕان لە داهاتەکان...'}
+            placeholder={txt.searchPh}
             className="w-full h-9 ps-8 pe-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
           />
           <Search className="w-4 h-4 text-slate-400 absolute start-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -136,7 +224,7 @@ export function IncomeManagementSection({
 
         <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
           <span>
-            {language === 'fa' ? 'مجموع موارد نمایش‌داده‌شده:' : 'کۆی داهاتی فلتەرکراو:'}
+            {txt.totalFilteredLabel}
           </span>
           <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs">
             {formatCurrency(totalFilteredAmount, currency, language)}
@@ -152,12 +240,10 @@ export function IncomeManagementSection({
               <ArrowDownLeft className="w-7 h-7" />
             </div>
             <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-              {language === 'fa' ? 'هنوز هیچ واریزی یا شارژ تنخواهی ثبت نشده است' : 'هیچ داهاتێک تۆمار نەکراوە'}
+              {txt.emptyTitle}
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-              {language === 'fa' 
-                ? 'برای محاسبه دقیق تراز صندوق و ثبت دفتر کل، مبالغی که کارفرما جهت تنخواه به سیستم واریز کرده را ثبت کنید.'
-                : 'بۆ هەژمارکردنی باڵانس، یەکەم داهاتی سندووق بنووسە.'}
+              {txt.emptySubtitle}
             </p>
             <button
               type="button"
@@ -165,7 +251,7 @@ export function IncomeManagementSection({
               className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800 transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span>{language === 'fa' ? 'ثبت اولین واریزی تنخواه' : 'تۆماری یەکەم داهات'}</span>
+              <span>{txt.btnFirstIncome}</span>
             </button>
           </div>
         ) : (
@@ -173,13 +259,13 @@ export function IncomeManagementSection({
             <thead>
               <tr className="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold">
                 <th className="py-3 px-3.5 w-12 text-center">#</th>
-                <th className="py-3 px-3.5">{language === 'fa' ? 'تاریخ واریز' : 'بەروار'}</th>
-                <th className="py-3 px-3.5">{language === 'fa' ? 'عنوان و واریزکننده' : 'بابەت و پارەدەر'}</th>
-                <th className="py-3 px-3.5">{language === 'fa' ? 'حساب واریزی' : 'حیساب'}</th>
-                <th className="py-3 px-3.5 font-mono">{language === 'fa' ? 'مبلغ واریزی' : 'بڕە پارە'}</th>
-                <th className="py-3 px-3.5 whitespace-nowrap text-center">{language === 'fa' ? 'وضعیت تایید' : 'دۆخی پەسەندکردن'}</th>
-                <th className="py-3 px-3.5">{language === 'fa' ? 'توضیحات' : 'تێبینی'}</th>
-                <th className="py-3 px-3.5 w-28 text-center">{language === 'fa' ? 'عملیات' : 'کردار'}</th>
+                <th className="py-3 px-3.5">{txt.thDate}</th>
+                <th className="py-3 px-3.5">{txt.thTitlePayer}</th>
+                <th className="py-3 px-3.5">{txt.thAccount}</th>
+                <th className="py-3 px-3.5 font-mono">{txt.thAmount}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap text-center">{txt.thStatus}</th>
+                <th className="py-3 px-3.5">{txt.thDesc}</th>
+                <th className="py-3 px-3.5 w-28 text-center">{txt.thActions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -248,22 +334,22 @@ export function IncomeManagementSection({
                             type="button"
                             onClick={() => handleApproveIncome(inc)}
                             disabled={approvingIncomeId === inc.id}
-                            title={language === 'fa' ? 'تایید نهایی سند واریزی' : 'پەسەندکردن'}
+                            title={txt.approveTooltip}
                             className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-1 text-[11px] font-bold cursor-pointer disabled:opacity-50"
                           >
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            <span>{language === 'fa' ? 'تایید' : 'پەسەندکردن'}</span>
+                            <span>{txt.btnApprove}</span>
                           </button>
                         )}
 
                         {inc.status === 'approved' ? (
                           <div 
                             className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg flex items-center gap-1 text-[10px] font-medium border border-slate-200/60 dark:border-slate-700/60"
-                            title={language === 'fa' ? 'این سند تایید شده و غیرقابل تغییر است.' : 'ئەم بەڵگەنامەیە قفڵ کراوە.'}
+                            title={txt.lockedTooltip}
                           >
                             <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                             <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                              {language === 'fa' ? 'قفل تایید' : 'قفڵکراو'}
+                              {txt.lockedLabel}
                             </span>
                           </div>
                         ) : (
@@ -271,7 +357,7 @@ export function IncomeManagementSection({
                             <button
                               type="button"
                               onClick={() => setEditingIncome(inc)}
-                              title={language === 'fa' ? 'ویرایش واریزی' : 'دەستکاری'}
+                              title={txt.editTooltip}
                               className="p-1 rounded-lg text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -279,7 +365,7 @@ export function IncomeManagementSection({
                             <button
                               type="button"
                               onClick={() => setIncomeToDelete(inc)}
-                              title={language === 'fa' ? 'حذف واریزی' : 'سڕینەوە'}
+                              title={txt.deleteTooltip}
                               className="p-1 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -327,7 +413,7 @@ export function IncomeManagementSection({
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-              {language === 'fa' ? 'آیا از حذف این واریزی مطمئن هستید؟' : 'دڵنیایت لە سڕینەوە؟'}
+              {txt.deleteConfirmTitle}
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">
               {incomeToDelete.title} - {formatCurrency(incomeToDelete.amount, currency, language)}
@@ -338,14 +424,14 @@ export function IncomeManagementSection({
                 onClick={() => setIncomeToDelete(null)}
                 className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
-                {language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+                {txt.cancel}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20"
               >
-                {language === 'fa' ? 'حذف قطعی' : 'سڕینەوە'}
+                {txt.confirmDelete}
               </button>
             </div>
           </div>

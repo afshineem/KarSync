@@ -38,6 +38,148 @@ import {
  * - خروجی اکسل اختصاصی برای دفتر معین همین حساب
  * - امکان سوییچ سریع بین سایر صندوق‌ها و حساب‌ها
  */
+// Scoped dictionary for AccountSubsidiaryLedgerSection
+const COPY = {
+  fa: {
+    alertNoTransactions: 'هیچ تراکنشی در این حساب یافت نشد.',
+    backToOverview: 'بازگشت به نمای کلی حسابداری',
+    exclusiveLedger: 'دفتر معین اختصاصی',
+    changeAccount: 'تغییر حساب:',
+    rechargeThisAccount: 'شارژ این حساب',
+    excelExport: 'خروجی اکسل معین',
+    initialBalanceCard: 'موجودی اولیه حساب',
+    totalInflowsCard: 'کل ورودی‌ها به این حساب',
+    totalOutflowsCard: 'کل پرداختی‌ها و مخارج',
+    currentLiveBalanceCard: 'موجودی فعلی (مانده زنده)',
+    ledgerOf: (name) => `معین ${name}`,
+    transactionsCount: (cnt) => `${cnt} تراکنش`,
+    subtitle: 'گردش حساب و دفتر معین با محاسبه لحظه‌ای مانده پس از هر دریافت و پرداخت',
+    dateAll: 'همه تاریخ‌ها',
+    dateThisMonth: 'این ماه',
+    dateLastMonth: 'ماه گذشته',
+    dateCustom: 'بازه سفارشی',
+    catAll: 'همه بابت‌ها',
+    catPettyCash: 'شارژ تنخواه و واریزی',
+    catSettlement: 'تسویه حساب دستمزد',
+    catAdvance: 'مساعده پرسنل',
+    catExpense: 'فاکتور و هزینه کارگاه',
+    searchPh: 'جستجو در معین...',
+    customRangeLabel: 'بازه سفارشی:',
+    fromLabel: 'از:',
+    toLabel: 'تا:',
+    thIndex: '#',
+    thDateTime: 'تاریخ و زمان',
+    thCategory: 'بابت / سرفصل',
+    thDescription: 'شرح و توضیحات تراکنش',
+    thCounterparty: 'طرف‌حساب',
+    thInflow: 'وارده (ورودی +)',
+    thOutflow: 'صادره (خروجی -)',
+    thRunningBalance: 'مانده لحظه‌ای',
+    thSource: 'منبع',
+    openingRow: 'افتتاحیه',
+    openingBadge: 'موجودی اولیه',
+    openingDesc: 'ثبت موجودی اولیه هنگام افتتاح حساب در سیستم',
+    supervisorFallback: 'سرپرست',
+    openingBaseSource: 'پایه',
+    emptyMsg: 'هیچ تراکنشی منطبق با فیلتر انتخابی برای این حساب ثبت نشده است.',
+    systemSource: 'سیستمی',
+    manualSource: 'دستی',
+    footerTotalAndBalance: '{txt.footerTotalAndBalance}'
+  },
+  ku: {
+    alertNoTransactions: 'هیچ مامەڵەیەک لەم حیسابەدا نەدۆزرایەوە.',
+    backToOverview: 'گەڕانەوە بۆ ڕوانگەی گشتی',
+    exclusiveLedger: 'دەفتەری تایبەتی معین',
+    changeAccount: 'گۆڕینی حیساب:',
+    rechargeThisAccount: 'زیادکردنی بودجە',
+    excelExport: 'دەرهێنانی ئێکسڵ',
+    initialBalanceCard: 'باڵانسی سەرەتایی',
+    totalInflowsCard: 'کۆی داهاتەکان بۆ ئەم حیسابە',
+    totalOutflowsCard: 'کۆی خەرجییەکان',
+    currentLiveBalanceCard: 'باڵانسی کۆتایی ئێستا',
+    ledgerOf: (name) => `دەفتەری ${name}`,
+    transactionsCount: (cnt) => `${cnt} مامەڵە`,
+    subtitle: 'دەفتەری معینی تەنخوا و خەرجی بەپێی بەروار',
+    dateAll: 'هەموو بەروارەکان',
+    dateThisMonth: 'ئەم مانگە',
+    dateLastMonth: 'مانگی پێشوو',
+    dateCustom: 'ماوەی دڵخواز',
+    catAll: 'هەموو بابەتەکان',
+    catPettyCash: 'پڕکردنەوەی نەختینە و واریز',
+    catSettlement: 'تەسویەی حیساب',
+    catAdvance: 'مساعدەی کارمەندان',
+    catExpense: 'فاکتەر و خەرجی کارگە',
+    searchPh: 'گەڕان لە دەفتەر...',
+    customRangeLabel: 'ماوەی دڵخواز:',
+    fromLabel: 'لە:',
+    toLabel: 'تا:',
+    thIndex: '#',
+    thDateTime: 'بەروار و کات',
+    thCategory: 'بابەت / سەرپەڕ',
+    thDescription: 'ڕوونکردنەوەی مامەڵە',
+    thCounterparty: 'لایەنی پەیوەندیدار',
+    thInflow: 'هاتوو (+)',
+    thOutflow: 'دەرچوو (-)',
+    thRunningBalance: 'باڵانسی ساتەوەخت',
+    thSource: 'سەرچاوە',
+    openingRow: 'دەستپێک',
+    openingBadge: 'باڵانسی سەرەتایی',
+    openingDesc: 'تۆمارکردنی باڵانسی سەرەتایی لە کاتی کردنەوەی حیساب',
+    supervisorFallback: 'سەرپەرشتیار',
+    openingBaseSource: 'بنەڕەت',
+    emptyMsg: 'هیچ مامەڵەیەک نەدۆزرایەوە.',
+    systemSource: 'سیستمی',
+    manualSource: 'دەستی',
+    footerTotalAndBalance: 'کۆی گشتی و باڵانسی کۆتایی دەفتەر:'
+  },
+  en: {
+    alertNoTransactions: 'No transactions found in this account.',
+    backToOverview: 'Back to Accounting Overview',
+    exclusiveLedger: 'Exclusive Subsidiary Ledger',
+    changeAccount: 'Change Account:',
+    rechargeThisAccount: 'Recharge This Account',
+    excelExport: 'Export Ledger to Excel',
+    initialBalanceCard: 'Account Opening Balance',
+    totalInflowsCard: 'Total Account Inflows',
+    totalOutflowsCard: 'Total Account Outflows',
+    currentLiveBalanceCard: 'Current Balance (Live)',
+    ledgerOf: (name) => `Ledger of ${name}`,
+    transactionsCount: (cnt) => `${cnt} transactions`,
+    subtitle: 'Account ledger with real-time balance calculations after each transaction',
+    dateAll: 'All Dates',
+    dateThisMonth: 'This Month',
+    dateLastMonth: 'Last Month',
+    dateCustom: 'Custom Range',
+    catAll: 'All Categories',
+    catPettyCash: 'Petty Cash & Deposit',
+    catSettlement: 'Wage Settlement',
+    catAdvance: 'Staff Advance',
+    catExpense: 'Workshop Expense',
+    searchPh: 'Search ledger...',
+    customRangeLabel: 'Custom Range:',
+    fromLabel: 'From:',
+    toLabel: 'To:',
+    thIndex: '#',
+    thDateTime: 'Date & Time',
+    thCategory: 'Category',
+    thDescription: 'Transaction Description',
+    thCounterparty: 'Counterparty',
+    thInflow: 'Inflow (+)',
+    thOutflow: 'Outflow (-)',
+    thRunningBalance: 'Running Balance',
+    thSource: 'Source',
+    openingRow: 'Opening',
+    openingBadge: 'Initial Balance',
+    openingDesc: 'Initial balance recorded upon account creation',
+    supervisorFallback: 'Supervisor',
+    openingBaseSource: 'Base',
+    emptyMsg: 'No transactions matching the selected filter were recorded for this account.',
+    systemSource: 'System',
+    manualSource: 'Manual',
+    footerTotalAndBalance: 'Total & Final Subsidiary Balance:'
+  }
+};
+
 export function AccountSubsidiaryLedgerSection({
   account,
   accountData,
@@ -112,7 +254,7 @@ export function AccountSubsidiaryLedgerSection({
   // خروجی اکسل معین
   const handleExportExcel = useCallback(() => {
     if (rawTransactions.length === 0 && initialBalance === 0) {
-      alert(language === 'fa' ? 'هیچ تراکنشی در این حساب یافت نشد.' : 'هیچ مامەڵەیەک نییە.');
+      alert(txt.alertNoTransactions);
       return;
     }
 
@@ -160,13 +302,13 @@ export function AccountSubsidiaryLedgerSection({
             className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
           >
             {isRtl ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            <span>{language === 'fa' ? 'بازگشت به نمای کلی حسابداری' : 'گەڕانەوە'}</span>
+            <span>{txt.backToOverview}</span>
           </button>
 
           <span className="text-slate-300 dark:text-slate-700">/</span>
 
           <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-            {language === 'fa' ? 'دفتر معین اختصاصی' : 'دەفتەری تایبەتی معین'}
+            {txt.exclusiveLedger}
           </span>
         </div>
 
@@ -174,7 +316,7 @@ export function AccountSubsidiaryLedgerSection({
         {allAccounts.length > 1 && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 hidden md:inline">
-              {language === 'fa' ? 'تغییر حساب:' : 'گۆڕینی حیساب:'}
+              {txt.changeAccount}
             </span>
             <select
               value={account?.id || ''}
@@ -276,7 +418,7 @@ export function AccountSubsidiaryLedgerSection({
                 className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{language === 'fa' ? 'شارژ این حساب' : 'زیادکردنی بودجە'}</span>
+                <span>{txt.rechargeThisAccount}</span>
               </button>
             )}
 
@@ -286,7 +428,7 @@ export function AccountSubsidiaryLedgerSection({
               className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all shadow-xs"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>{language === 'fa' ? 'خروجی اکسل معین' : 'ئێکسڵ'}</span>
+              <span>{txt.excelExport}</span>
             </button>
           </div>
         </div>
@@ -297,7 +439,7 @@ export function AccountSubsidiaryLedgerSection({
         {/* ۱. موجودی اولیه */}
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
-            {language === 'fa' ? 'موجودی اولیه حساب' : 'باڵانسی سەرەتایی'}
+            {txt.initialBalanceCard}
           </span>
           <div className="text-lg sm:text-xl font-black font-mono text-slate-800 dark:text-slate-200" dir="ltr">
             {formatCurrency(initialBalance, currency, language)}
@@ -310,7 +452,7 @@ export function AccountSubsidiaryLedgerSection({
         {/* ۲. کل ورودی‌ها */}
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
-            {language === 'fa' ? 'کل ورودی‌ها به این حساب' : 'کۆی داهاتەکان'}
+            {txt.totalInflowsCard}
           </span>
           <div className="text-lg sm:text-xl font-black font-mono text-emerald-600 dark:text-emerald-400" dir="ltr">
             +{formatCurrency(totalInflow, currency, language)}
@@ -324,7 +466,7 @@ export function AccountSubsidiaryLedgerSection({
         {/* ۳. کل خروجی‌ها */}
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
-            {language === 'fa' ? 'کل پرداختی‌ها و مخارج' : 'کۆی خەرجییەکان'}
+            {txt.totalOutflowsCard}
           </span>
           <div className="text-lg sm:text-xl font-black font-mono text-rose-600 dark:text-rose-400" dir="ltr">
             -{formatCurrency(totalOutflow, currency, language)}
@@ -342,7 +484,7 @@ export function AccountSubsidiaryLedgerSection({
             : 'bg-rose-500/15 border-rose-500/40 dark:border-rose-500/30'
         }`}>
           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
-            {language === 'fa' ? 'موجودی فعلی (مانده زنده)' : 'باڵانسی کۆتایی ئێستا'}
+            {txt.currentLiveBalanceCard}
           </span>
           <div className={`text-lg sm:text-xl font-black font-mono ${
             isPositive ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
@@ -378,16 +520,14 @@ export function AccountSubsidiaryLedgerSection({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  معین {account?.name}
+                  {txt.ledgerOf(account?.name || '')}
                 </h3>
                 <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
-                  {filteredTransactions.length} تراکنش
+                  {txt.transactionsCount(filteredTransactions.length)}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {language === 'fa' 
-                  ? 'گردش حساب و دفتر معین با محاسبه لحظه‌ای مانده پس از هر دریافت و پرداخت' 
-                  : 'دەفتەری معینی تەنخوا و خەرجی بەپێی بەروار'}
+                {txt.subtitle}
               </p>
             </div>
           </div>
@@ -400,10 +540,10 @@ export function AccountSubsidiaryLedgerSection({
               onChange={(e) => setDateFilter(e.target.value)}
               className="h-9 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
             >
-              <option value="all">همه تاریخ‌ها</option>
-              <option value="this_month">این ماه</option>
-              <option value="last_month">ماه گذشته</option>
-              <option value="custom">بازه سفارشی</option>
+              <option value="all">{txt.dateAll}</option>
+              <option value="this_month">{txt.dateThisMonth}</option>
+              <option value="last_month">{txt.dateLastMonth}</option>
+              <option value="custom">{txt.dateCustom}</option>
             </select>
 
             {/* فیلتر دسته */}
@@ -412,11 +552,11 @@ export function AccountSubsidiaryLedgerSection({
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="h-9 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
             >
-              <option value="all">همه بابت‌ها</option>
-              <option value="petty_cash">شارژ تنخواه و واریزی</option>
-              <option value="worker_settlement">تسویه حساب دستمزد</option>
-              <option value="advance_payment">مساعده پرسنل</option>
-              <option value="workshop_expense">فاکتور و هزینه کارگاه</option>
+              <option value="all">{txt.catAll}</option>
+              <option value="petty_cash">{txt.catPettyCash}</option>
+              <option value="worker_settlement">{txt.catSettlement}</option>
+              <option value="advance_payment">{txt.catAdvance}</option>
+              <option value="workshop_expense">{txt.catExpense}</option>
             </select>
 
             {/* جستجو */}
@@ -425,7 +565,7 @@ export function AccountSubsidiaryLedgerSection({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="جستجو در معین..."
+                placeholder={txt.searchPh}
                 className="w-36 sm:w-44 h-9 ps-7 pe-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute start-2 top-1/2 -translate-y-1/2" />
@@ -436,9 +576,9 @@ export function AccountSubsidiaryLedgerSection({
         {/* فیلتر تاریخ سفارشی در صورت انتخاب */}
         {dateFilter === 'custom' && (
           <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-3 text-xs">
-            <span className="font-bold text-slate-600 dark:text-slate-400">بازه سفارشی:</span>
+            <span className="font-bold text-slate-600 dark:text-slate-400">{txt.customRangeLabel}</span>
             <div className="flex items-center gap-1.5">
-              <span>از:</span>
+              <span>{txt.fromLabel}</span>
               <input
                 type="date"
                 value={customStart}
@@ -447,7 +587,7 @@ export function AccountSubsidiaryLedgerSection({
               />
             </div>
             <div className="flex items-center gap-1.5">
-              <span>تا:</span>
+              <span>{txt.toLabel}</span>
               <input
                 type="date"
                 value={customEnd}
@@ -464,14 +604,14 @@ export function AccountSubsidiaryLedgerSection({
             <thead>
               <tr className="bg-slate-50/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
                 <th className="py-3 px-3.5 text-center w-12">#</th>
-                <th className="py-3 px-3.5 whitespace-nowrap">تاریخ و زمان</th>
-                <th className="py-3 px-3.5 whitespace-nowrap">بابت / سرفصل</th>
-                <th className="py-3 px-3.5 min-w-[200px]">شرح و توضیحات تراکنش</th>
-                <th className="py-3 px-3.5 whitespace-nowrap">طرف‌حساب</th>
-                <th className="py-3 px-3.5 whitespace-nowrap text-emerald-600 dark:text-emerald-400">وارده (ورودی +)</th>
-                <th className="py-3 px-3.5 whitespace-nowrap text-rose-600 dark:text-rose-400">صادره (خروجی -)</th>
-                <th className="py-3 px-3.5 whitespace-nowrap">مانده لحظه‌ای</th>
-                <th className="py-3 px-3.5 text-center whitespace-nowrap">منبع</th>
+                <th className="py-3 px-3.5 whitespace-nowrap">{txt.thDateTime}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap">{txt.thCategory}</th>
+                <th className="py-3 px-3.5 min-w-[200px]">{txt.thDescription}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap">{txt.thCounterparty}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap text-emerald-600 dark:text-emerald-400">{txt.thInflow}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap text-rose-600 dark:text-rose-400">{txt.thOutflow}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap">{txt.thRunningBalance}</th>
+                <th className="py-3 px-3.5 text-center whitespace-nowrap">{txt.thSource}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-normal">
@@ -481,18 +621,18 @@ export function AccountSubsidiaryLedgerSection({
                   ★
                 </td>
                 <td className="py-3 px-3.5 font-mono text-[11px] text-slate-400">
-                  افتتاحیه
+                  {txt.openingRow}
                 </td>
                 <td className="py-3 px-3.5">
                   <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                    موجودی اولیه
+                    {txt.openingBadge}
                   </span>
                 </td>
                 <td className="py-3 px-3.5">
-                  ثبت موجودی اولیه هنگام افتتاح حساب در سیستم
+                  {txt.openingDesc}
                 </td>
                 <td className="py-3 px-3.5 text-slate-500">
-                  {account?.keeperName || account?.holderName || 'سرپرست'}
+                  {account?.keeperName || account?.holderName || txt.supervisorFallback}
                 </td>
                 <td className="py-3 px-3.5 font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
                   {initialBalance > 0 ? `+${formatAmount(initialBalance, currency)}` : '-'}
@@ -505,7 +645,7 @@ export function AccountSubsidiaryLedgerSection({
                 </td>
                 <td className="py-3 px-3.5 text-center">
                   <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-500">
-                    پایه
+                    {txt.openingBaseSource}
                   </span>
                 </td>
               </tr>
@@ -514,9 +654,7 @@ export function AccountSubsidiaryLedgerSection({
               {filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-slate-400">
-                    {language === 'fa' 
-                      ? 'هیچ تراکنشی منطبق با فیلتر انتخابی برای این حساب ثبت نشده است.' 
-                      : 'هیچ مامەڵەیەک نەدۆزرایەوە.'}
+                    {txt.emptyMsg}
                   </td>
                 </tr>
               ) : (
@@ -589,12 +727,12 @@ export function AccountSubsidiaryLedgerSection({
                         {tx.isSystem ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500">
                             <Lock className="w-2.5 h-2.5 text-slate-400" />
-                            <span>سیستمی</span>
+                            <span>{txt.systemSource}</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
                             <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
-                            <span>دستی</span>
+                            <span>{txt.manualSource}</span>
                           </span>
                         )}
                       </td>

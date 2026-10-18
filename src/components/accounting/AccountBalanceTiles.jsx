@@ -28,6 +28,64 @@ import {
  * - دکمه‌های سریع واریز (افزایش موجودی) و انتقال وجه روی هر کارت
  * - با کلیک روی هر کاشی، به بخش مخصوص و دفتر معین آن حساب هدایت می‌شود
  */
+// Scoped dictionary for AccountBalanceTiles
+const COPY = {
+  fa: {
+    title: 'موجودی کارت‌های بانکی و صندوق‌های نقدینگی',
+    accountsCount: (cnt) => `${cnt} حساب`,
+    clickHint: 'جهت مشاهده دفتر معین و ریز تراکنش‌ها کلیک کنید',
+    defaultAccount: 'حساب پیش‌فرض',
+    cardFallback: 'کارت بانکی',
+    cashFallback: 'صندوق نقدی',
+    keeperPrefix: 'مسئول:',
+    positiveStatus: 'مثبت',
+    negativeStatus: 'کسری',
+    currentBalance: 'موجودی فعلی:',
+    initialBalance: '{txt.initialBalance}',
+    inflows: '{txt.inflows}',
+    outflows: '{txt.outflows}',
+    subsidiaryLedger: 'دفتر معین',
+    transferFrom: (name) => `انتقال وجه از ${name}`,
+    depositTo: (name) => `افزایش موجودی ${name}`
+  },
+  ku: {
+    title: 'باڵانسی کارتی بانکی و سندوقەکان',
+    accountsCount: (cnt) => `${cnt} حیساب`,
+    clickHint: 'بۆ بینینی دەفتەری معین کرتە بکە',
+    defaultAccount: 'حیسابی بنەڕەتی',
+    cardFallback: 'کارتی بانکی',
+    cashFallback: 'سندوقی نەختینە',
+    keeperPrefix: 'بەرپرس:',
+    positiveStatus: 'ئەرێنی',
+    negativeStatus: 'کەمی',
+    currentBalance: 'باڵانسی ئێستا:',
+    initialBalance: 'باڵانسی سەرەتایی:',
+    inflows: 'هاتوو:',
+    outflows: 'دەرچوو:',
+    subsidiaryLedger: 'دەفتەری معین',
+    transferFrom: (name) => `گواستنەوەی پارە لە ${name}`,
+    depositTo: (name) => `زیادکردنی باڵانسی ${name}`
+  },
+  en: {
+    title: 'Bank Cards & Cash Drawers Balances',
+    accountsCount: (cnt) => `${cnt} Accounts`,
+    clickHint: 'Click to view subsidiary ledger & transactions',
+    defaultAccount: 'Default Account',
+    cardFallback: 'Bank Card',
+    cashFallback: 'Cash Drawer',
+    keeperPrefix: 'Custodian:',
+    positiveStatus: 'Positive',
+    negativeStatus: 'Deficit',
+    currentBalance: 'Current Balance:',
+    initialBalance: 'Opening Balance:',
+    inflows: 'Inflows:',
+    outflows: 'Outflows:',
+    subsidiaryLedger: 'Subsidiary Ledger',
+    transferFrom: (name) => `Transfer funds from ${name}`,
+    depositTo: (name) => `Recharge ${name}`
+  }
+};
+
 export function AccountBalanceTiles({
   accounts = [],
   accountBalances = new Map(),
@@ -38,6 +96,7 @@ export function AccountBalanceTiles({
   onQuickDeposit = null,
   onQuickTransfer = null
 }) {
+  const txt = COPY[language] || COPY.fa;
   const isRtl = language === 'fa' || language === 'ku';
 
   if (!accounts || accounts.length === 0) {
@@ -51,17 +110,15 @@ export function AccountBalanceTiles({
         <div className="flex items-center gap-2">
           <Landmark className="w-4 h-4 text-sky-500" />
           <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
-            {language === 'fa' 
-              ? 'موجودی کارت‌های بانکی و صندوق‌های نقدینگی' 
-              : 'باڵانسی کارتی بانکی و سندوقەکان'}
+            {txt.title}
           </h3>
           <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-            {accounts.length} {language === 'fa' ? 'حساب' : 'حیساب'}
+            {txt.accountsCount(accounts.length)}
           </span>
         </div>
 
         <span className="text-[11px] text-slate-400 hidden sm:inline">
-          {language === 'fa' ? 'جهت مشاهده دفتر معین و ریز تراکنش‌ها کلیک کنید' : 'بۆ بینینی دەفتەری معین کرتە بکە'}
+          {txt.clickHint}
         </span>
       </div>
 
@@ -113,15 +170,13 @@ export function AccountBalanceTiles({
                           {account.name}
                         </h4>
                         {isDefault && (
-                          <span title="حساب پیش‌فرض">
+                          <span title={txt.defaultAccount}>
                             <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
                           </span>
                         )}
                       </div>
                       <span className="text-[10px] text-slate-400 block truncate">
-                        {isBank 
-                          ? (account.bankName || 'کارت بانکی') 
-                          : (account.keeperName ? `مسئول: ${account.keeperName}` : 'صندوق نقدی')}
+                        {isBank ? (account.bankName || txt.cardFallback) : (account.keeperName ? `${txt.keeperPrefix} ${account.keeperName}` : txt.cashFallback)}
                       </span>
                     </div>
                   </div>
@@ -132,14 +187,14 @@ export function AccountBalanceTiles({
                       ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60'
                       : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60'
                   }`}>
-                    {isPositive ? 'مثبت' : 'کسری'}
+                    {isPositive ? txt.positiveStatus : txt.negativeStatus}
                   </span>
                 </div>
 
                 {/* اعلام موجودی زنده و فعلی */}
                 <div className="my-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                    {language === 'fa' ? 'موجودی فعلی:' : 'باڵانسی ئێستا:'}
+                    {txt.currentBalance}
                   </div>
                   <div className={`text-base sm:text-lg font-black font-mono mt-0.5 ${
                     isPositive ? 'text-slate-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'
@@ -183,7 +238,7 @@ export function AccountBalanceTiles({
               <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold">
                 <span className="flex items-center gap-1 text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400 transition-colors">
                   <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>{language === 'fa' ? 'دفتر معین' : 'دەفتەری معین'}</span>
+                  <span>{txt.subsidiaryLedger}</span>
                   {isRtl ? (
                     <ChevronLeft className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" />
                   ) : (
@@ -197,7 +252,7 @@ export function AccountBalanceTiles({
                     <button
                       type="button"
                       onClick={() => onQuickTransfer(account)}
-                      title={language === 'fa' ? `انتقال وجه از ${account.name}` : `گواستنەوەی پارە لە ${account.name}`}
+                      title={txt.transferFrom(account.name)}
                       className="p-1 rounded-lg text-slate-600 hover:text-sky-600 hover:bg-white dark:text-slate-300 dark:hover:text-sky-400 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center"
                     >
                       <ArrowLeftRight className="w-3.5 h-3.5" />
@@ -208,7 +263,7 @@ export function AccountBalanceTiles({
                     <button
                       type="button"
                       onClick={() => onQuickDeposit(account)}
-                      title={language === 'fa' ? `افزایش موجودی ${account.name}` : `زیادکردنی باڵانسی ${account.name}`}
+                      title={txt.depositTo(account.name)}
                       className="p-1 rounded-lg text-slate-600 hover:text-sky-600 hover:bg-white dark:text-slate-300 dark:hover:text-sky-400 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center"
                     >
                       <Plus className="w-3.5 h-3.5" />

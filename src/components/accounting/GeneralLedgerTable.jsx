@@ -43,6 +43,443 @@ import { useTwoStageApproval } from '../../hooks/useTwoStageApproval';
  * - تب‌های فیلتر سریع بر اساس وضعیت تایید (همه، پیش‌نویس، تایید نهایی، اصلاحیه)
  * - خروجی حرفه‌ای به اکسل (Excel Export) با درج وضعیت‌های جدید
  */
+// Scoped dictionary for GeneralLedgerTable
+const COPY = {
+  fa: {
+    title: 'دفتر کل و اسناد مالی',
+    txCount: (cnt) => `${cnt} تراکنش`,
+    subtitle: 'نمای یکپارچه اسناد مالی، تسویه‌حساب‌ها، جریان نقدینگی با قابلیت تایید نهایی و صدور اصلاحیه',
+    filtersBtn: 'فیلترها',
+    excelExport: 'خروجی اکسل',
+    tabAll: 'همه اسناد',
+    tabDraft: 'اسناد موقت',
+    tabApproved: 'تایید نهایی',
+    tabAmended: 'اصلاحیه‌ها',
+    selectedDocsCount: (cnt) => `تعداد ${cnt} سند انتخاب شده:`,
+    approving: 'در حال تایید...',
+    batchApprove: (cnt) => `تایید نهایی (${cnt})`,
+    batchDelete: (cnt) => `حذف گروهی (${cnt})`,
+    cancelSelection: 'لغو انتخاب‌ها',
+    filterTimeRange: 'بازه زمانی',
+    optSelectedMonth: (m) => `ماه انتخابی (${m})`,
+    optAllTime: 'همه زمان‌ها (از ابتدا)',
+    optThisMonth: 'این ماه (جاری)',
+    optLastMonth: 'ماه گذشته',
+    optCustomRange: 'بازه سفارشی...',
+    filterCategory: 'دسته‌بندی تراکنش',
+    optAllCategories: 'همه دسته‌بندی‌ها',
+    optPettyCash: 'شارژ تنخواه و واریزی‌ها',
+    optWorkerSettlement: 'تسویه دستمزد پرسنل',
+    optAdvancePayment: 'مساعده پرداختی',
+    optWorkshopExpense: 'هزینه کارگاه (فاکتورها)',
+    filterAccount: 'حساب مبدا/مقصد',
+    optAllAccounts: 'همه حساب‌ها (نقد و بانک)',
+    optAllCash: 'تمام صندوق‌های نقدی',
+    optAllBank: 'تمام کارت‌ها و بانک‌ها',
+    groupWorkshopAccounts: 'حساب‌های اختصاصی کارگاه',
+    searchPh: 'جستجو در تراکنش‌ها',
+    emptyTitle: 'هیچ تراکنشی مطابق با فیلترهای جاری یافت نشد',
+    emptySubtitle: 'می‌توانید فیلترهای بالا را ریست کنید یا بازه زمانی دیگری انتخاب نمایید.',
+    thDate: 'تاریخ',
+    thType: 'نوع تراکنش',
+    thCategory: 'دسته‌بندی',
+    thAmount: 'مبلغ سند',
+    thBalanceAfter: 'موجودی پس از تراکنش',
+    thTitleCounterparty: 'عنوان و طرف‌حساب',
+    thStatus: 'وضعیت سند و تایید',
+    thActions: 'عملیات سند',
+    badgeInflow: 'ورودی (+)',
+    badgeOutflow: 'خروجی (-)',
+    amendmentReasonPrefix: '📝 دلیل اصلاحیه:',
+    btnFinalApprove: 'تایید نهایی',
+    btnDeleteDraft: 'حذف این سند موقت',
+    btnAmend: 'اصلاحیه',
+    amendSuccess: (title) => `اصلاحیه برای سند «${title}» با موفقیت ثبت شد.`,
+    errAmendGeneral: 'خطا در ثبت سند اصلاحیه',
+    noPermissionApprove: 'شما دسترسی لازم برای تایید نهایی را ندارید.',
+    singleApprovedSuccess: (title, usr) => `سند «${title}» با موفقیت توسط ${usr || 'مدیر'} تایید نهایی شد.`,
+    noPermissionBatchApprove: 'شما دسترسی لازم برای تایید گروهی را ندارید.',
+    batchApprovedSuccess: (cnt) => `تعداد ${cnt} سند با موفقیت تایید نهایی شد.`,
+    singleDeletedSuccess: (title) => `سند «${title}» با موفقیت حذف گردید.`,
+    batchDeletedSuccess: (cnt) => `تعداد ${cnt} سند موقت با موفقیت حذف شدند.`,
+    noTxForExcel: 'هیچ تراکنشی برای صدور فایل اکسل یافت نشد.',
+    batchBannerTitle: (cnt) => `تعداد ${cnt} سند پیش‌نویس انتخاب شد`,
+    batchBannerDesc: 'امکان تایید نهایی رسمی یا حذف گروهی اسناد موقت انتخابی وجود دارد.',
+    emptySubtitleAlt: 'فیلترهای وضعیت یا دسته‌بندی را تغییر دهید، یا تراکنش‌های مالی و هزینه‌ها را ثبت نمایید.',
+    // Issue Amendment Modal
+    issueAmendTitle: 'صدور اصلاحیه سند تایید نهایی',
+    issueAmendSubtitle: 'تعدیل مشخصات یا مبلغ سند با حفظ تاریخچه حسابداری',
+    lblInitialDoc: 'سند اولیه:',
+    lblDateAndCat: 'تاریخ و دسته‌بندی:',
+    lblCurrentAmount: 'مبلغ فعلی سند:',
+    lblNewAmount: 'مبلغ جدید سند (پس از اصلاح)',
+    tipNewAmount: 'در صورت نیاز به تغییر مبلغ سند، مقدار جدید را وارد نمایید.',
+    lblReasonRequired: 'دلیل صدور اصلاحیه (الزامی)',
+    phReason: 'مثال: اصلاح اشتباه ثبتی / تعدیل ساعت کارکرد / تخفیف فاکتور',
+    lblNotesOptional: 'توضیحات تکمیلی (اختیاری)',
+    phNotes: 'توضیحات اضافی در صورت نیاز...',
+    errReasonRequired: 'لطفاً دلیل صدور اصلاحیه را قید نمایید (الزامی است).',
+    errInvalidAmount: 'مبلغ وارد شده معتبر نیست.',
+    cancel: 'انصراف',
+    submitting: 'در حال ثبت...',
+    btnSubmitAmend: 'ثبت و صدور اصلاحیه',
+    // History Modal
+    historyTitle: 'تاریخچه و سوابق اصلاحیه سند',
+    lblInitialAmount: 'مبلغ اولیه سند:',
+    lblCurrentFinalAmount: 'مبلغ فعلی نهایی:',
+    noHistory: 'سابقه‌ای در تاریخچه ثبت نشده است.',
+    historyListTitle: 'لیست تغییرات و اصلاحیه‌های اعمال شده:',
+    amendmentIdx: (idx) => `اصلاحیه #${idx}`,
+    lblReason: 'دلیل:',
+    lblNotes: 'توضیحات:',
+    lblBy: 'توسط:',
+    managerFallback: 'مدیر',
+    // Delete Draft Modal
+    deleteDraftTitle: 'حذف سند موقت',
+    deleteDraftSubtitle: 'حذف قطعی سند پیش‌نویس از سیستم حسابداری',
+    lblDocTitleDesc: 'عنوان / شرح سند:',
+    financialDocFallback: 'سند مالی',
+    lblDocCategory: 'سرفصل / دسته‌بندی:',
+    lblDocAccount: 'حساب یا صندوق:',
+    lblDocDate: 'تاریخ ثبت:',
+    lblDocAmount: 'مبلغ سند:',
+    warningDeleteDraft: 'این سند هنوز تایید نهایی نشده است. با حذف آن، رکورد به صورت کامل حذف شده و اثر مالی آن از موجودی حساب کسر یا برگشت داده می‌شود.',
+    deleting: 'در حال حذف...',
+    btnConfirmDeleteSingle: 'حذف قطعی سند',
+    // Batch Delete Modal
+    batchDeleteTitle: 'حذف گروهی اسناد موقت',
+    batchDeleteSubtitle: (cnt) => `تعداد ${cnt} سند پیش‌نویس جهت حذف انتخاب شده است`,
+    batchDeleteQuestion: (cnt) => `آیا از حذف کامل ${cnt} سند موقت/پیش‌نویس انتخاب شده مطمئن هستید؟`,
+    warningBatchDelete: 'فقط اسناد موقت حذف خواهند شد (اسناد تایید نهایی شده مصون هستند). با انجام این کار، موجودی حساب‌ها و صندوق‌ها به‌صورت خودکار بازتنظیم می‌گردد.',
+    btnConfirmBatchDelete: (cnt) => `حذف ${cnt} سند موقت`,
+    errSingleApprove: 'خطا در تایید نهایی سند',
+    errBatchApprove: 'خطا در تایید گروهی اسناد',
+    errSingleDelete: 'خطا در حذف سند موقت',
+    errBatchDelete: 'خطا در حذف گروهی اسناد موقت',
+    tipBatchDelete: 'حذف گروهی اسناد موقت انتخاب شده',
+    searchDetailedPh: 'عنوان، طرف‌حساب، مبلغ...',
+    lblFromDate: 'از تاریخ:',
+    lblToDate: 'تا تاریخ:',
+    tipDeselectAllDrafts: 'لغو انتخاب همه پیش‌نویس‌ها',
+    tipSelectAllDrafts: 'انتخاب همه اسناد پیش‌نویس جهت تایید گروهی',
+    tipSelectForBatch: 'انتخاب جهت تایید گروهی',
+    tipFinalApproveCurrent: 'تایید نهایی این سند با نام مدیر جاری',
+    tipIssueAmend: 'صدور سند اصلاحیه و تعدیل مبلغ',
+    tipViewHistory: 'مشاهده سوابق و تاریخچه اصلاحیه',
+    excelHeaders: {
+      row: 'ردیف',
+      date: 'تاریخ',
+      type: 'نوع تراکنش',
+      category: 'دسته‌بندی',
+      amount: 'مبلغ تراکنش',
+      currency: 'واحد پول',
+      balanceAfter: 'موجودی پس از تراکنش',
+      account: 'حساب',
+      titleCounterparty: 'عنوان و طرف‌حساب',
+      status: 'وضعیت تایید',
+      approvedDate: 'تاریخ تایید',
+      isAmended: 'اصلاحیه خورده',
+      originalAmount: 'مبلغ اولیه',
+      amendReason: 'دلیل اصلاحیه',
+      description: 'توضیحات',
+      valInflow: 'ورودی (+)',
+      valOutflow: 'خروجی (-)',
+      valBank: 'کارت بانکی',
+      valCash: 'صندوق نقدی',
+      valApproved: (by) => `تایید نهایی (${by || 'مدیر'})`,
+      valDraft: 'پیش‌نویس موقت',
+      valYes: 'بله',
+      valNo: 'خیر'
+    },
+  },
+  ku: {
+    title: 'دەفتەری گشتی مامەڵە دارایییەکان',
+    txCount: (cnt) => `${cnt} مامەڵە`,
+    subtitle: 'ڕیزبەندی هەموو مامەڵەکانی سندوق بەپێی بەروار لەگەڵ پەسەندکردن و دەستکاریکردن',
+    filtersBtn: 'فلتەرەکان',
+    excelExport: 'هەناردەی ئێکسڵ',
+    tabAll: 'هەموو',
+    tabDraft: 'ڕەشنووسەکان',
+    tabApproved: 'پەسەندکراو',
+    tabAmended: 'دەستکاریکراوەکان',
+    selectedDocsCount: (cnt) => `${cnt} بەڵگەنامە دیاریکراوە:`,
+    approving: 'پەسەند دەکرێت...',
+    batchApprove: (cnt) => `پەسەندکردنی کۆمەڵ (${cnt})`,
+    batchDelete: (cnt) => `سڕینەوەی کۆمەڵ (${cnt})`,
+    cancelSelection: 'پەشیمانبوونەوە',
+    filterTimeRange: 'ماوەی کات',
+    optSelectedMonth: (m) => `مانگی هەڵبژێردراو (${m})`,
+    optAllTime: 'هەموو کاتێک (لە سەرەتاوە)',
+    optThisMonth: 'ئەم مانگە (ئێستا)',
+    optLastMonth: 'مانگی پێشوو',
+    optCustomRange: 'دیاریکراو...',
+    filterCategory: 'جۆری مامەڵە',
+    optAllCategories: 'هەموو جۆرەکان',
+    optPettyCash: 'داهات و تەنخوا',
+    optWorkerSettlement: 'تەسویەی کرێکاران',
+    optAdvancePayment: 'مساعدە',
+    optWorkshopExpense: 'خەرجی کارگە (فاکتەرەکان)',
+    filterAccount: 'حیساب',
+    optAllAccounts: 'هەموو حیسابەکان',
+    optAllCash: 'سندوقی کاش',
+    optAllBank: 'حیسابی بانک',
+    groupWorkshopAccounts: 'حیسابە تایبەتەکان',
+    searchPh: 'گەڕان لە مامەڵەکان...',
+    emptyTitle: 'هیچ مامەڵەیەک نەدۆزرایەوە',
+    emptySubtitle: 'دەتوانیت فلتەرەکان نوێ بکەیتەوە یان بەروارێکی تر هەڵبژێریت.',
+    thDate: 'بەروار',
+    thType: 'جۆر',
+    thCategory: 'پۆلێن',
+    thAmount: 'بڕە پارە',
+    thBalanceAfter: 'باڵانسی دواتر',
+    thTitleCounterparty: 'ناونیشان و لایەن',
+    thStatus: 'دۆخی پەسەندکردن',
+    thActions: 'کردار',
+    badgeInflow: 'داهات (+)',
+    badgeOutflow: 'خەرجی (-)',
+    amendmentReasonPrefix: '📝 هۆکاری دەستکاری:',
+    btnFinalApprove: 'پەسەندکردن',
+    btnDeleteDraft: 'سڕینەوەی ئەم بەڵگەنامە کاتییە',
+    btnAmend: 'دەستکاری',
+    amendSuccess: (title) => `دەستکاری بۆ «${title}» بە سەرکەوتوویی تۆمار کرا.`,
+    errAmendGeneral: 'هەڵە لە تۆمارکردنی دەستکاری',
+    noPermissionApprove: 'دەسەڵاتی پێویستت نییە بۆ پەسەندکردنی کۆتایی.',
+    singleApprovedSuccess: (title) => `بەڵگەنامەی «${title}» بە سەرکەوتوویی پەسەند کرا.`,
+    noPermissionBatchApprove: 'دەسەڵاتی پێویستت نییە بۆ پەسەندکردنی کۆمەڵ.',
+    batchApprovedSuccess: (cnt) => `${cnt} بەڵگەنامە بە سەرکەوتوویی پەسەند کران.`,
+    singleDeletedSuccess: (title) => `بەڵگەنامەی «${title}» بە سەرکەوتوویی سڕایەوە.`,
+    batchDeletedSuccess: (cnt) => `${cnt} بەڵگەنامەی کاتی بە سەرکەوتوویی سڕانەوە.`,
+    noTxForExcel: 'هیچ مامەڵەیەک بۆ هەناردەکردنی ئێکسڵ نییە.',
+    batchBannerTitle: (cnt) => `${cnt} بەڵگەنامەی ڕەشنووس دیاریکراوە`,
+    batchBannerDesc: 'دەتوانیت پەسەندیان بکەیت یان بەکۆمەڵ بیسڕیتەوە.',
+    emptySubtitleAlt: 'فلتەرەکانی دۆخ یان جۆر بگۆڕە، یاخود مامەڵەی نوێ تۆمار بکە.',
+    issueAmendTitle: 'تۆماری دەستکاری بەڵگەنامە',
+    issueAmendSubtitle: 'دەستکاریکردنی بەڵگەنامە لەگەڵ پاراستنی مێژوو',
+    lblInitialDoc: 'بەڵگەنامەی سەرەتایی:',
+    lblDateAndCat: 'بەروار و جۆر:',
+    lblCurrentAmount: 'بڕی ئێستا:',
+    lblNewAmount: 'بڕە پارەی نوێ (دوای دەستکاری)',
+    tipNewAmount: 'ئەگەر پێویستە بڕە پارەکە بگۆڕیت، بڕی نوێ بنووسە.',
+    lblReasonRequired: 'هۆکاری دەستکاری (پێویستە)',
+    phReason: 'نموونە: چاککردنی هەڵەی نووسین / دەستکاری کاتژمێری کارکردن',
+    lblNotesOptional: 'تێبینی زیاتر (ئارەزوومەندانە)',
+    phNotes: 'تێبینی زیاتر ئەگەر پێویست بکات...',
+    errReasonRequired: 'تکایە هۆکاری دەستکاری دیاری بکە.',
+    errInvalidAmount: 'بڕە پارەکە دروست نییە.',
+    cancel: 'پەشیمانبوونەوە',
+    submitting: 'تۆمار دەکرێت...',
+    btnSubmitAmend: 'تۆمارکردنی دەستکاری',
+    historyTitle: 'مێژووی دەستکاری',
+    lblInitialAmount: 'بڕی سەرەتایی بەڵگەنامە:',
+    lblCurrentFinalAmount: 'بڕی کۆتایی ئێستا:',
+    noHistory: 'هیچ مێژوویەک تۆمار نەکراوە.',
+    historyListTitle: 'گۆڕانکارییەکان:',
+    amendmentIdx: (idx) => `دەستکاری #${idx}`,
+    lblReason: 'هۆکار:',
+    lblNotes: 'تێبینی:',
+    lblBy: 'لە لایەن:',
+    managerFallback: 'بەڕێوەبەر',
+    deleteDraftTitle: 'سڕینەوەی بەڵگەنامەی کاتی',
+    deleteDraftSubtitle: 'سڕینەوەی یەکجاری لە سیستەمی دارایی',
+    lblDocTitleDesc: 'ناونیشان / ڕوونکردنەوە:',
+    financialDocFallback: 'بەڵگەنامەی دارایی',
+    lblDocCategory: 'سەرپەڕ / جۆر:',
+    lblDocAccount: 'حیساب یان سندوق:',
+    lblDocDate: 'بەرواری تۆمار:',
+    lblDocAmount: 'بڕە پارە:',
+    warningDeleteDraft: 'ئەم بەڵگەنامەیە هێشتا پەسەند نەکراوە. بە سڕینەوەی، بڕەکەی لە باڵانس دەگەڕێتەوە.',
+    deleting: 'سڕینەوە...',
+    btnConfirmDeleteSingle: 'سڕینەوەی تەواو',
+    batchDeleteTitle: 'سڕینەوەی کۆمەڵی بەڵگەنامەکان',
+    batchDeleteSubtitle: (cnt) => `${cnt} بەڵگەنامەی کاتی دیاریکراوە بۆ سڕینەوە`,
+    batchDeleteQuestion: (cnt) => `ئایا دڵنیایت لە سڕینەوەی ئەم ${cnt} بەڵگەنامەیە؟`,
+    warningBatchDelete: 'تەنها بەڵگەنامە کاتییەکان دەسڕدرێنەوە (بەڵگەنامە پەسەندکراوەکان ناپارێزرێن). باڵانسی حیسابەکان خۆکارانە ڕێکدەخرێنەوە.',
+    btnConfirmBatchDelete: (cnt) => `سڕینەوەی ${cnt} بەڵگەنامە`,
+    errSingleApprove: 'هەڵە لە پەسەندکردنی بەڵگەنامە',
+    errBatchApprove: 'هەڵە لە پەسەندکردنی کۆمەڵی بەڵگەنامەکان',
+    errSingleDelete: 'هەڵە لە سڕینەوەی بەڵگەنامەی کاتی',
+    errBatchDelete: 'هەڵە لە سڕینەوەی کۆمەڵی بەڵگەنامەکان',
+    tipBatchDelete: 'سڕینەوەی بەکۆمەڵی بەڵگەنامە کاتییە دیاریکراوەکان',
+    searchDetailedPh: 'ناونیشان، لایەن، بڕە پارە...',
+    lblFromDate: 'لە بەرواری:',
+    lblToDate: 'تا بەرواری:',
+    tipDeselectAllDrafts: 'لابردنی دیاریکردنی هەموو ڕەشنووسەکان',
+    tipSelectAllDrafts: 'دیاریکردنی هەموو ڕەشنووسەکان بۆ پەسەندکردنی کۆمەڵ',
+    tipSelectForBatch: 'دیاریکردن بۆ پەسەندکردنی کۆمەڵ',
+    tipFinalApproveCurrent: 'پەسەندکردنی کۆتایی بە ناوی بەڕێوەبەر',
+    tipIssueAmend: 'دەرکردنی دەستکاری و گۆڕینی بڕ',
+    tipViewHistory: 'بینینی مێژووی دەستکارییەکان',
+    excelHeaders: {
+      row: 'ڕیز',
+      date: 'بەروار',
+      type: 'جۆری مامەڵە',
+      category: 'پۆلێن',
+      amount: 'بڕە پارە',
+      currency: 'دراو',
+      balanceAfter: 'باڵانسی دواتر',
+      account: 'حیساب',
+      titleCounterparty: 'ناونیشان و لایەن',
+      status: 'دۆخی پەسەندکردن',
+      approvedDate: 'بەرواری پەسەندکردن',
+      isAmended: 'دەستکاریکراو',
+      originalAmount: 'بڕی سەرەتایی',
+      amendReason: 'هۆکاری دەستکاری',
+      description: 'تێبینی',
+      valInflow: 'داهات (+)',
+      valOutflow: 'خەرجی (-)',
+      valBank: 'بانک / کارت',
+      valCash: 'سندوقی کاش',
+      valApproved: (by) => `پەسەندکراو (${by || 'بەڕێوەبەر'})`,
+      valDraft: 'ڕەشنووسی کاتی',
+      valYes: 'بەڵێ',
+      valNo: 'نەخێر'
+    },
+  },
+  en: {
+    title: 'General Ledger & Financial Documents',
+    txCount: (cnt) => `${cnt} transactions`,
+    subtitle: 'Unified view of financial documents, settlements, and cash flow with final approval and amendment audits',
+    filtersBtn: 'Filters',
+    excelExport: 'Export Excel',
+    tabAll: 'All Documents',
+    tabDraft: 'Draft Documents',
+    tabApproved: 'Approved',
+    tabAmended: 'Amended',
+    selectedDocsCount: (cnt) => `${cnt} documents selected:`,
+    approving: 'Approving...',
+    batchApprove: (cnt) => `Final Approval (${cnt})`,
+    batchDelete: (cnt) => `Batch Delete (${cnt})`,
+    cancelSelection: 'Deselect All',
+    filterTimeRange: 'Time Range',
+    optSelectedMonth: (m) => `Selected Month (${m})`,
+    optAllTime: 'All Time (From Start)',
+    optThisMonth: 'This Month (Current)',
+    optLastMonth: 'Last Month',
+    optCustomRange: 'Custom Range...',
+    filterCategory: 'Transaction Category',
+    optAllCategories: 'All Categories',
+    optPettyCash: 'Petty Cash & Deposits',
+    optWorkerSettlement: 'Staff Wage Settlements',
+    optAdvancePayment: 'Advance Payments',
+    optWorkshopExpense: 'Workshop Expenses (Invoices)',
+    filterAccount: 'Source/Dest Account',
+    optAllAccounts: 'All Accounts (Cash & Bank)',
+    optAllCash: 'All Cash Drawers',
+    optAllBank: 'All Bank Cards',
+    groupWorkshopAccounts: 'Workshop Dedicated Accounts',
+    searchPh: 'Search transactions...',
+    emptyTitle: 'No transactions found matching current filters',
+    emptySubtitle: 'You can reset filters above or select a different date range.',
+    thDate: 'Date',
+    thType: 'Type',
+    thCategory: 'Category',
+    thAmount: 'Amount',
+    thBalanceAfter: 'Balance After',
+    thTitleCounterparty: 'Title & Counterparty',
+    thStatus: 'Approval Status',
+    thActions: 'Actions',
+    badgeInflow: 'Inflow (+)',
+    badgeOutflow: 'Outflow (-)',
+    amendmentReasonPrefix: '📝 Amendment Reason:',
+    btnFinalApprove: 'Final Approval',
+    btnDeleteDraft: 'Delete Draft Document',
+    btnAmend: 'Amend',
+    amendSuccess: (title) => `Amendment for "${title}" recorded successfully.`,
+    errAmendGeneral: 'Error recording amendment document',
+    noPermissionApprove: 'You do not have permission for final approval.',
+    singleApprovedSuccess: (title) => `Document "${title}" approved successfully.`,
+    noPermissionBatchApprove: 'You do not have permission for batch approval.',
+    batchApprovedSuccess: (cnt) => `${cnt} documents approved successfully.`,
+    singleDeletedSuccess: (title) => `Document "${title}" deleted successfully.`,
+    batchDeletedSuccess: (cnt) => `${cnt} draft documents deleted successfully.`,
+    noTxForExcel: 'No transactions found to export to Excel.',
+    batchBannerTitle: (cnt) => `${cnt} draft documents selected`,
+    batchBannerDesc: 'You can perform final approval or batch deletion on selected drafts.',
+    emptySubtitleAlt: 'Change status or category filters, or record new transactions and expenses.',
+    issueAmendTitle: 'Issue Document Amendment',
+    issueAmendSubtitle: 'Modify document details or amount while preserving audit history',
+    lblInitialDoc: 'Original Document:',
+    lblDateAndCat: 'Date & Category:',
+    lblCurrentAmount: 'Current Amount:',
+    lblNewAmount: 'New Document Amount (After Amendment)',
+    tipNewAmount: 'Enter the new amount if adjustments are needed.',
+    lblReasonRequired: 'Amendment Reason (Required)',
+    phReason: 'e.g. Data entry error correction / hours adjustment / invoice discount',
+    lblNotesOptional: 'Additional Notes (Optional)',
+    phNotes: 'Extra details if needed...',
+    errReasonRequired: 'Please provide the reason for issuing this amendment (Required).',
+    errInvalidAmount: 'Invalid amount entered.',
+    cancel: 'Cancel',
+    submitting: 'Submitting...',
+    btnSubmitAmend: 'Issue Amendment',
+    historyTitle: 'Document Amendment History',
+    lblInitialAmount: 'Original Amount:',
+    lblCurrentFinalAmount: 'Current Final Amount:',
+    noHistory: 'No amendment history recorded.',
+    historyListTitle: 'List of Recorded Amendments:',
+    amendmentIdx: (idx) => `Amendment #${idx}`,
+    lblReason: 'Reason:',
+    lblNotes: 'Notes:',
+    lblBy: 'By:',
+    managerFallback: 'Admin',
+    deleteDraftTitle: 'Delete Draft Document',
+    deleteDraftSubtitle: 'Permanently remove draft record from accounting system',
+    lblDocTitleDesc: 'Title / Description:',
+    financialDocFallback: 'Financial Document',
+    lblDocCategory: 'Category:',
+    lblDocAccount: 'Account or Drawer:',
+    lblDocDate: 'Record Date:',
+    lblDocAmount: 'Amount:',
+    warningDeleteDraft: 'This draft is not approved yet. Deleting it will permanently discard the record and revert its balance impact.',
+    deleting: 'Deleting...',
+    btnConfirmDeleteSingle: 'Delete Permanently',
+    batchDeleteTitle: 'Batch Delete Draft Documents',
+    batchDeleteSubtitle: (cnt) => `${cnt} draft documents selected for deletion`,
+    batchDeleteQuestion: (cnt) => `Are you sure you want to permanently delete ${cnt} selected draft documents?`,
+    warningBatchDelete: 'Only draft documents will be deleted (approved documents remain intact). Account balances will adjust automatically.',
+    btnConfirmBatchDelete: (cnt) => `Delete ${cnt} Drafts`,
+    errSingleApprove: 'Error approving document',
+    errBatchApprove: 'Error batch approving documents',
+    errSingleDelete: 'Error deleting draft document',
+    errBatchDelete: 'Error batch deleting draft documents',
+    tipBatchDelete: 'Batch delete selected draft documents',
+    searchDetailedPh: 'Title, counterparty, amount...',
+    lblFromDate: 'From date:',
+    lblToDate: 'To date:',
+    tipDeselectAllDrafts: 'Deselect all drafts',
+    tipSelectAllDrafts: 'Select all draft documents for batch approval',
+    tipSelectForBatch: 'Select for batch approval',
+    tipFinalApproveCurrent: 'Final approve this document with current manager',
+    tipIssueAmend: 'Issue amendment and adjust amount',
+    tipViewHistory: 'View amendment history and records',
+    excelHeaders: {
+      row: 'Row',
+      date: 'Date',
+      type: 'Transaction Type',
+      category: 'Category',
+      amount: 'Amount',
+      currency: 'Currency',
+      balanceAfter: 'Running Balance',
+      account: 'Account',
+      titleCounterparty: 'Title & Counterparty',
+      status: 'Approval Status',
+      approvedDate: 'Approval Date',
+      isAmended: 'Amended',
+      originalAmount: 'Original Amount',
+      amendReason: 'Amendment Reason',
+      description: 'Description',
+      valInflow: 'Inflow (+)',
+      valOutflow: 'Outflow (-)',
+      valBank: 'Bank Card',
+      valCash: 'Cash Drawer',
+      valApproved: (by) => `Approved (${by || 'Admin'})`,
+      valDraft: 'Draft',
+      valYes: 'Yes',
+      valNo: 'No'
+    },
+  }
+};
+
 export function GeneralLedgerTable({
   ledgerItems = [],
   financialAccounts = [],
@@ -118,7 +555,7 @@ export function GeneralLedgerTable({
   // تایید نهایی تک سند
   const handleSingleApprove = useCallback(async (tx) => {
     if (!canApprove) {
-      alert(language === 'fa' ? 'شما دسترسی لازم برای تایید نهایی را ندارید.' : 'دەسەڵاتت نییە.');
+      alert(txt.noPermissionApprove);
       return;
     }
 
@@ -142,14 +579,12 @@ export function GeneralLedgerTable({
 
       setFeedbackMsg({
         type: 'success',
-        text: language === 'fa' 
-          ? `سند «${tx.title}» با موفقیت توسط ${user?.name || user?.email || 'مدیر'} تایید نهایی شد.` 
-          : 'بەڵگەنامە پەسەند کرا.'
+        text: txt.singleApprovedSuccess(tx.title, user?.name || user?.email)
       });
       setTimeout(() => setFeedbackMsg(null), 3500);
     } catch (err) {
       console.error('Single approval error:', err);
-      alert(err.message || 'خطا در تایید نهایی سند');
+      alert(err.message || txt.errSingleApprove);
     } finally {
       setApprovingId(null);
     }
@@ -159,7 +594,7 @@ export function GeneralLedgerTable({
   const handleBatchApprove = useCallback(async () => {
     if (selectedIds.size === 0) return;
     if (!canApprove) {
-      alert(language === 'fa' ? 'شما دسترسی لازم برای تایید گروهی را ندارید.' : 'دەسەڵاتت نییە.');
+      alert(txt.noPermissionBatchApprove);
       return;
     }
 
@@ -190,14 +625,12 @@ export function GeneralLedgerTable({
 
       setFeedbackMsg({
         type: 'success',
-        text: language === 'fa' 
-          ? `تعداد ${approvedCount} سند پیش‌نویس با موفقیت تایید نهایی شدند.` 
-          : `${approvedCount} بەڵگەنامە پەسەند کران.`
+        text: txt.batchApprovedSuccess(approvedCount)
       });
       setTimeout(() => setFeedbackMsg(null), 3500);
     } catch (err) {
       console.error('Batch approval error:', err);
-      alert(err.message || 'خطا در تایید گروهی اسناد');
+      alert(err.message || txt.errBatchApprove);
     } finally {
       setIsBatchApproving(false);
     }
@@ -220,15 +653,13 @@ export function GeneralLedgerTable({
       });
       setFeedbackMsg({
         type: 'success',
-        text: language === 'fa' 
-          ? `سند «${documentToDelete.title || documentToDelete.id}» با موفقیت حذف شد.` 
-          : 'بەڵگەنامەی کاتی سڕایەوە.'
+        text: txt.singleDeletedSuccess(documentToDelete.title || documentToDelete.id)
       });
       setTimeout(() => setFeedbackMsg(null), 3500);
       setDocumentToDelete(null);
     } catch (err) {
       console.error('Delete draft item error:', err);
-      alert(err.message || 'خطا در حذف سند موقت');
+      alert(err.message || txt.errSingleDelete);
     } finally {
       setIsDeleting(false);
     }
@@ -252,14 +683,12 @@ export function GeneralLedgerTable({
       setIsBatchDeleteModalOpen(false);
       setFeedbackMsg({
         type: 'success',
-        text: language === 'fa' 
-          ? `تعداد ${count} سند موقت با موفقیت حذف شدند.` 
-          : `${count} بەڵگەنامەی کاتی سڕانەوە.`
+        text: txt.batchDeletedSuccess(count)
       });
       setTimeout(() => setFeedbackMsg(null), 3500);
     } catch (err) {
       console.error('Batch delete draft error:', err);
-      alert(err.message || 'خطا در حذف گروهی اسناد موقت');
+      alert(err.message || txt.errBatchDelete);
     } finally {
       setIsDeleting(false);
     }
@@ -268,28 +697,29 @@ export function GeneralLedgerTable({
   // خروجی اکسل از دفتر کل
   const handleExportExcel = useCallback(() => {
     if (ledgerItems.length === 0) {
-      alert(language === 'fa' ? 'هیچ تراکنشی برای صدور فایل اکسل یافت نشد.' : 'هیچ مامەڵەیەک نییە.');
+      alert(txt.noTxForExcel);
       return;
     }
 
+    const eh = txt.excelHeaders;
     const rows = ledgerItems.map((item, idx) => ({
-      'ردیف': idx + 1,
-      'تاریخ': item.rawDate,
-      'نوع تراکنش': item.type === 'inflow' ? 'ورودی (+)' : 'خروجی (-)',
-      'دسته‌بندی': item.categoryLabel,
-      'مبلغ تراکنش': item.amount,
-      'واحد پول': currency,
-      'موجودی پس از تراکنش': item.runningBalance,
-      'حساب': item.accountName || (item.accountType === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
-      'عنوان و طرف‌حساب': item.title,
-      'وضعیت تایید': item.status === 'approved' 
-        ? `تایید نهایی (${item.approvedBy || 'مدیر'})` 
-        : 'پیش‌نویس موقت',
-      'تاریخ تایید': item.approvedAt || '',
-      'اصلاحیه خورده': item.isAmended ? 'بله' : 'خیر',
-      'مبلغ اولیه': item.originalAmount !== undefined ? item.originalAmount : item.amount,
-      'دلیل اصلاحیه': item.amendmentReason || '',
-      'توضیحات': item.description || ''
+      [eh.row]: idx + 1,
+      [eh.date]: item.rawDate,
+      [eh.type]: item.type === 'inflow' ? eh.valInflow : eh.valOutflow,
+      [eh.category]: item.categoryLabel,
+      [eh.amount]: item.amount,
+      [eh.currency]: currency,
+      [eh.balanceAfter]: item.runningBalance,
+      [eh.account]: item.accountName || (item.accountType === 'bank' ? eh.valBank : eh.valCash),
+      [eh.titleCounterparty]: item.title,
+      [eh.status]: item.status === 'approved' 
+        ? eh.valApproved(item.approvedBy) 
+        : eh.valDraft,
+      [eh.approvedDate]: item.approvedAt || '',
+      [eh.isAmended]: item.isAmended ? eh.valYes : eh.valNo,
+      [eh.originalAmount]: item.originalAmount !== undefined ? item.originalAmount : item.amount,
+      [eh.amendReason]: item.amendmentReason || '',
+      [eh.description]: item.description || ''
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -310,16 +740,14 @@ export function GeneralLedgerTable({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-black text-slate-900 dark:text-white">
-                {language === 'fa' ? 'دفتر کل و اسناد مالی' : 'دەفتەری گشتی مامەڵە دارایییەکان'}
+                {txt.title}
               </h2>
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
-                {ledgerItems.length} {language === 'fa' ? 'تراکنش' : 'مامەڵە'}
+                {txt.txCount(ledgerItems.length)}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {language === 'fa' 
-                ? 'نمای یکپارچه اسناد مالی، تسویه‌حساب‌ها، جریان نقدینگی با قابلیت تایید نهایی و صدور اصلاحیه' 
-                : 'ڕیزبەندی هەموو مامەڵەکانی سندوق بەپێی بەروار'}
+              {txt.subtitle}
             </p>
           </div>
         </div>
@@ -336,7 +764,7 @@ export function GeneralLedgerTable({
             }`}
           >
             <Filter className="w-3.5 h-3.5 text-sky-500" />
-            <span>{language === 'fa' ? 'فیلترها' : 'فلتەرەکان'}</span>
+            <span>{txt.filtersBtn}</span>
           </button>
 
           <button
@@ -345,7 +773,7 @@ export function GeneralLedgerTable({
             className="px-3 py-1.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 border border-transparent text-xs font-bold flex items-center gap-1.5 transition-colors"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>{language === 'fa' ? 'خروجی اکسل' : 'هەناردەی ئێکسڵ'}</span>
+            <span>{txt.excelExport}</span>
           </button>
         </div>
       </div>
@@ -355,25 +783,25 @@ export function GeneralLedgerTable({
         {[
           {
             id: 'all',
-            label: language === 'fa' ? 'همه اسناد' : 'هەموو',
+            label: txt.tabAll,
             icon: Layers,
             count: ledgerStats?.total || 0
           },
           {
             id: 'draft',
-            label: language === 'fa' ? 'اسناد موقت' : 'ڕەشنووسەکان',
+            label: txt.tabDraft,
             icon: Clock,
             count: ledgerStats?.draft || 0
           },
           {
             id: 'approved',
-            label: language === 'fa' ? 'تایید نهایی' : 'پەسەندکراو',
+            label: txt.tabApproved,
             icon: ShieldCheck,
             count: ledgerStats?.approved || 0
           },
           {
             id: 'amended',
-            label: language === 'fa' ? 'اصلاحیه‌ها' : 'دەستکاریکراوەکان',
+            label: txt.tabAmended,
             icon: History,
             count: ledgerStats?.amended || 0
           }
@@ -457,14 +885,10 @@ export function GeneralLedgerTable({
             </div>
             <div>
               <p className="text-xs sm:text-sm font-black">
-                {language === 'fa' 
-                  ? `تعداد ${selectedIds.size} سند پیش‌نویس انتخاب شد` 
-                  : `${selectedIds.size} بەڵگەنامە دیاریکراوە`}
+                {txt.batchBannerTitle(selectedIds.size)}
               </p>
               <p className="text-[11px] text-sky-100">
-                {language === 'fa' 
-                  ? `امکان تایید نهایی رسمی یا حذف گروهی اسناد موقت انتخابی وجود دارد.` 
-                  : 'دەتوانیت پەسەندیان بکەیت یان بەکۆمەڵ بیسڕیتەوە'}
+                {txt.batchBannerDesc}
               </p>
             </div>
           </div>
@@ -479,12 +903,12 @@ export function GeneralLedgerTable({
               {isBatchApproving ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" />
-                  <span>{language === 'fa' ? 'در حال تایید...' : 'پەسەند دەکرێت...'}</span>
+                  <span>{txt.approving}</span>
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                  <span>{language === 'fa' ? `تایید نهایی (${selectedIds.size})` : `پەسەندکردنی کۆمەڵ`}</span>
+                  <span>{txt.batchApprove(selectedIds.size)}</span>
                 </>
               )}
             </button>
@@ -495,10 +919,10 @@ export function GeneralLedgerTable({
                 disabled={isBatchApproving || isDeleting}
                 onClick={() => setIsBatchDeleteModalOpen(true)}
                 className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-60"
-                title="حذف گروهی اسناد موقت انتخاب شده"
+                title={txt.tipBatchDelete}
               >
                 <Trash2 className="w-4 h-4 text-white" />
-                <span>{language === 'fa' ? `حذف گروهی (${selectedIds.size})` : `سڕینەوەی کۆمەڵ`}</span>
+                <span>{txt.batchDelete(selectedIds.size)}</span>
               </button>
             )}
 
@@ -508,7 +932,7 @@ export function GeneralLedgerTable({
               disabled={isBatchApproving || isDeleting}
               className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors disabled:opacity-50"
             >
-              {language === 'fa' ? 'لغو انتخاب‌ها' : 'پەشیمانبوونەوە'}
+              {txt.cancelSelection}
             </button>
           </div>
         </div>
@@ -521,18 +945,18 @@ export function GeneralLedgerTable({
           <div>
             <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
               <Calendar className="w-3 h-3 inline ml-1" />
-              <span>{language === 'fa' ? 'بازه زمانی' : 'ماوەی کات'}</span>
+              <span>{txt.filterTimeRange}</span>
             </label>
             <select
               value={dateFilterMode}
               onChange={(e) => setDateFilterMode(e.target.value)}
               className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
             >
-              <option value="month">{language === 'fa' ? `ماه انتخابی (${formatMonthOnly(selectedMonth, language) || selectedMonth})` : `مانگی هەڵبژێردراو (${formatMonthOnly(selectedMonth, language) || selectedMonth})`}</option>
-              <option value="all">{language === 'fa' ? 'همه زمان‌ها (از ابتدا)' : 'هەموو کاتێک'}</option>
-              <option value="this_month">{language === 'fa' ? 'این ماه (جاری)' : 'ئەم مانگە'}</option>
-              <option value="last_month">{language === 'fa' ? 'ماه گذشته' : 'مانگی پێشوو'}</option>
-              <option value="custom">{language === 'fa' ? 'بازه سفارشی...' : 'دیاریکراو...'}</option>
+              <option value="month">{txt.optSelectedMonth(formatMonthOnly(selectedMonth, language) || selectedMonth)}</option>
+              <option value="all">{txt.optAllTime}</option>
+              <option value="this_month">{txt.optThisMonth}</option>
+              <option value="last_month">{txt.optLastMonth}</option>
+              <option value="custom">{txt.optCustomRange}</option>
             </select>
           </div>
 
@@ -540,18 +964,18 @@ export function GeneralLedgerTable({
           <div>
             <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
               <Tag className="w-3 h-3 inline ml-1" />
-              <span>{language === 'fa' ? 'دسته‌بندی تراکنش' : 'جۆری مامەڵە'}</span>
+              <span>{txt.filterCategory}</span>
             </label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
             >
-              <option value="all">{language === 'fa' ? 'همه دسته‌بندی‌ها' : 'هەموو جۆرەکان'}</option>
-              <option value="petty_cash">{language === 'fa' ? 'شارژ تنخواه و واریزی‌ها' : 'داهات و تەنخوا'}</option>
-              <option value="worker_settlement">{language === 'fa' ? 'تسویه دستمزد پرسنل' : 'تەسویەی کرێکاران'}</option>
-              <option value="advance_payment">{language === 'fa' ? 'مساعده پرداختی' : 'مساعدە'}</option>
-              <option value="workshop_expense">{language === 'fa' ? 'هزینه کارگاه (فاکتورها)' : 'خەرجی کارگە'}</option>
+              <option value="all">{txt.optAllCategories}</option>
+              <option value="petty_cash">{txt.optPettyCash}</option>
+              <option value="worker_settlement">{txt.optWorkerSettlement}</option>
+              <option value="advance_payment">{txt.optAdvancePayment}</option>
+              <option value="workshop_expense">{txt.optWorkshopExpense}</option>
             </select>
           </div>
 
@@ -559,18 +983,18 @@ export function GeneralLedgerTable({
           <div>
             <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
               <CreditCard className="w-3 h-3 inline ml-1" />
-              <span>{language === 'fa' ? 'حساب مبدا/مقصد' : 'حیساب'}</span>
+              <span>{txt.filterAccount}</span>
             </label>
             <select
               value={accountTypeFilter}
               onChange={(e) => setAccountTypeFilter(e.target.value)}
               className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
             >
-              <option value="all">{language === 'fa' ? 'همه حساب‌ها (نقد و بانک)' : 'هەموو حیسابەکان'}</option>
-              <option value="cash">{language === 'fa' ? 'تمام صندوق‌های نقدی' : 'سندوقی کاش'}</option>
-              <option value="bank">{language === 'fa' ? 'تمام کارت‌ها و بانک‌ها' : 'حیسابی بانک'}</option>
+              <option value="all">{txt.optAllAccounts}</option>
+              <option value="cash">{txt.optAllCash}</option>
+              <option value="bank">{txt.optAllBank}</option>
               {financialAccounts.length > 0 && (
-                <optgroup label={language === 'fa' ? 'حساب‌های اختصاصی کارگاه' : 'حیسابە تایبەتەکان'}>
+                <optgroup label={txt.groupWorkshopAccounts}>
                   {financialAccounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
                       {acc.type === 'bank' ? '💳 ' : '🪙 '}
@@ -587,14 +1011,14 @@ export function GeneralLedgerTable({
           <div>
             <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
               <Search className="w-3 h-3 inline ml-1" />
-              <span>{language === 'fa' ? 'جستجو در تراکنش‌ها' : 'گەڕان'}</span>
+              <span>{txt.searchPh}</span>
             </label>
             <div className="relative">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="عنوان، طرف‌حساب، مبلغ..."
+                placeholder={txt.searchDetailedPh}
                 className="w-full h-9 ps-8 pe-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute start-2.5 top-1/2 -translate-y-1/2" />
@@ -605,7 +1029,7 @@ export function GeneralLedgerTable({
           {dateFilterMode === 'custom' && (
             <div className="sm:col-span-2 lg:col-span-4 pt-2 border-t border-slate-200/60 dark:border-slate-700 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500">از تاریخ:</span>
+                <span className="text-[11px] text-slate-500">{txt.lblFromDate}</span>
                 <input
                   type="date"
                   value={customStartDate}
@@ -614,7 +1038,7 @@ export function GeneralLedgerTable({
                 />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500">تا تاریخ:</span>
+                <span className="text-[11px] text-slate-500">{txt.lblToDate}</span>
                 <input
                   type="date"
                   value={customEndDate}
@@ -635,12 +1059,10 @@ export function GeneralLedgerTable({
               <TableIcon className="w-7 h-7" />
             </div>
             <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-              {language === 'fa' ? 'هیچ تراکنشی مطابق با فیلترهای جاری یافت نشد' : 'هیچ مامەڵەیەک نەدۆزرایەوە'}
+              {txt.emptyTitle}
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-              {language === 'fa' 
-                ? 'فیلترهای وضعیت یا دسته‌بندی را تغییر دهید، یا تراکنش‌های مالی و هزینه‌ها را ثبت نمایید.' 
-                : 'فلتەرەکان پاک بکەرەوە.'}
+              {txt.emptySubtitleAlt}
             </p>
           </div>
         ) : (
@@ -654,7 +1076,7 @@ export function GeneralLedgerTable({
                       type="button"
                       onClick={handleToggleSelectAllDrafts}
                       className="p-1 text-slate-400 hover:text-emerald-600 transition-colors"
-                      title={isAllDraftsSelected ? 'لغو انتخاب همه پیش‌نویس‌ها' : 'انتخاب همه اسناد پیش‌نویس جهت تایید گروهی'}
+                      title={isAllDraftsSelected ? txt.tipDeselectAllDrafts : txt.tipSelectAllDrafts}
                     >
                       {isAllDraftsSelected ? (
                         <CheckSquare className="w-4 h-4 text-emerald-600" />
@@ -666,14 +1088,14 @@ export function GeneralLedgerTable({
                     <span className="text-[10px] text-slate-400">#</span>
                   )}
                 </th>
-                <th className="py-3 px-3.5 whitespace-nowrap">{language === 'fa' ? 'تاریخ' : 'بەروار'}</th>
-                <th className="py-3 px-3.5 whitespace-nowrap">{language === 'fa' ? 'نوع تراکنش' : 'جۆر'}</th>
-                <th className="py-3 px-3.5 whitespace-nowrap">{language === 'fa' ? 'دسته‌بندی' : 'پۆلێن'}</th>
-                <th className="py-3 px-3.5 font-mono whitespace-nowrap">{language === 'fa' ? 'مبلغ سند' : 'بڕە پارە'}</th>
-                <th className="py-3 px-3.5 font-mono whitespace-nowrap">{language === 'fa' ? 'موجودی پس از تراکنش' : 'باڵانسی دواتر'}</th>
-                <th className="py-3 px-3.5">{language === 'fa' ? 'عنوان و طرف‌حساب' : 'تێبینی'}</th>
-                <th className="py-3 px-3.5 whitespace-nowrap text-center">{language === 'fa' ? 'وضعیت سند و تایید' : 'دۆخی پەسەندکردن'}</th>
-                <th className="py-3 px-3.5 w-32 text-center whitespace-nowrap">{language === 'fa' ? 'عملیات سند' : 'کردار'}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap">{txt.thDate}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap">{txt.thType}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap">{txt.thCategory}</th>
+                <th className="py-3 px-3.5 font-mono whitespace-nowrap">{txt.thAmount}</th>
+                <th className="py-3 px-3.5 font-mono whitespace-nowrap">{txt.thBalanceAfter}</th>
+                <th className="py-3 px-3.5">{txt.thTitleCounterparty}</th>
+                <th className="py-3 px-3.5 whitespace-nowrap text-center">{txt.thStatus}</th>
+                <th className="py-3 px-3.5 w-32 text-center whitespace-nowrap">{txt.thActions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
@@ -712,7 +1134,7 @@ export function GeneralLedgerTable({
                           type="button"
                           onClick={() => handleToggleSelectItem(tx.id)}
                           className="p-1 text-slate-400 hover:text-emerald-600 transition-colors"
-                          title="انتخاب جهت تایید گروهی"
+                          title={txt.tipSelectForBatch}
                         >
                           {isSelected ? (
                             <CheckSquare className="w-4 h-4 text-emerald-600" />
@@ -735,12 +1157,12 @@ export function GeneralLedgerTable({
                       {isInflow ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
                           <ArrowDownLeft className="w-3 h-3 text-emerald-500" />
-                          <span>{language === 'fa' ? 'ورودی (+)' : 'داهات (+)'}</span>
+                          <span>{txt.badgeInflow}</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
                           <ArrowUpRight className="w-3 h-3 text-rose-500" />
-                          <span>{language === 'fa' ? 'خروجی (-)' : 'خەرجی (-)'}</span>
+                          <span>{txt.badgeOutflow}</span>
                         </span>
                       )}
                     </td>
@@ -797,7 +1219,7 @@ export function GeneralLedgerTable({
                       )}
                       {tx.isAmended && tx.amendmentReason && (
                         <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5 flex items-center gap-1">
-                          <span>📝 دلیل اصلاحیه:</span>
+                          <span>{txt.amendmentReasonPrefix}</span>
                           <span className="truncate max-w-xs">{tx.amendmentReason}</span>
                         </div>
                       )}
@@ -826,14 +1248,14 @@ export function GeneralLedgerTable({
                               disabled={isCurrentlyApproving || isDeleting}
                               onClick={() => handleSingleApprove(tx)}
                               className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
-                              title="تایید نهایی این سند با نام مدیر جاری"
+                              title={txt.tipFinalApproveCurrent}
                             >
                               {isCurrentlyApproving ? (
                                 <span className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
                               ) : (
                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                               )}
-                              <span>{language === 'fa' ? 'تایید نهایی' : 'پەسەندکردن'}</span>
+                              <span>{txt.btnFinalApprove}</span>
                             </button>
 
                             {/* دکمه حذف برای سند موقت */}
@@ -843,7 +1265,7 @@ export function GeneralLedgerTable({
                                 disabled={isCurrentlyApproving || isDeleting}
                                 onClick={() => setDocumentToDelete(tx)}
                                 className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-all active:scale-95 disabled:opacity-50"
-                                title={language === 'fa' ? 'حذف این سند موقت' : 'سڕینەوەی ئەم بەڵگەنامە کاتییە'}
+                                title={txt.btnDeleteDraft}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -856,10 +1278,10 @@ export function GeneralLedgerTable({
                               type="button"
                               onClick={() => setAmendmentModalTx(tx)}
                               className="px-2 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95"
-                              title="صدور سند اصلاحیه و تعدیل مبلغ"
+                              title={txt.tipIssueAmend}
                             >
                               <FileEdit className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                              <span>{language === 'fa' ? 'اصلاحیه' : 'دەستکاری'}</span>
+                              <span>{txt.btnAmend}</span>
                             </button>
 
                             {tx.isAmended && (
@@ -867,7 +1289,7 @@ export function GeneralLedgerTable({
                                 type="button"
                                 onClick={() => setHistoryModalTx(tx)}
                                 className="p-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors"
-                                title="مشاهده سوابق و تاریخچه اصلاحیه"
+                                title={txt.tipViewHistory}
                               >
                                 <History className="w-3.5 h-3.5 text-slate-500" />
                               </button>
@@ -898,14 +1320,12 @@ export function GeneralLedgerTable({
               setAmendmentModalTx(null);
               setFeedbackMsg({
                 type: 'success',
-                text: language === 'fa' 
-                  ? `اصلاحیه برای سند «${amendmentModalTx.title}» با موفقیت ثبت شد.` 
-                  : 'دەستکاری بە سەرکەوتوویی تۆمار کرا.'
+                text: txt.amendSuccess(amendmentModalTx.title)
               });
               setTimeout(() => setFeedbackMsg(null), 3500);
             } catch (err) {
               console.error('Amendment failed:', err);
-              alert(err.message || 'خطا در ثبت سند اصلاحیه');
+              alert(err.message || txt.errAmendGeneral);
             }
           }}
         />
@@ -951,6 +1371,7 @@ export function GeneralLedgerTable({
  * مودال صدور سند اصلاحیه برای سند تایید نهایی شده
  */
 function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
+  const txt = COPY[language] || COPY.fa;
   const [amount, setAmount] = useState(String(tx.amount || 0));
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState(tx.notes || '');
@@ -959,13 +1380,13 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!reason.trim()) {
-      alert(language === 'fa' ? 'لطفاً دلیل صدور اصلاحیه را قید نمایید (الزامی است).' : 'تکایە هۆکاری دەستکاری دیاری بکە.');
+      alert(txt.errReasonRequired);
       return;
     }
 
     const numAmount = Number(String(amount).replace(/,/g, ''));
     if (isNaN(numAmount) || numAmount < 0) {
-      alert(language === 'fa' ? 'مبلغ وارد شده معتبر نیست.' : 'بڕە پارەکە دروست نییە.');
+      alert(txt.errInvalidAmount);
       return;
     }
 
@@ -992,10 +1413,10 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                {language === 'fa' ? 'صدور اصلاحیه سند تایید نهایی' : 'تۆماری دەستکاری بەڵگەنامە'}
+                {txt.issueAmendTitle}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {language === 'fa' ? 'تعدیل مشخصات یا مبلغ سند با حفظ تاریخچه حسابداری' : 'دەستکاریکردنی بەڵگەنامە'}
+                {txt.issueAmendSubtitle}
               </p>
             </div>
           </div>
@@ -1013,15 +1434,15 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
           {/* باکس مشخصات سند جاری */}
           <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-slate-500 font-medium">سند اولیه:</span>
+              <span className="text-slate-500 font-medium">{txt.lblInitialDoc}</span>
               <span className="font-bold text-slate-900 dark:text-white">{tx.title}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-500 font-medium">تاریخ و دسته‌بندی:</span>
+              <span className="text-slate-500 font-medium">{txt.lblDateAndCat}</span>
               <span className="font-mono text-slate-700 dark:text-slate-300">{tx.rawDate} - {tx.categoryLabel}</span>
             </div>
             <div className="flex items-center justify-between border-t border-slate-200/60 dark:border-slate-700 pt-2">
-              <span className="text-slate-500 font-medium">مبلغ فعلی سند:</span>
+              <span className="text-slate-500 font-medium">{txt.lblCurrentAmount}</span>
               <span className="font-bold font-mono text-slate-900 dark:text-white text-sm">
                 {formatCurrency(tx.amount, currency, language)}
               </span>
@@ -1031,7 +1452,7 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
           {/* فیلد مبلغ اصلاح شده جدید */}
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              {language === 'fa' ? 'مبلغ جدید سند (پس از اصلاح)' : 'بڕە پارەی نوێ'}
+              {txt.lblNewAmount}
             </label>
             <input
               type="text"
@@ -1046,16 +1467,14 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
               placeholder="0"
             />
             <p className="text-[11px] text-slate-400 mt-1">
-              {language === 'fa' 
-                ? 'در صورت نیاز به تغییر مبلغ سند، مقدار جدید را وارد نمایید.' 
-                : 'بڕی نوێ دیاری بکە.'}
+              {txt.tipNewAmount}
             </p>
           </div>
 
           {/* فیلد دلیل اصلاحیه (الزامی) */}
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              {language === 'fa' ? 'دلیل صدور اصلاحیه (الزامی)' : 'هۆکاری دەستکاری (پێویستە)'}
+              {txt.lblReasonRequired}
               <span className="text-rose-500 mr-1">*</span>
             </label>
             <input
@@ -1063,7 +1482,7 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
               required
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={language === 'fa' ? 'مثال: اصلاح اشتباه ثبتی / تعدیل ساعت کارکرد / تخفیف فاکتور' : 'هۆکار'}
+              placeholder={txt.phReason}
               className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500"
             />
           </div>
@@ -1071,13 +1490,13 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
           {/* فیلد توضیحات تکمیلی */}
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              {language === 'fa' ? 'توضیحات تکمیلی (اختیاری)' : 'تێبینی'}
+              {txt.lblNotesOptional}
             </label>
             <textarea
               rows="2"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder={language === 'fa' ? 'توضیحات اضافی در صورت نیاز...' : 'تێبینی...'}
+              placeholder={txt.phNotes}
               className="w-full p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500"
             />
           </div>
@@ -1089,7 +1508,7 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
               onClick={onClose}
               className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold transition-colors"
             >
-              {language === 'fa' ? 'انصراف' : 'پەشیمانبوونەوە'}
+              {txt.cancel}
             </button>
             <button
               type="submit"
@@ -1099,12 +1518,12 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
               {isSubmitting ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>{language === 'fa' ? 'در حال ثبت...' : 'تۆمار دەکرێت...'}</span>
+                  <span>{txt.submitting}</span>
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>{language === 'fa' ? 'ثبت و صدور اصلاحیه' : 'تۆمارکردنی دەستکاری'}</span>
+                  <span>{txt.btnSubmitAmend}</span>
                 </>
               )}
             </button>
@@ -1119,6 +1538,7 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
  * مودال مشاهده سوابق و تاریخچه اصلاحیه‌های یک سند
  */
 function AmendmentHistoryModal({ tx, currency, language, onClose }) {
+  const txt = COPY[language] || COPY.fa;
   const historyList = Array.isArray(tx.amendmentHistory) ? tx.amendmentHistory : [];
 
   return (
@@ -1132,7 +1552,7 @@ function AmendmentHistoryModal({ tx, currency, language, onClose }) {
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                {language === 'fa' ? 'تاریخچه و سوابق اصلاحیه سند' : 'مێژووی دەستکاری'}
+                {txt.historyTitle}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {tx.title}
@@ -1153,13 +1573,13 @@ function AmendmentHistoryModal({ tx, currency, language, onClose }) {
           {/* خلاصه مبالغ */}
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
             <div>
-              <span className="text-[11px] text-slate-400 block">مبلغ اولیه سند:</span>
+              <span className="text-[11px] text-slate-400 block">{txt.lblInitialAmount}</span>
               <span className="font-bold font-mono text-slate-700 dark:text-slate-300">
                 {formatCurrency(tx.originalAmount !== undefined ? tx.originalAmount : tx.amount, currency, language)}
               </span>
             </div>
             <div className="text-end">
-              <span className="text-[11px] text-slate-400 block">مبلغ فعلی نهایی:</span>
+              <span className="text-[11px] text-slate-400 block">{txt.lblCurrentFinalAmount}</span>
               <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 text-sm">
                 {formatCurrency(tx.amount, currency, language)}
               </span>
@@ -1168,12 +1588,12 @@ function AmendmentHistoryModal({ tx, currency, language, onClose }) {
 
           {historyList.length === 0 ? (
             <div className="p-6 text-center text-slate-400">
-              <p>{language === 'fa' ? 'سابقه‌ای در تاریخچه ثبت نشده است.' : 'هیچ مێژوویەک نییە.'}</p>
+              <p>{txt.noHistory}</p>
             </div>
           ) : (
             <div className="space-y-2.5">
               <h4 className="font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'لیست تغییرات و اصلاحیه‌های اعمال شده:' : 'گۆڕانکارییەکان:'}
+                {txt.historyListTitle}
               </h4>
               {historyList.map((entry, idx) => (
                 <div 
@@ -1182,7 +1602,7 @@ function AmendmentHistoryModal({ tx, currency, language, onClose }) {
                 >
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-bold text-purple-700 dark:text-purple-300">
-                      اصلاحیه #{idx + 1}
+                      {txt.amendmentIdx(idx + 1)}
                     </span>
                     <span className="font-mono text-slate-400">
                       {entry.amendedAt ? entry.amendedAt.slice(0, 16).replace('T', ' ') : ''}
@@ -1198,15 +1618,15 @@ function AmendmentHistoryModal({ tx, currency, language, onClose }) {
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                    <span className="font-bold">دلیل:</span> {entry.reason}
+                    <span className="font-bold">{txt.lblReason}</span> {entry.reason}
                   </div>
                   {entry.notes && (
                     <div className="text-[10px] text-slate-400">
-                      <span className="font-bold">توضیحات:</span> {entry.notes}
+                      <span className="font-bold">{txt.lblNotes}</span> {entry.notes}
                     </div>
                   )}
                   <div className="text-[10px] text-slate-400 pt-1 border-t border-purple-100 dark:border-purple-900/40">
-                    توسط: <span className="font-medium text-slate-600 dark:text-slate-300">{entry.amendedBy || 'مدیر'}</span>
+                    {txt.lblBy} <span className="font-medium text-slate-600 dark:text-slate-300">{entry.amendedBy || txt.managerFallback}</span>
                   </div>
                 </div>
               ))}
@@ -1222,6 +1642,7 @@ function AmendmentHistoryModal({ tx, currency, language, onClose }) {
  * مودال تایید حذف سند موقت (پیش‌نویس)
  */
 function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, onConfirm }) {
+  const txt = COPY[language] || COPY.fa;
   if (!tx) return null;
   const isRtl = language === 'fa' || language === 'ku';
 
@@ -1239,10 +1660,10 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
             </div>
             <div>
               <h3 className="font-black text-sm text-slate-800 dark:text-slate-100">
-                {language === 'fa' ? 'حذف سند موقت' : 'سڕینەوەی بەڵگەنامەی کاتی'}
+                {txt.deleteDraftTitle}
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                {language === 'fa' ? 'حذف قطعی سند پیش‌نویس از سیستم حسابداری' : 'سڕینەوەی یەکجاری لە سیستەم'}
+                {txt.deleteDraftSubtitle}
               </p>
             </div>
           </div>
@@ -1261,16 +1682,16 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-slate-500 font-medium">
-                {language === 'fa' ? 'عنوان / شرح سند:' : 'ناونیشان:'}
+                {txt.lblDocTitleDesc}
               </span>
               <span className="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[200px]">
-                {tx.title || 'سند مالی'}
+                {tx.title || txt.financialDocFallback}
               </span>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-slate-500 font-medium">
-                {language === 'fa' ? 'سرفصل / دسته‌بندی:' : 'جۆر:'}
+                {txt.lblDocCategory}
               </span>
               <span className="font-medium text-slate-700 dark:text-slate-300">
                 {tx.categoryLabel || '-'}
@@ -1279,7 +1700,7 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
 
             <div className="flex items-center justify-between">
               <span className="text-slate-500 font-medium">
-                {language === 'fa' ? 'حساب یا صندوق:' : 'حیساب:'}
+                {txt.lblDocAccount}
               </span>
               <span className="font-medium text-slate-700 dark:text-slate-300">
                 {tx.accountName || '-'}
@@ -1288,7 +1709,7 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
 
             <div className="flex items-center justify-between">
               <span className="text-slate-500 font-medium">
-                {language === 'fa' ? 'تاریخ ثبت:' : 'بەروار:'}
+                {txt.lblDocDate}
               </span>
               <span className="font-mono text-slate-700 dark:text-slate-300">
                 {tx.rawDate || '-'}
@@ -1297,7 +1718,7 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
 
             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <span className="text-slate-600 dark:text-slate-300 font-bold">
-                {language === 'fa' ? 'مبلغ سند:' : 'بڕ:'}
+                {txt.lblDocAmount}
               </span>
               <span className={`font-mono font-black text-sm ${tx.type === 'inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                 {tx.type === 'inflow' ? '+' : '-'}{formatCurrency(tx.amount, currency, language)}
@@ -1309,9 +1730,7 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
           <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5 text-amber-800 dark:text-amber-300">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <p className="text-[11px] leading-relaxed">
-              {language === 'fa' 
-                ? 'این سند هنوز تایید نهایی نشده است. با حذف آن، رکورد به صورت کامل حذف شده و اثر مالی آن از موجودی حساب کسر یا برگشت داده می‌شود.' 
-                : 'ئەم بەڵگەنامەیە هێشتا پەسەند نەکراوە. بە سڕینەوەی، بڕەکەی لە باڵانس دەگەڕێتەوە.'}
+              {txt.warningDeleteDraft}
             </p>
           </div>
         </div>
@@ -1324,7 +1743,7 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
             disabled={isDeleting}
             className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition-all disabled:opacity-50"
           >
-            {language === 'fa' ? 'انصراف' : 'پەشیمانبوونەوە'}
+            {txt.cancel}
           </button>
           <button
             type="button"
@@ -1335,12 +1754,12 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
             {isDeleting ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>{language === 'fa' ? 'در حال حذف...' : 'سڕینەوە...'}</span>
+                <span>{txt.deleting}</span>
               </>
             ) : (
               <>
                 <Trash2 className="w-4 h-4" />
-                <span>{language === 'fa' ? 'حذف قطعی سند' : 'سڕینەوە'}</span>
+                <span>{txt.btnConfirmDeleteSingle}</span>
               </>
             )}
           </button>
@@ -1354,6 +1773,7 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
  * مودال تایید حذف گروهی اسناد موقت
  */
 function BatchDeleteDraftConfirmModal({ count, language, isDeleting, onClose, onConfirm }) {
+  const txt = COPY[language] || COPY.fa;
   const isRtl = language === 'fa' || language === 'ku';
 
   return (
@@ -1369,10 +1789,10 @@ function BatchDeleteDraftConfirmModal({ count, language, isDeleting, onClose, on
             </div>
             <div>
               <h3 className="font-black text-sm text-slate-800 dark:text-slate-100">
-                {language === 'fa' ? 'حذف گروهی اسناد موقت' : 'سڕینەوەی کۆمەڵی بەڵگەنامەکان'}
+                {txt.batchDeleteTitle}
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                {language === 'fa' ? `تعداد ${count} سند پیش‌نویس جهت حذف انتخاب شده است` : `${count} بەڵگەنامە دیاریکراوە`}
+                {txt.batchDeleteSubtitle(count)}
               </p>
             </div>
           </div>
@@ -1388,17 +1808,13 @@ function BatchDeleteDraftConfirmModal({ count, language, isDeleting, onClose, on
 
         <div className="p-5 space-y-4 text-xs">
           <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-            {language === 'fa' 
-              ? `آیا از حذف کامل ${count} سند موقت/پیش‌نویس انتخاب شده مطمئن هستید؟` 
-              : `ئایا دڵنیایت لە سڕینەوەی ئەم ${count} بەڵگەنامەیە؟`}
+            {txt.batchDeleteQuestion(count)}
           </p>
 
           <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5 text-amber-800 dark:text-amber-300">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <p className="text-[11px] leading-relaxed">
-              {language === 'fa' 
-                ? 'فقط اسناد موقت حذف خواهند شد (اسناد تایید نهایی شده مصون هستند). با انجام این کار، موجودی حساب‌ها و صندوق‌ها به‌صورت خودکار بازتنظیم می‌گردد.' 
-                : 'تەنها بەڵگەنامە کاتییەکان دەسڕدرێنەوە. باڵانسی حیسابەکان خۆکارانە چاک دەکرێن.'}
+              {txt.warningBatchDelete}
             </p>
           </div>
         </div>
@@ -1410,7 +1826,7 @@ function BatchDeleteDraftConfirmModal({ count, language, isDeleting, onClose, on
             disabled={isDeleting}
             className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition-all disabled:opacity-50"
           >
-            {language === 'fa' ? 'انصراف' : 'پەشیمانبوونەوە'}
+            {txt.cancel}
           </button>
           <button
             type="button"
@@ -1421,12 +1837,12 @@ function BatchDeleteDraftConfirmModal({ count, language, isDeleting, onClose, on
             {isDeleting ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>{language === 'fa' ? 'در حال حذف...' : 'سڕینەوە...'}</span>
+                <span>{txt.deleting}</span>
               </>
             ) : (
               <>
                 <Trash2 className="w-4 h-4" />
-                <span>{language === 'fa' ? `حذف ${count} سند موقت` : `سڕینەوەی ${count}`}</span>
+                <span>{txt.btnConfirmBatchDelete(count)}</span>
               </>
             )}
           </button>

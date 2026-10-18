@@ -8,17 +8,70 @@ import { AlertTriangle, X, ShieldAlert, ArrowDownRight, Check, Ban } from 'lucid
  * مودال تایید و هشدار اضافه برداشت (کسری موجودی)
  * با سطح لایه z-[250] جهت نمایش بالاتر از تمام مودال‌های تمام‌صفحه
  */
+// Scoped dictionary for OverdraftConfirmModal
+const COPY = {
+  fa: {
+    accountFallback: 'حساب انتخابی',
+    titleBlocked: 'خطای کسری موجودی حساب (غیرمجاز)',
+    titleWarn: 'هشدار کسری موجودی حساب',
+    descBlocked: (acc) => `موجودی حساب «${acc}» کمتر از مبلغ درخواستی تراکنش است و بر اساس تنظیمات سیستم، اضافه برداشت و ثبت با مانده منفی «همیشه نامجاز» است. امکان ثبت این تراکنش با این حساب وجود ندارد.`,
+    descWarn: (acc) => `مبلغ تراکنش انتخابی از موجودی فعلی حساب «${acc}» بیشتر است و ثبت آن منجر به منفی شدن موجودی حساب خواهد شد.`,
+    currentBalance: 'موجودی فعلی حساب:',
+    requestedAmount: 'مبلغ درخواستی تراکنش:',
+    shortfall: 'کسری موجودی:',
+    newBalanceNegative: 'مانده جدید (منفی):',
+    tipBlocked: 'برای ادامه لطفاً حساب دیگری انتخاب کرده یا ابتدا از طریق بخش واریزی‌ها حساب را شارژ نمایید.',
+    tipWarn: 'سیاست حساب بر روی «پرسش در هر بار» است. آیا تایید می‌کنید؟',
+    btnUnderstand: 'متوجه شدم (بازگشت و اصلاح)',
+    btnCancel: 'انصراف و اصلاح',
+    btnConfirmNegative: 'تایید و ثبت با موجودی منفی'
+  },
+  ku: {
+    accountFallback: 'حیسابی هەڵبژێردراو',
+    titleBlocked: 'هەڵەی کەمبوونی باڵانس (قەدەغە)',
+    titleWarn: 'ئاگاداری کەمبوونی باڵانسی حیساب',
+    descBlocked: (acc) => `باڵانسی حیسابی «${acc}» لە بڕی داواکراو کەمترە و بەپێی سیاسەتی سیستەم کەمبوونی باڵانس «قەدەغەیە». تۆمارکردن ناکرێت.`,
+    descWarn: (acc) => `بڕی داواکراو لە باڵانسی ئێستای حیسابی «${acc}» زیاترە و دەبێتە هۆی نێگەتیڤ بوونی باڵانس.`,
+    currentBalance: 'باڵانسی ئێستا:',
+    requestedAmount: 'بڕی داواکراوی مامەڵە:',
+    shortfall: 'بڕی کەمیی باڵانس:',
+    newBalanceNegative: 'باڵانسی نوێ (نێگەتیڤ):',
+    tipBlocked: 'تکایە حیسابێکی تر هەڵبژێرە یاخود باڵانسی حیساب زیاد بکە.',
+    tipWarn: 'سیاسەتی حیساب لەسەر «پرسیارکردن لە هەر جارێک» دانراوە. ئایا پەسەندی دەکەیت؟',
+    btnUnderstand: 'تێگەیشتم (گەڕانەوە و چاککردن)',
+    btnCancel: 'پاشگەزبوونەوە و چاککردن',
+    btnConfirmNegative: 'پەسەندکردن و تۆمارکردن بە باڵانسی نێگەتیڤ'
+  },
+  en: {
+    accountFallback: 'Selected Account',
+    titleBlocked: 'Insufficient Balance Error (Blocked)',
+    titleWarn: 'Account Overdraft Warning',
+    descBlocked: (acc) => `The balance of account "${acc}" is less than requested, and system policy strictly prohibits negative balances. This transaction cannot be processed.`,
+    descWarn: (acc) => `The requested transaction amount exceeds the current balance of account "${acc}" and will result in a negative balance.`,
+    currentBalance: 'Current Account Balance:',
+    requestedAmount: 'Requested Amount:',
+    shortfall: 'Balance Shortfall:',
+    newBalanceNegative: 'New Balance (Negative):',
+    tipBlocked: 'Please choose another account or recharge this account before proceeding.',
+    tipWarn: 'Account policy is set to "Ask each time". Do you wish to approve this overdraft?',
+    btnUnderstand: 'Understood (Go Back & Edit)',
+    btnCancel: 'Cancel & Edit',
+    btnConfirmNegative: 'Approve & Record with Negative Balance'
+  }
+};
+
 export function OverdraftConfirmModal({
   isOpen,
   onClose,
   onConfirm,
-  accountName = 'حساب انتخابی',
+  accountName = '',
   currentBalance = 0,
   requestedAmount = 0,
   currency = 'IQD',
   language = 'fa',
   isBlocked = false
 }) {
+  const txt = COPY[language] || COPY.fa;
   const shortfall = Math.max(0, requestedAmount - currentBalance);
   const resultingBalance = currentBalance - requestedAmount;
 
@@ -53,12 +106,10 @@ export function OverdraftConfirmModal({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isBlocked 
-                  ? (language === 'fa' ? 'خطای کسری موجودی حساب (غیرمجاز)' : 'هەڵەی کەمبوونی باڵانس (قەدەغە)')
-                  : (language === 'fa' ? 'هشدار کسری موجودی حساب' : 'ئاگاداری کەمبوونی باڵانسی حیساب')}
+                {isBlocked ? txt.titleBlocked : txt.titleWarn}
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                {accountName}
+                {accountName || txt.accountFallback}
               </p>
             </div>
           </div>
@@ -75,20 +126,14 @@ export function OverdraftConfirmModal({
         {/* محتوای محاسبه کسری */}
         <div className="p-5 space-y-4">
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            {isBlocked
-              ? (language === 'fa'
-                  ? `موجودی حساب «${accountName}» کمتر از مبلغ درخواستی تراکنش است و بر اساس تنظیمات سیستم، اضافه برداشت و ثبت با مانده منفی «همیشه نامجاز» است. امکان ثبت این تراکنش با این حساب وجود ندارد.`
-                  : `باڵانسی حیسابی «${accountName}» لە بڕی داواکراو کەمترە و بەپێی سیاسەتی سیستەم کەمبوونی باڵانس «قەدەغەیە». تۆمارکردن ناکرێت.`)
-              : (language === 'fa' 
-                  ? `مبلغ تراکنش انتخابی از موجودی فعلی حساب «${accountName}» بیشتر است و ثبت آن منجر به منفی شدن موجودی حساب خواهد شد.`
-                  : `بڕی داواکراو لە باڵانسی ئێستای حیساب زیاترە و دەبێتە هۆی کەمبوون و باڵانسی نێگەتیڤ.`)}
+            {isBlocked ? txt.descBlocked(accountName || txt.accountFallback) : txt.descWarn(accountName || txt.accountFallback)}
           </p>
 
           {/* کارت مقایسه مبالغ */}
           <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-500 dark:text-slate-400">
-                {language === 'fa' ? 'موجودی فعلی حساب:' : 'باڵانسی ئێستا:'}
+                {txt.currentBalance}
               </span>
               <span className={`font-mono font-bold ${currentBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}`}>
                 {formatCurrency(currentBalance, currency, language)}
@@ -97,7 +142,7 @@ export function OverdraftConfirmModal({
 
             <div className="flex items-center justify-between">
               <span className="text-slate-500 dark:text-slate-400">
-                {language === 'fa' ? 'مبلغ درخواستی تراکنش:' : 'بڕی مامەڵە:'}
+                {txt.requestedAmount}
               </span>
               <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
                 {formatCurrency(requestedAmount, currency, language)}
@@ -109,7 +154,7 @@ export function OverdraftConfirmModal({
                 <>
                   <span className="text-rose-700 dark:text-rose-400 flex items-center gap-1">
                     <Ban className="w-3.5 h-3.5" />
-                    <span>{language === 'fa' ? 'کسری موجودی:' : 'بڕی کەمبوون:'}</span>
+                    <span>{txt.shortfall}</span>
                   </span>
                   <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-sm">
                     {formatCurrency(shortfall, currency, language)}
@@ -119,7 +164,7 @@ export function OverdraftConfirmModal({
                 <>
                   <span className="text-rose-700 dark:text-rose-400 flex items-center gap-1">
                     <ArrowDownRight className="w-3.5 h-3.5" />
-                    <span>{language === 'fa' ? 'مانده جدید (منفی):' : 'باڵانسی نوێ (نێگەتیڤ):'}</span>
+                    <span>{txt.newBalanceNegative}</span>
                   </span>
                   <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-sm" dir="ltr">
                     {formatCurrency(resultingBalance, currency, language)}
@@ -136,13 +181,7 @@ export function OverdraftConfirmModal({
           }`}>
             <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <span>
-              {isBlocked
-                ? (language === 'fa'
-                    ? 'برای ادامه لطفاً حساب دیگری انتخاب کرده یا ابتدا از طریق بخش واریزی‌ها حساب را شارژ نمایید.'
-                    : 'تکایە حیسابێکی تر هەڵبژێرە یاخود باڵانسی حیساب زیاد بکە.')
-                : (language === 'fa' 
-                    ? 'سیاست حساب بر روی «پرسش در هر بار» است. آیا تایید می‌کنید؟' 
-                    : 'ئایا ڕێگە بە کەمبوونی باڵانس و تۆمارکردن دەدەیت؟')}
+              {isBlocked ? txt.tipBlocked : txt.tipWarn}
             </span>
           </div>
         </div>
@@ -155,7 +194,7 @@ export function OverdraftConfirmModal({
               onClick={onClose}
               className="w-full py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-200 dark:hover:bg-white dark:text-slate-900 flex items-center justify-center gap-1.5 transition-all"
             >
-              <span>{language === 'fa' ? 'متوجه شدم (بازگشت و اصلاح)' : 'تێگەیشتم (گەڕانەوە)'}</span>
+              <span>{txt.btnUnderstand}</span>
             </button>
           ) : (
             <>
@@ -164,7 +203,7 @@ export function OverdraftConfirmModal({
                 onClick={onClose}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
-                {language === 'fa' ? 'انصراف و اصلاح' : 'پەشیمانبوونەوە'}
+                {txt.btnCancel}
               </button>
 
               <button
@@ -176,7 +215,7 @@ export function OverdraftConfirmModal({
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 active:scale-95 text-white flex items-center gap-1.5 shadow-md shadow-rose-500/25 transition-all"
               >
                 <Check className="w-4 h-4" />
-                <span>{language === 'fa' ? 'تایید و ثبت با موجودی منفی' : 'پەسەندکردن و تۆمار'}</span>
+                <span>{txt.btnConfirmNegative}</span>
               </button>
             </>
           )}

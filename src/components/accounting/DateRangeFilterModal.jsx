@@ -6,6 +6,55 @@ import { getCurrentYearMonth } from '../../utils/formatters';
  * DateRangeFilterModal
  * مودال انتخاب بازه زمانی دلخواه برای اسناد دفتر کل و حسابداری
  */
+// Scoped dictionary for DateRangeFilterModal
+const COPY = {
+  fa: {
+    title: 'انتخاب بازه زمانی اسناد مالی',
+    subtitle: 'فیلتر اسناد ثبت شده بر اساس تاریخ دلخواه یا پیش‌فرض',
+    quickPresets: 'بازه‌های زمانی سریع',
+    thisMonth: 'این ماه (جاری)',
+    lastMonth: 'ماه گذشته',
+    last30Days: '۳۰ روز اخیر',
+    allDocuments: 'همه اسناد (از ابتدا)',
+    orCustom: 'یا انتخاب بازه دلخواه',
+    startDate: 'از تاریخ (شروع):',
+    endDate: 'تا تاریخ (پایان):',
+    showAll: 'نمایش همه',
+    cancel: 'انصراف',
+    apply: 'اعمال بازه'
+  },
+  ku: {
+    title: 'دیاریکردنی ماوەی کاتی بەڵگەنامەکان',
+    subtitle: 'فلتەرکردنی بەڵگەنامە تۆمارکراوەکان بەپێی بەروار',
+    quickPresets: 'ماوەی کاتی خێرا',
+    thisMonth: 'ئەم مانگە (ئێستا)',
+    lastMonth: 'مانگی پێشوو',
+    last30Days: '٣٠ ڕۆژی ڕابردوو',
+    allDocuments: 'هەموو بەڵگەنامەکان (لە سەرەتاوە)',
+    orCustom: 'یان دیاریکردنی ماوەی دڵخواز',
+    startDate: 'لە بەرواری (دەستپێک):',
+    endDate: 'تا بەرواری (کۆتایی):',
+    showAll: 'پیشاندانی هەمووی',
+    cancel: 'پاشگەزبوونەوە',
+    apply: 'جێبەجێکردن'
+  },
+  en: {
+    title: 'Select Financial Documents Date Range',
+    subtitle: 'Filter documents by custom or preset date ranges',
+    quickPresets: 'Quick Date Presets',
+    thisMonth: 'This Month',
+    lastMonth: 'Last Month',
+    last30Days: 'Last 30 Days',
+    allDocuments: 'All Documents (All Time)',
+    orCustom: 'Or Choose Custom Range',
+    startDate: 'Start Date:',
+    endDate: 'End Date:',
+    showAll: 'Show All',
+    cancel: 'Cancel',
+    apply: 'Apply Filter'
+  }
+};
+
 export function DateRangeFilterModal({
   isOpen,
   onClose,
@@ -20,6 +69,7 @@ export function DateRangeFilterModal({
   onApply,
   language = 'fa'
 }) {
+  const txt = COPY[language] || COPY.fa;
   const [startDate, setStartDate] = useState(customStartDate || '');
   const [endDate, setEndDate] = useState(customEndDate || '');
 
@@ -74,10 +124,10 @@ export function DateRangeFilterModal({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                {language === 'fa' ? 'انتخاب بازه زمانی اسناد مالی' : 'دیاریکردنی ماوەی کاتی بەڵگەنامەکان'}
+                {txt.title}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {language === 'fa' ? 'فیلتر اسناد ثبت شده بر اساس تاریخ دلخواه یا پیش‌فرض' : 'فلتەرکردنی بەڵگەنامەکان بەپێی بەروار'}
+                {txt.subtitle}
               </p>
             </div>
           </div>
@@ -95,7 +145,7 @@ export function DateRangeFilterModal({
           {/* دکمه‌های بازه سریع */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-              {language === 'fa' ? 'بازه‌های زمانی سریع' : 'ماوەی خێرا'}
+              {txt.quickPresets}
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -107,7 +157,7 @@ export function DateRangeFilterModal({
                     : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
-                {language === 'fa' ? 'این ماه (جاری)' : 'ئەم مانگە'}
+                {txt.thisMonth}
               </button>
 
               <button
@@ -119,7 +169,7 @@ export function DateRangeFilterModal({
                     : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
-                {language === 'fa' ? 'ماه گذشته' : 'مانگی پێشوو'}
+                {txt.lastMonth}
               </button>
 
               <button
@@ -127,7 +177,7 @@ export function DateRangeFilterModal({
                 onClick={() => handleQuickPreset('last_30_days')}
                 className="px-3 py-2 rounded-xl text-xs font-bold border bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-all"
               >
-                {language === 'fa' ? '۳۰ روز اخیر' : '٣٠ ڕۆژی ڕابردوو'}
+                {txt.last30Days}
               </button>
 
               <button
@@ -139,7 +189,7 @@ export function DateRangeFilterModal({
                     : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
-                {language === 'fa' ? 'همه اسناد (از ابتدا)' : 'هەموو بەڵگەنامەکان'}
+                {txt.allDocuments}
               </button>
             </div>
           </div>
@@ -147,7 +197,7 @@ export function DateRangeFilterModal({
           <div className="relative flex py-1 items-center">
             <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
             <span className="flex-shrink mx-3 text-[11px] font-bold text-slate-400">
-              {language === 'fa' ? 'یا انتخاب بازه دلخواه' : 'یان دیاریکردنی بەروار'}
+              {txt.orCustom}
             </span>
             <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
           </div>
@@ -156,7 +206,7 @@ export function DateRangeFilterModal({
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'از تاریخ (شروع):' : 'لە بەرواری:'}
+                {txt.startDate}
               </label>
               <div className="relative">
                 <input
@@ -171,7 +221,7 @@ export function DateRangeFilterModal({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                {language === 'fa' ? 'تا تاریخ (پایان):' : 'تا بەرواری:'}
+                {txt.endDate}
               </label>
               <div className="relative">
                 <input
@@ -194,7 +244,7 @@ export function DateRangeFilterModal({
             className="px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1.5 rounded-xl transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>{language === 'fa' ? 'نمایش همه' : 'هەموو'}</span>
+            <span>{txt.showAll}</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -203,7 +253,7 @@ export function DateRangeFilterModal({
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
             >
-              {language === 'fa' ? 'انصراف' : 'پەشیمانبوونەوە'}
+              {txt.cancel}
             </button>
             <button
               type="button"
@@ -212,7 +262,7 @@ export function DateRangeFilterModal({
               className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>{language === 'fa' ? 'اعمال بازه' : 'جێبەجێکردن'}</span>
+              <span>{txt.apply}</span>
             </button>
           </div>
         </div>

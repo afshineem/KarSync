@@ -20,20 +20,143 @@ import {
   Lock
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 /**
  * AddEditIncomeModal
  * مودال ثبت و ویرایش پول‌های ورودی به کارگاه (تنخواه و بودجه)
  * امکان انتخاب از میان حساب‌های بانکی و صندوق‌های ثبت‌شده سیستم به همراه پیش‌انتخاب حساب پیش‌فرض
  */
+
+const COPY = {
+  fa: {
+    lockedError: 'این سند واریزی تایید شده و قفل است و امکان تغییر آن وجود ندارد.',
+    amountError: 'لطفاً مبلغ واریزی معتبری وارد کنید.',
+    titleFallbackAcc: (accName) => 'افزایش موجودی ' + accName,
+    titleFallback: 'واریز وجه / افزایش موجودی',
+    editTitle: 'ویرایش واریزی تنخواه',
+    createTitle: 'ثبت واریزی جدید (شارژ تنخواه)',
+    subtitle: 'ثبت ورود وجه نقد یا واریز بانکی به سیستم',
+    lockedNotice: 'این سند واریزی تایید نهایی شده و قفل است. امکان ویرایش اطلاعات آن وجود ندارد.',
+    amountLabel: 'مبلغ واریزی',
+    dateLabel: 'تاریخ واریز',
+    accountLabel: 'حساب یا صندوق مقصد واریز',
+    defaultPrefix: 'پیش‌فرض: ',
+    cardPrefix: '💳 کارت بانکی: ',
+    cashPrefix: '🪙 صندوق نقدی: ',
+    defaultTag: ' ⭐ [حساب پیش‌فرض]',
+    bankCard: 'کارت بانکی',
+    cashbox: 'صندوق نقدی',
+    titleLabel: 'بابت / عنوان واریزی (اختیاری)',
+    titlePlaceholder: 'مثلاً: شارژ تنخواه یا افزایش موجودی',
+    payerLabel: 'واریزکننده / طرف‌حساب',
+    noSelection: '--- بدون انتخاب ---',
+    otherManual: 'سایر (ثبت دستی)',
+    payerPlaceholder: 'نام واریزکننده به صورت دستی...',
+    notesLabel: 'توضیحات تکمیلی (اختیاری)',
+    cancelBtn: 'انصراف',
+    saveChangesBtn: 'ثبت تغییرات',
+    createBtn: 'ثبت واریزی تنخواه',
+    saveError: 'خطا در ذخیره اطلاعات',
+    notesPlaceholder: 'توضیحات بابت شماره فیش بانکی، هدف تنخواه یا پیگیری...',
+    quickTitles: [
+      'شارژ تنخواه توسط کارفرما',
+      'تزریق نقدینگی به صندوق کارگاه',
+      'پیش‌پرداخت قرارداد پروژه',
+      'واریز علی‌الحساب کارفرما',
+      'سایر واریزی‌ها'
+    ]
+  },
+  ku: {
+    lockedError: 'ئەم بەڵگەنامەیە پەسەندکراوە و قفڵ کراوە و گۆڕانکاری ناکرێت.',
+    amountError: 'تکایە بڕە پارەیەکی دروست بۆ واریزکردن بنووسە.',
+    titleFallbackAcc: (accName) => 'زیادکردنی باڵانسی ' + accName,
+    titleFallback: 'واریزکردنی پارە / زیادکردنی باڵانس',
+    editTitle: 'دەستکاریکردنی تەنخوا',
+    createTitle: 'تۆمارکردنی داهاتی نوێ (بارکردنی تەنخوا)',
+    subtitle: 'تۆمارکردنی هاتنی پارەی کاش یان حەواڵەی بانکی بۆ سیستەم',
+    lockedNotice: 'ئەم بەڵگەنامەیە پەسەندکراوە و قفڵ کراوە. دەستکاریکردنی زانیارییەکان ڕێگەپێدراو نییە.',
+    amountLabel: 'بڕی واریزکراو',
+    dateLabel: 'بەرواری واریز',
+    accountLabel: 'حیساب یان سندووقی وەرگرتن',
+    defaultPrefix: 'بنەڕەتی: ',
+    cardPrefix: '💳 کارتی بانکی: ',
+    cashPrefix: '🪙 سندوقی کاش: ',
+    defaultTag: ' ⭐ [حیسابی بنەڕەتی]',
+    bankCard: 'کارتی بانکی',
+    cashbox: 'سندوقی کاش',
+    titleLabel: 'بابەت / ناونیشانی واریز (ئارەزوومەندانە)',
+    titlePlaceholder: 'بۆ نموونە: تەنخوا یان زیادکردنی باڵانس',
+    payerLabel: 'پارەدەر / لایەنی بەرامبەر',
+    noSelection: '--- بێ هەڵبژاردن ---',
+    otherManual: 'کەسانی تر (دەستی)',
+    payerPlaceholder: 'ناوی پارەدەر بە دەستی...',
+    notesLabel: 'تێبینی زیاتر (ئارەزوومەندانە)',
+    cancelBtn: 'پاشگەزبوونەوە',
+    saveChangesBtn: 'پاشەکەوتکردنی گۆڕانکارییەکان',
+    createBtn: 'تۆمارکردنی تەنخوا',
+    saveError: 'هەڵە لە پاشەکەوتکردنی زانیارییەکان',
+    notesPlaceholder: 'تێبینی لەسەر ژمارەی پسوولەی بانکی، مەبەست یان بەدواداچوون...',
+    quickTitles: [
+      'بارکردنی تەنخوا لەلایەن خاوەنکارەوە',
+      'خستنەسەری نەختینە بۆ سندوقی کارگە',
+      'پێشەکی گرێبەستی پڕۆژە',
+      'واریزی کاتیی خاوەنکار',
+      'واریزەکانی تر'
+    ]
+  },
+  en: {
+    lockedError: 'This deposit document is approved and locked, and cannot be changed.',
+    amountError: 'Please enter a valid deposit amount.',
+    titleFallbackAcc: (accName) => 'Balance top-up ' + accName,
+    titleFallback: 'Cash Deposit / Top-up',
+    editTitle: 'Edit Petty Cash / Deposit',
+    createTitle: 'Record New Deposit (Petty Cash Top-up)',
+    subtitle: 'Record cash inflow or bank deposit into accounts',
+    lockedNotice: 'This deposit document is approved and locked. Its details cannot be edited.',
+    amountLabel: 'Deposit Amount',
+    dateLabel: 'Deposit Date',
+    accountLabel: 'Destination Account / Register',
+    defaultPrefix: 'Default: ',
+    cardPrefix: '💳 Bank Card: ',
+    cashPrefix: '🪙 Cash Register: ',
+    defaultTag: ' ⭐ [Default Account]',
+    bankCard: 'Bank Card',
+    cashbox: 'Cash Register',
+    titleLabel: 'Purpose / Title (Optional)',
+    titlePlaceholder: 'e.g., Petty cash replenishment or capital addition',
+    payerLabel: 'Depositor / Counterparty',
+    noSelection: '--- None Selected ---',
+    otherManual: 'Other (Manual entry)',
+    payerPlaceholder: 'Enter depositor name manually...',
+    notesLabel: 'Additional Notes (Optional)',
+    cancelBtn: 'Cancel',
+    saveChangesBtn: 'Save Changes',
+    createBtn: 'Record Deposit',
+    saveError: 'Error saving data',
+    notesPlaceholder: 'Notes on bank slip number, purpose or follow-up...',
+    quickTitles: [
+      'Petty cash replenishment by client',
+      'Cash injection into workshop register',
+      'Contract advance payment',
+      'On-account payment by client',
+      'Other cash deposits'
+    ]
+  }
+};
+
 export function AddEditIncomeModal({ 
   isOpen, 
   onClose, 
   onSave, 
   initialData = null, 
   currency = 'IQD',
-  language = 'fa' 
+  language
 }) {
+  const langContext = useLanguage();
+  const activeLang = language || langContext?.language || 'fa';
+  const langKey = activeLang === 'fa' ? 'fa' : activeLang === 'ku' ? 'ku' : 'en';
+  const c = COPY[langKey];
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(getTodayDateString());
   const [title, setTitle] = useState('');
@@ -65,13 +188,7 @@ export function AddEditIncomeModal({
   }, [financialAccounts]);
 
   // عناوین پیشنهادی سریع
-  const quickTitles = [
-    'شارژ تنخواه توسط کارفرما',
-    'تزریق نقدینگی به صندوق کارگاه',
-    'پیش‌پرداخت قرارداد پروژه',
-    'واریز علی‌الحساب کارفرما',
-    'سایر واریزی‌ها'
-  ];
+  const quickTitles = c.quickTitles;
 
   const prevIsOpenRef = React.useRef(false);
 
@@ -130,18 +247,18 @@ export function AddEditIncomeModal({
     setErrorMsg('');
 
     if (isApprovedAndLocked) {
-      setErrorMsg(language === 'fa' ? 'این سند واریزی تایید شده و قفل است و امکان تغییر آن وجود ندارد.' : 'ئەم بەڵگەنامەیە قفڵ کراوە.');
+      setErrorMsg(c.lockedError);
       return;
     }
 
     const numAmount = Number(String(amount).replace(/,/g, ''));
     if (!numAmount || numAmount <= 0) {
-      setErrorMsg(language === 'fa' ? 'لطفاً مبلغ واریزی معتبری وارد کنید.' : 'تکایە بڕە پارەیەکی دروست بنووسە.');
+      setErrorMsg(c.amountError);
       return;
     }
 
     const matchedAcc = financialAccounts.find((a) => String(a.id) === String(selectedAccountId)) || defaultAccount;
-    const finalTitle = title.trim() || (matchedAcc?.name ? `افزایش موجودی ${matchedAcc.name}` : (language === 'fa' ? 'واریز وجه / افزایش موجودی' : 'زیادکردنی باڵانس'));
+    const finalTitle = title.trim() || (matchedAcc?.name ? c.titleFallbackAcc(matchedAcc.name) : c.titleFallback);
 
     try {
       setIsSubmitting(true);
@@ -150,7 +267,7 @@ export function AddEditIncomeModal({
         date,
         title: finalTitle,
         accountId: matchedAcc?.id || selectedAccountId || null,
-        accountName: matchedAcc?.name || (accountType === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
+        accountName: matchedAcc?.name || (accountType === 'bank' ? c.bankCard : c.cashbox),
         accountType: matchedAcc?.type || accountType,
         payer: payer.trim(),
         counterpartyId: (selectedCounterpartyId && selectedCounterpartyId !== 'other') ? selectedCounterpartyId : null,
@@ -159,7 +276,7 @@ export function AddEditIncomeModal({
       });
       onClose();
     } catch (err) {
-      setErrorMsg(err.message || 'خطا در ذخیره اطلاعات');
+      setErrorMsg(err.message || c.saveError);
     } finally {
       setIsSubmitting(false);
     }
@@ -184,12 +301,10 @@ export function AddEditIncomeModal({
             </div>
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
-                {initialData 
-                  ? (language === 'fa' ? 'ویرایش واریزی تنخواه' : 'دەستکاریکردنی تەنخوا')
-                  : (language === 'fa' ? 'ثبت واریزی جدید (شارژ تنخواه)' : 'تۆمارکردنی داهاتی نوێ')}
+                {initialData ? c.editTitle : c.createTitle}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {language === 'fa' ? 'ثبت ورود وجه نقد یا واریز بانکی به سیستم' : 'تۆمارکردنی داهات بۆ سندووق'}
+                {c.subtitle}
               </p>
             </div>
           </div>
@@ -207,7 +322,7 @@ export function AddEditIncomeModal({
           {isApprovedAndLocked && (
             <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-300">
               <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-              <span>{language === 'fa' ? 'این سند واریزی تایید نهایی شده و قفل است. امکان ویرایش اطلاعات آن وجود ندارد.' : 'ئەم بەڵگەنامەیە پەسەندکراوە و قفڵ کراوە.'}</span>
+              <span>{c.lockedNotice}</span>
             </div>
           )}
 
@@ -221,7 +336,7 @@ export function AddEditIncomeModal({
           {/* فیلد مبلغ با پیش‌نمایش واحد پول */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              <span>{language === 'fa' ? 'مبلغ واریزی' : 'بڕە پارە'}</span>
+              <span>{c.amountLabel}</span>
               <span className="text-rose-500 mx-1">*</span>
               <span className="text-slate-400 font-normal">({currency})</span>
             </label>
@@ -245,7 +360,7 @@ export function AddEditIncomeModal({
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               <Calendar className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-              <span>{language === 'fa' ? 'تاریخ واریز' : 'بەروار'}</span>
+              <span>{c.dateLabel}</span>
               <span className="text-rose-500 mx-1">*</span>
             </label>
             <input
@@ -262,13 +377,13 @@ export function AddEditIncomeModal({
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                 <Landmark className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-                <span>{language === 'fa' ? 'حساب یا صندوق مقصد واریز' : 'حیسابی داهات'}</span>
+                <span>{c.accountLabel}</span>
                 <span className="text-rose-500 mx-1">*</span>
               </label>
               {defaultAccount && (
                 <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
                   <Star className="w-3 h-3 fill-amber-500" />
-                  <span>پیش‌فرض: {defaultAccount.name}</span>
+                  <span>{c.defaultPrefix}{defaultAccount.name}</span>
                 </span>
               )}
             </div>
@@ -281,8 +396,7 @@ export function AddEditIncomeModal({
               >
                 {financialAccounts.map((acc) => (
                   <option key={acc.id} value={acc.id}>
-                    {acc.type === 'bank' ? '💳 کارت بانکی: ' : '🪙 صندوق نقدی: '}
-                    {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} {acc.isDefault ? '⭐ [حساب پیش‌فرض]' : ''}
+                    {acc.type === 'bank' ? c.cardPrefix : c.cashPrefix}{acc.name}{acc.bankName ? ' (' + acc.bankName + ')' : ''}{acc.isDefault ? c.defaultTag : ''}
                   </option>
                 ))}
               </select>
@@ -299,7 +413,7 @@ export function AddEditIncomeModal({
                   }`}
                 >
                   <CreditCard className="w-4 h-4" />
-                  <span>کارت بانکی</span>
+                  <span>{c.bankCard}</span>
                 </button>
                 <button
                   type="button"
@@ -311,7 +425,7 @@ export function AddEditIncomeModal({
                   }`}
                 >
                   <Coins className="w-4 h-4" />
-                  <span>صندوق نقدی</span>
+                  <span>{c.cashbox}</span>
                 </button>
               </div>
             )}
@@ -320,13 +434,13 @@ export function AddEditIncomeModal({
           {/* فیلد عنوان با پیشنهادات سریع */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              <span>{language === 'fa' ? 'بابت / عنوان واریزی (اختیاری)' : 'ناونیشانی واریز (ئارەزوومەندانە)'}</span>
+              <span>{c.titleLabel}</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={language === 'fa' ? 'مثلاً: شارژ تنخواه یا افزایش موجودی' : 'بۆ نموونە: تەنخوا یان زیادکردنی باڵانس'}
+              placeholder={c.titlePlaceholder}
               className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
             {/* چیپ‌های انتخاب سریع */}
@@ -348,7 +462,7 @@ export function AddEditIncomeModal({
           <div className="space-y-2">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
               <User className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-              <span>{language === 'fa' ? 'واریزکننده / طرف‌حساب' : 'پارەدەر'}</span>
+              <span>{c.payerLabel}</span>
             </label>
             <select
               value={selectedCounterpartyId}
@@ -363,11 +477,11 @@ export function AddEditIncomeModal({
               }}
               className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent cursor-pointer"
             >
-              <option value="">{language === 'fa' ? '--- بدون انتخاب ---' : '---'}</option>
+              <option value="">{c.noSelection}</option>
               {counterparties.map(cp => (
                 <option key={cp.id} value={cp.id}>{cp.name} {cp.company ? `(${cp.company})` : ''}</option>
               ))}
-              <option value="other">{language === 'fa' ? 'سایر (ثبت دستی)' : 'تر'}</option>
+              <option value="other">{c.otherManual}</option>
             </select>
             
             {(selectedCounterpartyId === 'other' || (!selectedCounterpartyId && payer)) && (
@@ -375,7 +489,7 @@ export function AddEditIncomeModal({
                 type="text"
                 value={payer}
                 onChange={(e) => setPayer(e.target.value)}
-                placeholder={language === 'fa' ? "نام واریزکننده به صورت دستی..." : "ناونیشانی واریز..."}
+                placeholder={c.payerPlaceholder}
                 className="w-full h-11 mt-2 px-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             )}
@@ -385,13 +499,13 @@ export function AddEditIncomeModal({
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               <FileText className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
-              <span>{language === 'fa' ? 'توضیحات تکمیلی (اختیاری)' : 'تێبینی'}</span>
+              <span>{c.notesLabel}</span>
             </label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="توضیحات بابت شماره فیش بانکی، هدف تنخواه یا پیگیری..."
+              placeholder={c.notesPlaceholder}
               className="w-full p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
             />
           </div>
@@ -403,7 +517,7 @@ export function AddEditIncomeModal({
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
-              {language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+              {c.cancelBtn}
             </button>
             <button
               type="submit"
@@ -411,7 +525,7 @@ export function AddEditIncomeModal({
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/25 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{initialData ? (language === 'fa' ? 'ثبت تغییرات' : 'پاشەکەوتکردن') : (language === 'fa' ? 'ثبت واریزی تنخواه' : 'تۆمارکردن')}</span>
+              <span>{initialData ? c.saveChangesBtn : c.createBtn}</span>
             </button>
           </div>
         </form>

@@ -81,8 +81,260 @@ import {
 const SUMMARY_LAYOUT_KEY = 'karsync_financials_worker_layout';
 const FINANCIAL_SECTION_KEY = 'karsync_financials_active_section';
 
+
+const COPY = {
+  fa: {
+    pageTitle: 'حسابداری و امور مالی',
+    pageSubtitle: 'مرکز مقتدر پایش نقدینگی، تسویه‌حساب پرسنل، حساب‌های بانکی و دفتر روزنامه',
+    settlementRecord: 'تسویه حساب پرسنل',
+    advancePayment: 'مساعده پرسنل',
+    staffFallback: 'پرسنل',
+    cashboxFallback: 'صندوق نقدی',
+    noTransactionsToExport: 'هیچ تراکنشی برای خروجی اکسل وجود ندارد.',
+    excelColDate: 'تاریخ',
+    excelColTitle: 'عنوان تراکنش',
+    excelColParty: 'طرف حساب / پرسنل',
+    excelColAccount: 'منبع پرداخت / صندوق',
+    excelColAmount: (curr) => 'مبلغ (' + curr + ')',
+    excelColNotes: 'توضیحات',
+    counterpartiesBtn: 'طرف‌حساب‌ها و کارفرمایان',
+    counterpartiesLabel: 'طرف‌حساب‌ها',
+    exportExcelBtn: 'خروجی اکسل دفتر مالی',
+    printPdfBtn: 'چاپ گزارش مالی',
+    treasuryPulse: 'نبض زنده مالی و خزانه‌داری پروژه',
+    prevMonth: 'ماه قبل',
+    nextMonth: 'ماه بعد',
+    totalLiquidity: 'موجودی کل نقدینگی در صندوق‌ها و کارت‌های بانکی',
+    accountsUnit: 'حساب',
+    wagesDue: 'مطالبات پرسنل:',
+    netLiquidity: 'تراز نقدینگی:',
+    dueCrew: 'دارای طلب:',
+    personsUnit: 'نفر',
+    depositAction: 'شارژ حساب / ورود پول',
+    advanceAction: 'پرداخت مساعده',
+    settlementAction: 'تسویه حساب پرسنل',
+    transferAction: 'انتقال بین حساب‌ها',
+    workerBalancesTab: 'تراز و کارنامه پرسنل',
+    accountsTab: 'صندوق‌ها و حساب‌های مالی',
+    ledgerTab: 'دفتر روزنامه تراکنش‌ها',
+    customDateRange: 'فیلتر بازه زمانی دلخواه',
+    dateRange: 'بازه زمانی',
+    addAccount: 'تعریف حساب یا کارت بانکی جدید',
+    newAccount: 'حساب جدید',
+    allFilter: 'همه',
+    dueFilter: 'طلبکاران',
+    settledFilter: 'تسویه‌شده',
+    searchCrewPlaceholder: 'جستجوی نام پرسنل...',
+    cardViewTitle: 'نمایش کارتی',
+    cardViewLabel: 'کارت',
+    listViewTitle: 'نمایش لیستی',
+    listViewLabel: 'لیست',
+    noWorkersFound: 'هیچ کارگری با این مشخصات یافت نشد.',
+    staffRoleFallback: 'پرسنل کارگاه',
+    fullSettled: 'تسویه کامل',
+    hasDue: 'دارای طلب',
+    grossEarnings: 'کل کارکرد ناخالص',
+    advanceReceived: 'مساعده دریافتی',
+    netDue: 'خالص مانده طلب',
+    recordAdvanceTooltip: 'ثبت مساعده برای این نیرو',
+    settleBtn: 'تسویه',
+    dueBalance: 'مانده طلب',
+    cashboxNameFallback: 'صندوق نقدی کارگاه',
+    bankAccountFallback: 'حساب بانکی',
+    transactionsUnit: 'تراکنش',
+    bankType: 'بانکی',
+    cashType: 'نقدی',
+    currentBalanceHint: 'موجودی فعلی (برای مشاهده تراکنش‌ها کلیک کنید)',
+    editAccountTooltip: 'ویرایش حساب',
+    depositShort: 'شارژ',
+    ledgerTitle: 'دفتر روزنامه تراکنش‌های مالی و پرداختی‌ها',
+    recordedTransactions: 'تراکنش ثبت‌شده',
+    exportExcel: 'خروجی اکسل',
+    noTransactionsInPeriod: 'هیچ تراکنشی در این دوره ثبت نشده است.',
+    thDate: 'تاریخ',
+    thDesc: 'شرح و نوع تراکنش',
+    thParty: 'طرف حساب / پرسنل',
+    thAccountSource: 'صندوق / منبع پرداخت',
+    thAmount: (sym) => 'مبلغ تراکنش (' + sym + ')',
+    thActions: 'عملیات',
+    viewAndEditTooltip: 'مشاهده و ویرایش',
+    manageCounterpartiesModalTitle: 'مدیریت طرف‌حساب‌ها و کارفرمایان',
+    dateRangeModalTitle: 'انتخاب بازه زمانی دلخواه',
+    fromDateLabel: 'از تاریخ',
+    toDateLabel: 'تا تاریخ',
+    cancelBtn: 'انصراف',
+    confirmRangeBtn: 'تایید بازه'
+  },
+  ku: {
+    pageTitle: 'حیسابداری و کاروباری دارایی',
+    pageSubtitle: 'ناوەندی بەڕێوەبردنی نەختینە، تەرازووی کرێکاران، حیسابە بانکییەکان و دەفتەری گشتی',
+    settlementRecord: 'تەواوکاری و پاکتاوی کرێکاران',
+    advancePayment: 'موساعەدەی کرێکاران',
+    staffFallback: 'کرێکار',
+    cashboxFallback: 'سندوقی کاش',
+    noTransactionsToExport: 'هیچ مامەڵەیەک بۆ هەناردەکردنی Excel نییە.',
+    excelColDate: 'بەروار',
+    excelColTitle: 'بابەتی مامەڵە',
+    excelColParty: 'لایەنی بەرامبەر / کرێکار',
+    excelColAccount: 'سەرچاوەی پارەدان / سندوق',
+    excelColAmount: (curr) => 'بڕ (' + curr + ')',
+    excelColNotes: 'تێبینی',
+    counterpartiesBtn: 'لایەنەکان و خاوەنکارەکان',
+    counterpartiesLabel: 'لایەنەکان',
+    exportExcelBtn: 'هەناردەی Excel بۆ دەفتەری دارایی',
+    printPdfBtn: 'چاپکردنی ڕاپۆرتی دارایی',
+    treasuryPulse: 'لێدانی ڕاستەوخۆی دارایی و خەزێنەی پڕۆژە',
+    prevMonth: 'مانگی پێشوو',
+    nextMonth: 'مانگی داهاتوو',
+    totalLiquidity: 'کۆی گشتی نەختینە لە سندوق و کارتە بانکییەکاندا',
+    accountsUnit: 'حیساب',
+    wagesDue: 'شایستەی کرێکاران:',
+    netLiquidity: 'تەرازووی نەختینە:',
+    dueCrew: 'خاوەن ماف:',
+    personsUnit: 'کەس',
+    depositAction: 'بارکردنی حیساب / هێنانی پارە',
+    advanceAction: 'پارەدانی موساعەدە',
+    settlementAction: 'تەواوکاری و پاکتاوی کرێکاران',
+    transferAction: 'گواستنەوەی نێوان حیسابەکان',
+    workerBalancesTab: 'تەرازووی کرێکاران',
+    accountsTab: 'سندوق و کارتەکان',
+    ledgerTab: 'دەفتەری گشتی',
+    customDateRange: 'ماوەی بەرواری دڵخواز',
+    dateRange: 'ماوەی بەروار',
+    addAccount: 'پێناسەکردنی حیساب یان کارتی نوێ',
+    newAccount: 'حیسابی نوێ',
+    allFilter: 'هەموو',
+    dueFilter: 'خاوەن مافەکان',
+    settledFilter: 'پاکتاوکراوەکان',
+    searchCrewPlaceholder: 'گەڕان بەپێی ناوی کرێکار...',
+    cardViewTitle: 'پیشاندانی کارتی',
+    cardViewLabel: 'کارت',
+    listViewTitle: 'پیشاندانی لیستی',
+    listViewLabel: 'لیست',
+    noWorkersFound: 'هیچ کرێکارێک بەم زانیارییانە نەدۆزرایەوە.',
+    staffRoleFallback: 'کرێکاری کارگە',
+    fullSettled: 'پاکتاوی تەواو',
+    hasDue: 'مافی ماوە',
+    grossEarnings: 'کۆی گشتی شایستە',
+    advanceReceived: 'موساعەدەی وەرگیراو',
+    netDue: 'ماوەی تەواوی شایستە',
+    recordAdvanceTooltip: 'تۆمارکردنی موساعەدە بۆ ئەم کرێکارە',
+    settleBtn: 'پاکتاو',
+    dueBalance: 'ماوەی شایستە',
+    cashboxNameFallback: 'سندوقی کاشی کارگە',
+    bankAccountFallback: 'حیسابی بانکی',
+    transactionsUnit: 'مامەڵە',
+    bankType: 'بانکی',
+    cashType: 'کاش',
+    currentBalanceHint: 'باڵانسی ئێستا (کلیک بکە بۆ بینینی مامەڵەکان)',
+    editAccountTooltip: 'دەستکاریکردنی حیساب',
+    depositShort: 'بارکردن',
+    ledgerTitle: 'دەفتەری گشتیی مامەڵە داراییەکان و پارەدانەکان',
+    recordedTransactions: 'مامەڵەی تۆمارکراو',
+    exportExcel: 'هەناردەی Excel',
+    noTransactionsInPeriod: 'هیچ مامەڵەیەک لەم ماوەیەدا تۆمار نەکراوە.',
+    thDate: 'بەروار',
+    thDesc: 'ڕوونکردنەوە و جۆری مامەڵە',
+    thParty: 'لایەنی بەرامبەر / کرێکار',
+    thAccountSource: 'سندوق / سەرچاوەی پارەدان',
+    thAmount: (sym) => 'بڕی مامەڵە (' + sym + ')',
+    thActions: 'کردارەکان',
+    viewAndEditTooltip: 'بینین و دەستکاریکردن',
+    manageCounterpartiesModalTitle: 'بەڕێوەبردنی لایەنەکان و خاوەنکارەکان',
+    dateRangeModalTitle: 'دیاریکردنی ماوەی بەرواری دڵخواز',
+    fromDateLabel: 'لە بەرواری',
+    toDateLabel: 'بۆ بەرواری',
+    cancelBtn: 'پاشگەزبوونەوە',
+    confirmRangeBtn: 'پەسەندکردنی ماوە'
+  },
+  en: {
+    pageTitle: 'Finance & Accounting',
+    pageSubtitle: 'Command center for liquidity tracking, crew settlements, accounts & general ledger',
+    settlementRecord: 'Worker Settlement',
+    advancePayment: 'Worker Advance',
+    staffFallback: 'Worker',
+    cashboxFallback: 'Cash Register',
+    noTransactionsToExport: 'No transactions to export.',
+    excelColDate: 'Date',
+    excelColTitle: 'Transaction Title',
+    excelColParty: 'Party / Worker',
+    excelColAccount: 'Payment Source / Account',
+    excelColAmount: (curr) => 'Amount (' + curr + ')',
+    excelColNotes: 'Notes',
+    counterpartiesBtn: 'Counterparties & Employers',
+    counterpartiesLabel: 'Counterparties',
+    exportExcelBtn: 'Export Ledger to Excel',
+    printPdfBtn: 'Print Financial Report',
+    treasuryPulse: 'Project Financial & Treasury Pulse',
+    prevMonth: 'Previous Month',
+    nextMonth: 'Next Month',
+    totalLiquidity: 'Total Cash Balance in Registers & Bank Accounts',
+    accountsUnit: 'Accounts',
+    wagesDue: 'Wages Due:',
+    netLiquidity: 'Net Liquidity:',
+    dueCrew: 'Due Crew:',
+    personsUnit: 'Workers',
+    depositAction: 'Deposit / Cash Inflow',
+    advanceAction: 'Pay Advance',
+    settlementAction: 'Final Settlement',
+    transferAction: 'Account Transfer',
+    workerBalancesTab: 'Worker Balances',
+    accountsTab: 'Accounts & Wallets',
+    ledgerTab: 'Financial Ledger',
+    customDateRange: 'Custom Date Range',
+    dateRange: 'Date Range',
+    addAccount: 'Add Account / Bank Card',
+    newAccount: 'New Account',
+    allFilter: 'All',
+    dueFilter: 'Due Crew',
+    settledFilter: 'Settled',
+    searchCrewPlaceholder: 'Search crew name...',
+    cardViewTitle: 'Card View',
+    cardViewLabel: 'Card',
+    listViewTitle: 'List View',
+    listViewLabel: 'List',
+    noWorkersFound: 'No workers found matching this criteria.',
+    staffRoleFallback: 'Site Worker',
+    fullSettled: 'Fully Settled',
+    hasDue: 'Has Due Balance',
+    grossEarnings: 'Gross Wages',
+    advanceReceived: 'Advance Received',
+    netDue: 'Net Due Balance',
+    recordAdvanceTooltip: 'Record advance for this worker',
+    settleBtn: 'Settle',
+    dueBalance: 'Due Balance',
+    cashboxNameFallback: 'Site Cash Register',
+    bankAccountFallback: 'Bank Account',
+    transactionsUnit: 'Transactions',
+    bankType: 'Bank',
+    cashType: 'Cash',
+    currentBalanceHint: 'Current balance (click to view ledger)',
+    editAccountTooltip: 'Edit Account',
+    depositShort: 'Deposit',
+    ledgerTitle: 'General Financial & Payment Ledger',
+    recordedTransactions: 'Transactions Recorded',
+    exportExcel: 'Excel Export',
+    noTransactionsInPeriod: 'No transactions recorded in this period.',
+    thDate: 'Date',
+    thDesc: 'Description & Transaction Type',
+    thParty: 'Party / Worker',
+    thAccountSource: 'Account / Source',
+    thAmount: (sym) => 'Amount (' + sym + ')',
+    thActions: 'Actions',
+    viewAndEditTooltip: 'View & Edit',
+    manageCounterpartiesModalTitle: 'Manage Counterparties & Employers',
+    dateRangeModalTitle: 'Select Custom Date Range',
+    fromDateLabel: 'From Date',
+    toDateLabel: 'To Date',
+    cancelBtn: 'Cancel',
+    confirmRangeBtn: 'Apply Range'
+  }
+};
+
 export function FinancialsView() {
   const { t, language, direction } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = COPY[langKey];
   const { currentProject, dateFilter, setDateFilter, openWorkerProfile } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
@@ -335,8 +587,8 @@ export function FinancialsView() {
           date: p.date || p.createdAt?.slice(0, 10) || '',
           timestamp: new Date(p.date || p.createdAt || 0).getTime(),
           category: isSettlement ? 'settlement' : 'advance',
-          title: isSettlement ? t('settlementRecord') || 'تسویه حساب پرسنل' : t('advancePayment') || 'مساعده پرسنل',
-          party: p.workerName || (workers.find((w) => String(w.id) === String(p.workerId))?.name) || 'پرسنل',
+          title: isSettlement ? c.settlementRecord : c.advancePayment,
+          party: p.workerName || (workers.find((w) => String(w.id) === String(p.workerId))?.name) || c.staffFallback,
           amount: Number(p.amount) || 0,
           flow: 'out',
           accountId: p.accountId || null,
@@ -352,16 +604,16 @@ export function FinancialsView() {
   // Export Ledger to Excel
   const handleExportLedgerExcel = () => {
     if (ledgerTransactions.length === 0) {
-      alert(language === 'fa' ? 'هیچ تراکنشی برای خروجی اکسل وجود ندارد.' : 'No transactions to export.');
+      alert(c.noTransactionsToExport);
       return;
     }
     const rows = ledgerTransactions.map(tx => ({
-      [language === 'fa' ? 'تاریخ' : 'Date']: tx.date,
-      [language === 'fa' ? 'عنوان تراکنش' : 'Title']: tx.title,
-      [language === 'fa' ? 'طرف حساب / پرسنل' : 'Party']: tx.party,
-      [language === 'fa' ? 'منبع پرداخت / صندوق' : 'Account']: tx.accountName || 'صندوق نقدی',
-      [language === 'fa' ? `مبلغ (${currency})` : `Amount (${currency})`]: tx.amount,
-      [language === 'fa' ? 'توضیحات' : 'Notes']: tx.notes || ''
+      [c.excelColDate]: tx.date,
+      [c.excelColTitle]: tx.title,
+      [c.excelColParty]: tx.party,
+      [c.excelColAccount]: tx.accountName || c.cashboxFallback,
+      [c.excelColAmount(currency)]: tx.amount,
+      [c.excelColNotes]: tx.notes || ''
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -405,12 +657,10 @@ export function FinancialsView() {
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
-                {language === 'fa' ? 'حسابداری و امور مالی' : language === 'ku' ? 'حیسابداری و کاروباری دارایی' : 'Finance & Accounting'}
+                {c.pageTitle}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {language === 'fa' 
-                  ? 'مرکز مقتدر پایش نقدینگی، تسویه‌حساب پرسنل، حساب‌های بانکی و دفتر روزنامه' 
-                  : 'Treasury, payroll settlements, bank accounts and financial ledger'}
+                {c.pageSubtitle}
               </p>
             </div>
           </div>
@@ -422,10 +672,10 @@ export function FinancialsView() {
               type="button"
               onClick={() => setIsCounterpartiesModalOpen(true)}
               className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
-              title={language === 'fa' ? 'طرف‌حساب‌ها و کارفرمایان' : 'Counterparties'}
+              title={c.counterpartiesBtn}
             >
               <Briefcase className="w-4.5 h-4.5 shrink-0" />
-              <span className="hidden sm:inline">{language === 'fa' ? 'طرف‌حساب‌ها' : 'Parties'}</span>
+              <span className="hidden sm:inline">{c.counterpartiesLabel}</span>
             </button>
 
             <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
@@ -435,7 +685,7 @@ export function FinancialsView() {
               type="button"
               onClick={handleExportLedgerExcel}
               className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
-              title={language === 'fa' ? 'خروجی اکسل دفتر مالی' : 'Export Excel'}
+              title={c.exportExcelBtn}
             >
               <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
             </button>
@@ -445,7 +695,7 @@ export function FinancialsView() {
               type="button"
               onClick={() => window.print()}
               className="h-full aspect-square text-slate-500 hover:text-sky-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
-              title={language === 'fa' ? 'چاپ گزارش مالی' : 'Print PDF'}
+              title={c.printPdfBtn}
             >
               <Printer className="w-4.5 h-4.5 shrink-0" />
             </button>
@@ -468,7 +718,7 @@ export function FinancialsView() {
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
                 <WalletCards className="w-4 h-4" />
-                <span>{language === 'fa' ? 'نبض زنده مالی و خزانه‌داری پروژه' : 'Project Financial & Treasury Pulse'}</span>
+                <span>{c.treasuryPulse}</span>
               </div>
 
               {/* Month Switcher Pill */}
@@ -477,7 +727,7 @@ export function FinancialsView() {
                   type="button"
                   onClick={() => handleShiftMonth(direction === 'rtl' ? 1 : -1)}
                   className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white cursor-pointer"
-                  title="ماه قبل"
+                  title={c.prevMonth}
                 >
                   {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>
@@ -499,7 +749,7 @@ export function FinancialsView() {
                   type="button"
                   onClick={() => handleShiftMonth(direction === 'rtl' ? -1 : 1)}
                   className="p-1.5 hover:bg-white/20 rounded-xl transition-all text-white cursor-pointer"
-                  title="ماه بعد"
+                  title={c.nextMonth}
                 >
                   {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 </button>
@@ -513,9 +763,9 @@ export function FinancialsView() {
                 <span className="text-sm sm:text-base font-bold text-sky-400">{getCurrencySymbol(currency, language)}</span>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 mt-1 flex items-center gap-2">
-                <span>{language === 'fa' ? 'موجودی کل نقدینگی در صندوق‌ها و کارت‌های بانکی' : 'Total cash balance across accounts'}</span>
+                <span>{c.totalLiquidity}</span>
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span className="text-emerald-400 font-bold font-mono">{accounts.length} حساب</span>
+                <span className="text-emerald-400 font-bold font-mono">{accounts.length} {c.accountsUnit}</span>
               </p>
             </div>
 
@@ -523,7 +773,7 @@ export function FinancialsView() {
             <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
               <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span className="text-slate-300">{language === 'fa' ? 'مطالبات پرسنل:' : 'Wages Due:'}</span>
+                <span className="text-slate-300">{c.wagesDue}</span>
                 <span className="font-black text-amber-300 font-mono">
                   {formatAmount(heroMetrics.totalWagesDue, currency)} {getCurrencySymbol(currency, language)}
                 </span>
@@ -531,7 +781,7 @@ export function FinancialsView() {
 
               <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="text-slate-300">{language === 'fa' ? 'تراز نقدینگی:' : 'Net Liquidity:'}</span>
+                <span className="text-slate-300">{c.netLiquidity}</span>
                 <span className={`font-black font-mono ${heroMetrics.netLiquidity >= 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
                   {formatAmount(heroMetrics.netLiquidity, currency)} {getCurrencySymbol(currency, language)}
                 </span>
@@ -539,8 +789,8 @@ export function FinancialsView() {
 
               <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-sky-400" />
-                <span className="text-slate-300">{language === 'fa' ? 'دارای طلب:' : 'Due Crew:'}</span>
-                <span className="font-black text-white">{heroMetrics.workersWithDueCount} نفر</span>
+                <span className="text-slate-300">{c.dueCrew}</span>
+                <span className="font-black text-white">{heroMetrics.workersWithDueCount} {c.personsUnit}</span>
               </div>
             </div>
           </div>
@@ -554,7 +804,7 @@ export function FinancialsView() {
               className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs shadow-lg shadow-emerald-500/25 transition-all duration-300 cursor-pointer active:scale-95"
             >
               <ArrowDownLeft className="w-4 h-4" />
-              <span>{language === 'fa' ? 'شارژ حساب / ورود پول' : 'Deposit'}</span>
+              <span>{c.depositAction}</span>
             </button>
 
             {/* 2. پرداخت مساعده */}
@@ -564,7 +814,7 @@ export function FinancialsView() {
               className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-300 cursor-pointer active:scale-95"
             >
               <Banknote className="w-4 h-4" />
-              <span>{language === 'fa' ? 'پرداخت مساعده' : 'Advance'}</span>
+              <span>{c.advanceAction}</span>
             </button>
 
             {/* 3. ثبت تسویه حساب نهایی */}
@@ -574,7 +824,7 @@ export function FinancialsView() {
               className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{language === 'fa' ? 'تسویه حساب پرسنل' : 'Settlement'}</span>
+              <span>{c.settlementAction}</span>
             </button>
 
             {/* 4. انتقال وجه بین حساب‌ها */}
@@ -584,7 +834,7 @@ export function FinancialsView() {
               className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
             >
               <ArrowLeftRight className="w-4 h-4 text-indigo-400" />
-              <span>{language === 'fa' ? 'انتقال بین حساب‌ها' : 'Transfer'}</span>
+              <span>{c.transferAction}</span>
             </button>
           </div>
 
@@ -601,17 +851,17 @@ export function FinancialsView() {
           {[
             {
               id: 'workers',
-              label: language === 'fa' ? 'تراز و کارنامه پرسنل' : language === 'ku' ? 'تەرازووی کرێکاران' : 'Worker Balances',
+              label: c.workerBalancesTab,
               icon: Users
             },
             {
               id: 'accounts',
-              label: language === 'fa' ? 'صندوق‌ها و حساب‌های مالی' : language === 'ku' ? 'سندوق و کارتەکان' : 'Accounts & Wallets',
+              label: c.accountsTab,
               icon: Landmark
             },
             {
               id: 'ledger',
-              label: language === 'fa' ? 'دفتر روزنامه تراکنش‌ها' : language === 'ku' ? 'دەفتەری گشتی' : 'Financial Ledger',
+              label: c.ledgerTab,
               icon: Receipt
             }
           ].map((tab) => {
@@ -657,11 +907,11 @@ export function FinancialsView() {
                 ? 'bg-amber-500 text-white border-amber-400 shadow-md shadow-amber-500/25'
                 : 'bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/70 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
-            title={language === 'fa' ? 'فیلتر بازه زمانی دلخواه' : 'Custom Date Range'}
+            title={c.customDateRange}
           >
             <CalendarRange className="w-4 h-4" />
             <span className="hidden sm:inline">
-              {filterMode === 'custom' ? `${fromDate} تا ${toDate}` : (language === 'fa' ? 'بازه زمانی' : 'Date Range')}
+              {filterMode === 'custom' ? `${fromDate} - ${toDate}` : c.dateRange}
             </span>
           </button>
 
@@ -673,10 +923,10 @@ export function FinancialsView() {
               setIsAccountModalOpen(true);
             }}
             className="h-[52px] sm:h-[56px] px-3.5 rounded-2xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-            title={language === 'fa' ? 'تعریف حساب یا کارت بانکی جدید' : 'Add Account'}
+            title={c.addAccount}
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">{language === 'fa' ? 'حساب جدید' : 'New Account'}</span>
+            <span className="hidden sm:inline">{c.newAccount}</span>
           </button>
 
         </div>
@@ -694,9 +944,9 @@ export function FinancialsView() {
             {/* Filter Pills */}
             <div className="flex items-center gap-1.5 self-start sm:self-auto">
               {[
-                { id: 'all', label: language === 'fa' ? 'همه' : 'All' },
-                { id: 'due', label: language === 'fa' ? 'طلبکاران' : 'Due' },
-                { id: 'settled', label: language === 'fa' ? 'تسویه‌شده' : 'Settled' }
+                { id: 'all', label: c.allFilter },
+                { id: 'due', label: c.dueFilter },
+                { id: 'settled', label: c.settledFilter }
               ].map((st) => (
                 <button
                   key={st.id}
@@ -720,7 +970,7 @@ export function FinancialsView() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={language === 'fa' ? 'جستجوی نام پرسنل...' : 'Search crew...'}
+                placeholder={c.searchCrewPlaceholder}
                 className="w-full ps-9 pe-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             </div>
@@ -735,11 +985,11 @@ export function FinancialsView() {
                     ? 'bg-sky-500 text-white shadow-sm font-bold'
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                 }`}
-                title="نمایش کارتی"
+                title={c.cardViewTitle}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
                 {workerLayoutMode === 'grid' && (
-                  <span className="text-[11px] whitespace-nowrap">کارت</span>
+                  <span className="text-[11px] whitespace-nowrap">{c.cardViewLabel}</span>
                 )}
               </button>
               <button
@@ -750,11 +1000,11 @@ export function FinancialsView() {
                     ? 'bg-sky-500 text-white shadow-sm font-bold'
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                 }`}
-                title="نمایش لیستی"
+                title={c.listViewTitle}
               >
                 <List className="w-3.5 h-3.5" />
                 {workerLayoutMode === 'list' && (
-                  <span className="text-[11px] whitespace-nowrap">لیست</span>
+                  <span className="text-[11px] whitespace-nowrap">{c.listViewLabel}</span>
                 )}
               </button>
             </div>
@@ -763,7 +1013,7 @@ export function FinancialsView() {
           {/* Workers Content Canvas */}
           {displayedWorkers.length === 0 ? (
             <div className="p-12 text-center text-slate-400 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/10 text-xs">
-              {language === 'fa' ? 'هیچ کارگری با این مشخصات یافت نشد.' : 'No workers found.'}
+              {c.noWorkersFound}
             </div>
           ) : workerLayoutMode === 'grid' ? (
             /* Mode 1: Grid Cards */
@@ -789,7 +1039,7 @@ export function FinancialsView() {
                             {wf.worker.name}
                           </h4>
                           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                            {wf.worker.role || 'پرسنل کارگاه'}
+                            {wf.worker.role || c.staffRoleFallback}
                           </p>
                         </div>
                       </div>
@@ -801,20 +1051,20 @@ export function FinancialsView() {
                           : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60'
                       }`}>
                         {isSettled ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                        <span>{isSettled ? (language === 'fa' ? 'تسویه کامل' : 'Settled') : (language === 'fa' ? 'دارای طلب' : 'Has Due')}</span>
+                        <span>{isSettled ? c.fullSettled : c.hasDue}</span>
                       </span>
                     </div>
 
                     {/* Breakdown Capsule */}
                     <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 text-xs">
                       <div>
-                        <span className="text-[10px] text-slate-400 font-bold block">کل کارکرد ناخالص</span>
+                        <span className="text-[10px] text-slate-400 font-bold block">{c.grossEarnings}</span>
                         <span className="font-bold font-mono text-slate-700 dark:text-slate-200">
                           {formatAmount(wf.unsettledGross, currency)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-400 font-bold block">مساعده دریافتی</span>
+                        <span className="text-[10px] text-slate-400 font-bold block">{c.advanceReceived}</span>
                         <span className="font-bold font-mono text-amber-600 dark:text-amber-400">
                           {formatAmount(wf.unsettledAdvances, currency)}
                         </span>
@@ -824,7 +1074,7 @@ export function FinancialsView() {
                     {/* Footer: Due Amount & Actions */}
                     <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 block">خالص مانده طلب</span>
+                        <span className="text-[10px] font-bold text-slate-400 block">{c.netDue}</span>
                         <span className={`text-base font-black font-mono ${wf.netBalanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                           {formatCurrency(wf.netBalanceDue, currency, language)}
                         </span>
@@ -835,7 +1085,7 @@ export function FinancialsView() {
                           type="button"
                           onClick={() => handleOpenAdvance(wf.worker)}
                           className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer"
-                          title="ثبت مساعده برای این نیرو"
+                          title={c.recordAdvanceTooltip}
                         >
                           <Banknote className="w-4 h-4" />
                         </button>
@@ -844,7 +1094,7 @@ export function FinancialsView() {
                           onClick={() => handleOpenIndividualSettlement(wf.worker)}
                           className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
                         >
-                          تسویه
+                          {c.settleBtn}
                         </button>
                       </div>
                     </div>
@@ -875,14 +1125,14 @@ export function FinancialsView() {
                           {wf.worker.name}
                         </h4>
                         <span className="text-[10px] text-slate-400 font-medium block truncate">
-                          {wf.worker.role || 'پرسنل'}
+                          {wf.worker.role || c.staffFallback}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-end">
-                        <span className="text-[9px] text-slate-400 block font-bold">مانده طلب</span>
+                        <span className="text-[9px] text-slate-400 block font-bold">{c.dueBalance}</span>
                         <span className={`font-mono font-black text-xs sm:text-sm block ${wf.netBalanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                           {formatCurrency(wf.netBalanceDue, currency, language)}
                         </span>
@@ -893,7 +1143,7 @@ export function FinancialsView() {
                           type="button"
                           onClick={() => handleOpenAdvance(wf.worker)}
                           className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-all cursor-pointer"
-                          title="ثبت مساعده"
+                          title={c.recordAdvanceTooltip}
                         >
                           <Banknote className="w-3.5 h-3.5" />
                         </button>
@@ -902,7 +1152,7 @@ export function FinancialsView() {
                           onClick={() => handleOpenIndividualSettlement(wf.worker)}
                           className="px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-[11px] font-bold transition-all cursor-pointer active:scale-95"
                         >
-                          تسویه
+                          {c.settleBtn}
                         </button>
                       </div>
                     </div>
@@ -947,17 +1197,17 @@ export function FinancialsView() {
                           {acc.name}
                         </h4>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                          {isBank ? (acc.bankName || 'حساب بانکی') : (language === 'fa' ? 'صندوق نقدی کارگاه' : 'Cashbox')}
+                          {isBank ? (acc.bankName || c.bankAccountFallback) : c.cashboxNameFallback}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
-                        {txCount} {language === 'fa' ? 'تراکنش' : 'تۆمار'}
+                        {txCount} {c.transactionsUnit}
                       </span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                        {isBank ? 'بانکی' : 'نقدی'}
+                        {isBank ? c.bankType : c.cashType}
                       </span>
                     </div>
                   </div>
@@ -972,7 +1222,7 @@ export function FinancialsView() {
                   {/* Balance Display */}
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 block">موجودی فعلی (برای مشاهده تراکنش‌ها کلیک کنید)</span>
+                      <span className="text-[10px] font-bold text-slate-400 block">{c.currentBalanceHint}</span>
                       <span className="text-lg font-black text-slate-900 dark:text-white font-mono">
                         {formatCurrency(bal, currency, language)}
                       </span>
@@ -987,7 +1237,7 @@ export function FinancialsView() {
                           setIsAccountModalOpen(true);
                         }}
                         className="p-2 text-slate-400 hover:text-sky-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
-                        title="ویرایش حساب"
+                        title={c.editAccountTooltip}
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
@@ -1000,7 +1250,7 @@ export function FinancialsView() {
                         className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1"
                       >
                         <ArrowDownLeft className="w-3.5 h-3.5" />
-                        <span>شارژ</span>
+                        <span>{c.depositShort}</span>
                       </button>
                     </div>
                   </div>
@@ -1025,10 +1275,10 @@ export function FinancialsView() {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                    {language === 'fa' ? 'دفتر روزنامه تراکنش‌های مالی و پرداختی‌ها' : 'General Financial Ledger'}
+                    {c.ledgerTitle}
                   </h3>
                   <span className="text-xs text-slate-400 font-mono">
-                    {ledgerTransactions.length} تراکنش ثبت‌شده
+                    {ledgerTransactions.length} {c.recordedTransactions}
                   </span>
                 </div>
               </div>
@@ -1039,25 +1289,25 @@ export function FinancialsView() {
                 className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>خروجی اکسل</span>
+                <span>{c.exportExcel}</span>
               </button>
             </div>
 
             {ledgerTransactions.length === 0 ? (
               <div className="p-12 text-center text-slate-400 text-xs">
-                {language === 'fa' ? 'هیچ تراکنشی در این دوره ثبت نشده است.' : 'No transactions found.'}
+                {c.noTransactionsInPeriod}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-right text-xs">
                   <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-[11px]">
                     <tr>
-                      <th className="px-4 py-3.5 text-start">تاریخ</th>
-                      <th className="px-4 py-3.5 text-start">شرح و نوع تراکنش</th>
-                      <th className="px-4 py-3.5 text-start">طرف حساب / پرسنل</th>
-                      <th className="px-4 py-3.5 text-start">صندوق / منبع پرداخت</th>
-                      <th className="px-4 py-3.5 text-end">مبلغ تراکنش ({getCurrencySymbol(currency, language)})</th>
-                      <th className="px-4 py-3.5 text-center no-print">عملیات</th>
+                      <th className="px-4 py-3.5 text-start">{c.thDate}</th>
+                      <th className="px-4 py-3.5 text-start">{c.thDesc}</th>
+                      <th className="px-4 py-3.5 text-start">{c.thParty}</th>
+                      <th className="px-4 py-3.5 text-start">{c.thAccountSource}</th>
+                      <th className="px-4 py-3.5 text-end">{c.thAmount(getCurrencySymbol(currency, langKey))}</th>
+                      <th className="px-4 py-3.5 text-center no-print">{c.thActions}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
@@ -1080,7 +1330,7 @@ export function FinancialsView() {
                           {tx.party}
                         </td>
                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-medium">
-                          {tx.accountName || 'صندوق نقدی'}
+                          {tx.accountName || c.cashboxFallback}
                         </td>
                         <td className="px-4 py-3 text-end font-black font-mono text-sm text-slate-900 dark:text-white">
                           {formatAmount(tx.amount, currency)}
@@ -1090,7 +1340,7 @@ export function FinancialsView() {
                             type="button"
                             onClick={() => setEditingPayment(tx.raw)}
                             className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                            title="مشاهده و ویرایش"
+                            title={c.viewAndEditTooltip}
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
@@ -1121,7 +1371,7 @@ export function FinancialsView() {
             <div className="flex items-center justify-between pb-3 px-3 border-b border-slate-100 dark:border-slate-800">
               <span className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
                 <Briefcase className="w-4.5 h-4.5 text-sky-500" />
-                <span>مدیریت طرف‌حساب‌ها و کارفرمایان</span>
+                <span>{c.manageCounterpartiesModalTitle}</span>
               </span>
               <button
                 type="button"
@@ -1255,7 +1505,7 @@ export function FinancialsView() {
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
               <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <CalendarRange className="w-4 h-4 text-sky-500" />
-                <span>{language === 'fa' ? 'انتخاب بازه زمانی دلخواه' : 'Date Range'}</span>
+                <span>{c.dateRangeModalTitle}</span>
               </h3>
               <button
                 type="button"
@@ -1268,7 +1518,7 @@ export function FinancialsView() {
 
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{language === 'fa' ? 'از تاریخ' : 'From Date'}</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{c.fromDateLabel}</label>
                 <input
                   type="date"
                   value={tempFromDate}
@@ -1278,7 +1528,7 @@ export function FinancialsView() {
               </div>
               
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{language === 'fa' ? 'تا تاریخ' : 'To Date'}</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{c.toDateLabel}</label>
                 <input
                   type="date"
                   value={tempToDate}
@@ -1294,7 +1544,7 @@ export function FinancialsView() {
                 onClick={() => setIsDateRangeModalOpen(false)}
                 className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
-                انصراف
+                {c.cancelBtn}
               </button>
               <button
                 type="button"
@@ -1307,7 +1557,7 @@ export function FinancialsView() {
                 className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 shadow-md shadow-sky-500/30 transition-all flex items-center justify-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
-                <span>تایید بازه</span>
+                <span>{c.confirmRangeBtn}</span>
               </button>
             </div>
           </div>

@@ -21,6 +21,55 @@ import {
  * - میله قرمز: مجموع خروجی‌های آن روز (دستمزد پرسنل + هزینه‌های کارگاه)
  * - تعاملی همراه با Tooltip هوشمند و انتخاب ماه
  */
+// Scoped dictionary for CashFlowChart
+const COPY = {
+  fa: {
+    title: 'نمودار جریان نقدینگی ماهانه (Cash Flow)',
+    subtitle: 'مقایسه روزانه ورودی‌های تنخواه در برابر خروجی‌ها (دستمزد پرسنل و هزینه‌ها)',
+    legendInflows: 'ورودی‌ها (تنخواه)',
+    legendOutflows: 'خروجی‌ها (حقوق و هزینه‌ها)',
+    nextMonth: 'ماه بعد',
+    prevMonth: 'ماه قبل',
+    monthInflowTotal: 'مجموع ورودی این ماه',
+    monthOutflowTotal: 'مجموع خروجی این ماه',
+    monthNetBalance: 'خالص نقدینگی این ماه',
+    tipInflow: 'ورودی:',
+    tipOutflow: 'خروجی:',
+    tipNet: 'تراز:',
+    daysOfMonth: 'روزهای ماه'
+  },
+  ku: {
+    title: 'هێڵکاری ڕۆیشتنی پارەی مانگانە (Cash Flow)',
+    subtitle: 'بەراوردی داهات و خەرجی ڕۆژانە (مووچەی کرێکاران و خەرجی کارگە)',
+    legendInflows: 'داهات (تنخواه)',
+    legendOutflows: 'خەرجی (مووچە و فاکتەر)',
+    nextMonth: 'مانگی دواتر',
+    prevMonth: 'مانگی پێشوو',
+    monthInflowTotal: 'کۆی داهاتی ئەم مانگە',
+    monthOutflowTotal: 'کۆی خەرجی ئەم مانگە',
+    monthNetBalance: 'باڵانسی پوختی مانگ',
+    tipInflow: 'داهات:',
+    tipOutflow: 'خەرجی:',
+    tipNet: 'تراز:',
+    daysOfMonth: 'ڕۆژەکانی مانگ'
+  },
+  en: {
+    title: 'Monthly Cash Flow Chart',
+    subtitle: 'Daily comparison of budget inflows vs outflows (payroll & expenses)',
+    legendInflows: 'Inflows (Budget & Recharge)',
+    legendOutflows: 'Outflows (Wages & Expenses)',
+    nextMonth: 'Next Month',
+    prevMonth: 'Previous Month',
+    monthInflowTotal: 'Total Inflow This Month',
+    monthOutflowTotal: 'Total Outflow This Month',
+    monthNetBalance: 'Net Cash Flow This Month',
+    tipInflow: 'Inflow:',
+    tipOutflow: 'Outflow:',
+    tipNet: 'Net:',
+    daysOfMonth: 'Days of Month'
+  }
+};
+
 export function CashFlowChart({
   chartData,
   selectedMonth,
@@ -28,6 +77,7 @@ export function CashFlowChart({
   currency = 'IQD',
   language = 'fa'
 }) {
+  const txt = COPY[language] || COPY.fa;
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
   const { points = [], maxDailyAmount = 1, monthTotalInflow, monthTotalOutflow, monthNetBalance } = chartData;
@@ -59,12 +109,10 @@ export function CashFlowChart({
           </div>
           <div>
             <h2 className="text-base font-black text-slate-900 dark:text-white">
-              {language === 'fa' ? 'نمودار جریان نقدینگی ماهانه (Cash Flow)' : 'هێڵکاری ڕۆیشتنی پارەی مانگانە'}
+              {txt.title}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {language === 'fa' 
-                ? 'مقایسه روزانه ورودی‌های تنخواه در برابر خروجی‌ها (دستمزد پرسنل و هزینه‌ها)' 
-                : 'بەراوردی داهات و خەرجی ڕۆژانە'}
+              {txt.subtitle}
             </p>
           </div>
         </div>
@@ -75,11 +123,11 @@ export function CashFlowChart({
           <div className="hidden md:flex items-center gap-3 text-xs font-bold">
             <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
               <span className="w-3 h-3 rounded-md bg-emerald-500 inline-block shadow-2xs" />
-              <span>{language === 'fa' ? 'ورودی‌ها (تنخواه)' : 'داهات'}</span>
+              <span>{txt.legendInflows}</span>
             </span>
             <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
               <span className="w-3 h-3 rounded-md bg-rose-500 inline-block shadow-2xs" />
-              <span>{language === 'fa' ? 'خروجی‌ها (حقوق و هزینه‌ها)' : 'خەرجی'}</span>
+              <span>{txt.legendOutflows}</span>
             </span>
           </div>
 
@@ -88,7 +136,7 @@ export function CashFlowChart({
             <button
               type="button"
               onClick={handleNextMonth}
-              title={language === 'fa' ? 'ماه بعد' : 'مانگی دواتر'}
+              title={txt.nextMonth}
               className="p-1 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
@@ -99,7 +147,7 @@ export function CashFlowChart({
             <button
               type="button"
               onClick={handlePrevMonth}
-              title={language === 'fa' ? 'ماه قبل' : 'مانگی پێشوو'}
+              title={txt.prevMonth}
               className="p-1 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -114,7 +162,7 @@ export function CashFlowChart({
           <div className="flex items-center gap-2">
             <ArrowDownLeft className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span className="text-xs text-slate-600 dark:text-slate-300">
-              {language === 'fa' ? 'مجموع ورودی این ماه' : 'کۆی داهاتی ئەم مانگە'}
+              {txt.monthInflowTotal}
             </span>
           </div>
           <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs">
@@ -126,7 +174,7 @@ export function CashFlowChart({
           <div className="flex items-center gap-2">
             <ArrowUpRight className="w-4 h-4 text-rose-600 dark:text-rose-400" />
             <span className="text-xs text-slate-600 dark:text-slate-300">
-              {language === 'fa' ? 'مجموع خروجی این ماه' : 'کۆی خەرجی ئەم مانگە'}
+              {txt.monthOutflowTotal}
             </span>
           </div>
           <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-xs">
@@ -142,7 +190,7 @@ export function CashFlowChart({
           <div className="flex items-center gap-2">
             {isNetPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             <span className="text-xs">
-              {language === 'fa' ? 'خالص نقدینگی این ماه' : 'باڵانسی پوختی مانگ'}
+              {txt.monthNetBalance}
             </span>
           </div>
           <span className="font-mono font-bold text-xs">
@@ -161,13 +209,13 @@ export function CashFlowChart({
             </div>
             <div className="flex items-center gap-3">
               <span className="text-emerald-400 font-mono">
-                ورودی: +{formatCurrency(hoveredPoint.inflow, currency, language)}
+                {txt.tipInflow} +{formatCurrency(hoveredPoint.inflow, currency, language)}
               </span>
               <span className="text-rose-400 font-mono">
-                خروجی: -{formatCurrency(hoveredPoint.outflow, currency, language)}
+                {txt.tipOutflow} -{formatCurrency(hoveredPoint.outflow, currency, language)}
               </span>
               <span className={`font-mono font-bold ${hoveredPoint.net >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
-                تراز: {formatCurrency(hoveredPoint.net, currency, language)}
+                {txt.tipNet} {formatCurrency(hoveredPoint.net, currency, language)}
               </span>
             </div>
           </div>
@@ -243,7 +291,7 @@ export function CashFlowChart({
 
         {/* زیرنویس روزهای ماه محور X */}
         <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 mt-2">
-          <span>{language === 'fa' ? 'روزهای ماه' : 'ڕۆژەکانی مانگ'} ({selectedMonth})</span>
+          <span>{txt.daysOfMonth} ({selectedMonth})</span>
         </div>
       </div>
     </div>

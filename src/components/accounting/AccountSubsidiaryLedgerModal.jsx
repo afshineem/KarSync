@@ -37,6 +37,301 @@ import {
  * - دارای جدول فیلترپذیر ریزتراکنش‌ها با محاسبه لحظه‌ای مانده (Running Balance)
  * - امکان خروجی فایل اکسل
  */
+// Scoped dictionary for AccountSubsidiaryLedgerModal
+const COPY = {
+  fa: {
+    title: 'صورت گردش معین حساب و اسناد مالی',
+    close: 'بستن',
+    partyWorker: 'طرف حساب: پرسنل',
+    partyBank: 'حساب و کارت بانکی',
+    partyCash: 'صندوق نقدینگی',
+    liveBalanceWorker: 'مانده زنده طلب / تسویه پرسنل',
+    liveBalanceAccount: 'موجودی و مانده نهایی زنده حساب',
+    card1Worker: 'کل اسناد',
+    card1Account: 'موجودی اولیه',
+    rowsUnit: 'ردیف',
+    card2Worker: 'کل کارکرد (+)',
+    card2Account: 'کل وارده (+)',
+    card3Worker: 'کل پرداختی (-)',
+    card3Account: 'کل صادره (-)',
+    filteredDocsCount: (cnt) => `${cnt} سند و گردش مالی`,
+    dateAll: 'همه تاریخ‌ها',
+    dateThisMonth: 'این ماه',
+    dateLastMonth: 'ماه گذشته',
+    dateCustom: 'بازه سفارشی',
+    catAll: 'همه سرفصل‌ها',
+    catAttendanceWage: 'کارکرد و دستمزد',
+    catAdvance: 'مساعده',
+    catSettlement: 'تسویه حساب دستمزد',
+    catPettyCash: 'شارژ تنخواه و واریزی',
+    catStaffAdvance: 'مساعده پرسنل',
+    catWorkshopExpense: 'فاکتور و هزینه کارگاه',
+    searchPh: 'جستجو در شرح سند...',
+    customRangeLabel: 'بازه سفارشی:',
+    fromLabel: 'از:',
+    toLabel: 'تا:',
+    printHeaderTitle: (name) => `صورت گردش معین حساب: ${name}`,
+    printGroup: 'گروه:',
+    printRole: 'سمت:',
+    printBank: 'بانک:',
+    printCard: 'شماره کارت:',
+    printReportDate: 'تاریخ گزارش:',
+    printFinalBalance: 'مانده نهایی:',
+    thIndex: '#',
+    thDateTime: 'تاریخ و زمان',
+    thCategory: 'بابت / سرفصل',
+    thDescription: 'شرح و توضیحات تراکنش',
+    thCounterparty: 'طرف‌حساب',
+    thInflowWorker: 'طلب / بستانکار (+)',
+    thInflowAccount: 'وارده (ورودی +)',
+    thOutflowWorker: 'پرداختی / بدهکار (-)',
+    thOutflowAccount: 'صادره (خروجی -)',
+    thRunningBalance: 'مانده لحظه‌ای',
+    thSource: 'منبع',
+    openingRow: 'افتتاحیه',
+    openingBadge: 'موجودی اولیه',
+    openingDesc: 'ثبت موجودی اولیه هنگام افتتاح حساب در سیستم',
+    openingSupervisor: 'سرپرست',
+    openingBaseSource: 'پایه',
+    emptyMsg: 'هیچ گردش مالی یا تراکنشی منطبق با فیلتر انتخابی یافت نشد.',
+    refPrefix: 'شماره ارجاع:',
+    docFallback: 'سند',
+    finalBalanceLabel: 'مانده نهایی حساب:',
+    totalDocsLabel: 'تعداد کل اسناد:',
+    excelBtn: 'خروجی اکسل',
+    excelTitle: 'خروجی فایل اکسل',
+    printBtn: 'چاپ معین',
+    printTitle: 'چاپ صورت گردش حساب',
+    creditor: 'طلبکار',
+    debtor: 'بدهکار',
+    positiveBalance: 'تراز مثبت',
+    negativeBalance: 'تراز منفی',
+    wageHalf: 'نیم‌روز کارکرد',
+    wageHourly: 'ساعتی',
+    wageDaily: 'کارکرد روزانه',
+    wageDesc: (hrs, ot) => `ثبت کارکرد: ${hrs || 8} ساعت${ot ? ` + ${ot} ساعت اضافه` : ''}`,
+    wageSource: 'حضور و غیاب',
+    payAdvanceCat: 'پرداخت مساعده',
+    paySettlementCat: 'تسویه حساب دستمزد',
+    payAdvanceDesc: 'پرداخت مساعده نقدی/بانکی',
+    paySettlementDesc: 'پرداخت تسویه حساب کارکرد',
+    paySource: 'پرداخت مالی',
+    defaultBadge: ' (پیش‌فرض)',
+    inactiveBadge: ' (غیرفعال)',
+    defaultTag: 'پیش‌فرض',
+    lblGroup: '• گروه:',
+    lblRole: '• سمت:',
+    lblBank: '• بانک:',
+    lblCard: '• کارت:',
+    excelHeaders: {
+      row: 'ردیف',
+      date: 'تاریخ',
+      time: 'ساعت',
+      category: 'بابت / سرفصل',
+      desc: 'شرح تراکنش',
+      counterparty: 'طرف حساب',
+      inflow: 'وارده (ورودی +)',
+      outflow: 'صادره (خروجی -)',
+      balance: 'مانده لحظه‌ای',
+      currency: 'واحد پول'
+    }
+  },
+  ku: {
+    title: 'دەفتەری دارایی و تۆمارەکان',
+    close: 'داخستن',
+    partyWorker: 'لایەنی پەیوەندیدار: کارمەند',
+    partyBank: 'حیساب و کارتی بانکی',
+    partyCash: 'سندوقی نەختینە',
+    liveBalanceWorker: 'شایستەی دارایی کارمەند',
+    liveBalanceAccount: 'باڵانسی کۆتایی ئەم حیسابە',
+    card1Worker: 'سەرجەم بەڵگەنامەکان',
+    card1Account: 'باڵانسی سەرەتایی',
+    rowsUnit: 'ڕیز',
+    card2Worker: 'سەرجەم کارکردن (+)',
+    card2Account: 'سەرجەم هاتوو (+)',
+    card3Worker: 'سەرجەم پارەدان (-)',
+    card3Account: 'سەرجەم دەرچوو (-)',
+    filteredDocsCount: (cnt) => `${cnt} تۆماری دارایی`,
+    dateAll: 'هەموو بەروارەکان',
+    dateThisMonth: 'ئەم مانگە',
+    dateLastMonth: 'مانگی پێشوو',
+    dateCustom: 'ماوەی دڵخواز',
+    catAll: 'هەموو بابەتەکان',
+    catAttendanceWage: 'کارکردن و مووچە',
+    catAdvance: 'مساعدە / پێشەکی',
+    catSettlement: 'تەسویەی حیساب',
+    catPettyCash: 'پڕکردنەوەی نەختینە و واریز',
+    catStaffAdvance: 'مساعدەی کارمەندان',
+    catWorkshopExpense: 'فاکتەر و خەرجیی کارگە',
+    searchPh: 'گەڕان لە ڕوونکردنەوەی بەڵگەنامە...',
+    customRangeLabel: 'ماوەی دڵخواز:',
+    fromLabel: 'لە:',
+    toLabel: 'تا:',
+    printHeaderTitle: (name) => `دەفتەری دارایی: ${name}`,
+    printGroup: 'گرووپ:',
+    printRole: 'پلە:',
+    printBank: 'بانک:',
+    printCard: 'ژمارەی کارت:',
+    printReportDate: 'بەرواری ڕاپۆرت:',
+    printFinalBalance: 'باڵانسی کۆتایی:',
+    thIndex: '#',
+    thDateTime: 'بەروار و کات',
+    thCategory: 'بابەت / سەرپەڕ',
+    thDescription: 'ڕوونکردنەوەی مامەڵە',
+    thCounterparty: 'لایەنی پەیوەندیدار',
+    thInflowWorker: 'شایستە / بستانکار (+)',
+    thInflowAccount: 'هاتوو (ورودی +)',
+    thOutflowWorker: 'دراو / بدهکار (-)',
+    thOutflowAccount: 'دەرچوو (خروجی -)',
+    thRunningBalance: 'باڵانسی ساتەوەخت',
+    thSource: 'سەرچاوە',
+    openingRow: 'دەستپێک',
+    openingBadge: 'باڵانسی سەرەتایی',
+    openingDesc: 'تۆمارکردنی باڵانسی سەرەتایی لە کاتی کردنەوەی حیساب',
+    openingSupervisor: 'سەرپەرشتیار',
+    openingBaseSource: 'بنەڕەت',
+    emptyMsg: 'هیچ مامەڵەیەکی دارایی نەدۆزرایەوە.',
+    refPrefix: 'ژمارەی بەدواداچوون:',
+    docFallback: 'بەڵگەنامە',
+    finalBalanceLabel: 'باڵانسی کۆتایی حیساب:',
+    totalDocsLabel: 'ژمارەی هەموو بەڵگەنامەکان:',
+    excelBtn: 'دەرهێنانی ئەکسڵ',
+    excelTitle: 'دەرهێنانی فایلی ئەکسڵ',
+    printBtn: 'چاپکردنی دەفتەر',
+    printTitle: 'چاپکردنی دەفتەری دارایی',
+    creditor: 'شایستەی وەرگرتن',
+    debtor: 'قەرزدار',
+    positiveBalance: 'باڵانسی ئەرێنی',
+    negativeBalance: 'باڵانسی نەرێنی',
+    wageHalf: 'نیوەڕۆژ',
+    wageHourly: 'کاتژمێری',
+    wageDaily: 'ئامادەبوونی ڕۆژانە',
+    wageDesc: (hrs, ot) => `ئامادەبوون: ${hrs || 8} کاتژمێر${ot ? ` + ${ot} کاتژمێری زیاتر` : ''}`,
+    wageSource: 'ئامادەبوون',
+    payAdvanceCat: 'تەنخوا/مساعدە',
+    paySettlementCat: 'تەسویەی حیساب',
+    payAdvanceDesc: 'پێدانی مساعدە',
+    paySettlementDesc: 'تەسویەی پارەی کارکردن',
+    paySource: 'پارەدان',
+    defaultBadge: ' (بنەڕەتی)',
+    inactiveBadge: ' (ناچالاک)',
+    defaultTag: 'بنەڕەتی',
+    lblGroup: '• گرووپ:',
+    lblRole: '• پلە:',
+    lblBank: '• بانک:',
+    lblCard: '• کارت:',
+    excelHeaders: {
+      row: 'ڕیزبەندی',
+      date: 'بەروار',
+      time: 'کاتژمێر',
+      category: 'بابەت / سەرپەڕ',
+      desc: 'ڕوونکردنەوەی مامەڵە',
+      counterparty: 'لایەنی پەیوەندیدار',
+      inflow: 'هاتوو (+)',
+      outflow: 'دەرچوو (-)',
+      balance: 'باڵانسی ساتەوەخت',
+      currency: 'دراو'
+    }
+  },
+  en: {
+    title: 'Subsidiary Ledger & Financial Records',
+    close: 'Close',
+    partyWorker: 'Counterparty: Staff',
+    partyBank: 'Bank Card & Account',
+    partyCash: 'Cash Drawer',
+    liveBalanceWorker: 'Live Staff Payable Balance',
+    liveBalanceAccount: 'Live Final Account Balance',
+    card1Worker: 'Total Documents',
+    card1Account: 'Opening Balance',
+    rowsUnit: 'rows',
+    card2Worker: 'Total Work (+)',
+    card2Account: 'Total Inflow (+)',
+    card3Worker: 'Total Paid (-)',
+    card3Account: 'Total Outflow (-)',
+    filteredDocsCount: (cnt) => `${cnt} Financial Documents`,
+    dateAll: 'All Dates',
+    dateThisMonth: 'This Month',
+    dateLastMonth: 'Last Month',
+    dateCustom: 'Custom Range',
+    catAll: 'All Categories',
+    catAttendanceWage: 'Attendance & Wages',
+    catAdvance: 'Advance Payment',
+    catSettlement: 'Wage Settlement',
+    catPettyCash: 'Petty Cash & Deposit',
+    catStaffAdvance: 'Staff Advance',
+    catWorkshopExpense: 'Workshop Expense',
+    searchPh: 'Search transaction description...',
+    customRangeLabel: 'Custom Range:',
+    fromLabel: 'From:',
+    toLabel: 'To:',
+    printHeaderTitle: (name) => `Subsidiary Ledger: ${name}`,
+    printGroup: 'Group:',
+    printRole: 'Role:',
+    printBank: 'Bank:',
+    printCard: 'Card No:',
+    printReportDate: 'Report Date:',
+    printFinalBalance: 'Final Balance:',
+    thIndex: '#',
+    thDateTime: 'Date & Time',
+    thCategory: 'Category',
+    thDescription: 'Transaction Description',
+    thCounterparty: 'Counterparty',
+    thInflowWorker: 'Credit / Due (+)',
+    thInflowAccount: 'Inflow (+)',
+    thOutflowWorker: 'Debit / Paid (-)',
+    thOutflowAccount: 'Outflow (-)',
+    thRunningBalance: 'Running Balance',
+    thSource: 'Source',
+    openingRow: 'Opening',
+    openingBadge: 'Initial Balance',
+    openingDesc: 'Initial balance recorded upon account creation',
+    openingSupervisor: 'Supervisor',
+    openingBaseSource: 'Base',
+    emptyMsg: 'No financial transactions match the selected filter.',
+    refPrefix: 'Ref No:',
+    docFallback: 'Doc',
+    finalBalanceLabel: 'Final Account Balance:',
+    totalDocsLabel: 'Total Documents:',
+    excelBtn: 'Export Excel',
+    excelTitle: 'Export Excel File',
+    printBtn: 'Print Ledger',
+    printTitle: 'Print Subsidiary Ledger',
+    creditor: 'Creditor (Owed)',
+    debtor: 'Debtor',
+    positiveBalance: 'Positive Balance',
+    negativeBalance: 'Negative Balance',
+    wageHalf: 'Half-Day',
+    wageHourly: 'Hourly',
+    wageDaily: 'Daily Attendance',
+    wageDesc: (hrs, ot) => `Work logged: ${hrs || 8} hrs${ot ? ` + ${ot} hrs overtime` : ''}`,
+    wageSource: 'Attendance',
+    payAdvanceCat: 'Advance Payment',
+    paySettlementCat: 'Wage Settlement',
+    payAdvanceDesc: 'Cash/Bank Advance Payment',
+    paySettlementDesc: 'Wage Settlement Payment',
+    paySource: 'Payment',
+    defaultBadge: ' (Default)',
+    inactiveBadge: ' (Inactive)',
+    defaultTag: 'Default',
+    lblGroup: '• Group:',
+    lblRole: '• Role:',
+    lblBank: '• Bank:',
+    lblCard: '• Card:',
+    excelHeaders: {
+      row: 'Row',
+      date: 'Date',
+      time: 'Time',
+      category: 'Category',
+      desc: 'Description',
+      counterparty: 'Counterparty',
+      inflow: 'Inflow (+)',
+      outflow: 'Outflow (-)',
+      balance: 'Running Balance',
+      currency: 'Currency'
+    }
+  }
+};
+
 export function AccountSubsidiaryLedgerModal({
   isOpen,
   entity, // { type: 'account', data: account } | { type: 'worker', data: worker }
@@ -155,17 +450,9 @@ export function AccountSubsidiaryLedgerModal({
     // الف) کارکردها و دستمزدها (طلب کارگر - ورودی به حساب کارگر)
     workerLogs.forEach((l) => {
       const pay = getLogPay(l);
-      const catLabel = l.type === 'half'
-        ? (language === 'fa' ? 'نیم‌روز کارکرد' : 'نیوەڕۆژ')
-        : l.type === 'hourly'
-        ? (language === 'fa' ? 'ساعتی' : 'کاتژمێری')
-        : (language === 'fa' ? 'کارکرد روزانه' : 'ئامادەبوونی ڕۆژانە');
+      const catLabel = l.type === 'half' ? txt.wageHalf : l.type === 'hourly' ? txt.wageHourly : txt.wageDaily;
 
-      const desc = l.note || (
-        language === 'fa'
-          ? `ثبت کارکرد: ${l.hours || 8} ساعت${l.overtimeHours ? ` + ${l.overtimeHours} ساعت اضافه` : ''}`
-          : `ئامادەبوون: ${l.hours || 8} کاتژمێر`
-      );
+      const desc = l.note || txt.wageDesc(l.hours, l.overtimeHours);
 
       combinedEvents.push({
         id: `log_${l.id}`,
@@ -178,7 +465,7 @@ export function AccountSubsidiaryLedgerModal({
         counterparty: entityData.name,
         type: 'inflow',
         amount: pay,
-        sourceLabel: language === 'fa' ? 'حضور و غیاب' : 'ئامادەبوون'
+        sourceLabel: txt.wageSource
       });
     });
 
@@ -186,15 +473,9 @@ export function AccountSubsidiaryLedgerModal({
     workerPayments.forEach((p) => {
       const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
       const cat = isAdvance ? 'advance_payment' : 'worker_settlement';
-      const catLabel = isAdvance
-        ? (language === 'fa' ? 'پرداخت مساعده' : 'تەنخوا/مساعدە')
-        : (language === 'fa' ? 'تسویه حساب دستمزد' : 'تەسویەی حیساب');
+      const catLabel = isAdvance ? txt.payAdvanceCat : txt.paySettlementCat;
 
-      const desc = p.note || p.description || (
-        isAdvance 
-          ? (language === 'fa' ? 'پرداخت مساعده نقدی/بانکی' : 'پێدانی مساعدە')
-          : (language === 'fa' ? 'پرداخت تسویه حساب کارکرد' : 'تەسویەی پارەی کارکردن')
-      );
+      const desc = p.note || p.description || (isAdvance ? txt.payAdvanceDesc : txt.paySettlementDesc);
 
       combinedEvents.push({
         id: `pay_${p.id}`,
@@ -207,7 +488,7 @@ export function AccountSubsidiaryLedgerModal({
         counterparty: entityData.name,
         type: 'outflow',
         amount: Number(p.amount) || 0,
-        sourceLabel: language === 'fa' ? 'پرداخت مالی' : 'پارەدان'
+        sourceLabel: txt.paySource
       });
     });
 
@@ -251,13 +532,7 @@ export function AccountSubsidiaryLedgerModal({
   const totalOutflow = isWorker ? workerTransactionsData.totalOutflow : (Number(effectiveAccountData?.totalOutflow) || 0);
   const isPositive = currentBalance >= 0;
 
-  const statusBadgeText = isWorker
-    ? (isPositive 
-        ? (language === 'fa' ? 'طلبکار' : 'شایستەی وەرگرتن') 
-        : (language === 'fa' ? 'بدهکار' : 'قەرزدار'))
-    : (isPositive 
-        ? (language === 'fa' ? 'تراز مثبت' : 'باڵانسی ئەرێنی') 
-        : (language === 'fa' ? 'تراز منفی' : 'باڵانسی نەرێنی'));
+  const statusBadgeText = isWorker ? (isPositive ? txt.creditor : txt.debtor) : (isPositive ? txt.positiveBalance : txt.negativeBalance);
 
   const rawTransactions = isWorker ? workerTransactionsData.rawTransactions : (effectiveAccountData?.transactions || []);
 
@@ -306,30 +581,31 @@ export function AccountSubsidiaryLedgerModal({
 
   // خروجی اکسل
   const handleExportExcel = useCallback(() => {
+    const h = txt.excelHeaders;
     const rows = [
       ...(isWorker ? [] : [{
-        'ردیف': 'افتتاحیه',
-        'تاریخ': '-',
-        'ساعت': '-',
-        'بابت / سرفصل': 'موجودی اولیه حساب',
-        'شرح تراکنش': 'موجودی اولیه ثبت شده هنگام افتتاح حساب در سیستم',
-        'طرف حساب': entityData?.keeperName || entityData?.holderName || 'سرپرست',
-        'وارده (ورودی +)': initialBalance,
-        'صادره (خروجی -)': 0,
-        'مانده لحظه‌ای': initialBalance,
-        'واحد پول': currency
+        [h.row]: txt.openingRow,
+        [h.date]: '-',
+        [h.time]: '-',
+        [h.category]: txt.openingBadge,
+        [h.desc]: txt.openingDesc,
+        [h.counterparty]: entityData?.keeperName || entityData?.holderName || txt.openingSupervisor,
+        [h.inflow]: initialBalance,
+        [h.outflow]: 0,
+        [h.balance]: initialBalance,
+        [h.currency]: currency
       }]),
       ...filteredTransactions.map((tx, idx) => ({
-        'ردیف': idx + 1,
-        'تاریخ': tx.rawDate || tx.date,
-        'ساعت': tx.time || '-',
-        'بابت / سرفصل': tx.categoryLabel || tx.category,
-        'شرح تراکنش': tx.description || '-',
-        'طرف حساب': tx.counterparty || '-',
-        'وارده (ورودی +)': tx.type === 'inflow' ? tx.amount : 0,
-        'صادره (خروجی -)': tx.type === 'outflow' ? tx.amount : 0,
-        'مانده لحظه‌ای': tx.runningBalance,
-        'واحد پول': currency
+        [h.row]: idx + 1,
+        [h.date]: tx.rawDate || tx.date,
+        [h.time]: tx.time || '-',
+        [h.category]: tx.categoryLabel || tx.category,
+        [h.desc]: tx.description || '-',
+        [h.counterparty]: tx.counterparty || '-',
+        [h.inflow]: tx.type === 'inflow' ? tx.amount : 0,
+        [h.outflow]: tx.type === 'outflow' ? tx.amount : 0,
+        [h.balance]: tx.runningBalance,
+        [h.currency]: currency
       }))
     ];
 
@@ -373,7 +649,7 @@ export function AccountSubsidiaryLedgerModal({
       <div className="no-print px-4 py-2.5 sm:px-6 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-3 shrink-0 z-20">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
           <FileSpreadsheet className="w-4 h-4 text-sky-500" />
-          <span>{language === 'fa' ? 'صورت گردش معین حساب و اسناد مالی' : 'دەفتەری دارایی و تۆمارەکان'}</span>
+          <span>{txt.title}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -391,7 +667,7 @@ export function AccountSubsidiaryLedgerModal({
                 <option key={acc.id} value={acc.id}>
                   {acc.type === 'bank' ? '💳 ' : '🪙 '}
                   {acc.name}
-                  {acc.isDefault ? ' (پیش‌فرض)' : ''}
+                  {acc.isDefault ? txt.defaultBadge : ''}
                 </option>
               ))}
             </select>
@@ -408,7 +684,7 @@ export function AccountSubsidiaryLedgerModal({
             >
               {effectiveWorkers.map((w) => (
                 <option key={w.id} value={w.id}>
-                  👤 {w.name} {w.isActive === 0 ? '(غیرفعال)' : ''}
+                  👤 {w.name}{w.isActive === 0 ? txt.inactiveBadge : ''}
                 </option>
               ))}
             </select>
@@ -419,8 +695,8 @@ export function AccountSubsidiaryLedgerModal({
             type="button"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors shrink-0"
-            aria-label="بستن"
-            title={language === 'fa' ? 'بستن' : 'داخستن'}
+            aria-label={txt.close}
+            title={txt.close}
           >
             <X className="w-4 h-4" />
           </button>
@@ -471,16 +747,16 @@ export function AccountSubsidiaryLedgerModal({
                     {entityData?.isDefault && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-950">
                         <Star className="w-2.5 h-2.5 fill-amber-950" />
-                        <span>پیش‌فرض</span>
+                        <span>{txt.defaultTag}</span>
                       </span>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-400 mt-0.5">
-                    <span>{isWorker ? (language === 'fa' ? 'طرف حساب: پرسنل' : 'کارمەند') : (isBank ? 'حساب و کارت بانکی' : 'صندوق نقدینگی')}</span>
-                    {groupName && <span>• گروه: <strong className="text-slate-300">{groupName}</strong></span>}
-                    {entityData?.role && <span>• سمت: <strong className="text-slate-300">{entityData.role}</strong></span>}
-                    {entityData?.bankName && <span>• بانک: <strong className="text-slate-300">{entityData.bankName}</strong></span>}
-                    {entityData?.cardNumber && <span dir="ltr" className="font-mono text-slate-300">• کارت: {entityData.cardNumber}</span>}
+                    <span>{isWorker ? txt.partyWorker : (isBank ? txt.partyBank : txt.partyCash)}</span>
+                    {groupName && <span>{txt.lblGroup} <strong className="text-slate-300">{groupName}</strong></span>}
+                    {entityData?.role && <span>{txt.lblRole} <strong className="text-slate-300">{entityData.role}</strong></span>}
+                    {entityData?.bankName && <span>{txt.lblBank} <strong className="text-slate-300">{entityData.bankName}</strong></span>}
+                    {entityData?.cardNumber && <span dir="ltr" className="font-mono text-slate-300">{txt.lblCard} {entityData.cardNumber}</span>}
                   </div>
                 </div>
               </div>
@@ -488,9 +764,7 @@ export function AccountSubsidiaryLedgerModal({
               {/* مانده لحظه‌ای و نهایی */}
               <div className="pt-1">
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                  {isWorker 
-                    ? (language === 'fa' ? 'مانده زنده طلب / تسویه پرسنل' : 'شایستەی دارایی کارمەند')
-                    : (language === 'fa' ? 'موجودی و مانده نهایی زنده حساب' : 'باڵانسی کۆتایی ئەم حیسابە')}
+                  {isWorker ? txt.liveBalanceWorker : txt.liveBalanceAccount}
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className={`text-2xl sm:text-3xl md:text-4xl font-black font-mono tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`} dir="ltr">
@@ -505,17 +779,17 @@ export function AccountSubsidiaryLedgerModal({
               {/* ۱. افتتاحیه / مبنا */}
               <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
                 <span className="text-[10px] text-slate-400 block truncate">
-                  {isWorker ? 'کل اسناد' : 'موجودی اولیه'}
+                  {isWorker ? txt.card1Worker : txt.card1Account}
                 </span>
                 <span className="text-xs sm:text-sm font-black font-mono text-slate-200 mt-1 block truncate" dir="ltr">
-                  {isWorker ? `${rawTransactions.length} ردیف` : formatCurrency(initialBalance, currency, language)}
+                  {isWorker ? `${rawTransactions.length} ${txt.rowsUnit}` : formatCurrency(initialBalance, currency, language)}
                 </span>
               </div>
 
               {/* ۲. کل وارده (ورودی +) */}
               <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-between">
                 <span className="text-[10px] text-emerald-300 block truncate">
-                  {isWorker ? 'کل کارکرد (+)' : 'کل وارده (+)'}
+                  {isWorker ? txt.card2Worker : txt.card2Account}
                 </span>
                 <span className="text-xs sm:text-sm font-black font-mono text-emerald-400 mt-1 block truncate" dir="ltr">
                   +{formatCurrency(totalInflow, currency, language)}
@@ -525,7 +799,7 @@ export function AccountSubsidiaryLedgerModal({
               {/* ۳. کل صادره (خروجی -) */}
               <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col justify-between">
                 <span className="text-[10px] text-rose-300 block truncate">
-                  {isWorker ? 'کل پرداختی (-)' : 'کل صادره (-)'}
+                  {isWorker ? txt.card3Worker : txt.card3Account}
                 </span>
                 <span className="text-xs sm:text-sm font-black font-mono text-rose-400 mt-1 block truncate" dir="ltr">
                   -{formatCurrency(totalOutflow, currency, language)}
@@ -544,7 +818,7 @@ export function AccountSubsidiaryLedgerModal({
               <FileSpreadsheet className="w-4 h-4" />
             </div>
             <span className="text-xs font-black text-slate-800 dark:text-slate-200 font-mono">
-              {filteredTransactions.length} {language === 'fa' ? 'سند و گردش مالی' : 'تۆماری دارایی'}
+              {txt.filteredDocsCount(filteredTransactions.length)}
             </span>
           </div>
 
@@ -555,10 +829,10 @@ export function AccountSubsidiaryLedgerModal({
               onChange={(e) => setDateFilter(e.target.value)}
               className="h-9 px-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
             >
-              <option value="all">همه تاریخ‌ها</option>
-              <option value="this_month">این ماه</option>
-              <option value="last_month">ماه گذشته</option>
-              <option value="custom">بازه سفارشی</option>
+              <option value="all">{txt.dateAll}</option>
+              <option value="this_month">{txt.dateThisMonth}</option>
+              <option value="last_month">{txt.dateLastMonth}</option>
+              <option value="custom">{txt.dateCustom}</option>
             </select>
 
             {/* فیلتر دسته */}
@@ -567,19 +841,19 @@ export function AccountSubsidiaryLedgerModal({
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="h-9 px-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
             >
-              <option value="all">همه سرفصل‌ها</option>
+              <option value="all">{txt.catAll}</option>
               {isWorker ? (
                 <>
-                  <option value="attendance_wage">کارکرد و دستمزد</option>
-                  <option value="advance_payment">مساعده</option>
-                  <option value="worker_settlement">تسویه حساب دستمزد</option>
+                  <option value="attendance_wage">{txt.catAttendanceWage}</option>
+                  <option value="advance_payment">{txt.catAdvance}</option>
+                  <option value="worker_settlement">{txt.catSettlement}</option>
                 </>
               ) : (
                 <>
-                  <option value="petty_cash">شارژ تنخواه و واریزی</option>
-                  <option value="worker_settlement">تسویه حساب دستمزد</option>
-                  <option value="advance_payment">مساعده پرسنل</option>
-                  <option value="workshop_expense">فاکتور و هزینه کارگاه</option>
+                  <option value="petty_cash">{txt.catPettyCash}</option>
+                  <option value="worker_settlement">{txt.catSettlement}</option>
+                  <option value="advance_payment">{txt.catStaffAdvance}</option>
+                  <option value="workshop_expense">{txt.catWorkshopExpense}</option>
                 </>
               )}
             </select>
@@ -590,7 +864,7 @@ export function AccountSubsidiaryLedgerModal({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="جستجو در شرح سند..."
+                placeholder={txt.searchPh}
                 className="w-44 sm:w-60 h-9 ps-8 pe-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs transition-all"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
@@ -602,9 +876,9 @@ export function AccountSubsidiaryLedgerModal({
       {/* فیلتر تاریخ سفارشی */}
       {dateFilter === 'custom' && (
         <div className="no-print mx-4 sm:mx-6 mb-3 p-3 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-xs flex flex-wrap items-center gap-3 text-xs shrink-0 text-slate-700 dark:text-slate-300">
-          <span className="font-bold text-slate-700 dark:text-slate-300">بازه سفارشی:</span>
+          <span className="font-bold text-slate-700 dark:text-slate-300">{txt.customRangeLabel}</span>
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-[11px]">از:</span>
+            <span className="text-slate-500 text-[11px]">{txt.fromLabel}</span>
             <input
               type="date"
               value={customStart}
@@ -613,7 +887,7 @@ export function AccountSubsidiaryLedgerModal({
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-[11px]">تا:</span>
+            <span className="text-slate-500 text-[11px]">{txt.toLabel}</span>
             <input
               type="date"
               value={customEnd}
@@ -631,22 +905,20 @@ export function AccountSubsidiaryLedgerModal({
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-base font-black text-slate-900">
-                {language === 'fa' 
-                  ? `صورت گردش معین حساب: ${entityData?.name}` 
-                  : `دەفتەری دارایی: ${entityData?.name}`}
+                {txt.printHeaderTitle(entityData?.name || '')}
               </h1>
               <div className="text-xs text-slate-700 mt-1 flex items-center gap-4">
-                <span>{isWorker ? (language === 'fa' ? 'طرف حساب: پرسنل' : 'کارمەند') : (isBank ? (language === 'fa' ? 'حساب بانکی' : 'حسابی بانک') : (language === 'fa' ? 'صندوق نقدی' : 'سندوق'))}</span>
-                {groupName && <span>گروه: {groupName}</span>}
-                {entityData?.role && <span>سمت: {entityData.role}</span>}
-                {entityData?.bankName && <span>بانک: {entityData.bankName}</span>}
-                {entityData?.cardNumber && <span dir="ltr">شماره کارت: {entityData.cardNumber}</span>}
+                <span>{isWorker ? txt.partyWorker : (isBank ? txt.partyBank : txt.partyCash)}</span>
+                {groupName && <span>{txt.printGroup} {groupName}</span>}
+                {entityData?.role && <span>{txt.printRole} {entityData.role}</span>}
+                {entityData?.bankName && <span>{txt.printBank} {entityData.bankName}</span>}
+                {entityData?.cardNumber && <span dir="ltr">{txt.printCard} {entityData.cardNumber}</span>}
               </div>
             </div>
             <div className="text-left text-xs font-mono text-slate-800">
-              <div>تاریخ گزارش: {new Date().toLocaleDateString('fa-IR')}</div>
+              <div>{txt.printReportDate} {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'fa-IR')}</div>
               <div className="font-bold text-slate-900 mt-1" dir="ltr">
-                مانده نهایی: {formatCurrency(currentBalance, currency, language)}
+                {txt.printFinalBalance} {formatCurrency(currentBalance, currency, language)}
               </div>
             </div>
           </div>
@@ -658,18 +930,18 @@ export function AccountSubsidiaryLedgerModal({
             <thead className="sticky top-0 z-10 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-700/80">
               <tr className="text-slate-600 dark:text-slate-300 font-bold">
                 <th className="py-3.5 px-3.5 text-center w-12">#</th>
-                <th className="py-3.5 px-3.5 whitespace-nowrap">تاریخ و زمان</th>
-                <th className="py-3.5 px-3.5 whitespace-nowrap">بابت / سرفصل</th>
-                <th className="py-3.5 px-3.5 min-w-[200px]">شرح و توضیحات تراکنش</th>
-                <th className="py-3.5 px-3.5 whitespace-nowrap">طرف‌حساب</th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">{txt.thDateTime}</th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">{txt.thCategory}</th>
+                <th className="py-3.5 px-3.5 min-w-[200px]">{txt.thDescription}</th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">{txt.thCounterparty}</th>
                 <th className="py-3.5 px-3.5 whitespace-nowrap text-emerald-600 dark:text-emerald-400">
-                  {isWorker ? 'طلب / بستانکار (+)' : 'وارده (ورودی +)'}
+                  {isWorker ? txt.thInflowWorker : txt.thInflowAccount}
                 </th>
                 <th className="py-3.5 px-3.5 whitespace-nowrap text-rose-600 dark:text-rose-400">
-                  {isWorker ? 'پرداختی / بدهکار (-)' : 'صادره (خروجی -)'}
+                  {isWorker ? txt.thOutflowWorker : txt.thOutflowAccount}
                 </th>
-                <th className="py-3.5 px-3.5 whitespace-nowrap">مانده لحظه‌ای</th>
-                <th className="py-3.5 px-3.5 text-center whitespace-nowrap">منبع</th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">{txt.thRunningBalance}</th>
+                <th className="py-3.5 px-3.5 text-center whitespace-nowrap">{txt.thSource}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-normal">
@@ -680,18 +952,18 @@ export function AccountSubsidiaryLedgerModal({
                   ★
                 </td>
                 <td className="py-3 px-3.5 font-mono text-[11px] text-slate-400 dark:text-slate-400">
-                  افتتاحیه
+                  {txt.openingRow}
                 </td>
                 <td className="py-3 px-3.5">
                   <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    موجودی اولیه
+                    {txt.openingBadge}
                   </span>
                 </td>
                 <td className="py-3 px-3.5 text-slate-800 dark:text-slate-200">
-                  ثبت موجودی اولیه هنگام افتتاح حساب در سیستم
+                  {txt.openingDesc}
                 </td>
                 <td className="py-3 px-3.5 text-slate-600 dark:text-slate-300">
-                  {entityData?.keeperName || entityData?.holderName || 'سرپرست'}
+                  {entityData?.keeperName || entityData?.holderName || txt.openingSupervisor}
                 </td>
                 <td className="print-inflow py-3 px-3.5 font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
                   +{formatAmount(initialBalance, currency)}
@@ -704,7 +976,7 @@ export function AccountSubsidiaryLedgerModal({
                 </td>
                 <td className="py-3 px-3.5 text-center">
                   <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60">
-                    پایه
+                    {txt.openingBaseSource}
                   </span>
                 </td>
               </tr>
@@ -714,9 +986,7 @@ export function AccountSubsidiaryLedgerModal({
             {filteredTransactions.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-12 text-center text-slate-400 dark:text-slate-500">
-                  {language === 'fa' 
-                    ? 'هیچ گردش مالی یا تراکنشی منطبق با فیلتر انتخابی یافت نشد.' 
-                    : 'هیچ مامەڵەیەک نەدۆزرایەوە.'}
+                  {txt.emptyMsg}
                 </td>
               </tr>
             ) : (
@@ -755,7 +1025,7 @@ export function AccountSubsidiaryLedgerModal({
                       <div>{tx.description}</div>
                       {tx.reference && (
                         <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
-                          شماره ارجاع: {tx.reference}
+                          {txt.refPrefix} {tx.reference}
                         </div>
                       )}
                     </td>
@@ -784,7 +1054,7 @@ export function AccountSubsidiaryLedgerModal({
                     {/* منبع سند */}
                     <td className="py-3 px-3.5 text-center">
                       <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60">
-                        {tx.sourceLabel || 'سند'}
+                        {tx.sourceLabel || txt.docFallback}
                       </span>
                     </td>
                   </tr>
@@ -801,7 +1071,7 @@ export function AccountSubsidiaryLedgerModal({
         {/* خلاصه زنده مانده و تراکنش‌ها */}
         <div className="flex items-center gap-3 sm:gap-6">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">مانده نهایی حساب:</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">{txt.finalBalanceLabel}</span>
             <span className={`text-base sm:text-lg font-black font-mono tracking-tight ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`} dir="ltr">
               {formatCurrency(currentBalance, currency, language)}
             </span>
@@ -817,8 +1087,8 @@ export function AccountSubsidiaryLedgerModal({
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
 
           <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span>تعداد کل اسناد:</span>
-            <span className="font-bold font-mono text-slate-800 dark:text-slate-200">{filteredTransactions.length} ردیف</span>
+            <span>{txt.totalDocsLabel}</span>
+            <span className="font-bold font-mono text-slate-800 dark:text-slate-200">{filteredTransactions.length} {txt.rowsUnit}</span>
           </div>
         </div>
 
@@ -829,10 +1099,10 @@ export function AccountSubsidiaryLedgerModal({
             type="button"
             onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-3 sm:px-4 h-10 rounded-2xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all active:scale-95"
-            title="خروجی فایل اکسل"
+            title={txt.excelTitle}
           >
             <Download className="w-4 h-4 text-emerald-600" />
-            <span className="hidden sm:inline">خروجی اکسل</span>
+            <span className="hidden sm:inline">{txt.excelBtn}</span>
           </button>
 
           {/* دکمه چاپ */}
@@ -840,10 +1110,10 @@ export function AccountSubsidiaryLedgerModal({
             type="button"
             onClick={handlePrint}
             className="flex items-center gap-1.5 px-3 sm:px-4 h-10 rounded-2xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all active:scale-95"
-            title="چاپ صورت گردش حساب"
+            title={txt.printTitle}
           >
             <Printer className="w-4 h-4 text-blue-600" />
-            <span className="hidden sm:inline">چاپ معین</span>
+            <span className="hidden sm:inline">{txt.printBtn}</span>
           </button>
 
           {/* دکمه بستن */}
@@ -852,7 +1122,7 @@ export function AccountSubsidiaryLedgerModal({
             onClick={onClose}
             className="flex items-center gap-1.5 px-4 sm:px-5 h-10 rounded-2xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-bold text-xs shadow-md transition-all active:scale-95"
           >
-            <span>{language === 'fa' ? 'بستن' : 'داخستن'}</span>
+            <span>{txt.close}</span>
             <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-slate-700 dark:bg-slate-200 text-slate-200 dark:text-slate-700 rounded-md font-mono">
               ESC
             </kbd>
