@@ -149,7 +149,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   useEffect(() => {
     if (user) {
       setProfileName(user.name || '');
-      setProfileTitle(user.title || (language === 'fa' ? 'مدیر ارشد کارگاه' : 'بەڕێوەبەری پڕۆژە'));
+      setProfileTitle(user.title || (language === 'fa' ? 'مدیر ارشد کارگاه' : language === 'ku' ? 'بەڕێوەبەری پڕۆژە' : 'Senior Workshop Manager'));
       setProfileAvatar(user.avatar || user.photo || user.supabaseUser?.user_metadata?.avatar_url || '');
     }
   }, [user, isOpen]);
@@ -332,7 +332,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
   // Reset to default factory settings
   const handleResetToDefaultSettings = () => {
-    if (window.confirm(language === 'fa' ? 'آیا مایلید تمام تنظیمات ظاهر و زمان به حالت پیش‌فرض برگردانده شوند؟' : 'ئایا دەتەوێت ڕێکخستنەکان بگۆڕدرێن بۆ باری بنەڕەتی؟')) {
+    if (window.confirm(language === 'fa' ? 'آیا مایلید تمام تنظیمات ظاهر و زمان به حالت پیش‌فرض برگردانده شوند؟' : language === 'ku' ? 'ئایا دەتەوێت ڕێکخستنەکان بگۆڕدرێن بۆ باری بنەڕەتی؟' : 'Do you want to reset all visual and time settings to default?')) {
       updateAppLanguage('fa');
       updateAppTheme('light');
       updateAppCalendar('jalali');
@@ -435,7 +435,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   };
 
   const handleDeleteSection = async (secId) => {
-    if (!window.confirm(language === 'fa' ? 'آیا از حذف این بخش اطمینان دارید؟' : 'ئایا لە سڕینەوەی ئەم بەشە دڵنیایت؟')) return;
+    if (!window.confirm(language === 'fa' ? 'آیا از حذف این بخش اطمینان دارید؟' : language === 'ku' ? 'ئایا لە سڕینەوەی ئەم بەشە دڵنیایت؟' : 'Are you sure you want to delete this section?')) return;
     await deleteProjectSectionLive(secId);
     if (editingSectionId === secId) setEditingSectionId(null);
   };
@@ -489,14 +489,14 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   };
 
   const handleDeleteGroup = async (gId) => {
-    if (!window.confirm(language === 'fa' ? 'آیا از حذف این گروه کاری اطمینان دارید؟' : 'ئایا لە سڕینەوەی ئەم تیمە دڵنیایت؟')) return;
+    if (!window.confirm(language === 'fa' ? 'آیا از حذف این گروه کاری اطمینان دارید؟' : language === 'ku' ? 'ئایا لە سڕینەوەی ئەم تیمە دڵنیایت؟' : 'Are you sure you want to delete this work team?')) return;
     await db.groups.delete(gId);
     if (editingGroupId === gId) setEditingGroupId(null);
   };
 
   const handleDeleteTargetProject = async (pId) => {
     if (pId === DEFAULT_PROJECT_ID) {
-      alert(language === 'fa' ? 'پروژه پیش‌فرض سیستم قابل حذف نیست.' : 'پڕۆژەی بنەڕەتی سیستەم ناکرێت بسڕدرێتەوە.');
+      alert(language === 'fa' ? 'پروژه پیش‌فرض سیستم قابل حذف نیست.' : language === 'ku' ? 'پڕۆژەی بنەڕەتی سیستەم ناکرێت بسڕدرێتەوە.' : 'Default system project cannot be deleted.');
       return;
     }
     const p = (projects || []).find((x) => x.id === pId);
@@ -556,7 +556,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   };
 
   const handleDeleteCategory = async (catId) => {
-    if (!window.confirm(language === 'fa' ? 'آیا از حذف این سرفصل و تمام زیرمجموعه‌های آن اطمینان دارید؟' : 'ئایا لە سڕینەوەی ئەم بابەتە و هەموو ژێرگرووپەکانی دڵنیایت؟')) return;
+    if (!window.confirm(language === 'fa' ? 'آیا از حذف این سرفصل و تمام زیرمجموعه‌های آن اطمینان دارید؟' : language === 'ku' ? 'ئایا لە سڕینەوەی ئەم بابەتە و هەموو ژێرگرووپەکانی دڵنیایت؟' : 'Are you sure you want to delete this category and all its subcategories?')) return;
     // Find all children recursively
     const all = await db.expenseCategories.toArray();
     const idsToDelete = new Set([catId]);
@@ -643,10 +643,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     setSyncStatusMsg('');
     try {
       await fullSyncBothDirections();
-      setSyncStatusMsg(language === 'fa' ? 'همگام‌سازی کامل با موفقیت انجام شد' : 'هاوکاتکردنی تەواو ئەنجامدرا');
+      setSyncStatusMsg(language === 'fa' ? 'همگام‌سازی کامل با موفقیت انجام شد' : language === 'ku' ? 'هاوکاتکردنی تەواو ئەنجامدرا' : 'Full sync completed successfully');
       setTimeout(() => setSyncStatusMsg(''), 3000);
     } catch (err) {
-      setSyncStatusMsg(language === 'fa' ? 'خطا در برقراری ارتباط با سرور ابری' : 'هەڵە لە هاوکاتکردن');
+      setSyncStatusMsg(language === 'fa' ? 'خطا در برقراری ارتباط با سرور ابری' : language === 'ku' ? 'هەڵە لە هاوکاتکردن' : 'Cloud sync connection error');
       setTimeout(() => setSyncStatusMsg(''), 4000);
     } finally {
       setIsSyncing(false);
@@ -659,7 +659,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
       await exportDatabaseToJSON();
       setBackupMsg({
         type: 'success',
-        text: language === 'fa' ? 'فایل پشتیبان با موفقیت دانلود شد' : 'فایلی یەدەگ بە سەرکەوتوویی داگیرا'
+        text: language === 'fa' ? 'فایل پشتیبان با موفقیت دانلود شد' : language === 'ku' ? 'فایلی یەدەگ بە سەرکەوتوویی داگیرا' : 'Backup file downloaded successfully'
       });
       setTimeout(() => setBackupMsg({ type: '', text: '' }), 3000);
     } catch (err) {
@@ -673,7 +673,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     if (!backupFile) {
       setBackupMsg({
         type: 'error',
-        text: language === 'fa' ? 'لطفاً ابتدا یک فایل JSON معتبر انتخاب کنید' : 'تکایە فایلی یەدەگ دیاریبکە'
+        text: language === 'fa' ? 'لطفاً ابتدا یک فایل JSON معتبر انتخاب کنید' : language === 'ku' ? 'تکایە فایلی یەدەگ دیاریبکە' : 'Please select a valid JSON backup file'
       });
       return;
     }
@@ -686,7 +686,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
           await importDatabaseFromJSON(content, restoreMode);
           setBackupMsg({
             type: 'success',
-            text: language === 'fa' ? 'اطلاعات با موفقیت بازیابی شد' : 'زانیارییەکان بە سەرکەوتوویی هێنرانەوە'
+            text: language === 'fa' ? 'اطلاعات با موفقیت بازیابی شد' : language === 'ku' ? 'زانیارییەکان بە سەرکەوتوویی هێنرانەوە' : 'Data restored successfully'
           });
           setBackupFile(null);
           setTimeout(() => {
@@ -728,7 +728,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert(language === 'fa' ? 'حجم تصویر نباید بیشتر از ۵ مگابایت باشد' : 'قەبارەی وێنە نابێت لە ٥ مێگابایت زیاتر بێت');
+      alert(language === 'fa' ? 'حجم تصویر نباید بیشتر از ۵ مگابایت باشد' : language === 'ku' ? 'قەبارەی وێنە نابێت لە ٥ مێگابایت زیاتر بێت' : 'Image size cannot exceed 5MB');
       return;
     }
     const reader = new FileReader();
@@ -779,7 +779,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     if (newPass !== confirmPass) {
       setPassMsg({
         type: 'error',
-        text: language === 'fa' ? 'رمز عبور جدید و تکرار آن یکسان نیستند' : 'وشەی نهێنی نوێ و دووبارەکردنەوەی وەک یەک نین'
+        text: language === 'fa' ? 'رمز عبور جدید و تکرار آن یکسان نیستند' : language === 'ku' ? 'وشەی نهێنی نوێ و دووبارەکردنەوەی وەک یەک نین' : 'New password and confirmation do not match'
       });
       return;
     }
@@ -800,7 +800,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
       if (res?.success) {
         setPassMsg({
           type: 'success',
-          text: language === 'fa' ? 'رمز عبور با موفقیت به‌روزرسانی شد' : 'وشەی نهێنی بە سەرکەوتوویی نوێکرایەوە'
+          text: language === 'fa' ? 'رمز عبور با موفقیت به‌روزرسانی شد' : language === 'ku' ? 'وشەی نهێنی بە سەرکەوتوویی نوێکرایەوە' : 'Password updated successfully'
         });
         setCurrentPass('');
         setNewPass('');
@@ -848,7 +848,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <span>{language === 'fa' ? 'تنظیمات' : language === 'ku' ? 'ڕێکخستنەکان' : 'Settings'}</span>
               <span className="hidden md:inline-flex text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold border border-sky-200/60 dark:border-sky-800/60">
-                KarSync v0.8.8
+                KarSync v0.9.0
               </span>
               {/* On mobile: display active tab title */}
               <span className="sm:hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300">
@@ -856,7 +856,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
               </span>
             </h2>
             <p className="hidden sm:block text-xs text-slate-500 dark:text-slate-400">
-              {language === 'fa' ? 'مدیریت یکپارچه ظاهر، پروژه‌ها، سرفصل‌ها و همگام‌سازی ابری' : 'بەڕێوەبردنی گشتی پڕۆژە، ڕووکار و بنکەدراوە'}
+              {language === 'fa' ? 'مدیریت یکپارچه ظاهر، پروژه‌ها، سرفصل‌ها و همگام‌سازی ابری' : language === 'ku' ? 'بەڕێوەبردنی گشتی پڕۆژە، ڕووکار و بنکەدراوە' : 'Unified management of UI, projects, categories and cloud sync'}
             </p>
           </div>
         </div>
@@ -865,7 +865,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
           <button
             onClick={onClose}
             className="p-2 sm:p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-            title={language === 'fa' ? 'بستن (Esc)' : 'Close'}
+            title={language === 'fa' ? 'بستن (Esc)' : language === 'ku' ? 'داخستن (Esc)' : 'Close (Esc)'}
           >
             <X className="w-5 h-5" />
           </button>
@@ -885,7 +885,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
           <div className={`relative w-72 max-w-[80vw] h-full bg-white dark:bg-slate-900 border-e border-slate-200 dark:border-slate-800 shadow-2xl p-4 flex flex-col z-10 animate-in ${isRtl ? 'slide-in-from-right' : 'slide-in-from-left'} duration-200`}>
             <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-200 dark:border-slate-800">
               <span className="text-xs font-bold text-slate-900 dark:text-white">
-                {language === 'fa' ? 'بخش‌های تنظیمات' : 'بەشەکانی ڕێکخستن'}
+                {language === 'fa' ? 'بخش‌های تنظیمات' : language === 'ku' ? 'بەشەکانی ڕێکخستن' : 'Settings Categories'}
               </span>
               <button
                 type="button"
@@ -988,7 +988,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <span className="font-bold text-sky-600 dark:text-sky-400">
                           {timeZone === 'Asia/Tehran' ? (language === 'fa' ? 'تهران' : language === 'ku' ? 'تاران' : 'Tehran') :
                            timeZone === 'Asia/Baghdad' ? (language === 'fa' ? 'بغداد' : language === 'ku' ? 'بەغدا' : 'Baghdad') :
-                           timeZone === 'Asia/Erbil' ? (language === 'fa' ? 'اربیل / هه‌ولێر' : 'هەولێر' ) :
+                           timeZone === 'Asia/Erbil' ? (language === 'fa' ? 'اربیل / هه‌ولێر' : language === 'ku' ? 'هەولێر' : 'Erbil') :
                            timeZone}
                         </span>
                       </div>
@@ -1001,7 +1001,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <button
                       type="button"
                       onClick={handleResetToDefaultSettings}
-                      title={language === 'fa' ? 'بازنشانی تمام تنظیمات ظاهر و زمان به حالت اولیه' : 'گەڕانەوە بۆ باری بنەڕەتی'}
+                      title={language === 'fa' ? 'بازنشانی تمام تنظیمات ظاهر و زمان به حالت اولیه' : language === 'ku' ? 'گەڕانەوە بۆ باری بنەڕەتی' : 'Reset all visual and time settings to default'}
                       className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/80 hover:bg-white dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 shadow-xs transition-all flex items-center gap-1.5 text-xs font-bold flex-shrink-0"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
@@ -1303,10 +1303,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div>
                       <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <FolderKanban className="w-4 h-4 text-sky-500" />
-                        <span>{language === 'fa' ? 'پروژه‌ها و کارگاه‌های فعال' : 'پڕۆژە و کارگە چالاکەکان'}</span>
+                        <span>{language === 'fa' ? 'پروژه‌ها و کارگاه‌های فعال' : language === 'ku' ? 'پڕۆژە و کارگە چالاکەکان' : 'Active Projects & Workshops'}</span>
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        {language === 'fa' ? 'برای ویرایش مشخصات یا مدیریت بخش‌ها، پروژه مورد نظر را انتخاب کنید' : 'پڕۆژەیەک هەڵبژێرە بۆ بەڕێوەبردن'}
+                        {language === 'fa' ? 'برای ویرایش مشخصات یا مدیریت بخش‌ها، پروژه مورد نظر را انتخاب کنید' : language === 'ku' ? 'پڕۆژەیەک هەڵبژێرە بۆ بەڕێوەبردن' : 'Select a project to edit details or manage sections'}
                       </p>
                     </div>
 
@@ -1314,11 +1314,11 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       type="button"
                       onClick={() => setIsNewProjectModalOpen(true)}
                       className="h-10 sm:h-11 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white transition-all duration-300 ease-in-out shadow-md shadow-sky-500/25 active:scale-95 hover:scale-105 group flex items-center gap-2 font-bold text-xs focus:outline-hidden"
-                      title={language === 'fa' ? 'ایجاد پروژه جدید' : 'پڕۆژەی نوێ'}
-                      aria-label={language === 'fa' ? 'ایجاد پروژه جدید' : 'پڕۆژەی نوێ'}
+                      title={language === 'fa' ? 'ایجاد پروژه جدید' : language === 'ku' ? 'پڕۆژەی نوێ' : 'New Project'}
+                      aria-label={language === 'fa' ? 'ایجاد پروژه جدید' : language === 'ku' ? 'پڕۆژەی نوێ' : 'New Project'}
                     >
                       <Plus className="w-5 h-5 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
-                      <span>{language === 'fa' ? 'پروژه جدید' : 'پڕۆژەی نوێ'}</span>
+                      <span>{language === 'fa' ? 'پروژه جدید' : language === 'ku' ? 'پڕۆژەی نوێ' : 'New Project'}</span>
                     </button>
                   </div>
 
@@ -1353,7 +1353,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                               <div className="flex items-center gap-1">
                                 {isDefault && (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                    {language === 'fa' ? 'پیش‌فرض' : 'بنەڕەتی'}
+                                    {language === 'fa' ? 'پیش‌فرض' : language === 'ku' ? 'بنەڕەتی' : 'Default'}
                                   </span>
                                 )}
                                 {!isDefault && (
@@ -1364,7 +1364,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                       handleDeleteTargetProject(p.id);
                                     }}
                                     className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors opacity-0 group-hover:opacity-100"
-                                    title={language === 'fa' ? 'حذف پروژه' : 'سڕینەوەی پڕۆژە'}
+                                    title={language === 'fa' ? 'حذف پروژه' : language === 'ku' ? 'سڕینەوەی پڕۆژە' : 'Delete Project'}
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1376,7 +1376,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                               {p.name}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-3">
-                              <span>⏰ {p.standardWorkHours || 8} {language === 'fa' ? 'ساعت' : 'کاتژمێر'}</span>
+                              <span>⏰ {p.standardWorkHours || 8} {language === 'fa' ? 'ساعت' : language === 'ku' ? 'کاتژمێر' : 'hours'}</span>
                               <span>⚡ ×{p.overtimeMultiplier || 1.0}</span>
                             </div>
                           </div>
@@ -1384,8 +1384,8 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
                             <span className={`font-medium ${isSelected ? 'text-sky-600 dark:text-sky-400 font-bold' : 'text-slate-400'}`}>
                               {isSelected 
-                                ? (language === 'fa' ? '✓ در حال مدیریت' : 'چالاکە') 
-                                : (language === 'fa' ? 'انتخاب پروژه' : 'دیاریکردن')}
+                                ? (language === 'fa' ? '✓ در حال مدیریت' : language === 'ku' ? '✓ چالاکە' : '✓ Managing') 
+                                : (language === 'fa' ? 'انتخاب پروژه' : language === 'ku' ? 'دیاریکردن' : 'Select Project')}
                             </span>
                             {isSelected && (
                               <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
@@ -1410,7 +1410,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           {targetProject?.name}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {language === 'fa' ? 'تنظیمات، بخش‌ها و تیم‌های کاری' : 'ڕێکخستن و بەشەکان'}
+                          {language === 'fa' ? 'تنظیمات، بخش‌ها و تیم‌های کاری' : language === 'ku' ? 'ڕێکخستن و بەشەکان' : 'Settings, sections & teams'}
                         </div>
                       </div>
                     </div>
@@ -1421,7 +1421,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <button
                         type="button"
                         onClick={() => setProjectSubTab('details')}
-                        title={language === 'fa' ? 'مشخصات و قوانین عمومی پروژه' : 'تایبەتمەندییەکان'}
+                        title={language === 'fa' ? 'مشخصات و قوانین عمومی پروژه' : language === 'ku' ? 'تایبەتمەندییەکان' : 'General Details & Rules'}
                         className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                           projectSubTab === 'details'
                             ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -1431,7 +1431,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <Building className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
                         {projectSubTab === 'details' && (
                           <span className="text-xs font-bold px-1.5 whitespace-nowrap animate-in fade-in duration-200">
-                            {language === 'fa' ? 'مشخصات و قوانین' : 'تایبەتمەندییەکان'}
+                            {language === 'fa' ? 'مشخصات و قوانین' : language === 'ku' ? 'تایبەتمەندییەکان' : 'Details & Rules'}
                           </span>
                         )}
                       </button>
@@ -1440,7 +1440,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <button
                         type="button"
                         onClick={() => setProjectSubTab('sections')}
-                        title={language === 'fa' ? 'بخش‌های پروژه (Sections)' : 'بەشەکانی پڕۆژە'}
+                        title={language === 'fa' ? 'بخش‌های پروژه (Sections)' : language === 'ku' ? 'بەشەکانی پڕۆژە' : 'Project Sections'}
                         className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                           projectSubTab === 'sections'
                             ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -1450,7 +1450,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <Layers className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
                         {projectSubTab === 'sections' && (
                           <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
-                            <span>{language === 'fa' ? 'بخش‌های پروژه' : 'بەشەکان'}</span>
+                            <span>{language === 'fa' ? 'بخش‌های پروژه' : language === 'ku' ? 'بەشەکان' : 'Project Sections'}</span>
                             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
                               {projectSections.length}
                             </span>
@@ -1462,7 +1462,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <button
                         type="button"
                         onClick={() => setProjectSubTab('groups')}
-                        title={language === 'fa' ? 'تیم‌ها و گروه‌های کاری (Work Teams)' : 'تیمەکان و گروپەکانی کار'}
+                        title={language === 'fa' ? 'تیم‌ها و گروه‌های کاری (Work Teams)' : language === 'ku' ? 'تیمەکان و گروپەکانی کار' : 'Work Teams & Groups'}
                         className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                           projectSubTab === 'groups'
                             ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -1472,7 +1472,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <Users2 className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200" />
                         {projectSubTab === 'groups' && (
                           <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
-                            <span>{language === 'fa' ? 'تیم‌ها و گروه‌ها' : 'تیمەکان'}</span>
+                            <span>{language === 'fa' ? 'تیم‌ها و گروه‌ها' : language === 'ku' ? 'تیمەکان' : 'Teams & Groups'}</span>
                             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
                               {projectGroups.length}
                             </span>
@@ -1488,7 +1488,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'نام پروژه یا کارگاه' : 'ناوی پڕۆژە یان کارگە'}
+                            {language === 'fa' ? 'نام پروژه یا کارگاه' : language === 'ku' ? 'ناوی پڕۆژە یان کارگە' : 'Project / Workshop Name'}
                           </label>
                           <input
                             type="text"
@@ -1501,23 +1501,23 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'ارز مبنای پروژه' : 'دراوی پڕۆژە'}
+                            {language === 'fa' ? 'ارز مبنای پروژه' : language === 'ku' ? 'دراوی پڕۆژە' : 'Base Currency'}
                           </label>
                           <select
                             value={projectCurrency}
                             onChange={(e) => setProjectCurrency(e.target.value)}
                             className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
                           >
-                            <option value="IQD">دینار عراق (IQD)</option>
-                            <option value="USD">دلار آمریکا (USD)</option>
-                            <option value="IRR">تومان ایران (IRR)</option>
-                            <option value="EUR">یورو (EUR)</option>
+                            <option value="IQD">{language === 'fa' ? 'دینار عراق (IQD)' : language === 'ku' ? 'دیناری عێراقی (IQD)' : 'Iraqi Dinar (IQD)'}</option>
+                            <option value="USD">{language === 'fa' ? 'دلار آمریکا (USD)' : language === 'ku' ? 'دۆلاری ئەمریکی (USD)' : 'US Dollar (USD)'}</option>
+                            <option value="IRR">{language === 'fa' ? 'تومان ایران (IRR)' : language === 'ku' ? 'تومەنی ئێران (IRR)' : 'Iranian Toman (IRR)'}</option>
+                            <option value="EUR">{language === 'fa' ? 'یورو (EUR)' : language === 'ku' ? 'یۆرۆ (EUR)' : 'Euro (EUR)'}</option>
                           </select>
                         </div>
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'ساعت کار استاندارد روزانه' : 'کاتژمێری ئاسایی ڕۆژانە'}
+                            {language === 'fa' ? 'ساعت کار استاندارد روزانه' : language === 'ku' ? 'کاتژمێری ئاسایی ڕۆژانە' : 'Standard Daily Work Hours'}
                           </label>
                           <input
                             type="number"
@@ -1531,7 +1531,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'ضریب محاسبه اضافه‌کاری' : 'زەریبی ئۆڤەرتایم'}
+                            {language === 'fa' ? 'ضریب محاسبه اضافه‌کاری' : language === 'ku' ? 'زەریبی ئۆڤەرتایم' : 'Overtime Multiplier'}
                           </label>
                           <input
                             type="number"
@@ -1549,7 +1549,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         {projectSaveSuccess ? (
                           <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                             <Check className="w-4 h-4" />
-                            <span>{language === 'fa' ? 'تغییرات با موفقیت ذخیره شد' : 'گۆڕانکارییەکان پاشەکەوتکران'}</span>
+                            <span>{language === 'fa' ? 'تغییرات با موفقیت ذخیره شد' : language === 'ku' ? 'گۆڕانکارییەکان پاشەکەوتکران' : 'Changes saved successfully'}</span>
                           </span>
                         ) : <span />}
 
@@ -1557,7 +1557,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           type="submit"
                           className="px-5 py-2.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-md shadow-sky-600/20"
                         >
-                          {language === 'fa' ? 'ذخیره تغییرات پروژه' : 'پاشەکەوتکردنی پڕۆژە'}
+                          {language === 'fa' ? 'ذخیره تغییرات پروژه' : language === 'ku' ? 'پاشەکەوتکردنی پڕۆژە' : 'Save Project Changes'}
                         </button>
                       </div>
                     </form>
@@ -1569,7 +1569,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <form onSubmit={handleAddSection} className="flex gap-2">
                         <input
                           type="text"
-                          placeholder={language === 'fa' ? 'نام بخش جدید (مثلاً: سوله شرقی، فونداسیون، نما)...' : 'ناوی بەشی نوێ...'}
+                          placeholder={language === 'fa' ? 'نام بخش جدید (مثلاً: سوله شرقی، فونداسیون، نما)...' : language === 'ku' ? 'ناوی بەشی نوێ...' : 'New section name (e.g. Foundation, Facade)...'}
                           value={newSectionName}
                           onChange={(e) => setNewSectionName(e.target.value)}
                           className="flex-1 px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500"
@@ -1580,13 +1580,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           className="px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white flex items-center gap-1.5 transition-all shadow-sm shadow-indigo-600/20"
                         >
                           <Plus className="w-4 h-4" />
-                          <span>{language === 'fa' ? 'افزودن بخش' : 'زیادکردن'}</span>
+                          <span>{language === 'fa' ? 'افزودن بخش' : language === 'ku' ? 'زیادکردن' : 'Add Section'}</span>
                         </button>
                       </form>
 
                       {projectSections.length === 0 ? (
                         <div className="text-center py-8 text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                          {language === 'fa' ? 'هنوز بخشی برای این پروژه ثبت نشده است.' : 'هیچ بەشێک تۆمار نەکراوە.'}
+                          {language === 'fa' ? 'هنوز بخشی برای این پروژه ثبت نشده است.' : language === 'ku' ? 'هیچ بەشێک تۆمار نەکراوە.' : 'No sections registered for this project yet.'}
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto">
@@ -1618,7 +1618,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                       type="button"
                                       onClick={() => handleSaveEditSection(sec.id)}
                                       className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white"
-                                      title={language === 'fa' ? 'ذخیره' : 'پاشەکەوت'}
+                                      title={language === 'fa' ? 'ذخیره' : language === 'ku' ? 'پاشەکەوت' : 'Save'}
                                     >
                                       <Check className="w-3.5 h-3.5" />
                                     </button>
@@ -1626,7 +1626,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                       type="button"
                                       onClick={() => setEditingSectionId(null)}
                                       className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
-                                      title={language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+                                      title={language === 'fa' ? 'انصراف' : language === 'ku' ? 'پاشگەزبوونەوە' : 'Cancel'}
                                     >
                                       <X className="w-3.5 h-3.5" />
                                     </button>
@@ -1644,7 +1644,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                         type="button"
                                         onClick={() => handleStartEditSection(sec)}
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
-                                        title={language === 'fa' ? 'ویرایش نام بخش' : 'دەستکاریکردن'}
+                                        title={language === 'fa' ? 'ویرایش نام بخش' : language === 'ku' ? 'دەستکاریکردن' : 'Edit Section'}
                                       >
                                         <Pencil className="w-3.5 h-3.5" />
                                       </button>
@@ -1652,7 +1652,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                         type="button"
                                         onClick={() => handleDeleteSection(sec.id)}
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
-                                        title={language === 'fa' ? 'حذف بخش' : 'سڕینەوە'}
+                                        title={language === 'fa' ? 'حذف بخش' : language === 'ku' ? 'سڕینەوە' : 'Delete Section'}
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
@@ -1673,7 +1673,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <form onSubmit={handleAddGroup} className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="text"
-                          placeholder={language === 'fa' ? 'نام تیم جدید (مثلاً: تیم قالب‌بندی، آرماتور، جوشکاری)...' : 'ناوی تیمی نوێ...'}
+                          placeholder={language === 'fa' ? 'نام تیم جدید (مثلاً: تیم قالب‌بندی، آرماتور، جوشکاری)...' : language === 'ku' ? 'ناوی تیمی نوێ...' : 'New team name (e.g. Carpentry, Welding)...'}
                           value={newGroupName}
                           onChange={(e) => setNewGroupName(e.target.value)}
                           className="flex-1 px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
@@ -1685,7 +1685,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                             onChange={(e) => setNewGroupDeductFood(e.target.checked)}
                             className="rounded-sm text-emerald-600 focus:ring-0 w-4 h-4"
                           />
-                          <span>{language === 'fa' ? 'کسر هزینه غذا' : 'لێبڕینی نانخواردن'}</span>
+                          <span>{language === 'fa' ? 'کسر هزینه غذا' : language === 'ku' ? 'لێبڕینی نانخواردن' : 'Deduct Food Cost'}</span>
                         </label>
                         <button
                           type="submit"
@@ -1693,13 +1693,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           className="px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-all shadow-sm shadow-emerald-600/20"
                         >
                           <Plus className="w-4 h-4" />
-                          <span>{language === 'fa' ? 'افزودن تیم' : 'زیادکردنی تیم'}</span>
+                          <span>{language === 'fa' ? 'افزودن تیم' : language === 'ku' ? 'زیادکردنی تیم' : 'Add Team'}</span>
                         </button>
                       </form>
 
                       {projectGroups.length === 0 ? (
                         <div className="text-center py-8 text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                          {language === 'fa' ? 'هنوز گروه کاری برای این پروژه ثبت نشده است.' : 'هیچ تیمێک تۆمار نەکراوە.'}
+                          {language === 'fa' ? 'هنوز گروه کاری برای این پروژه ثبت نشده است.' : language === 'ku' ? 'هیچ تیمێک تۆمار نەکراوە.' : 'No work teams registered for this project yet.'}
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto">
@@ -1735,7 +1735,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                           onChange={(e) => setEditingGroupDeductFood(e.target.checked)}
                                           className="rounded-sm text-emerald-600 focus:ring-0"
                                         />
-                                        <span>{language === 'fa' ? 'کسر هزینه غذا' : 'لێبڕینی نان'}</span>
+                                        <span>{language === 'fa' ? 'کسر هزینه غذا' : language === 'ku' ? 'لێبڕینی نان' : 'Deduct Food'}</span>
                                       </label>
                                       <div className="flex items-center gap-1">
                                         <button
@@ -1744,7 +1744,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                           className="p-1 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1"
                                         >
                                           <Check className="w-3.5 h-3.5" />
-                                          <span>{language === 'fa' ? 'ذخیره' : 'پاشەکەوت'}</span>
+                                          <span>{language === 'fa' ? 'ذخیره' : language === 'ku' ? 'پاشەکەوت' : 'Save'}</span>
                                         </button>
                                         <button
                                           type="button"
@@ -1769,8 +1769,8 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                         <span className={`w-1.5 h-1.5 rounded-full ${grp.deductFoodExpense ? 'bg-amber-500' : 'bg-slate-400'}`} />
                                         <span>
                                           {grp.deductFoodExpense 
-                                            ? (language === 'fa' ? 'با کسر هزینه غذای کارگاهی' : 'بە لێبڕینی نانخواردن')
-                                            : (language === 'fa' ? 'بدون کسر غذا' : 'بێ لێبڕینی نانخواردن')}
+                                            ? (language === 'fa' ? 'با کسر هزینه غذای کارگاهی' : language === 'ku' ? 'بە لێبڕینی نانخواردن' : 'With Food Cost Deduction')
+                                            : (language === 'fa' ? 'بدون کسر غذا' : language === 'ku' ? 'بێ لێبڕینی نانخواردن' : 'No Food Deduction')}
                                         </span>
                                       </div>
                                     </div>
@@ -1780,7 +1780,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                         type="button"
                                         onClick={() => handleStartEditGroup(grp)}
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
-                                        title={language === 'fa' ? 'ویرایش مشخصات تیم' : 'دەستکاریکردن'}
+                                        title={language === 'fa' ? 'ویرایش مشخصات تیم' : language === 'ku' ? 'دەستکاریکردن' : 'Edit Team'}
                                       >
                                         <Pencil className="w-3.5 h-3.5" />
                                       </button>
@@ -1788,7 +1788,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                         type="button"
                                         onClick={() => handleDeleteGroup(grp.id)}
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
-                                        title={language === 'fa' ? 'حذف تیم' : 'سڕینەوە'}
+                                        title={language === 'fa' ? 'حذف تیم' : language === 'ku' ? 'سڕینەوە' : 'Delete Team'}
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
@@ -1878,7 +1878,9 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       {language === 'fa'
                         ? 'برای افزایش چشمگیر سرعت عمل و ثبت داده‌ها بدون نیاز به ماوس در کامپیوتر یا لپ‌تاپ:'
-                        : 'بۆ زیادکردنی خێرایی کارکردن و داخڵکردنی داتا بەبێ بەکارهێنانی ماوس لە کۆمپیوتەر:'}
+                        : language === 'ku'
+                        ? 'بۆ زیادکردنی خێرایی کارکردن و داخڵکردنی داتا بەبێ بەکارهێنانی ماوس لە کۆمپیوتەر:'
+                        : 'Significantly speed up workflow and data entry without using a mouse on desktop:'}
                     </p>
                   </div>
                   <span className="self-start sm:self-center px-3 py-1 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 text-xs font-mono font-bold border border-sky-500/20">
@@ -1890,24 +1892,24 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                 <div className="space-y-3">
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <span>{language === 'fa' ? 'ثبت و عملیات سریع' : 'تۆمارکردن و کردارە خێراکان'}</span>
+                    <span>{language === 'fa' ? 'ثبت و عملیات سریع' : language === 'ku' ? 'تۆمارکردن و کردارە خێراکان' : 'Quick Actions & Log'}</span>
                   </h4>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'ثبت کارکرد و حضور روزانه' : 'تۆماری ئامادەبوونی ڕۆژانە'}
+                          {language === 'fa' ? 'ثبت کارکرد و حضور روزانه' : language === 'ku' ? 'تۆماری ئامادەبوونی ڕۆژانە' : 'Log Daily Attendance'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'باز کردن مودال سریع ثبت لاگ' : 'کردنەوەی مۆداڵی تۆماری ڕۆژ'}
+                          {language === 'fa' ? 'باز کردن مودال سریع ثبت لاگ' : language === 'ku' ? 'کردنەوەی مۆداڵی تۆماری ڕۆژ' : 'Open quick daily log modal'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
                         <span className="text-xs font-bold text-slate-400">+</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">D</kbd>
-                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
+                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : language === 'ku' ? 'یان' : 'or'}</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">D</kbd>
                       </div>
                     </div>
@@ -1915,17 +1917,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'تاریخچه فعالیت‌ها (لاگ)' : 'مێژووی چالاکییەکان'}
+                          {language === 'fa' ? 'تاریخچه فعالیت‌ها (لاگ)' : language === 'ku' ? 'مێژووی چالاکییەکان' : 'Activity History (Logs)'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'مشاهده تاریخچه سیستم و کاربران' : 'بینینی مێژووی سیستەم'}
+                          {language === 'fa' ? 'مشاهده تاریخچه سیستم و کاربران' : language === 'ku' ? 'بینینی مێژووی سیستەم' : 'View system and user history'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
                         <span className="text-xs font-bold text-slate-400">+</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">L</kbd>
-                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
+                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : language === 'ku' ? 'یان' : 'or'}</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-600 shadow-xs">L</kbd>
                       </div>
                     </div>
@@ -1933,17 +1935,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'ثبت هزینه و فاکتور جدید' : 'تۆمارکردنی خەرجی نوێ'}
+                          {language === 'fa' ? 'ثبت هزینه و فاکتور جدید' : language === 'ku' ? 'تۆمارکردنی خەرجی نوێ' : 'Record New Expense'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'فرم سریع افزودن فاکتور هزینه' : 'فۆرمی خێرای خەرجی کارگە'}
+                          {language === 'fa' ? 'فرم سریع افزودن فاکتور هزینه' : language === 'ku' ? 'فۆرمی خێرای خەرجی کارگە' : 'Quick add expense invoice modal'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
                         <span className="text-xs font-bold text-slate-400">+</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-600 shadow-xs">E</kbd>
-                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
+                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : language === 'ku' ? 'یان' : 'or'}</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-600 shadow-xs">E</kbd>
                       </div>
                     </div>
@@ -1951,17 +1953,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'تسویه حساب و پرداخت مالی' : 'حیساباتی شایستە و پارەدان'}
+                          {language === 'fa' ? 'تسویه حساب و پرداخت مالی' : language === 'ku' ? 'حیساباتی شایستە و پارەدان' : 'Settlement & Payment'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'مودال تسویه طلب کارگران' : 'مۆداڵی تەسویەی پارەی کرێکار'}
+                          {language === 'fa' ? 'مودال تسویه طلب کارگران' : language === 'ku' ? 'مۆداڵی تەسویەی پارەی کرێکار' : 'Worker wage settlement modal'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
                         <span className="text-xs font-bold text-slate-400">+</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-600 shadow-xs">S</kbd>
-                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
+                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : language === 'ku' ? 'یان' : 'or'}</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-600 shadow-xs">S</kbd>
                       </div>
                     </div>
@@ -1969,17 +1971,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'افزودن پرسنل / کارگر جدید' : 'زیادکردنی کرێکاری نوێ'}
+                          {language === 'fa' ? 'افزودن پرسنل / کارگر جدید' : language === 'ku' ? 'زیادکردنی کرێکاری نوێ' : 'Add Worker / Staff'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'باز کردن فرم ثبت کارگر جدید' : 'فۆرمی تۆمارکردنی کرێکار'}
+                          {language === 'fa' ? 'باز کردن فرم ثبت کارگر جدید' : language === 'ku' ? 'فۆرمی تۆمارکردنی کرێکار' : 'Open new worker registration form'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-xs">Shift</kbd>
                         <span className="text-xs font-bold text-slate-400">+</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-600 shadow-xs">W</kbd>
-                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : 'یان'}</span>
+                        <span className="text-[10px] text-slate-400 mx-1">{language === 'fa' ? 'یا' : language === 'ku' ? 'یان' : 'or'}</span>
                         <kbd className="inline-flex items-center justify-center min-w-[26px] h-7 px-2 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-600 shadow-xs">W</kbd>
                       </div>
                     </div>
@@ -1987,10 +1989,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'مدیریت وظایف و تسک‌ها' : 'بەڕێوەبردنی ئەرکەکان و کارەکان'}
+                          {language === 'fa' ? 'مدیریت وظایف و تسک‌ها' : language === 'ku' ? 'بەڕێوەبردنی ئەرکەکان و کارەکان' : 'Task Management'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'مشاهده و ثبت تسک‌های پروژه' : 'بینین و تۆمارکردنی ئەرکەکان'}
+                          {language === 'fa' ? 'مشاهده و ثبت تسک‌های پروژه' : language === 'ku' ? 'بینین و تۆمارکردنی ئەرکەکان' : 'View and create project tasks'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2003,10 +2005,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'معین افراد و حساب‌ها' : 'دەفتەری حیسابی کەسەکان و حیسابەکان'}
+                          {language === 'fa' ? 'معین افراد و حساب‌ها' : language === 'ku' ? 'دەفتەری حیسابی کەسەکان و حیسابەکان' : 'Account & Person Ledger'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'سرچ‌باکس سریع گردش مالی و اسناد معین' : 'گەڕانی خێرای دەفتەری حیسابات'}
+                          {language === 'fa' ? 'سرچ‌باکس سریع گردش مالی و اسناد معین' : language === 'ku' ? 'گەڕانی خێرای دەفتەری حیسابات' : 'Quick search for ledgers & transactions'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2019,10 +2021,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'طرف‌حساب‌ها و اشخاص' : 'لایەنەکان و کەسایەتییەکان'}
+                          {language === 'fa' ? 'طرف‌حساب‌ها و اشخاص' : language === 'ku' ? 'لایەنەکان و کەسایەتییەکان' : 'Counterparties & Contacts'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'مدیریت تامین‌کنندگان، کارفرمایان و پیمانکاران' : 'بەڕێوەبردنی لایەنەکانی ژمێریاری'}
+                          {language === 'fa' ? 'مدیریت تامین‌کنندگان، کارفرمایان و پیمانکاران' : language === 'ku' ? 'بەڕێوەبردنی لایەنەکانی ژمێریاری' : 'Manage suppliers, clients & contractors'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2035,10 +2037,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'مدیریت پروژه‌ها و بخش‌ها' : 'بەڕێوەبردنی پڕۆژە و بەشەکان'}
+                          {language === 'fa' ? 'مدیریت پروژه‌ها و بخش‌ها' : language === 'ku' ? 'بەڕێوەبردنی پڕۆژە و بەشەکان' : 'Projects & Structure'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'تنظیمات قوانین کارگاه، بخش‌ها و تیم‌های کاری' : 'ڕێکخستنی پڕۆژە، بەشەکان و تیمەکان'}
+                          {language === 'fa' ? 'تنظیمات قوانین کارگاه، بخش‌ها و تیم‌های کاری' : language === 'ku' ? 'ڕێکخستنی پڕۆژە، بەشەکان و تیمەکان' : 'Workshop rules, sections & work teams'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2051,10 +2053,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'مودال مدیریت پرسنل و کارگران' : 'مۆداڵی بەڕێوەبردنی کرێکاران و پرسنل'}
+                          {language === 'fa' ? 'مودال مدیریت پرسنل و کارگران' : language === 'ku' ? 'مۆداڵی بەڕێوەبردنی کرێکاران و پرسنل' : 'Personnel & Workers Modal'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'مشاهده و مدیریت لیست جامع پرسنل (تمام‌صفحه)' : 'بینین و بەڕێوەبردنی تەواوی کرێکاران'}
+                          {language === 'fa' ? 'مشاهده و مدیریت لیست جامع پرسنل (تمام‌صفحه)' : language === 'ku' ? 'بینین و بەڕێوەبردنی تەواوی کرێکاران' : 'Full-screen personnel directory'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2070,34 +2072,34 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                 <div className="space-y-3 pt-2">
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-sky-500 inline-block" />
-                    <span>{language === 'fa' ? 'ناوبری و جابه‌جایی بین تب‌ها' : 'گۆڕینی پەڕە و بەشەکان'}</span>
+                    <span>{language === 'fa' ? 'ناوبری و جابه‌جایی بین تب‌ها' : language === 'ku' ? 'گۆڕینی پەڕە و بەشەکان' : 'Tab Navigation'}</span>
                   </h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'داشبورد مدیریتی' : 'داشبۆرد'}
+                        {language === 'fa' ? 'داشبورد مدیریتی' : language === 'ku' ? 'داشبۆردی بەڕێوەبردن' : 'Management Dashboard'}
                       </div>
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">1</kbd>
                     </div>
 
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'تقویم و گزارش کارکرد' : 'ڕۆژمێر و ڕاپۆرتی کار'}
+                        {language === 'fa' ? 'تقویم و گزارش کارکرد' : language === 'ku' ? 'ڕۆژمێر و ڕاپۆرتی کار' : 'Calendar & Attendance'}
                       </div>
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">2</kbd>
                     </div>
 
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'مدیریت هزینه‌ها' : 'خەرجییەکان'}
+                        {language === 'fa' ? 'مدیریت هزینه‌ها' : language === 'ku' ? 'خەرجییەکان' : 'Expense Management'}
                       </div>
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">3</kbd>
                     </div>
 
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {language === 'fa' ? 'حسابداری و امور مالی' : 'ژمێریاری و دارایی'}
+                        {language === 'fa' ? 'حسابداری و امور مالی' : language === 'ku' ? 'ژمێریاری و دارایی' : 'Accounting & Finance'}
                       </div>
                       <kbd className="inline-flex items-center justify-center w-7 h-7 text-xs font-mono font-bold rounded-lg bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-600 shadow-xs">4</kbd>
                     </div>
@@ -2108,17 +2110,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                 <div className="space-y-3 pt-2">
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
-                    <span>{language === 'fa' ? 'سیستم و کنترل پنجره‌ها' : 'سیستەم و کۆنترۆڵەکان'}</span>
+                    <span>{language === 'fa' ? 'سیستم و کنترل پنجره‌ها' : language === 'ku' ? 'سیستەم و کۆنترۆڵەکان' : 'System & Windows'}</span>
                   </h4>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'تنظیمات سراسری' : 'ڕێکخستنی سیستەم'}
+                          {language === 'fa' ? 'تنظیمات سراسری' : language === 'ku' ? 'ڕێکخستنی سیستەم' : 'Global Settings'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'باز کردن پنجره تنظیمات' : 'کردنەوەی ڕێکخستن'}
+                          {language === 'fa' ? 'باز کردن پنجره تنظیمات' : language === 'ku' ? 'کردنەوەی ڕێکخستن' : 'Open settings window'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -2131,10 +2133,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'راهنمای شورتکات‌ها' : 'ڕێبەری میانبڕەکان'}
+                          {language === 'fa' ? 'راهنمای شورتکات‌ها' : language === 'ku' ? 'ڕێبەری میانبڕەکان' : 'Shortcuts Guide'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'مشاهده همین صفحه' : 'پیشاندانی ئەم پەڕەیە'}
+                          {language === 'fa' ? 'مشاهده همین صفحه' : language === 'ku' ? 'پیشاندانی ئەم پەڕەیە' : 'View this guide'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -2145,10 +2147,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'بستن پنجره‌ها' : 'داخستنی پەنجەرەکان'}
+                          {language === 'fa' ? 'بستن پنجره‌ها' : language === 'ku' ? 'داخستنی پەنجەرەکان' : 'Close Windows'}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {language === 'fa' ? 'خروج از مودال و فرم‌ها' : 'داخستنی فۆرمەکان'}
+                          {language === 'fa' ? 'خروج از مودال و فرم‌ها' : language === 'ku' ? 'داخستنی فۆرمەکان' : 'Exit modal and forms'}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -2162,11 +2164,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                 <div className="p-4 rounded-2xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60 flex items-start gap-3 text-xs leading-relaxed text-sky-900 dark:text-sky-300">
                   <Info className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">{language === 'fa' ? 'نکته هوشمند: ' : 'تێبینی: '}</span>
+                    <span className="font-bold">{language === 'fa' ? 'نکته هوشمند: ' : language === 'ku' ? 'تێبینی: ' : 'Smart Tip: '}</span>
                     <span>
                       {language === 'fa'
                         ? 'برای جلوگیری از بروز هرگونه خطا حین ورود اطلاعات مبالغ، نام‌ها یا جستجو، کلیدهای میانبر تک‌کاراکتری (مانند اعداد ۱ تا ۵ یا کلیدهای L و E) زمانی که در حال نوشتن داخل یک فیلد یا کادر جستجو هستید، موقتاً غیرفعال می‌شوند.'
-                        : 'کلیدە تاکەکان لە کاتی نووسین لە ناو فۆرمەکاندا کار ناکەن تاکو بە هەڵە فەرمان نەدرێت.'}
+                        : language === 'ku'
+                        ? 'کلیدە تاکەکان لە کاتی نووسین لە ناو فۆرمەکاندا کار ناکەن تاکو بە هەڵە فەرمان نەدرێت.'
+                        : 'Single-key shortcuts (like 1-5 or L and E) are temporarily disabled while typing inside inputs or search boxes to prevent unintended triggers.'}
                     </span>
                   </div>
                 </div>
@@ -2188,7 +2192,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
                         <User className="w-4 h-4 text-sky-500" />
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'اطلاعات و پروفایل کاربری' : 'پرۆفایل و زانیاری بەکارهێنەر'}
+                          {language === 'fa' ? 'اطلاعات و پروفایل کاربری' : language === 'ku' ? 'پرۆفایل و زانیاری بەکارهێنەر' : 'User Profile & Identity'}
                         </h4>
                       </div>
 
@@ -2206,7 +2210,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                                 type="button"
                                 onClick={handleRemoveAvatar}
                                 className="absolute -top-1.5 -start-1.5 p-1 rounded-lg bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
-                                title={language === 'fa' ? 'حذف تصویر' : 'سڕینەوەی وێنە'}
+                                title={language === 'fa' ? 'حذف تصویر' : language === 'ku' ? 'سڕینەوەی وێنە' : 'Remove Photo'}
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
@@ -2221,7 +2225,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                             type="button"
                             onClick={() => avatarInputRef.current?.click()}
                             className="absolute -bottom-1 -end-1 p-1.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md hover:scale-105 active:scale-95 transition-all"
-                            title={language === 'fa' ? 'تغییر عکس پروفایل' : 'گۆڕینی وێنە'}
+                            title={language === 'fa' ? 'تغییر عکس پروفایل' : language === 'ku' ? 'گۆڕینی وێنە' : 'Change Profile Photo'}
                           >
                             <Camera className="w-3.5 h-3.5" />
                           </button>
@@ -2237,14 +2241,14 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                              {language === 'fa' ? 'حساب کاربری مدیریت' : 'هەژماری بەڕێوەبەر'}
+                              {language === 'fa' ? 'حساب کاربری مدیریت' : language === 'ku' ? 'هەژماری بەڕێوەبەر' : 'Administrator Account'}
                             </span>
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
                               Admin
                             </span>
                           </div>
                           <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{user?.email || 'admin@karsync.com'}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{user?.companyName || 'کارگاه من'}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{user?.companyName || (language === 'fa' ? 'کارگاه من' : language === 'ku' ? 'کارگەی من' : 'My Workshop')}</p>
                         </div>
                       </div>
 
@@ -2252,7 +2256,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <div className="space-y-3 pt-2">
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'نام و نام خانوادگی' : 'ناوی تەواو'}
+                            {language === 'fa' ? 'نام و نام خانوادگی' : language === 'ku' ? 'ناوی تەواو' : 'Full Name'}
                           </label>
                           <input
                             type="text"
@@ -2265,13 +2269,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'عنوان و نقش در مجموعه' : 'پلە یان ناونیشان لە کارگە'}
+                            {language === 'fa' ? 'عنوان و نقش در مجموعه' : language === 'ku' ? 'پلە یان ناونیشان لە کارگە' : 'Job Title & Role'}
                           </label>
                           <input
                             type="text"
                             value={profileTitle}
                             onChange={(e) => setProfileTitle(e.target.value)}
-                            placeholder={language === 'fa' ? 'مثلاً: مدیر پروژه، سرپرست کارگاه، مدیر فنی...' : 'وەک: بەڕێوەبەری پڕۆژە...'}
+                            placeholder={language === 'fa' ? 'مثلاً: مدیر پروژه، سرپرست کارگاه، مدیر فنی...' : language === 'ku' ? 'وەک: بەڕێوەبەری پڕۆژە...' : 'e.g. Project Manager, Site Supervisor...'}
                             className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
                           />
                         </div>
@@ -2281,7 +2285,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         {profileSaveSuccess ? (
                           <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                             <Check className="w-4 h-4" />
-                            <span>{language === 'fa' ? 'مشخصات با موفقیت ذخیره شد' : 'زانیارییەکان پاشەکەوتکران'}</span>
+                            <span>{language === 'fa' ? 'مشخصات با موفقیت ذخیره شد' : language === 'ku' ? 'زانیارییەکان پاشەکەوتکران' : 'Profile updated successfully'}</span>
                           </span>
                         ) : <span />}
 
@@ -2289,7 +2293,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           type="submit"
                           className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition-colors shadow-sm"
                         >
-                          {language === 'fa' ? 'ذخیره مشخصات کاربری' : 'پاشەکەوتکردنی پرۆفایل'}
+                          {language === 'fa' ? 'ذخیره مشخصات کاربری' : language === 'ku' ? 'پاشەکەوتکردنی پرۆفایل' : 'Save Profile'}
                         </button>
                       </div>
                     </form>
@@ -2300,7 +2304,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="w-4 h-4 text-indigo-500" />
                           <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                            {language === 'fa' ? 'نقش کاربری و سطح دسترسی (RBAC)' : 'ڕۆڵی بەکارهێنەر'}
+                            {language === 'fa' ? 'نقش کاربری و سطح دسترسی (RBAC)' : language === 'ku' ? 'ڕۆڵی بەکارهێنەر' : 'User Role & Permissions (RBAC)'}
                           </h4>
                         </div>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
@@ -2309,15 +2313,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                             : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                         }`}>
                           {(user?.role || 'admin') === 'admin' 
-                            ? (language === 'fa' ? '👑 مدیر ارشد' : '👑 بەڕێوەبەر') 
-                            : (language === 'fa' ? '✍️ اپراتور ثبت داده' : '✍️ تۆمارکار')}
+                            ? (language === 'fa' ? '👑 مدیر ارشد' : language === 'ku' ? '👑 بەڕێوەبەر' : '👑 Senior Admin') 
+                            : (language === 'fa' ? '✍️ اپراتور ثبت داده' : language === 'ku' ? '✍️ تۆمارکار' : '✍️ Data Operator')}
                         </span>
                       </div>
 
                       <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                         {language === 'fa' 
                           ? 'کنترل سطح دسترسی جهت تایید دو مرحله‌ای اسناد مالی، پرداخت‌ها و فاکتورها:' 
-                          : 'کۆنترۆڵی دەسەڵاتەکانی پەسەندکردنی بەڵگەنامەکان:'}
+                          : language === 'ku'
+                          ? 'کۆنترۆڵی دەسەڵاتەکانی پەسەندکردنی بەڵگەنامەکان:'
+                          : 'Access control permissions for verifying transactions, payments and invoices:'}
                       </p>
 
                       <div>
@@ -2327,10 +2333,10 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
                         >
                           <option value="admin">
-                            {language === 'fa' ? '👑 مدیر سیستم (Admin) — دسترسی کامل و تایید نهایی اسناد' : '👑 بەڕێوەبەر (Admin)'}
+                            {language === 'fa' ? '👑 مدیر سیستم (Admin) — دسترسی کامل و تایید نهایی اسناد' : language === 'ku' ? '👑 بەڕێوەبەر (Admin)' : '👑 System Admin — Full access & approval'}
                           </option>
                           <option value="operator">
-                            {language === 'fa' ? '✍️ اپراتور ثبت داده (Operator) — فقط ثبت پیش‌نویس بدون تایید' : '✍️ تۆمارکار (Operator)'}
+                            {language === 'fa' ? '✍️ اپراتور ثبت داده (Operator) — فقط ثبت پیش‌نویس بدون تایید' : language === 'ku' ? '✍️ تۆمارکار (Operator)' : '✍️ Data Operator — Draft registration only'}
                           </option>
                         </select>
                       </div>
@@ -2340,22 +2346,22 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                     <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 flex items-center justify-between gap-4">
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-rose-800 dark:text-rose-300">
-                          {language === 'fa' ? 'خروج امن از سیستم' : 'چوونەدەرەوە لە سیستم'}
+                          {language === 'fa' ? 'خروج امن از سیستم' : language === 'ku' ? 'چوونەدەرەوە لە سیستم' : 'Secure Logout'}
                         </div>
                         <div className="text-[11px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">
-                          {language === 'fa' ? 'پایان دادن به نشست فعلی کاربری در این دستگاه' : 'کۆتاییهێنان بە چوونەژوورەوەی ئێستا'}
+                          {language === 'fa' ? 'پایان دادن به نشست فعلی کاربری در این دستگاه' : language === 'ku' ? 'کۆتاییهێنان بە چوونەژوورەوەی ئێستا' : 'End current user session on this device'}
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => {
-                          if (window.confirm(language === 'fa' ? 'آیا از خروج از حساب کاربری اطمینان دارید؟' : 'ئایا لە چوونەدەرەوە دڵنیایت؟')) {
+                          if (window.confirm(language === 'fa' ? 'آیا از خروج از حساب کاربری اطمینان دارید؟' : language === 'ku' ? 'ئایا لە چوونەدەرەوە دڵنیایت؟' : 'Are you sure you want to log out of your account?')) {
                             logout();
                           }
                         }}
                         className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-xs flex-shrink-0"
                       >
-                        {language === 'fa' ? 'خروج از حساب' : 'چوونەدەرەوە'}
+                        {language === 'fa' ? 'خروج از حساب' : language === 'ku' ? 'چوونەدەرەوە' : 'Log Out'}
                       </button>
                     </div>
                   </div>
@@ -2368,7 +2374,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <div className="flex items-center gap-2">
                           <Smartphone className="w-4 h-4 text-sky-500" />
                           <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                            {language === 'fa' ? 'تایید هویت دو مرحله‌ای (2FA)' : 'پشتڕاستکردنەوەی دوو قۆناغی'}
+                            {language === 'fa' ? 'تایید هویت دو مرحله‌ای (2FA)' : language === 'ku' ? 'پشتڕاستکردنەوەی دوو قۆناغی' : 'Two-Factor Authentication (2FA)'}
                           </h4>
                         </div>
 
@@ -2378,14 +2384,16 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                         }`}>
                           {twoFactorConfig?.enabled
-                            ? (language === 'fa' ? 'فعال و امن' : 'چالاکە')
-                            : (language === 'fa' ? 'غیرفعال' : 'ناچالاکە')}
+                            ? (language === 'fa' ? 'فعال و امن' : language === 'ku' ? 'چالاکە' : 'Active & Secured')
+                            : (language === 'fa' ? 'غیرفعال' : language === 'ku' ? 'ناچالاکە' : 'Disabled')}
                         </span>
                       </div>
 
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                         {language === 'fa'
                           ? 'با اتصال به Google Authenticator یا اپلیکیشن‌های سازگار، امنیت حساب و اطلاعات مالی شما در برابر نفوذ تضمین می‌شود.'
+                          : language === 'ku'
+                          ? 'بە بەستنەوە بە Google Authenticator، ئاسایشی هەژمار و زانیارییەکانت دەپارێزرێت.'
                           : 'With 2FA enabled, a 6-digit code from your authenticator app is required upon login.'}
                       </p>
 
@@ -2397,8 +2405,8 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                         <Shield className="w-4 h-4" />
                         <span>
                           {twoFactorConfig?.enabled
-                            ? (language === 'fa' ? 'مدیریت و مشاهده کدهای بازیابی ۲FA' : 'Manage 2FA & Backup Codes')
-                            : (language === 'fa' ? 'راه‌اندازی و فعال‌سازی ۲FA' : 'Setup Two-Factor Authentication')}
+                            ? (language === 'fa' ? 'مدیریت و مشاهده کدهای بازیابی ۲FA' : language === 'ku' ? 'بەڕێوەبردنی کۆدەکانی فریاگوزاری ٢FA' : 'Manage 2FA & Backup Codes')
+                            : (language === 'fa' ? 'راه‌اندازی و فعال‌سازی ۲FA' : language === 'ku' ? 'چالاککردنی تایید دوو قۆناغی ٢FA' : 'Setup Two-Factor Authentication')}
                         </span>
                       </button>
                     </div>
@@ -2408,13 +2416,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
                         <KeyRound className="w-4 h-4 text-amber-500" />
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'تغییر رمز عبور ورود به برنامه' : 'گۆڕینی وشەی نهێنی'}
+                          {language === 'fa' ? 'تغییر رمز عبور ورود به برنامه' : language === 'ku' ? 'گۆڕینی وشەی نهێنی' : 'Change Login Password'}
                         </h4>
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          {language === 'fa' ? 'رمز عبور فعلی' : 'وشەی نهێنی ئێستا'}
+                          {language === 'fa' ? 'رمز عبور فعلی' : language === 'ku' ? 'وشەی نهێنی ئێستا' : 'Current Password'}
                         </label>
                         <input
                           type="password"
@@ -2428,7 +2436,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'رمز عبور جدید' : 'وشەی نهێنی نوێ'}
+                            {language === 'fa' ? 'رمز عبور جدید' : language === 'ku' ? 'وشەی نهێنی نوێ' : 'New Password'}
                           </label>
                           <input
                             type="password"
@@ -2441,7 +2449,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            {language === 'fa' ? 'تکرار رمز عبور جدید' : 'دووبارەکردنەوەی وشەی نهێنی نوێ'}
+                            {language === 'fa' ? 'تکرار رمز عبور جدید' : language === 'ku' ? 'دووبارەکردنەوەی وشەی نهێنی نوێ' : 'Confirm New Password'}
                           </label>
                           <input
                             type="password"
@@ -2476,7 +2484,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                           disabled={passLoading}
                           className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors shadow-sm disabled:opacity-50"
                         >
-                          {language === 'fa' ? 'به‌روزرسانی رمز عبور' : 'نوێکردنەوەی تێپەڕەوشە'}
+                          {language === 'fa' ? 'به‌روزرسانی رمز عبور' : language === 'ku' ? 'نوێکردنەوەی تێپەڕەوشە' : 'Update Password'}
                         </button>
                       </div>
                     </form>
@@ -2486,30 +2494,30 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                       <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
                         <Clock className="w-4 h-4 text-indigo-500" />
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          {language === 'fa' ? 'قفل خودکار صفحه و سپرهای امنیتی' : 'قفڵکردنی خۆکار و پارێزبەندییەکان'}
+                          {language === 'fa' ? 'قفل خودکار صفحه و سپرهای امنیتی' : language === 'ku' ? 'قفڵکردنی خۆکار و پارێزبەندییەکان' : 'Auto-Lock & Security Shields'}
                         </h4>
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                          {language === 'fa' ? 'مدت زمان بی‌حرکتی پیش از قفل شدن برنامه:' : 'ماوەی ناچالاکی بۆ قفڵکردن:'}
+                          {language === 'fa' ? 'مدت زمان بی‌حرکتی پیش از قفل شدن برنامه:' : language === 'ku' ? 'ماوەی ناچالاکی بۆ قفڵکردن:' : 'Inactivity timeout before auto-lock:'}
                         </label>
                         <select
                           value={autoLockMinutes}
                           onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
                           className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
                         >
-                          <option value={0}>{language === 'fa' ? 'غیرفعال (عدم قفل خودکار)' : 'ناچالاک'}</option>
-                          <option value={15}>{language === 'fa' ? '۱۵ دقیقه بی‌حرکتی' : '١٥ خولەک'}</option>
-                          <option value={30}>{language === 'fa' ? '۳۰ دقیقه بی‌حرکتی' : '٣٠ خولەک'}</option>
-                          <option value={60}>{language === 'fa' ? '۱ ساعت بی‌حرکتی' : '١ کاتژمێر'}</option>
+                          <option value={0}>{language === 'fa' ? 'غیرفعال (عدم قفل خودکار)' : language === 'ku' ? 'ناچالاک' : 'Disabled (Never auto-lock)'}</option>
+                          <option value={15}>{language === 'fa' ? '۱۵ دقیقه بی‌حرکتی' : language === 'ku' ? '١٥ خولەک' : '15 minutes inactivity'}</option>
+                          <option value={30}>{language === 'fa' ? '۳۰ دقیقه بی‌حرکتی' : language === 'ku' ? '٣٠ خولەک' : '30 minutes inactivity'}</option>
+                          <option value={60}>{language === 'fa' ? '۱ ساعت بی‌حرکتی' : language === 'ku' ? '١ کاتژمێر' : '1 hour inactivity'}</option>
                         </select>
                       </div>
 
                       {/* Security Status Badges */}
                       <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800">
                         <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2">
-                          {language === 'fa' ? 'سپرهای فعال پایگاه داده و اتصال KarSync:' : 'Active Protection Layers:'}
+                          {language === 'fa' ? 'سپرهای فعال پایگاه داده و اتصال KarSync:' : language === 'ku' ? 'قەڵغانە چالاکەکانی KarSync:' : 'Active Protection Layers:'}
                         </div>
                         <div className="grid grid-cols-3 gap-2 text-[11px]">
                           <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold">
@@ -2564,12 +2572,14 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
                   {language === 'fa'
                     ? 'سیستم جامع و پیشرفته مدیریت هوشمند کارگاه، ثبت حضور و غیاب، تسویه حساب‌های مالی، مدیریت سلسله‌مراتبی هزینه‌ها و همگام‌سازی ابری زنده.'
-                    : 'سیستەمی پێشکەوتووی بەڕێوەبردنی کارگە، ئامادەبوون و حیساباتی شایستەی کرێکاران و خەرجییەکان.'}
+                    : language === 'ku'
+                    ? 'سیستەمی پێشکەوتووی بەڕێوەبردنی کارگە، ئامادەبوون و حیساباتی شایستەی کرێکاران و خەرجییەکان.'
+                    : 'Comprehensive smart workshop management system, attendance tracking, financial settlements, hierarchical expenses and live cloud sync.'}
                 </p>
 
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>{language === 'fa' ? 'طراحی و توسعه اختصاصی: افشین زارعی' : 'دیزاین و پرۆگرامسازی: ئەفشین زارعی'}</span>
+                  <span>{language === 'fa' ? 'طراحی و توسعه اختصاصی: افشین زارعی' : language === 'ku' ? 'دیزاین و پرۆگرامسازی: ئەفشین زارعی' : 'Designed & Developed by: Afshin Zarei'}</span>
                 </div>
 
                 <div className="text-[11px] text-slate-400">
@@ -2587,12 +2597,14 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">
               {language === 'fa' 
                 ? 'تنظیمات فعال: ' + (tabs.find((t) => t.id === activeTab)?.label || '')
-                : 'ڕێکخستنەکان: ' + (tabs.find((t) => t.id === activeTab)?.label || '')}
+                : language === 'ku'
+                ? 'ڕێکخستنەکان: ' + (tabs.find((t) => t.id === activeTab)?.label || '')
+                : 'Active Settings: ' + (tabs.find((t) => t.id === activeTab)?.label || '')}
             </span>
             {generalSaveSuccess && (
               <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 animate-in fade-in">
                 <Check className="w-4 h-4" />
-                <span>{language === 'fa' ? 'ذخیره شد' : 'پاشەکەوتکرا'}</span>
+                <span>{language === 'fa' ? 'ذخیره شد' : language === 'ku' ? 'پاشەکەوتکرا' : 'Saved'}</span>
               </span>
             )}
           </div>

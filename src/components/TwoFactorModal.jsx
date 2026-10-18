@@ -269,7 +269,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                 </div>
               ) : (
                 <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-xs">
-                  {langKey === 'fa' ? 'هیچ کد پشتیبان مصرف‌نشده‌ای باقی نمانده است.' : 'No backup codes left.'}
+                  {langKey === 'fa' ? 'هیچ کد پشتیبان مصرف‌نشده‌ای باقی نمانده است.' : langKey === 'ku' ? 'هیچ کۆدێکی یەدەگی بەکارنەهاتوو نەماوەتەوە.' : 'No backup codes left.'}
                 </div>
               )}
 
@@ -280,7 +280,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                   className="flex-1 py-2 px-3 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                 >
                   {copiedBackup ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedBackup ? (langKey === 'fa' ? 'کپی شد!' : 'کۆپیکرا!') : (langKey === 'fa' ? 'کپی کدها' : 'کۆپیکردن')}</span>
+                  <span>{copiedBackup ? (langKey === 'fa' ? 'کپی شد!' : langKey === 'ku' ? 'کۆپیکرا!' : 'Copied!') : (langKey === 'fa' ? 'کپی کدها' : langKey === 'ku' ? 'کۆپیکردنی کۆدەکان' : 'Copy Codes')}</span>
                 </button>
 
                 <button
@@ -289,7 +289,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                   className="flex-1 py-2 px-3 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                 >
                   <Download className="w-3.5 h-3.5 text-sky-500" />
-                  <span>{langKey === 'fa' ? 'دانلود فایل متنی' : 'داگرتن'}</span>
+                  <span>{langKey === 'fa' ? 'دانلود فایل متنی' : langKey === 'ku' ? 'داگرتنی پەڕگەی دەق' : 'Download Text File'}</span>
                 </button>
               </div>
             </div>
@@ -319,18 +319,20 @@ export function TwoFactorModal({ isOpen, onClose }) {
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-800 dark:text-rose-300">
               <p className="font-bold flex items-center gap-1.5 mb-1">
                 <AlertCircle className="w-4 h-4 text-rose-600" />
-                <span>{langKey === 'fa' ? 'هشدار امنیتی' : 'ئاگاداری ئاسایش'}</span>
+                <span>{langKey === 'fa' ? 'هشدار امنیتی' : langKey === 'ku' ? 'ئاگاداریی ئاسایش' : 'Security Warning'}</span>
               </p>
               <p className="leading-relaxed">
                 {langKey === 'fa'
                   ? 'با غیرفعال کردن تایید دو مرحله‌ای، امنیت حساب شما کاهش می‌یابد. برای تایید این عمل، لطفاً رمز عبور ورود خود را وارد نمایید:'
+                  : langKey === 'ku'
+                  ? 'بە ناچالاککردنی دوو قۆناغی، ئاسایشی هەژمارەکەت کەم دەبێتەوە. بۆ پشتڕاستکردنەوە، تێپەڕەوشەی چوونەژوورەوەی خۆت بنووسە:'
                   : 'Disabling 2FA reduces account security. Enter your password to confirm:'}
               </p>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {langKey === 'fa' ? 'رمز عبور ورود' : 'تێپەڕەوشە'}
+                {langKey === 'fa' ? 'رمز عبور ورود' : langKey === 'ku' ? 'تێپەڕەوشەی چوونەژوورەوە' : 'Login Password'}
               </label>
               <input
                 type="password"
@@ -348,14 +350,14 @@ export function TwoFactorModal({ isOpen, onClose }) {
                 onClick={() => setShowDisableConfirm(false)}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
               >
-                {langKey === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}
+                {langKey === 'fa' ? 'انصراف' : langKey === 'ku' ? 'پاشگەزبوونەوە' : 'Cancel'}
               </button>
               <button
                 type="submit"
                 disabled={isProcessing || !disablePassword}
                 className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs transition-colors disabled:opacity-50"
               >
-                {isProcessing ? '...' : (langKey === 'fa' ? 'غیرفعال‌سازی نهایی' : 'ناچالاککردن')}
+                {isProcessing ? '...' : (langKey === 'fa' ? 'غیرفعال‌سازی نهایی' : langKey === 'ku' ? 'ناچالاککردنی کۆتایی' : 'Confirm Disable')}
               </button>
             </div>
           </form>
@@ -386,10 +388,10 @@ export function TwoFactorModal({ isOpen, onClose }) {
                     </div>
                     <span className="text-[11px] font-bold hidden sm:inline text-slate-600 dark:text-slate-400">
                       {s === 1
-                        ? (langKey === 'fa' ? 'اسکن بارکد' : 'سکانی بارکۆد')
+                        ? (langKey === 'fa' ? 'اسکن بارکد' : langKey === 'ku' ? 'سکانی بارکۆد' : 'Scan QR')
                         : s === 2
-                        ? (langKey === 'fa' ? 'تایید آزمایشی' : 'پشتڕاستکردنەوە')
-                        : (langKey === 'fa' ? 'کدهای بازیابی' : 'کۆدی فریاگوزاری')}
+                        ? (langKey === 'fa' ? 'تایید آزمایشی' : langKey === 'ku' ? 'پشتڕاستکردنەوەی تاقیکاری' : 'Verify Code')
+                        : (langKey === 'fa' ? 'کدهای بازیابی' : langKey === 'ku' ? 'کۆدەکانی یەدەگ' : 'Backup Codes')}
                     </span>
                   </div>
                 );
@@ -402,10 +404,14 @@ export function TwoFactorModal({ isOpen, onClose }) {
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   {langKey === 'fa'
                     ? '۱. نرم‌افزار Google Authenticator یا Microsoft Authenticator را روی گوشی خود باز کنید.'
+                    : langKey === 'ku'
+                    ? '١. ئەپڵیکەیشنی Google Authenticator یان Microsoft Authenticator لە مۆبایلەکەتدا بکەرەوە.'
                     : '1. Open Google Authenticator or Microsoft Authenticator on your phone.'}
                   <br />
                   {langKey === 'fa'
                     ? '۲. دکمه افزودن (+) و سپس Scan a QR code را بزنید و تصویر زیر را اسکن کنید:'
+                    : langKey === 'ku'
+                    ? '٢. دوگمەی زیادکردن (+) دابگرە و پاشان سکانی بارکۆدی خوارەوە بکە:'
                     : '2. Tap add (+) and scan the QR code below:'}
                 </p>
 
@@ -423,7 +429,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                 {/* Secret Key Text for Manual Entry */}
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
                   <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                    {langKey === 'fa' ? 'یا ورود دستی کلید در اپلیکیشن (بدون دوربین):' : 'Or enter key manually:'}
+                    {langKey === 'fa' ? 'یا ورود دستی کلید در اپلیکیشن (بدون دوربین):' : langKey === 'ku' ? 'یان داخڵکردنی دەستی کلیل لە ئەپەکەدا (بەبێ کامێرا):' : 'Or enter key manually:'}
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-extrabold text-sky-700 dark:text-sky-300 tracking-wider flex-1 select-all break-all">
@@ -435,7 +441,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                       className="px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1 transition-colors flex-shrink-0 shadow-xs"
                     >
                       {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedKey ? (langKey === 'fa' ? 'کپی شد' : 'کۆپیکرا') : (langKey === 'fa' ? 'کپی کلید' : 'کۆپی')}</span>
+                      <span>{copiedKey ? (langKey === 'fa' ? 'کپی شد' : langKey === 'ku' ? 'کۆپیکرا' : 'Copied') : (langKey === 'fa' ? 'کپی کلید' : langKey === 'ku' ? 'کۆپیکردنی کلیل' : 'Copy Key')}</span>
                     </button>
                   </div>
                 </div>
@@ -449,7 +455,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                     }}
                     className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-md shadow-sky-600/25 flex items-center gap-2 transition-all"
                   >
-                    <span>{langKey === 'fa' ? 'مرحله بعد: تایید کد' : 'قۆناغی دواتر'}</span>
+                    <span>{langKey === 'fa' ? 'مرحله بعد: تایید کد' : langKey === 'ku' ? 'قۆناغی دواتر: پشتڕاستکردنەوە' : 'Next: Verify Code'}</span>
                     {isRtl ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                   </button>
                 </div>
@@ -462,6 +468,8 @@ export function TwoFactorModal({ isOpen, onClose }) {
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   {langKey === 'fa'
                     ? 'برای اطمینان از تنظیم صحیح، کد ۶ رقمی فعلی نمایش داده شده در اپلیکیشن Authenticator را وارد کنید:'
+                    : langKey === 'ku'
+                    ? 'بۆ دڵنیابوون لە ڕێکخستنی دروست، کۆدی ٦ ژمارەیی ئەپڵیکەیشنی Authenticator بنووسە:'
                     : 'Enter the 6-digit code from your Authenticator app to confirm setup:'}
                 </p>
 
@@ -479,7 +487,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                     className="w-48 text-center tracking-[0.4em] font-mono text-2xl font-black px-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-sky-500/50 rounded-2xl focus:outline-hidden focus:border-sky-500 shadow-inner text-slate-900 dark:text-white"
                   />
                   <span className="text-[11px] text-slate-400 mt-2">
-                    {langKey === 'fa' ? 'کد هر ۳۰ ثانیه یک‌بار عوض می‌شود' : 'Codes refresh every 30 seconds'}
+                    {langKey === 'fa' ? 'کد هر ۳۰ ثانیه یک‌بار عوض می‌شود' : langKey === 'ku' ? 'کۆدەکە هەموو ٣٠ چرکە جارێک نوێ دەبێتەوە' : 'Codes refresh every 30 seconds'}
                   </span>
                 </div>
 
@@ -492,7 +500,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                     }}
                     className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
                   >
-                    {langKey === 'fa' ? 'بازگشت به بارکد' : 'گەڕانەوە'}
+                    {langKey === 'fa' ? 'بازگشت به بارکد' : langKey === 'ku' ? 'گەڕانەوە بۆ بارکۆد' : 'Back to QR Code'}
                   </button>
 
                   <button
@@ -501,7 +509,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                     className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/25 flex items-center gap-1.5 transition-all disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
-                    <span>{isProcessing ? '...' : (langKey === 'fa' ? 'بررسی و فعال‌سازی' : 'چالاککردن')}</span>
+                    <span>{isProcessing ? '...' : (langKey === 'fa' ? 'بررسی و فعال‌سازی' : langKey === 'ku' ? 'پشکنین و چالاککردن' : 'Verify & Enable')}</span>
                   </button>
                 </div>
               </form>
@@ -513,7 +521,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                 <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center gap-2.5 text-emerald-800 dark:text-emerald-300">
                   <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                   <div className="text-xs font-bold">
-                    {langKey === 'fa' ? 'تایید دو مرحله‌ای با موفقیت فعال شد!' : '2FA has been successfully enabled!'}
+                    {langKey === 'fa' ? 'تایید دو مرحله‌ای با موفقیت فعال شد!' : langKey === 'ku' ? 'پشتڕاستکردنەوەی دوو قۆناغی بە سەرکەوتوویی چالاک کرا!' : '2FA has been successfully enabled!'}
                   </div>
                 </div>
 
@@ -521,13 +529,15 @@ export function TwoFactorModal({ isOpen, onClose }) {
                   <div className="flex items-center gap-2">
                     <KeyRound className="w-4 h-4 text-amber-500" />
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {langKey === 'fa' ? 'کدهای بازیابی اضطراری شما' : 'Your Emergency Backup Codes'}
+                      {langKey === 'fa' ? 'کدهای بازیابی اضطراری شما' : langKey === 'ku' ? 'کۆدەکانی فریاگوزاری و یەدەگی تۆ' : 'Your Emergency Backup Codes'}
                     </h4>
                   </div>
 
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                     {langKey === 'fa'
                       ? 'اگر به گوشی خود دسترسی نداشتید، می‌توانید با یکی از این کدها وارد شوید. هر کد فقط یک بار قابل استفاده است.'
+                      : langKey === 'ku'
+                      ? 'ئەگەر دەستڕاسیت بە مۆبایلەکەت نەبوو، دەتوانیت بە یەکێک لەم کۆدانە بچیتە ژوورەوە. هەر کۆدێک تەنیا یەکجار بەکاردێت.'
                       : 'If you lose access to your phone, use these codes to log in. Each code is one-time use.'}
                   </p>
 
@@ -549,7 +559,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                       className="flex-1 py-2 px-3 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                     >
                       {copiedBackup ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedBackup ? (langKey === 'fa' ? 'کپی شد!' : 'کۆپیکرا!') : (langKey === 'fa' ? 'کپی همه کدها' : 'کۆپیکردن')}</span>
+                      <span>{copiedBackup ? (langKey === 'fa' ? 'کپی شد!' : langKey === 'ku' ? 'کۆپیکرا!' : 'Copied!') : (langKey === 'fa' ? 'کپی همه کدها' : langKey === 'ku' ? 'کۆپیکردنی هەموو کۆدەکان' : 'Copy All Codes')}</span>
                     </button>
 
                     <button
@@ -558,7 +568,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                       className="flex-1 py-2 px-3 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                     >
                       <Download className="w-3.5 h-3.5 text-sky-500" />
-                      <span>{langKey === 'fa' ? 'دانلود فایل متنی' : 'داگرتن'}</span>
+                      <span>{langKey === 'fa' ? 'دانلود فایل متنی' : langKey === 'ku' ? 'داگرتنی پەڕگەی دەق' : 'Download Text File'}</span>
                     </button>
                   </div>
                 </div>
@@ -569,7 +579,7 @@ export function TwoFactorModal({ isOpen, onClose }) {
                     onClick={onClose}
                     className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-md shadow-sky-600/25 transition-all"
                   >
-                    {langKey === 'fa' ? 'تکمیل و بستن' : 'تەواوکردن'}
+                    {langKey === 'fa' ? 'تکمیل و بستن' : langKey === 'ku' ? 'تەواوکردن و داخستن' : 'Done & Close'}
                   </button>
                 </div>
               </div>

@@ -352,6 +352,8 @@ export default function NotificationsSettingsTab() {
                           {amt === 0
                             ? language === 'fa'
                               ? 'فقط منفی شدن (۰)'
+                              : language === 'ku'
+                              ? 'تەنها کەمتر لە ٠ (نەرێنی)'
                               : 'Only < 0'
                             : formatNumber(amt)}
                         </button>
@@ -612,7 +614,7 @@ export default function NotificationsSettingsTab() {
               {settings.backupReminder && (
                 <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2 flex-wrap animate-in fade-in duration-150">
                   <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                    {language === 'fa' ? 'دوره یادآوری:' : 'Interval:'}
+                    {language === 'fa' ? 'دوره یادآوری:' : language === 'ku' ? 'ماوەی بیرخستنەوە:' : 'Interval:'}
                   </span>
                   <div className="flex items-center gap-1.5">
                     {backupDayPresets.map((d) => {
