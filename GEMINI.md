@@ -89,3 +89,8 @@ Whenever this trigger phrase is issued for a specific section, page, or modal, y
 
 ### 3. Execution, Build & Commit:
 * Apply all bottom-up translation fixes in the target component and `src/i18n/translations.js`, verify with `node ./node_modules/vite/bin/vite.js build` (`0 errors`), and auto-commit locally.
+
+### 4. Post-Translation Checklist Reporting (ارائه چک‌لیست وضعیت ترجمه پس از هر بخش):
+* After completing every translation task, you MUST always provide an up-to-date, structured checklist of all system modules and views in your response, clearly categorizing:
+  - ✅ **بخش‌های تکمیل‌شده (Completed Sections):** Sections translated with the bottom-up zero-leakage protocol.
+  - ⏳ **بخش‌های باقی‌مانده (Pending Sections):** Upcoming modules in line for translation.
