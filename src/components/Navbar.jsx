@@ -19,6 +19,39 @@ import {
   Bell
 } from 'lucide-react';
 
+const NAVBAR_COPY = {
+  fa: {
+    dashboard: 'داشبورد',
+    workers: 'گزارش کارکرد',
+    expenses: 'هزینه‌ها',
+    accounting: 'حسابداری و مالی',
+    appSubtitle: 'سامانه جامع مدیریت کارگاه و پرسنل',
+    notifications: 'مرکز اعلان‌ها و هشدارها',
+    settings: 'تنظیمات',
+    userFallback: 'کاربر'
+  },
+  ku: {
+    dashboard: 'دەشبۆرد',
+    workers: 'ڕاپۆرتی کارکردن',
+    expenses: 'خەرجییەکان',
+    accounting: 'حیسابداری و دارایی',
+    appSubtitle: 'سیستەمی گشتگیری بەڕێوەبردنی کارگە و کارمەندان',
+    notifications: 'ناوەندی ئاگادارکردنەوەکان',
+    settings: 'ڕێکخستنەکان',
+    userFallback: 'بەکارهێنەر'
+  },
+  en: {
+    dashboard: 'Dashboard',
+    workers: 'Reports & Attendance',
+    expenses: 'Expenses',
+    accounting: 'Finance & Accounting',
+    appSubtitle: 'Comprehensive Workshop & Workforce Management',
+    notifications: 'Notification Center',
+    settings: 'Settings',
+    userFallback: 'User'
+  }
+};
+
 export function Navbar({ 
   activeTab, 
   setActiveTab, 
@@ -30,7 +63,10 @@ export function Navbar({
   onOpenInstallModal,
   onOpenUsersModal
 }) {
-  const { t, language, formatNumber } = useLanguage();
+  const { language, formatNumber } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = NAVBAR_COPY[langKey] || NAVBAR_COPY.fa;
+
   const { user } = useAuth();
   const { openProjectSettings, openGlobalSettings } = useProject();
   const { unreadCount } = useNotifications();
@@ -52,14 +88,12 @@ export function Navbar({
   const { hasPermission, currentUser } = usePermissions();
 
   const navItems = [
-    { id: 'dashboard', label: t('dashboard') || 'دەشبۆرد', icon: LayoutDashboard },
-    { id: 'workers', label: language === 'fa' ? 'گزارش کارکرد' : language === 'ku' ? 'ڕاپۆرتی کارکردن' : 'Reports & Attendance', icon: CalendarDays },
-    { id: 'expenses', label: t('expensesTab') || 'هزینه‌ها', icon: Receipt, hidden: !hasPermission('expenses.manage') },
-    { id: 'accounting', label: t('financeAndAccountingTab') || (language === 'fa' ? 'حسابداری و مالی' : language === 'ku' ? 'حیسابداری و دارایی' : 'Finance & Accounting'), icon: Landmark, hidden: !hasPermission('settlement.manage') },
+    { id: 'dashboard', label: c.dashboard, icon: LayoutDashboard },
+    { id: 'workers', label: c.workers, icon: CalendarDays },
+    { id: 'expenses', label: c.expenses, icon: Receipt, hidden: !hasPermission('expenses.manage') },
+    { id: 'accounting', label: c.accounting, icon: Landmark, hidden: !hasPermission('settlement.manage') },
   ].filter(item => !item.hidden);
 
-  
-  
   useEffect(() => {
     console.log("ALL LOCAL STORAGE KEYS:", Object.keys(localStorage));
     console.log("workshop_auth_session:", localStorage.getItem('workshop_auth_session'));
@@ -76,7 +110,6 @@ export function Navbar({
         });
     });
   }, []);
-
 
   const handleTestLog = async () => {
     const safeAuth = await getSafeAuthContext();
@@ -115,7 +148,7 @@ export function Navbar({
                   KarSync
                 </h1>
                 <p className="hidden xl:block text-[11px] text-slate-500 dark:text-slate-400 leading-none mt-0.5">
-                  {t('appSubtitle')}
+                  {c.appSubtitle}
                 </p>
               </div>
             </div>
@@ -180,14 +213,8 @@ export function Navbar({
                     setIsNotificationDropdownOpen((prev) => !prev);
                     setIsSettingsDropdownOpen(false);
                   }}
-                  title={
-                    language === 'fa'
-                      ? 'مرکز اعلان‌ها و هشدارها'
-                      : language === 'ku'
-                      ? 'ناوەندی ئاگادارکردنەوەکان'
-                      : 'Notifications'
-                  }
-                  aria-label="Notifications"
+                  title={c.notifications}
+                  aria-label={c.notifications}
                   className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border transition-all shadow-xs flex items-center justify-center group hover:scale-105 active:scale-95 ${
                     isNotificationDropdownOpen
                       ? 'ring-2 ring-sky-500 shadow-md border-transparent bg-sky-500/10 text-sky-600 dark:text-sky-400'
@@ -221,8 +248,8 @@ export function Navbar({
                     setIsSettingsDropdownOpen((prev) => !prev);
                     setIsNotificationDropdownOpen(false);
                   }}
-                  title={user?.name || t('settings')}
-                  aria-label={user?.name || t('settings')}
+                  title={user?.name || c.settings}
+                  aria-label={user?.name || c.settings}
                   className={`relative p-0.5 sm:p-1 rounded-2xl border transition-all shadow-xs flex items-center justify-center group hover:scale-105 active:scale-95 ${
                     isSettingsDropdownOpen
                       ? 'ring-2 ring-sky-500 shadow-md border-transparent'
@@ -232,7 +259,7 @@ export function Navbar({
                   {user?.avatar || user?.photo || user?.supabaseUser?.user_metadata?.avatar_url ? (
                     <img 
                       src={user.avatar || user.photo || user.supabaseUser?.user_metadata?.avatar_url} 
-                      alt={user?.name || 'User'} 
+                      alt={user?.name || c.userFallback} 
                       className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover shadow-xs border border-white/40 dark:border-white/10" 
                     />
                   ) : (

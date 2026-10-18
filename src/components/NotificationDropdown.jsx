@@ -20,6 +20,57 @@ import {
   Layers
 } from 'lucide-react';
 
+const NOTIFICATION_DROPDOWN_COPY = {
+  fa: {
+    title: 'مرکز اعلان‌ها و هشدارها',
+    activeProjectFallback: 'پروژه فعال',
+    markAllAsRead: 'علامت‌گذاری همه به عنوان خوانده‌شده',
+    notificationSettings: 'تنظیمات و شخصی‌سازی اعلان‌ها',
+    tabs: {
+      all: 'همه',
+      attendance: 'کارکرد',
+      financial: 'مالی',
+      system: 'سیستم'
+    },
+    emptyTitle: 'همه‌چیز مرتب است!',
+    emptyDesc: 'در حال حاضر هیچ هشدار یا یادآوری فعالی در این بخش وجود ندارد.',
+    dismiss: 'بستن این اعلان',
+    customizeRules: 'شخصی‌سازی قوانین و زمان‌بندی اعلان‌ها'
+  },
+  ku: {
+    title: 'ناوەندی ئاگادارکردنەوەکان',
+    activeProjectFallback: 'پڕۆژەی چالاک',
+    markAllAsRead: 'خوێندنەوەی هەموو',
+    notificationSettings: 'ڕێکخستنی ئاگادارکردنەوەکان',
+    tabs: {
+      all: 'هەموو',
+      attendance: 'کارکرد',
+      financial: 'دارایی',
+      system: 'سیستەم'
+    },
+    emptyTitle: 'هەموو شتێک ڕێکە!',
+    emptyDesc: 'لە ئێستادا هیچ ئاگادارکردنەوەیەکی چالاک لەم بەشەدا نییە.',
+    dismiss: 'داخستنی ئەم ئاگادارکردنەوەیە',
+    customizeRules: 'ڕێکخستنی یاساکانی ئاگادارکردنەوە'
+  },
+  en: {
+    title: 'Notification Center',
+    activeProjectFallback: 'Active Project',
+    markAllAsRead: 'Mark all as read',
+    notificationSettings: 'Notification Settings',
+    tabs: {
+      all: 'All',
+      attendance: 'Attendance',
+      financial: 'Financial',
+      system: 'System'
+    },
+    emptyTitle: 'All caught up!',
+    emptyDesc: 'There are no active alerts or reminders in this category right now.',
+    dismiss: 'Dismiss',
+    customizeRules: 'Customize Notification Rules & Schedule'
+  }
+};
+
 export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettings }) {
   const {
     notifications,
@@ -31,6 +82,9 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
   } = useNotifications();
 
   const { language, direction, formatNumber } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = NOTIFICATION_DROPDOWN_COPY[langKey] || NOTIFICATION_DROPDOWN_COPY.fa;
+
   const { currentProject } = useProject();
   const isRtl = direction === 'rtl';
 
@@ -84,26 +138,26 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
     () => [
       {
         id: 'all',
-        label: language === 'fa' ? 'همه' : language === 'ku' ? 'هەموو' : 'All',
+        label: c.tabs.all,
         icon: Layers
       },
       {
         id: 'attendance',
-        label: language === 'fa' ? 'کارکرد' : language === 'ku' ? 'کارکرد' : 'Attendance',
+        label: c.tabs.attendance,
         icon: CalendarClock
       },
       {
         id: 'financial',
-        label: language === 'fa' ? 'مالی' : language === 'ku' ? 'دارایی' : 'Financial',
+        label: c.tabs.financial,
         icon: Wallet
       },
       {
         id: 'system',
-        label: language === 'fa' ? 'سیستم' : language === 'ku' ? 'سیستەم' : 'System',
+        label: c.tabs.system,
         icon: ShieldAlert
       }
     ],
-    [language]
+    [c]
   );
 
   const filteredNotifications = useMemo(() => {
@@ -160,11 +214,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                {language === 'fa'
-                  ? 'مرکز اعلان‌ها و هشدارها'
-                  : language === 'ku'
-                  ? 'ناوەندی ئاگادارکردنەوەکان'
-                  : 'Notification Center'}
+                {c.title}
               </h3>
               {unreadCount > 0 && (
                 <span className="px-1.5 py-0.5 text-[10px] font-black rounded-full bg-rose-500 text-white leading-none">
@@ -173,7 +223,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
               )}
             </div>
             <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-              {currentProject?.name || (language === 'fa' ? 'پروژه فعال' : 'Active Project')}
+              {currentProject?.name || c.activeProjectFallback}
             </p>
           </div>
         </div>
@@ -183,13 +233,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
             <button
               type="button"
               onClick={markAllAsRead}
-              title={
-                language === 'fa'
-                  ? 'علامت‌گذاری همه به عنوان خوانده‌شده'
-                  : language === 'ku'
-                  ? 'خوێندنەوەی هەموو'
-                  : 'Mark all as read'
-              }
+              title={c.markAllAsRead}
               className="p-2 rounded-xl text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400 hover:bg-white/60 dark:hover:bg-white/10 transition-colors"
             >
               <CheckCheck className="w-4 h-4" />
@@ -201,13 +245,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
               onClose();
               if (onOpenNotificationSettings) onOpenNotificationSettings();
             }}
-            title={
-              language === 'fa'
-                ? 'تنظیمات و شخصی‌سازی اعلان‌ها'
-                : language === 'ku'
-                ? 'ڕێکخستنی ئاگادارکردنەوەکان'
-                : 'Notification Settings'
-            }
+            title={c.notificationSettings}
             className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 transition-colors"
           >
             <Settings className="w-4 h-4" />
@@ -261,18 +299,10 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
               <Sparkles className="w-5 h-5" />
             </div>
             <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              {language === 'fa'
-                ? 'همه‌چیز مرتب است!'
-                : language === 'ku'
-                ? 'هەموو شتێک ڕێکە!'
-                : 'All caught up!'}
+              {c.emptyTitle}
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              {language === 'fa'
-                ? 'در حال حاضر هیچ هشدار یا یادآوری فعالی در این بخش وجود ندارد.'
-                : language === 'ku'
-                ? 'لە ئێستادا هیچ ئاگادارکردنەوەیەکی چالاک لەم بەشەدا نییە.'
-                : 'There are no active alerts or reminders in this category right now.'}
+              {c.emptyDesc}
             </p>
           </div>
         ) : (
@@ -316,7 +346,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
                           e.stopPropagation();
                           dismissNotification(itemKey);
                         }}
-                        title={language === 'fa' ? 'بستن این اعلان' : 'Dismiss'}
+                        title={c.dismiss}
                         className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors flex-shrink-0 opacity-70 group-hover:opacity-100"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -364,11 +394,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
         >
           <Settings className="w-3.5 h-3.5" />
           <span>
-            {language === 'fa'
-              ? 'شخصی‌سازی قوانین و زمان‌بندی اعلان‌ها'
-              : language === 'ku'
-              ? 'ڕێکخستنی یاساکانی ئاگادارکردنەوە'
-              : 'Customize Notification Rules & Schedule'}
+            {c.customizeRules}
           </span>
         </button>
       </div>
