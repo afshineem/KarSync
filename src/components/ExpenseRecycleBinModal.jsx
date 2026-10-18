@@ -165,7 +165,7 @@ const COPY = {
 
 export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
   const { currentProject } = useProject();
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, convertDigits, numberFormat } = useLanguage();
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
   const c = COPY[langKey];
 
@@ -412,7 +412,7 @@ export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
               <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
                 activeSubTab === 'trash' ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
               }`}>
-                {trashExpenses.length}
+                {convertDigits(trashExpenses.length, numberFormat)}
               </span>
             </button>
 
@@ -429,7 +429,7 @@ export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
               <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
                 activeSubTab === 'archive' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
               }`}>
-                {archivedExpenses.length}
+                {convertDigits(archivedExpenses.length, numberFormat)}
               </span>
             </button>
           </div>
@@ -456,7 +456,7 @@ export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
         <div className="px-5 sm:px-6 py-3 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs flex-wrap">
           <div className="flex items-center gap-3">
             <span className="text-slate-500 dark:text-slate-400 font-medium">
-              {filteredList.length} {c.itemsFound}
+              {convertDigits(filteredList.length, numberFormat)} {c.itemsFound}
             </span>
             <span className="text-slate-300 dark:text-slate-700">•</span>
             <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
@@ -725,7 +725,7 @@ export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
                 {c.confirmEmptyTrashTitle}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {c.confirmEmptyTrashDesc(trashExpenses.length)}
+                {c.confirmEmptyTrashDesc(convertDigits(trashExpenses.length, numberFormat))}
               </p>
             </div>
             <div className="flex items-center gap-3 pt-2">

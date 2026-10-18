@@ -18,8 +18,116 @@ import { formatCurrency, roundCurrency, formatDateDisplay, formatFullDateWithWee
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 
+
+const COPY = {
+  fa: {
+    title: 'سطل بازیافت رکوردهای کارکرد',
+    subtitle: 'مدیریت و بازیابی رکوردهای کارکرد حذف‌شده کارگاه',
+    searchPlaceholder: 'جستجو بر اساس نام پرسنل، تاریخ یا یادداشت...',
+    refreshTooltip: 'بارگذاری مجدد اطلاعات سطل بازیافت',
+    restoreAll: 'بازیابی همه',
+    emptyBinTooltip: 'حذف قطعی و دائمی تمام رکوردهای سطل',
+    emptyBin: 'خالی کردن سطل',
+    loadingLogs: 'در حال بارگذاری رکوردهای حذف‌شده...',
+    noSearchResults: 'هیچ رکوردی منطبق با جستجو پیدا نشد.',
+    binEmpty: 'سطل بازیافت خالی است',
+    allSafeNotice: 'تمامی رکوردهای کارکرد در وضعیت امن قرار دارند و هیچ دیتای حذف‌شده‌ای وجود ندارد.',
+    viewProfileTooltip: 'مشاهده پروفایل جامع پرسنل',
+    unknownWorker: 'پرسنل نامشخص',
+    halfDay: 'نیم‌روز',
+    hourly: 'ساعتی',
+    fullDay: 'روز کامل',
+    settledBadge: 'تسویه شده',
+    overtimeHoursSuffix: 'ساعت اضافه',
+    deletedAtLabel: 'حذف:',
+    restoring: 'در حال بازیابی...',
+    restore: 'بازیابی',
+    deletePermanentTooltip: 'حذف قطعی و همیشگی رکورد',
+    cloudProtectionActive: 'حفاظت ابری از کارکرد پرسنل فعال است',
+    close: 'بستن',
+    restoreSingleSuccess: (name, date) => `کارکرد ${name} در تاریخ ${date} با موفقیت بازیابی شد.`,
+    errorRestore: 'خطا در بازیابی رکورد: ',
+    confirmRestoreAll: (count) => `آیا از بازیابی همه‌ی ${count} رکورد حذف‌شده اطمینان دارید؟`,
+    confirmDeleteSingle: 'آیا از حذف دائمی و قطعی این رکورد اطمینان دارید؟ این عمل غیرقابل بازگشت است.',
+    deleteSingleSuccess: (name) => `رکورد حذف‌شده مربوط به ${name} برای همیشه پاک شد.`,
+    errorDelete: 'خطا در حذف رکورد: ',
+    confirmDeleteAll: (count) => `هشدار: آیا از حذف دائمی و قطعی هر ${count} رکورد اطمینان دارید؟ این عمل غیرقابل بازگشت است.`,
+    deleteAllSuccess: 'تمامی رکوردهای سطل بازیافت برای همیشه پاکسازی شدند.'
+  },
+  ku: {
+    title: 'سەبەتەی سڕینەوەی کارکرد',
+    subtitle: 'بەڕێوەبردن و گێڕانەوەی تۆمارە سڕاوەکانی کارگە',
+    searchPlaceholder: 'گەڕان بەپێی ناوی کرێکار، بەروار یان تێبینی...',
+    refreshTooltip: 'نوێکردنەوەی زانیارییەکانی سەبەتە',
+    restoreAll: 'گێڕانەوەی هەمووان',
+    emptyBinTooltip: 'سڕینەوەی یەکجاریی هەموو تۆمارەکانی ناو سەبەتە',
+    emptyBin: 'بەتاڵکردنی سەبەتە',
+    loadingLogs: 'لە حاڵەتی بارکردنی تۆمارە سڕاوەکاندایە...',
+    noSearchResults: 'هیچ تۆمارێک هاوتای گەڕانەکەت نەدۆزرایەوە.',
+    binEmpty: 'سەبەتەی سڕینەوە بەتاڵە',
+    allSafeNotice: 'هەموو تۆمارەکان لە دۆخی پارێزراودان و هیچ کارکردێکی سڕاوە نییە.',
+    viewProfileTooltip: 'بینینی پرۆفایلی کرێکار',
+    unknownWorker: 'کرێکاری نەناسراو',
+    halfDay: 'نیوەڕۆژ',
+    hourly: 'کاتژمێری',
+    fullDay: 'ڕۆژی تەواو',
+    settledBadge: 'شایستە دراو',
+    overtimeHoursSuffix: 'کاتژمێر ئۆڤەرتایم',
+    deletedAtLabel: 'سڕینەوە:',
+    restoring: 'لە حاڵەتی گێڕانەوەدایە...',
+    restore: 'گێڕانەوە',
+    deletePermanentTooltip: 'سڕینەوەی یەکجاری و هەمیشەیی',
+    cloudProtectionActive: 'پاراستنی هەوری تۆمارەکانی کارکرد چالاکە',
+    close: 'داخستن',
+    restoreSingleSuccess: (name, date) => `کارکردی ${name} لە بەرواری ${date} بە سەرکەوتوویی گەڕێندرایەوە.`,
+    errorRestore: 'هەڵە لە گێڕانەوەی تۆمار: ',
+    confirmRestoreAll: (count) => `ئایا لە گێڕانەوەی هەموو ${count} تۆمارە سڕاوەکان دڵنیایت؟`,
+    confirmDeleteSingle: 'ئایا لە سڕینەوەی یەکجاریی ئەم تۆمارە دڵنیایت؟ ئەم کردارە ناگەڕێتەوە.',
+    deleteSingleSuccess: (name) => `تۆماری سڕاوەی ${name} بە یەکجاری پاککرایەوە.`,
+    errorDelete: 'هەڵە لە سڕینەوەی تۆمار: ',
+    confirmDeleteAll: (count) => `ئاگاداری: ئایا لە سڕینەوەی هەمیشەیی هەموو ${count} تۆمار دڵنیایت؟ ئەم کارە ناگەڕێتەوە.`,
+    deleteAllSuccess: 'هەموو تۆمارەکانی ناو سەبەتە بە یەکجاری پاککرانەوە.'
+  },
+  en: {
+    title: 'Attendance Recycle Bin',
+    subtitle: 'Manage and restore deleted workshop attendance records',
+    searchPlaceholder: 'Search by worker name, date, or notes...',
+    refreshTooltip: 'Reload recycle bin data',
+    restoreAll: 'Restore All',
+    emptyBinTooltip: 'Permanently delete all records in bin',
+    emptyBin: 'Empty Bin',
+    loadingLogs: 'Loading deleted records...',
+    noSearchResults: 'No matching records found.',
+    binEmpty: 'Recycle bin is empty',
+    allSafeNotice: 'All attendance records are safe and no deleted logs were found.',
+    viewProfileTooltip: 'View worker profile',
+    unknownWorker: 'Unknown Worker',
+    halfDay: 'Half-Day',
+    hourly: 'Hourly',
+    fullDay: 'Full Day',
+    settledBadge: 'Settled',
+    overtimeHoursSuffix: 'hrs Overtime',
+    deletedAtLabel: 'Deleted:',
+    restoring: 'Restoring...',
+    restore: 'Restore',
+    deletePermanentTooltip: 'Delete permanently',
+    cloudProtectionActive: 'Cloud attendance protection active',
+    close: 'Close',
+    restoreSingleSuccess: (name, date) => `Record for ${name} (${date}) restored successfully.`,
+    errorRestore: 'Error restoring record: ',
+    confirmRestoreAll: (count) => `Are you sure you want to restore all ${count} deleted records?`,
+    confirmDeleteSingle: 'Are you sure you want to permanently delete this record? This action cannot be undone.',
+    deleteSingleSuccess: (name) => `Record for ${name} permanently deleted.`,
+    errorDelete: 'Error deleting record: ',
+    confirmDeleteAll: (count) => `Warning: Permanently delete all ${count} records? This action cannot be undone.`,
+    deleteAllSuccess: 'All recycle bin records were permanently deleted.'
+  }
+};
+
 export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [] }) {
-  const { language, t } = useLanguage();
+  const { language, direction, formatNumber, convertDigits, numberFormat } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const copy = COPY[langKey];
   const { currentProject, currency = 'IQD', openWorkerProfile } = useProject();
 
   const [deletedLogs, setDeletedLogs] = useState([]);
@@ -296,6 +404,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
       }}
     >
       <div 
+        dir={direction}
         className="bg-white dark:bg-slate-900 rounded-none sm:rounded-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-4 sm:p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150 h-[100dvh] sm:h-auto sm:max-h-[85vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
@@ -317,7 +426,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
               <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>{copy.title}</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
-                  {deletedLogs.length}
+                  {convertDigits(deletedLogs.length, numberFormat)}
                 </span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -455,7 +564,7 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
                       {Number(log.overtime_hours) > 0 && (
                         <span className="flex items-center gap-1 font-mono text-amber-600 dark:text-amber-400">
                           <Clock className="w-3 h-3" />
-                          <span>{log.overtime_hours} {copy.overtimeHoursSuffix}</span>
+                          <span>{convertDigits(log.overtime_hours, numberFormat)} {copy.overtimeHoursSuffix}</span>
                         </span>
                       )}
 
