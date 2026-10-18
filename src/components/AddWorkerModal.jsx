@@ -30,28 +30,6 @@ import {
   CalendarCheck
 } from 'lucide-react';
 
-const COMMON_ROLES = [
-  'استادکار',
-  'جوشکار',
-  'بنا',
-  'آرماتوربند',
-  'قالب‌بند',
-  'سیم‌کش / برقکار',
-  'لوله‌کش',
-  'گچ‌کار',
-  'نقاش',
-  'راننده / اپراتور',
-  'کارگر ساده'
-];
-
-const QUICK_DAILY_RATES_IQD = [
-  { label: '۲۵ هزار', val: 25000 },
-  { label: '۳۰ هزار', val: 30000 },
-  { label: '۳۵ هزار', val: 35000 },
-  { label: '۴۰ هزار', val: 40000 },
-  { label: '۵۰ هزار', val: 50000 },
-  { label: '۶۰ هزار', val: 60000 },
-];
 
 // Scoped dictionary for AddWorkerModal
 const COPY = {
@@ -83,15 +61,15 @@ const COPY = {
     lblRole: 'عنوان شغل و مهارت تخصصی',
     phRole: 'استادکار بنا / جوشکار اسکلت / آرماتوربند',
     quickSuggestion: 'پیشنهاد سریع:',
-    statusTitle: '{txt.statusTitle}',
-    statusDesc: '{txt.statusDesc}',
+    statusTitle: 'وضعیت فعالیت پرسنل در کارگاه',
+    statusDesc: 'پرسنل غیرفعال از لیست ثبت کارکرد روزانه پنهان می‌شوند.',
     statusActiveLabel: 'فعال (شاغل)',
     statusInactiveLabel: 'غیرفعال (مرخص شده)',
     secWages: 'سیستم دستمزد و نرخ کارکرد',
-    wageDaily: '{txt.wageDaily}',
-    wageContract: '{txt.wageContract}',
+    wageDaily: 'دستمزد روزانه',
+    wageContract: 'کنتراکت (مقاطعه‌کاری)',
     contractBannerTitle: 'پرسنل به صورت کنتراکت (توافقی) تعریف شده است',
-    contractBannerDesc: '{txt.contractBannerDesc}',
+    contractBannerDesc: 'برای پرسنل کنتراکت، دستمزد روزانه و اضافه کاری صفر منظور می‌شود و مبالغ به صورت توافقی پرداخت می‌گردد.',
     lblDailyRate: 'نرخ دستمزد یک روز کامل',
     unitPrefix: 'واحد:',
     commonAmounts: 'مبالغ رایج:',
@@ -102,8 +80,8 @@ const COPY = {
     lblWorkGroup: 'گروه کاری',
     optNoGroup: 'بدون گروه (انفرادی / عمومی)',
     lblRoleInTeam: 'نقش در تیم',
-    roleWorker: '{txt.roleWorker}',
-    roleMaster: '{txt.roleMaster}',
+    roleWorker: 'کارگر ساده / عادی',
+    roleMaster: 'استادکار / سرپرست',
     lblDefaultSection: 'بخش کاری پیش‌فرض',
     lblOptional: 'اختیاری',
     optNoSection: 'بدون بخش مشخص (عمومی کارگاه)',
@@ -116,7 +94,7 @@ const COPY = {
     badgeInactiveShort: 'غیرفعال',
     nameFallback: 'نام و نام خانوادگی',
     roleFallback: 'عنوان تخصص / مهارت',
-    financialEstimateTitle: '{txt.financialEstimateTitle}',
+    financialEstimateTitle: 'برآورد مالی و نرخ‌ها',
     lblContractType: 'نوع قرارداد:',
     contractContractType: 'کنتراکت / مقاطعه‌کاری',
     contractDailyType: 'مزد روزانه عادی',
@@ -126,7 +104,8 @@ const COPY = {
     perHour: '/ ساعت',
     lblEstimate30Days: 'برآورد ۳۰ روز کارکرد:',
     cloudSyncTitle: 'یکپارچگی و همگام‌سازی ابری',
-    cloudSyncDesc: '{txt.cloudSyncDesc}',
+    cloudSyncDesc: 'مشخصات پرسنل به صورت آفلاین ذخیره شده و به محض اتصال به اینترنت با پایگاه داده ابری همگام‌سازی می‌شود.',
+    phUsername: 'مثال: ali',
     selectedWorker: 'پرسنل انتخابی:',
     defining: 'در حال تعریف...',
     dockWage: '• دستمزد:',
@@ -207,6 +186,7 @@ const COPY = {
     lblEstimate30Days: 'خەمڵاندنی ٣٠ ڕۆژ کار:',
     cloudSyncTitle: 'هاوکاتکردنی کلاود',
     cloudSyncDesc: 'زانیارییەکان بە شێوەی ئۆفلاین پاشەکەوت دەکرێن و بە گەڕانەوەی ئینتەرنێت هاوکات دەبن.',
+    phUsername: 'نموونە: feryad',
     selectedWorker: 'کرێکاری دیاریکراو:',
     defining: 'لە پێناسەکردندا...',
     dockWage: '• حەقدەست:',
@@ -287,6 +267,7 @@ const COPY = {
     lblEstimate30Days: 'Estimated 30-Day Pay:',
     cloudSyncTitle: 'Cloud Sync & Integrity',
     cloudSyncDesc: 'Personnel data is saved offline and synchronizes with cloud database in real-time when connected.',
+    phUsername: 'e.g. feryad',
     selectedWorker: 'Selected Worker:',
     defining: 'Registering...',
     dockWage: '• Wage:',
@@ -298,7 +279,7 @@ const COPY = {
 };
 
 export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess }) {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, convertDigits } = useLanguage();
   const txt = COPY[language] || COPY.fa;
   const POPULAR_ROLES = txt.rolePresets;
   const QUICK_DAILY_RATES = txt.quickRates;
@@ -640,7 +621,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     {/* چیپ‌های انتخاب سریع تخصص */}
                     <div className="flex items-center gap-1.5 flex-wrap pt-1">
                       <span className="text-[11px] text-slate-400 font-medium me-1">{txt.quickSuggestion}</span>
-                      {COMMON_ROLES.slice(0, 6).map((role) => (
+                      {POPULAR_ROLES.slice(0, 6).map((role) => (
                         <button
                           key={role}
                           type="button"
@@ -757,7 +738,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                         {/* چیپ‌های مبالغ سریع متداول */}
                         <div className="flex items-center gap-1.5 flex-wrap pt-1">
                           <span className="text-[11px] text-slate-400 font-medium me-1">{txt.commonAmounts}</span>
-                          {QUICK_DAILY_RATES_IQD.map((chip) => (
+                          {QUICK_DAILY_RATES.map((chip) => (
                             <button
                               key={chip.val}
                               type="button"
@@ -913,7 +894,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                         type="text"
                         value={formData.username || ''}
                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                        placeholder="e.g. feryad"
+                        placeholder={txt.phUsername}
                         className="w-full px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 focus:outline-none transition-all font-mono"
                       />
                     </div>
