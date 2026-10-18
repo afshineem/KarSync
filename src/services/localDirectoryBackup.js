@@ -84,10 +84,32 @@ export async function chooseBackupDirectory() {
       localStorage.setItem('karsync_backup_dir_connected', 'true');
     } catch (_) {}
 
+    function getActiveLanguage() {
+      try {
+        const lang = localStorage.getItem('workshop_lang');
+        if (lang === 'ku' || lang === 'en') return lang;
+      } catch (_) {}
+      return 'fa';
+    }
+
+    const lang = getActiveLanguage();
+    const connectMessages = {
+      title: {
+        fa: 'اتصال موفق پوشه',
+        ku: 'بەستنەوەی سەرکەوتووانەی بوخچە',
+        en: 'Folder Connected Successfully'
+      },
+      message: {
+        fa: `پوشه «${dirName}» با موفقیت جهت پشتیبان‌گیری خودکار انتخاب و متصل گردید.`,
+        ku: `بوخچەی «${dirName}» بە سەرکەوتوویی بۆ پاشەکەوتکردنی خۆگەڕ هەڵبژێردرا و بەسترایەوە.`,
+        en: `Folder "${dirName}" successfully selected and connected for automatic backups.`
+      }
+    };
+
     emitToast({
       type: 'success',
-      title: 'اتصال موفق پوشه',
-      message: `پوشه «${dirName}» با موفقیت جهت پشتیبان‌گیری خودکار انتخاب و متصل گردید.`
+      title: connectMessages.title[lang] || connectMessages.title.fa,
+      message: connectMessages.message[lang] || connectMessages.message.fa
     });
 
     return { success: true, dirName, handle };
@@ -112,10 +134,32 @@ export async function disconnectBackupDirectory() {
       localStorage.removeItem('karsync_backup_dir_connected');
     } catch (_) {}
 
+    function getActiveLanguage() {
+      try {
+        const lang = localStorage.getItem('workshop_lang');
+        if (lang === 'ku' || lang === 'en') return lang;
+      } catch (_) {}
+      return 'fa';
+    }
+
+    const lang = getActiveLanguage();
+    const disconnectMessages = {
+      title: {
+        fa: 'قطع اتصال پوشه',
+        ku: 'پچڕاندنی بەستنەوەی بوخچە',
+        en: 'Folder Disconnected'
+      },
+      message: {
+        fa: 'اتصال پوشه محلی لغو گردید. پشتیبان‌گیری‌ها کماکان در ماشین زمان داخلی ثبت می‌شوند.',
+        ku: 'پەیوەندیی بوخچەی ناوخۆیی هەڵوەشێنرایەوە. پاشەکەوتکردنەکان هێشتا لە مێژووی ناوخۆیدا تۆمار دەکرێن.',
+        en: 'Local folder disconnected. Backups will continue to be saved to local history.'
+      }
+    };
+
     emitToast({
       type: 'info',
-      title: 'قطع اتصال پوشه',
-      message: 'اتصال پوشه محلی لغو گردید. پشتیبان‌گیری‌ها کماکان در ماشین زمان داخلی ثبت می‌شوند.'
+      title: disconnectMessages.title[lang] || disconnectMessages.title.fa,
+      message: disconnectMessages.message[lang] || disconnectMessages.message.fa
     });
 
     return true;

@@ -127,10 +127,32 @@ export async function disconnectGoogleDrive() {
       localStorage.removeItem('karsync_gdrive_connected');
     }
 
+    function getActiveLanguage() {
+      try {
+        const lang = localStorage.getItem('workshop_lang');
+        if (lang === 'ku' || lang === 'en') return lang;
+      } catch (_) {}
+      return 'fa';
+    }
+
+    const lang = getActiveLanguage();
+    const disconnectMessages = {
+      title: {
+        fa: 'قطع اتصال Google Drive',
+        ku: 'پچڕاندنی بەستنەوەی گووگڵ درایڤ',
+        en: 'Google Drive Disconnected'
+      },
+      message: {
+        fa: 'اتصال به حساب گوگل قطع گردید.',
+        ku: 'پەیوەندی بە هەژماری گووگڵ پچڕێنرا.',
+        en: 'Disconnected from Google account.'
+      }
+    };
+
     emitToast({
       type: 'info',
-      title: 'قطع اتصال Google Drive',
-      message: 'اتصال به حساب گوگل قطع گردید.'
+      title: disconnectMessages.title[lang] || disconnectMessages.title.fa,
+      message: disconnectMessages.message[lang] || disconnectMessages.message.fa
     });
 
     return true;
@@ -240,10 +262,39 @@ export async function connectGoogleDrive(clientIdOverride = null) {
 
           await saveGdriveAuth(authData);
 
+          function getActiveLanguage() {
+            try {
+              const lang = localStorage.getItem('workshop_lang');
+              if (lang === 'ku' || lang === 'en') return lang;
+            } catch (_) {}
+            return 'fa';
+          }
+
+          const lang = getActiveLanguage();
+          const googleUserLabel = {
+            fa: 'گوگل',
+            ku: 'گووگڵ',
+            en: 'Google'
+          };
+          const userIdentifier = email || (googleUserLabel[lang] || googleUserLabel.fa);
+
+          const connectMessages = {
+            title: {
+              fa: 'اتصال به Google Drive',
+              ku: 'بەستنەوە بە گووگڵ درایڤ',
+              en: 'Connected to Google Drive'
+            },
+            message: {
+              fa: `حساب ${userIdentifier} با موفقیت جهت پشتیبان‌گیری ابری متصل گردید.`,
+              ku: `هەژماری ${userIdentifier} بە سەرکەوتوویی بۆ پاشەکەوتی هەوری بەسترایەوە.`,
+              en: `Account ${userIdentifier} successfully connected for cloud backup.`
+            }
+          };
+
           emitToast({
             type: 'success',
-            title: 'اتصال به Google Drive',
-            message: `حساب ${email || 'گوگل'} با موفقیت جهت پشتیبان‌گیری ابری متصل گردید.`
+            title: connectMessages.title[lang] || connectMessages.title.fa,
+            message: connectMessages.message[lang] || connectMessages.message.fa
           });
 
           resolve({

@@ -1,6 +1,13 @@
 import { db, seedInitialDataIfEmpty } from './db';
 import { emitToast } from '../context/NotificationContext';
 
+function getActiveLanguage() {
+  if (typeof localStorage !== "undefined") {
+    return localStorage.getItem("workshop_lang") || "fa";
+  }
+  return "fa";
+}
+
 /**
  * Creates a comprehensive payload of all workspace tables from IndexedDB
  */
@@ -93,7 +100,13 @@ export async function createAutoSnapshot(triggerType = 'auto', label = '') {
     id,
     createdAt: payload.exportedAt,
     triggerType,
-    label: label || (triggerType === 'auto' ? 'پشتیبان خودکار دوره‌ای' : 'پشتیبان دستی'),
+    label: label || (() => {
+      const l = getActiveLanguage();
+      if (triggerType === "auto") {
+        return l === "en" ? "Periodic Auto-Snapshot" : l === "ku" ? "پاشەکەوتی خولیی خۆکار" : "پشتیبان دوره‌ای خودکار";
+      }
+      return l === "en" ? "Manual Snapshot" : l === "ku" ? "پاشەکەوتی دەستی" : "پشتیبان دستی";
+    })(),
     version: payload.version,
     dataSize,
     summary: payload.summary,
@@ -154,7 +167,8 @@ export async function restoreFromSnapshot(snapshotId, mode = 'replace') {
   if (!db.backupSnapshots) throw new Error('Snapshot store not available');
   const snapshot = await db.backupSnapshots.get(snapshotId);
   if (!snapshot || !snapshot.data) {
-    throw new Error('Snapshot not found or corrupted / نسخه پشتیبان یافت نشد');
+    const l = getActiveLanguage();
+    throw new Error(l === "en" ? "Snapshot not found or corrupted" : l === "ku" ? "کۆپی یەدەگ نەدۆزرایەوە یان تێکچووە" : "نسخه پشتیبان یافت نشد یا آسیب دیده است");
   }
 
   const payload = {
@@ -184,7 +198,8 @@ export async function deleteSnapshot(snapshotId) {
 export async function downloadSnapshotAsFile(snapshotId) {
   if (!db.backupSnapshots) throw new Error('Snapshot store not available');
   const snapshot = await db.backupSnapshots.get(snapshotId);
-  if (!snapshot) throw new Error('Snapshot not found / نسخه پشتیبان یافت نشد');
+  const l = getActiveLanguage();
+  if (!snapshot) throw new Error(l === "en" ? "Snapshot not found" : l === "ku" ? "کۆپی یەدەگ نەدۆزرایەوە" : "نسخه پشتیبان یافت نشد");
 
   const fullPayload = {
     version: snapshot.version || 6,
@@ -232,14 +247,27 @@ export async function exportDatabaseToJSON() {
   // Auto-record in snapshot history
   try {
     if (db.backupSnapshots) {
-      await createAutoSnapshot('export_file', 'دانلود فایل پشتیبان');
+      const l = getActiveLanguage();
+      const exportLabel = l === "en" ? "Exported JSON Backup" : l === "ku" ? "داگرتنی فایلی یەدەگ" : "دانلود فایل پشتیبان";
+      await createAutoSnapshot("export_file", exportLabel);
     }
   } catch (_) {}
 
+  const l = getActiveLanguage();
+  const toastTitles = {
+    fa: "پشتیبان‌گیری موفق",
+    ku: "پاشەکەوتکردنی سەرکەوتوو",
+    en: "Backup Successful"
+  };
+  const toastMessages = {
+    fa: `فایل پشتیبان (${dateStr}) با موفقیت دانلود و ذخیره شد.`,
+    ku: `فایلی یەدەگ (${dateStr}) بە سەرکەوتوویی داگیرا و پاشەکەوت کرا.`,
+    en: `Backup file (${dateStr}) downloaded and saved successfully.`
+  };
   emitToast({
-    type: 'success',
-    title: 'پشتیبان‌گیری موفق',
-    message: `فایل پشتیبان (${dateStr}) با موفقیت دانلود و ذخیره شد.`
+    type: "success",
+    title: toastTitles[l] || toastTitles.fa,
+    message: toastMessages[l] || toastMessages.fa
   });
 
   return backupData;
@@ -255,11 +283,13 @@ export async function importDatabaseFromJSON(jsonText, mode = 'replace') {
   try {
     parsed = JSON.parse(jsonText);
   } catch (err) {
-    throw new Error('Invalid JSON format / فۆرماتی فایلەکە نادروستە / فرمت فایل نامعتبر است');
+    const l = getActiveLanguage();
+    throw new Error(l === "en" ? "Invalid JSON file format" : l === "ku" ? "فۆرماتی فایلی JSON نادروستە" : "فرمت فایل JSON نامعتبر است");
   }
 
   if (!parsed.data || (!Array.isArray(parsed.data.workers) && !Array.isArray(parsed.data.attendanceLogs))) {
-    throw new Error('Invalid backup schema / داتای یەدەگ نادروستە / ساختار فایل پشتیبان صحیح نیست');
+    const l = getActiveLanguage();
+    throw new Error(l === "en" ? "Invalid backup file schema" : l === "ku" ? "پێکهاتەی فایلی یەدەگ نادروستە" : "ساختار فایل پشتیبان معتبر نیست");
   }
 
   const {
@@ -360,12 +390,24 @@ export async function checkAndRunAutoBackup() {
       return { performed: false, reason: 'empty_database' };
     }
 
-    const snapshot = await createAutoSnapshot('auto', 'پشتیبان دوره‌ای خودکار');
+    const l = getActiveLanguage();
+    const autoLabel = l === "en" ? "Periodic Auto-Snapshot" : l === "ku" ? "پاشەکەوتی خولیی خۆکار" : "پشتیبان دوره‌ای خودکار";
+    const snapshot = await createAutoSnapshot("auto", autoLabel);
 
+    const autoTitles = {
+      fa: "پشتیبان‌گیری خودکار",
+      ku: "پاشەکەوتی خۆکار",
+      en: "Automatic Backup"
+    };
+    const autoMessages = {
+      fa: "نسخه پشتیبان دوره‌ای با موفقیت در تاریخچه محلی ایجاد شد.",
+      ku: "کۆپی یەدەگی خولەیی بە سەرکەوتوویی لە بیرگەی لۆکاڵیدا تۆمارکرا.",
+      en: "Periodic backup snapshot was successfully created in local storage."
+    };
     emitToast({
-      type: 'success',
-      title: 'پشتیبان‌گیری خودکار',
-      message: `نسخه پشتیبان دوره‌ای با موفقیت در تاریخچه محلی ایجاد شد.`
+      type: "success",
+      title: autoTitles[l] || autoTitles.fa,
+      message: autoMessages[l] || autoMessages.fa
     });
 
     return { performed: true, snapshot };
