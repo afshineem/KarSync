@@ -19,8 +19,143 @@ import {
 import { pushCounterpartyLive } from '../services/realtimeSync';
 import { formatAmount, getCurrencySymbol } from '../utils/formatters';
 
+const MODAL_COPY = {
+  fa: {
+    editTitle: 'ویرایش مشخصات طرف‌حساب',
+    addTitle: 'تعریف طرف‌حساب جدید',
+    activeProject: 'پروژه جاری',
+    headerDesc: 'ثبت و ساماندهی اطلاعات کارفرما، تامین‌کنندگان مصالح و پیمانکاران فرعی',
+    closeTooltip: 'بستن (ESC)',
+    nameRequiredError: 'لطفاً نام یا عنوان طرف‌حساب را وارد کنید.',
+    saveError: 'خطا در ذخیره اطلاعات',
+    roleSectionTitle: 'نقش و جایگاه در پروژه',
+    roleSectionDesc: 'نوع همکاری را انتخاب کنید',
+    roleEmployer: 'کارفرما / سرمایه‌گذار',
+    roleEmployerDesc: 'تزریق سرمایه و مالک',
+    roleSupplier: 'تامین‌کننده مصالح',
+    roleSupplierDesc: 'فروشنده متریال و خدمات',
+    roleSubcontractor: 'پیمانکار فرعی',
+    roleSubcontractorDesc: 'اجراکار دستمزدی',
+    roleOther: 'سایر اشخاص',
+    roleOtherDesc: 'طرف‌حساب‌های متفرقه',
+    identitySectionTitle: 'مشخصات هویتی و راه‌های ارتباطی',
+    fullNameLabel: 'نام و نام خانوادگی / عنوان طرف‌حساب',
+    fullNamePlaceholder: 'مثال: مهندس حسینی / مصالح‌فروشی البرز',
+    companyLabel: 'شرکت / برند تجاری (اختیاری)',
+    companyPlaceholder: 'مثال: بتن‌سازان غرب',
+    phoneLabel: 'شماره تماس مستقیم',
+    phonePlaceholder: '0750 000 0000',
+    financeSectionTitle: 'مبلغ توافق‌شده و قرارداد',
+    contractValueLabel: 'مبلغ کل توافق یا قرارداد (اختیاری)',
+    contractValueHelp: 'این مبلغ در صورت‌حساب معین و تراز طرف‌حساب به عنوان سقف توافق منظور خواهد شد.',
+    statusSectionTitle: 'وضعیت حساب در پروژه:',
+    statusActive: 'فعال و جاری',
+    statusInactive: 'مختومه / راکد',
+    previewCardTitle: 'پیش‌نمایش کارت طرف‌حساب',
+    previewInitial: '؟',
+    previewNoName: 'نام طرف‌حساب...',
+    previewNoCompany: 'بدون شرکت',
+    previewNoPhone: 'بدون تماس',
+    dockRelationType: 'نوع رابطه:',
+    dockContractAmount: 'مبلغ قرارداد:',
+    cancelBtn: 'انصراف',
+    savingBtn: 'در حال ذخیره...',
+    saveEditBtn: 'ثبت ویرایش طرف‌حساب',
+    saveAddBtn: 'ذخیره طرف‌حساب جدید'
+  },
+  ku: {
+    editTitle: 'دەستکاریکردنی لایەنی حیساب',
+    addTitle: 'لایەنی حیسابی نوێ',
+    activeProject: 'پڕۆژەی ئێستا',
+    headerDesc: 'تۆمارکردن و ڕێکخستنی زانیاری خاوەنکار، دابینکەرانی کەرەستە و بەڵێندەرە لاوەکییەکان',
+    closeTooltip: 'داخستن (ESC)',
+    nameRequiredError: 'تکایە ناو یان ناونیشانی لایەنی حیساب بنووسە.',
+    saveError: 'هەڵە لە پاشەکەوتکردنی زانیارییەکان',
+    roleSectionTitle: 'ڕۆڵ و پێگە لە پڕۆژەدا',
+    roleSectionDesc: 'جۆری هاوکاری دیاری بکە',
+    roleEmployer: 'خاوەن کار / وەبەرهێنەر',
+    roleEmployerDesc: 'وەبەرهێنەر و خاوەنی پڕۆژە',
+    roleSupplier: 'دابینکەری کەرەستە',
+    roleSupplierDesc: 'فرۆشیاری کەرەستە و خزمەتگوزاری',
+    roleSubcontractor: 'بەڵێندەری لاوەکی',
+    roleSubcontractorDesc: 'جێبەجێکاری دەستحەق',
+    roleOther: 'لایەنی تر',
+    roleOtherDesc: 'لایەنە جۆراوجۆرەکان',
+    identitySectionTitle: 'زانیاری کەسی و پەیوەندی',
+    fullNameLabel: 'ناو و پاشناو / ناونیشانی لایەن',
+    fullNamePlaceholder: 'بۆ نموونە: ئەندازیار حوسەینی / فرۆشگای ئەلبورز',
+    companyLabel: 'کۆمپانیا / براندی بازرگانی (ئارەزوومەندانە)',
+    companyPlaceholder: 'بۆ نموونە: کۆمپانیای چیمەنتۆ',
+    phoneLabel: 'ژمارەی تەلەفۆنی ڕاستەوخۆ',
+    phonePlaceholder: '0750 000 0000',
+    financeSectionTitle: 'بڕی ڕێککەوتوو و گرێبەست',
+    contractValueLabel: 'کۆی بەهای گرێبەست (ئارەزوومەندانە)',
+    contractValueHelp: 'ئەم بڕە لە دەفتەری موعەیەن و باڵانسی لایەنەکە وەک بنەمای ڕێککەوتن دادەنرێت.',
+    statusSectionTitle: 'دۆخی حیساب لە پڕۆژەدا:',
+    statusActive: 'چالاک و بەردەوام',
+    statusInactive: 'تەواوبوو / ناچالاک',
+    previewCardTitle: 'پێشبینینی کارتی لایەنی حیساب',
+    previewInitial: '؟',
+    previewNoName: 'ناوی لایەنی حیساب...',
+    previewNoCompany: 'بێ کۆمپانیا',
+    previewNoPhone: 'بێ ژمارە',
+    dockRelationType: 'جۆری پەیوەندی:',
+    dockContractAmount: 'بڕی گرێبەست:',
+    cancelBtn: 'پاشگەزبوونەوە',
+    savingBtn: 'پاشەکەوت دەکرێت...',
+    saveEditBtn: 'تۆمارکردنی دەستکاری',
+    saveAddBtn: 'پاشەکەوتکردنی لایەنی نوێ'
+  },
+  en: {
+    editTitle: 'Edit Counterparty Details',
+    addTitle: 'Add New Counterparty',
+    activeProject: 'Current Project',
+    headerDesc: 'Register and manage information for employers, material suppliers, and subcontractors',
+    closeTooltip: 'Close (ESC)',
+    nameRequiredError: 'Please enter the counterparty name or title.',
+    saveError: 'Error saving counterparty data',
+    roleSectionTitle: 'Role & Relationship in Project',
+    roleSectionDesc: 'Select partnership category',
+    roleEmployer: 'Employer / Investor',
+    roleEmployerDesc: 'Capital injection & owner',
+    roleSupplier: 'Material Supplier',
+    roleSupplierDesc: 'Materials & vendor services',
+    roleSubcontractor: 'Subcontractor',
+    roleSubcontractorDesc: 'Contractor & labor services',
+    roleOther: 'Other Stakeholder',
+    roleOtherDesc: 'Miscellaneous counterparties',
+    identitySectionTitle: 'Identity & Contact Details',
+    fullNameLabel: 'Full Name / Counterparty Title',
+    fullNamePlaceholder: 'e.g. Eng. Hosseini / Alborz Materials',
+    companyLabel: 'Company / Commercial Brand (Optional)',
+    companyPlaceholder: 'e.g. West Concrete Inc.',
+    phoneLabel: 'Direct Phone Number',
+    phonePlaceholder: '0750 000 0000',
+    financeSectionTitle: 'Agreed Contract Amount',
+    contractValueLabel: 'Total Agreed / Contract Value (Optional)',
+    contractValueHelp: 'This amount serves as the agreed ceiling in the subsidiary ledger statement.',
+    statusSectionTitle: 'Account Status in Project:',
+    statusActive: 'Active & Current',
+    statusInactive: 'Closed / Inactive',
+    previewCardTitle: 'Live Counterparty Card Preview',
+    previewInitial: '?',
+    previewNoName: 'Counterparty name...',
+    previewNoCompany: 'No company',
+    previewNoPhone: 'No phone',
+    dockRelationType: 'Relation Type:',
+    dockContractAmount: 'Contract Value:',
+    cancelBtn: 'Cancel',
+    savingBtn: 'Saving...',
+    saveEditBtn: 'Save Counterparty Changes',
+    saveAddBtn: 'Save New Counterparty'
+  }
+};
+
 export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = null }) {
   const { language, direction } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = MODAL_COPY[langKey] || MODAL_COPY.fa;
+
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
@@ -69,7 +204,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
     setFormError('');
 
     if (!formData.name.trim()) {
-      setFormError(language === 'fa' ? 'لطفاً نام یا عنوان طرف‌حساب را وارد کنید.' : 'تکایە ناو بنووسە.');
+      setFormError(c.nameRequiredError);
       return;
     }
 
@@ -110,17 +245,17 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
       onClose();
     } catch (err) {
       console.error('Error saving counterparty:', err);
-      setFormError(err.message || 'خطا در ذخیره اطلاعات');
+      setFormError(err.message || c.saveError);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const counterpartyTypes = [
-    { id: 'employer', label: language === 'fa' ? 'کارفرما / سرمایه‌گذار' : 'خاوەن کار', icon: Building2, desc: 'تزریق سرمایه و مالک' },
-    { id: 'supplier', label: language === 'fa' ? 'تامین‌کننده مصالح' : 'دابینکەر', icon: Truck, desc: 'فروشنده متریال و خدمات' },
-    { id: 'subcontractor', label: language === 'fa' ? 'پیمانکار فرعی' : 'بەڵێندەری لاوەکی', icon: HardHat, desc: 'اجراکار دستمزدی' },
-    { id: 'other', label: language === 'fa' ? 'سایر اشخاص' : 'هیتر', icon: User, desc: 'طرف‌حساب‌های متفرقه' }
+    { id: 'employer', label: c.roleEmployer, icon: Building2, desc: c.roleEmployerDesc },
+    { id: 'supplier', label: c.roleSupplier, icon: Truck, desc: c.roleSupplierDesc },
+    { id: 'subcontractor', label: c.roleSubcontractor, icon: HardHat, desc: c.roleSubcontractorDesc },
+    { id: 'other', label: c.roleOther, icon: User, desc: c.roleOtherDesc }
   ];
 
   const modalContent = (
@@ -140,16 +275,14 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  {editingCounterparty 
-                    ? (language === 'fa' ? 'ویرایش مشخصات طرف‌حساب' : 'دەستکاریکردنی لایەنی حیساب') 
-                    : (language === 'fa' ? 'تعریف طرف‌حساب جدید' : 'لایەنی حیسابی نوێ')}
+                  {editingCounterparty ? c.editTitle : c.addTitle}
                 </h2>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-900/60">
-                  {currentProject?.name || 'پروژه جاری'}
+                  {currentProject?.name || c.activeProject}
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {language === 'fa' ? 'ثبت و ساماندهی اطلاعات کارفرما، تامین‌کنندگان مصالح و پیمانکاران فرعی' : 'تۆمارکردنی زانیاری لایەنەکانی حیساب'}
+                {c.headerDesc}
               </p>
             </div>
           </div>
@@ -158,7 +291,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
             type="button"
             onClick={onClose}
             className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
-            title="بستن (ESC)"
+            title={c.closeTooltip}
           >
             <X className="w-5 h-5" />
           </button>
@@ -188,9 +321,9 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                     <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
                       <Briefcase className="w-4 h-4 text-sky-500" />
-                      <span>نقش و جایگاه در پروژه</span>
+                      <span>{c.roleSectionTitle}</span>
                     </span>
-                    <span className="text-[11px] text-slate-400 font-medium">نوع همکاری را انتخاب کنید</span>
+                    <span className="text-[11px] text-slate-400 font-medium">{c.roleSectionDesc}</span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -223,14 +356,14 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                 <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
                   <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800 text-xs font-black text-slate-800 dark:text-slate-200">
                     <User className="w-4 h-4 text-sky-500" />
-                    <span>مشخصات هویتی و راه‌های ارتباطی</span>
+                    <span>{c.identitySectionTitle}</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* نام طرف حساب */}
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        {language === 'fa' ? 'نام و نام خانوادگی / عنوان طرف‌حساب' : 'ناو / ناونیشان'} <span className="text-rose-500">*</span>
+                        {c.fullNameLabel} <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -238,7 +371,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                         value={formData.name}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                         className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all shadow-2xs"
-                        placeholder={language === 'fa' ? 'مثال: مهندس حسینی / مصالح‌فروشی البرز' : 'بۆ نموونە: ئەندازیار حوسەینی'}
+                        placeholder={c.fullNamePlaceholder}
                       />
                     </div>
 
@@ -246,14 +379,14 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                         <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{language === 'fa' ? 'شرکت / برند تجاری (اختیاری)' : 'کۆمپانیا (ئارەزوومەندانە)'}</span>
+                        <span>{c.companyLabel}</span>
                       </label>
                       <input
                         type="text"
                         value={formData.company}
                         onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
                         className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all shadow-2xs"
-                        placeholder="مثال: بتن‌سازان غرب"
+                        placeholder={c.companyPlaceholder}
                       />
                     </div>
 
@@ -261,14 +394,14 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                         <Phone className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{language === 'fa' ? 'شماره تماس مستقیم' : 'ژمارەی تەلەفۆن'}</span>
+                        <span>{c.phoneLabel}</span>
                       </label>
                       <input
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                         className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all shadow-2xs text-left"
-                        placeholder="0750 000 0000"
+                        placeholder={c.phonePlaceholder}
                         dir="ltr"
                       />
                     </div>
@@ -284,12 +417,12 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                 <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
                   <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800 text-xs font-black text-slate-800 dark:text-slate-200">
                     <Coins className="w-4 h-4 text-emerald-500" />
-                    <span>مبلغ توافق‌شده و قرارداد</span>
+                    <span>{c.financeSectionTitle}</span>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      {language === 'fa' ? 'مبلغ کل توافق یا قرارداد (اختیاری)' : 'بڕی گرێبەست (ئارەزوومەندانە)'}
+                      {c.contractValueLabel}
                     </label>
                     <div className="relative">
                       <input
@@ -308,7 +441,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                       </span>
                     </div>
                     <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
-                      این مبلغ در صورت‌حساب معین و تراز طرف‌حساب به عنوان سقف توافق منظور خواهد شد.
+                      {c.contractValueHelp}
                     </p>
                   </div>
                 </div>
@@ -316,7 +449,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                 {/* کارت ۴: وضعیت همکاری پروژه */}
                 <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    وضعیت حساب در پروژه:
+                    {c.statusSectionTitle}
                   </label>
                   <div className="grid grid-cols-2 gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
                     <button
@@ -329,7 +462,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full bg-emerald-300" />
-                      <span>فعال و جاری</span>
+                      <span>{c.statusActive}</span>
                     </button>
                     <button
                       type="button"
@@ -341,7 +474,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      <span>مختومه / راکد</span>
+                      <span>{c.statusInactive}</span>
                     </button>
                   </div>
                 </div>
@@ -349,18 +482,18 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                 {/* کارت ۵: پیش‌نمایش هویت زنده (Live Visual Preview) */}
                 <div className="p-4 rounded-3xl bg-gradient-to-br from-slate-900/90 to-slate-950 text-white border border-white/10 shadow-lg space-y-3">
                   <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider block">
-                    پیش‌نمایش کارت طرف‌حساب
+                    {c.previewCardTitle}
                   </span>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center font-black text-sm text-white shrink-0">
-                      {formData.name.trim() ? formData.name.trim().charAt(0) : '؟'}
+                      {formData.name.trim() ? formData.name.trim().charAt(0) : c.previewInitial}
                     </div>
                     <div className="truncate">
                       <div className="font-black text-sm text-white truncate">
-                        {formData.name.trim() || 'نام طرف‌حساب...'}
+                        {formData.name.trim() || c.previewNoName}
                       </div>
                       <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                        {formData.company.trim() || 'بدون شرکت'} • {formData.phone || 'بدون تماس'}
+                        {formData.company.trim() || c.previewNoCompany} • {formData.phone || c.previewNoPhone}
                       </div>
                     </div>
                   </div>
@@ -378,7 +511,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
       <div className="fixed bottom-0 start-0 end-0 z-30 p-3 sm:px-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            <span>نوع رابطه:</span>
+            <span>{c.dockRelationType}</span>
             <span className="font-bold text-sky-600 dark:text-sky-400">
               {counterpartyTypes.find(t => t.id === formData.type)?.label}
             </span>
@@ -387,7 +520,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
             <>
               <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-slate-500 dark:text-slate-400">مبلغ قرارداد:</span>
+                <span className="text-slate-500 dark:text-slate-400">{c.dockContractAmount}</span>
                 <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400" dir="ltr">
                   {formData.contractValue} {getCurrencySymbol(currency, language)}
                 </span>
@@ -402,7 +535,7 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
             onClick={onClose}
             className="px-4 sm:px-5 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95"
           >
-            <span>{language === 'fa' ? 'انصراف' : 'پاشگەزبوونەوە'}</span>
+            <span>{c.cancelBtn}</span>
             <kbd className="hidden sm:inline-block ms-1.5 px-1.5 py-0.5 text-[10px] bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded font-mono">
               ESC
             </kbd>
@@ -415,11 +548,11 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
             className="px-5 sm:px-7 h-10 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black text-xs rounded-2xl shadow-md shadow-sky-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
-              <span>در حال ذخیره...</span>
+              <span>{c.savingBtn}</span>
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                <span>{editingCounterparty ? 'ثبت ویرایش طرف‌حساب' : 'ذخیره طرف‌حساب جدید'}</span>
+                <span>{editingCounterparty ? c.saveEditBtn : c.saveAddBtn}</span>
               </>
             )}
           </button>

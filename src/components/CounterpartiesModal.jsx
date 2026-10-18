@@ -4,8 +4,28 @@ import { X, Briefcase } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { CounterpartiesView } from './CounterpartiesView';
 
+const COPY = {
+  fa: {
+    title: 'مدیریت طرف‌حساب‌ها و اشخاص',
+    subtitle: 'کارفرمایان، تامین‌کنندگان مصالح، پیمانکاران فرعی و مشتریان پروژه',
+    closeAria: 'بستن (Esc)'
+  },
+  ku: {
+    title: 'بەڕێوەبردنی لایەنەکانی حیساب',
+    subtitle: 'خاوەن کارەکان، دابینکەران و بەڵێندەرە لاوەکییەکان',
+    closeAria: 'داخستن (Esc)'
+  },
+  en: {
+    title: 'Counterparties Management',
+    subtitle: 'Clients, material suppliers, subcontractors, and project stakeholders',
+    closeAria: 'Close (Esc)'
+  }
+};
+
 export function CounterpartiesModal({ isOpen, onClose }) {
   const { language, direction } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = COPY[langKey] || COPY.fa;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -39,14 +59,14 @@ export function CounterpartiesModal({ isOpen, onClose }) {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
-                {language === 'fa' ? 'مدیریت طرف‌حساب‌ها و اشخاص' : language === 'ku' ? 'بەڕێوەبردنی لایەنەکانی حیساب' : 'Counterparties Management'}
+                {c.title}
               </h2>
               <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-900/60">
                 Shift + C
               </span>
             </div>
             <p className="text-xs text-slate-400 font-medium mt-0.5 hidden sm:block">
-              {language === 'fa' ? 'کارفرمایان، تامین‌کنندگان مصالح، پیمانکاران فرعی و مشتریان پروژه' : 'خاوەن کارەکان، دابینکەران و بەڵێندەرە لاوەکییەکان'}
+              {c.subtitle}
             </p>
           </div>
         </div>
@@ -55,8 +75,8 @@ export function CounterpartiesModal({ isOpen, onClose }) {
           type="button"
           onClick={onClose}
           className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-          aria-label={language === 'fa' ? 'بستن (Esc)' : 'Close (Esc)'}
-          title={language === 'fa' ? 'بستن (Esc)' : 'Close (Esc)'}
+          aria-label={c.closeAria}
+          title={c.closeAria}
         >
           <X className="w-5 h-5" />
         </button>
