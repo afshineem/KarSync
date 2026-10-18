@@ -5,13 +5,66 @@ import { Activity, Clock, Search, Filter, Eye, ChevronDown } from 'lucide-react'
 import { usePermissions } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import { logAuditAction } from '../services/auditLogger';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const isAttendanceLog = (log) =>
   log.action_type === 'CREATE_ATTENDANCE' || log.action_type === 'EDIT_ATTENDANCE';
 const isExpenseLog = (log) =>
   log.action_type === 'CREATE_EXPENSE' || log.action_type === 'EDIT_EXPENSE';
 
+const AUDIT_LOGS_COPY = {
+  fa: {
+    systemInitMessage: 'سیستم ممیزی کارگاه فعال شد',
+    searchPlaceholder: 'جستجو نام متصدی...',
+    allActivities: 'همه فعالیت‌ها',
+    userActivities: 'فعالیت کاربران',
+    attendanceActivities: 'ورود و خروج / حضور',
+    financialActivities: 'مالی و هزینه‌ها',
+    systemActivities: 'سیستم',
+    noActivitiesYet: 'هنوز فعالیتی ثبت نشده است',
+    noActivitiesDesc: 'پس از انجام عملیات، تاریخچه در اینجا نمایش داده می‌شود.',
+    viewInAttendance: 'مشاهده در گزارش کارکرد',
+    viewInExpenses: 'مشاهده در هزینه‌ها',
+    systemActionExecuted: 'عملیات سیستمی انجام شد',
+    justNow: 'لحظاتی پیش'
+  },
+  ku: {
+    systemInitMessage: 'سیستەمی تۆماری چاودێری کارگە چالاک کرا',
+    searchPlaceholder: 'گەڕان بەدوای ناوی بەکارهێنەر...',
+    allActivities: 'تەواوی چالاکییەکان',
+    userActivities: 'چالاکی بەکارهێنەران',
+    attendanceActivities: 'هاتن و چوون / ئامادەبوون',
+    financialActivities: 'دارایی و خەرجییەکان',
+    systemActivities: 'سیستەم',
+    noActivitiesYet: 'هێشتا هیچ چالاکییەک تۆمار نەکراوە',
+    noActivitiesDesc: 'دوای ئەنجامدانی کردارەکان، مێژوو لێرەدا پیشان دەدرێت.',
+    viewInAttendance: 'بینین لە ڕاپۆرتی کارکردن',
+    viewInExpenses: 'بینین لە خەرجییەکان',
+    systemActionExecuted: 'کرداری سیستەمی ئەنجامدرا',
+    justNow: 'کەمێک لەمەوبەر'
+  },
+  en: {
+    systemInitMessage: 'Workshop audit logging initialized',
+    searchPlaceholder: 'Search operator name...',
+    allActivities: 'All Activities',
+    userActivities: 'User Activities',
+    attendanceActivities: 'Attendance & Time Logs',
+    financialActivities: 'Financial & Expenses',
+    systemActivities: 'System',
+    noActivitiesYet: 'No activities logged yet',
+    noActivitiesDesc: 'Once actions are performed, history will appear here.',
+    viewInAttendance: 'View in Attendance Report',
+    viewInExpenses: 'View in Expenses',
+    systemActionExecuted: 'System action executed',
+    justNow: 'Just now'
+  }
+};
+
 export default function AuditLogsTab({ workspaceId }) {
+  const { language, direction } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = AUDIT_LOGS_COPY[langKey] || AUDIT_LOGS_COPY.fa;
+
   const { currentUser } = usePermissions();
   const { currentProject, switchProject, closeGlobalSettings } = useProject();
   const [logs, setLogs] = useState([]);
@@ -81,7 +134,7 @@ export default function AuditLogsTab({ workspaceId }) {
             actionType: 'SYSTEM_INIT',
             entityType: 'WORKSPACE',
             entityId: effectiveWorkspaceId,
-            details: { message: 'سیستم ممیزی کارگاه فعال شد' }
+            details: { message: c.systemInitMessage }
           });
           // Reload logs after 1 sec
           setTimeout(loadLogs, 1000);
@@ -93,10 +146,7 @@ export default function AuditLogsTab({ workspaceId }) {
   };
 
   // Jump from a log entry to the original activity.
-  // Attendance -> Personnel hub > "گزارش کارکرد" > calendar, with that day opened.
-  // Expense    -> Expenses tab.
   const openLogTarget = async (log) => {
-    // The record lives in the project it was created in
     if (log.project_id && currentProject?.id && String(log.project_id) !== String(currentProject.id)) {
       try { switchProject?.(log.project_id); } catch (_) {}
     }
@@ -104,7 +154,6 @@ export default function AuditLogsTab({ workspaceId }) {
     if (isAttendanceLog(log)) {
       let date = log.details?.date;
       if (!date && log.entity_id && db.attendanceLogs) {
-        // Fallback: read the date from the attendance record itself
         try {
           const rec = await db.attendanceLogs.get(log.entity_id);
           date = rec?.date;
@@ -123,16 +172,19 @@ export default function AuditLogsTab({ workspaceId }) {
   };
 
   const getTimeAgo = (dateString) => {
-    const rtf = new Intl.RelativeTimeFormat('fa', { numeric: 'auto' });
-    const diff = new Date().getTime() - new Date(dateString).getTime();
-    const days = Math.round(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.round(diff / (1000 * 60 * 60));
-    const mins = Math.round(diff / (1000 * 60));
+    try {
+      const locale = language === 'fa' ? 'fa' : language === 'ku' ? 'ckb' : 'en';
+      const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+      const diff = new Date().getTime() - new Date(dateString).getTime();
+      const days = Math.round(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.round(diff / (1000 * 60 * 60));
+      const mins = Math.round(diff / (1000 * 60));
 
-    if (days > 0) return rtf.format(-days, 'day');
-    if (hours > 0) return rtf.format(-hours, 'hour');
-    if (mins > 0) return rtf.format(-mins, 'minute');
-    return 'لحظاتی پیش';
+      if (days > 0) return rtf.format(-days, 'day');
+      if (hours > 0) return rtf.format(-hours, 'hour');
+      if (mins > 0) return rtf.format(-mins, 'minute');
+    } catch (_) {}
+    return c.justNow;
   };
 
   const filteredLogs = logs.filter(log => {
@@ -143,36 +195,36 @@ export default function AuditLogsTab({ workspaceId }) {
       if (filterType === 'FINANCIAL' && !typeStr.includes('EXPENSE') && !typeStr.includes('PAYMENT') && !typeStr.includes('SETTLEMENT')) return false;
       if (filterType === 'SYSTEM' && !typeStr.includes('SYSTEM')) return false;
     }
-    if (filterUser && !log.user_name?.includes(filterUser)) return false;
+    if (filterUser && !log.user_name?.toLowerCase().includes(filterUser.toLowerCase())) return false;
     return true;
   });
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" dir={direction}>
       {/* Filters */}
       <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute right-3 top-2.5 w-4 h-4 text-slate-400" />
+          <Search className="absolute end-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
           <input 
             type="text" 
-            placeholder="جستجو نام متصدی..." 
+            placeholder={c.searchPlaceholder} 
             value={filterUser}
             onChange={e => setFilterUser(e.target.value)}
-            className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-blue-500 rounded-xl text-xs"
+            className="w-full ps-3 pe-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-blue-500 rounded-xl text-xs"
           />
         </div>
         <div className="relative flex-1 sm:max-w-[200px]">
-          <Filter className="absolute right-3 top-2.5 w-4 h-4 text-slate-400" />
+          <Filter className="absolute end-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
           <select
             value={filterType}
             onChange={e => setFilterType(e.target.value)}
-            className="w-full pl-3 pr-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-blue-500 rounded-xl text-xs appearance-none"
+            className="w-full ps-3 pe-9 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:border-blue-500 rounded-xl text-xs appearance-none"
           >
-            <option value="all">همه فعالیت‌ها</option>
-            <option value="USER">فعالیت کاربران</option>
-            <option value="ATTENDANCE">ورود و خروج / حضور</option>
-            <option value="FINANCIAL">مالی و هزینه‌ها</option>
-            <option value="SYSTEM">سیستم</option>
+            <option value="all">{c.allActivities}</option>
+            <option value="USER">{c.userActivities}</option>
+            <option value="ATTENDANCE">{c.attendanceActivities}</option>
+            <option value="FINANCIAL">{c.financialActivities}</option>
+            <option value="SYSTEM">{c.systemActivities}</option>
           </select>
         </div>
       </div>
@@ -182,14 +234,14 @@ export default function AuditLogsTab({ workspaceId }) {
         {filteredLogs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
             <Activity className="w-12 h-12 mb-3 opacity-20 text-blue-500" />
-            <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-1">هنوز فعالیتی ثبت نشده است</h3>
-            <p className="text-xs">پس از انجام عملیات، تاریخچه در اینجا نمایش داده می‌شود.</p>
+            <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-1">{c.noActivitiesYet}</h3>
+            <p className="text-xs">{c.noActivitiesDesc}</p>
           </div>
         ) : (
-          <div className="relative border-r-2 border-blue-100 dark:border-blue-900/30 pr-4 mr-2 space-y-6">
+          <div className="relative border-s-2 border-blue-100 dark:border-blue-900/30 ps-4 ms-2 space-y-6">
             {filteredLogs.map(log => (
               <div key={log.id} className="relative">
-                <div className="absolute -right-[23px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-slate-50 dark:ring-slate-900"></div>
+                <div className="absolute -start-[23px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-slate-50 dark:ring-slate-900"></div>
                 <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50 shadow-sm transition-all hover:shadow-md">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
@@ -201,7 +253,7 @@ export default function AuditLogsTab({ workspaceId }) {
                         <button
                           onClick={() => openLogTarget(log)}
                           className="text-blue-500 hover:text-blue-600 dark:text-blue-400 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-500/20 transition-colors"
-                          title={isAttendanceLog(log) ? 'مشاهده در گزارش کارکرد' : 'مشاهده در هزینه‌ها'}
+                          title={isAttendanceLog(log) ? c.viewInAttendance : c.viewInExpenses}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -214,7 +266,7 @@ export default function AuditLogsTab({ workspaceId }) {
                   <details className="group cursor-pointer">
                     <summary className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium list-none flex items-center gap-2">
                       <ChevronDown className="w-3.5 h-3.5 text-slate-400 transition-transform group-open:-rotate-180" />
-                      {log.details?.description || log.details?.message || 'عملیات سیستمی انجام شد'}
+                      {log.details?.description || log.details?.message || c.systemActionExecuted}
                     </summary>
                     <div className="mt-2 pl-5 text-[10px] text-slate-500 dark:text-slate-400 space-y-1 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
                       {Object.entries(log.details || {}).map(([key, value]) => {
