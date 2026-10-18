@@ -19,6 +19,33 @@ import {
   Lock
 } from 'lucide-react';
 
+const COPY = {
+  fa: {
+    cannotDeleteApproved: 'اسناد مالی تایید نهایی شده به دلیل الزامات قانونی و مالیاتی غیرقابل حذف هستند. در صورت نیاز به تعدیل، از تب حسابداری اصلاحیه صادر نمایید.',
+    printTitle: 'چاپ رسید پرداخت',
+    defaultRole: 'پرسنل',
+    allTime: 'کل دوره‌ها',
+    manager: 'مدیر',
+    approvedDocTooltip: (by) => `سند رسمی تایید نهایی شده (توسط: ${by}) - غیرقابل حذف`
+  },
+  ku: {
+    cannotDeleteApproved: 'بەڵگەنامە دارایییە پەسەندکراوەکان بەهۆی یاساکانی باجەوە ناسڕدرێنەوە. لە ئەگەری پێویستی بە گۆڕانکاری، لە بەشی ژمێریاری چاکسازی دەربکەن.',
+    printTitle: 'چاپکردنی وەسڵی پارەدان',
+    defaultRole: 'کرێکار',
+    allTime: 'تەواوی کاتەکان',
+    manager: 'بەڕێوەبەر',
+    approvedDocTooltip: (by) => `بەڵگەنامەی فەرمی پەسەندکراو (لەلایەن: ${by}) - ناسڕدرێتەوە`
+  },
+  en: {
+    cannotDeleteApproved: 'Finalized financial documents cannot be deleted under tax regulations. If adjustments are needed, issue an amendment from the Accounting tab.',
+    printTitle: 'Print Payment Receipt',
+    defaultRole: 'Worker',
+    allTime: 'All Time',
+    manager: 'Manager',
+    approvedDocTooltip: (by) => `Official finalized document (by: ${by}) - Locked`
+  }
+};
+
 export function PaymentHistoryModal({ 
   isOpen, 
   onClose, 
@@ -27,6 +54,7 @@ export function PaymentHistoryModal({
   month = null
 }) {
   const { t, language } = useLanguage();
+  const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const [filterMonthOnly, setFilterMonthOnly] = useState(false);
@@ -55,9 +83,7 @@ export function PaymentHistoryModal({
   const handleDelete = async (paymentId) => {
     const target = displayedPayments.find((p) => p.id === paymentId);
     if (target && (target.status === 'approved' || target.approval_status === 'approved')) {
-      alert(language === 'fa' 
-        ? 'اسناد مالی تایید نهایی شده به دلیل الزامات قانونی و مالیاتی غیرقابل حذف هستند. در صورت نیاز به تعدیل، از تب حسابداری اصلاحیه صادر نمایید.' 
-        : 'بەڵگەنامەی پەسەندکراو ناسڕدرێتەوە.');
+      alert(c.cannotDeleteApproved);
       return;
     }
     if (window.confirm(t('paymentDeleteConfirm'))) {
@@ -95,7 +121,7 @@ export function PaymentHistoryModal({
                 {t('paymentHistory')}
               </h3>
               <p className="text-xs text-slate-400 print:text-slate-600">
-                {worker.name} • {worker.role}
+                {worker.name} • {worker.role || c.defaultRole}
               </p>
             </div>
           </div>
@@ -104,8 +130,8 @@ export function PaymentHistoryModal({
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all shadow-xs"
-              title="Print Receipt"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              title={c.printTitle}
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{t('printSettlementReceipt')}</span>
@@ -114,7 +140,7 @@ export function PaymentHistoryModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -126,8 +152,8 @@ export function PaymentHistoryModal({
           <h1 className="text-xl font-black">{t('appName')}</h1>
           <h2 className="text-sm font-bold text-slate-700 mt-1">{t('receiptTitle')}</h2>
           <div className="flex justify-between items-center text-xs text-slate-600 mt-3 px-4 font-mono">
-            <span>{t('workerName')}: <strong>{worker.name}</strong> ({worker.role})</span>
-            <span>{t('monthSelector')}: <strong>{month || t('allTime')}</strong></span>
+            <span>{t('workerName')}: <strong>{worker.name}</strong> ({worker.role || c.defaultRole})</span>
+            <span>{t('monthSelector')}: <strong>{month || c.allTime}</strong></span>
             <span>{t('reportGeneratedAt')}: <strong>{new Date().toISOString().split('T')[0]}</strong></span>
           </div>
         </div>
@@ -233,7 +259,7 @@ export function PaymentHistoryModal({
                         {p.status === 'approved' || p.approval_status === 'approved' ? (
                           <span 
                             className="inline-flex items-center gap-1 p-1 text-emerald-600 dark:text-emerald-400"
-                            title={language === 'fa' ? `سند رسمی تایید نهایی شده (توسط: ${p.approvedBy || 'مدیر'}) - غیرقابل حذف` : 'پەسەندکراو'}
+                            title={c.approvedDocTooltip(p.approvedBy || c.manager)}
                           >
                             <Lock className="w-3.5 h-3.5" />
                           </span>

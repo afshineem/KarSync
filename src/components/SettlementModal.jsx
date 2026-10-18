@@ -53,6 +53,534 @@ import { useAccounting } from '../hooks/useAccounting';
 import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 import { calculateWorkerFinancials, getReceiptPeriodEnd } from '../utils/settlementCalculations';
 
+const COPY = {
+  fa: {
+    groupNameDefault: 'گروه',
+    supNameDefault: 'سرپرست',
+    groupSettlementNotes: (groupName, supName, count) => `تسویه حساب گروه ${groupName} با سرپرست (${supName}) - شامل ${count} نفر`,
+    individualSettlementNotes: (daysCount) => `تسویه حساب کارکرد (${daysCount} روز کارکرد دوره)`,
+    validAmountError: 'لطفاً مبلغ معتبری وارد کنید.',
+    selectSupervisorError: 'لطفاً سرپرست گروه را جهت دریافت و تسویه مشخص کنید.',
+    selectedAccountDefault: 'حساب انتخابی',
+    cashAccountDefault: 'صندوق/بانک',
+    overdraftBlockedPolicyError: (accName) => `موجودی حساب انتخابی (${accName}) برای پرداخت این تسویه‌حساب کافی نیست و بر اساس سیاست تعیین شده، برداشت بیش از موجودی غیرمجاز است.`,
+    targetWorkerNotSpecifiedError: 'نیروی هدف جهت تسویه حساب مشخص نیست.',
+    noCustomRecordSelectedError: 'هیچ رکوردی برای تسویه سفارشی انتخاب نشده است.',
+    customSettlementAuditDesc: (name) => `ثبت تسویه حساب / مساعده سفارشی برای ${name}`,
+    systemUser: 'کاربر سیستم',
+    groupSettlementAuditDesc: (count, groupName) => `ثبت تسویه حساب گروهی برای ${count} نفر (گروه ${groupName})`,
+    individualSettlementAuditDesc: (name) => `ثبت تسویه حساب / مساعده برای ${name}`,
+    groupPrefix: 'گروه ',
+    negativeBalanceWarningToast: (accName, formattedNeg) => `تسویه حساب ثبت شد. توجه: موجودی حساب «${accName}» به منفی ${formattedNeg} رسید.`,
+    errorSavingSettlement: 'خطا در ثبت تسویه حساب',
+    groupSettlementModalTitle: 'تسویه حساب گروهی با سرپرست',
+    individualSettlementModalTitle: 'تسویه حساب و پرداخت',
+    autoSettlementTab: 'تسویه اتوماتیک',
+    customSettlementTab: 'تسویه با جزئیات',
+    workGroup: 'گروه کاری',
+    supervisor: 'سرپرست:',
+    undefinedSupervisor: 'تعریف‌نشده',
+    allOpenArrears: 'مانده کل مطالبات باز',
+    selectWorkerForSettlement: 'انتخاب پرسنل جهت تسویه حساب',
+    changeWorkerTooltip: 'انتخاب پرسنل دیگر',
+    changeWorkerBtn: 'تغییر پرسنل',
+    closeTooltip: 'بستن (ESC)',
+    quickAutoTooltip: 'تسویه اتوماتیک و سریع',
+    quickSettlement: 'تسویه سریع',
+    customDetailedTooltip: 'تسویه با جزئیات و سفارشی',
+    detailedSettlement: 'تسویه با جزئیات',
+    individualTooltip: 'تسویه انفرادی پرسنل',
+    individualLabel: 'فردی',
+    groupTooltip: 'تسویه گروهی با سرپرست',
+    groupLabel: 'گروهی',
+    selectWorkerScreenTitle: 'انتخاب پرسنل برای تسویه حساب',
+    selectWorkerScreenSubtitle: '{c.selectWorkerScreenSubtitle}',
+    activeWorkersCount: (count) => `${count} نفر فعال`,
+    withArrearsTab: 'دارای معوقه',
+    allWorkersTab: 'همه پرسنل',
+    settledTab: 'تسویه شده',
+    searchWorkersPlaceholder: 'جستجوی نام پرسنل، سمت، شماره تماس...',
+    defaultInitialChar: 'ک',
+    defaultWorkerRole: 'کارگر',
+    hasDueBadge: 'دارای معوقه',
+    settledBadge: 'تسویه شده',
+    totalDueForSettlementLabel: '{c.totalDueForSettlementLabel}',
+    noWorkersWithArrears: 'هیچ پرسنلی دارای معوقه باز نیست',
+    noWorkersFound: 'پرسنلی با این مشخصات یافت نشد',
+    allSettledDesc: 'تمامی حساب‌های پرسنل تسویه شده‌اند و مانده بدهی بازی وجود ندارد.',
+    changeSearchDesc: 'لطفاً عبارت جستجو یا فیلتر وضعیت را تغییر دهید.',
+    viewAllWorkersBtn: '{c.viewAllWorkersBtn}',
+    selectWorkerCustomTitle: 'انتخاب پرسنل جهت تسویه سفارشی:',
+    customDateFilterTitle: 'فیلتر بازه زمانی دلخواه:',
+    clearRangeBtn: 'پاک کردن بازه',
+    fromDateLabel: '{c.fromDateLabel}',
+    toDateLabel: '{c.toDateLabel}',
+    rangeShortcutsLabel: '{c.rangeShortcutsLabel}',
+    entirePrevMonth: '{c.entirePrevMonth}',
+    currentMonth: '{c.currentMonth}',
+    first15Days: '{c.first15Days}',
+    second15Days: '{c.second15Days}',
+    financialComponentType: '{c.financialComponentType}',
+    allItems: '{c.allItems}',
+    onlyDaily: '{c.onlyDaily}',
+    onlyOvertime: '{c.onlyOvertime}',
+    filterByProjectSection: '{c.filterByProjectSection}',
+    allWorkshopSections: 'همه بخش‌های کارگاه',
+    deductOpenAdvancesLabel: (amount, symbol) => `کسر مساعده‌های باز پرسنل (${amount} ${symbol})`,
+    deductAdvancesActiveTip: 'مساعده‌های باز به نسبت این تسویه کسر خواهند شد.',
+    deductAdvancesInactiveTip: 'با غیرفعال کردن، کل کارکرد بدون کسر مساعده پرداخت می‌شود.',
+    deselectAllDays: 'لغو {c.selectAll}',
+    selectAllDays: 'انتخاب {c.allDays}',
+    daysSelectedSummary: (sel, total) => `(${sel} از ${total} روز انتخاب شده)`,
+    selectAll: 'انتخاب همه',
+    deselectAll: '{c.deselectAll}',
+    noRecordsMatchFilters: '{c.noRecordsMatchFilters}',
+    halfDay: 'نیم‌روز',
+    hourly: 'ساعتی',
+    fullDay: 'کامل',
+    overtimePrefix: 'اضافه کاری: +',
+    financialBalanceSelectedItems: (days) => `تراز مالی اقلام منتخب (${days} روز کاری):`,
+    grossTotalLabel: 'جمع ناخالص:',
+    advancesDeductedInSettlement: '(-) مساعده‌های کسرشده در این تسویه:',
+    netPayableCustomSettlement: '{c.netPayableCustomSettlement}',
+    amountAutoConfiguredNotice: '{c.amountAutoConfiguredNotice}',
+    periodCutoffLabel: 'پایان دوره کارکرد جهت تسویه (تا تاریخ):',
+    daysInSelectedPeriod: (count) => `${count} روز کاری در دوره انتخابی`,
+    upToPrevMonthEnd: (date) => `تا پایان ماه قبل (${date})`,
+    upToToday: '{c.upToToday}',
+    allDays: 'همه روزها',
+    selectWorkGroup: '{c.selectWorkGroup}',
+    supervisorRecipientLabel: 'سرپرست {c.recipientBadge} وجه:',
+    masterSupervisorTag: '(استادکار / سرپرست)',
+    groupMembersCountLabel: 'تعداد افراد گروه:',
+    membersCount: (count) => `${count} نفر`,
+    totalGrossWorkAllMembers: '{c.totalGrossWorkAllMembers}',
+    minusTotalAdvancesMembers: '(-) مجموع مساعده‌های اعضای گروه:',
+    totalNetPayableToSupervisor: '{c.totalNetPayableToSupervisor}',
+    workBreakdownEachMember: '{c.workBreakdownEachMember}',
+    afterSubmitAllSettledNote: '{c.afterSubmitAllSettledNote}',
+    noWorkersInGroup: '{c.noWorkersInGroup}',
+    masterSupervisorTitle: 'استادکار / سرپرست',
+    recipientBadge: 'دریافت‌کننده',
+    dayUnit: 'روز',
+    advanceLabel: 'مساعده:',
+    workersWithArrearsLabel: 'پرسنل دارای معوقه / مانده:',
+    debtorSuffix: '(بدهکار)',
+    creditorSuffix: '(بستانکار)',
+    totalPeriodGross: '{c.totalPeriodGross}',
+    workDaysUnit: 'روز کاری',
+    openAdvancesDeducted: '{c.openAdvancesDeducted}',
+    currentAdvancesCountUnit: 'فقره مساعده جاری',
+    finalBalanceDue: '{c.finalBalanceDue}',
+    claimsUpToDate: (date) => `مجموع مطالبات تا تاریخ ${date}`,
+    claimsUpToToday: 'مجموع مطالبات تا تاریخ امروز',
+    paymentStrategyTitle: 'استراتژی پرداخت در تسویه خودکار:',
+    state1FullTitle: '{c.state1FullTitle}',
+    state1FullDesc: '{c.state1FullDesc}',
+    state2PartialTitle: '{c.state2PartialTitle}',
+    state2PartialDesc: '{c.state2PartialDesc}',
+    amountShortcutsLabel: '{c.amountShortcutsLabel}',
+    settleFull100: '{c.settleFull100}',
+    fiftyPercentClaim: '{c.fiftyPercentClaim}',
+    roundTo50K: '{c.roundTo50K}',
+    fullSettlementNotice: '{c.fullSettlementNotice}',
+    allDaysClosedNotice: '{c.allDaysClosedNotice}',
+    balanceAfterPaymentLabel: 'مانده طلب پرسنل پس از این پرداخت:',
+    formulaExplainer: (target, paid) => `فرمول محاسبه: مانده کل (${target}) - پرداختی (${paid}) = مانده معوقه جدید`,
+    enterAmountPrompt: 'مبلغ مورد نظر برای پرداخت را در فرم زیر وارد کنید تا مانده جدید محاسبه گردد.',
+    unsettledDaysBreakdownTitle: (count) => `ریز روزهای کارکرد تسویه‌نشده (${count} روز)`,
+    fifoTag: '{c.fifoTag}',
+    hideList: 'بستن لیست',
+    viewList: 'مشاهده لیست',
+    allPreviousDaysSettled: '{c.allPreviousDaysSettled}',
+    coveredStatus: 'پوشش داده شده',
+    openArrearsStatus: 'معوقه باز',
+    finalPaymentToSupervisorLabel: 'مبلغ نهایی پرداختی به سرپرست',
+    paymentCustomSettlementLabel: 'مبلغ پرداختی این تسویه سفارشی',
+    resetToTotalAmount: (amount) => `بازنشانی به کل مبلغ (${amount})`,
+    settlementPaymentAccount: 'حساب یا صندوق پرداختی تسویه:',
+    defaultPrefix: 'پیش‌فرض: ',
+    bankCardPrefix: '💳 کارت بانکی: ',
+    cashDeskPrefix: '🪙 صندوق نقدی: ',
+    balancePrefix: 'موجودی: ',
+    defaultStar: '⭐ [پیش‌فرض]',
+    workshopCashDesk: '{c.workshopCashDesk}',
+    overdraftDeficitBlocked: 'کسری موجودی - ثبت غیرمجاز',
+    overdraftDeficitAllowed: 'هشدار کسری موجودی (مجاز در تنظیمات سیستم)',
+    overdraftDeficitPrompt: 'هشدار کسری موجودی حساب',
+    overdraftBlockedDesc: (bal, short) => `موجودی حساب انتخابی (${bal}) کافی نیست (کسری: ${short}). بر اساس تنظیمات سیستم، ثبت با موجودی منفی «غیرمجاز» است.`,
+    overdraftAllowedDesc: (bal, short) => `مبلغ تسویه از موجودی فعلی حساب (${bal}) بیشتر است (کسری: ${short}). با توجه به تنظیم بودن بر روی «همیشه مجاز»، این تراکنش با مانده منفی ثبت خواهد شد.`,
+    overdraftPromptDesc: (bal, short) => `مبلغ تسویه از موجودی حساب (${bal}) بیشتر است (کسری: ${short}). هنگام کلیک بر روی ثبت، پنجره تأیید کسر موجودی نمایش داده می‌شود.`,
+    referencePlaceholder: 'شماره چک، رسید بانکی یا سند تسویه',
+    closeSelectedDaysOnly: (days) => `بستن و علامت‌گذاری قطعی فقط برای ${days} روز انتخاب‌شده (سایر روزها باز می‌مانند)`,
+    closeCoveredDaysOnly: 'بستن کارکردهای پوشش‌داده‌شده با این مبلغ (مانده کارکردها به عنوان معوقه ثبت خواهند شد)',
+    settleAllGroupMembers: (count) => `تسویه قطعی و بستن کارکرد باز تمام ${count} نفر اعضای گروه`,
+    closeCoveredDaysWithRemainder: (rem, sym) => `بستن روزهای پوشش‌داده‌شده با این مبلغ (مانده ${rem} ${sym} به عنوان معوقه باقی می‌ماند)`,
+    paidAmountLabel: '{c.paidAmountLabel}',
+    zeroAmount: '۰',
+    arrearsBalanceLabel: 'مانده معوقه:',
+    workerPrefix: 'پرسنل: ',
+    supervisorPrefix: 'سرپرست: ',
+    undefinedSupervisorShort: 'تعریف‌نشده',
+    cancelEsc: '{c.cancelEsc}',
+    submitting: 'در حال ثبت...',
+    insufficientFundsBlockedBtn: 'کسری موجودی (غیرمجاز)',
+    submitGroupSettlementBtn: (count) => `ثبت تسویه گروهی با سرپرست (${count} نفر)`,
+    submitDetailedSettlementBtn: (days) => `ثبت تسویه با جزئیات (${days} روز)`,
+    inSelectedPeriodSuffix: 'در دوره انتخابی'
+  },
+  ku: {
+    groupNameDefault: 'گرووپ',
+    supNameDefault: 'سەرپەرشتیار',
+    groupSettlementNotes: (groupName, supName, count) => `پاکتاوی حیسابی گرووپی ${groupName} لەگەڵ سەرپەرشتیار (${supName}) - بە بەشداری ${count} کەس`,
+    individualSettlementNotes: (daysCount) => `تەسویەی حیساب (${daysCount} ڕۆژی کارکرد)`,
+    validAmountError: 'تکایە بڕێکی دروست بنووسە.',
+    selectSupervisorError: 'تکایە سەرپەرشتیاری گرووپ بۆ وەرگرتن و پاکتاو دیاری بکە.',
+    selectedAccountDefault: 'حیسابی هەڵبژێردراو',
+    cashAccountDefault: 'سندوق/بانک',
+    overdraftBlockedPolicyError: (accName) => `باڵانسی حیسابی هەڵبژێردراو (${accName}) بەش ناکات بۆ ئەم پاکتاوە و بەپێی سیاسەتی کارگە، کەمیی باڵانس قەدەغەیە.`,
+    targetWorkerNotSpecifiedError: 'کرێکاری مەبەست بۆ پاکتاوی حیساب دیاری نەکراوە.',
+    noCustomRecordSelectedError: 'هیچ تۆمارێک بۆ پاکتاوی تایبەت هەڵنەبژێردراوە.',
+    customSettlementAuditDesc: (name) => `تۆمارکردنی پاکتاوی حیساب / پێشەکی تایبەت بۆ ${name}`,
+    systemUser: 'بەکارهێنەری سیستەم',
+    groupSettlementAuditDesc: (count, groupName) => `تۆمارکردنی پاکتاوی گرووپی بۆ ${count} کەس (گرووپی ${groupName})`,
+    individualSettlementAuditDesc: (name) => `تۆمارکردنی پاکتاوی حیساب / پێشەکی بۆ ${name}`,
+    groupPrefix: 'گرووپی ',
+    negativeBalanceWarningToast: (accName, formattedNeg) => `پاکتاو تۆمارکرا. ئاگاداری: باڵانسی حیسابی «${accName}» بوو بە نێگەتیڤ ${formattedNeg}.`,
+    errorSavingSettlement: 'هەڵە لە تۆمارکردنی پاکتاوی حیساب',
+    groupSettlementModalTitle: 'پاکتاوی حیسابی گرووپی لەگەڵ سەرپەرشتیار',
+    individualSettlementModalTitle: 'پاکتاوی حیساب و پارەدان',
+    autoSettlementTab: 'پاکتاوی خۆکار',
+    customSettlementTab: 'پاکتاو بە وردەکاری',
+    workGroup: 'گرووپی کار',
+    supervisor: 'سەرپەرشتیار:',
+    undefinedSupervisor: 'دیارینەکراو',
+    allOpenArrears: 'کۆی گشتی داواکارییە کراوەکان',
+    selectWorkerForSettlement: 'هەڵبژاردنی کرێکار بۆ پاکتاوی حیساب',
+    changeWorkerTooltip: 'هەڵبژاردنی کرێکارێکی تر',
+    changeWorkerBtn: 'گۆڕینی کرێکار',
+    closeTooltip: 'داخستن (ESC)',
+    quickAutoTooltip: 'پاکتاوی خۆکار و خێرا',
+    quickSettlement: 'پاکتاوی خێرا',
+    customDetailedTooltip: 'پاکتاو بە وردەکاری و تایبەت',
+    detailedSettlement: 'پاکتاو بە وردەکاری',
+    individualTooltip: 'پاکتاوی تاکەکەسی کرێکار',
+    individualLabel: 'تاکەکەسی',
+    groupTooltip: 'پاکتاوی گرووپی لەگەڵ سەرپەرشتیار',
+    groupLabel: 'گرووپی',
+    selectWorkerScreenTitle: 'هەڵبژاردنی کرێکار بۆ پاکتاوی حیساب',
+    selectWorkerScreenSubtitle: 'کرێکاری مەبەست هەڵبژێرە بۆ بارکردنی باڵانس و وردەکارییەکانی پاکتاو:',
+    activeWorkersCount: (count) => `${count} کەسی چالاک`,
+    withArrearsTab: 'خاوەن ماوە',
+    allWorkersTab: 'هەموو کرێکاران',
+    settledTab: 'پاکتاوکراو',
+    searchWorkersPlaceholder: 'گەڕان بەدوای ناوی کرێکار، پلە، ژمارەی پەیوەندی...',
+    defaultInitialChar: 'ک',
+    defaultWorkerRole: 'کرێکار',
+    hasDueBadge: 'خاوەن ماوە',
+    settledBadge: 'پاکتاوکراو',
+    totalDueForSettlementLabel: 'کۆی گشتی باڵانس بۆ پاکتاو:',
+    noWorkersWithArrears: 'هیچ کرێکارێک باڵانسی کراوەی نییە',
+    noWorkersFound: 'هیچ کرێکارێک بەم زانیارییانە نەدۆزرایەوە',
+    allSettledDesc: 'هەموو حیساباتی کرێکاران پاکتاو کراون و قەرزی کراوە نییە.',
+    changeSearchDesc: 'تکایە دەستەواژەی گەڕان یان فلتەری دۆخەکە بگۆڕە.',
+    viewAllWorkersBtn: 'بینینی هەموو کرێکاران',
+    selectWorkerCustomTitle: 'هەڵبژاردنی کرێکار بۆ پاکتاوی تایبەت:',
+    customDateFilterTitle: 'فلتەری مەودای کاتی دڵخواز:',
+    clearRangeBtn: 'سڕینەوەی مەودا',
+    fromDateLabel: 'لە بەرواری (دەستپێکی مەودا):',
+    toDateLabel: 'تا بەرواری (کۆتایی مەودا):',
+    rangeShortcutsLabel: 'کورتەبڕەکانی مەودا:',
+    entirePrevMonth: 'تەواوی مانگی پێشوو',
+    currentMonth: 'مانگی ئێستا',
+    first15Days: '١٥ ڕۆژی یەکەمی مانگ',
+    second15Days: '١٥ ڕۆژی دووەمی مانگ',
+    financialComponentType: 'جۆری بڕگەی دارایی بۆ پاکتاو:',
+    allItems: 'هەموو بڕگەکان',
+    onlyDaily: 'تەنها ڕۆژانە',
+    onlyOvertime: 'تەنها کاتی زیادە',
+    filterByProjectSection: 'فلتەرکردن بەپێی بەشی پڕۆژە:',
+    allWorkshopSections: 'هەموو بەشەکانی کارگە',
+    deductOpenAdvancesLabel: (amount, symbol) => `داشکاندنی پێشەکییە کراوەکانی کرێکار (${amount} ${symbol})`,
+    deductAdvancesActiveTip: 'پێشەکییە کراوەکان بەپێی ئەم پاکتاوە دادەشکێنرێن.',
+    deductAdvancesInactiveTip: 'بە ناچالاککردن، تەواوی کارکرد بێ داشکاندنی پێشەکی دەدرێت.',
+    deselectAllDays: 'پوچەڵکردنەوەی هەڵبژاردنی هەموو',
+    selectAllDays: 'هەڵبژاردنی هەموو ڕۆژەکان',
+    daysSelectedSummary: (sel, total) => `(${sel} لە ${total} ڕۆژ هەڵبژێردراوە)`,
+    selectAll: 'هەڵبژاردنی هەموو',
+    deselectAll: 'لابردنی هەموو',
+    noRecordsMatchFilters: 'هیچ تۆمارێک هاوتای فلتەرە دیاریکراوەکان نەدۆزرایەوە.',
+    halfDay: 'نیوەڕۆژ',
+    hourly: 'کاتژمێری',
+    fullDay: 'تەواو',
+    overtimePrefix: 'کاتی زیادە: +',
+    financialBalanceSelectedItems: (days) => `باڵانسی دارایی بڕگە هەڵبژێردراوەکان (${days} ڕۆژی کار):`,
+    grossTotalLabel: 'کۆی گشتی ناخاڵس:',
+    advancesDeductedInSettlement: '(-) پێشەکییە داشکێنراوەکان لەم پاکتاوەدا:',
+    netPayableCustomSettlement: 'بڕی خاڵسی شایستەی پارەدان بۆ ئەم پاکتاوە تایبەتە:',
+    amountAutoConfiguredNotice: 'ئەم بڕە بە شێوەیەکی خۆکار لە خانەی پارەدانی خوارەوە ڕێکخراوە.',
+    periodCutoffLabel: 'پایانی ماوەی کارکرد بۆ پاکتاو (تا بەرواری):',
+    daysInSelectedPeriod: (count) => `${count} ڕۆژی کار لە ماوەی هەڵبژێردراو`,
+    upToPrevMonthEnd: (date) => `تا کۆتایی مانگی پێشوو (${date})`,
+    upToToday: 'تا ئەمڕۆ',
+    allDays: 'هەموو ڕۆژەکان',
+    selectWorkGroup: 'هەڵبژاردنی گرووپی کار:',
+    supervisorRecipientLabel: 'سەرپەرشتیاری وەرگری پارە:',
+    masterSupervisorTag: '(وەستا / سەرپەرشتیار)',
+    groupMembersCountLabel: 'ژمارەی ئەندامانی گرووپ:',
+    membersCount: (count) => `${count} کەس`,
+    totalGrossWorkAllMembers: 'کۆی گشتی ناخاڵسی کارکردی هەموو ئەندامان:',
+    minusTotalAdvancesMembers: '(-) کۆی گشتی پێشەکی ئەندامانی گرووپ:',
+    totalNetPayableToSupervisor: 'کۆی گشتی کارکردی خاڵسی شایستەی پارەدان بە سەرپەرشتیار:',
+    workBreakdownEachMember: 'وردەکاری کارکرد و پشکی هەر یەک لە ئەندامانی گرووپ:',
+    afterSubmitAllSettledNote: '(پاش تۆمارکردن، هەموویان پاکتاو دەکرێن)',
+    noWorkersInGroup: 'هیچ کەسێک لەم گرووپەدا نەدۆزرایەوە.',
+    masterSupervisorTitle: 'وەستا / سەرپەرشتیار',
+    recipientBadge: 'وەرگر',
+    dayUnit: 'ڕۆژ',
+    advanceLabel: 'پێشەکی:',
+    workersWithArrearsLabel: 'کرێکارانی خاوەن ماوە / باڵانس:',
+    debtorSuffix: '(قەرزدار)',
+    creditorSuffix: '(شایستەی پارە)',
+    totalPeriodGross: 'کۆی گشتی کارکردی ناخاڵسی ماوە',
+    workDaysUnit: 'ڕۆژی کار',
+    openAdvancesDeducted: 'پێشەکییە کراوە داشکێنراوەکان',
+    currentAdvancesCountUnit: 'پێشەکییە بەردەوامەکان',
+    finalBalanceDue: 'باڵانسی کۆتایی وادە (داواکاری خاڵس)',
+    claimsUpToDate: (date) => `کۆی گشتی داواکارییەکان تا بەرواری ${date}`,
+    claimsUpToToday: 'کۆی گشتی داواکارییەکان تا بەرواری ئەمڕۆ',
+    paymentStrategyTitle: 'شێوازی پارەدان لە پاکتاوی خۆکاردا:',
+    state1FullTitle: 'دۆخی ١: پاکتاوی تەواوی داواکاری (١٠٠٪)',
+    state1FullDesc: 'پاکتاوکردنی تەواوی ڕۆژە کراوەکان و گەیاندنی باڵانسی کرێکار بۆ ٠',
+    state2PartialTitle: 'دۆخی ٢: پێدانی بڕی دڵخواز (پاکتاوی بەشەکی)',
+    state2PartialDesc: 'نووسینی بڕی دڵخواز، داپۆشینی ترتیبی ڕۆژەکان (FIFO) و مانەوەی ئەوی تر وەک قەرز',
+    amountShortcutsLabel: 'کورتەبڕە خێراکانی بڕ:',
+    settleFull100: 'پاکتاوی تەواو (١٠٠٪)',
+    fiftyPercentClaim: '٥٠٪ی بڕی داواکراو',
+    roundTo50K: 'ڕەوندکردن بۆ ٥٠ هەزار',
+    fullSettlementNotice: 'پاکتاوی تەواو: باڵانسی داواکاری کرێکار پاش ئەم تۆمارە دەبێتە سفر (٠).',
+    allDaysClosedNotice: 'تەواوی ڕۆژە کراوەکانی کارکرد پاکتاو و دادەخرێن.',
+    balanceAfterPaymentLabel: 'باڵانسی داواکاری کرێکار پاش ئەم پارەدانە:',
+    formulaExplainer: (target, paid) => `فۆرمولەی هەژمارکردن: باڵانسی گشتی (${target}) - پارەدراو (${paid}) = باڵانسی نوێی قەرز`,
+    enterAmountPrompt: 'بڕی دڵخواز بۆ پارەدان لە خوارەوە بنووسە تا باڵانسی نوێ هەژمار بکرێت.',
+    unsettledDaysBreakdownTitle: (count) => `وردەکاری ڕۆژە پاکتاونەکراوەکان (${count} ڕۆژ)`,
+    fifoTag: 'پاکتاوی ترتیبی (FIFO)',
+    hideList: 'داخستنی لیست',
+    viewList: 'بینینی لیست',
+    allPreviousDaysSettled: 'تەواوی ڕۆژەکانی کارکردی پێشوو پاکتاو کراون و ڕۆژی پاکتاونەکراو نییە.',
+    coveredStatus: 'داپۆشراو',
+    openArrearsStatus: 'ماوەی کراوە',
+    finalPaymentToSupervisorLabel: 'بڕی کۆتایی شایستەی پارەدان بە سەرپەرشتیار',
+    paymentCustomSettlementLabel: 'بڕی پارەدانی ئەم پاکتاوە تایبەتە',
+    resetToTotalAmount: (amount) => `گێڕانەوە بۆ تەواوی بڕ (${amount})`,
+    settlementPaymentAccount: 'حیساب یان سندوقی پارەدانی پاکتاو:',
+    defaultPrefix: 'بنەڕەتی: ',
+    bankCardPrefix: '💳 کارتی بانکی: ',
+    cashDeskPrefix: '🪙 سندوقی نەختینە: ',
+    balancePrefix: 'باڵانس: ',
+    defaultStar: '⭐ [بنەڕەتی]',
+    workshopCashDesk: 'سندوقی نەختی کارگە',
+    overdraftDeficitBlocked: 'کەمیی باڵانس - تۆمارکردن قەدەغەیە',
+    overdraftDeficitAllowed: 'ئاگاداری کەمی باڵانس (ڕێگەپێدراوە لە ڕێکخستنەکان)',
+    overdraftDeficitPrompt: 'ئاگاداری کەمیی باڵانسی حیساب',
+    overdraftBlockedDesc: (bal, short) => `باڵانسی حیسابی هەڵبژێردراو (${bal}) بەش ناکات (کەمی: ${short}). بەپێی ڕێکخستنەکان، تۆمارکردن بە باڵانسی نێگەتیڤ قەدەغەیە.`,
+    overdraftAllowedDesc: (bal, short) => `بڕی پاکتاو لە باڵانسی ئێستای حیساب (${bal}) زیاترە (کەمی: ${short}). بەهۆی ڕێکخستنی «هەمیشە ڕێگەپێدراو»، ئەم مامەڵەیە بە باڵانسی نێگەتیڤ تۆماردەکرێت.`,
+    overdraftPromptDesc: (bal, short) => `بڕی پاکتاو لە باڵانسی حیساب (${bal}) زیاترە (کەمی: ${short}). لە کاتی کلیک لەسەر تۆمارکردن، پەنجەرەی دڵنیابوونەوەی کەمی باڵانس نیشان دەدرێت.`,
+    referencePlaceholder: 'ژمارەی چەک، وەسڵی بانکی یان بەڵگەنامەی پاکتاو',
+    closeSelectedDaysOnly: (days) => `داخستن و دیاریکردنی یەکلاکەرەوە تەنها بۆ ${days} ڕۆژی هەڵبژێردراو (ڕۆژەکانی تر بە کراوەیی دەمێننەوە)`,
+    closeCoveredDaysOnly: 'داخستنی کارکردە داپۆشراوەکان بەم بڕە (ماوەی کارکردەکان وەک قەرز دەمێننەوە)',
+    settleAllGroupMembers: (count) => `پاکتاوی کۆتایی و داخستنی کارکردی کراوەی هەموو ${count} ئەندامانی گرووپ`,
+    closeCoveredDaysWithRemainder: (rem, sym) => `داخستنی ڕۆژە داپۆشراوەکان بەم بڕە (ماوەی ${rem} ${sym} وەک قەرز دەمێنێتەوە)`,
+    paidAmountLabel: 'بڕی پارەدراو:',
+    zeroAmount: '٠',
+    arrearsBalanceLabel: 'باڵانسی ماوە:',
+    workerPrefix: 'کرێکار: ',
+    supervisorPrefix: 'سەرپەرشتیار: ',
+    undefinedSupervisorShort: 'دیارینەکراو',
+    cancelEsc: 'پاشگەزبوونەوە (ESC)',
+    submitting: 'تۆماردەکرێت...',
+    insufficientFundsBlockedBtn: 'کەمیی باڵانس (ڕێگاپێنەدراو)',
+    submitGroupSettlementBtn: (count) => `تۆمارکردنی پاکتاوی گرووپی لەگەڵ سەرپەرشتیار (${count} کەس)`,
+    submitDetailedSettlementBtn: (days) => `تۆمارکردنی پاکتاو بە وردەکاری (${days} ڕۆژ)`,
+    inSelectedPeriodSuffix: 'لە ماوەی هەڵبژێردراو'
+  },
+  en: {
+    groupNameDefault: 'Group',
+    supNameDefault: 'Supervisor',
+    groupSettlementNotes: (groupName, supName, count) => `Group settlement for ${groupName} with supervisor (${supName}) - includes ${count} members`,
+    individualSettlementNotes: (daysCount) => `Settlement payment (${daysCount} work days)`,
+    validAmountError: 'Please enter a valid amount.',
+    selectSupervisorError: 'Please specify the group supervisor for receipt and settlement.',
+    selectedAccountDefault: 'Selected Account',
+    cashAccountDefault: 'Cash/Bank',
+    overdraftBlockedPolicyError: (accName) => `Insufficient balance in selected account (${accName}) and overdraft policy is set to blocked.`,
+    targetWorkerNotSpecifiedError: 'Target worker for settlement is not specified.',
+    noCustomRecordSelectedError: 'No record selected for custom settlement.',
+    customSettlementAuditDesc: (name) => `Recorded custom settlement / advance for ${name}`,
+    systemUser: 'System User',
+    groupSettlementAuditDesc: (count, groupName) => `Recorded group settlement for ${count} workers (Group ${groupName})`,
+    individualSettlementAuditDesc: (name) => `Recorded settlement / advance for ${name}`,
+    groupPrefix: 'Group ',
+    negativeBalanceWarningToast: (accName, formattedNeg) => `Settlement recorded. Note: Account balance for "${accName}" is now negative ${formattedNeg}.`,
+    errorSavingSettlement: 'Error saving settlement',
+    groupSettlementModalTitle: 'Group Settlement with Supervisor',
+    individualSettlementModalTitle: 'Settlement & Payment',
+    autoSettlementTab: 'Auto Settlement',
+    customSettlementTab: 'Detailed Settlement',
+    workGroup: 'Work Group',
+    supervisor: 'Supervisor:',
+    undefinedSupervisor: 'Not Defined',
+    allOpenArrears: 'Total Open Claims',
+    selectWorkerForSettlement: 'Select Worker for Settlement',
+    changeWorkerTooltip: 'Select another worker',
+    changeWorkerBtn: 'Change Worker',
+    closeTooltip: 'Close (ESC)',
+    quickAutoTooltip: 'Quick & Auto Settlement',
+    quickSettlement: 'Quick Settlement',
+    customDetailedTooltip: 'Detailed & Custom Settlement',
+    detailedSettlement: 'Detailed Settlement',
+    individualTooltip: 'Individual Worker Settlement',
+    individualLabel: 'Individual',
+    groupTooltip: 'Group Settlement with Supervisor',
+    groupLabel: 'Group',
+    selectWorkerScreenTitle: 'Select Worker for Settlement',
+    selectWorkerScreenSubtitle: 'Select a worker to load their balance and settlement details:',
+    activeWorkersCount: (count) => `${count} Active Workers`,
+    withArrearsTab: 'With Arrears',
+    allWorkersTab: 'All Workers',
+    settledTab: 'Settled',
+    searchWorkersPlaceholder: 'Search worker name, role, phone...',
+    defaultInitialChar: 'W',
+    defaultWorkerRole: 'Worker',
+    hasDueBadge: 'With Arrears',
+    settledBadge: 'Settled',
+    totalDueForSettlementLabel: 'Total Balance Due for Settlement:',
+    noWorkersWithArrears: 'No workers have outstanding arrears',
+    noWorkersFound: 'No workers found matching criteria',
+    allSettledDesc: 'All worker accounts are settled with zero outstanding balance.',
+    changeSearchDesc: 'Please change the search query or status filter.',
+    viewAllWorkersBtn: 'View All Workers',
+    selectWorkerCustomTitle: 'Select worker for custom settlement:',
+    customDateFilterTitle: 'Custom Date Range Filter:',
+    clearRangeBtn: 'Clear Range',
+    fromDateLabel: 'From Date (Start):',
+    toDateLabel: 'To Date (End):',
+    rangeShortcutsLabel: 'Range Shortcuts:',
+    entirePrevMonth: 'Entire Last Month',
+    currentMonth: 'Current Month',
+    first15Days: 'First 15 Days of Month',
+    second15Days: 'Second 15 Days of Month',
+    financialComponentType: 'Financial Component for Settlement:',
+    allItems: 'All Items',
+    onlyDaily: 'Daily Wage Only',
+    onlyOvertime: 'Overtime Only',
+    filterByProjectSection: 'Filter by Project Section:',
+    allWorkshopSections: 'All Workshop Sections',
+    deductOpenAdvancesLabel: (amount, symbol) => `Deduct worker open advances (${amount} ${symbol})`,
+    deductAdvancesActiveTip: 'Open advances will be deducted proportionally from this settlement.',
+    deductAdvancesInactiveTip: 'When disabled, full wages are paid without advance deduction.',
+    deselectAllDays: 'Deselect All',
+    selectAllDays: 'Select All Days',
+    daysSelectedSummary: (sel, total) => `(${sel} of ${total} days selected)`,
+    selectAll: 'Select All',
+    deselectAll: 'Deselect All',
+    noRecordsMatchFilters: 'No records matched the selected filters.',
+    halfDay: 'Half Day',
+    hourly: 'Hourly',
+    fullDay: 'Full Day',
+    overtimePrefix: 'Overtime: +',
+    financialBalanceSelectedItems: (days) => `Financial balance of selected items (${days} work days):`,
+    grossTotalLabel: 'Gross Total:',
+    advancesDeductedInSettlement: '(-) Advances deducted in this settlement:',
+    netPayableCustomSettlement: 'Net payable for this custom settlement:',
+    amountAutoConfiguredNotice: 'This amount is automatically configured in the payment field below.',
+    periodCutoffLabel: 'Work period end for settlement (Up to date):',
+    daysInSelectedPeriod: (count) => `${count} work days in selected period`,
+    upToPrevMonthEnd: (date) => `Up to last month end (${date})`,
+    upToToday: 'Up to Today',
+    allDays: 'All Days',
+    selectWorkGroup: 'Select Work Group:',
+    supervisorRecipientLabel: 'Supervisor Recipient:',
+    masterSupervisorTag: '(Master / Supervisor)',
+    groupMembersCountLabel: 'Group Members Count:',
+    membersCount: (count) => `${count} members`,
+    totalGrossWorkAllMembers: 'Total Gross Wages of All Members:',
+    minusTotalAdvancesMembers: '(-) Total Advances of Group Members:',
+    totalNetPayableToSupervisor: 'Total Net Payable to Supervisor:',
+    workBreakdownEachMember: 'Work Breakdown & Share of Each Group Member:',
+    afterSubmitAllSettledNote: '(After submission, all will be settled)',
+    noWorkersInGroup: 'No workers found in this group.',
+    masterSupervisorTitle: 'Master / Supervisor',
+    recipientBadge: 'Recipient',
+    dayUnit: 'Days',
+    advanceLabel: 'Advance:',
+    workersWithArrearsLabel: 'Workers with Arrears / Balance:',
+    debtorSuffix: '(Debtor)',
+    creditorSuffix: '(Creditor)',
+    totalPeriodGross: 'Total Period Gross Wages',
+    workDaysUnit: 'Work Days',
+    openAdvancesDeducted: 'Open Advances Deducted',
+    currentAdvancesCountUnit: 'Active Advances',
+    finalBalanceDue: 'Final Balance Due (Net Claim)',
+    claimsUpToDate: (date) => `Total claims up to ${date}`,
+    claimsUpToToday: 'Total claims up to today',
+    paymentStrategyTitle: 'Payment Strategy in Auto Settlement:',
+    state1FullTitle: 'Mode 1: Full Settlement of Total Claim (100%)',
+    state1FullDesc: 'Settle all open days and reduce worker balance to 0',
+    state2PartialTitle: 'Mode 2: Pay Custom Amount (Partial Settlement)',
+    state2PartialDesc: 'Enter custom amount, FIFO sequential log coverage, remainder kept in arrears',
+    amountShortcutsLabel: 'Quick Amount Shortcuts:',
+    settleFull100: 'Full Settlement (100%)',
+    fiftyPercentClaim: '50% of Due Amount',
+    roundTo50K: 'Round to nearest 50K',
+    fullSettlementNotice: 'Full settlement: Worker due balance will become zero (0) after this payment.',
+    allDaysClosedNotice: 'All open work days will be settled and closed.',
+    balanceAfterPaymentLabel: 'Worker balance due after this payment:',
+    formulaExplainer: (target, paid) => `Formula: Total Due (${target}) - Paid (${paid}) = New Arrears Balance`,
+    enterAmountPrompt: 'Enter desired payment amount below to calculate new balance.',
+    unsettledDaysBreakdownTitle: (count) => `Breakdown of unsettled work days (${count} days)`,
+    fifoTag: 'Sequential Settlement (FIFO)',
+    hideList: 'Hide List',
+    viewList: 'View List',
+    allPreviousDaysSettled: 'All previous work days have been settled; no unsettled days exist.',
+    coveredStatus: 'Covered',
+    openArrearsStatus: 'Open Arrears',
+    finalPaymentToSupervisorLabel: 'Final payment amount to supervisor',
+    paymentCustomSettlementLabel: 'Payment amount for this custom settlement',
+    resetToTotalAmount: (amount) => `Reset to full amount (${amount})`,
+    settlementPaymentAccount: 'Settlement Payment Account:',
+    defaultPrefix: 'Default: ',
+    bankCardPrefix: '💳 Bank Card: ',
+    cashDeskPrefix: '🪙 Cash Drawer: ',
+    balancePrefix: 'Balance: ',
+    defaultStar: '⭐ [Default]',
+    workshopCashDesk: 'Workshop Cash Drawer',
+    overdraftDeficitBlocked: 'Insufficient Balance - Transaction Blocked',
+    overdraftDeficitAllowed: 'Deficit Warning (Allowed in system settings)',
+    overdraftDeficitPrompt: 'Account Deficit Warning',
+    overdraftBlockedDesc: (bal, short) => `Account balance (${bal}) is insufficient (Shortfall: ${short}). Policy strictly prohibits negative balance.`,
+    overdraftAllowedDesc: (bal, short) => `Settlement amount exceeds current balance (${bal}) by ${short}. With "Always Allow" policy, this will be recorded with negative balance.`,
+    overdraftPromptDesc: (bal, short) => `Settlement amount exceeds balance (${bal}) by ${short}. A confirmation modal will appear upon submission.`,
+    referencePlaceholder: 'Cheque number, bank receipt or voucher',
+    closeSelectedDaysOnly: (days) => `Close and finalize only for ${days} selected days (other days remain open)`,
+    closeCoveredDaysOnly: 'Close logs covered by this amount (remainder recorded as arrears)',
+    settleAllGroupMembers: (count) => `Final settlement and closing open logs for all ${count} group members`,
+    closeCoveredDaysWithRemainder: (rem, sym) => `Close logs covered by this amount (${rem} ${sym} remains in arrears)`,
+    paidAmountLabel: 'Paid Amount:',
+    zeroAmount: '0',
+    arrearsBalanceLabel: 'Arrears Balance:',
+    workerPrefix: 'Worker: ',
+    supervisorPrefix: 'Supervisor: ',
+    undefinedSupervisorShort: 'Not Defined',
+    cancelEsc: 'Cancel (ESC)',
+    submitting: 'Saving...',
+    insufficientFundsBlockedBtn: 'Insufficient Funds (Blocked)',
+    submitGroupSettlementBtn: (count) => `Submit Group Settlement with Supervisor (${count} members)`,
+    submitDetailedSettlementBtn: (days) => `Submit Detailed Settlement (${days} days)`,
+    inSelectedPeriodSuffix: 'in selected period'
+  }
+};
+
 export function SettlementModal({ 
   isOpen, 
   onClose, 
@@ -71,6 +599,7 @@ export function SettlementModal({
   onSelectWorker
 }) {
   const { t, language, numberFormat } = useLanguage();
+  const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const { user } = useAuth();
   const { currentUser } = usePermissions();
@@ -266,7 +795,7 @@ export function SettlementModal({
     );
   }, [effectiveAllWorkers, selectedGroupId]);
 
-  // Automatically find or set the supervisor (Master/استادکار)
+  // Automatically find or set the supervisor (Master)
   useEffect(() => {
     if (groupMembers.length > 0) {
       const masterWorker = groupMembers.find((w) => w?.teamRole === 'Master');
@@ -361,7 +890,7 @@ export function SettlementModal({
     return `${py}-${String(pm).padStart(2, '0')}-${String(pday).padStart(2, '0')}`;
   }, []);
 
-  // Settlement Period Cutoff Date for Auto Mode (تا تاریخ پایان دوره کارکرد)
+  // Settlement Period Cutoff Date for Auto Mode
   const [autoCutoffDate, setAutoCutoffDate] = useState(() => {
     const today = new Date();
     // If today is early in month (day <= 7), default to end of previous month
@@ -802,15 +1331,11 @@ export function SettlementModal({
         setReferenceNumber('');
 
         if (settlementMode === 'group') {
-          const groupName = activeGroup?.name || 'گروه';
-          const supName = supervisorWorker?.name || 'سرپرست';
-          setNotes(`تسویه حساب گروه ${groupName} با سرپرست (${supName}) - شامل ${groupMembers.length} نفر`);
+          const groupName = activeGroup?.name || c.groupNameDefault;
+          const supName = supervisorWorker?.name || c.supNameDefault;
+          setNotes(c.groupSettlementNotes(groupName, supName, groupMembers.length));
         } else {
-          const defaultNote = language === 'en' 
-            ? `Payroll settlement (${activeAutoCalculations.unsettledLogs.length} unsettled days)` 
-            : language === 'ku' 
-              ? `تەسویەی حیساب (${activeAutoCalculations.unsettledLogs.length} ڕۆژی کارکرد)` 
-              : `تسویه حساب کارکرد (${activeAutoCalculations.unsettledLogs.length} روز کارکرد دوره)`;
+          const defaultNote = c.individualSettlementNotes(activeAutoCalculations.unsettledLogs.length);
           setNotes(defaultNote);
         }
 
@@ -838,7 +1363,7 @@ export function SettlementModal({
 
     const payAmount = roundCurrency(Number(normalizeDigits(finalPaymentAmount)), currency);
     if (isNaN(payAmount) || payAmount < 0) {
-      setFeedback({ type: 'error', message: t('pleaseEnterValidAmount') || 'لطفاً مبلغ معتبری وارد کنید.' });
+      setFeedback({ type: 'error', message: c.validAmountError });
       return;
     }
 
@@ -849,7 +1374,7 @@ export function SettlementModal({
     const remainingBalance = roundCurrency(Math.max(0, currentTargetPayable - payAmount), currency);
 
     if (settlementMode === 'group' && !supervisorWorker) {
-      setFeedback({ type: 'error', message: 'لطفاً سرپرست گروه را جهت دریافت و تسویه مشخص کنید.' });
+      setFeedback({ type: 'error', message: c.selectSupervisorError });
       return;
     }
 
@@ -858,7 +1383,7 @@ export function SettlementModal({
       if (!overdraftCheck.hasSufficientFunds) {
         if (overdraftCheck.effectivePolicy === 'never_allow') {
           setOverdraftPromptData({
-            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            accountName: overdraftCheck.account?.name || c.selectedAccountDefault,
             currentBalance: overdraftCheck.currentBalance,
             requestedAmount: payAmount,
             shortfall: overdraftCheck.shortfall,
@@ -866,14 +1391,12 @@ export function SettlementModal({
           });
           setFeedback({
             type: 'error',
-            message: language === 'fa'
-              ? `موجودی حساب انتخابی (${overdraftCheck.account?.name || 'صندوق/بانک'}) برای پرداخت این تسویه‌حساب کافی نیست و بر اساس سیاست تعیین شده، برداشت بیش از موجودی غیرمجاز است.`
-              : 'باڵانسی حیساب بەش ناکات و کەمبوون قەدەغەیە.'
+            message: c.overdraftBlockedPolicyError(overdraftCheck.account?.name || c.cashAccountDefault)
           });
           return;
         } else if (overdraftCheck.effectivePolicy === 'ask_each_time') {
           setOverdraftPromptData({
-            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            accountName: overdraftCheck.account?.name || c.selectedAccountDefault,
             currentBalance: overdraftCheck.currentBalance,
             requestedAmount: payAmount,
             shortfall: overdraftCheck.shortfall,
@@ -892,12 +1415,12 @@ export function SettlementModal({
       const targetWorkerObj = settlementMode === 'group' ? supervisorWorker : worker;
 
       if (!targetWorkerObj) {
-        throw new Error('نیروی هدف جهت تسویه حساب مشخص نیست.');
+        throw new Error(c.targetWorkerNotSpecifiedError);
       }
 
       if (settlementTypeTab === 'custom') {
         if (selectedCustomLogs.length === 0) {
-          setFeedback({ type: 'error', message: 'هیچ رکوردی برای تسویه سفارشی انتخاب نشده است.' });
+          setFeedback({ type: 'error', message: c.noCustomRecordSelectedError });
           setIsSubmitting(false);
           return;
         }
@@ -969,7 +1492,7 @@ export function SettlementModal({
           
           
           details: {
-            description: `ثبت تسویه حساب / مساعده سفارشی برای ${worker.name}`,
+            description: c.customSettlementAuditDesc(worker.name),
             amount: finalAmountNum,
             worker_name: worker.name
           }
@@ -1058,7 +1581,7 @@ export function SettlementModal({
         
         let finalWorkspaceId = currentUser?.workspace_id || currentUser?.workspaceId || user?.workspace_id || null;
         let finalUserId = currentUser?.id || currentUser?.userId || user?.id || null;
-        let finalUserName = currentUser?.full_name || currentUser?.name || user?.full_name || user?.name || 'کاربر سیستم';
+        let finalUserName = currentUser?.full_name || currentUser?.name || user?.full_name || user?.name || c.systemUser;
 
         if (!finalWorkspaceId || !finalUserId) {
           try {
@@ -1067,7 +1590,7 @@ export function SettlementModal({
               const sessionData = JSON.parse(sessionStr);
               finalWorkspaceId = finalWorkspaceId || sessionData.workspace_id || sessionData.workspaceId || null;
               finalUserId = finalUserId || sessionData.id || sessionData.userId || null;
-              finalUserName = finalUserName === 'کاربر سیستم' ? (sessionData.full_name || sessionData.name || 'کاربر سیستم') : finalUserName;
+              finalUserName = (finalUserName === c.systemUser) ? (sessionData.full_name || sessionData.name || c.systemUser) : finalUserName;
             }
           } catch(e) {
             console.error("Error reading session from localStorage", e);
@@ -1088,10 +1611,10 @@ export function SettlementModal({
           
           details: {
             description: settlementMode === 'group' 
-              ? `ثبت تسویه حساب گروهی برای ${groupMembers.length} نفر (گروه ${worker.groupName})`
-              : `ثبت تسویه حساب / مساعده برای ${worker.name}`,
+              ? c.groupSettlementAuditDesc(groupMembers.length, worker.groupName)
+              : c.individualSettlementAuditDesc(worker.name),
             amount: amountNum,
-            worker_name: settlementMode === 'group' ? `گروه ${worker.groupName}` : worker.name
+            worker_name: settlementMode === 'group' ? `${c.groupPrefix}${worker.groupName}` : worker.name
           }
         });
 
@@ -1202,9 +1725,7 @@ export function SettlementModal({
         const resultingNeg = Math.abs(finalCheck.currentBalance - payAmount);
         setToastMessage({
           type: 'warning',
-          text: language === 'fa'
-            ? `تسویه حساب ثبت شد. توجه: موجودی حساب «${finalCheck.account?.name || 'صندوق'}» به منفی ${formatCurrency(resultingNeg, currency, language)} رسید.`
-            : `مامەڵە تۆمارکرا. باڵانسی حیساب بووە بە نێگەتیڤ.`
+          text: c.negativeBalanceWarningToast(finalCheck.account?.name || c.cashAccountDefault, formatCurrency(resultingNeg, currency, language))
         });
         setTimeout(() => {
           if (onSettlementComplete) onSettlementComplete(settlementRecord);
@@ -1218,7 +1739,7 @@ export function SettlementModal({
       console.error('Settlement save error:', err);
       setFeedback({
         type: 'error',
-        message: err.message || 'خطا در ثبت تسویه حساب'
+        message: err.message || c.errorSavingSettlement
       });
     } finally {
       setIsSubmitting(false);
@@ -1259,23 +1780,23 @@ export function SettlementModal({
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                      {settlementMode === 'group' ? 'تسویه حساب گروهی با سرپرست' : (t('settlementModalTitle') || 'تسویه حساب و پرداخت')}
+                      {settlementMode === 'group' ? c.groupSettlementModalTitle : (t('settlementModalTitle') || c.individualSettlementModalTitle)}
                     </h3>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
                       settlementTypeTab === 'auto'
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                         : 'bg-sky-50 text-sky-700 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
                     }`}>
-                      {settlementTypeTab === 'auto' ? 'تسویه اتوماتیک' : 'تسویه با جزئیات'}
+                      {settlementTypeTab === 'auto' ? c.autoSettlementTab : c.customSettlementTab}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <p className="text-xs text-slate-400 font-medium">
                       {settlementMode === 'group' 
-                        ? `${activeGroup?.name || 'گروه کاری'} • سرپرست: ${supervisorWorker?.name || 'تعریف‌نشده'}`
+                        ? `${activeGroup?.name || c.workGroup} • ${c.supervisor} ${supervisorWorker?.name || c.undefinedSupervisor}`
                         : worker 
-                          ? `${worker.name} • مانده کل مطالبات باز`
-                          : 'انتخاب پرسنل جهت تسویه حساب'}
+                          ? `${worker.name} • ${c.allOpenArrears}`
+                          : c.selectWorkerForSettlement}
                     </p>
                     {settlementMode === 'individual' && worker && (
                       <button
@@ -1285,10 +1806,10 @@ export function SettlementModal({
                           if (onSelectWorker) onSelectWorker(null);
                         }}
                         className="px-2.5 py-0.5 rounded-xl bg-emerald-500/10 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                        title="انتخاب پرسنل دیگر"
+                        title={c.changeWorkerTooltip}
                       >
                         <ArrowLeftRight className="w-3 h-3" />
-                        <span>تغییر پرسنل</span>
+                        <span>{c.changeWorkerBtn}</span>
                       </button>
                     )}
                   </div>
@@ -1300,7 +1821,7 @@ export function SettlementModal({
                 type="button"
                 onClick={handleCloseModal}
                 className="sm:hidden p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                title="بستن (ESC)"
+                title={c.closeTooltip}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1319,10 +1840,10 @@ export function SettlementModal({
                       ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 font-black'
                       : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white font-medium'
                   }`}
-                  title="تسویه اتوماتیک و سریع"
+                  title={c.quickAutoTooltip}
                 >
                   <Zap className={`w-3.5 h-3.5 ${settlementTypeTab === 'auto' ? 'fill-white' : ''}`} />
-                  <span className="whitespace-nowrap">تسویه سریع</span>
+                  <span className="whitespace-nowrap">{c.quickSettlement}</span>
                 </button>
 
                 <button
@@ -1333,10 +1854,10 @@ export function SettlementModal({
                       ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-black'
                       : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white font-medium'
                   }`}
-                  title="تسویه با جزئیات و سفارشی"
+                  title={c.customDetailedTooltip}
                 >
                   <Sliders className="w-3.5 h-3.5" />
-                  <span className="whitespace-nowrap">تسویه با جزئیات</span>
+                  <span className="whitespace-nowrap">{c.detailedSettlement}</span>
                 </button>
               </div>
 
@@ -1351,10 +1872,10 @@ export function SettlementModal({
                         ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-black'
                         : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white font-medium'
                     }`}
-                    title="تسویه انفرادی پرسنل"
+                    title={c.individualTooltip}
                   >
                     <User className="w-3.5 h-3.5" />
-                    <span className="whitespace-nowrap">فردی</span>
+                    <span className="whitespace-nowrap">{c.individualLabel}</span>
                   </button>
 
                   <button
@@ -1365,10 +1886,10 @@ export function SettlementModal({
                         ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30 font-black'
                         : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white font-medium'
                     }`}
-                    title="تسویه گروهی با سرپرست"
+                    title={c.groupTooltip}
                   >
                     <Crown className="w-3.5 h-3.5" />
-                    <span className="whitespace-nowrap">گروهی</span>
+                    <span className="whitespace-nowrap">{c.groupLabel}</span>
                   </button>
                 </div>
               )}
@@ -1378,7 +1899,7 @@ export function SettlementModal({
                 type="button"
                 onClick={handleCloseModal}
                 className="hidden sm:flex p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
-                title="بستن (ESC)"
+                title={c.closeTooltip}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1413,14 +1934,14 @@ export function SettlementModal({
                 <div>
                   <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <User className="w-4 h-4 text-emerald-500" />
-                    <span>انتخاب پرسنل برای تسویه حساب</span>
+                    <span>{c.selectWorkerScreenTitle}</span>
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    پرسنل مورد نظر را انتخاب کنید تا مانده حساب و جزئیات تسویه بارگذاری شود:
+                    {c.selectWorkerScreenSubtitle}
                   </p>
                 </div>
                 <span className="self-start sm:self-auto px-3.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-black text-slate-600 dark:text-slate-300 font-mono border border-slate-200/60 dark:border-slate-700/60">
-                  {convertDigits(filteredActiveWorkers.length, numberFormat)} نفر فعال
+                  {c.activeWorkersCount(convertDigits(filteredActiveWorkers.length, numberFormat))}
                 </span>
               </div>
 
@@ -1436,7 +1957,7 @@ export function SettlementModal({
                   }`}
                 >
                   <AlertCircle className="w-3.5 h-3.5" />
-                  <span>دارای معوقه</span>
+                  <span>{c.withArrearsTab}</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                     workerStatusFilter === 'with_arrears' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300'
                   }`}>
@@ -1454,7 +1975,7 @@ export function SettlementModal({
                   }`}
                 >
                   <Users className="w-3.5 h-3.5" />
-                  <span>همه پرسنل</span>
+                  <span>{c.allWorkersTab}</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                     workerStatusFilter === 'all' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                   }`}>
@@ -1472,7 +1993,7 @@ export function SettlementModal({
                   }`}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>تسویه شده</span>
+                  <span>{c.settledTab}</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                     workerStatusFilter === 'settled' ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
                   }`}>
@@ -1486,7 +2007,7 @@ export function SettlementModal({
                 <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="جستجوی نام پرسنل، سمت، شماره تماس..."
+                  placeholder={c.searchWorkersPlaceholder}
                   value={workerSearchQuery}
                   onChange={(e) => setWorkerSearchQuery(e.target.value)}
                   className="w-full pr-10 pl-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
@@ -1522,14 +2043,14 @@ export function SettlementModal({
                     <div className="flex items-start justify-between gap-2 w-full">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-sm ring-1 ring-emerald-500/20 group-hover:scale-105 transition-transform shrink-0">
-                          {w.name?.charAt(0) || 'ک'}
+                          {w.name?.charAt(0) || c.defaultInitialChar}
                         </div>
                         <div className="min-w-0">
                           <div className="text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
                             {w.name}
                           </div>
                           <div className="text-[11px] text-slate-400 font-medium mt-0.5 truncate">
-                            {w.role || 'کارگر'} {w.phone ? `• ${w.phone}` : ''}
+                            {w.role || c.defaultWorkerRole} {w.phone ? `• ${w.phone}` : ''}
                           </div>
                         </div>
                       </div>
@@ -1538,13 +2059,13 @@ export function SettlementModal({
                           ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/40'
                           : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40'
                       }`}>
-                        {hasDue ? 'دارای معوقه' : 'تسویه شده'}
+                        {hasDue ? c.hasDueBadge : c.settledBadge}
                       </span>
                     </div>
 
                     {/* Financial Summary */}
                     <div className="w-full pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
-                      <span className="text-slate-400 font-medium">مانده کل طلب جهت تسویه:</span>
+                      <span className="text-slate-400 font-medium">{c.totalDueForSettlementLabel}</span>
                       <span className={`font-black font-mono text-sm ${hasDue ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {formatCurrency(fin?.netBalanceDue || 0, currency, numberFormat)}
                       </span>
@@ -1562,13 +2083,13 @@ export function SettlementModal({
                 <div>
                   <h5 className="text-xs font-black text-slate-900 dark:text-white">
                     {workerStatusFilter === 'with_arrears'
-                      ? 'هیچ پرسنلی دارای معوقه باز نیست'
-                      : 'پرسنلی با این مشخصات یافت نشد'}
+                      ? c.noWorkersWithArrears
+                      : c.noWorkersFound}
                   </h5>
                   <p className="text-[11px] text-slate-400 mt-1">
                     {workerStatusFilter === 'with_arrears'
-                      ? 'تمامی حساب‌های پرسنل تسویه شده‌اند و مانده بدهی بازی وجود ندارد.'
-                      : 'لطفاً عبارت جستجو یا فیلتر وضعیت را تغییر دهید.'}
+                      ? c.allSettledDesc
+                      : c.changeSearchDesc}
                   </p>
                 </div>
                 {workerStatusFilter === 'with_arrears' && (
@@ -1577,7 +2098,7 @@ export function SettlementModal({
                     onClick={() => setWorkerStatusFilter('all')}
                     className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-slate-200 dark:border-slate-700 transition-colors"
                   >
-                    مشاهده همه پرسنل
+                    {c.viewAllWorkersBtn}
                   </button>
                 )}
               </div>
@@ -1601,7 +2122,7 @@ export function SettlementModal({
             {settlementMode === 'individual' && allWorkers.length > 1 && (
               <div className="space-y-1">
                 <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                  {language === 'ku' ? 'هەڵبژاردنی کرێکار بۆ پاکتاو:' : 'انتخاب پرسنل جهت تسویه سفارشی:'}
+                  {c.selectWorkerCustomTitle}
                 </label>
                 <select
                   value={worker?.id || ''}
@@ -1631,7 +2152,7 @@ export function SettlementModal({
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <CalendarRange className="w-4 h-4 text-sky-500" />
-                    <span>فیلتر بازه زمانی دلخواه:</span>
+                    <span>{c.customDateFilterTitle}</span>
                   </label>
                   {(customStartDate || customEndDate) && (
                     <button
@@ -1640,7 +2161,7 @@ export function SettlementModal({
                       className="text-[10px] text-rose-600 dark:text-rose-400 font-bold hover:underline flex items-center gap-1"
                     >
                       <RotateCcw className="w-3 h-3" />
-                      <span>پاک کردن بازه</span>
+                      <span>{c.clearRangeBtn}</span>
                     </button>
                   )}
                 </div>
@@ -1648,7 +2169,7 @@ export function SettlementModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                      از تاریخ (شروع بازه):
+                      {c.fromDateLabel}
                     </label>
                     <input
                       type="date"
@@ -1660,7 +2181,7 @@ export function SettlementModal({
 
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                      تا تاریخ (پایان بازه):
+                      {c.toDateLabel}
                     </label>
                     <input
                       type="date"
@@ -1673,34 +2194,34 @@ export function SettlementModal({
 
                 {/* Quick Date Presets */}
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[10px] font-bold text-slate-400">میانبرهای بازه:</span>
+                  <span className="text-[10px] font-bold text-slate-400">{c.rangeShortcutsLabel}</span>
                   <button
                     type="button"
                     onClick={handleDatePresetPrevMonth}
                     className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/50 hover:text-sky-600 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors"
                   >
-                    کل ماه قبل
+                    {c.entirePrevMonth}
                   </button>
                   <button
                     type="button"
                     onClick={handleDatePresetCurrentMonth}
                     className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/50 hover:text-sky-600 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors"
                   >
-                    ماه جاری
+                    {c.currentMonth}
                   </button>
                   <button
                     type="button"
                     onClick={handleDatePresetFirst15}
                     className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/50 hover:text-sky-600 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors"
                   >
-                    ۱۵ روز اول ماه
+                    {c.first15Days}
                   </button>
                   <button
                     type="button"
                     onClick={handleDatePresetSecond15}
                     className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/50 hover:text-sky-600 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors"
                   >
-                    ۱۵ روز دوم ماه
+                    {c.second15Days}
                   </button>
                 </div>
               </div>
@@ -1711,7 +2232,7 @@ export function SettlementModal({
                 {/* Financial Component Mode (All vs Base Wage vs Overtime Only) */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                    نوع مؤلفه مالی جهت تسویه:
+                    {c.financialComponentType}
                   </label>
                   <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-[10px] font-bold">
                     <button
@@ -1723,7 +2244,7 @@ export function SettlementModal({
                           : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                       }`}
                     >
-                      همه آیتم‌ها
+                      {c.allItems}
                     </button>
                     <button
                       type="button"
@@ -1734,7 +2255,7 @@ export function SettlementModal({
                           : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                       }`}
                     >
-                      فقط روزمزد
+                      {c.onlyDaily}
                     </button>
                     <button
                       type="button"
@@ -1745,7 +2266,7 @@ export function SettlementModal({
                           : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                       }`}
                     >
-                      فقط اضافه کاری
+                      {c.onlyOvertime}
                     </button>
                   </div>
                 </div>
@@ -1753,14 +2274,14 @@ export function SettlementModal({
                 {/* Project Section Filter */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                    فیلتر بر اساس بخش پروژه:
+                    {c.filterByProjectSection}
                   </label>
                   <select
                     value={customSelectedSection}
                     onChange={(e) => setCustomSelectedSection(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
                   >
-                    <option value="all">همه بخش‌های کارگاه</option>
+                    <option value="all">{c.allWorkshopSections}</option>
                     {distinctSections.map((sec) => (
                       <option key={sec} value={sec}>{sec}</option>
                     ))}
@@ -1780,12 +2301,12 @@ export function SettlementModal({
                   />
                   <div className="text-xs">
                     <span className="font-bold text-slate-800 dark:text-slate-200">
-                      کسر مساعده‌های باز پرسنل ({formatAmount(individualCalculations.advancesDeducted, currency, numberFormat)} {getCurrencySymbol(currency, language)})
+                      {c.deductOpenAdvancesLabel(formatAmount(individualCalculations.advancesDeducted, currency, numberFormat), getCurrencySymbol(currency, language))}
                     </span>
                     <span className="text-[10px] text-slate-400 block">
                       {deductAdvances
-                        ? 'مساعده‌های باز به نسبت این تسویه کسر خواهند شد.'
-                        : 'با غیرفعال کردن، کل کارکرد بدون کسر مساعده پرداخت می‌شود.'}
+                        ? c.deductAdvancesActiveTip
+                        : c.deductAdvancesInactiveTip}
                     </span>
                   </div>
                 </label>
@@ -1817,12 +2338,12 @@ export function SettlementModal({
                     )}
                     <span>
                       {selectedCustomLogs.length === customFilteredLogs.length && customFilteredLogs.length > 0
-                        ? 'لغو انتخاب همه'
-                        : 'انتخاب همه روزها'}
+                        ? c.deselectAllDays
+                        : c.selectAllDays}
                     </span>
                   </button>
                   <span className="text-[11px] text-slate-400 font-medium">
-                    ({convertDigits(selectedCustomLogs.length, numberFormat)} از {convertDigits(customFilteredLogs.length, numberFormat)} روز انتخاب شده)
+                    {c.daysSelectedSummary(convertDigits(selectedCustomLogs.length, numberFormat), convertDigits(customFilteredLogs.length, numberFormat))}
                   </span>
                 </div>
 
@@ -1831,23 +2352,19 @@ export function SettlementModal({
                     type="button"
                     onClick={selectAllFilteredLogs}
                     className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 border border-slate-200 dark:border-slate-600 hover:bg-sky-50"
-                  >
-                    انتخاب همه
-                  </button>
+                  >{c.selectAll}</button>
                   <button
                     type="button"
                     onClick={deselectAllFilteredLogs}
                     className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-100"
-                  >
-                    لغو همه
-                  </button>
+                  >{c.deselectAll}</button>
                 </div>
               </div>
 
               {/* Item Rows */}
               {customFilteredLogs.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-400 font-medium">
-                  هیچ رکوردی منطبق با فیلترهای انتخابی یافت نشد.
+                  {c.noRecordsMatchFilters}
                 </div>
               ) : (
                 <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 hide-scrollbar">
@@ -1888,11 +2405,11 @@ export function SettlementModal({
                                   ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
                                   : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
                               }`}>
-                                {l.type === 'half' ? 'نیم‌روز' : l.type === 'hourly' ? 'ساعتی' : 'کامل'}
+                                {l.type === 'half' ? c.halfDay : l.type === 'hourly' ? c.hourly : c.fullDay}
                               </span>
                             </div>
                             <span className="text-[10px] text-slate-400 block mt-0.5">
-                              {l.overtimeHours > 0 && `اضافه کاری: +${formatHoursAndMinutes(l.overtimeHours, language)}`}
+                              {l.overtimeHours > 0 && `${c.overtimePrefix}${formatHoursAndMinutes(l.overtimeHours, language)}`}
                             </span>
                           </div>
                         </div>
@@ -1919,16 +2436,16 @@ export function SettlementModal({
               <div className="flex items-center justify-between text-xs font-bold text-sky-900 dark:text-sky-200">
                 <span className="flex items-center gap-1.5">
                   <Calculator className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  <span>تراز مالی اقلام منتخب ({convertDigits(selectedCustomLogs.length, numberFormat)} روز کاری):</span>
+                  <span>{c.financialBalanceSelectedItems(convertDigits(selectedCustomLogs.length, numberFormat))}</span>
                 </span>
                 <span className="text-[11px] text-sky-700 dark:text-sky-300 font-mono">
-                  جمع ناخالص: {formatAmount(customSelectedGross, currency, numberFormat)} {getCurrencySymbol(currency, language)}
+                  {c.grossTotalLabel} {formatAmount(customSelectedGross, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                 </span>
               </div>
 
               {customAdvancesToDeduct > 0 && (
                 <div className="flex items-center justify-between text-xs text-amber-700 dark:text-amber-300 font-semibold">
-                  <span>(-) مساعده‌های کسرشده در این تسویه:</span>
+                  <span>{c.advancesDeductedInSettlement}</span>
                   <span className="font-mono">
                     {formatAmount(customAdvancesToDeduct, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                   </span>
@@ -1938,10 +2455,10 @@ export function SettlementModal({
               <div className="pt-2 border-t border-sky-200/80 dark:border-sky-800/60 flex items-center justify-between">
                 <div>
                   <span className="text-xs font-black text-slate-900 dark:text-white block">
-                    مبلغ خالص قابل پرداخت این تسویه سفارشی:
+                    {c.netPayableCustomSettlement}
                   </span>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    این مبلغ خودکار در فیلد پرداختی زیر تنظیم شده است.
+                    {c.amountAutoConfiguredNotice}
                   </span>
                 </div>
                 <div className="text-end">
@@ -1963,20 +2480,20 @@ export function SettlementModal({
           /* ----------------------------------------------------------------- */
           <div className="space-y-3.5">
             
-            {/* Auto Period Cutoff Bar (پایان دوره کارکرد جهت تسویه) */}
+            {/* Auto Period Cutoff Bar */}
             <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <CalendarRange className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                    {language === 'ku' ? 'پایانی ماوەی کارکرد بۆ پاکتاو (تا بەرواری):' : 'پایان دوره کارکرد جهت تسویه (تا تاریخ):'}
+                    {c.periodCutoffLabel}
                   </span>
                 </div>
                 <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
                   {convertDigits(
                     (settlementMode === 'group' ? autoPeriodGroupCalculations.allGroupUnsettledLogs : autoPeriodIndividualCalculations.unsettledLogs).length,
                     numberFormat
-                  )} روز کاری در دوره انتخابی
+                  )} {c.workDaysUnit} {c.inSelectedPeriodSuffix}
                 </span>
               </div>
 
@@ -2006,7 +2523,7 @@ export function SettlementModal({
                           : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
                       }`}
                     >
-                      تا پایان ماه قبل ({prevMonthEndDate.slice(5)})
+                      {c.upToPrevMonthEnd(prevMonthEndDate.slice(5))}
                     </button>
                   )}
                   <button
@@ -2020,9 +2537,7 @@ export function SettlementModal({
                         ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 shadow-xs'
                         : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
                     }`}
-                  >
-                    تا امروز
-                  </button>
+                  >{c.upToToday}</button>
                   {autoCutoffDate && (
                     <button
                       type="button"
@@ -2031,9 +2546,7 @@ export function SettlementModal({
                         setIsAmountManuallyEdited(false);
                       }}
                       className="px-2 py-1.5 rounded-xl text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline"
-                    >
-                      همه روزها
-                    </button>
+                    >{c.allDays}</button>
                   )}
                 </div>
               </div>
@@ -2046,7 +2559,7 @@ export function SettlementModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                      انتخاب گروه کاری:
+                      {c.selectWorkGroup}
                     </label>
                     <select
                       value={selectedGroupId}
@@ -2062,7 +2575,7 @@ export function SettlementModal({
                   <div>
                     <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                       <Crown className="w-3 h-3 text-amber-500" />
-                      <span>سرپرست دریافت‌کننده وجه:</span>
+                      <span>{c.supervisorRecipientLabel}</span>
                     </label>
                     <select
                       value={selectedSupervisorId}
@@ -2071,7 +2584,7 @@ export function SettlementModal({
                     >
                       {groupMembers.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name} {m.teamRole === 'Master' ? '(استادکار / سرپرست)' : ''}
+                          {m.name} {m.teamRole === 'Master' ? c.masterSupervisorTag : ''}
                         </option>
                       ))}
                     </select>
@@ -2081,12 +2594,12 @@ export function SettlementModal({
                 {/* Group Summary Box */}
                 <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-200">
-                    <span>تعداد افراد گروه:</span>
-                    <span>{convertDigits(groupMembers.length, numberFormat)} نفر</span>
+                    <span>{c.groupMembersCountLabel}</span>
+                    <span>{c.membersCount(convertDigits(groupMembers.length, numberFormat))}</span>
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-600 dark:text-slate-400">مجموع ناخالص کارکرد کل اعضا:</span>
+                    <span className="text-slate-600 dark:text-slate-400">{c.totalGrossWorkAllMembers}</span>
                     <span className="font-bold text-slate-900 dark:text-white">
                       {formatAmount(autoPeriodGroupCalculations.totalGroupGross, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                     </span>
@@ -2094,7 +2607,7 @@ export function SettlementModal({
 
                   {autoPeriodGroupCalculations.totalGroupAdvances > 0 && (
                     <div className="flex items-center justify-between text-xs text-rose-600 dark:text-rose-400">
-                      <span>(-) مجموع مساعده‌های اعضای گروه:</span>
+                      <span>{c.minusTotalAdvancesMembers}</span>
                       <span className="font-bold">
                         {formatAmount(autoPeriodGroupCalculations.totalGroupAdvances, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                       </span>
@@ -2104,7 +2617,7 @@ export function SettlementModal({
                   <div className="pt-2 border-t border-amber-200 dark:border-amber-800 flex items-center justify-between text-sm">
                     <span className="font-black text-amber-900 dark:text-amber-100 flex items-center gap-1.5">
                       <Calculator className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      <span>مجموع کارکرد خالص قابل پرداخت به سرپرست:</span>
+                      <span>{c.totalNetPayableToSupervisor}</span>
                     </span>
                     <span className="font-black text-amber-700 dark:text-amber-300 text-base sm:text-lg">
                       {formatAmount(autoPeriodGroupCalculations.totalGroupNetDue, currency, numberFormat)} {getCurrencySymbol(currency, language)}
@@ -2117,15 +2630,15 @@ export function SettlementModal({
                   <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
                     <span className="flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-sky-500" />
-                      <span>ریز کارکرد و سهم هر یک از افراد گروه:</span>
+                      <span>{c.workBreakdownEachMember}</span>
                     </span>
                     <span className="text-[10px] text-slate-400 font-normal">
-                      (پس از ثبت، همه تسویه خواهند شد)
+                      {c.afterSubmitAllSettledNote}
                     </span>
                   </div>
 
                   {autoPeriodGroupCalculations.memberBreakdowns.length === 0 ? (
-                    <div className="py-4 text-center text-xs text-slate-400">هیچ نیرویی در این گروه یافت نشد.</div>
+                    <div className="py-4 text-center text-xs text-slate-400">{c.noWorkersInGroup}</div>
                   ) : (
                     <div className="max-h-48 overflow-y-auto space-y-1.5 pe-1 hide-scrollbar">
                       {autoPeriodGroupCalculations.memberBreakdowns.map((mb) => (
@@ -2139,7 +2652,7 @@ export function SettlementModal({
                         >
                           <div className="flex items-center gap-2">
                             {mb.isMaster ? (
-                              <Crown className="w-4 h-4 text-amber-500 flex-shrink-0" title="استادکار / سرپرست" />
+                              <Crown className="w-4 h-4 text-amber-500 flex-shrink-0" title={c.masterSupervisorTitle} />
                             ) : (
                               <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
                             )}
@@ -2147,14 +2660,12 @@ export function SettlementModal({
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-slate-900 dark:text-white">{mb.worker.name}</span>
                                 {mb.worker.id === selectedSupervisorId && (
-                                  <span className="px-1.5 py-0.2 rounded-md bg-amber-200/80 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-[9px] font-bold">
-                                    دریافت‌کننده
-                                  </span>
+                                  <span className="px-1.5 py-0.2 rounded-md bg-amber-200/80 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-[9px] font-bold">{c.recipientBadge}</span>
                                 )}
                               </div>
                               <span className="text-[10px] text-slate-400 block mt-0.5">
-                                {convertDigits(mb.effectiveDays, numberFormat)} روز {mb.otHours > 0 ? `(+${formatHoursAndMinutes(mb.otHours, language)})` : ''} 
-                                {mb.advances > 0 && ` • مساعده: ${formatAmount(mb.advances, currency, numberFormat)}`}
+                                {convertDigits(mb.effectiveDays, numberFormat)} {c.dayUnit} {mb.otHours > 0 ? `(+${formatHoursAndMinutes(mb.otHours, language)})` : ''} 
+                                {mb.advances > 0 && ` • ${c.advanceLabel} ${formatAmount(mb.advances, currency, numberFormat)}`}
                               </span>
                             </div>
                           </div>
@@ -2182,7 +2693,7 @@ export function SettlementModal({
                 {allWorkers.length > 1 && (
                   <div className="space-y-1">
                     <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                      {language === 'ku' ? 'هەڵبژاردنی کرێکار بۆ پاکتاو:' : 'انتخاب پرسنل جهت تسویه حساب:'}
+                      {c.selectWorkerForSettlement}
                     </label>
                     <select
                       value={worker?.id || ''}
@@ -2207,7 +2718,7 @@ export function SettlementModal({
                 {/* Workers With Arrears Horizontal Picker */}
                 {arrearsList.length > 0 && onSelectWorker && (
                   <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">{t('workersWithArrears') || 'پرسنل دارای معوقه / مانده:'}</label>
+                    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">{c.workersWithArrearsLabel}</label>
                     <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-2 px-2 hide-scrollbar">
                       {arrearsList.map((arrWorker) => (
                         <button
@@ -2228,8 +2739,8 @@ export function SettlementModal({
                             <span>{arrWorker.worker.name}</span>
                             <span className="bg-white/50 dark:bg-black/20 px-1.5 rounded text-[10px] font-semibold">
                               {arrWorker.netBalanceDue < 0 
-                                ? `${formatAmount(Math.abs(arrWorker.netBalanceDue), currency, numberFormat)} (بدهکار)`
-                                : `${formatAmount(arrWorker.netBalanceDue, currency, numberFormat)} (بستانکار)`}
+                                ? `${formatAmount(Math.abs(arrWorker.netBalanceDue), currency, numberFormat)} (${c.debtorSuffix})`
+                                : `${formatAmount(arrWorker.netBalanceDue, currency, numberFormat)} (${c.creditorSuffix})`}
                             </span>
                           </div>
                         </button>
@@ -2243,7 +2754,7 @@ export function SettlementModal({
                   {/* Gross Earnings Card */}
                   <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-sky-300 dark:hover:border-sky-700 transition-all">
                     <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                      <span className="text-xs font-bold">کل کارکرد ناخالص دوره</span>
+                      <span className="text-xs font-bold">{c.totalPeriodGross}</span>
                       <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
                         <FileText className="w-4 h-4" />
                       </div>
@@ -2256,7 +2767,7 @@ export function SettlementModal({
                         <span className="text-xs font-bold text-slate-400">{getCurrencySymbol(currency, language)}</span>
                       </div>
                       <span className="text-[11px] text-slate-400 font-medium block mt-1">
-                        {convertDigits(autoPeriodIndividualCalculations.effectiveDays, numberFormat)} روز کاری
+                        {convertDigits(autoPeriodIndividualCalculations.effectiveDays, numberFormat)} {c.workDaysUnit}
                         {autoPeriodIndividualCalculations.otHours > 0 && ` + ${formatHoursAndMinutes(autoPeriodIndividualCalculations.otHours, language)}`}
                       </span>
                     </div>
@@ -2265,7 +2776,7 @@ export function SettlementModal({
                   {/* Deducted Advances Card */}
                   <div className="p-4 rounded-3xl bg-amber-50/60 dark:bg-amber-950/30 backdrop-blur-xl border border-amber-200/80 dark:border-amber-800/50 shadow-sm flex flex-col justify-between hover:border-amber-400 transition-all">
                     <div className="flex items-center justify-between text-amber-700 dark:text-amber-300">
-                      <span className="text-xs font-bold">مساعده‌های باز کسرشده</span>
+                      <span className="text-xs font-bold">{c.openAdvancesDeducted}</span>
                       <div className="w-8 h-8 rounded-xl bg-amber-100/80 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                         <Coins className="w-4 h-4" />
                       </div>
@@ -2278,7 +2789,7 @@ export function SettlementModal({
                         <span className="text-xs font-bold text-amber-600/70 dark:text-amber-400/70">{getCurrencySymbol(currency, language)}</span>
                       </div>
                       <span className="text-[11px] text-amber-600/80 dark:text-amber-400/80 font-medium block mt-1">
-                        {convertDigits(autoPeriodIndividualCalculations.unsettledPayments.length, numberFormat)} فقره مساعده جاری
+                        {convertDigits(autoPeriodIndividualCalculations.unsettledPayments.length, numberFormat)} {c.currentAdvancesCountUnit}
                       </span>
                     </div>
                   </div>
@@ -2286,7 +2797,7 @@ export function SettlementModal({
                   {/* Net Due Final Cumulative Balance Card */}
                   <div className="p-4 rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-500/20 flex flex-col justify-between sm:col-span-1">
                     <div className="flex items-center justify-between text-emerald-100">
-                      <span className="text-xs font-black">مانده نهایی سررسید (طلب خالص)</span>
+                      <span className="text-xs font-black">{c.finalBalanceDue}</span>
                       <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
                         <Calculator className="w-4 h-4" />
                       </div>
@@ -2301,7 +2812,7 @@ export function SettlementModal({
                         </span>
                       </div>
                       <span className="text-[10px] text-emerald-100/90 block mt-1 font-medium">
-                        {autoCutoffDate ? `مجموع مطالبات تا تاریخ ${autoCutoffDate}` : "مجموع مطالبات تا تاریخ امروز"}
+                        {autoCutoffDate ? c.claimsUpToDate(autoCutoffDate) : c.claimsUpToToday}
                       </span>
                     </div>
                   </div>
@@ -2312,7 +2823,7 @@ export function SettlementModal({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
                       <Sliders className="w-4 h-4 text-emerald-500" />
-                      <span>استراتژی پرداخت در تسویه خودکار:</span>
+                      <span>{c.paymentStrategyTitle}</span>
                     </span>
                   </div>
 
@@ -2336,10 +2847,10 @@ export function SettlementModal({
                       </div>
                       <div>
                         <span className="text-xs font-black text-slate-900 dark:text-white block">
-                          حالت ۱: تسویه کامل کل طلب (۱۰۰٪)
+                          {c.state1FullTitle}
                         </span>
                         <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
-                          تسویه تمامی روزهای باز و رساندن مانده کل طلب پرسنل به ۰
+                          {c.state1FullDesc}
                         </span>
                       </div>
                     </button>
@@ -2363,10 +2874,10 @@ export function SettlementModal({
                       </div>
                       <div>
                         <span className="text-xs font-black text-slate-900 dark:text-white block">
-                          حالت ۲: پرداخت مبلغ دلخواه (تسویه جزئی)
+                          {c.state2PartialTitle}
                         </span>
                         <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
-                          ورود رقم دلخواه، پوشش ترتیبی روزها (FIFO) و باقی‌ماندن مابقی در معوقه
+                          {c.state2PartialDesc}
                         </span>
                       </div>
                     </button>
@@ -2374,20 +2885,20 @@ export function SettlementModal({
 
                   {/* Quick Preset Buttons */}
                   <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                    <span className="text-[11px] font-bold text-slate-400">میانبرهای سریع مبلغ:</span>
+                    <span className="text-[11px] font-bold text-slate-400">{c.amountShortcutsLabel}</span>
                     <button
                       type="button"
                       onClick={() => handleApplyPreset("full")}
                       className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 hover:text-emerald-600 dark:hover:text-emerald-300 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-colors cursor-pointer"
                     >
-                      تسویه کامل (۱۰۰٪)
+                      {c.settleFull100}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleApplyPreset("half")}
                       className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 hover:text-sky-600 dark:hover:text-sky-300 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-colors cursor-pointer"
                     >
-                      ۵۰٪ مبلغ طلب
+                      {c.fiftyPercentClaim}
                     </button>
                     {targetPayableAmount >= 50000 && (
                       <button
@@ -2395,7 +2906,7 @@ export function SettlementModal({
                         onClick={() => handleApplyPreset("round50k")}
                         className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/60 hover:text-amber-600 dark:hover:text-amber-300 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-colors cursor-pointer"
                       >
-                        رند کردن به ۵۰ هزار
+                        {c.roundTo50K}
                       </button>
                     )}
                   </div>
@@ -2409,9 +2920,9 @@ export function SettlementModal({
                         <CheckCircle2 className="w-5 h-5 stroke-[2.2]" />
                       </div>
                       <div>
-                        <span className="text-sm font-black text-emerald-800 dark:text-emerald-200">تسویه کامل: مانده طلب پرسنل پس از ثبت این پرداخت صفر (۰) خواهد شد.</span>
+                        <span className="text-sm font-black text-emerald-800 dark:text-emerald-200">{c.fullSettlementNotice}</span>
                         <span className="block text-[11px] text-slate-400 font-normal mt-0.5">
-                          تمام روزهای کارکرد باز تسویه و بسته می‌شوند.
+                          {c.allDaysClosedNotice}
                         </span>
                       </div>
                     </div>
@@ -2422,20 +2933,20 @@ export function SettlementModal({
                           <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                             <Clock className="w-4 h-4" />
                           </div>
-                          <span>مانده طلب پرسنل پس از این پرداخت:</span>
+                          <span>{c.balanceAfterPaymentLabel}</span>
                         </span>
                         <span className="text-base font-black text-amber-700 dark:text-amber-300 font-mono">
                           {formatAmount(Math.max(0, targetPayableAmount - Number(normalizeDigits(finalPaymentAmount))), currency, numberFormat)} {getCurrencySymbol(currency, language)}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pt-1 border-t border-slate-100 dark:border-slate-800/80">
-                        فرمول محاسبه: مانده کل ({formatAmount(targetPayableAmount, currency, numberFormat)}) - پرداختی ({formatAmount(Number(normalizeDigits(finalPaymentAmount)), currency, numberFormat)}) = مانده معوقه جدید
+                        {c.formulaExplainer(formatAmount(targetPayableAmount, currency, numberFormat), formatAmount(Number(normalizeDigits(finalPaymentAmount)), currency, numberFormat))}
                       </div>
                     </div>
                   ) : (
                     <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
                       <FileText className="w-4 h-4 text-slate-400" />
-                      <span>مبلغ مورد نظر برای پرداخت را در فرم زیر وارد کنید تا مانده جدید محاسبه گردد.</span>
+                      <span>{c.enterAmountPrompt}</span>
                     </div>
                   )}
                 </div>
@@ -2449,15 +2960,15 @@ export function SettlementModal({
                   >
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
                       <FileText className="w-4 h-4 text-sky-500" />
-                      <span>ریز روزهای کارکرد تسویه‌نشده ({convertDigits(individualCalculations.unsettledLogs.length, numberFormat)} روز)</span>
+                      <span>{c.unsettledDaysBreakdownTitle(convertDigits(individualCalculations.unsettledLogs.length, numberFormat))}</span>
                       {Number(normalizeDigits(finalPaymentAmount)) > 0 && Number(normalizeDigits(finalPaymentAmount)) < (targetPayableAmount - 0.001) && (
                         <span className="px-2 py-0.5 rounded-full text-[9px] bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 font-bold">
-                          تسویه ترتیبی (FIFO)
+                          {c.fifoTag}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-slate-400 text-xs">
-                      <span>{isLogsAccordionOpen ? 'بستن لیست' : 'مشاهده لیست'}</span>
+                      <span>{isLogsAccordionOpen ? c.hideList : c.viewList}</span>
                       {isLogsAccordionOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </div>
                   </button>
@@ -2466,7 +2977,7 @@ export function SettlementModal({
                     <div className="p-3.5 pt-0 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
                       {individualCalculations.unsettledLogs.length === 0 ? (
                         <div className="py-4 text-center text-xs text-slate-400 font-medium">
-                          تمامی روزهای کارکرد قبلی تسویه شده‌اند و روز تسویه‌نشده‌ای وجود ندارد.
+                          {c.allPreviousDaysSettled}
                         </div>
                       ) : (
                         <div className="max-h-48 overflow-y-auto space-y-1.5 pe-1 hide-scrollbar mt-2">
@@ -2490,7 +3001,7 @@ export function SettlementModal({
                                       ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
                                       : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
                                   }`}>
-                                    {l.type === 'half' ? 'نیم‌روز' : l.type === 'hourly' ? 'ساعتی' : 'کامل'}
+                                    {l.type === 'half' ? c.halfDay : l.type === 'hourly' ? c.hourly : c.fullDay}
                                   </span>
                                   {l.overtimeHours > 0 && (
                                     <span className="text-[10px] text-sky-600 dark:text-sky-400 font-bold">
@@ -2502,7 +3013,7 @@ export function SettlementModal({
                                       ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300'
                                       : 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300'
                                   }`}>
-                                    {isCovered ? 'پوشش داده شده' : 'معوقه باز'}
+                                    {isCovered ? c.coveredStatus : c.openArrearsStatus}
                                   </span>
                                 </div>
                                 <span className="font-bold text-slate-900 dark:text-white font-mono">
@@ -2539,9 +3050,9 @@ export function SettlementModal({
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {settlementMode === 'group' 
-                    ? 'مبلغ نهایی پرداختی به سرپرست' 
+                    ? c.finalPaymentToSupervisorLabel 
                     : settlementTypeTab === 'custom'
-                    ? 'مبلغ پرداختی این تسویه سفارشی'
+                    ? c.paymentCustomSettlementLabel
                     : t('finalPaymentAmount')}
                 </label>
                 {isAmountManuallyEdited && Number(normalizeDigits(finalPaymentAmount)) !== Number(activeTabTargetPayable) && (
@@ -2553,7 +3064,7 @@ export function SettlementModal({
                     }}
                     className="text-[10px] text-sky-600 dark:text-sky-400 hover:underline font-bold flex items-center gap-1"
                   >
-                    بازنشانی به کل مبلغ ({formatAmount(activeTabTargetPayable, currency, numberFormat)})
+                    {c.resetToTotalAmount(formatAmount(activeTabTargetPayable, currency, numberFormat))}
                   </button>
                 )}
               </div>
@@ -2610,12 +3121,12 @@ export function SettlementModal({
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Landmark className="w-4 h-4 text-emerald-500" />
-                <span>حساب یا صندوق پرداختی تسویه:</span>
+                <span>{c.settlementPaymentAccount}</span>
               </label>
               {defaultAccount && (
                 <span className="text-[11px] text-amber-500 font-bold flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-900/40">
                   <Star className="w-3 h-3 fill-amber-500" />
-                  <span>پیش‌فرض: {defaultAccount.name}</span>
+                  <span>{c.defaultPrefix}{defaultAccount.name}</span>
                 </span>
               )}
             </div>
@@ -2629,19 +3140,19 @@ export function SettlementModal({
                   const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
                   return (
                     <option key={acc.id} value={acc.id}>
-                      {acc.type === "bank" ? "💳 کارت بانکی: " : "🪙 صندوق نقدی: "}
-                      {acc.name} {acc.bankName ? `(${acc.bankName})` : ""} - موجودی: {formatCurrency(b, currency, language)} {acc.isDefault ? "⭐ [پیش‌فرض]" : ""}
+                      {acc.type === "bank" ? c.bankCardPrefix : c.cashDeskPrefix}
+                      {acc.name} {acc.bankName ? `(${acc.bankName})` : ""} - {c.balancePrefix}{formatCurrency(b, currency, language)} {acc.isDefault ? c.defaultStar : ""}
                     </option>
                   );
                 })}
               </select>
             ) : (
               <div className="text-xs text-slate-400 p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
-                صندوق نقدی کارگاه
+                {c.workshopCashDesk}
               </div>
             )}
 
-            {/* هشدار زنده اضافه برداشت در فرم */}
+            {/* Overdraft live alert in form */}
             {currentOverdraft && !currentOverdraft.hasSufficientFunds && (
               <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-3 transition-all ${
                 currentOverdraft.effectivePolicy === "never_allow"
@@ -2662,17 +3173,17 @@ export function SettlementModal({
                 <div className="space-y-1">
                   <div className="font-black text-xs">
                     {currentOverdraft.effectivePolicy === "never_allow"
-                      ? "کسری موجودی - ثبت غیرمجاز"
+                      ? c.overdraftDeficitBlocked
                       : currentOverdraft.effectivePolicy === "always_allow"
-                        ? "هشدار کسری موجودی (مجاز در تنظیمات سیستم)"
-                        : "هشدار کسری موجودی حساب"}
+                        ? c.overdraftDeficitAllowed
+                        : c.overdraftDeficitPrompt}
                   </div>
                   <div className="text-[11px] leading-relaxed opacity-90">
                     {currentOverdraft.effectivePolicy === "never_allow"
-                      ? `موجودی حساب انتخابی (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) کافی نیست (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). بر اساس تنظیمات سیستم، ثبت با موجودی منفی «غیرمجاز» است.`
+                      ? c.overdraftBlockedDesc(formatCurrency(currentOverdraft.currentBalance, currency, language), formatCurrency(currentOverdraft.shortfall, currency, language))
                       : currentOverdraft.effectivePolicy === "always_allow"
-                        ? `مبلغ تسویه از موجودی فعلی حساب (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). با توجه به تنظیم بودن بر روی «همیشه مجاز»، این تراکنش با مانده منفی ثبت خواهد شد.`
-                        : `مبلغ تسویه از موجودی حساب (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). هنگام کلیک بر روی ثبت، پنجره تأیید کسر موجودی نمایش داده می‌شود.`}
+                        ? c.overdraftAllowedDesc(formatCurrency(currentOverdraft.currentBalance, currency, language), formatCurrency(currentOverdraft.shortfall, currency, language))
+                        : c.overdraftPromptDesc(formatCurrency(currentOverdraft.currentBalance, currency, language), formatCurrency(currentOverdraft.shortfall, currency, language))}
                   </div>
                 </div>
               </div>
@@ -2688,7 +3199,7 @@ export function SettlementModal({
               type="text"
               value={referenceNumber}
               onChange={(e) => setReferenceNumber(e.target.value)}
-              placeholder={t('referencePlaceholder') || 'شماره چک، رسید بانکی یا سند تسویه'}
+              placeholder={c.referencePlaceholder}
               className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
             />
           </div>
@@ -2722,18 +3233,18 @@ export function SettlementModal({
             />
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               {settlementTypeTab === 'custom'
-                ? `بستن و علامت‌گذاری قطعی فقط برای ${convertDigits(selectedCustomLogs.length, numberFormat)} روز انتخاب‌شده (سایر روزها باز می‌مانند)`
+                ? c.closeSelectedDaysOnly(convertDigits(selectedCustomLogs.length, numberFormat))
                 : settlementMode === 'group'
                 ? (Number(normalizeDigits(finalPaymentAmount)) < (targetPayableAmount - 0.001)
-                    ? `بستن کارکردهای پوشش‌داده‌شده با این مبلغ (مانده کارکردها به عنوان معوقه ثبت خواهند شد)`
-                    : `تسویه قطعی و بستن کارکرد باز تمام ${groupMembers.length} نفر اعضای گروه`)
+                    ? c.closeCoveredDaysOnly
+                    : c.settleAllGroupMembers(groupMembers.length))
                 : (Number(normalizeDigits(finalPaymentAmount)) < (targetPayableAmount - 0.001)
-                    ? `بستن روزهای پوشش‌داده‌شده با این مبلغ (مانده ${formatAmount(Math.max(0, targetPayableAmount - Number(normalizeDigits(finalPaymentAmount))), currency, numberFormat)} ${getCurrencySymbol(currency, language)} به عنوان معوقه باقی می‌ماند)`
-                    : (t('markAsSettledCheckbox') || 'علامت‌گذاری این روزها به عنوان تسویه‌شده قطعی'))}
+                    ? c.closeCoveredDaysWithRemainder(formatAmount(Math.max(0, targetPayableAmount - Number(normalizeDigits(finalPaymentAmount))), currency, numberFormat), getCurrencySymbol(currency, language))
+                    : (t('markAsSettledCheckbox') || c.closeCoveredDaysOnly))}
             </span>
           </label>
 
-          {/* بازخورد خطا یا هشدار نزدیک دکمه ثبت */}
+          {/* Feedback error or alert near submit button */}
           {feedback.message && (
             <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
               feedback.type === 'error'
@@ -2765,10 +3276,10 @@ export function SettlementModal({
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
                 <span className="text-[11px] font-bold text-slate-400">
-                  مبلغ پرداختی:
+                  {c.paidAmountLabel}
                 </span>
                 <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white font-mono tracking-tight">
-                  {finalPaymentAmount ? Number(normalizeDigits(finalPaymentAmount)).toLocaleString() : '۰'}
+                  {finalPaymentAmount ? Number(normalizeDigits(finalPaymentAmount)).toLocaleString() : c.zeroAmount}
                 </span>
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
                   {getCurrencySymbol(currency, language)}
@@ -2777,7 +3288,7 @@ export function SettlementModal({
 
               {Number(normalizeDigits(finalPaymentAmount)) < (targetPayableAmount - 0.001) && Number(normalizeDigits(finalPaymentAmount)) > 0 && (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 font-mono">
-                  <span>مانده معوقه:</span>
+                  <span>{c.arrearsBalanceLabel}</span>
                   <span>{formatAmount(Math.max(0, targetPayableAmount - Number(normalizeDigits(finalPaymentAmount))), currency, numberFormat)} {getCurrencySymbol(currency, language)}</span>
                 </div>
               )}
@@ -2785,14 +3296,14 @@ export function SettlementModal({
               {settlementMode === 'individual' && worker && (
                 <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                   <User className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>پرسنل: {worker.name}</span>
+                  <span>{c.workerPrefix}{worker.name}</span>
                 </div>
               )}
 
               {settlementMode === 'group' && (
                 <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                   <Crown className="w-3.5 h-3.5 text-amber-500" />
-                  <span>سرپرست: {supervisorWorker?.name || 'تعریف‌نشده'} ({groupMembers.length} نفر)</span>
+                  <span>{c.supervisorPrefix}{supervisorWorker?.name || c.undefinedSupervisorShort} ({c.membersCount(groupMembers.length)})</span>
                 </div>
               )}
             </div>
@@ -2804,7 +3315,7 @@ export function SettlementModal({
                 onClick={handleCloseModal}
                 className="w-1/3 sm:w-auto px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
-                انصراف (ESC)
+                {c.cancelEsc}
               </button>
 
               <button
@@ -2824,21 +3335,21 @@ export function SettlementModal({
                 {isSubmitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>در حال ثبت...</span>
+                    <span>{c.submitting}</span>
                   </>
                 ) : currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === "never_allow" ? (
                   <>
                     <Ban className="w-4 h-4 stroke-[2.5]" />
-                    <span>کسری موجودی (غیرمجاز)</span>
+                    <span>{c.insufficientFundsBlockedBtn}</span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
                     <span>
                       {settlementMode === "group"
-                        ? `ثبت تسویه گروهی با سرپرست (${groupMembers.length} نفر)`
+                        ? c.submitGroupSettlementBtn(groupMembers.length)
                         : settlementTypeTab === "custom"
-                        ? `ثبت تسویه با جزئیات (${convertDigits(selectedCustomLogs.length, numberFormat)} روز)`
+                        ? c.submitDetailedSettlementBtn(convertDigits(selectedCustomLogs.length, numberFormat))
                         : t("settleBtn")}
                     </span>
                   </>
@@ -2850,7 +3361,7 @@ export function SettlementModal({
         </div>
       )}
 
-      {/* مودال تایید اضافه برداشت برای تسویه حساب */}
+      {/* Overdraft confirmation modal */}
       {overdraftPromptData && (
         <OverdraftConfirmModal
           isOpen={Boolean(overdraftPromptData)}

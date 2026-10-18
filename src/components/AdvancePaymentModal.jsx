@@ -44,6 +44,174 @@ import {
 import { useAccounting } from '../hooks/useAccounting';
 import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 
+const COPY = {
+  fa: {
+    selectedAccountDefault: 'حساب انتخابی',
+    cashAccountDefault: 'صندوق',
+    workshopCashDesk: '{c.workshopCashDesk}',
+    workshopProject: 'پروژه کارگاه',
+    unknownWorker: 'پرسنل نامشخص',
+    defaultWorkerRole: 'پرسنل',
+    overdraftBlockedPolicyError: (accName) => `موجودی حساب انتخابی (${accName}) برای پرداخت این مساعده کافی نیست و سیاست کارگاه بر روی «همیشه نامجاز» تنظیم شده است.`,
+    negativeBalanceWarningToast: (accName, formattedNeg) => `مساعده ثبت شد. توجه: موجودی حساب «${accName}» به منفی ${formattedNeg} رسید.`,
+    advanceSuccessMsg: 'مساعده با موفقیت ثبت شد',
+    errorSavingAdvance: 'خطا در ثبت مساعده',
+    advanceModalTitle: 'ثبت سند مساعده و پیش‌پرداخت پرسنل',
+    advanceModalSubtitle: 'پرداخت علی‌الحساب، مساعده هفتگی یا وام پرسنل کارگاه با ثبت سند مالی در دفتر معین',
+    closeTooltip: 'بستن (ESC)',
+    workerRecipientDetails: '{c.workerRecipientDetails}',
+    roleLabel: 'سمت:',
+    contractType: 'کنتراتی',
+    dailyType: 'روزمزد',
+    contractFormal: 'کنتراتی / توافقی',
+    dailyFormal: 'روزمزد رسمی',
+    baseDailyRateLabel: '{c.baseDailyRateLabel}',
+    wageTypeLabel: '{c.wageTypeLabel}',
+    totalAdvancesReceivedLabel: '{c.totalAdvancesReceivedLabel}',
+    advanceDeductionNote: '{c.advanceDeductionNote}',
+    amountAndQuickSuggestions: '{c.amountAndQuickSuggestions}',
+    quickPresetsLabel: '{c.quickPresetsLabel}',
+    equivalentLabel: 'معادل:',
+    paymentAccountTitle: '{c.paymentAccountTitle}',
+    accountTypeFilterLabel: '{c.accountTypeFilterLabel}',
+    allAccountsTab: 'همه حساب‌ها',
+    bankCardTab: 'کارت بانکی',
+    cashDeskTab: 'صندوق نقدی',
+    chooseSourceAccountLabel: '{c.chooseSourceAccountLabel}',
+    cardPrefix: '💳 کارت: ',
+    cashPrefix: '🪙 صندوق: ',
+    balanceLabel: 'موجودی:',
+    defaultBadge: '⭐ [پیش‌فرض]',
+    overdraftDeficitBlockedTitle: 'کسری موجودی - ثبت غیرمجاز',
+    overdraftDeficitAllowedTitle: 'هشدار کسری موجودی (مجاز در تنظیمات)',
+    overdraftDeficitWarningTitle: 'هشدار کسری موجودی حساب',
+    overdraftBlockedDesc: (accBalance, shortfall) => `موجودی حساب انتخابی (${accBalance}) کافی نیست (کسری: ${shortfall}). طبق تنظیمات، ثبت منفی غیرمجاز است.`,
+    overdraftWarningDesc: (accBalance, shortfall) => `مبلغ پرداختی از موجودی فعلی حساب (${accBalance}) بیشتر است (کسری: ${shortfall}).`,
+    referenceAndNotesTitle: '{c.referenceAndNotesTitle}',
+    referenceNumberLabel: 'شماره پیگیری / شماره فیش بانکی',
+    refPlaceholder: 'مثال: پیگیری ۹۸۲۳۴۱ یا فیش دستی',
+    notesLabel: 'توضیحات و شرح پرداخت',
+    notesPlaceholder: 'شرح علت درخواست مساعده، واریزی به کارت یا نقد...',
+    finalAdvanceAmountLabel: '{c.finalAdvanceAmountLabel}',
+    recipientPrefix: 'دریافت‌کننده:',
+    cancelEsc: '{c.cancelEsc}',
+    submitting: 'در حال ثبت...',
+    insufficientFundsBlocked: 'کسری موجودی (غیرمجاز)',
+    submitAdvance: 'ثبت سند مساعده',
+    zeroAmount: '۰'
+  },
+  ku: {
+    selectedAccountDefault: 'حیسابی هەڵبژێردراو',
+    cashAccountDefault: 'سندوق',
+    workshopCashDesk: 'سندوقی نەختی کارگە',
+    workshopProject: 'پڕۆژەی کارگە',
+    unknownWorker: 'کرێکاری نادیار',
+    defaultWorkerRole: 'کرێکار',
+    overdraftBlockedPolicyError: (accName) => `باڵانسی حیسابی هەڵبژێردراو (${accName}) بەش ناکات بۆ ئەم پێشەکییە و سیاسەتی کارگە لەسەر «هەرگیز ڕێگەپێنەدراو» دانراوە.`,
+    negativeBalanceWarningToast: (accName, formattedNeg) => `پێشەکی تۆمارکرا. ئاگاداری: باڵانسی حیسابی «${accName}» بوو بە نێگەتیڤ ${formattedNeg}.`,
+    advanceSuccessMsg: 'پێشەکی بە سەرکەوتوویی تۆمارکرا',
+    errorSavingAdvance: 'هەڵە لە تۆمارکردنی پێشەکی',
+    advanceModalTitle: 'تۆمارکردنی بەڵگەنامەی پێشەکی و مووچەی پێشوەختە',
+    advanceModalSubtitle: 'پارەدانی پێشوەختە، پێشەکی هەفتانە یان قەرزی کرێکارانی کارگە لەگەڵ تۆماری دارایی لە دەفتەری معین',
+    closeTooltip: 'داخستن (ESC)',
+    workerRecipientDetails: 'زانیاریی کرێکاری وەرگری پارە',
+    roleLabel: 'پلە:',
+    contractType: 'کۆنتڕات',
+    dailyType: 'ڕۆژانە',
+    contractFormal: 'کۆنتڕات / ڕێککەوتن',
+    dailyFormal: 'ڕۆژانەی فەرمی',
+    baseDailyRateLabel: 'نرخی بنەڕەتیی ڕۆژانە:',
+    wageTypeLabel: 'جۆری کرێ:',
+    totalAdvancesReceivedLabel: 'کۆی گشتی پێشەکییە وەرگیراوەکان:',
+    advanceDeductionNote: 'پێشەکی پاش پەسەندکردن، بە شێوەیەکی خۆکار لە وەسڵی پاکتاوی مانگانەی ئەم کەسە دادەشکێنرێت.',
+    amountAndQuickSuggestions: 'بڕی پێشەکی و پێشنیارە خێراکان',
+    quickPresetsLabel: 'بڕە باوەکانی پێشەکی (هەڵبژاردنی خێرا بە یەک کلیک):',
+    equivalentLabel: 'هاوتایە لەگەڵ:',
+    paymentAccountTitle: 'حیساب یان سندوقی پارەدان',
+    accountTypeFilterLabel: 'فلتەری جۆری حیسابی پارەدان:',
+    allAccountsTab: 'هەموو حیسابەکان',
+    bankCardTab: 'کارتی بانکی',
+    cashDeskTab: 'سندوقی نەختینە',
+    chooseSourceAccountLabel: 'هەڵبژاردنی حیسابی سەرچاوەی پارەدان:',
+    cardPrefix: '💳 کارت: ',
+    cashPrefix: '🪙 سندوق: ',
+    balanceLabel: 'باڵانس:',
+    defaultBadge: '⭐ [بنەڕەتی]',
+    overdraftDeficitBlockedTitle: 'کەمیی باڵانس - تۆمارکردن قەدەغەیە',
+    overdraftDeficitAllowedTitle: 'ئاگاداری کەمی باڵانس (ڕێگەپێدراوە لە ڕێکخستنەکان)',
+    overdraftDeficitWarningTitle: 'ئاگاداری کەمیی باڵانسی حیساب',
+    overdraftBlockedDesc: (accBalance, shortfall) => `باڵانسی حیسابی هەڵبژێردراو (${accBalance}) بەش ناکات (کەمی: ${shortfall}). بەپێی ڕێکخستنەکان، باڵانسی نێگەتیڤ قەدەغەیە.`,
+    overdraftWarningDesc: (accBalance, shortfall) => `بڕی پارەدان لە باڵانسی ئێستای حیساب (${accBalance}) زیاترە (کەمی: ${shortfall}).`,
+    referenceAndNotesTitle: 'ژمارەی ئاماژە، وەسڵ و ڕوونکردنەوەکان',
+    referenceNumberLabel: 'ژمارەی بەدواداچوون / فیشی بانکی',
+    refPlaceholder: 'نموونە: بەدواداچوونی ٩٨٢٣٤١ یان وەسڵی دەستی',
+    notesLabel: 'ڕوونکردنەوە و هۆکاری پارەدان',
+    notesPlaceholder: 'هۆکاری داواکردنی پێشەکی، حەواڵە بۆ کارت یان نەختینە...',
+    finalAdvanceAmountLabel: 'بڕی کۆتایی پێشەکی:',
+    recipientPrefix: 'وەرگر:',
+    cancelEsc: 'پاشگەزبوونەوە (ESC)',
+    submitting: 'تۆماردەکرێت...',
+    insufficientFundsBlocked: 'کەمیی باڵانس (ڕێگاپێنەدراو)',
+    submitAdvance: 'تۆمارکردنی بەڵگەنامەی پێشەکی',
+    zeroAmount: '٠'
+  },
+  en: {
+    selectedAccountDefault: 'Selected Account',
+    cashAccountDefault: 'Cash Drawer',
+    workshopCashDesk: 'Workshop Cash Drawer',
+    workshopProject: 'Workshop Project',
+    unknownWorker: 'Unknown Worker',
+    defaultWorkerRole: 'Worker',
+    overdraftBlockedPolicyError: (accName) => `Insufficient balance in selected account (${accName}) for this advance and policy is set to "Never Allow".`,
+    negativeBalanceWarningToast: (accName, formattedNeg) => `Advance recorded. Note: Account balance for "${accName}" is now negative ${formattedNeg}.`,
+    advanceSuccessMsg: 'Advance payment recorded successfully',
+    errorSavingAdvance: 'Error saving advance payment',
+    advanceModalTitle: 'Personnel Advance Payment & Loan Entry',
+    advanceModalSubtitle: 'Record advance wages, weekly allowances, or staff loans with ledger entries',
+    closeTooltip: 'Close (ESC)',
+    workerRecipientDetails: 'Recipient Worker Details',
+    roleLabel: 'Role:',
+    contractType: 'Contract',
+    dailyType: 'Daily',
+    contractFormal: 'Contract / Fixed',
+    dailyFormal: 'Daily Wage',
+    baseDailyRateLabel: 'Base Daily Rate:',
+    wageTypeLabel: 'Wage Type:',
+    totalAdvancesReceivedLabel: 'Total Advances Received:',
+    advanceDeductionNote: 'Once approved, this advance will be automatically deducted from monthly settlements.',
+    amountAndQuickSuggestions: 'Advance Amount & Quick Presets',
+    quickPresetsLabel: 'Common advance amounts (One-click quick select):',
+    equivalentLabel: 'Equivalent:',
+    paymentAccountTitle: 'Payment Source & Account',
+    accountTypeFilterLabel: 'Account Type Filter:',
+    allAccountsTab: 'All Accounts',
+    bankCardTab: 'Bank Card',
+    cashDeskTab: 'Cash Drawer',
+    chooseSourceAccountLabel: 'Select Payment Account:',
+    cardPrefix: '💳 Card: ',
+    cashPrefix: '🪙 Cash: ',
+    balanceLabel: 'Balance:',
+    defaultBadge: '⭐ [Default]',
+    overdraftDeficitBlockedTitle: 'Insufficient Balance - Transaction Blocked',
+    overdraftDeficitAllowedTitle: 'Deficit Warning (Allowed by settings)',
+    overdraftDeficitWarningTitle: 'Account Deficit Warning',
+    overdraftBlockedDesc: (accBalance, shortfall) => `Account balance (${accBalance}) is insufficient (Shortfall: ${shortfall}). Policy strictly prohibits negative balance.`,
+    overdraftWarningDesc: (accBalance, shortfall) => `Payment exceeds current balance (${accBalance}) by ${shortfall}.`,
+    referenceAndNotesTitle: 'Reference, Receipt & Description',
+    referenceNumberLabel: 'Tracking / Bank Receipt No.',
+    refPlaceholder: 'e.g. Ref #982341 or manual voucher',
+    notesLabel: 'Notes & Payment Purpose',
+    notesPlaceholder: 'Purpose of advance, cash or card transfer...',
+    finalAdvanceAmountLabel: 'Final Advance Amount:',
+    recipientPrefix: 'Recipient:',
+    cancelEsc: 'Cancel (ESC)',
+    submitting: 'Saving...',
+    insufficientFundsBlocked: 'Insufficient Funds (Blocked)',
+    submitAdvance: 'Record Advance Payment',
+    zeroAmount: '0'
+  }
+};
+
 export function AdvancePaymentModal({ 
   isOpen, 
   onClose, 
@@ -52,6 +220,7 @@ export function AdvancePaymentModal({
   targetMonth = null 
 }) {
   const { t, language, direction } = useLanguage();
+  const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
@@ -177,7 +346,7 @@ export function AdvancePaymentModal({
       if (!overdraftCheck.hasSufficientFunds) {
         if (overdraftCheck.effectivePolicy === 'never_allow') {
           setOverdraftPromptData({
-            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            accountName: overdraftCheck.account?.name || c.selectedAccountDefault,
             currentBalance: overdraftCheck.currentBalance,
             requestedAmount: numAmount,
             shortfall: overdraftCheck.shortfall,
@@ -185,14 +354,12 @@ export function AdvancePaymentModal({
           });
           setFeedback({
             type: 'error',
-            message: language === 'fa'
-              ? `موجودی حساب انتخابی (${overdraftCheck.account?.name || 'صندوق/بانک'}) برای پرداخت این مساعده کافی نیست و سیاست کارگاه بر روی «همیشه نامجاز» تنظیم شده است.`
-              : 'باڵانسی حیساب بەش ناکات و کەمبوون قەدەغەیە.'
+            message: c.overdraftBlockedPolicyError(overdraftCheck.account?.name || c.cashAccountDefault)
           });
           return;
         } else if (overdraftCheck.effectivePolicy === 'ask_each_time') {
           setOverdraftPromptData({
-            accountName: overdraftCheck.account?.name || 'حساب انتخابی',
+            accountName: overdraftCheck.account?.name || c.selectedAccountDefault,
             currentBalance: overdraftCheck.currentBalance,
             requestedAmount: numAmount,
             shortfall: overdraftCheck.shortfall,
@@ -245,21 +412,19 @@ export function AdvancePaymentModal({
         const resultingNeg = Math.abs(finalCheck.currentBalance - numAmount);
         setToastMessage({
           type: 'warning',
-          text: language === 'fa'
-            ? `مساعده ثبت شد. توجه: موجودی حساب «${finalCheck.account?.name || 'صندوق'}» به منفی ${formatCurrency(resultingNeg, currency, language)} رسید.`
-            : `مامەڵە تۆمارکرا. باڵانسی حیساب بووە بە نێگەتیڤ.`
+          text: c.negativeBalanceWarningToast(finalCheck.account?.name || c.cashAccountDefault, formatCurrency(resultingNeg, currency, language))
         });
         setTimeout(() => {
           onClose();
         }, 2000);
       } else {
-        setFeedback({ type: 'success', message: t('advanceSuccessMsg') || 'مساعده با موفقیت ثبت شد' });
+        setFeedback({ type: 'success', message: c.advanceSuccessMsg });
         setTimeout(() => {
           onClose();
         }, 800);
       }
     } catch (err) {
-      setFeedback({ type: 'error', message: err.message || 'Error saving advance' });
+      setFeedback({ type: 'error', message: err.message || c.errorSavingAdvance });
     } finally {
       setIsSubmitting(false);
     }
@@ -292,14 +457,14 @@ export function AdvancePaymentModal({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  {t('advanceModalTitle') || 'ثبت سند مساعده و پیش‌پرداخت پرسنل'}
+                  {c.advanceModalTitle}
                 </h2>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-900/60 shadow-2xs">
-                  {currentProject?.name || 'پروژه کارگاه'}
+                  {currentProject?.name || c.workshopProject}
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {language === 'fa' ? 'پرداخت علی‌الحساب، مساعده هفتگی یا وام پرسنل کارگاه با ثبت سند مالی در دفتر معین' : t('advanceModalSubtitle')}
+                {c.advanceModalSubtitle}
               </p>
             </div>
           </div>
@@ -308,7 +473,7 @@ export function AdvancePaymentModal({
             type="button"
             onClick={onClose}
             className="p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
-            title="بستن (ESC)"
+            title={c.closeTooltip}
           >
             <X className="w-5 h-5" />
           </button>
@@ -347,13 +512,13 @@ export function AdvancePaymentModal({
                         <User className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                        مشخصات پرسنل دریافت‌کننده وجه
+                        {c.workerRecipientDetails}
                       </span>
                     </div>
 
                     {selectedWorker && (
                       <span className="text-[11px] font-bold text-slate-400">
-                        سمت: <strong className="text-slate-700 dark:text-slate-300">{selectedWorker.role || 'پرسنل'}</strong>
+                        {c.roleLabel} <strong className="text-slate-700 dark:text-slate-300">{selectedWorker.role || c.defaultWorkerRole}</strong>
                       </span>
                     )}
                   </div>
@@ -373,7 +538,7 @@ export function AdvancePaymentModal({
                         >
                           {workers.map((w) => (
                             <option key={w.id} value={w.id}>
-                              {w.name} {w.role ? `(${w.role})` : ''} - {w.wageType === 'contract' ? 'کنتراتی' : 'روزمزد'}
+                              {w.name} {w.role ? `(${w.role})` : ''} - {w.wageType === 'contract' ? c.contractType : c.dailyType}
                             </option>
                           ))}
                         </select>
@@ -385,7 +550,7 @@ export function AdvancePaymentModal({
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-xs">
                         <div>
                           <span className="block text-[10px] text-amber-800/70 dark:text-amber-300/70 font-bold mb-0.5">
-                            نرخ پایه روزانه:
+                            {c.baseDailyRateLabel}
                           </span>
                           <span className="font-black text-slate-900 dark:text-white font-mono text-xs">
                             {formatCurrency(selectedWorker.dailyRate || 0, currency, language)}
@@ -394,16 +559,16 @@ export function AdvancePaymentModal({
 
                         <div>
                           <span className="block text-[10px] text-amber-800/70 dark:text-amber-300/70 font-bold mb-0.5">
-                            نوع دستمزد:
+                            {c.wageTypeLabel}
                           </span>
                           <span className="font-black text-slate-900 dark:text-white text-xs">
-                            {selectedWorker.wageType === 'contract' ? 'کنتراتی / توافقی' : 'روزمزد رسمی'}
+                            {selectedWorker.wageType === 'contract' ? c.contractFormal : c.dailyFormal}
                           </span>
                         </div>
 
                         <div className="col-span-2 sm:col-span-1">
                           <span className="block text-[10px] text-amber-800/70 dark:text-amber-300/70 font-bold mb-0.5">
-                            مساعده‌های کل دریافتی:
+                            {c.totalAdvancesReceivedLabel}
                           </span>
                           <span className="font-black text-amber-600 dark:text-amber-400 font-mono text-xs">
                             {formatCurrency(totalWorkerAdvances, currency, language)}
@@ -430,7 +595,7 @@ export function AdvancePaymentModal({
 
                       <div className="flex flex-col justify-end">
                         <div className="text-[11px] text-slate-400 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                          مساعده پس از تایید، به طور خودکار در برگه تسویه حساب ماهانه این فرد لحاظ و کسر می‌شود.
+                          {c.advanceDeductionNote}
                         </div>
                       </div>
                     </div>
@@ -444,7 +609,7 @@ export function AdvancePaymentModal({
                       <Coins className="w-4 h-4" />
                     </div>
                     <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                      مبلغ مساعده و مقادیر پیشنهادی سریع
+                      {c.amountAndQuickSuggestions}
                     </span>
                   </div>
 
@@ -480,7 +645,7 @@ export function AdvancePaymentModal({
                     {/* Quick Apple Liquid Glass Chips */}
                     <div className="mt-3.5 space-y-2">
                       <span className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                        مبالغ متداول مساعده (انتخاب سریع با یک کلیک):
+                        {c.quickPresetsLabel}
                       </span>
                       <div className="flex flex-wrap items-center gap-2">
                         {quickAmounts.map((qAmount) => {
@@ -506,7 +671,7 @@ export function AdvancePaymentModal({
                     {Number(amount) > 0 && (
                       <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 font-black font-mono flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>معادل: {formatAmount(Number(amount), currency)} {getCurrencySymbol(currency, language)}</span>
+                        <span>{c.equivalentLabel} {formatAmount(Number(amount), currency)} {getCurrencySymbol(currency, language)}</span>
                       </p>
                     )}
                   </div>
@@ -527,7 +692,7 @@ export function AdvancePaymentModal({
                         <Landmark className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                        حساب یا صندوق پرداختی
+                        {c.paymentAccountTitle}
                       </span>
                     </div>
 
@@ -542,7 +707,7 @@ export function AdvancePaymentModal({
                   {/* Payment Method Segment Toggle [APP_THEME_BUTTON] */}
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      فیلتر نوع حساب پرداخت:
+                      {c.accountTypeFilterLabel}
                     </label>
                     <div className="h-10 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner w-full">
                       <button
@@ -554,7 +719,7 @@ export function AdvancePaymentModal({
                             : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
                         }`}
                       >
-                        <span>همه حساب‌ها</span>
+                        <span>{c.allAccountsTab}</span>
                       </button>
 
                       <button
@@ -567,7 +732,7 @@ export function AdvancePaymentModal({
                         }`}
                       >
                         <CreditCard className="w-3.5 h-3.5" />
-                        <span>کارت بانکی</span>
+                        <span>{c.bankCardTab}</span>
                       </button>
 
                       <button
@@ -580,7 +745,7 @@ export function AdvancePaymentModal({
                         }`}
                       >
                         <Wallet className="w-3.5 h-3.5" />
-                        <span>صندوق نقدی</span>
+                        <span>{c.cashDeskTab}</span>
                       </button>
                     </div>
                   </div>
@@ -588,7 +753,7 @@ export function AdvancePaymentModal({
                   {/* Financial Account Dropdown */}
                   <div className="space-y-1.5 pt-1">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      انتخاب حساب مبدا پرداخت:
+                      {c.chooseSourceAccountLabel}
                     </label>
 
                     {filteredFinancialAccounts.length > 0 ? (
@@ -601,15 +766,15 @@ export function AdvancePaymentModal({
                           const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
                           return (
                             <option key={acc.id} value={acc.id}>
-                              {acc.type === 'bank' ? '💳 کارت: ' : '🪙 صندوق: '}
-                              {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} - موجودی: {formatCurrency(b, currency, language)} {acc.isDefault ? '⭐ [پیش‌فرض]' : ''}
+                              {acc.type === 'bank' ? c.cardPrefix : c.cashPrefix}
+                              {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} - {c.balanceLabel} {formatCurrency(b, currency, language)} {acc.isDefault ? c.defaultBadge : ''}
                             </option>
                           );
                         })}
                       </select>
                     ) : (
                       <div className="text-xs text-slate-400 p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 font-medium">
-                        صندوق نقدی کارگاه
+                        {c.workshopCashDesk}
                       </div>
                     )}
                   </div>
@@ -629,15 +794,15 @@ export function AdvancePaymentModal({
                       <div className="space-y-0.5">
                         <div className="font-bold">
                           {currentOverdraft.effectivePolicy === 'never_allow'
-                            ? 'کسری موجودی - ثبت غیرمجاز'
+                            ? c.overdraftDeficitBlockedTitle
                             : currentOverdraft.effectivePolicy === 'always_allow'
-                              ? 'هشدار کسری موجودی (مجاز در تنظیمات)'
-                              : 'هشدار کسری موجودی حساب'}
+                              ? c.overdraftDeficitAllowedTitle
+                              : c.overdraftDeficitWarningTitle}
                         </div>
                         <div className="text-[11px] leading-relaxed opacity-90 font-medium">
                           {currentOverdraft.effectivePolicy === 'never_allow'
-                            ? `موجودی حساب انتخابی (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) کافی نیست (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}). طبق تنظیمات، ثبت منفی غیرمجاز است.`
-                            : `مبلغ پرداختی از موجودی فعلی حساب (${formatCurrency(currentOverdraft.currentBalance, currency, language)}) بیشتر است (کسری: ${formatCurrency(currentOverdraft.shortfall, currency, language)}).`}
+                            ? c.overdraftBlockedDesc(formatCurrency(currentOverdraft.currentBalance, currency, language), formatCurrency(currentOverdraft.shortfall, currency, language))
+                            : c.overdraftWarningDesc(formatCurrency(currentOverdraft.currentBalance, currency, language), formatCurrency(currentOverdraft.shortfall, currency, language))}
                         </div>
                       </div>
                     </div>
@@ -651,7 +816,7 @@ export function AdvancePaymentModal({
                       <FileText className="w-4 h-4" />
                     </div>
                     <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                      شماره ارجاع، رسید و توضیحات
+                      {c.referenceAndNotesTitle}
                     </span>
                   </div>
 
@@ -659,13 +824,13 @@ export function AdvancePaymentModal({
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                         <Hash className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{t('referenceNumber') || 'شماره پیگیری / شماره فیش بانکی'}</span>
+                        <span>{c.referenceNumberLabel}</span>
                       </label>
                       <input
                         type="text"
                         value={referenceNumber}
                         onChange={(e) => setReferenceNumber(e.target.value)}
-                        placeholder="مثال: پیگیری 982341 یا فیش دستی"
+                        placeholder={c.refPlaceholder}
                         className="w-full px-3.5 py-2.5 text-xs font-medium bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white shadow-xs"
                       />
                     </div>
@@ -673,13 +838,13 @@ export function AdvancePaymentModal({
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{t('notes') || 'توضیحات و شرح پرداخت'}</span>
+                        <span>{c.notesLabel}</span>
                       </label>
                       <textarea
                         rows="2"
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        placeholder="شرح علت درخواست مساعده، واریزی به کارت یا نقد..."
+                        placeholder={c.notesPlaceholder}
                         className="w-full px-3.5 py-2.5 text-xs font-medium bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white resize-none shadow-xs leading-relaxed"
                       />
                     </div>
@@ -702,10 +867,10 @@ export function AdvancePaymentModal({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
               <span className="text-[11px] font-bold text-slate-400">
-                مبلغ نهایی مساعده:
+                {c.finalAdvanceAmountLabel}
               </span>
               <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white font-mono tracking-tight">
-                {amount ? Number(amount).toLocaleString() : '۰'}
+                {amount ? Number(amount).toLocaleString() : c.zeroAmount}
               </span>
               <span className="text-xs font-black text-amber-600 dark:text-amber-400">
                 {getCurrencySymbol(currency, language)}
@@ -715,7 +880,7 @@ export function AdvancePaymentModal({
             {selectedWorker && (
               <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                 <User className="w-3.5 h-3.5 text-amber-500" />
-                <span>دریافت‌کننده: {selectedWorker.name}</span>
+                <span>{c.recipientPrefix} {selectedWorker.name}</span>
               </div>
             )}
           </div>
@@ -727,7 +892,7 @@ export function AdvancePaymentModal({
               onClick={onClose}
               className="px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              انصراف (ESC)
+              {c.cancelEsc}
             </button>
 
             <button
@@ -743,17 +908,17 @@ export function AdvancePaymentModal({
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>در حال ثبت...</span>
+                  <span>{c.submitting}</span>
                 </>
               ) : currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow' ? (
                 <>
                   <Ban className="w-4 h-4" />
-                  <span>کسری موجودی (غیرمجاز)</span>
+                  <span>{c.insufficientFundsBlocked}</span>
                 </>
               ) : (
                 <>
                   <Coins className="w-4 h-4" />
-                  <span>{t('addAdvanceBtn') || 'ثبت سند مساعده'}</span>
+                  <span>{c.submitAdvance}</span>
                 </>
               )}
             </button>
@@ -762,7 +927,7 @@ export function AdvancePaymentModal({
         </div>
       </div>
 
-      {/* مودال تایید کسری موجودی حساب برای مساعده */}
+      {/* Overdraft confirmation modal */}
       {overdraftPromptData && (
         <OverdraftConfirmModal
           isOpen={Boolean(overdraftPromptData)}
