@@ -54,8 +54,253 @@ import {
   Check
 } from 'lucide-react';
 
+// Scoped dictionary for WorkersView
+const COPY = {
+  fa: {
+    unassignedGroup: 'پرسنل عمومی (بدون گروه)',
+    unassignedGroupDesc: 'نیروهای انفرادی و عمومی کارگاه',
+    cannotDeleteAlert: 'این پرسنل به دلیل داشتن سابقه کارکرد یا اسناد مالی در سیستم، به جهت حفظ یکپارچگی حسابداری تحت هیچ شرایطی قابل حذف نیست. شما می‌توانید وضعیت ایشان را به "بایگانی" تغییر دهید.',
+    permanentDeleteIllegalAlert: 'این پرسنل دارای سوابق رسمی کارکرد یا اسناد مالی است و حذف دائمی آن غیرقانونی است. لطفاً پرسنل را بازیابی و بایگانی نمایید.',
+    confirmPermanentDeleteSingle: 'آیا از حذف دائمی این پرسنل مطمئن هستید؟ این عملیات غیرقابل بازگشت است.',
+    emptyRecycleNoDeletableAlert: 'پرسنل موجود در بخش بازیافت دارای سوابق کارکرد یا اسناد مالی هستند و امکان حذف قطعی آن‌ها وجود ندارد.',
+    confirmEmptyRecycle: (cnt) => `آیا از حذف دائمی ${cnt} پرسنل قابل حذف در بازیافت مطمئن هستید؟`,
+    viewFullProfile: 'مشاهده پروفایل جامع پرسنل',
+    statusActive: 'شاغل',
+    statusInactive: 'غیرفعال',
+    roleFallback: 'پرسنل کارگاه',
+    roleFallbackShort: 'پرسنل',
+    badgeMaster: '{txt.badgeMaster}',
+    menuMonthlyCalendar: 'ثبت تقویم ماهانه',
+    menuEditProfile: 'ویرایش پرونده',
+    menuDeactivate: 'مرخص / غیرفعال‌سازی',
+    menuReactivate: 'فعال‌سازی مجدد',
+    menuArchive: 'بایگانی پرسنل',
+    menuMoveRecycle: 'انتقال به بازیافت',
+    menuUnarchive: 'خروج از بایگانی',
+    menuRestore: 'بازیابی مجدد به شاغلین',
+    menuPermanentDelete: 'حذف دائمی از حافظه',
+    directCall: 'تماس مستقیم',
+    noPhone: 'بدون تلفن',
+    lblDailyRate: 'نرخ روزانه:',
+    contractRate: 'کنتراکت',
+    agreedRate: 'توافقی',
+    lblCurrentBalance: '{txt.lblCurrentBalance}',
+    statusCreditor: 'طلبکار',
+    statusDebtor: 'بدهکار',
+    statusSettled: 'تسویه',
+    btnViewHistoryProfile: 'مشاهده کارنامه و پروفایل پرسنل',
+    dailyShort: 'روزانه:',
+    balanceShort: 'مانده:',
+    viewProfile: 'مشاهده پروفایل',
+    heroTitle: 'مدیریت پرسنل و کارکنان',
+    projectFallback: 'کارگاه فعال',
+    heroSubtitle: 'سازماندهی تیم‌های کاری، دستمزدها، کارنامه و وضعیت مالی پرسنل',
+    metricActiveWorkers: 'کل پرسنل فعال:',
+    unitPersons: 'نفر',
+    metricActiveToday: 'مشغول به کار امروز:',
+    unitPresent: 'حاضر',
+    metricUnsettledDue: 'مجموع مانده طلب معوق:',
+    metricGroups: 'گروه‌های تخصصی:',
+    unitTeams: 'تیم',
+    tabActive: 'پرسنل فعال',
+    tabInactive: 'پرسنل غیرفعال',
+    tabArchived: 'بایگانی',
+    tabRecycle: 'بازیافت',
+    tipManageGroups: 'مدیریت گروه‌ها و دسته‌بندی‌های کارگاه',
+    btnManageGroups: 'مدیریت گروه‌ها',
+    btnAddWorker: '+ ثبت پرسنل',
+    searchPlaceholder: 'جستجوی پرسنل با نام، سمت یا موبایل...',
+    optAllGroups: 'همه گروه‌ها',
+    optUnassignedGroup: 'پرسنل انفرادی (بدون گروه)',
+    optAllSections: 'همه بخش‌ها',
+    optUnassignedSection: 'عمومی (بدون بخش)',
+    sortName: 'نام (الفبایی)',
+    sortBalance: 'مانده حساب (بیشترین طلب)',
+    sortDailyRate: 'دستمزد روزانه',
+    sortRole: 'تخصص / سمت',
+    sortCreatedAt: 'تاریخ ثبت',
+    sortAsc: 'صعودی',
+    sortDesc: 'نزولی',
+    tipGroupedView: 'نمایش تفکیک‌شده بر اساس گروه‌ها',
+    lblGroupedView: 'گروه‌بندی',
+    tipFlatView: 'نمایش پیوسته همه پرسنل بدون سرگروه',
+    lblFlatView: 'همه پرسنل',
+    tipGridView: 'نمایش کارتی',
+    tipListView: 'نمایش جدولی و فشرده',
+    btnEmptyRecycle: 'تخلیه جعبه بازیافت',
+    emptySearch: 'هیچ پرسنلی با این مشخصات یافت نشد',
+    emptyNoPersonnel: 'هنوز پرسنلی در این بخش ثبت نشده است',
+    emptyActiveTip: 'می‌توانید با زدن دکمه «+ ثبت پرسنل جدید»، اولین کارگر یا استادکار را تعریف کنید.',
+    emptyOtherTip: 'آیتمی در این بخش وجود ندارد.',
+    lblCountPersons: (cnt) => `${cnt} نفر`,
+    groupShowMembers: 'نمایش اعضا',
+    groupCollapse: 'بستن گروه'
+  },
+  ku: {
+    unassignedGroup: 'پرسنلی گشتی (بێ گرووپ)',
+    unassignedGroupDesc: 'کرێکارانی ئازاد و بێ بەشین',
+    cannotDeleteAlert: 'ئەم کارمەندە بەهۆی هەبوونی تۆماری کار یان بەڵگەنامەی دارایی ناتوانرێت بسڕدرێتەوە. دەتوانیت باری کارمەندەکە بکەیت بە ئەرشیڤکراو.',
+    permanentDeleteIllegalAlert: 'ئەم کارمەندە تۆماری فەرمی هەیە و سڕینەوەی ڕێگەپێنەدراوە. تکایە بیگەڕێنەرەوە و ئەرشیڤی بکە.',
+    confirmPermanentDeleteSingle: 'دڵنیایت لە سڕینەوەی یەکجاری ئەم کارمەندە؟ ئەم کردارە ناگەڕێتەوە.',
+    emptyRecycleNoDeletableAlert: 'کارمەندەکانی ناو زبڵدان تۆماری دارایییان هەیە و ناکرێت بسڕدرێنەوە.',
+    confirmEmptyRecycle: (cnt) => `دڵنیایت لە سڕینەوەی یەکجاری ${cnt} کارمەند لە ناو زبڵدان؟`,
+    viewFullProfile: 'بینینی تەواوی پرۆفایل',
+    statusActive: 'چالاک',
+    statusInactive: 'ناچالاک',
+    roleFallback: 'کرێکاری کارگە',
+    roleFallbackShort: 'کرێکار',
+    badgeMaster: 'وەستا',
+    menuMonthlyCalendar: 'تۆماری ساڵنامەی مانگانە',
+    menuEditProfile: 'دەستکاری پەڕگە',
+    menuDeactivate: 'ناچالاککردن / مۆڵەت',
+    menuReactivate: 'چالاککردنەوە',
+    menuArchive: 'ئەرشیڤکردنی کرێکار',
+    menuMoveRecycle: 'ناردن بۆ زبڵدان',
+    menuUnarchive: 'دەرهێنان لە ئەرشیڤ',
+    menuRestore: 'گەڕاندنەوە بۆ چالاکەکان',
+    menuPermanentDelete: 'سڕینەوەی یەکجاری لە بیرگە',
+    directCall: 'پەیوەندی ڕاستەوخۆ',
+    noPhone: 'بێ ژمارە',
+    lblDailyRate: 'حەقدەستی ڕۆژانە:',
+    contractRate: 'کۆنتراکت',
+    agreedRate: 'ڕێککەوتن',
+    lblCurrentBalance: 'باڵانسی ئێستا:',
+    statusCreditor: 'قەرزدەر',
+    statusDebtor: 'قەرزدار',
+    statusSettled: 'تەسویە',
+    btnViewHistoryProfile: 'بینینی کارنامە و پرۆفایل',
+    dailyShort: 'ڕۆژانە:',
+    balanceShort: 'باڵانس:',
+    viewProfile: 'بینینی پرۆفایل',
+    heroTitle: 'بەڕێوەبردنی کرێکاران و پرسنل',
+    projectFallback: 'پڕۆژەی چالاک',
+    heroSubtitle: 'ڕێکخستنی تیمەکانی کار، حەقدەست و دۆخی دارایی',
+    metricActiveWorkers: 'تەواوی کرێکارانی چالاک:',
+    unitPersons: 'کەس',
+    metricActiveToday: 'ئەمڕۆ سەرقاڵی کارن:',
+    unitPresent: 'ئامادە',
+    metricUnsettledDue: 'کۆی گشتی باڵانسی قەرز:',
+    metricGroups: 'تیمە تایبەتمەندەکان:',
+    unitTeams: 'تیم',
+    tabActive: 'کرێکارانی چالاک',
+    tabInactive: 'کرێکارانی ناچالاک',
+    tabArchived: 'ئەرشیڤ',
+    tabRecycle: 'زبڵدان',
+    tipManageGroups: 'بەڕێوەبردنی گرووپەکانی کارگە',
+    btnManageGroups: 'بەڕێوەبردنی گرووپ',
+    btnAddWorker: '+ تۆمارکردنی کرێکار',
+    searchPlaceholder: 'گەڕان بەپێی ناو، پلە یان مۆبایل...',
+    optAllGroups: 'هەموو گرووپەکان',
+    optUnassignedGroup: 'کرێکارانی ئازاد (بێ گرووپ)',
+    optAllSections: 'هەموو بەشەکان',
+    optUnassignedSection: 'گشتی (بێ بەش)',
+    sortName: 'ناو (ئەلفوبێ)',
+    sortBalance: 'باڵانس (زۆرترین قەرز)',
+    sortDailyRate: 'حەقدەستی ڕۆژانە',
+    sortRole: 'تایبەتمەندی / پلە',
+    sortCreatedAt: 'بەرواری تۆمار',
+    sortAsc: 'سەروو',
+    sortDesc: 'خواروو',
+    tipGroupedView: 'پیشاندانی دابەشکراو بەپێی گرووپەکان',
+    lblGroupedView: 'گرووپەکان',
+    tipFlatView: 'پیشاندانی هەموو کرێکاران بەیەکەوە',
+    lblFlatView: 'هەموو کرێکاران',
+    tipGridView: 'پیشاندانی کارتی',
+    tipListView: 'پیشاندانی خشتەیی و کۆکراوە',
+    btnEmptyRecycle: 'خاڵیکردنەوەی زبڵدان',
+    emptySearch: 'هیچ کرێکارێک نەدۆزرایەوە',
+    emptyNoPersonnel: 'هێشتا هیچ کرێکارێک تۆمار نەکراوە',
+    emptyActiveTip: 'دەتوانیت بە داگرتنی «+ تۆمارکردنی کرێکار»، یەکەم کرێکار پێناسە بکەیت.',
+    emptyOtherTip: 'هیچ بابەتێک لەم بەشەدا نییە.',
+    lblCountPersons: (cnt) => `${cnt} کەس`,
+    groupShowMembers: 'پیشاندانی ئەندامەکان',
+    groupCollapse: 'داخستنی گرووپ'
+  },
+  en: {
+    unassignedGroup: 'General Personnel (Unassigned)',
+    unassignedGroupDesc: 'Individual & general workshop staff',
+    cannotDeleteAlert: 'This personnel cannot be deleted under any circumstances due to work records or financial documents. You can change their status to "Archived".',
+    permanentDeleteIllegalAlert: 'This worker has official work logs or financial documents and cannot be permanently deleted. Please restore and archive.',
+    confirmPermanentDeleteSingle: 'Are you sure you want to permanently delete this worker? This action is irreversible.',
+    emptyRecycleNoDeletableAlert: 'Workers in the recycle bin have work records or financial documents and cannot be deleted.',
+    confirmEmptyRecycle: (cnt) => `Are you sure you want to permanently delete ${cnt} deletable workers from the recycle bin?`,
+    viewFullProfile: 'View Full Personnel Profile',
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+    roleFallback: 'Workshop Worker',
+    roleFallbackShort: 'Personnel',
+    badgeMaster: 'Master',
+    menuMonthlyCalendar: 'Monthly Calendar Logs',
+    menuEditProfile: 'Edit Profile',
+    menuDeactivate: 'Dismiss / Deactivate',
+    menuReactivate: 'Reactivate',
+    menuArchive: 'Archive Worker',
+    menuMoveRecycle: 'Move to Recycle Bin',
+    menuUnarchive: 'Unarchive Worker',
+    menuRestore: 'Restore to Active',
+    menuPermanentDelete: 'Permanently Delete',
+    directCall: 'Direct Call',
+    noPhone: 'No phone',
+    lblDailyRate: 'Daily Rate:',
+    contractRate: 'Contract',
+    agreedRate: 'Agreed',
+    lblCurrentBalance: 'Current Balance:',
+    statusCreditor: 'Creditor',
+    statusDebtor: 'Debtor',
+    statusSettled: 'Settled',
+    btnViewHistoryProfile: 'View Profile & Work Record',
+    dailyShort: 'Daily:',
+    balanceShort: 'Due:',
+    viewProfile: 'View Profile',
+    heroTitle: 'Personnel & Workers Management',
+    projectFallback: 'Active Workshop',
+    heroSubtitle: 'Organize teams, wages, records, and financial status of staff',
+    metricActiveWorkers: 'Total Active Personnel:',
+    unitPersons: 'persons',
+    metricActiveToday: 'Working Today:',
+    unitPresent: 'present',
+    metricUnsettledDue: 'Total Overdue Balance:',
+    metricGroups: 'Specialized Teams:',
+    unitTeams: 'teams',
+    tabActive: 'Active Personnel',
+    tabInactive: 'Inactive',
+    tabArchived: 'Archived',
+    tabRecycle: 'Recycle Bin',
+    tipManageGroups: 'Manage workshop groups and categories',
+    btnManageGroups: 'Manage Groups',
+    btnAddWorker: '+ Add Worker',
+    searchPlaceholder: 'Search workers by name, role or phone...',
+    optAllGroups: 'All Groups',
+    optUnassignedGroup: 'Individual Personnel (No Group)',
+    optAllSections: 'All Sections',
+    optUnassignedSection: 'General (No Section)',
+    sortName: 'Name (A-Z)',
+    sortBalance: 'Balance (Highest Due)',
+    sortDailyRate: 'Daily Rate',
+    sortRole: 'Role / Specialty',
+    sortCreatedAt: 'Date Created',
+    sortAsc: 'Ascending',
+    sortDesc: 'Descending',
+    tipGroupedView: 'Display grouped by teams',
+    lblGroupedView: 'Grouped',
+    tipFlatView: 'Display all workers flat',
+    lblFlatView: 'All Workers',
+    tipGridView: 'Card View',
+    tipListView: 'Table & Compact View',
+    btnEmptyRecycle: 'Empty Recycle Bin',
+    emptySearch: 'No personnel found matching this search',
+    emptyNoPersonnel: 'No personnel registered in this section yet',
+    emptyActiveTip: 'You can click "+ Add Worker" to register your first master craftsman or worker.',
+    emptyOtherTip: 'No items in this section.',
+    lblCountPersons: (cnt) => `${cnt} persons`,
+    groupShowMembers: 'Show Members',
+    groupCollapse: 'Collapse Group'
+  }
+};
+
 export function WorkersView() {
   const { t, language, direction } = useLanguage();
+  const txt = COPY[language] || COPY.fa;
   const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
   const { currentProject, openWorkerProfile } = useProject();
   const currency = currentProject?.currency || 'IQD';
@@ -332,8 +577,8 @@ export function WorkersView() {
     const groupsObj = { 
       unassigned: { 
         id: 'unassigned', 
-        name: language === 'ku' ? 'پرسنلی گشتی (بێ گرووپ)' : 'پرسنل عمومی (بدون گروه)', 
-        description: language === 'ku' ? 'کرێکارانی ئازاد و بێ بەشین' : 'نیروهای انفرادی و عمومی کارگاه',
+        name: txt.unassignedGroup, 
+        description: txt.unassignedGroupDesc,
         workers: [] 
       } 
     };
@@ -356,7 +601,7 @@ export function WorkersView() {
         g.workers.sort((a, b) => {
           let compare = 0;
           if (sortBy === 'name') {
-            compare = (a.name || '').localeCompare(b.name || '', language === 'fa' ? 'fa' : 'ckb');
+            compare = (a.name || '').localeCompare(b.name || '', language === 'fa' ? 'fa' : language === 'ku' ? 'ckb' : 'en');
           } else if (sortBy === 'balance') {
             const finA = workerFinancialsMap.get(a.id)?.netBalanceDue || 0;
             const finB = workerFinancialsMap.get(b.id)?.netBalanceDue || 0;
@@ -389,7 +634,7 @@ export function WorkersView() {
     list.sort((a, b) => {
       let compare = 0;
       if (sortBy === 'name') {
-        compare = (a.name || '').localeCompare(b.name || '', language === 'fa' ? 'fa' : 'ckb');
+        compare = (a.name || '').localeCompare(b.name || '', language === 'fa' ? 'fa' : language === 'ku' ? 'ckb' : 'en');
       } else if (sortBy === 'balance') {
         const finA = workerFinancialsMap.get(a.id)?.netBalanceDue || 0;
         const finB = workerFinancialsMap.get(b.id)?.netBalanceDue || 0;
@@ -474,9 +719,7 @@ export function WorkersView() {
   const handleMoveToRecycle = async (worker) => {
     setActiveMenuWorkerId(null);
     if (undeletableWorkerIds.has(String(worker.id))) {
-      alert(language === 'fa' 
-        ? 'این پرسنل به دلیل داشتن سابقه کارکرد یا اسناد مالی در سیستم، به جهت حفظ یکپارچگی حسابداری تحت هیچ شرایطی قابل حذف نیست. شما می‌توانید وضعیت ایشان را به "بایگانی" تغییر دهید.' 
-        : 'ئەم کارمەندە بەهۆی هەبوونی تۆماری کار یان بەڵگەنامەی دارایی ناتوانرێت بسڕدرێتەوە.');
+      alert(txt.cannotDeleteAlert);
       return;
     }
     const updated = {
@@ -506,12 +749,10 @@ export function WorkersView() {
 
   const handlePermanentDelete = async (worker) => {
     if (undeletableWorkerIds.has(String(worker.id))) {
-      alert(language === 'fa' 
-        ? 'این پرسنل دارای سوابق رسمی کارکرد یا اسناد مالی است و حذف دائمی آن غیرقانونی است. لطفاً پرسنل را بازیابی و بایگانی نمایید.' 
-        : 'ئەم کارمەندە ناتوانرێت بسڕدرێتەوە.');
+      alert(txt.permanentDeleteIllegalAlert);
       return;
     }
-    if (window.confirm(language === 'fa' ? 'آیا از حذف دائمی این پرسنل مطمئن هستید؟ این عملیات غیرقابل بازگشت است.' : 'دڵنیایت لە سڕینەوەی یەکجاری؟')) {
+    if (window.confirm(txt.confirmPermanentDeleteSingle)) {
       await db.workers.delete(worker.id);
       deleteWorkerLive(worker.id).catch(console.error);
     }
@@ -521,12 +762,10 @@ export function WorkersView() {
     if (recycleWorkersList.length === 0) return;
     const deletableList = recycleWorkersList.filter(w => !undeletableWorkerIds.has(String(w.id)));
     if (deletableList.length === 0) {
-      alert(language === 'fa' 
-        ? 'پرسنل موجود در بخش بازیافت دارای سوابق کارکرد یا اسناد مالی هستند و امکان حذف قطعی آن‌ها وجود ندارد.' 
-        : 'کارمەندەکان ناتوانرێن بسڕدرێنەوە.');
+      alert(txt.emptyRecycleNoDeletableAlert);
       return;
     }
-    if (window.confirm(language === 'fa' ? `آیا از حذف دائمی ${deletableList.length} پرسنل قابل حذف در بازیافت مطمئن هستید؟` : 'دڵنیایت؟')) {
+    if (window.confirm(txt.confirmEmptyRecycle(deletableList.length))) {
       for (const w of deletableList) {
         await db.workers.delete(w.id);
         deleteWorkerLive(w.id).catch(console.error);
@@ -564,22 +803,22 @@ export function WorkersView() {
                   <h4 
                     onClick={() => openWorkerProfile(worker.id)}
                     className="font-black text-sm sm:text-base text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
-                    title="مشاهده پروفایل جامع پرسنل"
+                    title={txt.viewFullProfile}
                   >
                     {worker.name}
                   </h4>
                   <span className={`w-2 h-2 rounded-full shrink-0 ${
                     worker.isActive !== 0 ? 'bg-emerald-500' : 'bg-rose-500'
-                  }`} title={worker.isActive !== 0 ? 'شاغل' : 'غیرفعال'} />
+                  }`} title={worker.isActive !== 0 ? txt.statusActive : txt.statusInactive} />
                 </div>
 
                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                   <span className="text-xs text-sky-600 dark:text-sky-400 font-bold">
-                    {worker.role || 'پرسنل کارگاه'}
+                    {worker.role || txt.roleFallback}
                   </span>
                   {worker.teamRole === 'Master' && (
                     <span className="text-[10px] px-2 py-0.2 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 font-bold">
-                      استادکار
+                      {txt.badgeMaster}
                     </span>
                   )}
                 </div>
@@ -609,7 +848,7 @@ export function WorkersView() {
                         className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/50 hover:text-sky-600 flex items-center gap-2 cursor-pointer text-start"
                       >
                         <Calendar className="w-4 h-4 text-sky-500" />
-                        <span>ثبت تقویم ماهانه</span>
+                        <span>{txt.menuMonthlyCalendar}</span>
                       </button>
 
                       <button
@@ -618,7 +857,7 @@ export function WorkersView() {
                         className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-start"
                       >
                         <Edit2 className="w-4 h-4 text-slate-500" />
-                        <span>ویرایش پرونده</span>
+                        <span>{txt.menuEditProfile}</span>
                       </button>
 
                       <button
@@ -629,12 +868,12 @@ export function WorkersView() {
                         {worker.isActive === 1 ? (
                           <>
                             <XCircle className="w-4 h-4 text-rose-500" />
-                            <span>مرخص / غیرفعال‌سازی</span>
+                            <span>{txt.menuDeactivate}</span>
                           </>
                         ) : (
                           <>
                             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                            <span>فعال‌سازی مجدد</span>
+                            <span>{txt.menuReactivate}</span>
                           </>
                         )}
                       </button>
@@ -645,7 +884,7 @@ export function WorkersView() {
                         className="w-full px-3.5 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 cursor-pointer text-start"
                       >
                         <Archive className="w-4 h-4" />
-                        <span>بایگانی پرسنل</span>
+                        <span>{txt.menuArchive}</span>
                       </button>
 
                       <button
@@ -654,7 +893,7 @@ export function WorkersView() {
                         className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer text-start"
                       >
                         <RotateCcw className="w-4 h-4" />
-                        <span>انتقال به بازیافت</span>
+                        <span>{txt.menuMoveRecycle}</span>
                       </button>
                     </>
                   )}
@@ -669,7 +908,7 @@ export function WorkersView() {
                       className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center gap-2 cursor-pointer text-start"
                     >
                       <Check className="w-4 h-4" />
-                      <span>خروج از بایگانی</span>
+                      <span>{txt.menuUnarchive}</span>
                     </button>
                   )}
 
@@ -684,7 +923,7 @@ export function WorkersView() {
                         className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center gap-2 cursor-pointer text-start"
                       >
                         <RotateCcw className="w-4 h-4" />
-                        <span>بازیابی مجدد به شاغلین</span>
+                        <span>{txt.menuRestore}</span>
                       </button>
                       <button
                         type="button"
@@ -695,7 +934,7 @@ export function WorkersView() {
                         className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer text-start"
                       >
                         <Trash2 className="w-4 h-4" />
-                        <span>حذف دائمی از حافظه</span>
+                        <span>{txt.menuPermanentDelete}</span>
                       </button>
                     </>
                   )}
@@ -710,13 +949,13 @@ export function WorkersView() {
               <a 
                 href={`tel:${worker.phone}`}
                 className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-sky-600 font-mono"
-                title="تماس مستقیم"
+                title={txt.directCall}
               >
                 <Phone className="w-3.5 h-3.5 text-sky-500" />
                 <span>{worker.phone}</span>
               </a>
             ) : (
-              <span className="text-[11px] text-slate-400">بدون تلفن</span>
+              <span className="text-[11px] text-slate-400">{txt.noPhone}</span>
             )}
 
             {worker.defaultSectionId && sectionMap[worker.defaultSectionId] && (
@@ -733,15 +972,15 @@ export function WorkersView() {
           {/* باکس شیشه‌ای دستمزد و مانده حساب */}
           <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">نرخ روزانه:</span>
+              <span className="text-slate-400">{txt.lblDailyRate}</span>
               <span className="font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
-                {worker.wageType === 'contract' ? 'کنتراکت' : formatCurrency(worker.dailyRate, currency, language)}
+                {worker.wageType === 'contract' ? txt.contractRate : formatCurrency(worker.dailyRate, currency, language)}
               </span>
             </div>
 
             <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                مانده حساب جاری:
+                {txt.lblCurrentBalance}
               </span>
               {fin ? (
                 <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-lg ${
@@ -753,7 +992,7 @@ export function WorkersView() {
                 }`} dir="ltr">
                   {formatCurrency(Math.abs(fin.netBalanceDue), currency, language)}
                   <span className="text-[9px] ms-1 font-normal font-sans">
-                    {fin.netBalanceDue > 0 ? 'طلبکار' : fin.netBalanceDue < 0 ? 'بدهکار' : 'تسویه'}
+                    {fin.netBalanceDue > 0 ? txt.statusCreditor : fin.netBalanceDue < 0 ? txt.statusDebtor : txt.statusSettled}
                   </span>
                 </span>
               ) : (
@@ -771,7 +1010,7 @@ export function WorkersView() {
             className="w-full py-2.5 rounded-2xl bg-sky-50 dark:bg-sky-950/50 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold text-xs border border-sky-200/60 dark:border-sky-800/60 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
           >
             <History className="w-4 h-4" />
-            <span>مشاهده کارنامه و پروفایل پرسنل</span>
+            <span>{txt.btnViewHistoryProfile}</span>
           </button>
         </div>
       </div>
@@ -798,28 +1037,28 @@ export function WorkersView() {
               <h4 
                 onClick={() => openWorkerProfile(worker.id)}
                 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 transition-colors"
-                title="مشاهده پروفایل جامع پرسنل"
+                title={txt.viewFullProfile}
               >
                 {worker.name}
               </h4>
               <span className={`w-2 h-2 rounded-full shrink-0 ${worker.isActive !== 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
             </div>
             <span className="text-[11px] text-slate-400 block truncate mt-0.5">
-              {worker.role || 'پرسنل'} {worker.phone ? `• ${worker.phone}` : ''}
+              {worker.role || txt.roleFallbackShort} {worker.phone ? `• ${worker.phone}` : ''}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <div className="text-end hidden sm:block">
-            <span className="text-[9px] text-slate-400 block">روزانه:</span>
+            <span className="text-[9px] text-slate-400 block">{txt.dailyShort}</span>
             <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300" dir="ltr">
-              {worker.wageType === 'contract' ? 'توافقی' : formatCurrency(worker.dailyRate, currency, language)}
+              {worker.wageType === 'contract' ? txt.agreedRate : formatCurrency(worker.dailyRate, currency, language)}
             </span>
           </div>
 
           <div className="text-end">
-            <span className="text-[9px] text-slate-400 block">مانده:</span>
+            <span className="text-[9px] text-slate-400 block">{txt.balanceShort}</span>
             {fin ? (
               <span className={`text-xs font-mono font-black ${
                 fin.netBalanceDue > 0 ? 'text-emerald-600 dark:text-emerald-400' : fin.netBalanceDue < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
@@ -833,7 +1072,7 @@ export function WorkersView() {
             type="button"
             onClick={() => openWorkerProfile(worker.id)}
             className="p-2 rounded-xl text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-            title="مشاهده پروفایل"
+            title={txt.viewProfile}
           >
             <History className="w-4 h-4" />
           </button>
@@ -864,16 +1103,14 @@ export function WorkersView() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                    {language === 'fa' ? 'مدیریت پرسنل و کارکنان' : 'بەڕێوەبردنی کرێکاران و پرسنل'}
+                    {txt.heroTitle}
                   </h1>
                   <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-sky-300 border border-white/10">
-                    {currentProject?.name || 'کارگاه فعال'}
+                    {currentProject?.name || txt.projectFallback}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  {language === 'fa' 
-                    ? 'سازماندهی تیم‌های کاری، دستمزدها، کارنامه و وضعیت مالی پرسنل' 
-                    : 'ڕێکخستنی تیمەکانی کار، حەقدەست و دۆخی دارایی'}
+                  {txt.heroSubtitle}
                 </p>
               </div>
             </div>
@@ -881,30 +1118,30 @@ export function WorkersView() {
             {/* کارت‌های شیشه‌ای شاخص‌های کلیدی (KPIs) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
               <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                <span className="text-[11px] text-slate-400 block truncate">کل پرسنل فعال:</span>
+                <span className="text-[11px] text-slate-400 block truncate">{txt.metricActiveWorkers}</span>
                 <span className="text-lg font-black font-mono text-white mt-0.5 block">
-                  {heroMetrics.activeCount} <span className="text-xs font-normal text-slate-400">نفر</span>
+                  {heroMetrics.activeCount} <span className="text-xs font-normal text-slate-400">{txt.unitPersons}</span>
                 </span>
               </div>
 
               <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-md">
-                <span className="text-[11px] text-emerald-300 block truncate">مشغول به کار امروز:</span>
+                <span className="text-[11px] text-emerald-300 block truncate">{txt.metricActiveToday}</span>
                 <span className="text-lg font-black font-mono text-emerald-400 mt-0.5 block">
-                  {heroMetrics.activeTodayCount} <span className="text-xs font-normal text-emerald-300">حاضر</span>
+                  {heroMetrics.activeTodayCount} <span className="text-xs font-normal text-emerald-300">{txt.unitPresent}</span>
                 </span>
               </div>
 
               <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 backdrop-blur-md">
-                <span className="text-[11px] text-amber-300 block truncate">مجموع مانده طلب معوق:</span>
+                <span className="text-[11px] text-amber-300 block truncate">{txt.metricUnsettledDue}</span>
                 <span className="text-sm sm:text-base font-black font-mono text-amber-400 mt-1 block truncate" dir="ltr">
                   {formatCurrency(heroMetrics.totalUnsettledDue, currency, language)}
                 </span>
               </div>
 
               <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md">
-                <span className="text-[11px] text-indigo-300 block truncate">گروه‌های تخصصی:</span>
+                <span className="text-[11px] text-indigo-300 block truncate">{txt.metricGroups}</span>
                 <span className="text-lg font-black font-mono text-indigo-300 mt-0.5 block">
-                  {heroMetrics.groupsCount} <span className="text-xs font-normal text-indigo-400">تیم</span>
+                  {heroMetrics.groupsCount} <span className="text-xs font-normal text-indigo-400">{txt.unitTeams}</span>
                 </span>
               </div>
             </div>
@@ -916,10 +1153,10 @@ export function WorkersView() {
             {/* ردیف ۱: سگمنت چهارگانه وضعیت با عرض ثابت و هماهنگ */}
             <div className="w-full sm:w-[320px] flex items-center justify-between p-1 bg-white/10 dark:bg-black/40 backdrop-blur-md rounded-2xl border border-white/15 shadow-inner">
               {[
-                { id: 'active', label: 'پرسنل فعال', count: activeWorkersList.length, icon: UserCheck },
-                { id: 'inactive', label: 'پرسنل غیرفعال', count: inactiveWorkersList.length, icon: UserX },
-                { id: 'archived', label: 'بایگانی', count: archivedWorkersList.length, icon: Archive },
-                { id: 'recycle', label: 'بازیافت', count: recycleWorkersList.length, icon: RefreshCw }
+                { id: 'active', label: txt.tabActive, count: activeWorkersList.length, icon: UserCheck },
+                { id: 'inactive', label: txt.tabInactive, count: inactiveWorkersList.length, icon: UserX },
+                { id: 'archived', label: txt.tabArchived, count: archivedWorkersList.length, icon: Archive },
+                { id: 'recycle', label: txt.tabRecycle, count: recycleWorkersList.length, icon: RefreshCw }
               ].map(tab => {
                 const isSelected = statusTab === tab.id;
                 const Icon = tab.icon;
@@ -929,7 +1166,7 @@ export function WorkersView() {
                     type="button"
                     onClick={() => setStatusTab(tab.id)}
                     aria-label={`${tab.label} (${tab.count})`}
-                    title={`${tab.label} (${tab.count} نفر)`}
+                    title={`${tab.label} (${txt.lblCountPersons(tab.count)})`}
                     className={`h-10 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out flex items-center justify-center gap-1.5 cursor-pointer ${
                       isSelected
                         ? 'flex-1 px-3 bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 border border-sky-400/40'
@@ -960,10 +1197,10 @@ export function WorkersView() {
                 type="button"
                 onClick={() => setIsManageGroupsModalOpen(true)}
                 className="h-11 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                title="مدیریت گروه‌ها و دسته‌بندی‌های کارگاه"
+                title={txt.tipManageGroups}
               >
                 <FolderTree className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span className="truncate">مدیریت گروه‌ها</span>
+                <span className="truncate">{txt.btnManageGroups}</span>
               </button>
 
               <button
@@ -972,7 +1209,7 @@ export function WorkersView() {
                 className="h-11 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black text-xs shadow-lg shadow-sky-500/25 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <UserPlus className="w-4 h-4 shrink-0" />
-                <span className="truncate">+ ثبت پرسنل</span>
+                <span className="truncate">{txt.btnAddWorker}</span>
               </button>
             </div>
 
@@ -994,7 +1231,7 @@ export function WorkersView() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="جستجوی پرسنل با نام، سمت یا موبایل..."
+            placeholder={txt.searchPlaceholder}
             className="w-full ps-10 pe-16 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 focus:outline-none transition-all"
           />
           {searchTerm ? (
@@ -1022,11 +1259,11 @@ export function WorkersView() {
               onChange={(e) => setFilterGroup(e.target.value)}
               className="px-3 py-2 bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-sky-500/30 focus:outline-none cursor-pointer"
             >
-              <option value="all">همه گروه‌ها</option>
+              <option value="all">{txt.optAllGroups}</option>
               {groups.map(g => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
-              <option value="unassigned">پرسنل انفرادی (بدون گروه)</option>
+              <option value="unassigned">{txt.optUnassignedGroup}</option>
             </select>
           )}
 
@@ -1037,11 +1274,11 @@ export function WorkersView() {
               onChange={(e) => setFilterSection(e.target.value)}
               className="px-3 py-2 bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-sky-500/30 focus:outline-none cursor-pointer"
             >
-              <option value="all">همه بخش‌ها</option>
+              <option value="all">{txt.optAllSections}</option>
               {projectSections.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
-              <option value="unassigned">عمومی (بدون بخش)</option>
+              <option value="unassigned">{txt.optUnassignedSection}</option>
             </select>
           )}
 
@@ -1053,17 +1290,17 @@ export function WorkersView() {
               onChange={(e) => setSortBy(e.target.value)}
               className="px-2 py-1 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
             >
-              <option value="name">نام (الفبایی)</option>
-              <option value="balance">مانده حساب (بیشترین طلب)</option>
-              <option value="dailyRate">دستمزد روزانه</option>
-              <option value="role">تخصص / سمت</option>
-              <option value="createdAt">تاریخ ثبت</option>
+              <option value="name">{txt.sortName}</option>
+              <option value="balance">{txt.sortBalance}</option>
+              <option value="dailyRate">{txt.sortDailyRate}</option>
+              <option value="role">{txt.sortRole}</option>
+              <option value="createdAt">{txt.sortCreatedAt}</option>
             </select>
             <button
               type="button"
               onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
               className="p-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-              title={sortOrder === 'asc' ? 'صعودی' : 'نزولی'}
+              title={sortOrder === 'asc' ? txt.sortAsc : txt.sortDesc}
             >
               {sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-sky-500" /> : <ArrowDown className="w-3.5 h-3.5 text-sky-500" />}
             </button>
@@ -1079,10 +1316,10 @@ export function WorkersView() {
                   ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
-              title="نمایش تفکیک‌شده بر اساس گروه‌ها"
+              title={txt.tipGroupedView}
             >
               <FolderTree className="w-4 h-4" />
-              <span className="hidden sm:inline">گروه‌بندی</span>
+              <span className="hidden sm:inline">{txt.lblGroupedView}</span>
             </button>
             <button
               type="button"
@@ -1092,10 +1329,10 @@ export function WorkersView() {
                   ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
-              title="نمایش پیوسته همه پرسنل بدون سرگروه"
+              title={txt.tipFlatView}
             >
               <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">همه پرسنل</span>
+              <span className="hidden sm:inline">{txt.lblFlatView}</span>
             </button>
           </div>
 
@@ -1109,7 +1346,7 @@ export function WorkersView() {
                   ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
-              title="نمایش کارتی"
+              title={txt.tipGridView}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
@@ -1121,7 +1358,7 @@ export function WorkersView() {
                   ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
-              title="نمایش جدولی و فشرده"
+              title={txt.tipListView}
             >
               <List className="w-4 h-4" />
             </button>
@@ -1135,7 +1372,7 @@ export function WorkersView() {
               className="px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 rounded-2xl text-xs font-bold border border-rose-200 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
-              <span>تخلیه جعبه بازیافت</span>
+              <span>{txt.btnEmptyRecycle}</span>
             </button>
           )}
 
@@ -1150,12 +1387,12 @@ export function WorkersView() {
         <div className="p-12 text-center rounded-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80">
           <Users className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
-            {searchTerm ? 'هیچ پرسنلی با این مشخصات یافت نشد' : 'هنوز پرسنلی در این بخش ثبت نشده است'}
+            {searchTerm ? txt.emptySearch : txt.emptyNoPersonnel}
           </h3>
           <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
             {statusTab === 'active' 
-              ? 'می‌توانید با زدن دکمه «+ ثبت پرسنل جدید»، اولین کارگر یا استادکار را تعریف کنید.' 
-              : 'آیتمی در این بخش وجود ندارد.'}
+              ? txt.emptyActiveTip 
+              : txt.emptyOtherTip}
           </p>
         </div>
       ) : isGroupedView ? (
@@ -1183,7 +1420,7 @@ export function WorkersView() {
                           {group.name}
                         </h3>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/60 font-bold font-mono">
-                          {group.workers.length} نفر
+                          {txt.lblCountPersons(group.workers.length)}
                         </span>
                       </div>
                       {group.description && (
@@ -1195,7 +1432,7 @@ export function WorkersView() {
                   </div>
 
                   <span className="text-xs text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors font-medium">
-                    {isCollapsed ? 'نمایش اعضا' : 'بستن گروه'}
+                    {isCollapsed ? txt.groupShowMembers : txt.groupCollapse}
                   </span>
                 </div>
 

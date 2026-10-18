@@ -4,8 +4,28 @@ import { X, Users } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { WorkersView } from './WorkersView';
 
+// Scoped dictionary for WorkersModal
+const COPY = {
+  fa: {
+    title: 'سامانه مدیریت پرسنل و کارکنان',
+    subtitle: 'کلید میانبر Shift + P • جهت خروج کلید Esc را بزنید',
+    closeTooltip: 'بستن (Esc)'
+  },
+  ku: {
+    title: 'بەڕێوەبردنی کرێکاران و پرسنل',
+    subtitle: 'کلیلەکانی خێرا Shift + P • داگرتنی Esc بۆ داخستن',
+    closeTooltip: 'داخستن (Esc)'
+  },
+  en: {
+    title: 'Personnel & Workers Management',
+    subtitle: 'Shortcut: Shift + P • Press Esc to close',
+    closeTooltip: 'Close (Esc)'
+  }
+};
+
 export function WorkersModal({ isOpen, onClose }) {
   const { language } = useLanguage();
+  const txt = COPY[language] || COPY.fa;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,10 +57,10 @@ export function WorkersModal({ isOpen, onClose }) {
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
-              {language === 'fa' ? 'سامانه مدیریت پرسنل و کارکنان' : language === 'ku' ? 'بەڕێوەبردنی کرێکاران و پرسنل' : 'Personnel & Workers Management'}
+              {txt.title}
             </h2>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
-              {language === 'fa' ? 'کلید میانبر Shift + P • جهت خروج کلید Esc را بزنید' : language === 'ku' ? 'کلیلەکانی خێرا Shift + P • داگرتنی Esc بۆ داخستن' : 'Shortcut: Shift + P • Press Esc to close'}
+              {txt.subtitle}
             </p>
           </div>
         </div>
@@ -49,8 +69,8 @@ export function WorkersModal({ isOpen, onClose }) {
           type="button"
           onClick={onClose}
           className="w-10 h-10 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all duration-150 active:scale-95 border border-slate-200/80 dark:border-slate-700/80 shadow-xs cursor-pointer"
-          aria-label={language === 'fa' ? 'بستن (Esc)' : 'Close (Esc)'}
-          title={language === 'fa' ? 'بستن (Esc)' : 'Close (Esc)'}
+          aria-label={txt.closeTooltip}
+          title={txt.closeTooltip}
         >
           <X className="w-5 h-5" />
         </button>

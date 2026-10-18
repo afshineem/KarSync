@@ -53,8 +53,255 @@ const QUICK_DAILY_RATES_IQD = [
   { label: '۶۰ هزار', val: 60000 },
 ];
 
+// Scoped dictionary for AddWorkerModal
+const COPY = {
+  fa: {
+    rolePresets: ['استادکار', 'جوشکار', 'بنا', 'آرماتوربند', 'قالب‌بند', 'سیم‌کش / برقکار', 'لوله‌کش', 'گچ‌کار', 'نقاش', 'راننده / اپراتور', 'کارگر ساده'],
+    quickRates: [
+      { label: '۲۵ هزار', val: 25000 },
+      { label: '۳۰ هزار', val: 30000 },
+      { label: '۳۵ هزار', val: 35000 },
+      { label: '۴۰ هزار', val: 40000 },
+      { label: '۵۰ هزار', val: 50000 },
+      { label: '۶۰ هزار', val: 60000 }
+    ],
+    errNameRequired: 'نام و نام خانوادگی الزامی است',
+    errRatesPositive: 'مقادیر دستمزد و اضافه‌کاری باید عددی معتبر و مثبت باشند',
+    errSaveWorker: 'خطا در ثبت مشخصات پرسنل',
+    editTitle: 'ویرایش پرونده پرسنل',
+    createTitle: 'تعریف پرسنل / کارگر جدید',
+    projectFallback: 'پروژه فعال',
+    badgeActiveStatus: 'شاغل / فعال',
+    badgeInactiveStatus: 'غیرفعال',
+    subtitle: 'مشخصات هویتی، قرارداد کار، دستمزد روزانه، تعیین گروه کاری و دسترسی پورتال',
+    closeEsc: 'بستن (ESC)',
+    close: 'بستن',
+    secIdentity: 'اطلاعات هویتی و ارتباطی',
+    lblFullName: 'نام و نام خانوادگی',
+    phFullName: 'ئاراس ئەحمەد / علی رضایی',
+    lblPhone: 'شماره موبایل تماس',
+    lblRole: 'عنوان شغل و مهارت تخصصی',
+    phRole: 'استادکار بنا / جوشکار اسکلت / آرماتوربند',
+    quickSuggestion: 'پیشنهاد سریع:',
+    statusTitle: '{txt.statusTitle}',
+    statusDesc: '{txt.statusDesc}',
+    statusActiveLabel: 'فعال (شاغل)',
+    statusInactiveLabel: 'غیرفعال (مرخص شده)',
+    secWages: 'سیستم دستمزد و نرخ کارکرد',
+    wageDaily: '{txt.wageDaily}',
+    wageContract: '{txt.wageContract}',
+    contractBannerTitle: 'پرسنل به صورت کنتراکت (توافقی) تعریف شده است',
+    contractBannerDesc: '{txt.contractBannerDesc}',
+    lblDailyRate: 'نرخ دستمزد یک روز کامل',
+    unitPrefix: 'واحد:',
+    commonAmounts: 'مبالغ رایج:',
+    lblOvertimeRate: 'نرخ هر ساعت اضافه‌کاری',
+    autoCalcTitle: 'محاسبه نرخ بر مبنای تقسیم مزد روزانه به ۸ ساعت کار',
+    autoCalcBtn: 'محاسبه خودکار (پایه ۸ ساعت)',
+    secOrg: 'گروه کاری و سازماندهی در کارگاه',
+    lblWorkGroup: 'گروه کاری',
+    optNoGroup: 'بدون گروه (انفرادی / عمومی)',
+    lblRoleInTeam: 'نقش در تیم',
+    roleWorker: '{txt.roleWorker}',
+    roleMaster: '{txt.roleMaster}',
+    lblDefaultSection: 'بخش کاری پیش‌فرض',
+    lblOptional: 'اختیاری',
+    optNoSection: 'بدون بخش مشخص (عمومی کارگاه)',
+    secPortal: 'دسترسی اختصاصی پورتال پرسنل',
+    portalSub: 'ورود مستقیم به پنل کارکرد',
+    lblUsername: 'نام کاربری',
+    lblPassword: 'کلمه عبور اختصاصی',
+    previewCardTitle: 'پیش‌نمایش زنده کارت پرسنل',
+    badgeActiveShort: 'شاغل',
+    badgeInactiveShort: 'غیرفعال',
+    nameFallback: 'نام و نام خانوادگی',
+    roleFallback: 'عنوان تخصص / مهارت',
+    financialEstimateTitle: '{txt.financialEstimateTitle}',
+    lblContractType: 'نوع قرارداد:',
+    contractContractType: 'کنتراکت / مقاطعه‌کاری',
+    contractDailyType: 'مزد روزانه عادی',
+    lblPreviewDailyRate: 'دستمزد روزانه:',
+    valAgreed: 'توافقی',
+    lblPreviewOvertime: 'نرخ اضافه کاری:',
+    perHour: '/ ساعت',
+    lblEstimate30Days: 'برآورد ۳۰ روز کارکرد:',
+    cloudSyncTitle: 'یکپارچگی و همگام‌سازی ابری',
+    cloudSyncDesc: '{txt.cloudSyncDesc}',
+    selectedWorker: 'پرسنل انتخابی:',
+    defining: 'در حال تعریف...',
+    dockWage: '• دستمزد:',
+    btnCancel: 'انصراف (ESC)',
+    saving: 'در حال ثبت...',
+    btnSaveEdit: 'ذخیره تغییرات پرسنل',
+    btnSaveCreate: 'ثبت و صدور پرونده پرسنل'
+  },
+  ku: {
+    rolePresets: ['وەستا', 'لەحیمچی', 'وەستای دیوار', 'شیشبەند', 'قاڵبەند', 'کارەباچی', 'بۆریچی', 'پلاگینچی', 'بۆیۆچی', 'شۆفێر', 'کرێکاری سادە'],
+    quickRates: [
+      { label: '۲۵ هەزار', val: 25000 },
+      { label: '۳۰ هەزار', val: 30000 },
+      { label: '۳۵ هەزار', val: 35000 },
+      { label: '۴۰ هەزار', val: 40000 },
+      { label: '۵۰ هەزار', val: 50000 },
+      { label: '۶۰ هەزار', val: 60000 }
+    ],
+    errNameRequired: 'ناوی تەواو پێویستە',
+    errRatesPositive: 'حەقدەست و زیادەکاری دەبێت ژمارەی پۆزەتیڤ بن',
+    errSaveWorker: 'هەڵە لە تۆمارکردنی زانیاری کارمەند',
+    editTitle: 'دەستکاریکردنی پەڕگەی کرێکار',
+    createTitle: 'زیادکردنی کرێکاری نوێ',
+    projectFallback: 'پڕۆژەی چالاک',
+    badgeActiveStatus: 'چالاک',
+    badgeInactiveStatus: 'ناچالاک',
+    subtitle: 'زانیاری تاکەکەسی، شێوازی کرێ، گرووپ و زانیاری چوونەژوورەوە',
+    closeEsc: 'داخستن (ESC)',
+    close: 'داخستن',
+    secIdentity: 'زانیاری تاکەکەسی و پەیوەندی',
+    lblFullName: 'ناوی تەواو',
+    phFullName: 'ئاراس ئەحمەد / علی رضایی',
+    lblPhone: 'ژمارەی مۆبایل',
+    lblRole: 'پلە و پیشەی تایبەتمەند',
+    phRole: 'وەستای دیوار / لەحیمچی / شیشبەند',
+    quickSuggestion: 'پێشنیاری خێرا:',
+    statusTitle: 'دۆخی چالاکی کارمەند لە کارگە',
+    statusDesc: 'کرێکارانی ناچالاک لە لیستی ڕۆژانەدا شاراوە دەبن.',
+    statusActiveLabel: 'چالاک',
+    statusInactiveLabel: 'ناچالاک (مۆڵەتپێدراو)',
+    secWages: 'جۆری کرێ و پارە',
+    wageDaily: 'حەقدەستی ڕۆژانە',
+    wageContract: 'کۆنتراکت (پەیمانکاری)',
+    contractBannerTitle: 'کرێکار بە شێوەی کۆنتراکت دیاریکراوە',
+    contractBannerDesc: 'بۆ کرێکارانی کۆنتراکت، کرێی ڕۆژانە و زیادەکاری بە صفر ئەژمار دەکرێت و پارەکەی بەپێی ڕێککەوتن دەدرێت.',
+    lblDailyRate: 'حەقدەستی یەک ڕۆژی تەواو',
+    unitPrefix: 'دراو:',
+    commonAmounts: 'بڕە باوەکان:',
+    lblOvertimeRate: 'کرێی هەر کاتژمێرێک زیادەکاری',
+    autoCalcTitle: 'ئەژمارکردن بەپێی دابەشکردنی حەقدەستی ڕۆژانە بەسەر ٨ کاتژمێر',
+    autoCalcBtn: 'ئەژمارکردنی خۆکار (بناغەی ٨ کاتژمێر)',
+    secOrg: 'گرووپ و ڕێکخستن',
+    lblWorkGroup: 'گرووپی کار',
+    optNoGroup: 'بێ گرووپ (ئازاد / گشتی)',
+    lblRoleInTeam: 'ڕۆڵ لە تیم',
+    roleWorker: 'کرێکاری ئاسایی',
+    roleMaster: 'وەستا / سەرپەرشتیار',
+    lblDefaultSection: 'بەشی کاری بنەڕەتی',
+    lblOptional: 'ئارەزوومەندانە',
+    optNoSection: 'بێ بەشی دیاریکراو (گشتی)',
+    secPortal: 'چوونەژوورەوەی تایبەت بە پۆرتال',
+    portalSub: 'چوونەژوورەوەی ڕاستەوخۆ',
+    lblUsername: 'ناوی بەکارهێنەر',
+    lblPassword: 'وشەی نهێنی تایبەت',
+    previewCardTitle: 'پێشبینینی کارتی کرێکار',
+    badgeActiveShort: 'چالاک',
+    badgeInactiveShort: 'ناچالاک',
+    nameFallback: 'ناوی تەواو',
+    roleFallback: 'پلە / پیشە',
+    financialEstimateTitle: 'خەمڵاندنی دارایی',
+    lblContractType: 'جۆری پەیماننامە:',
+    contractContractType: 'کۆنتراکت / پەیمانکاری',
+    contractDailyType: 'حەقدەستی ڕۆژانەی ئاسایی',
+    lblPreviewDailyRate: 'حەقدەستی ڕۆژانە:',
+    valAgreed: 'ڕێککەوتن',
+    lblPreviewOvertime: 'حەقدەستی زیادەکاری:',
+    perHour: '/ کاتژمێر',
+    lblEstimate30Days: 'خەمڵاندنی ٣٠ ڕۆژ کار:',
+    cloudSyncTitle: 'هاوکاتکردنی کلاود',
+    cloudSyncDesc: 'زانیارییەکان بە شێوەی ئۆفلاین پاشەکەوت دەکرێن و بە گەڕانەوەی ئینتەرنێت هاوکات دەبن.',
+    selectedWorker: 'کرێکاری دیاریکراو:',
+    defining: 'لە پێناسەکردندا...',
+    dockWage: '• حەقدەست:',
+    btnCancel: 'پاشگەزبوونەوە (ESC)',
+    saving: 'تۆماردەکرێت...',
+    btnSaveEdit: 'پاشەکەوتکردنی گۆڕانکارییەکان',
+    btnSaveCreate: 'تۆمارکردنی کرێکار'
+  },
+  en: {
+    rolePresets: ['Master Craftsman', 'Welder', 'Mason', 'Rebar Tier', 'Formworker', 'Electrician', 'Plumber', 'Plasterer', 'Painter', 'Driver / Operator', 'General Laborer'],
+    quickRates: [
+      { label: '25k', val: 25000 },
+      { label: '30k', val: 30000 },
+      { label: '35k', val: 35000 },
+      { label: '40k', val: 40000 },
+      { label: '50k', val: 50000 },
+      { label: '60k', val: 60000 }
+    ],
+    errNameRequired: 'Full name is required',
+    errRatesPositive: 'Wage and overtime rates must be valid positive numbers',
+    errSaveWorker: 'Error saving personnel details',
+    editTitle: 'Edit Personnel File',
+    createTitle: 'Register New Worker',
+    projectFallback: 'Active Project',
+    badgeActiveStatus: 'Active',
+    badgeInactiveStatus: 'Inactive',
+    subtitle: 'Identity, wage contract, daily rates, team assignment, and portal access',
+    closeEsc: 'Close (ESC)',
+    close: 'Close',
+    secIdentity: 'Identity & Contact Information',
+    lblFullName: 'Full Name',
+    phFullName: 'John Doe / Ali Rezaei',
+    lblPhone: 'Phone Number',
+    lblRole: 'Job Title & Specialty',
+    phRole: 'Master Mason / Welder / Rebar Tier',
+    quickSuggestion: 'Quick Suggestions:',
+    statusTitle: 'Workshop Activity Status',
+    statusDesc: 'Inactive workers are hidden from the daily attendance logging list.',
+    statusActiveLabel: 'Active',
+    statusInactiveLabel: 'Inactive (Dismissed)',
+    secWages: 'Wage System & Working Rates',
+    wageDaily: 'Daily Wage',
+    wageContract: 'Contract (Piecework)',
+    contractBannerTitle: 'Worker is designated as Contract / Agreed',
+    contractBannerDesc: 'For contract workers, daily wage and hourly overtime are set to zero, and payments are logged via contracts or settlements.',
+    lblDailyRate: 'Full Day Wage Rate',
+    unitPrefix: 'Currency:',
+    commonAmounts: 'Common Rates:',
+    lblOvertimeRate: 'Hourly Overtime Rate',
+    autoCalcTitle: 'Calculate rate by dividing daily wage by 8 hours',
+    autoCalcBtn: 'Auto Calculate (8-Hour Basis)',
+    secOrg: 'Work Team & Workshop Organization',
+    lblWorkGroup: 'Work Team',
+    optNoGroup: 'No Group (Individual / General)',
+    lblRoleInTeam: 'Role in Team',
+    roleWorker: 'Regular Worker',
+    roleMaster: 'Master Craftsman / Foreman',
+    lblDefaultSection: 'Default Work Section',
+    lblOptional: 'Optional',
+    optNoSection: 'No Specific Section (General)',
+    secPortal: 'Personnel Dedicated Portal Access',
+    portalSub: 'Direct access to worker dashboard',
+    lblUsername: 'Username',
+    lblPassword: 'Dedicated Password',
+    previewCardTitle: 'Live Personnel Card Preview',
+    badgeActiveShort: 'Active',
+    badgeInactiveShort: 'Inactive',
+    nameFallback: 'Full Name',
+    roleFallback: 'Role / Specialty',
+    financialEstimateTitle: 'Financial Estimate & Rates',
+    lblContractType: 'Contract Type:',
+    contractContractType: 'Contract / Piecework',
+    contractDailyType: 'Regular Daily Wage',
+    lblPreviewDailyRate: 'Daily Wage:',
+    valAgreed: 'Agreed',
+    lblPreviewOvertime: 'Overtime Rate:',
+    perHour: '/ hour',
+    lblEstimate30Days: 'Estimated 30-Day Pay:',
+    cloudSyncTitle: 'Cloud Sync & Integrity',
+    cloudSyncDesc: 'Personnel data is saved offline and synchronizes with cloud database in real-time when connected.',
+    selectedWorker: 'Selected Worker:',
+    defining: 'Registering...',
+    dockWage: '• Wage:',
+    btnCancel: 'Cancel (ESC)',
+    saving: 'Saving...',
+    btnSaveEdit: 'Save Changes',
+    btnSaveCreate: 'Register Personnel'
+  }
+};
+
 export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess }) {
   const { t, language, direction } = useLanguage();
+  const txt = COPY[language] || COPY.fa;
+  const POPULAR_ROLES = txt.rolePresets;
+  const QUICK_DAILY_RATES = txt.quickRates;
   const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
   const { currentProject, currency = 'IQD' } = useProject();
 
@@ -179,7 +426,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
     setFormError('');
 
     if (!formData.name.trim()) {
-      setFormError(t('validationNameRequired') || 'نام و نام خانوادگی الزامی است');
+      setFormError(txt.errNameRequired);
       return;
     }
 
@@ -188,7 +435,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
     const overtimeRate = isContract ? 0 : Number(formData.overtimeHourlyRate);
 
     if (isNaN(dailyRate) || dailyRate < 0 || isNaN(overtimeRate) || overtimeRate < 0) {
-      setFormError(t('validationRatesPositive') || 'مقادیر دستمزد و اضافه‌کاری باید عددی معتبر و مثبت باشند');
+      setFormError(txt.errRatesPositive);
       return;
     }
 
@@ -251,7 +498,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
       onClose();
     } catch (err) {
       console.error('Error saving worker:', err);
-      setFormError(err.message || 'خطا در ثبت مشخصات پرسنل');
+      setFormError(err.message || txt.errSaveWorker);
     } finally {
       setIsSubmitting(false);
     }
@@ -281,25 +528,21 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
-                  {workerToEdit 
-                    ? (language === 'fa' ? 'ویرایش پرونده پرسنل' : 'دەستکاریکردنی پەڕگەی کرێکار') 
-                    : (language === 'fa' ? 'تعریف پرسنل / کارگر جدید' : 'زیادکردنی کرێکاری نوێ')}
+                  {workerToEdit ? txt.editTitle : txt.createTitle}
                 </h2>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/60">
-                  {currentProject?.name || 'پروژه فعال'}
+                  {currentProject?.name || txt.projectFallback}
                 </span>
                 {workerToEdit && (
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
                     formData.isActive ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200/60' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200/60'
                   }`}>
-                    {formData.isActive ? 'شاغل / فعال' : 'غیرفعال'}
+                    {formData.isActive ? txt.badgeActiveStatus : txt.badgeInactiveStatus}
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate">
-                {language === 'fa' 
-                  ? 'مشخصات هویتی، قرارداد کار، دستمزد روزانه، تعیین گروه کاری و دسترسی پورتال' 
-                  : 'زانیاری تاکەکەسی، شێوازی کرێ، گرووپ و زانیاری چوونەژوورەوە'}
+                {txt.subtitle}
               </p>
             </div>
           </div>
@@ -308,8 +551,8 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
             type="button"
             onClick={onClose}
             className="p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer shrink-0"
-            title="بستن (ESC)"
-            aria-label="بستن"
+            title={txt.closeEsc}
+            aria-label={txt.close}
           >
             <X className="w-5 h-5" />
           </button>
@@ -342,7 +585,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                   <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <User className="w-4.5 h-4.5 text-sky-500" />
                     <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                      {language === 'fa' ? 'اطلاعات هویتی و ارتباطی' : 'زانیاری تاکەکەسی'}
+                      {txt.secIdentity}
                     </span>
                   </div>
 
@@ -350,14 +593,14 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     {/* نام و نام خانوادگی */}
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {t('fullName') || 'نام و نام خانوادگی'} <span className="text-rose-500">*</span>
+                        {txt.lblFullName} <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
                         required
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="ئاراس ئەحمەد / علی رضایی"
+                        placeholder={txt.phFullName}
                         className="w-full px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 focus:outline-none transition-all"
                       />
                     </div>
@@ -365,7 +608,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     {/* شماره موبایل */}
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {t('phoneNumber') || 'شماره موبایل تماس'}
+                        {txt.lblPhone}
                       </label>
                       <div className="relative">
                         <input
@@ -384,19 +627,19 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                   {/* عنوان شغل / مهارت و چیپ‌های سریع */}
                   <div className="space-y-2 pt-1">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {t('roleOrTitle') || 'عنوان شغل و مهارت تخصصی'}
+                      {txt.lblRole}
                     </label>
                     <input
                       type="text"
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      placeholder="استادکار بنا / جوشکار اسکلت / آرماتوربند"
+                      placeholder={txt.phRole}
                       className="w-full px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 focus:outline-none transition-all"
                     />
 
                     {/* چیپ‌های انتخاب سریع تخصص */}
                     <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                      <span className="text-[11px] text-slate-400 font-medium me-1">پیشنهاد سریع:</span>
+                      <span className="text-[11px] text-slate-400 font-medium me-1">{txt.quickSuggestion}</span>
                       {COMMON_ROLES.slice(0, 6).map((role) => (
                         <button
                           key={role}
@@ -419,10 +662,10 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     <div className="pt-2 flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60">
                       <div>
                         <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                          وضعیت فعالیت پرسنل در کارگاه
+                          {txt.statusTitle}
                         </span>
                         <span className="text-[11px] text-slate-400">
-                          پرسنل غیرفعال در لیست ثبت کارکرد روزانه مخفی می‌شوند.
+                          {txt.statusDesc}
                         </span>
                       </div>
                       <button
@@ -434,7 +677,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                             : 'bg-rose-500 text-white shadow-xs'
                         }`}
                       >
-                        {formData.isActive ? 'فعال (شاغل)' : 'غیرفعال (مرخص شده)'}
+                        {formData.isActive ? txt.statusActiveLabel : txt.statusInactiveLabel}
                       </button>
                     </div>
                   )}
@@ -446,7 +689,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     <div className="flex items-center gap-2">
                       <Coins className="w-4.5 h-4.5 text-amber-500" />
                       <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                        {language === 'fa' ? 'سیستم دستمزد و نرخ کارکرد' : 'جۆری کرێ و پارە'}
+                        {txt.secWages}
                       </span>
                     </div>
 
@@ -461,7 +704,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                             : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
-                        دستمزد روزمزد
+                        {txt.wageDaily}
                       </button>
                       <button
                         type="button"
@@ -472,7 +715,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                             : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
-                        کنتراکت (پیمانی)
+                        {txt.wageContract}
                       </button>
                     </div>
                   </div>
@@ -481,8 +724,8 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     <div className="p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 text-amber-900 dark:text-amber-200 text-xs leading-relaxed flex items-start gap-3">
                       <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                       <div>
-                        <strong className="block font-black mb-0.5">پرسنل به صورت کنتراکت (توافقی) تعریف شده است</strong>
-                        برای نیروهای کنتراکت، دستمزد روزانه و اضافه کاری ساعتی صفر لحاظ می‌شود و مبالغ در قالب قراردادهای مقاطعه یا اسناد پرداخت ثبت می‌گردند.
+                        <strong className="block font-black mb-0.5">{txt.contractBannerTitle}</strong>
+                        {txt.contractBannerDesc}
                       </div>
                     </div>
                   ) : (
@@ -491,10 +734,10 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                            {t('dailyRateLabel') || 'نرخ دستمزد یک روز کامل'} <span className="text-rose-500">*</span>
+                            {txt.lblDailyRate} <span className="text-rose-500">*</span>
                           </label>
                           <span className="text-[11px] font-mono text-slate-400">
-                            واحد: {currency}
+                            {txt.unitPrefix} {currency}
                           </span>
                         </div>
 
@@ -513,7 +756,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
 
                         {/* چیپ‌های مبالغ سریع متداول */}
                         <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                          <span className="text-[11px] text-slate-400 font-medium me-1">مبالغ رایج:</span>
+                          <span className="text-[11px] text-slate-400 font-medium me-1">{txt.commonAmounts}</span>
                           {QUICK_DAILY_RATES_IQD.map((chip) => (
                             <button
                               key={chip.val}
@@ -535,16 +778,16 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       <div className="space-y-2 pt-2">
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                            {t('overtimeRateLabel') || 'نرخ هر ساعت اضافه‌کاری'} <span className="text-rose-500">*</span>
+                            {txt.lblOvertimeRate} <span className="text-rose-500">*</span>
                           </label>
                           <button
                             type="button"
                             onClick={handleAutoCalculateOvertime}
                             className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
-                            title="محاسبه نرخ بر مبنای تقسیم مزد روزانه به ۸ ساعت کار"
+                            title={txt.autoCalcTitle}
                           >
                             <Calculator className="w-3.5 h-3.5" />
-                            <span>محاسبه خودکار (پایه ۸ ساعت)</span>
+                            <span>{txt.autoCalcBtn}</span>
                           </button>
                         </div>
 
@@ -570,7 +813,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                   <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <Briefcase className="w-4.5 h-4.5 text-indigo-500" />
                     <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                      {language === 'fa' ? 'گروه کاری و سازماندهی در کارگاه' : 'گرووپ و پۆلێن'}
+                      {txt.secOrg}
                     </span>
                   </div>
 
@@ -578,14 +821,14 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     {/* انتخاب گروه کاری */}
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {language === 'fa' ? 'گروه کاری' : 'گرووپ'}
+                        {txt.lblWorkGroup}
                       </label>
                       <select
                         value={formData.groupId || ''}
                         onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
                         className="w-full px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:outline-none cursor-pointer transition-all"
                       >
-                        <option value="">{language === 'fa' ? 'بدون گروه (انفرادی / عمومی)' : 'بێ گرووپ'}</option>
+                        <option value="">{txt.optNoGroup}</option>
                         {groups.map((g) => (
                           <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
@@ -595,7 +838,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     {/* نقش در گروه */}
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {language === 'fa' ? 'نقش در تیم' : 'ڕۆڵ لە تیم'}
+                        {txt.lblRoleInTeam}
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <button
@@ -607,7 +850,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                               : 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200/70 dark:border-slate-700/70'
                           }`}
                         >
-                          کارگر عادی
+                          {txt.roleWorker}
                         </button>
                         <button
                           type="button"
@@ -618,7 +861,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                               : 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200/70 dark:border-slate-700/70'
                           }`}
                         >
-                          استادکار / سرپرست
+                          {txt.roleMaster}
                         </button>
                       </div>
                     </div>
@@ -630,16 +873,16 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
                           <Layers className="w-3.5 h-3.5 text-sky-500" />
-                          <span>{t('defaultSection') || 'بخش کاری پیش‌فرض'}</span>
+                          <span>{txt.lblDefaultSection}</span>
                         </span>
-                        <span className="text-[10px] text-slate-400 font-normal">({t('optional') || 'اختیاری'})</span>
+                        <span className="text-[10px] text-slate-400 font-normal">({txt.lblOptional})</span>
                       </label>
                       <select
                         value={formData.defaultSectionId || ''}
                         onChange={(e) => setFormData({ ...formData, defaultSectionId: e.target.value })}
                         className="w-full px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 focus:outline-none cursor-pointer transition-all"
                       >
-                        <option value="">{t('noSection') || 'بدون بخش مشخص (عمومی کارگاه)'}</option>
+                        <option value="">{txt.optNoSection}</option>
                         {projectSections.map((sec) => (
                           <option key={sec.id} value={sec.id}>{sec.name}</option>
                         ))}
@@ -654,17 +897,17 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     <div className="flex items-center gap-2">
                       <Key className="w-4.5 h-4.5 text-emerald-500" />
                       <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                        {t('workerLoginCredentials') || 'دسترسی اختصاصی پورتال پرسنل'}
+                        {txt.secPortal}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-medium">ورود مستقیم به پنل کارکرد</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{txt.portalSub}</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* نام کاربری */}
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {t('username') || 'نام کاربری'}
+                        {txt.lblUsername}
                       </label>
                       <input
                         type="text"
@@ -678,7 +921,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     {/* کلمه عبور */}
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {t('password') || 'کلمه عبور اختصاصی'}
+                        {txt.lblPassword}
                       </label>
                       <div className="relative">
                         <input
@@ -715,12 +958,12 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                   <div className="flex items-center justify-between relative z-10">
                     <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>پیش‌نمایش زنده کارت پرسنل</span>
+                      <span>{txt.previewCardTitle}</span>
                     </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
                       formData.isActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                     }`}>
-                      {formData.isActive ? 'شاغل' : 'غیرفعال'}
+                      {formData.isActive ? txt.badgeActiveShort : txt.badgeInactiveShort}
                     </span>
                   </div>
 
@@ -730,11 +973,11 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     </div>
                     <div className="min-w-0">
                       <h3 className="text-base sm:text-lg font-black truncate tracking-tight text-white">
-                        {formData.name.trim() || 'نام و نام خانوادگی'}
+                        {formData.name.trim() || txt.nameFallback}
                       </h3>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-sky-300 font-bold">
-                          {formData.role.trim() || 'عنوان تخصص / مهارت'}
+                          {formData.role.trim() || txt.roleFallback}
                         </span>
                         {selectedGroup && (
                           <span className="text-[10px] px-2 py-0.5 rounded-lg bg-white/10 text-slate-300 border border-white/10">
@@ -758,35 +1001,35 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                   <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
                     <Calculator className="w-4.5 h-4.5 text-amber-500" />
                     <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                      برآورد مالی و نرخ‌های کاری
+                      {txt.financialEstimateTitle}
                     </span>
                   </div>
 
                   <div className="space-y-2.5 text-xs">
                     <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                      <span className="text-slate-500 dark:text-slate-400">نوع قرارداد:</span>
+                      <span className="text-slate-500 dark:text-slate-400">{txt.lblContractType}</span>
                       <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {formData.wageType === 'contract' ? 'کنتراکت / مقاطعه‌کاری' : 'مزد روزانه عادی'}
+                        {formData.wageType === 'contract' ? txt.contractContractType : txt.contractDailyType}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                      <span className="text-slate-500 dark:text-slate-400">دستمزد روزانه:</span>
+                      <span className="text-slate-500 dark:text-slate-400">{txt.lblPreviewDailyRate}</span>
                       <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm" dir="ltr">
-                        {formData.wageType === 'contract' ? 'توافقی' : formatCurrency(numericDailyRate, currency, language)}
+                        {formData.wageType === 'contract' ? txt.valAgreed : formatCurrency(numericDailyRate, currency, language)}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                      <span className="text-slate-500 dark:text-slate-400">نرخ اضافه کاری:</span>
+                      <span className="text-slate-500 dark:text-slate-400">{txt.lblPreviewOvertime}</span>
                       <span className="font-mono font-black text-sky-600 dark:text-sky-400 text-sm" dir="ltr">
-                        {formData.wageType === 'contract' ? '—' : `${formatCurrency(numericOvertimeRate, currency, language)} / ساعت`}
+                        {formData.wageType === 'contract' ? '—' : `${formatCurrency(numericOvertimeRate, currency, language)} ${txt.perHour}`}
                       </span>
                     </div>
 
                     {formData.wageType !== 'contract' && (
                       <div className="flex items-center justify-between p-2.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40">
-                        <span className="text-amber-800 dark:text-amber-300 font-bold">برآورد ۳۰ روز کارکرد:</span>
+                        <span className="text-amber-800 dark:text-amber-300 font-bold">{txt.lblEstimate30Days}</span>
                         <span className="font-mono font-black text-amber-700 dark:text-amber-300 text-sm" dir="ltr">
                           {formatCurrency(estimatedMonthlySalary, currency, language)}
                         </span>
@@ -799,10 +1042,10 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                 <div className="p-4 rounded-3xl bg-sky-50/70 dark:bg-sky-950/30 backdrop-blur-md border border-sky-200/70 dark:border-sky-900/40 shadow-xs space-y-1.5 text-xs text-sky-900 dark:text-sky-200">
                   <div className="font-bold flex items-center gap-1.5 text-sky-700 dark:text-sky-300">
                     <ShieldCheck className="w-4 h-4" />
-                    <span>یکپارچگی و همگام‌سازی ابری</span>
+                    <span>{txt.cloudSyncTitle}</span>
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
-                    اطلاعات پرسنل به صورت آفلاین ذخیره شده و همزمان با بازگشت اینترنت، به صورت لحظه‌ای با پایگاه‌داده سرور همگام می‌شود.
+                    {txt.cloudSyncDesc}
                   </p>
                 </div>
 
@@ -822,15 +1065,15 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
         {/* خلاصه انتخابی */}
         <div className="flex items-center gap-3 min-w-0">
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs text-slate-400">پرسنل انتخابی:</span>
+            <span className="text-xs text-slate-400">{txt.selectedWorker}</span>
             <span className="text-xs font-black text-slate-900 dark:text-white truncate max-w-xs">
-              {formData.name.trim() || 'در حال تعریف...'}
+              {formData.name.trim() || txt.defining}
             </span>
           </div>
 
           {formData.wageType !== 'contract' && numericDailyRate > 0 && (
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400 hidden md:inline">• دستمزد:</span>
+              <span className="text-slate-400 hidden md:inline">{txt.dockWage}</span>
               <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
                 {formatCurrency(numericDailyRate, currency, language)}
               </span>
@@ -845,7 +1088,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
             onClick={onClose}
             className="px-4 sm:px-5 h-11 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            {t('cancel') || 'انصراف (ESC)'}
+            {txt.btnCancel}
           </button>
 
           <button
@@ -857,15 +1100,13 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
             {isSubmitting ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>{language === 'fa' ? 'در حال ثبت...' : 'تۆماردەکرێت...'}</span>
+                <span>{txt.saving}</span>
               </>
             ) : (
               <>
                 {workerToEdit ? <CheckCircle2 className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                 <span>
-                  {workerToEdit 
-                    ? (language === 'fa' ? 'ذخیره تغییرات پرسنل' : 'پاشەکەوتکردن') 
-                    : (language === 'fa' ? 'ثبت و صدور پرونده پرسنل' : 'تۆمارکردن')}
+                  {workerToEdit ? txt.btnSaveEdit : txt.btnSaveCreate}
                 </span>
               </>
             )}
