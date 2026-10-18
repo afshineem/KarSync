@@ -49,17 +49,291 @@ import { AdvancePaymentModal } from './AdvancePaymentModal';
 import { SettlementModal } from './SettlementModal';
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 
+const COPY = {
+  fa: {
+    phoneCallTitle: 'تماس تلفنی',
+    noPhone: 'بدون شماره تماس',
+    dailyRateLabel: 'نرخ روزانه:',
+    overtimePrefix: 'اضافه کاری:',
+    perHourSuffix: '/ساعت',
+    moreToolsTitle: 'سایر ابزارها و عملیات',
+    quickMonthlyLogging: 'ثبت سریع ماهانه (کارکرد)',
+    defaultWorkerRole: 'پرسنل',
+    viewLedger: 'مشاهده دفتر معین حسابداری',
+    workerLoginLinkAndQR: 'لینک و بارکد ورود پرسنل',
+    closeEsc: 'بستن (Esc)',
+    financialWarning: 'هشدار مالی:',
+    suspiciousLogsDesc: (count, dates, hasMore, lastDate) => `${count} روز کارکرد (${dates}${hasMore ? '، …' : ''}) «تسویه‌شده» علامت خورده، در حالی که تاریخ آن بعد از آخرین سند تسویه است${lastDate ? ` (${lastDate})` : ''}. اگر پرداخت نشده‌اند، به کارکرد جاری برگردانید تا از مانده‌ی پرسنل جا نیفتند.`,
+    repairing: 'در حال اصلاح…',
+    revertToCurrentLogs: 'برگرداندن به کارکرد جاری',
+    accountStatusCreditor: 'وضعیت حساب: طلبکار از کارگاه',
+    accountStatusDebtor: 'وضعیت حساب: بدهکار مساعده',
+    unsettledDaysPending: (count) => `${count} روز کارکرد جاری در انتظار تسویه`,
+    finalNetPayableBalance: '{c.finalNetPayableBalance}',
+    currentWorkGross: '{c.currentWorkGross}',
+    advancesMinus: '{c.advancesMinus}',
+    totalSettledHistory: '{c.totalSettledHistory}',
+    workTermsAndWage: 'شرایط کاری و دستمزد',
+    masterRole: 'استادکار / سرتیم',
+    workerRole: 'نیروی کار',
+    baseDailyWageLabel: 'دستمزد پایه هر روز:',
+    overtimeHourlyRateLabel: 'نرخ اضافه کاری:',
+    standardHoursLabel: 'ساعت کار استاندارد:',
+    hoursUnit: 'ساعت',
+    startDateLabel: 'تاریخ شروع به کار:',
+    notRecorded: 'ثبت نشده',
+    currentWorkBreakdown: 'تفکیک کارکرد جاری',
+    workDaysCount: (count) => `${count} روز کارکرد`,
+    fullDay: 'روز کامل',
+    halfDay: 'نیم‌روز',
+    hourly: 'ساعتی',
+    overtime: 'اضافه کاری',
+    workerNotes: 'یادداشت پرسنل:',
+    noNotes: 'بدون یادداشت',
+    allTab: 'همه',
+    attendanceTab: 'کارکردها',
+    advancesTab: 'مساعده‌ها',
+    settlementsTab: 'تسویه‌ها',
+    allFilter: 'همه',
+    currentFilter: 'جاری',
+    archiveFilter: 'آرشیو',
+    noRecordsInFilter: 'هیچ رکوردی در این فیلتر یافت نشد',
+    canLogNewActivityTip: 'می‌توانید با داک بالای صفحه کارکرد یا مساعده جدید ثبت کنید.',
+    finalSettlement: 'تسویه نهایی',
+    advance: 'مساعده',
+    settled: 'تسویه شده',
+    unsettledCurrent: 'جاری / تسویه نشده',
+    commaSeparator: '، ',
+    overtimeHoursLabel: (hours) => `اضافه کاری: ${hours}`,
+    settlementAmountLabel: 'مبلغ تسویه:',
+    advancePaymentLabel: 'پرداخت مساعده:',
+    grossWageLabel: 'دستمزد ناخالص:',
+    viewLockedRecord: 'مشاهده رکورد قفل شده',
+    editRecord: 'ویرایش رکورد',
+    workerAccountBalance: 'مانده حساب پرسنل:',
+    creditor: 'طلبکار',
+    debtor: 'بدهکار',
+    workerIdLabel: 'شناسه پرسنل:',
+    addAdvanceBtn: 'ثبت مساعده',
+    settleAccountBtn: 'صدور تسویه‌حساب',
+    closeBtn: 'بستن',
+    workerPortalTitle: 'لینک ورود اختصاصی پرسنل',
+    workerPortalDesc: (name) => `با این لینک (یا بارکد)، ${name} مستقیم و بدون نام کاربری، رمز عبور و کد کارگاه وارد پروفایل خودش می‌شود و فقط صورت‌حساب و گزارش کارکرد خودش را می‌بیند.`,
+    workerPortalWarning: '{c.workerPortalWarning}',
+    linkCopiedAlert: 'لینک ورود کپی شد.',
+    copyLinkBtn: '{c.copyLinkBtn}',
+    shareBtn: '{c.shareBtn}',
+    shareTitle: 'لینک ورود به پروفایل',
+    revokeAlert: '{c.revokeAlert}',
+    pleaseWait: 'لطفاً صبر کنید…',
+    generateLinkBtn: 'ساخت لینک ورود',
+    generateLinkWarning: '{c.generateLinkWarning}',
+    revokeAccessBtn: '{c.revokeAccessBtn}'
+  },
+  ku: {
+    phoneCallTitle: 'پەیوەندی تەلەفۆنی',
+    noPhone: 'بێ ژمارەی مۆبایل',
+    dailyRateLabel: 'نرخی ڕۆژانە:',
+    overtimePrefix: 'کاتی زیادە:',
+    perHourSuffix: '/کاتژمێر',
+    moreToolsTitle: 'ئامراز و کرداری تر',
+    quickMonthlyLogging: 'تۆماری خێرای مانگانە (کارکرد)',
+    defaultWorkerRole: 'کرێکار',
+    viewLedger: 'بینینی دەفتەری معینی ژمێریاری',
+    workerLoginLinkAndQR: 'لینک و بارکۆدی چوونەژوورەوەی کرێکار',
+    closeEsc: 'داخستن (Esc)',
+    financialWarning: 'ئاگاداریی دارایی:',
+    suspiciousLogsDesc: (count, dates, hasMore, lastDate) => `${count} ڕۆژی کارکرد (${dates}${hasMore ? '، …' : ''}) وەک «یەکلاکراوە» دیاریکراوە، لە کاتێکدا بەروارەکەی دوای دوایین پاکتاوە${lastDate ? ` (${lastDate})` : ''}. ئەگەر نەدراون، بیگەڕێننەوە بۆ کارکردی بەردەوام تا لە شایستەکان دەرنەچێت.`,
+    repairing: 'چاکدەکرێتەوە…',
+    revertToCurrentLogs: 'گەڕاندنەوە بۆ کارکردی بەردەوام',
+    accountStatusCreditor: 'دۆخی حیساب: داواکاری پارە لە کارگە',
+    accountStatusDebtor: 'دۆخی حیساب: قەرزداری پێشەکی',
+    unsettledDaysPending: (count) => `${count} ڕۆژی کارکردی بەردەوام چاوەڕوانی پاکتاوە`,
+    finalNetPayableBalance: 'باڵانسی کۆتایی داواکاریی کرێکار (شایستەی پاکتاو)',
+    currentWorkGross: 'کارکردی بەردەوام (+)',
+    advancesMinus: 'پێشەکییەکان (-)',
+    totalSettledHistory: 'کۆی گشتی پاکتاوکراو',
+    workTermsAndWage: 'مەرجەکانی کار و کرێ',
+    masterRole: 'وەستا / سەرپەرشتیار',
+    workerRole: 'کرێکار',
+    baseDailyWageLabel: 'کرێی بنەڕەتی ڕۆژانە:',
+    overtimeHourlyRateLabel: 'نرخی کاتی زیادە:',
+    standardHoursLabel: 'کاتژمێری ستاندارد:',
+    hoursUnit: 'کاتژمێر',
+    startDateLabel: 'بەرواری دەستپێکی کار:',
+    notRecorded: 'تۆمار نەکراوە',
+    currentWorkBreakdown: 'دابەشبوونی کارکردی بەردەوام',
+    workDaysCount: (count) => `${count} ڕۆژی کارکرد`,
+    fullDay: 'ڕۆژی تەواو',
+    halfDay: 'نیوەڕۆژ',
+    hourly: 'کاتژمێری',
+    overtime: 'کاتی زیادە',
+    workerNotes: 'تێبینییەکانی کرێکار:',
+    noNotes: 'بێ تێبینی',
+    allTab: 'هەموو',
+    attendanceTab: 'کارکردەکان',
+    advancesTab: 'پێشەکییەکان',
+    settlementsTab: 'پاکتاوەکان',
+    allFilter: 'هەموو',
+    currentFilter: 'بەردەوام',
+    archiveFilter: 'ئەرشیڤ',
+    noRecordsInFilter: 'هیچ تۆمارێک لەم فلتەرەدا نەدۆزرایەوە',
+    canLogNewActivityTip: 'دەتوانن لە ڕێگەی دوگمەکانی خوارەوە کارکرد یان پێشەکیی نوێ تۆمار بکەن.',
+    finalSettlement: 'پاکتاوی کۆتایی',
+    advance: 'پێشەکی',
+    settled: 'پاکتاوکراو',
+    unsettledCurrent: 'بەردەوام / پاکتاونەکراو',
+    commaSeparator: '، ',
+    overtimeHoursLabel: (hours) => `کاتی زیادە: ${hours}`,
+    settlementAmountLabel: 'بڕی پاکتاو:',
+    advancePaymentLabel: 'پارەدانی پێشەکی:',
+    grossWageLabel: 'حەقدەستی ناخاڵس:',
+    viewLockedRecord: 'بینینی تۆماری قفڵکراو',
+    editRecord: 'دەستکاریکردنی تۆمار',
+    workerAccountBalance: 'باڵانسی حیسابی کرێکار:',
+    creditor: 'داواکار',
+    debtor: 'قەرزدار',
+    workerIdLabel: 'ناسنامەی کرێکار:',
+    addAdvanceBtn: 'تۆمارکردنی پێشەکی',
+    settleAccountBtn: 'دەرکردنی پاکتاوی حیساب',
+    closeBtn: 'داخستن',
+    workerPortalTitle: 'لینکی تایبەتی چوونەژوورەوەی کرێکار',
+    workerPortalDesc: (name) => `بە یارمەتی ئەم لینکە (یان بارکۆدە)، ${name} بە ڕاستەوخۆ و بێ پێویستی بە ناوی بەکارهێنەر یان وشەی نهێنی دەچێتە ناو پڕۆفایلی خۆی و تەنها پسوولە و ڕاپۆرتی کارکردی خۆی دەبینێت.`,
+    workerPortalWarning: 'هەر کەسێک ئەم لینکەی پێبێت دەتوانێت بچێتە ناو پڕۆفایلی ئەم کرێکارە؛ تەنها بۆ خودی خۆی بنێرن. ئەم لینکە تەنها یەکجار پیشان دەدرێت؛ لە ئەگەری ونبوون، لینکێکی نوێ دروست بکەن.',
+    linkCopiedAlert: 'لینکی چوونەژوورەوە کۆپیکرا.',
+    copyLinkBtn: 'کۆپیکردنی لینک',
+    shareBtn: 'هاوبەشکردن',
+    shareTitle: 'لینکی چوونەژوورەوە بۆ پڕۆفایل',
+    revokeAlert: 'دەسەڵاتی ئەم کرێکارە بە لینک پووچەڵکرایەوە.',
+    pleaseWait: 'تکایە چاوەڕوان بن…',
+    generateLinkBtn: 'دروستکردنی لینکی چوونەژوورەوە',
+    generateLinkWarning: 'دروستکردنی لینکی نوێ، لینکی پێشووی ئەم کرێکارە پووچەڵ دەکاتەوە.',
+    revokeAccessBtn: 'پووچەڵکردنەوەی دەسەڵاتی لینک',
+    qrNeedInternet: 'بۆ دروستکردنی لینک، هێڵی ئینتەرنێت پێویستە.',
+    qrNotConfigured: 'تایبەتمەندی لینکی چوونەژوورەوە لەسەر سێرڤەر چالاک نەکراوە.',
+    qrNeedAdmin: 'بۆ دروستکردنی لینک دەبێت بە حیسابی بەڕێوەبەر چوو بنە ژوورەوە.',
+    qrWorkerNotSynced: 'ئەم کرێکارە هێشتا لەسەر سێرڤەر تۆمار نەکراوە. کەمێک بوەستن و دووبارە هەوڵ بدەن.',
+    qrNotAuthorized: 'مۆڵەتی دروستکردنی لینکت بۆ ئەم کرێکارە نییە.',
+    qrUnknownError: 'هەڵەی نەزانراو لە دروستکردنی لینک.',
+    revokeConfirm: 'دەسەڵاتی ئەم لینکە پووچەڵ بکرێتەوە؟ کرێکار چیتر ناتوانێت بەم لینک یان بارکۆدە بچێتە ژوورەوە.',
+    revertConfirm: (count) => `${count} ڕۆژی کارکرد دووبارە دەبێتەوە بە «یەکلا نەکراوە». بەردەوام دەبیت؟`,
+    active: 'چالاک',
+    inactive: 'ناچالاک',
+    logFullDayTitle: 'تۆماری ڕۆژی تەواوی کارکرد',
+    logHalfDayTitle: 'تۆماری نیوەڕۆژی کارکرد',
+    logHourlyTitle: 'تۆماری کارکردی کاتژمێری',
+    advancePaymentTitle: 'پارەدانی پێشەکی نەختینە / بانکی',
+    settlementDocumentTitle: 'بەڵگەنامەی پاکتاوی کۆتایی',
+  },
+  en: {
+    phoneCallTitle: 'Phone Call',
+    noPhone: 'No phone number',
+    dailyRateLabel: 'Daily Rate:',
+    overtimePrefix: 'Overtime:',
+    perHourSuffix: '/hour',
+    moreToolsTitle: 'More actions & tools',
+    quickMonthlyLogging: 'Quick Monthly Attendance',
+    defaultWorkerRole: 'Worker',
+    viewLedger: 'View Accounting Ledger',
+    workerLoginLinkAndQR: 'Worker Access Link & QR',
+    closeEsc: 'Close (Esc)',
+    financialWarning: 'Financial Alert:',
+    suspiciousLogsDesc: (count, dates, hasMore, lastDate) => `${count} work days (${dates}${hasMore ? ', …' : ''}) are marked as settled even though dated after the latest settlement${lastDate ? ` (${lastDate})` : ''}. If unpaid, revert to current logs so they are included in arrears.`,
+    repairing: 'Repairing…',
+    revertToCurrentLogs: 'Revert to Current Logs',
+    accountStatusCreditor: 'Account Status: Net Creditor',
+    accountStatusDebtor: 'Account Status: Net Debtor',
+    unsettledDaysPending: (count) => `${count} current work days pending settlement`,
+    finalNetPayableBalance: 'Final Worker Balance Due (Net Payable)',
+    currentWorkGross: 'Current Wages (+)',
+    advancesMinus: 'Advances (-)',
+    totalSettledHistory: 'Total Settled',
+    workTermsAndWage: 'Work Terms & Wage',
+    masterRole: 'Master / Team Lead',
+    workerRole: 'Worker',
+    baseDailyWageLabel: 'Base Daily Wage:',
+    overtimeHourlyRateLabel: 'Overtime Hourly Rate:',
+    standardHoursLabel: 'Standard Work Hours:',
+    hoursUnit: 'hours',
+    startDateLabel: 'Start Date:',
+    notRecorded: 'Not Recorded',
+    currentWorkBreakdown: 'Current Work Breakdown',
+    workDaysCount: (count) => `${count} work days`,
+    fullDay: 'Full Day',
+    halfDay: 'Half Day',
+    hourly: 'Hourly',
+    overtime: 'Overtime',
+    workerNotes: 'Worker Notes:',
+    noNotes: 'No notes',
+    allTab: 'All',
+    attendanceTab: 'Attendance',
+    advancesTab: 'Advances',
+    settlementsTab: 'Settlements',
+    allFilter: 'All',
+    currentFilter: 'Current',
+    archiveFilter: 'Archived',
+    noRecordsInFilter: 'No records found in this filter',
+    canLogNewActivityTip: 'You can record attendance or advance from the bottom dock.',
+    finalSettlement: 'Final Settlement',
+    advance: 'Advance',
+    settled: 'Settled',
+    unsettledCurrent: 'Current / Unsettled',
+    commaSeparator: ', ',
+    overtimeHoursLabel: (hours) => `Overtime: ${hours}`,
+    settlementAmountLabel: 'Settlement Amount:',
+    advancePaymentLabel: 'Advance Payment:',
+    grossWageLabel: 'Gross Wage:',
+    viewLockedRecord: 'View locked record',
+    editRecord: 'Edit record',
+    workerAccountBalance: 'Worker Balance Due:',
+    creditor: 'Creditor',
+    debtor: 'Debtor',
+    workerIdLabel: 'Worker ID:',
+    addAdvanceBtn: 'New Advance',
+    settleAccountBtn: 'Issue Settlement',
+    closeBtn: 'Close',
+    workerPortalTitle: 'Exclusive Worker Access Link',
+    workerPortalDesc: (name) => `With this link (or QR code), ${name} can log in directly without credentials or project codes and view only their personal timesheet and ledger.`,
+    workerPortalWarning: 'Anyone with this link can access this worker\'s profile. Send it only to them. This link is shown once; generate a new one if lost.',
+    linkCopiedAlert: 'Access link copied to clipboard.',
+    copyLinkBtn: 'Copy Access Link',
+    shareBtn: 'Share',
+    shareTitle: 'Profile Access Link',
+    revokeAlert: 'Access via link revoked for this worker.',
+    pleaseWait: 'Please wait…',
+    generateLinkBtn: 'Generate Access Link',
+    generateLinkWarning: 'Creating a new link will invalidate the previous link.',
+    revokeAccessBtn: 'Revoke Link Access',
+    qrNeedInternet: 'Internet connection required to create link.',
+    qrNotConfigured: 'Login link feature is not enabled on the server.',
+    qrNeedAdmin: 'You must be signed in as an administrator.',
+    qrWorkerNotSynced: 'This worker is not yet synced to the server. Please try again in a moment.',
+    qrNotAuthorized: 'You are not authorized to create a link for this worker.',
+    qrUnknownError: 'Unknown error creating link.',
+    revokeConfirm: 'Revoke access link? The worker will no longer be able to enter using the previous link or QR.',
+    revertConfirm: (count) => `${count} work days will be marked as unsettled. Continue?`,
+    active: 'Active',
+    inactive: 'Inactive',
+    logFullDayTitle: 'Full day attendance',
+    logHalfDayTitle: 'Half day attendance',
+    logHourlyTitle: 'Hourly attendance',
+    advancePaymentTitle: 'Cash / Bank advance payment',
+    settlementDocumentTitle: 'Final settlement document',
+  }
+};
+
 export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const { language, t, direction } = useLanguage();
+  const c = COPY[language] || COPY.fa;
   const { currentProject, currency = 'IQD' } = useProject();
   const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
 
-  // کنترل باز بودن منوی عملیات بیشتر در هدر
+  // UI element
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
-  // فیلترهای تایم‌لاین یکپارچه مالی و کارکرد: 'all' | 'attendance' | 'advances' | 'settlements'
+  // UI element
   const [activityTypeFilter, setActivityTypeFilter] = useState('all');
-  // وضعیت تسویه: 'all' | 'unsettled' | 'settled'
+  // UI element
   const [activityStatusFilter, setActivityStatusFilter] = useState('all');
 
   // Sub-modal states
@@ -76,20 +350,20 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
   const describeLinkError = (err) => {
     const msg = String(err?.message || '');
-    if (!navigator.onLine) return 'برای ساخت لینک، اینترنت لازم است.';
+    if (!navigator.onLine) return c.qrNeedInternet;
     if (err?.code === 'PGRST202' || /Could not find the function/i.test(msg)) {
-      return 'قابلیت لینک ورود هنوز روی سرور فعال نشده است (فایل SQL مربوطه اجرا نشده).';
+      return c.qrNotConfigured;
     }
     if (/not authenticated/i.test(msg)) {
-      return 'برای ساخت لینک باید با حساب مدیر (ورود با ایمیل) وارد شده باشید.';
+      return c.qrNeedAdmin;
     }
     if (/worker not found/i.test(msg)) {
-      return 'این پرسنل هنوز روی سرور ثبت نشده است. چند لحظه صبر کنید و دوباره تلاش کنید.';
+      return c.qrWorkerNotSynced;
     }
     if (/not allowed/i.test(msg)) {
-      return 'شما مجاز به ساخت لینک برای این پرسنل نیستید.';
+      return c.qrNotAuthorized;
     }
-    return msg || 'خطای ناشناخته در ساخت لینک.';
+    return msg || c.qrUnknownError;
   };
 
   // Opening the dialog does NOT create a link (creating one deactivates the previous link)
@@ -116,7 +390,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   };
 
   const handleRevokeLink = async () => {
-    if (!window.confirm('لینک ورود این پرسنل باطل شود؟ پرسنل دیگر نمی‌تواند با لینک یا بارکد قبلی وارد شود.')) return;
+    if (!window.confirm(c.revokeConfirm)) return;
     setQrBusy(true);
     setQrError('');
     try {
@@ -240,7 +514,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const handleRepairSuspiciousLogs = async () => {
     const bad = fin?.suspiciousSettledLogs || [];
     if (bad.length === 0) return;
-    if (!window.confirm(`${bad.length} روز کارکرد دوباره «تسویه‌نشده» می‌شود. ادامه می‌دهید؟`)) return;
+    if (!window.confirm(c.revertConfirm(bad.length))) return;
     setIsRepairingSettled(true);
     try {
       const now = new Date().toISOString();
@@ -276,13 +550,13 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
     }
   };
 
-  // تایم‌لاین رویدادهای یکپارچه (حضور و غیاب، مساعده‌ها، رسیدهای تسویه)
+  // UI element
   const combinedActivityEvents = useMemo(() => {
     if (!worker) return [];
 
     const events = [];
 
-    // ۱. کارکردها
+    // UI element
     allLogs.forEach((l) => {
       const isSettled = fin?.isLogSettled(l);
       events.push({
@@ -294,13 +568,13 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         isSettled,
         type: l.type,
         amount: Number(l.totalDayPay) || 0,
-        title: l.type === 'half' ? 'ثبت نیم‌روز کارکرد' : l.type === 'hourly' ? 'ثبت کارکرد ساعتی' : 'ثبت روز کامل کارکرد',
+        title: l.type === 'half' ? c.logHalfDayTitle : l.type === 'hourly' ? c.logHourlyTitle : c.logFullDayTitle,
         notes: l.notes,
         overtimeHours: l.overtimeHours
       });
     });
 
-    // ۲. مساعده‌ها
+    // UI element
     allPayments
       .filter((p) => (p.type || '').toLowerCase() !== 'settlement' && !p.deletedAt)
       .forEach((p) => {
@@ -312,14 +586,14 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
           date: p.date || p.createdAt || '',
           data: p,
           isSettled,
-          type: p.type || 'مساعده',
+          type: p.type || c.advance,
           amount: Number(p.amount) || 0,
-          title: 'پرداخت مساعده نقدی / بانکی',
+          title: c.advancePaymentTitle,
           notes: p.notes
         });
       });
 
-    // ۳. رسیدهای تسویه
+    // UI element
     allPayments
       .filter((p) => (p.type || '').toLowerCase() === 'settlement' && !p.deletedAt)
       .forEach((st) => {
@@ -330,17 +604,17 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
           date: st.date || st.createdAt || '',
           data: st,
           isSettled: true,
-          type: 'تسویه حساب',
+          type: c.finalSettlement,
           amount: Number(st.amount) || 0,
-          title: 'سند تسویه‌حساب نهایی',
+          title: c.settlementDocumentTitle,
           notes: st.notes
         });
       });
 
-    // مرتب‌سازی معکوس (از جدیدترین به قدیمی‌ترین)
+    // UI element
     events.sort((a, b) => (b.rawDate || '').localeCompare(a.rawDate || ''));
 
-    // فیلتر بر اساس نوع رویداد و وضعیت تسویه
+    // UI element
     return events.filter((ev) => {
       if (activityTypeFilter !== 'all' && ev.kind !== activityTypeFilter) return false;
       if (activityStatusFilter === 'unsettled' && ev.isSettled) return false;
@@ -349,7 +623,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
     });
   }, [worker, allLogs, allPayments, fin, activityTypeFilter, activityStatusFilter]);
 
-  // شمارنده‌ها برای فیلتر کپسولی
+  // UI element
   const activityCounts = useMemo(() => {
     const totalLogs = allLogs.length;
     const totalAdvances = allPayments.filter((p) => (p.type || '').toLowerCase() !== 'settlement' && !p.deletedAt).length;
@@ -369,11 +643,11 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       dir={direction}
       className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-[#f3f6f4] dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none"
     >
-      {/* هدر بالایی تمام‌صفحه و بنر هویت پرسنل (Apple Liquid Glass Executive Identity Banner) */}
+      {/* UI element */}
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shrink-0 z-20 shadow-xs">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-            {/* مشخصات و هویت پرسنل */}
+            {/* UI element */}
             <div className="flex items-center gap-3.5 min-w-0">
               <div className="relative shrink-0">
                 <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-xl flex items-center justify-center shadow-lg shadow-sky-500/25 border border-white/60 dark:border-slate-800">
@@ -383,7 +657,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   className={`absolute -bottom-1 -end-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
                     worker?.isActive !== false ? 'bg-emerald-500' : 'bg-rose-500'
                   }`} 
-                  title={worker?.isActive !== false ? 'فعال' : 'غیرفعال'}
+                  title={worker?.isActive !== false ? c.active : c.inactive}
                 />
               </div>
 
@@ -410,37 +684,37 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                     <a 
                       href={`tel:${worker.phone}`} 
                       className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400 hover:underline font-mono font-bold transition-colors"
-                      title="تماس تلفنی"
+                      title={c.phoneCallTitle}
                     >
                       <Phone className="w-3.5 h-3.5" />
                       <span>{worker.phone}</span>
                     </a>
                   ) : (
-                    <span className="text-slate-400 text-xs">بدون شماره تماس</span>
+                    <span className="text-slate-400 text-xs">{c.noPhone}</span>
                   )}
 
                   <span className="text-slate-300 dark:text-slate-700">•</span>
-                  <span>نرخ روزانه: <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker?.dailyRate || 0, currency, language)}</strong></span>
+                  <span>{c.dailyRateLabel} <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker?.dailyRate || 0, currency, language)}</strong></span>
                   
                   {Number(worker?.overtimeHourlyRate) > 0 && (
                     <>
                       <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <span>اضافه کاری: <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker.overtimeHourlyRate, currency, language)}</strong>/ساعت</span>
+                      <span>{c.overtimePrefix} <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker.overtimeHourlyRate, currency, language)}</strong>{c.perHourSuffix}</span>
                     </>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* دکمه عملیات بیشتر و دکمه بستن */}
+            {/* UI element */}
             <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              {/* منوی دراپ‌دان عملیات جانبی */}
+              {/* UI element */}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsMoreMenuOpen(prev => !prev)}
-                  aria-label="سایر ابزارها و عملیات"
-                  title="سایر ابزارها و عملیات"
+                  aria-label={c.moreToolsTitle}
+                  title={c.moreToolsTitle}
                   className={`h-11 sm:h-12 w-11 sm:w-12 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-95 border shadow-xs cursor-pointer ${
                     isMoreMenuOpen
                       ? 'bg-primary text-white border-primary shadow-primary/20'
@@ -466,7 +740,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                         className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-600 dark:hover:text-sky-400 flex items-center gap-2.5 transition-colors cursor-pointer text-start"
                       >
                         <CalendarCheck className="w-4 h-4 text-sky-500 shrink-0" />
-                        <span>ثبت سریع ماهانه (کارکرد)</span>
+                        <span>{c.quickMonthlyLogging}</span>
                       </button>
 
                       <button
@@ -479,7 +753,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                                 id: worker.id,
                                 name: worker.name,
                                 type: 'worker',
-                                role: worker.role || 'پرسنل'
+                                role: worker.role || c.defaultWorkerRole
                               }
                             })
                           );
@@ -487,7 +761,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                         className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-2.5 transition-colors cursor-pointer text-start"
                       >
                         <FileSpreadsheet className="w-4 h-4 text-purple-500 shrink-0" />
-                        <span>مشاهده دفتر معین حسابداری</span>
+                        <span>{c.viewLedger}</span>
                       </button>
 
                       <button
@@ -499,19 +773,19 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                         className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-2.5 transition-colors cursor-pointer text-start"
                       >
                         <Lock className="w-4 h-4 text-amber-500 shrink-0" />
-                        <span>لینک و بارکد ورود پرسنل</span>
+                        <span>{c.workerLoginLinkAndQR}</span>
                       </button>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* دکمه بستن */}
+              {/* UI element */}
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="بستن (Esc)"
-                title="بستن (Esc)"
+                aria-label={c.closeEsc}
+                title={c.closeEsc}
                 className="h-11 sm:h-12 w-11 sm:w-12 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all duration-150 active:scale-95 border border-slate-200/90 dark:border-slate-700/80 shadow-xs shrink-0 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -521,15 +795,18 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       </header>
 
-      {/* هشدار کارکرد اشتباه تسویه شده */}
+      {/* UI element */}
       {fin?.suspiciousSettledLogs?.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-300 dark:border-amber-800 shrink-0">
           <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <div className="flex-1 text-amber-900 dark:text-amber-200 leading-relaxed">
-              <b>هشدار مالی:</b> {fin.suspiciousSettledLogs.length} روز کارکرد ({fin.suspiciousSettledLogs.slice(0, 5).map((l) => l.date).join('، ')}
-              {fin.suspiciousSettledLogs.length > 5 ? '، …' : ''}) «تسویه‌شده» علامت خورده، در حالی که تاریخ آن بعد از آخرین سند تسویه است
-              {fin.lastSettlementDate ? ` (${fin.lastSettlementDate})` : ''}. اگر پرداخت نشده‌اند، به کارکرد جاری برگردانید تا از مانده‌ی پرسنل جا نیفتند.
+              <b>{c.financialWarning}</b> {c.suspiciousLogsDesc(
+                fin.suspiciousSettledLogs.length,
+                fin.suspiciousSettledLogs.slice(0, 5).map((l) => l.date).join(c.commaSeparator),
+                fin.suspiciousSettledLogs.length > 5,
+                fin.lastSettlementDate
+              )}
             </div>
             <button
               type="button"
@@ -537,35 +814,33 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
               onClick={handleRepairSuspiciousLogs}
               className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold shrink-0 cursor-pointer shadow-xs transition-colors"
             >
-              {isRepairingSettled ? 'در حال اصلاح…' : 'برگرداندن به کارکرد جاری'}
+              {isRepairingSettled ? c.repairing : c.revertToCurrentLogs}
             </button>
           </div>
         </div>
       )}
 
-      {/* بنر هیروی اجرایی لوکس وضعیت مالی پرسنل (Executive Hero Banner) */}
+      {/* UI element */}
       <div className="no-print px-4 py-3 sm:px-6 lg:px-8 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
         <div className="max-w-7xl mx-auto w-full relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-slate-950 text-white border border-white/10 shadow-2xl">
-          {/* حباب‌های بلورین درخشان در پس‌زمینه */}
+          {/* UI element */}
           <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-            {/* سمت راست: مانده حساب جاری، نشان وضعیت و روزهای کارکرد */}
+            {/* UI element */}
             <div className="lg:col-span-7 space-y-3">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
                 <span className={`w-2 h-2 rounded-full ${stats.netBalanceDue >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-pulse'}`} />
                 <span className={stats.netBalanceDue >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                  {stats.netBalanceDue >= 0 ? 'وضعیت حساب: طلبکار از کارگاه' : 'وضعیت حساب: بدهکار مساعده'}
+                  {stats.netBalanceDue >= 0 ? c.accountStatusCreditor : c.accountStatusDebtor}
                 </span>
                 <span className="text-slate-500">•</span>
-                <span className="text-slate-400">{stats.unsettledDaysCount} روز کارکرد جاری در انتظار تسویه</span>
+                <span className="text-slate-400">{c.unsettledDaysPending(stats.unsettledDaysCount)}</span>
               </div>
 
               <div>
-                <span className="text-[11px] font-bold text-slate-400 block mb-1">
-                  مانده طلب نهایی پرسنل (خالص قابل تسویه)
-                </span>
+                <span className="text-[11px] font-bold text-slate-400 block mb-1">{c.finalNetPayableBalance}</span>
                 <div className="flex items-baseline gap-2">
                   <span className={`text-2xl sm:text-3xl md:text-4xl font-black font-mono tracking-tight ${
                     stats.netBalanceDue >= 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -576,33 +851,27 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
               </div>
             </div>
 
-            {/* سمت چپ: کارت شیشه‌ای شاخص‌های سه‌گانه مالی */}
+            {/* UI element */}
             <div className="lg:col-span-5 grid grid-cols-3 gap-2.5 bg-white/5 p-3.5 rounded-2xl border border-white/10 backdrop-blur-md">
-              {/* ۱. کارکرد معوق */}
+              {/* UI element */}
               <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
-                <span className="text-[10px] text-slate-400 block truncate">
-                  کارکرد جاری (+)
-                </span>
+                <span className="text-[10px] text-slate-400 block truncate">{c.currentWorkGross}</span>
                 <span className="text-xs sm:text-sm font-black font-mono text-slate-200 mt-1 block truncate" dir="ltr">
                   +{formatCurrency(stats.unsettledGrossPay, currency, language)}
                 </span>
               </div>
 
-              {/* ۲. مساعده‌های کسر نشده */}
+              {/* UI element */}
               <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col justify-between">
-                <span className="text-[10px] text-amber-300 block truncate">
-                  مساعده‌ها (-)
-                </span>
+                <span className="text-[10px] text-amber-300 block truncate">{c.advancesMinus}</span>
                 <span className="text-xs sm:text-sm font-black font-mono text-amber-400 mt-1 block truncate" dir="ltr">
                   -{formatCurrency(stats.unsettledAdvances, currency, language)}
                 </span>
               </div>
 
-              {/* ۳. کل تسویه شده در تاریخچه */}
+              {/* UI element */}
               <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 flex flex-col justify-between">
-                <span className="text-[10px] text-sky-300 block truncate">
-                  تسویه‌شده کل
-                </span>
+                <span className="text-[10px] text-sky-300 block truncate">{c.totalSettledHistory}</span>
                 <span className="text-xs sm:text-sm font-black font-mono text-sky-400 mt-1 block truncate" dir="ltr">
                   {formatCurrency(stats.settledGrossPay, currency, language)}
                 </span>
@@ -612,94 +881,94 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       </div>
 
-      {/* بدنه یکپارچه بدون تب: ساختار دو ستونه پرونده و تایم‌لاین فعالیت‌ها */}
+      {/* UI element */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 pb-32">
           
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             
-            {/* ستون راست (۵ ستون دسکتاپ): دوسیه پرسنل، شرایط کاری و ماتریس کارکرد */}
+            {/* UI element */}
             <div className="lg:col-span-5 space-y-4">
               
-              {/* کارت ۱: شرایط شغلی و دستمزد */}
+              {/* UI element */}
               <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
                 <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
                   <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
                     <Briefcase className="w-4 h-4 text-emerald-500" />
-                    <span>شرایط کاری و دستمزد</span>
+                    <span>{c.workTermsAndWage}</span>
                   </h3>
                   <span className="text-[10px] text-slate-400 font-bold font-mono">
-                    {worker?.teamRole === 'master' ? 'استادکار / سرتیم' : 'نیروی کار'}
+                    {worker?.teamRole === 'master' ? c.masterRole : c.workerRole}
                   </span>
                 </div>
 
                 <div className="space-y-2.5 text-xs">
                   <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="text-slate-500 dark:text-slate-400">دستمزد پایه هر روز:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{c.baseDailyWageLabel}</span>
                     <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                       {formatCurrency(worker?.dailyRate || 0, currency, language)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="text-slate-500 dark:text-slate-400">نرخ اضافه کاری:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{c.overtimeHourlyRateLabel}</span>
                     <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-sm">
-                      {formatCurrency(worker?.overtimeHourlyRate || 0, currency, language)}/ساعت
+                      {formatCurrency(worker?.overtimeHourlyRate || 0, currency, language)}{c.perHourSuffix}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="text-slate-500 dark:text-slate-400">ساعت کار استاندارد:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{c.standardHoursLabel}</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200">
-                      {worker?.standardHours || 8} ساعت
+                      {worker?.standardHours || 8} {c.hoursUnit}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between py-1">
-                    <span className="text-slate-500 dark:text-slate-400">تاریخ شروع به کار:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{c.startDateLabel}</span>
                     <span className="font-mono text-slate-700 dark:text-slate-300">
-                      {worker?.startDate ? formatFullDateWithWeekday(worker.startDate, language) : 'ثبت نشده'}
+                      {worker?.startDate ? formatFullDateWithWeekday(worker.startDate, language) : c.notRecorded}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* کارت ۲: ماتریس تفکیک کارکرد جاری */}
+              {/* UI element */}
               <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
                 <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
                   <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-sky-500" />
-                    <span>تفکیک کارکرد جاری</span>
+                    <span>{c.currentWorkBreakdown}</span>
                   </h4>
                   <span className="text-[10px] text-sky-600 dark:text-sky-400 font-bold">
-                    {stats.unsettledDaysCount} روز کارکرد
+                    {c.workDaysCount(stats.unsettledDaysCount)}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="p-2.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
-                    <span className="text-[10px] text-slate-400 block mb-0.5">روز کامل</span>
+                    <span className="text-[10px] text-slate-400 block mb-0.5">{c.fullDay}</span>
                     <span className="text-base font-black text-slate-800 dark:text-slate-100 font-mono">
                       {stats.unsettledFullDays}
                     </span>
                   </div>
 
                   <div className="p-2.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 text-center">
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 block mb-0.5">نیم‌روز</span>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 block mb-0.5">{c.halfDay}</span>
                     <span className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">
                       {stats.unsettledHalfDays}
                     </span>
                   </div>
 
                   <div className="p-2.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-center">
-                    <span className="text-[10px] text-purple-600 dark:text-purple-400 block mb-0.5">ساعتی</span>
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 block mb-0.5">{c.hourly}</span>
                     <span className="text-base font-black text-purple-600 dark:text-purple-400 font-mono">
                       {stats.unsettledHourlyDays}
                     </span>
                   </div>
 
                   <div className="p-2.5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-center">
-                    <span className="text-[10px] text-sky-600 dark:text-sky-400 block mb-0.5">اضافه کاری</span>
+                    <span className="text-[10px] text-sky-600 dark:text-sky-400 block mb-0.5">{c.overtime}</span>
                     <span className="text-xs font-black text-sky-600 dark:text-sky-400 font-mono">
                       {formatHoursAndMinutes(stats.unsettledOvertimeHours)}
                     </span>
@@ -707,12 +976,12 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 </div>
               </div>
 
-              {/* کارت ۳: یادداشت‌ها و توضیحات */}
+              {/* UI element */}
               {worker?.notes && (
                 <div className="p-4 rounded-3xl bg-amber-50/70 dark:bg-amber-950/30 backdrop-blur-md border border-amber-200/70 dark:border-amber-900/40 shadow-xs space-y-1">
                   <h4 className="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5" />
-                    <span>یادداشت پرسنل:</span>
+                    <span>{c.workerNotes}</span>
                   </h4>
                   <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
                     {worker.notes}
@@ -722,18 +991,18 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
             </div>
 
-            {/* ستون چپ (۷ ستون دسکتاپ): فید یکپارچه فعالیت‌ها، کارکردها و پرداخت‌ها */}
+            {/* UI element */}
             <div className="lg:col-span-7 space-y-3.5">
               
-              {/* نوار فیلتر کپسولی تایم‌لاین یکپارچه */}
+              {/* UI element */}
               <div className="p-3 sm:px-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-2.5">
-                {/* فیلتر نوع رویداد */}
+                {/* UI element */}
                 <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-x-auto custom-scrollbar">
                   {[
-                    { id: 'all', label: 'همه', count: activityCounts.all },
-                    { id: 'attendance', label: 'کارکردها', count: activityCounts.attendance },
-                    { id: 'advance', label: 'مساعده‌ها', count: activityCounts.advances },
-                    { id: 'settlement', label: 'تسویه‌ها', count: activityCounts.settlements }
+                    { id: 'all', label: c.allTab, count: activityCounts.all },
+                    { id: 'attendance', label: c.attendanceTab, count: activityCounts.attendance },
+                    { id: 'advance', label: c.advancesTab, count: activityCounts.advances },
+                    { id: 'settlement', label: c.settlementsTab, count: activityCounts.settlements }
                   ].map((chip) => (
                     <button
                       key={chip.id}
@@ -755,7 +1024,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   ))}
                 </div>
 
-                {/* فیلتر وضعیت تسویه */}
+                {/* UI element */}
                 <div className="flex items-center gap-1 text-xs">
                   <button
                     type="button"
@@ -765,9 +1034,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                         ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                     }`}
-                  >
-                    همه
-                  </button>
+                  >{c.allFilter}</button>
                   <button
                     type="button"
                     onClick={() => setActivityStatusFilter('unsettled')}
@@ -776,9 +1043,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                         ? 'bg-amber-500 text-white shadow-xs'
                         : 'text-slate-500 hover:text-amber-600'
                     }`}
-                  >
-                    جاری
-                  </button>
+                  >{c.currentFilter}</button>
                   <button
                     type="button"
                     onClick={() => setActivityStatusFilter('settled')}
@@ -787,18 +1052,16 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                         ? 'bg-emerald-600 text-white shadow-xs'
                         : 'text-slate-500 hover:text-emerald-600'
                     }`}
-                  >
-                    آرشیو
-                  </button>
+                  >{c.archiveFilter}</button>
                 </div>
               </div>
 
-              {/* لیست کارت‌های رویداد تایم‌لاین */}
+              {/* UI element */}
               {combinedActivityEvents.length === 0 ? (
                 <div className="py-16 text-center rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-dashed border-slate-200 dark:border-slate-800 p-8 shadow-xs">
                   <Clock className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                  <h4 className="text-sm font-black text-slate-700 dark:text-slate-300 mb-1">هیچ رکوردی در این فیلتر یافت نشد</h4>
-                  <p className="text-xs text-slate-400">می‌توانید با داک بالای صفحه کارکرد یا مساعده جدید ثبت کنید.</p>
+                  <h4 className="text-sm font-black text-slate-700 dark:text-slate-300 mb-1">{c.noRecordsInFilter}</h4>
+                  <p className="text-xs text-slate-400">{c.canLogNewActivityTip}</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -818,7 +1081,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                             : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-white/60 dark:border-slate-800/80'
                         }`}
                       >
-                        {/* جزییات و آیکون نوع رویداد */}
+                        {/* UI element */}
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs ${
                             isSettlement
@@ -849,26 +1112,26 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                                   ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300'
                                   : 'bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300'
                               }`}>
-                                {isSettlement ? 'تسویه نهایی' : isAdvance ? 'مساعده' : (ev.type === 'half' ? 'نیم‌روز' : ev.type === 'hourly' ? 'ساعتی' : 'روز کامل')}
+                                {isSettlement ? c.finalSettlement : isAdvance ? c.advance : (ev.type === 'half' ? c.halfDay : ev.type === 'hourly' ? c.hourly : c.fullDay)}
                               </span>
 
                               {ev.isSettled ? (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
                                   <Lock className="w-2.5 h-2.5" />
-                                  <span>تسویه شده</span>
+                                  <span>{c.settled}</span>
                                 </span>
                               ) : (
                                 <span className="px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-200/60">
-                                  جاری / تسویه نشده
+                                  {c.unsettledCurrent}
                                 </span>
                               )}
                             </div>
 
-                            {/* ساعت اضافه کاری یا یادداشت */}
+                            {/* UI element */}
                             {isAttendance && Number(ev.overtimeHours) > 0 && (
                               <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-mono mt-0.5">
                                 <Clock className="w-3 h-3" />
-                                <span>اضافه کاری: {formatHoursAndMinutes(ev.overtimeHours)}</span>
+                                <span>{c.overtimeHoursLabel(formatHoursAndMinutes(ev.overtimeHours))}</span>
                               </div>
                             )}
 
@@ -880,11 +1143,11 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                           </div>
                         </div>
 
-                        {/* مبلغ و دکمه ویرایش (در صورت کارکرد) */}
+                        {/* UI element */}
                         <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
                           <div className="text-end">
                             <span className="text-[10px] text-slate-400 block">
-                              {isSettlement ? 'مبلغ تسویه:' : isAdvance ? 'پرداخت مساعده:' : 'دستمزد ناخالص:'}
+                              {isSettlement ? c.settlementAmountLabel : isAdvance ? c.advancePaymentLabel : c.grossWageLabel}
                             </span>
                             <span className={`font-mono font-black text-sm sm:text-base ${
                               isSettlement ? 'text-purple-600 dark:text-purple-400' : isAdvance ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
@@ -898,7 +1161,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                               type="button"
                               onClick={() => setEditingLog(ev.data)}
                               className="p-2 rounded-xl text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              title={ev.isSettled ? 'مشاهده رکورد قفل شده' : 'ویرایش رکورد'}
+                              title={ev.isSettled ? c.viewLockedRecord : c.editRecord}
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
@@ -917,11 +1180,11 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       </div>
 
-      {/* داک چسبان شیشه‌ای پایین (Sticky Apple Liquid Glass Bottom Dock) */}
+      {/* UI element */}
       <div className="no-print fixed bottom-0 start-0 end-0 z-30 p-3 sm:px-6 lg:px-8 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex items-center justify-between">
         <div className="flex items-center gap-3 sm:gap-6">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">مانده حساب پرسنل:</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">{c.workerAccountBalance}</span>
             <span className={`text-base sm:text-lg font-black font-mono tracking-tight ${
               stats.netBalanceDue >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
             }`} dir="ltr">
@@ -932,48 +1195,48 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                 : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
             }`}>
-              {stats.netBalanceDue >= 0 ? 'طلبکار' : 'بدهکار'}
+              {stats.netBalanceDue >= 0 ? c.creditor : c.debtor}
             </span>
           </div>
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
 
           <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span>شناسه پرسنل:</span>
+            <span>{c.workerIdLabel}</span>
             <span className="font-mono text-slate-700 dark:text-slate-300">{worker?.id}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* دکمه ثبت مساعده */}
+          {/* UI element */}
           <button
             type="button"
             onClick={() => setIsAdvanceModalOpen(true)}
             className="px-3.5 sm:px-4 h-10 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span>ثبت مساعده</span>
+            <span>{c.addAdvanceBtn}</span>
           </button>
 
-          {/* دکمه صدور تسویه حساب */}
+          {/* UI element */}
           <button
             type="button"
             onClick={() => setIsSettlementModalOpen(true)}
             className="px-3.5 sm:px-4 h-10 rounded-2xl bg-primary text-white hover:bg-primary/90 text-xs font-bold shadow-md shadow-primary/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
             <Receipt className="w-4 h-4" />
-            <span>صدور تسویه‌حساب</span>
+            <span>{c.settleAccountBtn}</span>
           </button>
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
 
-          {/* دکمه بستن */}
+          {/* UI element */}
           <button
             type="button"
             onClick={onClose}
             className="px-3.5 sm:px-4 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
-            <span>بستن</span>
+            <span>{c.closeBtn}</span>
             <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded font-mono">
               ESC
             </kbd>
@@ -1031,7 +1294,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="font-bold text-slate-800 dark:text-white text-base">لینک ورود اختصاصی پرسنل</h3>
+              <h3 className="font-bold text-slate-800 dark:text-white text-base">{c.workerPortalTitle}</h3>
               <button 
                 onClick={() => setIsQRModalOpen(false)}
                 className="text-slate-500 hover:text-slate-800 dark:hover:text-white p-1"
@@ -1042,7 +1305,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
             
             <div className="p-6 flex flex-col items-center text-center">
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
-                با این لینک (یا بارکد)، <strong>{worker?.name}</strong> مستقیم و بدون نام کاربری، رمز عبور و کد کارگاه وارد پروفایل خودش می‌شود و فقط صورت‌حساب و گزارش کارکرد خودش را می‌بیند.
+                {c.workerPortalDesc(worker?.name || '')}
               </p>
 
               {qrUrl ? (
@@ -1052,27 +1315,27 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   </div>
 
                   <p className="mt-4 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
-                    هر کسی که این لینک را داشته باشد وارد پروفایل این پرسنل می‌شود؛ آن را فقط برای خودِ او بفرستید. این لینک فقط همین یک بار نمایش داده می‌شود؛ اگر گم شد، لینک جدید بسازید.
+                    {c.workerPortalWarning}
                   </p>
 
                   <button 
                     onClick={() => {
                       navigator.clipboard.writeText(qrUrl);
-                      alert('لینک ورود کپی شد.');
+                      alert(c.linkCopiedAlert);
                     }}
                     className="mt-4 w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-sm transition-colors"
                   >
-                    کپی لینک ورود
+                    {c.copyLinkBtn}
                   </button>
 
                   {typeof navigator !== 'undefined' && navigator.share && (
                     <button
                       onClick={() => {
-                        navigator.share({ title: 'لینک ورود به پروفایل', url: qrUrl }).catch(() => {});
+                        navigator.share({ title: c.shareTitle, url: qrUrl }).catch(() => {});
                       }}
                       className="mt-2 w-full py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl font-bold text-sm transition-colors"
                     >
-                      اشتراک‌گذاری
+                      {c.shareBtn}
                     </button>
                   )}
                 </>
@@ -1080,7 +1343,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 <>
                   {qrRevoked && (
                     <p className="mb-3 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      دسترسی این پرسنل با لینک باطل شد.
+                      {c.revokeAlert}
                     </p>
                   )}
                   <button
@@ -1088,10 +1351,10 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                     disabled={qrBusy}
                     className="w-full py-2.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white rounded-xl font-bold text-sm transition-colors"
                   >
-                    {qrBusy ? 'لطفاً صبر کنید…' : 'ساخت لینک ورود'}
+                    {qrBusy ? c.pleaseWait : c.generateLinkBtn}
                   </button>
                   <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
-                    ساخت لینک جدید، لینک قبلی این پرسنل را باطل می‌کند.
+                    {c.generateLinkWarning}
                   </p>
                 </>
               )}
@@ -1105,7 +1368,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 disabled={qrBusy}
                 className="mt-5 text-xs font-bold text-red-500 hover:text-red-600 disabled:opacity-60"
               >
-                باطل کردن دسترسی با لینک
+                {c.revokeAccessBtn}
               </button>
             </div>
           </div>

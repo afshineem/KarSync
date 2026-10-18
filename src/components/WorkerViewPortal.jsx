@@ -82,9 +82,485 @@ function formatMonthWithYear(dateOrMonthStr, lang = 'fa') {
   return mName ? `${mName} ${parts[0]}` : ym;
 }
 
+
+const PORTAL_COPY = {
+  fa: {
+    // Navigation & Dropdown
+    myPersonalAccount: 'حساب و کارکرد شخصی من',
+    groupManagement: 'پنل سرپرستی گروه',
+    allTab: 'سوابق و کل کارکرد',
+    currentTab: 'کارکرد جاری و معوقه',
+    settledTab: 'سوابق تسویه‌شده',
+    allGroupMembers: 'همه اعضای گروه (نمای تجمیعی)',
+    totalGroupMembers: 'کل پرسنل گروه',
+    totalGroupDue: 'مجموع مطالبات معوقه گروه',
+    totalGroupDays: 'مجموع روزهای کاری گروه',
+    totalGroupOt: 'مجموع اضافه‌کاری گروه',
+    archivedMemberNotice: 'این پرسنل توسط مدیریت بایگانی شده، اما کلیه سوابق مالی و کارکرد وی در دسترس است.',
+    archivedBadge: 'بایگانی‌شده',
+    masterRole: 'استادکار (سرپرست)',
+    workerRoleLabel: 'کارگر',
+    unsettledBadge: 'جاری / معوقه',
+    settledBadge: 'تسویه‌شده',
+    searchLogsPlaceholder: 'جستجو بر اساس تاریخ، نام یا توضیحات...',
+    fullDayLabel: 'روز کامل',
+    halfDayLabel: 'نیم‌روز',
+    hourlyLabel: 'ساعتی',
+    overtimeLabel: 'اضافه‌کاری',
+    dateColTitle: 'تاریخ',
+    workerNameColTitle: 'نام نیرو',
+    workTypeColTitle: 'نوع کار',
+    totalDayColTitle: 'مجموع کل روز',
+    statusColTitle: 'وضعیت',
+    notesColTitle: 'توضیحات',
+    daysUnit: 'روز',
+    loadingPersonnel: 'در حال بارگذاری پرونده پرسنلی...',
+    activeProjectFallback: 'پروژه فعال',
+    allGroupMembersFallback: 'کل اعضای گروه',
+    groupFallback: 'گروه',
+
+    // Browser & Push Notifications
+    browserNotSupportedTitle: 'عدم پشتیبانی مرورگر',
+    browserNotSupportedMsg: 'مرورگر دستگاه شما از اعلان خارجی سیستم‌عامل پشتیبانی نمی‌کند.',
+    notifEnabledTitle: 'اعلان موبایل فعال شد',
+    notifEnabledMsg: 'هنگام ثبت کارکرد یا تسویه‌حساب جدید، حتی اگر برنامه بسته باشد به شما پیام داده می‌شود.',
+    notifEnabledOsTitle: 'نوتیفیکیشن موبایل فعال شد • KarSync',
+    notifEnabledOsBody: 'هر زمان کارکرد یا تسویه‌حسابی برای شما ثبت شود، بلافاصله روی موبایل مطلع خواهید شد.',
+    notifPermissionDeniedTitle: 'مجوز نوتیفیکیشن رد شد',
+    notifPermissionDeniedMsg: 'لطفاً از تنظیمات مرورگر موبایل، مجوز ارسال اعلان (Notifications) را فعال کنید.',
+    osNotifActive: 'اعلان خارجی موبایل فعال شد',
+    osNotifInactive: 'اعلان خارجی موبایل غیرفعال شد',
+    osNotifActiveDesc: 'اعلان‌های ثبت کارکرد و تسویه‌حساب در پس‌زمینه موبایل ارسال خواهند شد.',
+    osNotifInactiveDesc: 'اعلان‌ها فقط در داخل پرتال نمایش داده می‌شوند.',
+    offlineTitle: 'عدم اتصال به اینترنت',
+    offlineMsg: 'اطلاعات ذخیره‌شده آفلاین نمایش داده می‌شود.',
+    refreshSuccessTitle: 'بروزرسانی انجام شد',
+    refreshSuccessMsg: 'آخرین اطلاعات کارکرد و مالی با موفقیت دریافت شد.',
+    overtimeSuffix: 'اضافه‌کاری',
+
+    // Realtime Notifications Callback
+    rtSettlementTitle: 'ثبت تسویه‌حساب',
+    rtAdvanceTitle: 'ثبت پرداختی / مساعده',
+    rtSettlementBody: (amt, d) => `مبلغ ${amt} بابت تسویه‌حساب در تاریخ ${d} برای شما ثبت شد.`,
+    rtAdvanceBody: (amt, d) => `مبلغ ${amt} بابت مساعده در تاریخ ${d} برای شما ثبت شد.`,
+    rtWorklogTitle: 'ثبت کارکرد روزانه',
+    rtWorklogBody: (d, w, ot, p) => `کارکرد تاریخ ${d} (${w}${ot}) به مبلغ ${p} ثبت شد.`,
+    rtNewWorklogTitle: 'ثبت کارکرد جدید',
+    rtNewWorklogBody: (d, w, ot, p) => `کارکرد تاریخ ${d} (${w}${ot}) به مبلغ ${p} برای شما ثبت شد.`,
+    rtSettleWorklogTitle: 'تسویه‌حساب کارکرد',
+    rtSettleWorklogBody: (d) => `کارکرد تاریخ ${d} شما تسویه‌حساب شد.`,
+    rtUpdateWorklogTitle: 'بروزرسانی کارکرد روزانه',
+    rtUpdateWorklogBody: (d, w, p) => `کارکرد تاریخ ${d} (${w}) به مبلغ ${p} بروزرسانی شد.`,
+    rtNewSettlementTitle: 'ثبت تسویه‌حساب جدید',
+    rtNewAdvanceTitle: 'ثبت پرداختی / مساعده جدید',
+
+    // Summary Cards
+    workedDaysTitle: 'کل کارکرد',
+    daysCountSub: (n) => `${n} روز کاری ثبت‌شده`,
+    groupMembersCount: (n) => `${n} نفر عضو گروه`,
+    titleEarningsTotal: 'کل حقوق و کارکرد ثبت‌شده',
+    titleEarningsCurrent: 'حقوق کارکرد جاری',
+    titleEarningsSettled: 'کل کارکرد تسویه‌شده',
+    titleAdvancesTotal: 'کل دریافتی و تسویه‌شده',
+    titleAdvancesCurrent: 'مساعده دریافتی جاری',
+    titleAdvancesSettled: 'مجموع پرداختی تسویه‌شده',
+    titleNetDue: 'مانده معوق طلب',
+    titleGroupGrossWages: 'کل کارکرد ناخالص گروه',
+    titleGroupGrossWagesCurrent: 'کارکرد جاری ناخالص گروه',
+    titleGroupGrossWagesSettled: 'کارکرد تسویه‌شده گروه',
+    titleGroupPaidAll: 'کل پرداختی و تسویه‌ها',
+    titleGroupPaidCurrent: 'مساعده‌های جاری گروه',
+    titleGroupPaidSettled: 'تسویه‌های پرداخت‌شده',
+    titleSubordinateWages: 'کل حقوق کارکرد',
+    titleSubordinateAdvancesAll: 'کل دریافتی و تسویه',
+    titleSubordinateAdvancesCurrent: 'مساعده و دریافتی',
+    titleSubordinateAdvancesSettled: 'مجموع تسویه‌شده',
+    titleSubordinateNetDue: 'مانده معوق طلب',
+    footerDescAll: 'مجموع کل حقوق و کارکرد ثبت‌شده (جاری و تسویه‌شده)',
+    footerDescCurrent: 'مانده خالص طلب معوقه فعلی (پس از کسر مساعده‌های جاری)',
+    footerDescSettled: 'مجموع کل مبالغ تسویه‌شده و دریافتی در سوابق تسویه',
+
+    // Header & Popover
+    portalSupervisor: 'پرتال سرپرست',
+    portalWorker: 'پرتال پرسنل',
+    refreshTooltip: 'بروزرسانی اطلاعات',
+    notifsTooltip: 'اعلان‌های کارکرد و تسویه‌حساب',
+    myNotifsHeader: 'اعلان‌های کارکرد و تسویه من',
+    myNotifsSub: 'فقط اعلان‌های ثبت کارکرد و تسویه‌حساب اختصاصی شما',
+    readAll: 'خواندن همه',
+    osNotifHeader: 'نوتیفیکیشن خارجی موبایل',
+    osNotifActiveSub: 'فعال (ارسال پیام حتی در زمان بسته بودن برنامه)',
+    osNotifInactiveSub: 'دریافت پیام روی موبایل حتی وقتی برنامه باز نیست',
+    activeCheck: 'فعال ✓',
+    activateAction: 'فعالسازی',
+    noNotifsEmpty: 'هنوز اعلانی برای ثبت کارکرد یا تسویه‌حساب ثبت نشده است.',
+    mobileNotifMenu: 'اعلان کارکرد و تسویه در موبایل',
+    statusActive: 'فعال',
+    statusInactive: 'فعالسازی',
+    appearanceTitle: 'حالت نمایش',
+    themeLight: 'حالت روشن',
+    themeDark: 'حالت تاریک',
+    languageTitle: 'زبان برنامه',
+    printPayslipMenu: 'چاپ فیش حقوقی و کارکرد',
+    signOut: 'خروج از حساب کاربری',
+
+    // Info Banner & Group Selection
+    baseDailyRateLabel: 'نرخ پایه روزانه:',
+    selectSubordinateLabel: 'انتخاب پرسنل زیرمجموعه جهت مشاهده کارکرد و حساب:',
+    membersSuffix: 'نفر',
+    badgeSettled: 'تسویه شده',
+    badgeUnsettled: 'دارای معوقه پرداخت',
+    clearedStatus: 'دریافت و تسویه شده',
+    recordsInView: 'ردیف کارکرد در این نما',
+    totalOtHours: 'مجموع ساعت اضافه',
+    printAction: 'چاپ فیش',
+    refreshAction: 'بروزرسانی',
+
+    // Attendance Table & Reports
+    reportMyAttendance: 'گزارش کارکرد من',
+    reportGroupAttendance: 'گزارش کارکرد تجمیعی پرسنل گروه',
+    reportAttendanceOf: (name) => `گزارش کارکرد ${name}`,
+    filterAll: 'همه',
+    filterFull: 'تمام‌وقت',
+    filterHalf: 'نیمه‌وقت',
+    filterOvertime: 'دارای اضافه‌کاری',
+    noLogsEmpty: 'هیچ رکورد کارکردی در این بخش ثبت نشده است.',
+    monthLabel: 'ماه',
+    totalsTable: 'جمع کل کارکردهای لیست بالا:',
+    recordsSuffix: 'ردیف',
+    grandTotalLabel: 'مجموع کل:',
+
+    // Payments & Advances Ledger & Signatures
+    paymentsAndAdvancesPersonal: 'دفتر پرداخت‌ها و مساعده‌ها',
+    paymentsAndAdvancesGroup: 'دفتر پرداخت‌ها و مساعده‌های گروه',
+    transactionsCount: (n) => `${n} تراکنش ثبت‌شده`,
+    noPaymentsEmpty: 'هیچ پرداخت یا مساعده‌ای در این دوره ثبت نشده است.',
+    typeSettlement: 'تسویه حساب',
+    typeAdvance: 'مساعده',
+    sigWorkerOrSupervisor: 'امضای پرسنل / سرپرست',
+    sigWorkshopManager: 'امضای مدیریت کارگاه'
+  },
+
+  ku: {
+    // Navigation & Dropdown
+    myPersonalAccount: 'حیساب و کارکردی کەسی من',
+    groupManagement: 'بەڕێوەبردنی گرووپ',
+    allTab: 'سەرجەم کارکرد و سوابق',
+    currentTab: 'کارکردی ئێستا و قەرزی تەسویەنەکراو',
+    settledTab: 'مێژووی تەسویەکراو',
+    allGroupMembers: 'سەرجەم ئەندامانی گرووپ (کۆی گشتی)',
+    totalGroupMembers: 'کۆی کرێکارانی گرووپ',
+    totalGroupDue: 'کۆی شایستەی ماوەی گرووپ',
+    totalGroupDays: 'کۆی ڕۆژەکانی گرووپ',
+    totalGroupOt: 'کۆی کاتژمێری سەروەختی گرووپ',
+    archivedMemberNotice: 'ئەم کرێکارە ئەرشیڤ کراوە بەڵام مێژووەکەی پارێزراوە.',
+    archivedBadge: 'ئەرشیڤ کراو',
+    masterRole: 'وەستا (سەرپەرشتیار)',
+    workerRoleLabel: 'کرێکار',
+    unsettledBadge: 'جاری / تەسویەنەکراو',
+    settledBadge: 'تەسویەکراو',
+    searchLogsPlaceholder: 'گەڕان بەپێی بەروار، ناو یان تێبینی...',
+    fullDayLabel: 'ڕۆژی تەواو',
+    halfDayLabel: 'نیو ڕۆژ',
+    hourlyLabel: 'کاتژمێری',
+    overtimeLabel: 'سەروەخت',
+    dateColTitle: 'بەروار',
+    workerNameColTitle: 'ناوی کرێکار',
+    workTypeColTitle: 'جۆری کار',
+    totalDayColTitle: 'کۆی ڕۆژ',
+    statusColTitle: 'دۆخ',
+    notesColTitle: 'تێبینی',
+    daysUnit: 'ڕۆژ',
+    loadingPersonnel: 'زانیارییەکان لە دیتابەیس دەخوێندرێنەوە...',
+    activeProjectFallback: 'پڕۆژەی چالاک',
+    allGroupMembersFallback: 'سەرجەم ئەندامانی گرووپ',
+    groupFallback: 'گرووپ',
+
+    // Browser & Push Notifications
+    browserNotSupportedTitle: 'پشتگیری ناکرێت',
+    browserNotSupportedMsg: 'ئەم وێبگەڕە پشتگیری ئاگادارکردنەوەی دەرەکی ناکات.',
+    notifEnabledTitle: 'ئاگادارکردنەوە چالاک کرا',
+    notifEnabledMsg: 'لە کاتی تۆمارکردنی کارکرد یان تەسویەحیساب، پەیامت بۆ دێت.',
+    notifEnabledOsTitle: 'ئاگادارکردنەوەی مۆبایل چالاک کرا • KarSync',
+    notifEnabledOsBody: 'هەر کاتێک کارکرد یان تەسویەحیسابت بۆ تۆمار بکرێت ئاگادار دەکرێیتەوە.',
+    notifPermissionDeniedTitle: 'دەستڕاگەیشتن ڕەتکرایەوە',
+    notifPermissionDeniedMsg: 'تکایە لە ڕێکخستنەکانی مۆبایل مۆڵەتی ئاگادارکردنەوە بدە.',
+    osNotifActive: 'ئاگادارکردنەوەی دەرەکی چالاک کرا',
+    osNotifInactive: 'ئاگادارکردنەوەی دەرەکی ڕاگیرا',
+    osNotifActiveDesc: 'پەیامەکانی کارکرد و تەسویە لەسەر مۆبایل پیشان دەدرێن.',
+    osNotifInactiveDesc: 'تەنها لە ناو بەرنامەکەدا ئاگادارکردنەوەکان دەبینیت.',
+    offlineTitle: 'هێڵی ئینتەرنێت نییە',
+    offlineMsg: 'زانیارییە پاشەکەوتکراوەکان پیشان دەدرێن.',
+    refreshSuccessTitle: 'نوێکرایەوە',
+    refreshSuccessMsg: 'دوایین زانیارییەکان بە سەرکەوتوویی وەرگیران.',
+    overtimeSuffix: 'سەروەخت',
+
+    // Realtime Notifications Callback
+    rtSettlementTitle: 'تۆمارکردنی تەسویەحیساب',
+    rtAdvanceTitle: 'تۆمارکردنی پێشەکی (مساعده)',
+    rtSettlementBody: (amt, d) => `بڕی ${amt} وەک تەسویەحیساب لە بەرواری ${d} بۆ تۆ تۆمار کرا.`,
+    rtAdvanceBody: (amt, d) => `بڕی ${amt} وەک پێشەکی لە بەرواری ${d} بۆ تۆ تۆمار کرا.`,
+    rtWorklogTitle: 'تۆمارکردنی کارکرد',
+    rtWorklogBody: (d, w, ot, p) => `کارکردی ڕۆژی ${d} (${w}${ot}) بە بڕی ${p} تۆمار کرا.`,
+    rtNewWorklogTitle: 'تۆمارکردنی کارکردی نوێ',
+    rtNewWorklogBody: (d, w, ot, p) => `کارکردی ڕۆژی ${d} (${w}${ot}) بە بڕی ${p} بۆ تۆ تۆمار کرا.`,
+    rtSettleWorklogTitle: 'تەسویەکردنی کارکرد',
+    rtSettleWorklogBody: (d) => `کارکردی ڕۆژی ${d} تەسویە کرا.`,
+    rtUpdateWorklogTitle: 'نوێکردنەوەی کارکرد',
+    rtUpdateWorklogBody: (d, w, p) => `کارکردی ڕۆژی ${d} (${w}) بە بڕی ${p} نوێکرایەوە.`,
+    rtNewSettlementTitle: 'تۆمارکردنی تەسویەحیسابی نوێ',
+    rtNewAdvanceTitle: 'تۆمارکردنی پێشەکی (مساعده) نوێ',
+
+    // Summary Cards
+    workedDaysTitle: 'ڕۆژانی کارکردن',
+    daysCountSub: (n) => `${n} ڕۆژی کاری تۆمارکراو`,
+    groupMembersCount: (n) => `${n} ئەندام`,
+    titleEarningsTotal: 'کۆی گشتی مووچەی کارکرد',
+    titleEarningsCurrent: 'کارکردی ئێستا',
+    titleEarningsSettled: 'کارکردی تەسویەکراو',
+    titleAdvancesTotal: 'کۆی وەرگیراو و تەسویە',
+    titleAdvancesCurrent: 'پێشەکی وەرگیراو',
+    titleAdvancesSettled: 'کۆی تەسویەکراو',
+    titleNetDue: 'ماوەی شایستەی وەرگرتن',
+    titleGroupGrossWages: 'کۆی گشتی کارکردی گرووپ',
+    titleGroupGrossWagesCurrent: 'کارکردی ئێستای گرووپ',
+    titleGroupGrossWagesSettled: 'کارکردی تەسویەکراوی گرووپ',
+    titleGroupPaidAll: 'کۆی پارەی دراو',
+    titleGroupPaidCurrent: 'کۆی پێشەکییەکان',
+    titleGroupPaidSettled: 'کۆی تەسویەی دراو',
+    titleSubordinateWages: 'کۆی مووچەی کارکرد',
+    titleSubordinateAdvancesAll: 'کۆی وەرگیراو',
+    titleSubordinateAdvancesCurrent: 'پێشەکی',
+    titleSubordinateAdvancesSettled: 'تەسویەکراو',
+    titleSubordinateNetDue: 'ماوەی قەرز',
+    footerDescAll: 'کۆی گشتی کارکرد و مووچەی تۆمارکراو (ئێستا و تەسویەکراو)',
+    footerDescCurrent: 'پوختەی قەرز و شایستەی ماوە (دوای لێدەرکردنی پێشەکی)',
+    footerDescSettled: 'کۆی گشتی مووچە و پارەی تەسویەکراوی پێشوو',
+
+    // Header & Popover
+    portalSupervisor: 'پۆرتالی سەرپەرشتیار',
+    portalWorker: 'پۆرتالی کارمەند',
+    refreshTooltip: 'نوێکردنەوەی زانیارییەکان',
+    notifsTooltip: 'ئاگادارکردنەوەکانی کارکرد و تەسویە',
+    myNotifsHeader: 'ئاگادارکردنەوەکانی من',
+    myNotifsSub: 'تەنها کارکرد و تەسویەحیسابی تایبەت بە خۆت',
+    readAll: 'خوێندنەوەی هەموو',
+    osNotifHeader: 'ئاگادارکردنەوەی دەرەکی مۆبایل',
+    osNotifActiveSub: 'چالاکە (تەنانەت کاتێک بەرنامەکە داخراوە)',
+    osNotifInactiveSub: 'بۆ وەرگرتنی پەیام لەسەر مۆبایل چالاکی بکە',
+    activeCheck: 'چالاکە ✓',
+    activateAction: 'چالاککردن',
+    noNotifsEmpty: 'هیچ ئاگادارکردنەوەیەکی نوێ نییە.',
+    mobileNotifMenu: 'ئاگادارکردنەوەی دەرەکی مۆبایل',
+    statusActive: 'چالاک',
+    statusInactive: 'ناچالاک',
+    appearanceTitle: 'ڕووکاری بەرنامە',
+    themeLight: 'ڕۆژ',
+    themeDark: 'شەو',
+    languageTitle: 'زمانی سیستم',
+    printPayslipMenu: 'چاپکردنی پسوولەی مووچە',
+    signOut: 'چوونەدەرەوە',
+
+    // Info Banner & Group Selection
+    baseDailyRateLabel: 'مووچەی ڕۆژانە:',
+    selectSubordinateLabel: 'دیاریکردنی کرێکار بۆ بینینی کارکرد و حسابات:',
+    membersSuffix: 'ئەندام',
+    badgeSettled: 'تەسویەکراو',
+    badgeUnsettled: 'قەرزی ماوە',
+    clearedStatus: 'وەرگیراو و تەسویەکراو',
+    recordsInView: 'تۆماری کارکرد لەم بەشەدا',
+    totalOtHours: 'کۆی کاتژمێری سەروەخت',
+    printAction: 'چاپکردن',
+    refreshAction: 'نوێکردنەوە',
+
+    // Attendance Table & Reports
+    reportMyAttendance: 'ڕاپۆرتی کارکردی من',
+    reportGroupAttendance: 'ڕاپۆرتی گشتی کارکردی ئەندامانی گرووپ',
+    reportAttendanceOf: (name) => `ڕاپۆرتی کارکردی ${name}`,
+    filterAll: 'هەموو',
+    filterFull: 'ڕۆژی تەواو',
+    filterHalf: 'نیو ڕۆژ',
+    filterOvertime: 'سەروەختدار',
+    noLogsEmpty: 'هیچ تۆمارێکی کارکردن لەم بەشەدا نییە.',
+    monthLabel: 'مانگی',
+    totalsTable: 'کۆی گشتی ئەم خشتەیە:',
+    recordsSuffix: 'تۆمار',
+    grandTotalLabel: 'کۆی گشتی:',
+
+    // Payments & Advances Ledger & Signatures
+    paymentsAndAdvancesPersonal: 'دەفتەری پارەدان و پێشەکییەکان',
+    paymentsAndAdvancesGroup: 'تۆماری پارەدان و مساعدەی گرووپ',
+    transactionsCount: (n) => `${n} تۆمار`,
+    noPaymentsEmpty: 'هیچ پارەدان یان پێشەکییەک لەم ماوەیەدا تۆمار نەکراوە.',
+    typeSettlement: 'تەسویەی حیساب',
+    typeAdvance: 'پێشەکی (مساعدە)',
+    sigWorkerOrSupervisor: 'واژۆی کارمەند / سەرپەرشتیار',
+    sigWorkshopManager: 'واژۆی بەڕێوەبەری کارگە'
+  },
+
+  en: {
+    // Navigation & Dropdown
+    myPersonalAccount: 'My Personal Account',
+    groupManagement: 'Group Supervision',
+    allTab: 'All Records',
+    currentTab: 'Current Open',
+    settledTab: 'Settled History',
+    allGroupMembers: 'All Group Members',
+    totalGroupMembers: 'Total Group Members',
+    totalGroupDue: 'Total Group Net Due',
+    totalGroupDays: 'Group Total Days',
+    totalGroupOt: 'Group Overtime Hours',
+    archivedMemberNotice: 'This worker is archived, but history is preserved.',
+    archivedBadge: 'Archived',
+    masterRole: 'Master (Supervisor)',
+    workerRoleLabel: 'Worker',
+    unsettledBadge: 'Open',
+    settledBadge: 'Settled',
+    searchLogsPlaceholder: 'Search by date, name or notes...',
+    fullDayLabel: 'Full Day',
+    halfDayLabel: 'Half Day',
+    hourlyLabel: 'Hourly',
+    overtimeLabel: 'Overtime',
+    dateColTitle: 'Date',
+    workerNameColTitle: 'Worker',
+    workTypeColTitle: 'Work Type',
+    totalDayColTitle: 'Total Pay',
+    statusColTitle: 'Status',
+    notesColTitle: 'Notes',
+    daysUnit: 'days',
+    loadingPersonnel: 'Loading personnel file...',
+    activeProjectFallback: 'Active Project',
+    allGroupMembersFallback: 'All Group Members',
+    groupFallback: 'Group',
+
+    // Browser & Push Notifications
+    browserNotSupportedTitle: 'Browser Unsupported',
+    browserNotSupportedMsg: 'Your browser does not support system push notifications.',
+    notifEnabledTitle: 'Mobile Notifications Enabled',
+    notifEnabledMsg: 'You will receive notifications for new worklogs or settlements even when the app is closed.',
+    notifEnabledOsTitle: 'Mobile Notifications Enabled • KarSync',
+    notifEnabledOsBody: 'You will be notified immediately when worklogs or settlements are recorded for you.',
+    notifPermissionDeniedTitle: 'Notification Permission Denied',
+    notifPermissionDeniedMsg: 'Please enable notifications permission in your mobile browser settings.',
+    osNotifActive: 'Mobile Push Notifications Activated',
+    osNotifInactive: 'Mobile Push Notifications Deactivated',
+    osNotifActiveDesc: 'Work and settlement notifications will be sent in the mobile background.',
+    osNotifInactiveDesc: 'Notifications will only appear inside the portal.',
+    offlineTitle: 'No Internet Connection',
+    offlineMsg: 'Showing cached local records.',
+    refreshSuccessTitle: 'Synchronized',
+    refreshSuccessMsg: 'Latest attendance and financial records loaded.',
+    overtimeSuffix: 'Overtime',
+
+    // Realtime Notifications Callback
+    rtSettlementTitle: 'Settlement Recorded',
+    rtAdvanceTitle: 'Payment / Advance Recorded',
+    rtSettlementBody: (amt, d) => `Settlement of ${amt} recorded on ${d} for you.`,
+    rtAdvanceBody: (amt, d) => `Advance payment of ${amt} recorded on ${d} for you.`,
+    rtWorklogTitle: 'Daily Worklog Recorded',
+    rtWorklogBody: (d, w, ot, p) => `Worklog for ${d} (${w}${ot}) recorded with amount ${p}.`,
+    rtNewWorklogTitle: 'New Worklog Recorded',
+    rtNewWorklogBody: (d, w, ot, p) => `Worklog for ${d} (${w}${ot}) recorded for you with amount ${p}.`,
+    rtSettleWorklogTitle: 'Worklog Settled',
+    rtSettleWorklogBody: (d) => `Your worklog for ${d} has been settled.`,
+    rtUpdateWorklogTitle: 'Worklog Updated',
+    rtUpdateWorklogBody: (d, w, p) => `Worklog for ${d} (${w}) updated to amount ${p}.`,
+    rtNewSettlementTitle: 'New Settlement Recorded',
+    rtNewAdvanceTitle: 'New Payment / Advance Recorded',
+
+    // Summary Cards
+    workedDaysTitle: 'Worked Days',
+    daysCountSub: (n) => `${n} work days recorded`,
+    groupMembersCount: (n) => `${n} group members`,
+    titleEarningsTotal: 'Total Gross Wages',
+    titleEarningsCurrent: 'Current Period Wages',
+    titleEarningsSettled: 'Total Settled Wages',
+    titleAdvancesTotal: 'Total Received & Settled',
+    titleAdvancesCurrent: 'Current Advances',
+    titleAdvancesSettled: 'Settled Payouts',
+    titleNetDue: 'Net Balance Due',
+    titleGroupGrossWages: 'Group Total Gross Wages',
+    titleGroupGrossWagesCurrent: 'Group Current Gross Wages',
+    titleGroupGrossWagesSettled: 'Group Settled Gross Wages',
+    titleGroupPaidAll: 'Group Total Payouts & Advances',
+    titleGroupPaidCurrent: 'Group Current Advances',
+    titleGroupPaidSettled: 'Group Settled Payouts',
+    titleSubordinateWages: 'Total Gross Wages',
+    titleSubordinateAdvancesAll: 'Total Received & Settled',
+    titleSubordinateAdvancesCurrent: 'Advances',
+    titleSubordinateAdvancesSettled: 'Total Settled',
+    titleSubordinateNetDue: 'Net Balance Due',
+    footerDescAll: 'Grand total of all recorded wages and worklogs (open and settled)',
+    footerDescCurrent: 'Current net unsettled balance due (after deducting advances)',
+    footerDescSettled: 'Total sum of previously settled and paid compensation',
+
+    // Header & Popover
+    portalSupervisor: 'Supervisor Portal',
+    portalWorker: 'Worker Portal',
+    refreshTooltip: 'Refresh Data',
+    notifsTooltip: 'Attendance & Settlement Notifications',
+    myNotifsHeader: 'My Notifications',
+    myNotifsSub: 'Only your personal worklog and settlement notifications',
+    readAll: 'Mark all as read',
+    osNotifHeader: 'Mobile OS Push Notifications',
+    osNotifActiveSub: 'Active (alerts sent even when app is closed)',
+    osNotifInactiveSub: 'Receive alerts on mobile even when app is not open',
+    activeCheck: 'Active ✓',
+    activateAction: 'Activate',
+    noNotifsEmpty: 'No worklog or settlement notifications yet.',
+    mobileNotifMenu: 'Mobile OS Notifications',
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+    appearanceTitle: 'Appearance',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    languageTitle: 'Language',
+    printPayslipMenu: 'Print Payslip & Timesheet',
+    signOut: 'Sign Out',
+
+    // Info Banner & Group Selection
+    baseDailyRateLabel: 'Base Daily Rate:',
+    selectSubordinateLabel: 'Select group member to inspect work and account:',
+    membersSuffix: 'members',
+    badgeSettled: 'Settled',
+    badgeUnsettled: 'Balance Due',
+    clearedStatus: 'Cleared',
+    recordsInView: 'records in view',
+    totalOtHours: 'Total OT Hours',
+    printAction: 'Print Payslip',
+    refreshAction: 'Refresh',
+
+    // Attendance Table & Reports
+    reportMyAttendance: 'My Attendance Report',
+    reportGroupAttendance: 'Group Cumulative Attendance Report',
+    reportAttendanceOf: (name) => `Attendance Report: ${name}`,
+    filterAll: 'All',
+    filterFull: 'Full Day',
+    filterHalf: 'Half Day',
+    filterOvertime: 'With Overtime',
+    noLogsEmpty: 'No work records found in this section.',
+    monthLabel: 'Month',
+    totalsTable: 'Summary totals for above list:',
+    recordsSuffix: 'records',
+    grandTotalLabel: 'Grand Total:',
+
+    // Payments & Advances Ledger & Signatures
+    paymentsAndAdvancesPersonal: 'Payments & Advances Ledger',
+    paymentsAndAdvancesGroup: 'Group Payments & Advances Ledger',
+    transactionsCount: (n) => `${n} transactions`,
+    noPaymentsEmpty: 'No payments or advances recorded in this period.',
+    typeSettlement: 'Settlement',
+    typeAdvance: 'Advance',
+    sigWorkerOrSupervisor: 'Worker / Supervisor Signature',
+    sigWorkshopManager: 'Workshop Management Signature'
+  }
+};
+
 export function WorkerViewPortal({ theme, toggleTheme }) {
   const { user, logout } = useAuth();
   const { language, changeLanguage, direction } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const pc = PORTAL_COPY[langKey] || PORTAL_COPY.fa;
   const { addToast } = useNotifications();
 
   // Mode for supervisors: 'personal' (حساب و کارکرد شخصی من) | 'group' (پنل سرپرستی گروه)
@@ -233,7 +709,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           supabaseUrl: 'https://akeferuiyijsmgmjqnqc.supabase.co',
           supabaseKey: 'sb_publishable_mDz14UqQ3Qukv5RmWPlsVg_uxQg0XQk',
           language,
-          currencySymbol: currSymbol || 'د.ع',
+          currencySymbol: currSymbol || (language === 'fa' ? 'د.ع' : language === 'ku' ? 'د.ع' : 'IQD'),
           initialized: true,
           knownLogSigs: logSigs || {},
           knownPaymentIds: paymentIds || [],
@@ -277,11 +753,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         type: 'warning',
         workerPortal: true,
         force: true,
-        title: language === 'ku' ? 'پشتگیری ناکرێت' : 'عدم پشتیبانی مرورگر',
-        message:
-          language === 'ku'
-            ? 'ئەم وێبگەڕە پشتگیری ئاگادارکردنەوەی دەرەکی ناکات.'
-            : 'مرورگر دستگاه شما از اعلان خارجی سیستم‌عامل پشتیبانی نمی‌کند.'
+        title: pc.browserNotSupportedTitle,
+        message: pc.browserNotSupportedMsg
       });
       return;
     }
@@ -296,18 +769,12 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             type: 'success',
             workerPortal: true,
             force: true,
-            title: language === 'ku' ? 'ئاگادارکردنەوە چالاک کرا' : 'اعلان موبایل فعال شد',
-            message:
-              language === 'ku'
-                ? 'لە کاتی تۆمارکردنی کارکرد یان تەسویەحیساب، پەیامت بۆ دێت.'
-                : 'هنگام ثبت کارکرد یا تسویه‌حساب جدید، حتی اگر برنامه بسته باشد به شما پیام داده می‌شود.'
+            title: pc.notifEnabledTitle,
+            message: pc.notifEnabledMsg
           });
           await sendMobileOsNotification({
-            title: language === 'ku' ? 'ئاگادارکردنەوەی مۆبایل چالاک کرا • KarSync' : 'نوتیفیکیشن موبایل فعال شد • KarSync',
-            body:
-              language === 'ku'
-                ? 'هەر کاتێک کارکرد یان تەسویەحیسابت بۆ تۆمار بکرێت ئاگادار دەکرێیتەوە.'
-                : 'هر زمان کارکرد یا تسویه‌حسابی برای شما ثبت شود، بلافاصله روی موبایل مطلع خواهید شد.',
+            title: pc.notifEnabledOsTitle,
+            body: pc.notifEnabledOsBody,
             tag: 'karsync_worker_push_enabled'
           });
         } else {
@@ -316,11 +783,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             type: 'error',
             workerPortal: true,
             force: true,
-            title: language === 'ku' ? 'دەستڕاگەیشتن ڕەتکرایەوە' : 'مجوز نوتیفیکیشن رد شد',
-            message:
-              language === 'ku'
-                ? 'تکایە لە ڕێکخستنەکانی مۆبایل مۆڵەتی ئاگادارکردنەوە بدە.'
-                : 'لطفاً از تنظیمات مرورگر موبایل، مجوز ارسال اعلان (Notifications) را فعال کنید.'
+            title: pc.notifPermissionDeniedTitle,
+            message: pc.notifPermissionDeniedMsg
           });
         }
       } catch {
@@ -335,20 +799,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       type: nextState ? 'success' : 'info',
       workerPortal: true,
       force: true,
-      title: nextState
-        ? language === 'ku'
-          ? 'ئاگادارکردنەوەی دەرەکی چالاک کرا'
-          : 'اعلان خارجی موبایل فعال شد'
-        : language === 'ku'
-        ? 'ئاگادارکردنەوەی دەرەکی ڕاگیرا'
-        : 'اعلان خارجی موبایل غیرفعال شد',
-      message: nextState
-        ? language === 'ku'
-          ? 'پەیامەکانی کارکرد و تەسویە لەسەر مۆبایل پیشان دەدرێن.'
-          : 'اعلان‌های ثبت کارکرد و تسویه‌حساب در پس‌زمینه موبایل ارسال خواهند شد.'
-        : language === 'ku'
-        ? 'تەنها لە ناو بەرنامەکەدا ئاگادارکردنەوەکان دەبینیت.'
-        : 'اعلان‌ها فقط در داخل پرتال نمایش داده می‌شوند.'
+      title: nextState ? pc.osNotifActive : pc.osNotifInactive,
+      message: nextState ? pc.osNotifActiveDesc : pc.osNotifInactiveDesc
     });
   }, [workerPushEnabled, language, addToast, sendMobileOsNotification]);
 
@@ -360,18 +812,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           addToast({
             type: 'warning',
             workerPortal: true,
-            title:
-              language === 'ku'
-                ? 'هێڵی ئینتەرنێت نییە'
-                : language === 'en'
-                ? 'Offline Mode'
-                : 'عدم اتصال به اینترنت',
-            message:
-              language === 'ku'
-                ? 'زانیارییە پاشەکەوتکراوەکان پیشان دەدرێن.'
-                : language === 'en'
-                ? 'Showing cached local records.'
-                : 'اطلاعات ذخیره‌شده آفلاین نمایش داده می‌شود.'
+            title: pc.offlineTitle,
+            message: pc.offlineMsg
           });
         }
         return;
@@ -394,18 +836,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           addToast({
             type: 'success',
             workerPortal: true,
-            title:
-              language === 'ku'
-                ? 'نوێکرایەوە'
-                : language === 'en'
-                ? 'Synchronized'
-                : 'بروزرسانی انجام شد',
-            message:
-              language === 'ku'
-                ? 'دوایین زانیارییەکان وەرگیران.'
-                : language === 'en'
-                ? 'Latest attendance and financial records loaded.'
-                : 'آخرین اطلاعات کارکرد و مالی با موفقیت دریافت شد.'
+            title: pc.refreshSuccessTitle,
+            message: pc.refreshSuccessMsg
           });
         }
       } catch {
@@ -515,10 +947,9 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
     const currSym = getCurrencySymbol(currency, language);
     const getWorkTypeText = (t) => {
-      if (language === 'ku') {
-        return t === 'full' ? 'ڕۆژی تەواو' : t === 'half' ? 'نیو ڕۆژ' : 'کاتژمێری';
-      }
-      return t === 'full' ? 'روز کامل' : t === 'half' ? 'نیم‌روز' : 'ساعتی';
+      if (t === 'full') return pc.fullDayLabel;
+      if (t === 'half') return pc.halfDayLabel;
+      return pc.hourlyLabel;
     };
 
     const nextLogSigs = {};
@@ -559,20 +990,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             id: `seed_pay_${p.id}`,
             category: isSettle ? 'settlement' : 'advance',
             date: p.date,
-            title: isSettle
-              ? language === 'ku'
-                ? 'تۆمارکردنی تەسویەحیساب'
-                : 'ثبت تسویه‌حساب'
-              : language === 'ku'
-              ? 'تۆمارکردنی پێشەکی (مساعده)'
-              : 'ثبت پرداختی / مساعده',
+            title: isSettle ? pc.rtSettlementTitle : pc.rtAdvanceTitle,
             message: isSettle
-              ? language === 'ku'
-                ? `بڕی ${formatAmount(p.amount, currency)} ${currSym} وەک تەسویەحیساب لە بەرواری ${p.date} بۆ تۆ تۆمار کرا.`
-                : `مبلغ ${formatAmount(p.amount, currency)} ${currSym} بابت تسویه‌حساب در تاریخ ${p.date} برای شما ثبت شد.`
-              : language === 'ku'
-              ? `بڕی ${formatAmount(p.amount, currency)} ${currSym} وەک پێشەکی لە بەرواری ${p.date} بۆ تۆ تۆمار کرا.`
-              : `مبلغ ${formatAmount(p.amount, currency)} ${currSym} بابت مساعده در تاریخ ${p.date} برای شما ثبت شد.`,
+              ? pc.rtSettlementBody(`${formatAmount(p.amount, currency)} ${currSym}`, p.date)
+              : pc.rtAdvanceBody(`${formatAmount(p.amount, currency)} ${currSym}`, p.date),
             createdAt: p.createdAt || new Date().toISOString(),
             isRead: true,
             targetTab: isSettle ? 'settled' : 'current'
@@ -589,11 +1010,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             id: `seed_log_${l.id}`,
             category: 'attendance',
             date: l.date,
-            title: language === 'ku' ? 'تۆمارکردنی کارکرد' : 'ثبت کارکرد روزانه',
-            message:
-              language === 'ku'
-                ? `کارکردی ڕۆژی ${l.date} (${wType}${ot > 0 ? ` + ${formatOvertimeClock(ot)} سەروەخت` : ''}) بە بڕی ${formatAmount(l.totalDayPay, currency)} ${currSym} تۆمار کرا.`
-                : `کارکرد تاریخ ${l.date} (${wType}${ot > 0 ? ` + ${formatOvertimeClock(ot)} اضافه‌کاری` : ''}) به مبلغ ${formatAmount(l.totalDayPay, currency)} ${currSym} ثبت شد.`,
+            title: pc.rtWorklogTitle,
+            message: pc.rtWorklogBody(l.date, wType, ot > 0 ? ` + ${formatOvertimeClock(ot)} ${pc.overtimeSuffix}` : '', `${formatAmount(l.totalDayPay, currency)} ${currSym}`),
             createdAt: l.createdAt || new Date().toISOString(),
             isRead: true,
             targetTab: l.isSettled ? 'settled' : 'current'
@@ -628,11 +1046,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           id: `ntf_log_${l.id}_${Date.now()}`,
           category: 'attendance',
           date: l.date,
-          title: language === 'ku' ? 'تۆمارکردنی کارکردی نوێ' : 'ثبت کارکرد جدید',
-          message:
-            language === 'ku'
-              ? `کارکردی ڕۆژی ${l.date} (${wType}${ot > 0 ? ` + ${formatOvertimeClock(ot)} سەروەخت` : ''}) بە بڕی ${formatAmount(l.totalDayPay, currency)} ${currSym} بۆ تۆ تۆمار کرا.`
-              : `کارکرد تاریخ ${l.date} (${wType}${ot > 0 ? ` + ${formatOvertimeClock(ot)} اضافه‌کاری` : ''}) به مبلغ ${formatAmount(l.totalDayPay, currency)} ${currSym} برای شما ثبت شد.`,
+          title: pc.rtNewWorklogTitle,
+          message: pc.rtNewWorklogBody(l.date, wType, ot > 0 ? ` + ${formatOvertimeClock(ot)} ${pc.overtimeSuffix}` : '', `${formatAmount(l.totalDayPay, currency)} ${currSym}`),
           createdAt: new Date().toISOString(),
           isRead: false,
           targetTab: 'current'
@@ -645,11 +1060,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             id: `ntf_log_settled_${l.id}_${Date.now()}`,
             category: 'settlement',
             date: l.date,
-            title: language === 'ku' ? 'تەسویەکردنی کارکرد' : 'تسویه‌حساب کارکرد',
-            message:
-              language === 'ku'
-                ? `کارکردی ڕۆژی ${l.date} تەسویە کرا.`
-                : `کارکرد تاریخ ${l.date} شما تسویه‌حساب شد.`,
+            title: pc.rtSettleWorklogTitle,
+            message: pc.rtSettleWorklogBody(l.date),
             createdAt: new Date().toISOString(),
             isRead: false,
             targetTab: 'settled'
@@ -659,11 +1071,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             id: `ntf_log_upd_${l.id}_${Date.now()}`,
             category: 'attendance',
             date: l.date,
-            title: language === 'ku' ? 'نوێکردنەوەی کارکرد' : 'بروزرسانی کارکرد روزانه',
-            message:
-              language === 'ku'
-                ? `کارکردی ڕۆژی ${l.date} (${wType}) بە بڕی ${formatAmount(l.totalDayPay, currency)} ${currSym} نوێکرایەوە.`
-                : `کارکرد تاریخ ${l.date} (${wType}) به مبلغ ${formatAmount(l.totalDayPay, currency)} ${currSym} بروزرسانی شد.`,
+            title: pc.rtUpdateWorklogTitle,
+            message: pc.rtUpdateWorklogBody(l.date, wType, `${formatAmount(l.totalDayPay, currency)} ${currSym}`),
             createdAt: new Date().toISOString(),
             isRead: false,
             targetTab: isNowSettled ? 'settled' : 'current'
@@ -679,20 +1088,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           id: `ntf_pay_${p.id}_${Date.now()}`,
           category: isSettle ? 'settlement' : 'advance',
           date: p.date,
-          title: isSettle
-            ? language === 'ku'
-              ? 'تۆمارکردنی تەسویەحیسابی نوێ'
-              : 'ثبت تسویه‌حساب جدید'
-            : language === 'ku'
-            ? 'تۆمارکردنی پێشەکی (مساعده)'
-            : 'ثبت پرداختی / مساعده جدید',
+          title: isSettle ? pc.rtNewSettlementTitle : pc.rtNewAdvanceTitle,
           message: isSettle
-            ? language === 'ku'
-              ? `بڕی ${formatAmount(p.amount, currency)} ${currSym} وەک تەسویەحیساب لە بەرواری ${p.date} بۆ تۆ تۆمار کرا.`
-              : `مبلغ ${formatAmount(p.amount, currency)} ${currSym} بابت تسویه‌حساب در تاریخ ${p.date} برای شما ثبت شد.`
-            : language === 'ku'
-            ? `بڕی ${formatAmount(p.amount, currency)} ${currSym} وەک پێشەکی لە بەرواری ${p.date} بۆ تۆ تۆمار کرا.`
-            : `مبلغ ${formatAmount(p.amount, currency)} ${currSym} بابت مساعده در تاریخ ${p.date} برای شما ثبت شد.`,
+            ? pc.rtSettlementBody(`${formatAmount(p.amount, currency)} ${currSym}`, p.date)
+            : pc.rtAdvanceBody(`${formatAmount(p.amount, currency)} ${currSym}`, p.date),
           createdAt: new Date().toISOString(),
           isRead: false,
           targetTab: isSettle ? 'settled' : 'current'
@@ -785,7 +1184,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       worker?.teamRole === 'Master' ||
       roleLower.includes('سرپرست') ||
       roleLower.includes('استادکار') ||
-      roleLower.includes('master');
+      roleLower.includes('master') ||
+      roleLower.includes('supervisor') ||
+      roleLower.includes('سەرپەرشتیار') ||
+      roleLower.includes('وەستا');
     return isMasterRole && !!worker?.groupId;
   }, [worker]);
 
@@ -1031,7 +1433,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         })
         .map((p) => ({
           ...p,
-          workerName: workerMap[String(p.workerId)]?.name || (p.groupId ? workerGroup?.name || 'گروه' : '—')
+          workerName: workerMap[String(p.workerId)]?.name || (p.groupId ? workerGroup?.name || pc.groupFallback : '—')
         }));
     }
 
@@ -1100,57 +1502,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     }
   };
 
-  // Explicit localized labels (avoiding missing translation keys)
-  const labels = {
-    myPersonalAccount:
-      language === 'ku' ? 'حیساب و کارکردی کەسی من' : language === 'en' ? 'My Personal Account' : 'حساب و کارکرد شخصی من',
-    groupManagement:
-      language === 'ku' ? 'بەڕێوەبردنی گرووپ' : language === 'en' ? 'Group Supervision' : 'پنل سرپرستی گروه',
-    allTab: language === 'ku' ? 'سەرجەم کارکرد و سوابق' : language === 'en' ? 'All Records' : 'سوابق و کل کارکرد',
-    currentTab:
-      language === 'ku' ? 'کارکردی ئێستا و قەرزی تەسویەنەکراو' : language === 'en' ? 'Current Open' : 'کارکرد جاری و معوقه',
-    settledTab: language === 'ku' ? 'مێژووی تەسویەکراو' : language === 'en' ? 'Settled History' : 'سوابق تسویه‌شده',
-    allGroupMembers:
-      language === 'ku'
-        ? 'سەرجەم ئەندامانی گرووپ (کۆی گشتی)'
-        : language === 'en'
-        ? 'All Group Members'
-        : 'همه اعضای گروه (نمای تجمیعی)',
-    totalGroupMembers: language === 'ku' ? 'کۆی کرێکارانی گرووپ' : language === 'en' ? 'Total Group Members' : 'کل پرسنل گروه',
-    totalGroupDue:
-      language === 'ku' ? 'کۆی شایستەی ماوەی گرووپ' : language === 'en' ? 'Total Group Net Due' : 'مجموع مطالبات معوقه گروه',
-    totalGroupDays: language === 'ku' ? 'کۆی ڕۆژەکانی گرووپ' : language === 'en' ? 'Group Total Days' : 'مجموع روزهای کاری گروه',
-    totalGroupOt:
-      language === 'ku' ? 'کۆی کاتژمێری سەروەختی گرووپ' : language === 'en' ? 'Group Overtime Hours' : 'مجموع اضافه‌کاری گروه',
-    archivedMemberNotice:
-      language === 'ku'
-        ? 'ئەم کرێکارە ئەرشیڤ کراوە بەڵام مێژووەکەی پارێزراوە'
-        : language === 'en'
-        ? 'This worker is archived, but history is preserved.'
-        : 'این پرسنل توسط مدیریت بایگانی شده، اما کلیه سوابق مالی و کارکرد وی در دسترس است.',
-    archivedBadge: language === 'ku' ? 'ئەرشیڤ کراو' : language === 'en' ? 'Archived' : 'بایگانی‌شده',
-    masterRole: language === 'ku' ? 'وەستا (سەرپەرشتیار)' : language === 'en' ? 'Master (Supervisor)' : 'استادکار (سرپرست)',
-    workerRoleLabel: language === 'ku' ? 'کرێکار' : language === 'en' ? 'Worker' : 'کارگر',
-    unsettledBadge: language === 'ku' ? 'جاری / تەسویەنەکراو' : language === 'en' ? 'Open' : 'جاری / معوقه',
-    settledBadge: language === 'ku' ? 'تەسویەکراو' : language === 'en' ? 'Settled' : 'تسویه‌شده',
-    searchLogsPlaceholder:
-      language === 'ku'
-        ? 'گەڕان بەپێی بەروار، ناو یان تێبینی...'
-        : language === 'en'
-        ? 'Search by date, name or notes...'
-        : 'جستجو بر اساس تاریخ، نام یا توضیحات...',
-    fullDayLabel: language === 'ku' ? 'ڕۆژی تەواو' : language === 'en' ? 'Full Day' : 'روز کامل',
-    halfDayLabel: language === 'ku' ? 'نیو ڕۆژ' : language === 'en' ? 'Half Day' : 'نیم‌روز',
-    hourlyLabel: language === 'ku' ? 'کاتژمێری' : language === 'en' ? 'Hourly' : 'ساعتی',
-    overtimeLabel: language === 'ku' ? 'سەروەخت' : language === 'en' ? 'Overtime' : 'اضافه‌کاری',
-    dateColTitle: language === 'ku' ? 'بەروار' : language === 'en' ? 'Date' : 'تاریخ',
-    workerNameColTitle: language === 'ku' ? 'ناوی کرێکار' : language === 'en' ? 'Worker' : 'نام نیرو',
-    workTypeColTitle: language === 'ku' ? 'جۆری کار' : language === 'en' ? 'Work Type' : 'نوع کار',
-    totalDayColTitle: language === 'ku' ? 'کۆی ڕۆژ' : language === 'en' ? 'Total Pay' : 'مجموع کل روز',
-    statusColTitle: language === 'ku' ? 'دۆخ' : language === 'en' ? 'Status' : 'وضعیت',
-    notesColTitle: language === 'ku' ? 'تێبینی' : language === 'en' ? 'Notes' : 'توضیحات',
-    daysUnit: language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'
-  };
+  // Localized labels alias
+  const labels = pc;
 
   if (!worker) {
     return (
@@ -1160,7 +1513,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             <RefreshCw className="w-6 h-6 text-sky-500 animate-spin" />
           </div>
           <p className="font-black text-sm text-slate-800 dark:text-slate-200">
-            {language === 'ku' ? 'زانیارییەکان لە دیتابەیس دەخوێندرێنەوە...' : 'در حال بارگذاری پرونده پرسنلی...'}
+            {pc.loadingPersonnel}
           </p>
         </div>
       </div>
@@ -1173,7 +1526,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       ? {
           subjectName: worker.name,
           dailyRate: Number(worker.dailyRate) || 0,
-          titleDays: language === 'ku' ? 'ڕۆژانی کارکردن' : language === 'en' ? 'Worked Days' : 'کل کارکرد',
+          titleDays: pc.workedDaysTitle,
           days:
             periodTab === 'all'
               ? (personalFinancials?.effectiveDays || 0) + (personalFinancials?.settledEffectiveDays || 0)
@@ -1195,16 +1548,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : personalFinancials?.settledOtHours || 0,
           titleEarnings:
             periodTab === 'all'
-              ? language === 'ku'
-                ? 'کۆی گشتی مووچەی کارکرد'
-                : 'کل حقوق و کارکرد ثبت‌شده'
+              ? pc.titleEarningsTotal
               : periodTab === 'current'
-              ? language === 'ku'
-                ? 'کارکردی ئێستا'
-                : 'حقوق کارکرد جاری'
-              : language === 'ku'
-              ? 'کارکردی تەسویەکراو'
-              : 'کل کارکرد تسویه‌شده',
+              ? pc.titleEarningsCurrent
+              : pc.titleEarningsSettled,
           earnings:
             periodTab === 'all'
               ? (personalFinancials?.unsettledGross || 0) + (personalFinancials?.settledGross || 0)
@@ -1213,16 +1560,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : personalFinancials?.settledGross || 0,
           titleAdvances:
             periodTab === 'all'
-              ? language === 'ku'
-                ? 'کۆی وەرگیراو و تەسویە'
-                : 'کل دریافتی و تسویه‌شده'
+              ? pc.titleAdvancesTotal
               : periodTab === 'current'
-              ? language === 'ku'
-                ? 'پێشەکی وەرگیراو'
-                : 'مساعده دریافتی جاری'
-              : language === 'ku'
-              ? 'کۆی تەسویەکراو'
-              : 'مجموع پرداختی تسویه‌شده',
+              ? pc.titleAdvancesCurrent
+              : pc.titleAdvancesSettled,
           advances:
             periodTab === 'all'
               ? (personalFinancials?.unsettledAdvances || 0) +
@@ -1231,14 +1572,13 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? personalFinancials?.unsettledAdvances || 0
               : (personalFinancials?.totalSettlementPaid || 0) + (personalFinancials?.settledAdvances || 0),
-          titleDue:
-            language === 'ku' ? 'ماوەی شایستەی وەرگرتن' : language === 'en' ? 'Net Balance Due' : 'مانده معوق طلب',
+          titleDue: pc.titleNetDue,
           due: personalFinancials?.netBalanceDue || 0,
           isSettled: (personalFinancials?.netBalanceDue || 0) <= 0
         }
       : selectedSubordinateId === 'all'
       ? {
-          subjectName: workerGroup?.name || 'کل اعضای گروه',
+          subjectName: workerGroup?.name || pc.allGroupMembersFallback,
           dailyRate: null,
           titleDays: labels.totalGroupDays,
           days:
@@ -1247,7 +1587,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? groupAggregates.totalEffectiveDays
               : groupAggregates.totalSettledEffectiveDays,
-          daysSub: `${groupMembers.length} ${language === 'ku' ? 'ئەندام' : 'نفر عضو گروه'}`,
+          daysSub: pc.groupMembersCount(groupMembers.length),
           otHours:
             periodTab === 'all'
               ? groupAggregates.totalAllTimeOtHours
@@ -1256,16 +1596,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : groupAggregates.totalSettledOtHours,
           titleEarnings:
             periodTab === 'all'
-              ? language === 'ku'
-                ? 'کۆی گشتی کارکردی گرووپ'
-                : 'کل کارکرد ناخالص گروه'
+              ? pc.titleGroupGrossWages
               : periodTab === 'current'
-              ? language === 'ku'
-                ? 'کارکردی ئێستای گرووپ'
-                : 'کارکرد جاری ناخالص گروه'
-              : language === 'ku'
-              ? 'کارکردی تەسویەکراوی گرووپ'
-              : 'کارکرد تسویه‌شده گروه',
+              ? pc.titleGroupGrossWagesCurrent
+              : pc.titleGroupGrossWagesSettled,
           earnings:
             periodTab === 'all'
               ? groupAggregates.totalAllTimeGross
@@ -1274,16 +1608,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : groupAggregates.totalSettledGross,
           titleAdvances:
             periodTab === 'all'
-              ? language === 'ku'
-                ? 'کۆی پارەی دراو'
-                : 'کل پرداختی و تسویه‌ها'
+              ? pc.titleGroupPaidAll
               : periodTab === 'current'
-              ? language === 'ku'
-                ? 'کۆی پێشەکییەکان'
-                : 'مساعده‌های جاری گروه'
-              : language === 'ku'
-              ? 'کۆی تەسویەی دراو'
-              : 'تسویه‌های پرداخت‌شده',
+              ? pc.titleGroupPaidCurrent
+              : pc.titleGroupPaidSettled,
           advances:
             periodTab === 'all'
               ? groupAggregates.totalUnsettledAdvances + groupAggregates.totalSettledPaid
@@ -1297,7 +1625,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       : {
           subjectName: activeSubordinateData?.member.name || '',
           dailyRate: Number(activeSubordinateData?.member.dailyRate) || 0,
-          titleDays: language === 'ku' ? 'ڕۆژانی کارکردن' : 'روزهای کارکرد',
+          titleDays: pc.workedDaysTitle,
           days:
             periodTab === 'all'
               ? (activeSubordinateData?.effectiveDays || 0) + (activeSubordinateData?.settledEffectiveDays || 0)
@@ -1317,7 +1645,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? activeSubordinateData?.otHours || 0
               : activeSubordinateData?.settledOtHours || 0,
-          titleEarnings: language === 'ku' ? 'کۆی مووچەی کارکرد' : 'کل حقوق کارکرد',
+          titleEarnings: pc.titleSubordinateWages,
           earnings:
             periodTab === 'all'
               ? (activeSubordinateData?.unsettledGross || 0) + (activeSubordinateData?.settledGross || 0)
@@ -1326,16 +1654,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : activeSubordinateData?.settledGross || 0,
           titleAdvances:
             periodTab === 'all'
-              ? language === 'ku'
-                ? 'کۆی وەرگیراو'
-                : 'کل دریافتی و تسویه'
+              ? pc.titleSubordinateAdvancesAll
               : periodTab === 'current'
-              ? language === 'ku'
-                ? 'پێشەکی'
-                : 'مساعده و دریافتی'
-              : language === 'ku'
-              ? 'تەسویەکراو'
-              : 'مجموع تسویه‌شده',
+              ? pc.titleSubordinateAdvancesCurrent
+              : pc.titleSubordinateAdvancesSettled,
           advances:
             periodTab === 'all'
               ? (activeSubordinateData?.unsettledAdvances || 0) +
@@ -1344,7 +1666,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               : periodTab === 'current'
               ? activeSubordinateData?.unsettledAdvances || 0
               : (activeSubordinateData?.totalSettlementPaid || 0) + (activeSubordinateData?.settledAdvances || 0),
-          titleDue: language === 'ku' ? 'ماوەی قەرز' : 'مانده معوق طلب',
+          titleDue: pc.titleSubordinateNetDue,
           due: activeSubordinateData?.netBalanceDue || 0,
           isSettled: (activeSubordinateData?.netBalanceDue || 0) <= 0
         };
@@ -1354,12 +1676,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     periodTab === 'all'
       ? {
           amount: activeMetrics.earnings,
-          caption:
-            language === 'ku'
-              ? 'کۆی گشتی کارکرد و مووچەی تۆمارکراو (ئێستا و تەسویەکراو)'
-              : language === 'en'
-              ? 'Total All-Time Gross Earnings (Open & Settled)'
-              : 'مجموع کل حقوق و کارکرد ثبت‌شده (جاری و تسویه‌شده)',
+          caption: pc.footerDescAll,
           rightSubLabel: activeMetrics.titleDue,
           rightSubAmount: Math.max(0, activeMetrics.due),
           rightSubColor: 'text-amber-400'
@@ -1367,24 +1684,14 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       : periodTab === 'current'
       ? {
           amount: Math.max(0, activeMetrics.due),
-          caption:
-            language === 'ku'
-              ? 'پوختەی قەرز و شایستەی ماوە (دوای لێدەرکردنی پێشەکی)'
-              : language === 'en'
-              ? 'Current Net Unsettled Balance Due (After Advances)'
-              : 'مانده خالص طلب معوقه فعلی (پس از کسر مساعده‌های جاری)',
+          caption: pc.footerDescCurrent,
           rightSubLabel: activeMetrics.titleEarnings,
           rightSubAmount: activeMetrics.earnings,
           rightSubColor: 'text-sky-300'
         }
       : {
           amount: activeMetrics.advances,
-          caption:
-            language === 'ku'
-              ? 'کۆی گشتی مووچە و پارەی تەسویەکراوی پێشوو'
-              : language === 'en'
-              ? 'Total Settled & Paid Historical Amount'
-              : 'مجموع کل مبالغ تسویه‌شده و دریافتی در سوابق تسویه',
+          caption: pc.footerDescSettled,
           rightSubLabel: activeMetrics.titleEarnings,
           rightSubAmount: activeMetrics.earnings,
           rightSubColor: 'text-sky-300'
@@ -1439,17 +1746,11 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     KarSync
                   </h1>
                   <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                    {isSupervisor
-                      ? language === 'ku'
-                        ? 'پۆرتالی سەرپەرشتیار'
-                        : 'پرتال سرپرست'
-                      : language === 'ku'
-                      ? 'پۆرتالی کارمەند'
-                      : 'پرتال پرسنل'}
+                    {isSupervisor ? pc.portalSupervisor : pc.portalWorker}
                   </span>
                 </div>
                 <p className="hidden md:block text-[11px] text-slate-500 dark:text-slate-400 leading-none mt-0.5">
-                  {project?.name || (language === 'fa' ? 'پروژه فعال' : 'Active Project')}
+                  {project?.name || pc.activeProjectFallback}
                 </p>
               </div>
             </div>
@@ -1505,7 +1806,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 type="button"
                 onClick={() => triggerRefresh(true)}
                 disabled={isRefreshing}
-                title={language === 'ku' ? 'نوێکردنەوەی زانیارییەکان' : 'بروزرسانی اطلاعات'}
+                title={pc.refreshTooltip}
                 className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border border-white/60 dark:border-white/10 backdrop-blur-md text-slate-700 dark:text-slate-200 flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-95"
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-sky-500' : ''}`} />
@@ -1519,7 +1820,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     setIsNotifOpen((prev) => !prev);
                     setIsDropdownOpen(false);
                   }}
-                  title={language === 'ku' ? 'ئاگادارکردنەوەکانی کارکرد و تەسویە' : 'اعلان‌های کارکرد و تسویه‌حساب'}
+                  title={pc.notifsTooltip}
                   className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border backdrop-blur-md flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-95 ${
                     isNotifOpen
                       ? 'ring-2 ring-sky-500 border-transparent bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400'
@@ -1549,12 +1850,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         </div>
                         <div>
                           <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                            {language === 'ku' ? 'ئاگادارکردنەوەکانی من' : 'اعلان‌های کارکرد و تسویه من'}
+                            {pc.myNotifsHeader}
                           </h4>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                            {language === 'ku'
-                              ? 'تەنها کارکرد و تەسویەحیسابی تایبەت بە خۆت'
-                              : 'فقط اعلان‌های ثبت کارکرد و تسویه‌حساب اختصاصی شما'}
+                            {pc.myNotifsSub}
                           </p>
                         </div>
                       </div>
@@ -1565,7 +1864,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                           onClick={markAllWorkerNotifsRead}
                           className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 transition-colors cursor-pointer shrink-0"
                         >
-                          {language === 'ku' ? 'خوێندنەوەی هەموو' : 'خواندن همه'}
+                          {pc.readAll}
                         </button>
                       )}
                     </div>
@@ -1584,16 +1883,12 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">
-                            {language === 'ku' ? 'ئاگادارکردنەوەی دەرەکی مۆبایل' : 'نوتیفیکیشن خارجی موبایل'}
+                            {pc.osNotifHeader}
                           </div>
                           <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
                             {workerPushEnabled && notifPermission === 'granted'
-                              ? language === 'ku'
-                                ? 'چالاکە (تەنانەت کاتێک بەرنامەکە داخراوە)'
-                                : 'فعال (ارسال پیام حتی در زمان بسته بودن برنامه)'
-                              : language === 'ku'
-                              ? 'بۆ وەرگرتنی پەیام لەسەر مۆبایل چالاکی بکە'
-                              : 'دریافت پیام روی موبایل حتی وقتی برنامه باز نیست'}
+                              ? pc.osNotifActiveSub
+                              : pc.osNotifInactiveSub}
                           </div>
                         </div>
                       </div>
@@ -1608,12 +1903,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         }`}
                       >
                         {workerPushEnabled && notifPermission === 'granted'
-                          ? language === 'ku'
-                            ? 'چالاکە ✓'
-                            : 'فعال ✓'
-                          : language === 'ku'
-                          ? 'چالاککردن'
-                          : 'فعالسازی'}
+                          ? pc.activeCheck
+                          : pc.activateAction}
                       </button>
                     </div>
 
@@ -1621,9 +1912,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     <div className="max-h-80 overflow-y-auto divide-y divide-slate-200/50 dark:divide-slate-800/70">
                       {workerNotifications.length === 0 ? (
                         <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500">
-                          {language === 'ku'
-                            ? 'هیچ ئاگادارکردنەوەیەکی نوێ نییە.'
-                            : 'هنوز اعلانی برای ثبت کارکرد یا تسویه‌حساب ثبت نشده است.'}
+                          {pc.noNotifsEmpty}
                         </div>
                       ) : (
                         workerNotifications.map((n) => {
@@ -1744,7 +2033,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       <div className="flex items-center gap-2 min-w-0">
                         <BellRing className="w-4 h-4 text-sky-500 shrink-0" />
                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-                          {language === 'ku' ? 'ئاگادارکردنەوەی دەرەکی مۆبایل' : 'اعلان کارکرد و تسویه در موبایل'}
+                          {pc.mobileNotifMenu}
                         </span>
                       </div>
                       <span
@@ -1755,12 +2044,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         }`}
                       >
                         {workerPushEnabled && notifPermission === 'granted'
-                          ? language === 'ku'
-                            ? 'چالاک'
-                            : 'فعال'
-                          : language === 'ku'
-                          ? 'ناچالاک'
-                          : 'فعالسازی'}
+                          ? pc.statusActive
+                          : pc.statusInactive}
                       </span>
                     </button>
 
@@ -1768,7 +2053,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     <div className="p-2 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5 space-y-1.5">
                       <div className="flex items-center justify-between px-1">
                         <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                          {language === 'ku' ? 'ڕووکاری بەرنامە' : language === 'en' ? 'Appearance' : 'حالت نمایش'}
+                          {pc.appearanceTitle}
                         </span>
                       </div>
                       <div className="flex rounded-xl bg-slate-200/70 dark:bg-slate-900 p-1 border border-slate-300/40 dark:border-white/5">
@@ -1783,7 +2068,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         >
                           <Sun className="w-3.5 h-3.5" />
                           {theme === 'light' && (
-                            <span>{language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'Light' : 'حالت روشن'}</span>
+                            <span>{pc.themeLight}</span>
                           )}
                         </button>
                         <button
@@ -1797,7 +2082,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         >
                           <Moon className="w-3.5 h-3.5" />
                           {theme === 'dark' && (
-                            <span>{language === 'ku' ? 'شەو' : language === 'en' ? 'Dark' : 'حالت تاریک'}</span>
+                            <span>{pc.themeDark}</span>
                           )}
                         </button>
                       </div>
@@ -1807,7 +2092,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     <div className="p-2 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5 space-y-1.5">
                       <div className="flex items-center gap-1.5 px-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
                         <Globe className="w-3.5 h-3.5 text-sky-500" />
-                        <span>{language === 'ku' ? 'زمانی سیستم' : language === 'en' ? 'Language' : 'زبان برنامه'}</span>
+                        <span>{pc.languageTitle}</span>
                       </div>
                       <div className="grid grid-cols-3 gap-1 bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl">
                         {[
@@ -1841,7 +2126,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
                     >
                       <Printer className="w-4 h-4 text-sky-500" />
-                      <span>{language === 'ku' ? 'چاپکردنی پسوولەی مووچە' : 'چاپ فیش حقوقی و کارکرد'}</span>
+                      <span>{pc.printPayslipMenu}</span>
                     </button>
 
                     {/* Logout Action */}
@@ -1861,7 +2146,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       >
                         <LogOut className="w-4 h-4 text-rose-500" />
                         <span>
-                          {language === 'fa' ? 'خروج از حساب کاربری' : language === 'ku' ? 'چوونەدەرەوە' : 'Sign Out'}
+                          {pc.signOut}
                         </span>
                       </button>
                     </div>
@@ -1947,7 +2232,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 </div>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                   {activeMetrics.dailyRate > 0
-                    ? `${language === 'ku' ? 'مووچەی ڕۆژانە:' : 'نرخ پایه روزانه:'} ${formatAmount(
+                    ? `${pc.baseDailyRateLabel} ${formatAmount(
                         activeMetrics.dailyRate,
                         currency
                       )} ${currencySymbol}`
@@ -2006,13 +2291,11 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 <span className="font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-sky-500" />
                   <span>
-                    {language === 'ku'
-                      ? 'دیاریکردنی کرێکار بۆ بینینی کارکرد و حسابات:'
-                      : 'انتخاب پرسنل زیرمجموعه جهت مشاهده کارکرد و حساب:'}
+                    {pc.selectSubordinateLabel}
                   </span>
                 </span>
                 <span className="text-slate-400">
-                  {groupMembers.length} {language === 'ku' ? 'ئەندام' : 'نفر'}
+                  {groupMembers.length} {pc.membersSuffix}
                 </span>
               </div>
 
@@ -2097,12 +2380,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   }`}
                 >
                   {periodTab === 'settled' || activeMetrics.isSettled
-                    ? language === 'ku'
-                      ? 'تەسویەکراو'
-                      : 'تسویه شده'
-                    : language === 'ku'
-                    ? 'قەرزی ماوە'
-                    : 'دارای معوقه پرداخت'}
+                    ? pc.badgeSettled
+                    : pc.badgeUnsettled}
                 </span>
               </div>
 
@@ -2136,10 +2415,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 </div>
                 <div className="flex justify-between text-[11px] text-slate-400">
                   <span>
-                    {payoutProgressPercent}% {language === 'fa' ? 'دریافت و تسویه شده' : 'Cleared'}
+                    {payoutProgressPercent}% {pc.clearedStatus}
                   </span>
                   <span>
-                    {displayedLogs.length} {language === 'fa' ? 'ردیف کارکرد در این نما' : 'records in view'}
+                    {displayedLogs.length} {pc.recordsInView}
                   </span>
                 </div>
               </div>
@@ -2164,7 +2443,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   {activeMetrics.otHours > 0 ? formatOvertimeClock(activeMetrics.otHours) : '0:00'}
                 </span>
                 <span className="text-[10px] text-sky-400 mt-1 block">
-                  {language === 'fa' ? 'مجموع ساعت اضافه' : 'Total OT Hours'}
+                  {pc.totalOtHours}
                 </span>
               </div>
 
@@ -2175,7 +2454,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95 no-print"
               >
                 <Printer className="w-4 h-4" />
-                <span>{language === 'ku' ? 'چاپکردن' : 'چاپ فیش'}</span>
+                <span>{pc.printAction}</span>
               </button>
 
               {/* Quick Action 2: Sync / Refresh */}
@@ -2186,7 +2465,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95 no-print"
               >
                 <RefreshCw className={`w-4 h-4 text-sky-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>{language === 'ku' ? 'نوێکردنەوە' : 'بروزرسانی'}</span>
+                <span>{pc.refreshAction}</span>
               </button>
             </div>
           </div>
@@ -2206,18 +2485,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h3 className="text-base font-bold text-slate-800 dark:text-white">
                     {portalMode === 'personal'
-                      ? language === 'ku'
-                        ? 'ڕاپۆرتی کارکردی من'
-                        : 'گزارش کارکرد من'
+                      ? pc.reportMyAttendance
                       : selectedSubordinateId === 'all'
-                      ? `${
-                          language === 'ku'
-                            ? 'ڕاپۆرتی گشتی کارکردی ئەندامانی گرووپ'
-                            : 'گزارش کارکرد تجمیعی پرسنل گروه'
-                        } (${workerGroup?.name || ''})`
-                      : `${language === 'ku' ? 'ڕاپۆرتی کارکردی' : 'گزارش کارکرد'} ${
-                          activeSubordinateData?.member.name
-                        }`}
+                      ? `${pc.reportGroupAttendance} (${workerGroup?.name || ''})`
+                      : pc.reportAttendanceOf(activeSubordinateData?.member.name)}
                   </h3>
 
                   {/* Active Month Name Badge */}
@@ -2232,7 +2503,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                   )}
                 </div>
                 <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                  {displayedLogs.length} {language === 'ku' ? 'تۆمار' : 'روز کاری ثبت‌شده'}
+                  {displayedLogs.length} {pc.daysCountSub(displayedLogs.length)}
                 </span>
               </div>
             </div>
@@ -2242,7 +2513,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               {/* [APP_THEME_BUTTON] Segmented Log Type Tabs (Exact Navbar Pattern) */}
               <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/80 backdrop-blur-2xl p-1.5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.8),0_2px_10px_rgba(0,0,0,0.04)] dark:shadow-none">
                 {[
-                  { id: 'all', label: language === 'ku' ? 'هەموو' : 'همه', icon: Layers },
+                  { id: 'all', label: pc.filterAll, icon: Layers },
                   { id: 'full', label: labels.fullDayLabel, icon: Sun },
                   { id: 'half', label: labels.halfDayLabel, icon: Sunrise },
                   { id: 'overtime', label: labels.overtimeLabel, icon: Clock }
@@ -2335,9 +2606,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           {/* Responsive Zero-Horizontal-Scroll Attendance List */}
           {displayedLogs.length === 0 ? (
             <div className="p-12 text-center text-slate-400 dark:text-slate-500 text-xs">
-              {language === 'ku'
-                ? 'هیچ تۆمارێکی کارکردن لەم بەشەدا نییە.'
-                : 'هیچ رکورد کارکردی در این بخش ثبت نشده است.'}
+              {pc.noLogsEmpty}
             </div>
           ) : (
             <div className="divide-y divide-slate-200/50 dark:divide-slate-800/70">
@@ -2380,7 +2649,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                           <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
                           <Calendar className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
                           <span className="text-xs font-extrabold text-sky-900 dark:text-sky-200">
-                            {language === 'ku' ? 'مانگی' : 'ماه'}{' '}
+                            {pc.monthLabel}{' '}
                             {formatMonthWithYear(l.date, language)}
                           </span>
                         </div>
@@ -2488,8 +2757,8 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               {/* Summary Footer Bar */}
               <div className="px-6 py-4 bg-slate-100/80 dark:bg-slate-800/70 flex flex-wrap items-center justify-between gap-4 text-xs font-bold">
                 <span className="text-slate-700 dark:text-slate-200">
-                  {language === 'ku' ? 'کۆی گشتی ئەم خشتەیە:' : 'جمع کل کارکردهای لیست بالا:'} ({displayedLogs.length}{' '}
-                  {language === 'ku' ? 'تۆمار' : 'ردیف'})
+                  {pc.totalsTable} ({displayedLogs.length}{' '}
+                  {pc.recordsSuffix})
                 </span>
                 <div className="flex flex-wrap items-center gap-4 font-mono">
                   {filteredLogsTotals.totalOtHours > 0 && (
@@ -2498,7 +2767,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     </span>
                   )}
                   <span className="text-sm font-black text-sky-600 dark:text-sky-400">
-                    {language === 'ku' ? 'کۆی گشتی:' : 'مجموع کل:'} {formatAmount(filteredLogsTotals.totalNet, currency)}{' '}
+                    {pc.grandTotalLabel} {formatAmount(filteredLogsTotals.totalNet, currency)}{' '}
                     {currencySymbol}
                   </span>
                 </div>
@@ -2519,13 +2788,11 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
               <div>
                 <h3 className="text-base font-bold text-slate-800 dark:text-white">
                   {portalMode === 'personal'
-                    ? language === 'ku'
-                      ? 'دەفتەری پارەدان و پێشەکییەکان'
-                      : 'دفتر پرداخت‌ها و مساعده‌ها'
-                    : `${language === 'ku' ? 'تۆماری پارەدان و مساعدەی گرووپ' : 'دفتر پرداخت‌ها و مساعده‌های گروه'}`}
+                    ? pc.paymentsAndAdvancesPersonal
+                    : pc.paymentsAndAdvancesGroup}
                 </h3>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {displayedPayments.length} {language === 'ku' ? 'تۆمار' : 'تراکنش ثبت‌شده'}
+                  {displayedPayments.length} {pc.transactionsCount(displayedPayments.length)}
                 </span>
               </div>
             </div>
@@ -2533,9 +2800,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
           {displayedPayments.length === 0 ? (
             <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs bg-slate-50/60 dark:bg-slate-800/30 rounded-2xl border border-slate-200/50 dark:border-slate-800">
-              {language === 'ku'
-                ? 'هیچ پارەدان یان پێشەکییەک لەم ماوەیەدا تۆمار نەکراوە.'
-                : 'هیچ پرداخت یا مساعده‌ای در این دوره ثبت نشده است.'}
+              {pc.noPaymentsEmpty}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -2559,13 +2824,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                         >
                           {isSettlement ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                           <span>
-                            {isSettlement
-                              ? language === 'ku'
-                                ? 'تەسویەی حیساب'
-                                : 'تسویه حساب'
-                              : language === 'ku'
-                              ? 'پێشەکی (مساعدە)'
-                              : 'مساعده'}
+                            {isSettlement ? pc.typeSettlement : pc.typeAdvance}
                           </span>
                         </span>
                         <span className="text-xs font-bold font-mono text-slate-700 dark:text-slate-300">
@@ -2604,13 +2863,13 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
         <div className="hidden print:flex justify-around items-end pt-16 pb-6 mt-8 border-t border-slate-300 text-xs font-bold text-slate-800">
           <div className="text-center">
             <p className="mb-14">
-              {language === 'ku' ? 'واژۆی کارمەند / سەرپەرشتیار' : 'امضای پرسنل / سرپرست'}
+              {pc.sigWorkerOrSupervisor}
             </p>
             <div className="w-44 border-b border-slate-600" />
           </div>
           <div className="text-center">
             <p className="mb-14">
-              {language === 'ku' ? 'واژۆی بەڕێوەبەری کارگە' : 'امضای مدیریت کارگاه'}
+              {pc.sigWorkshopManager}
             </p>
             <div className="w-44 border-b border-slate-600" />
           </div>

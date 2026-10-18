@@ -60,9 +60,9 @@ export function EditRecordModal({ log, isOpen, onClose }) {
       hours: 'ساعت',
       minutes: 'دقیقه',
       quickPresets: 'پیش‌فرض‌های سریع:',
-      preset15Min: '{copy.preset15Min}',
-      preset30Min: '{copy.preset30Min}',
-      preset1Hour: '{copy.preset1Hour}',
+      preset15Min: '+۱۵ دقیقه',
+      preset30Min: '+۳۰ دقیقه',
+      preset1Hour: '+۱ ساعت',
       zero: 'صفر',
       generalEntireProject: 'عمومی / کل پروژه',
       projectSections: 'بخش کارگاهی پروژه',
@@ -580,32 +580,32 @@ export function EditRecordModal({ log, isOpen, onClose }) {
 
                 {/* Quick adjust chips */}
                 <div className="flex flex-wrap items-center justify-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-                  <span className="text-slate-400 text-[11px] font-bold me-1">تنظیم سریع:</span>
+                  <span className="text-slate-400 text-[11px] font-bold me-1">{copy.quickPresets}</span>
                   <button
                     type="button"
                     onClick={() => addMinutes(15)}
-                    className="px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold transition-colors"
+                    className="px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold transition-colors cursor-pointer"
                   >
-                    +۱۵ دقیقه
+                    {copy.preset15Min}
                   </button>
                   <button
                     type="button"
                     onClick={() => addMinutes(30)}
-                    className="px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold transition-colors"
+                    className="px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold transition-colors cursor-pointer"
                   >
-                    +۳۰ دقیقه
+                    {copy.preset30Min}
                   </button>
                   <button
                     type="button"
                     onClick={() => addMinutes(60)}
-                    className="px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold transition-colors"
+                    className="px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold transition-colors cursor-pointer"
                   >
-                    +۱ ساعت
+                    {copy.preset1Hour}
                   </button>
                   <button
                     type="button"
                     onClick={() => { setHours(0); setMinutes(0); }}
-                    className="px-3 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold flex items-center gap-1 transition-colors"
+                    className="px-3 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3 h-3" />
                     <span>{copy.zero}</span>
@@ -620,7 +620,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                       <Layers className="w-4 h-4 text-sky-500" />
-                      <span>{t('projectSections') || 'بخش کارگاهی پروژه'}</span>
+                      <span>{copy.projectSections}</span>
                     </label>
                     <select
                       value={sectionId}
