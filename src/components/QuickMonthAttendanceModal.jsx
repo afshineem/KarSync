@@ -49,8 +49,204 @@ const MONTH_NAMES = {
   ]
 };
 
+const COPY = {
+  fa: {
+    quickMonthlyAttendance: 'ثبت سریع کارکرد ماهانه',
+    quickMonthSubtitle: 'تیک زدن سریع روزهای کاری روی مینی‌تقویم جهت ثبت آسان سوابق',
+    close: 'بستن',
+    prevMonth: 'ماه قبل',
+    nextMonth: 'ماه بعد',
+    monthPickerTitle: 'کلیک برای انتخاب مستقیم ماه از تقویم',
+    defaultSectionLabel: 'بخش پیش‌فرض:',
+    defaultSectionTitle: 'بخش پیش‌فرض این ماه',
+    generalSection: 'بخش عمومی',
+    generalSectionFull: 'عمومی / کل پروژه',
+    sectionLabel: 'بخش:',
+    selectAllWorkdays: 'انتخاب همه روزهای کاری به جز جمعه‌ها',
+    selectAllDays: 'انتخاب همه روزهای ماه',
+    clearAllDays: 'پاک کردن تمام روزها',
+    switchToListView: 'تغییر به تفکیک روز (لیست)',
+    switchToGridView: 'تغییر به تقویم ماهانه',
+    clickToToggleTip: 'راهنما: با کلیک روی هر روز وضعیت تغییر می‌کند: حاضر کامل ⬅️ غایب. با آیکون تنظیمات ساعت یا بخش را تغییر دهید.',
+    fullDayOption: 'روز کامل',
+    halfDayOption: 'نیم‌روز',
+    hourlyOnlyOption: 'فقط ساعتی',
+    absent: 'غایب / کار نکرده',
+    absentNotLogged: 'غایب / ثبت نشده',
+    friday: 'جمعه',
+    fridayHoliday: 'جمعه (تعطیل)',
+    settledLocked: 'تسویه شده (قفل)',
+    dayInspectorTitle: 'تنظیمات و ساعت این روز',
+    detailsTitle: 'جزئیات بیشتر (ساعت و دقیقه)',
+    workedTimeLabel: 'ساعت کارکرد',
+    overtimeHoursLabel: 'ساعت اضافه‌کاری',
+    overtime: 'اضافه کاری',
+    hoursLabel: 'ساعت',
+    minutesLabel: 'دقیقه',
+    hourShort: 'س',
+    minuteShort: 'د',
+    quickPresetsLabel: 'سریع:',
+    plus15m: '+۱۵د',
+    plus30m: '+۳۰د',
+    plus1h: '+۱س',
+    plus2h: '+۲س',
+    increase30m: 'افزایش ۳۰ دقیقه',
+    decrease30m: 'کاهش ۳۰ دقیقه',
+    resetToZero: 'صفر کردن',
+    notesOptional: 'یادداشت (اختیاری)...',
+    doneDay: 'ثبت روز',
+    removeAbsent: 'حذف / غایب',
+    settledLockBanner: 'این روز قبلاً در برگه تسویه ثبت شده و کاملاً قفل است (امکان تغییر نوع یا ساعت وجود ندارد).',
+    settledAlert: 'این روز قبلاً در امور مالی تسویه شده و کاملاً قفل است. امکان تغییر یا حذف آن وجود ندارد.',
+    settledOtAlert: 'این روز قبلاً در امور مالی تسویه شده و قفل است.',
+    effectiveDaysTotal: 'مجموع روزهای موثر',
+    normalDays: 'روز',
+    hourlyDaysUnit: 'روز ساعتی',
+    totalOvertimeHours: 'مجموع ساعات اضافه',
+    netSalary: 'حقوق ناخالص ماهانه',
+    monthlyWorkingDays: 'روز ثبت شده',
+    cancel: 'انصراف',
+    saveQuickAttendance: 'ذخیره کارکرد ماهانه',
+    savingAttendance: 'در حال ذخیره‌سازی...',
+    savedSuccess: (days, name) => `کارکرد ${days} روز کاری برای ${name} با موفقیت ذخیره شد.`,
+    saveError: (err) => `خطا در ذخیره‌سازی کارکرد ماهانه: ${err}`,
+    weekDays: ['یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'],
+    oneDay: '۱ روز',
+    halfDayBadge: 'نیم‌روز'
+  },
+  ku: {
+    quickMonthlyAttendance: 'تۆماری خێرای مانگانە',
+    quickMonthSubtitle: 'تیککردنی خێرای ڕۆژەکانی مانگ لەسەر مینی-تەقویم بۆ دیاریکردنی ئامادەبوون',
+    close: 'داخستن',
+    prevMonth: 'مانگی پێشوو',
+    nextMonth: 'مانگی داهاتوو',
+    monthPickerTitle: 'کرتە بکە بۆ هەڵبژاردنی ڕاستەوخۆی مانگ لە تەقویم',
+    defaultSectionLabel: 'بەشی بنەڕەتی:',
+    defaultSectionTitle: 'بەشی بنەڕەتی ئەم مانگە',
+    generalSection: 'بەشی گشتی',
+    generalSectionFull: 'گشتی / تەواوی پڕۆژە',
+    sectionLabel: 'بەش:',
+    selectAllWorkdays: 'هەڵبژاردنی هەموو ڕۆژە کارییەکان بێجگە لە هەینییەکان',
+    selectAllDays: 'هەڵبژاردنی هەموو ڕۆژەکانی مانگ',
+    clearAllDays: 'سڕینەوەی هەموو ڕۆژەکان',
+    switchToListView: 'گۆڕین بۆ دیمەنی لیست',
+    switchToGridView: 'گۆڕین بۆ تەقویمی مانگانە',
+    clickToToggleTip: 'ڕێنمایی: بە کرتەکردن لەسەر هەر ڕۆژێک دۆخ دەگۆڕێت. بە ئایکۆنی ڕێکخستن دەتوانیت سەعات یان بەش دیاری بکەیت.',
+    fullDayOption: 'ڕۆژی تەواو',
+    halfDayOption: 'نیوەڕۆژ',
+    hourlyOnlyOption: 'تەنها سەعاتی',
+    absent: 'ئامادەنەبوو / کارنەکراو',
+    absentNotLogged: 'ئامادەنەبوو / تۆمارنەکراو',
+    friday: 'هەینی',
+    fridayHoliday: 'هەینی (پشوو)',
+    settledLocked: 'حیسابکراو (داخراو)',
+    dayInspectorTitle: 'ڕێکخستن و سەعاتەکانی ئەم ڕۆژە',
+    detailsTitle: 'وردەکاری زیاتر (سەعات و خولەک)',
+    workedTimeLabel: 'سەعاتی کارکردن',
+    overtimeHoursLabel: 'سەعاتی ئیزافی',
+    overtime: 'ئۆڤەرتایم',
+    hoursLabel: 'سەعات',
+    minutesLabel: 'خولەک',
+    hourShort: 'ک',
+    minuteShort: 'خ',
+    quickPresetsLabel: 'خێرا:',
+    plus15m: '+١٥خ',
+    plus30m: '+٣٠خ',
+    plus1h: '+١ک',
+    plus2h: '+٢ک',
+    increase30m: 'زیادکردنی ٣٠ خولەک',
+    decrease30m: 'کەمکردنی ٣٠ خولەک',
+    resetToZero: 'سفرکردنەوە',
+    notesOptional: 'تێبینی (ئارەزوومەندانە)...',
+    doneDay: 'تۆماری ڕۆژ',
+    removeAbsent: 'سڕینەوە / ئامادەنەبوو',
+    settledLockBanner: 'ئەم ڕۆژە پێشتر لە پسوولەی حیساب تۆمارکراوە و قفڵە (دەستکاریی جۆر یان سەعات ناکرێت).',
+    settledAlert: 'ئەم ڕۆژە پێشتر لە کاروباری دارایی حیسابکراوە و قفڵە. دەستکاری یان سڕینەوەی ناگونجێت.',
+    settledOtAlert: 'ئەم ڕۆژە پێشتر لە کاروباری دارایی حیسابکراوە و قفڵە.',
+    effectiveDaysTotal: 'کۆی ڕۆژە کاریگەرەکان',
+    normalDays: 'ڕۆژ',
+    hourlyDaysUnit: 'ڕۆژی سەعاتی',
+    totalOvertimeHours: 'کۆی سەعاتی ئیزافی',
+    netSalary: 'مووچەی گشتی مانگانە',
+    monthlyWorkingDays: 'ڕۆژی تۆمارکراو',
+    cancel: 'پاشگەزبوونەوە',
+    saveQuickAttendance: 'پاشەکەوتکردنی کارکردی مانگانە',
+    savingAttendance: 'خەریکی پاشەکەوتکردنە...',
+    savedSuccess: (days, name) => `ئامادەبوونی ${days} ڕۆژی کاری بۆ ${name} بە سەرکەوتوویی پاشەکەوت کرا.`,
+    saveError: (err) => `هەڵە لە پاشەکەوتکردنی کارکردی مانگانە: ${err}`,
+    weekDays: ['یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'هەینی', 'شەممە'],
+    oneDay: '١ ڕۆژ',
+    halfDayBadge: 'نیوەڕۆژ'
+  },
+  en: {
+    quickMonthlyAttendance: 'Quick Monthly Attendance',
+    quickMonthSubtitle: 'Check off working days on a mini-calendar for fast attendance entry',
+    close: 'Close',
+    prevMonth: 'Previous Month',
+    nextMonth: 'Next Month',
+    monthPickerTitle: 'Click to select month directly from calendar',
+    defaultSectionLabel: 'Default Section:',
+    defaultSectionTitle: 'Default section for this month',
+    generalSection: 'General Section',
+    generalSectionFull: 'General / Entire Project',
+    sectionLabel: 'Section:',
+    selectAllWorkdays: 'Select all workdays (exclude Fridays)',
+    selectAllDays: 'Select all days of month',
+    clearAllDays: 'Clear all days',
+    switchToListView: 'Switch to daily list view',
+    switchToGridView: 'Switch to calendar grid',
+    clickToToggleTip: 'Tip: Click any day to toggle status: Full Day ⬅️ Absent. Use settings icon to fine-tune hours or section.',
+    fullDayOption: 'Full Day',
+    halfDayOption: 'Half Day',
+    hourlyOnlyOption: 'Hourly Only',
+    absent: 'Absent / Not Worked',
+    absentNotLogged: 'Absent / Unrecorded',
+    friday: 'Fri',
+    fridayHoliday: 'Friday (Holiday)',
+    settledLocked: 'Settled (Locked)',
+    dayInspectorTitle: 'Day inspector and hours',
+    detailsTitle: 'More details (hours & minutes)',
+    workedTimeLabel: 'Worked Time',
+    overtimeHoursLabel: 'Overtime Hours',
+    overtime: 'Overtime',
+    hoursLabel: 'Hours',
+    minutesLabel: 'Minutes',
+    hourShort: 'h',
+    minuteShort: 'm',
+    quickPresetsLabel: 'Quick:',
+    plus15m: '+15m',
+    plus30m: '+30m',
+    plus1h: '+1h',
+    plus2h: '+2h',
+    increase30m: 'Increase 30 min',
+    decrease30m: 'Decrease 30 min',
+    resetToZero: 'Reset to 0',
+    notesOptional: 'Notes (optional)...',
+    doneDay: 'Done',
+    removeAbsent: 'Remove / Absent',
+    settledLockBanner: 'This day is settled in financials and locked (type or hours cannot be modified).',
+    settledAlert: 'This day is settled and locked. It cannot be modified or removed.',
+    settledOtAlert: 'This day is settled and locked.',
+    effectiveDaysTotal: 'Total Effective Days',
+    normalDays: 'Days',
+    hourlyDaysUnit: 'Hourly days',
+    totalOvertimeHours: 'Total Overtime',
+    netSalary: 'Estimated Month Pay',
+    monthlyWorkingDays: 'recorded days',
+    cancel: 'Cancel',
+    saveQuickAttendance: 'Save Monthly Attendance',
+    savingAttendance: 'Saving attendance...',
+    savedSuccess: (days, name) => `Attendance for ${days} working days saved successfully for ${name}.`,
+    saveError: (err) => `Error saving quick monthly attendance: ${err}`,
+    weekDays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    oneDay: '1.0 Day',
+    halfDayBadge: '0.5 Day'
+  }
+};
+
 export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, convertDigits } = useLanguage();
+  const copy = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
@@ -176,9 +372,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   // Direct 1-Click Day Tile Toggle:
   const handleDayTileClick = (dateStr) => {
     if (settledDatesSet.has(dateStr)) {
-      alert(language === 'fa' 
-        ? 'این روز قبلاً در امور مالی تسویه شده و کاملاً قفل است. امکان تغییر یا حذف آن وجود ندارد.' 
-        : 'This day is settled and locked. It cannot be modified or removed.');
+      alert(copy.settledAlert);
       return;
     }
 
@@ -230,9 +424,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   // Adjust overtime hours for an active day
   const handleOvertimeChange = (dateStr, delta) => {
     if (settledDatesSet.has(dateStr)) {
-      alert(language === 'fa' 
-        ? 'این روز قبلاً در امور مالی تسویه شده و قفل است.' 
-        : 'This day is settled and locked.');
+      alert(copy.settledOtAlert);
       return;
     }
 
@@ -490,7 +682,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         pushLogsLive(newLogs).catch((err) => console.warn('Supabase live push warning:', err));
       }
 
-      setToastMessage(t('savedQuickAttendanceSuccess', { days: totals.effectiveDays, name: worker.name }));
+      setToastMessage(copy.savedSuccess(convertDigits ? convertDigits(totals.effectiveDays, language) : totals.effectiveDays, worker.name));
       setTimeout(() => {
         setToastMessage('');
         onClose();
@@ -498,18 +690,14 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
     } catch (err) {
       console.error('Error saving quick month attendance:', err);
-      alert('Error: ' + err.message);
+      alert(copy.saveError(err.message));
     } finally {
       setIsSaving(false);
     }
   };
 
   // Weekday column headers
-  const weekDayLabels = language === 'en'
-    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    : language === 'fa'
-    ? ['یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه']
-    : ['یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'هەینی', 'شەممە'];
+  const weekDayLabels = copy.weekDays;
 
   if (!isOpen || !worker) return null;
 
@@ -533,11 +721,11 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>{t('quickMonthlyAttendance')}</span>
+                <span>{copy.quickMonthlyAttendance}</span>
                 <span className="text-sky-600 dark:text-sky-400 font-semibold">• {worker.name}</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t('quickMonthSubtitle')}
+                {copy.quickMonthSubtitle}
               </p>
             </div>
           </div>
@@ -566,7 +754,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
               type="button"
               onClick={handlePrevMonth}
               className="p-2 bg-gradient-to-r hover:from-slate-100 hover:to-slate-200 dark:hover:from-slate-800 dark:hover:to-slate-700 rounded-lg text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center shadow-xs"
-              title={language === 'fa' ? 'ماه قبل' : language === 'ku' ? 'مانگی پێشوو' : 'Previous Month'}
+              title={copy.prevMonth}
             >
               {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </button>
@@ -581,7 +769,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                title="کلیک برای انتخاب مستقیم ماه از تقویم"
+                title={copy.monthPickerTitle}
               />
             </div>
 
@@ -589,7 +777,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
               type="button"
               onClick={handleNextMonth}
               className="p-2 bg-gradient-to-r hover:from-slate-100 hover:to-slate-200 dark:hover:from-slate-800 dark:hover:to-slate-700 rounded-lg text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center shadow-xs"
-              title={language === 'fa' ? 'ماه بعد' : language === 'ku' ? 'مانگی داهاتوو' : 'Next Month'}
+              title={copy.nextMonth}
             >
               {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
@@ -603,17 +791,17 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 <div className="flex items-center gap-2 sm:gap-1">
                   <Layers className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-sky-500 flex-shrink-0" />
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium sm:hidden">
-                    {language === 'fa' ? 'بخش پیش‌فرض:' : 'Default Section:'}
+                    {copy.defaultSectionLabel}
                   </span>
                 </div>
                 <select
                   value={defaultSectionId}
                   onChange={(e) => setDefaultSectionId(e.target.value)}
                   className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-bold sm:font-semibold focus:outline-hidden cursor-pointer flex-1 sm:flex-none text-end sm:text-start"
-                  title={language === 'fa' ? 'بخش پیش‌فرض این ماه' : 'Default section for this month'}
+                  title={copy.defaultSectionTitle}
                 >
                   <option value="" className="bg-white dark:bg-slate-800">
-                    {language === 'fa' ? 'بخش عمومی' : 'General'}
+                    {copy.generalSection}
                   </option>
                   {projectSections.map((sec) => (
                     <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800">
@@ -630,7 +818,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 type="button"
                 onClick={handleSelectAllExceptFridays}
                 className="p-2.5 sm:p-2 bg-gradient-to-r hover:from-sky-500 hover:to-sky-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-white dark:hover:text-white rounded-xl border border-slate-200 dark:border-slate-700 hover:border-sky-500 hover:shadow-lg hover:shadow-sky-500/30 transition-all flex-1 sm:flex-none flex justify-center"
-                title="انتخاب همه روزهای کاری به جز جمعه‌ها"
+                title={copy.selectAllWorkdays}
               >
                 <Sparkles className="w-4 h-4" />
               </button>
@@ -638,7 +826,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 type="button"
                 onClick={handleSelectAllDays}
                 className="p-2.5 sm:p-2 bg-gradient-to-r hover:from-sky-500 hover:to-sky-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-white dark:hover:text-white rounded-xl border border-slate-200 dark:border-slate-700 hover:border-sky-500 hover:shadow-lg hover:shadow-sky-500/30 transition-all flex-1 sm:flex-none flex justify-center"
-                title="انتخاب همه روزهای ماه"
+                title={copy.selectAllDays}
               >
                 <Check className="w-4 h-4" />
               </button>
@@ -646,7 +834,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 type="button"
                 onClick={handleClearAll}
                 className="p-2.5 sm:p-2 bg-gradient-to-r hover:from-rose-500 hover:to-rose-600 bg-white dark:bg-slate-900 text-rose-500 hover:text-white rounded-xl border border-rose-200 dark:border-rose-900/50 hover:border-rose-500 hover:shadow-lg hover:shadow-rose-500/30 transition-all flex-1 sm:flex-none flex justify-center"
-                title={t('clearAllDays')}
+                title={copy.clearAllDays}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -662,7 +850,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white border-sky-500 shadow-lg shadow-sky-500/30' 
                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
-                title={viewMode === 'grid' ? 'تغییر به تفکیک روز' : 'تغییر به تقویم ماهانه'}
+                title={viewMode === 'grid' ? copy.switchToListView : copy.switchToGridView}
               >
                 <SlidersHorizontal className="w-4 h-4" />
               </button>
@@ -674,7 +862,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         {/* Tip Banner */}
         <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 px-1">
           <Info className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
-          <span>{t('clickToToggleTip')}</span>
+          <span>{copy.clickToToggleTip}</span>
         </div>
 
         {/* Calendar / List Body */}
@@ -742,7 +930,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
                       <div className="flex items-center gap-1">
                         {isDaySettled && (
-                          <span className="p-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center" title={language === 'fa' ? 'تسویه شده (قفل)' : 'Settled (Locked)'}>
+                          <span className="p-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center" title={copy.settledLocked}>
                             <Lock className="w-3 h-3" />
                           </span>
                         )}
@@ -773,7 +961,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                               ? 'bg-sky-500 text-white shadow-xs' 
                               : 'text-slate-400 hover:text-sky-600 hover:bg-slate-200/60 dark:hover:bg-slate-700'
                           }`}
-                          title={language === 'fa' ? 'تنظیمات و ساعت این روز' : 'Day inspector'}
+                          title={copy.dayInspectorTitle}
                         >
                           <SlidersHorizontal className="w-2.5 h-2.5" />
                         </button>
@@ -783,19 +971,19 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     <div className="text-[10px] font-semibold mt-1">
                       {isFull ? (
                         <span className="text-emerald-700 dark:text-emerald-300">
-                          {language === 'en' ? '1.0 Day' : language === 'fa' ? '۱ روز' : '١ ڕۆژ'}
+                          {copy.oneDay}
                         </span>
                       ) : isHalf ? (
                         <span className="text-amber-700 dark:text-amber-300">
-                          {language === 'en' ? '0.5 Day' : language === 'fa' ? 'نیم‌روز' : 'نیوەڕۆژ'}
+                          {copy.halfDayBadge}
                         </span>
                       ) : isHourly ? (
                         <span className="text-purple-700 dark:text-purple-300 truncate block">
-                          {language === 'en' ? 'Hourly' : language === 'fa' ? 'ساعتی' : 'سەعاتی'}
+                          {copy.hourlyOnlyOption}
                         </span>
                       ) : day.isFriday ? (
                         <span className="text-slate-400 text-[9px]">
-                          {language === 'en' ? 'Fri' : language === 'fa' ? 'جمعه' : 'هەینی'}
+                          {copy.friday}
                         </span>
                       ) : (
                         <span className="text-slate-300 dark:text-slate-600 text-[9px]">-</span>
@@ -810,7 +998,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                             setSelectedDayDate(day.dateStr);
                           }}
                           className="mt-1 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[10px] cursor-pointer"
-                          title={cfg.overtimeHours > 0 ? formatHoursAndMinutes(cfg.overtimeHours, language) : (isHourly ? '0h' : t('overtime'))}
+                          title={cfg.overtimeHours > 0 ? formatHoursAndMinutes(cfg.overtimeHours, language) : (isHourly ? (convertDigits ? convertDigits('0h', language) : '0h') : copy.overtime)}
                         >
                           <span className={`font-extrabold px-1 py-0.5 rounded text-[10px] ${
                             isHourly 
@@ -821,14 +1009,14 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                           }`}>
                             {cfg.overtimeHours > 0 || isHourly
                               ? formatTileHours(cfg.overtimeHours, isHourly, language)
-                              : '+۰'}
+                              : (convertDigits ? convertDigits('+0', language) : '+0')}
                           </span>
                           <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => handleOvertimeChange(day.dateStr, 0.5)}
                               className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700 hover:bg-sky-500 hover:text-white flex items-center justify-center text-[9px] font-bold"
-                              title="+30 min"
+                              title={copy.increase30m}
                             >
                               +
                             </button>
@@ -837,7 +1025,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                 type="button"
                                 onClick={() => handleOvertimeChange(day.dateStr, -0.5)}
                                 className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700 hover:bg-rose-500 hover:text-white flex items-center justify-center text-[9px] font-bold"
-                                title="-30 min"
+                                title={copy.decrease30m}
                               >
                                 -
                               </button>
@@ -887,7 +1075,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-7 h-7 rounded-lg bg-sky-600 text-white font-extrabold text-xs flex items-center justify-center">
-                          {selectedDayDate.split('-')[2]}
+                          {convertDigits ? convertDigits(selectedDayDate.split('-')[2], language) : selectedDayDate.split('-')[2]}
                         </span>
                         <div>
                           <span className="text-xs font-bold text-slate-900 dark:text-white">
@@ -895,12 +1083,12 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                           </span>
                           <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
                             {isHourly
-                              ? t('hourlyOnlyOption')
+                              ? copy.hourlyOnlyOption
                               : isHalf
-                              ? t('halfDayOption')
+                              ? copy.halfDayOption
                               : isFull
-                              ? t('fullDayOption')
-                              : (language === 'fa' ? 'غایب / ثبت نشده' : 'Absent')}
+                              ? copy.fullDayOption
+                              : copy.absentNotLogged}
                           </span>
                         </div>
                       </div>
@@ -910,7 +1098,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                           type="button"
                           onClick={() => setSelectedDayDate(null)}
                           className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
-                          title={t('close') || 'بستن'}
+                          title={copy.close}
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -921,7 +1109,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     {isInspectorSettled && (
                       <div className="p-2.5 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 animate-in fade-in">
                         <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <span>{language === 'fa' ? 'این روز قبلاً در برگه تسویه ثبت شده و کاملاً قفل است (امکان تغییر نوع یا ساعت وجود ندارد).' : 'This day is settled and locked.'}</span>
+                        <span>{copy.settledLockBanner}</span>
                       </div>
                     )}
 
@@ -939,7 +1127,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
-                          {t('fullDayOption')}
+                          {copy.fullDayOption}
                         </button>
                         <button
                           type="button"
@@ -950,7 +1138,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
-                          {t('halfDayOption')}
+                          {copy.halfDayOption}
                         </button>
                         <button
                           type="button"
@@ -964,7 +1152,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
-                          {t('hourlyOnlyOption')}
+                          {copy.hourlyOnlyOption}
                         </button>
                         <button
                           type="button"
@@ -977,7 +1165,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                             setSelectedDayDate(null);
                           }}
                           className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
-                          title={language === 'fa' ? 'حذف / غایب' : 'Remove / Absent'}
+                          title={copy.removeAbsent}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -988,7 +1176,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                           <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
                           <span className="text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
-                            {t('section') || 'بخش'}:
+                            {copy.sectionLabel}
                           </span>
                           <select
                             value={activeCfg.sectionId || ''}
@@ -996,7 +1184,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                             className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-semibold focus:outline-hidden cursor-pointer"
                           >
                             <option value="" className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                              {language === 'fa' ? 'عمومی / کل پروژه' : 'General / Entire Project'}
+                              {copy.generalSectionFull}
                             </option>
                             {projectSections.map((sec) => (
                               <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
@@ -1014,7 +1202,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         <div className="flex items-center gap-2">
                           <Clock className={`w-4 h-4 flex-shrink-0 ${isHourly ? 'text-purple-500' : 'text-amber-500'}`} />
                           <span className="text-[11px] text-slate-700 dark:text-slate-200 font-bold whitespace-nowrap">
-                            {isHourly ? t('workedTimeLabel') : t('overtimeHoursLabel')}:
+                            {isHourly ? copy.workedTimeLabel : copy.overtimeHoursLabel}:
                           </span>
                           
                           {/* Inputs in LTR for clean numbers */}
@@ -1031,9 +1219,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                   updateActiveCfg({ overtimeHours: dec });
                                 }}
                                 className="w-9 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
-                                title={t('hoursLabel')}
+                                title={copy.hoursLabel}
                               />
-                              <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{t('hourShort')}</span>
+                              <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{copy.hourShort}</span>
                             </div>
                             <span className="text-slate-400 font-bold">:</span>
                             <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1 border border-slate-200 dark:border-slate-700">
@@ -1048,9 +1236,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                   updateActiveCfg({ overtimeHours: dec });
                                 }}
                                 className="w-9 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
-                                title={t('minutesLabel')}
+                                title={copy.minutesLabel}
                               />
-                              <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{t('minuteShort')}</span>
+                              <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{copy.minuteShort}</span>
                             </div>
                           </div>
 
@@ -1064,42 +1252,42 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         {/* Quick Presets */}
                         <div className="flex items-center gap-1 flex-wrap mt-2">
                           <span className="text-[10px] text-slate-400 font-semibold">
-                            {language === 'en' ? 'Quick:' : language === 'fa' ? 'سریع:' : 'خێرا:'}
+                            {copy.quickPresetsLabel}
                           </span>
                           <button
                             type="button"
                             onClick={() => addMinutesToSelectedDay(15)}
                             className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded-lg text-[11px] font-bold transition-colors"
                           >
-                            +15د
+                            {copy.plus15m}
                           </button>
                           <button
                             type="button"
                             onClick={() => addMinutesToSelectedDay(30)}
                             className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded-lg text-[11px] font-bold transition-colors"
                           >
-                            +30د
+                            {copy.plus30m}
                           </button>
                           <button
                             type="button"
                             onClick={() => addMinutesToSelectedDay(60)}
                             className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded-lg text-[11px] font-bold transition-colors"
                           >
-                            +1س
+                            {copy.plus1h}
                           </button>
                           <button
                             type="button"
                             onClick={() => addMinutesToSelectedDay(120)}
                             className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-slate-700 dark:text-slate-200 hover:text-sky-700 rounded-lg text-[11px] font-bold transition-colors"
                           >
-                            +2س
+                            {copy.plus2h}
                           </button>
                           {activeCfg.overtimeHours > 0 && (
                             <button
                               type="button"
                               onClick={() => updateActiveCfg({ overtimeHours: 0 })}
                               className="px-2 py-1 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 rounded-lg text-[11px] font-bold transition-colors"
-                              title="صفر کردن"
+                              title={copy.resetToZero}
                             >
                               0
                             </button>
@@ -1114,7 +1302,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         type="text"
                         value={activeCfg.notes || ''}
                         onChange={(e) => updateActiveCfg({ notes: e.target.value })}
-                        placeholder={t('notesOptional')}
+                        placeholder={copy.notesOptional}
                         className="flex-1 text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
                       />
                       <button
@@ -1123,7 +1311,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 flex-shrink-0 active:scale-95"
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>{language === 'fa' ? 'ثبت روز' : 'Done'}</span>
+                        <span>{copy.doneDay}</span>
                       </button>
                     </div>
 
@@ -1164,7 +1352,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                           ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400'
                           : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                       }`}>
-                        <span className="text-lg leading-none">{day.dayNumber}</span>
+                        <span className="text-lg leading-none">{convertDigits ? convertDigits(day.dayNumber, language) : day.dayNumber}</span>
                         <span className="text-[9px] uppercase mt-0.5">{weekDayLabels[day.dayOfWeek]}</span>
                       </div>
                       
@@ -1178,10 +1366,10 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         <div className="text-xs text-slate-500 font-medium mt-0.5">
                           {isActive ? (
                             <span className="text-sky-700 dark:text-sky-400">
-                              {isFull ? t('fullDayOption') : isHalf ? t('halfDayOption') : t('hourlyOnlyOption')}
+                              {isFull ? copy.fullDayOption : isHalf ? copy.halfDayOption : copy.hourlyOnlyOption}
                             </span>
                           ) : (
-                            day.isFriday ? (language === 'fa' ? 'جمعه (تعطیل)' : 'Friday') : (language === 'fa' ? 'غایب / کار نکرده' : 'Absent')
+                            day.isFriday ? copy.fridayHoliday : copy.absent
                           )}
                         </div>
                       </div>
@@ -1208,13 +1396,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
                              }`}
                            >
-                             {isHalf ? t('halfDayOption') : t('fullDayOption')}
+                             {isHalf ? copy.halfDayOption : copy.fullDayOption}
                            </button>
                          )}
 
                          {/* Overtime Controls */}
                          <div className="flex items-center gap-1.5 sm:gap-2">
-                           <span className="text-[10px] text-slate-400 font-semibold px-1 sm:px-2">{isHourly ? t('workedTimeLabel') : t('overtime')}</span>
+                           <span className="text-[10px] text-slate-400 font-semibold px-1 sm:px-2">{isHourly ? copy.workedTimeLabel : copy.overtime}</span>
                            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg p-1 border border-slate-100 dark:border-slate-800">
                              <button onClick={() => handleOvertimeChange(day.dateStr, -0.5)} className="w-7 h-7 rounded-md bg-white dark:bg-slate-800 text-slate-600 hover:bg-rose-500 hover:text-white flex items-center justify-center font-bold transition-all shadow-xs">-</button>
                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 min-w-[36px] text-center">
@@ -1229,7 +1417,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                          <button 
                            onClick={() => setSelectedDayDate(selectedDayDate === day.dateStr ? null : day.dateStr)}
                            className={`p-2.5 rounded-xl transition-all shadow-xs border ${selectedDayDate === day.dateStr ? 'bg-gradient-to-r from-sky-500 to-sky-600 border-sky-500 text-white shadow-sky-500/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-sky-600 hover:border-sky-300'}`}
-                           title={language === 'fa' ? 'جزئیات بیشتر (ساعت و دقیقه)' : 'Details'}
+                           title={copy.detailsTitle}
                          >
                            <SlidersHorizontal className="w-4 h-4" />
                          </button>
@@ -1278,7 +1466,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                 : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
-                            {t('fullDayOption')}
+                            {copy.fullDayOption}
                           </button>
                           <button
                             type="button"
@@ -1289,7 +1477,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                 : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
-                            {t('halfDayOption')}
+                            {copy.halfDayOption}
                           </button>
                           <button
                             type="button"
@@ -1303,7 +1491,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                 : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
-                            {t('hourlyOnlyOption')}
+                            {copy.hourlyOnlyOption}
                           </button>
                           <button
                             type="button"
@@ -1316,7 +1504,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                               setSelectedDayDate(null);
                             }}
                             className="p-1.5 text-rose-500 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors ms-auto"
-                            title={language === 'fa' ? 'حذف / غایب' : 'Remove / Absent'}
+                            title={copy.removeAbsent}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1327,7 +1515,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                           <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs w-full max-w-sm">
                             <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
                             <span className="text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
-                              {t('section') || 'بخش'}:
+                              {copy.sectionLabel}
                             </span>
                             <select
                               value={activeCfg.sectionId || ''}
@@ -1335,7 +1523,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                               className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-semibold focus:outline-hidden cursor-pointer flex-1"
                             >
                               <option value="" className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                {language === 'fa' ? 'عمومی / کل پروژه' : 'General / Entire Project'}
+                                {copy.generalSectionFull}
                               </option>
                               {projectSections.map((sec) => (
                                 <option key={sec.id} value={sec.id} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
@@ -1365,7 +1553,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                   }}
                                   className="w-9 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
                                 />
-                                <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{t('hourShort')}</span>
+                                <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{copy.hourShort}</span>
                               </div>
                               <span className="text-slate-400 font-bold">:</span>
                               <div className="flex items-center bg-white dark:bg-slate-800 rounded-lg px-2 py-1 border border-slate-200 dark:border-slate-700">
@@ -1381,15 +1569,15 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                                   }}
                                   className="w-9 font-bold text-center bg-transparent text-slate-900 dark:text-white outline-none text-xs"
                                 />
-                                <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{t('minuteShort')}</span>
+                                <span className="text-[10px] text-slate-400 ms-0.5 font-medium">{copy.minuteShort}</span>
                               </div>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-1">
-                            <button onClick={() => addMinutesToSelectedDay(15)} className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-sky-100 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors">+15د</button>
-                            <button onClick={() => addMinutesToSelectedDay(30)} className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-sky-100 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors">+30د</button>
-                            <button onClick={() => addMinutesToSelectedDay(60)} className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-sky-100 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors">+1س</button>
+                            <button onClick={() => addMinutesToSelectedDay(15)} className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-sky-100 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors">{copy.plus15m}</button>
+                            <button onClick={() => addMinutesToSelectedDay(30)} className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-sky-100 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors">{copy.plus30m}</button>
+                            <button onClick={() => addMinutesToSelectedDay(60)} className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-sky-100 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 transition-colors">{copy.plus1h}</button>
                           </div>
                         </div>
 
@@ -1399,7 +1587,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                             type="text"
                             value={activeCfg.notes || ''}
                             onChange={(e) => updateActiveCfg({ notes: e.target.value })}
-                            placeholder={t('notesOptional')}
+                            placeholder={copy.notesOptional}
                             className="flex-1 text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
                           />
                         </div>
@@ -1418,24 +1606,24 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         {/* Live Calculation Summary Bar */}
         <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-2 text-center text-xs">
           <div>
-            <span className="text-slate-400 block text-[11px]">{t('effectiveDaysTotal')}</span>
+            <span className="text-slate-400 block text-[11px]">{copy.effectiveDaysTotal}</span>
             <span className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400">
-              {totals.effectiveDays} {t('normalDays')}
+              {convertDigits ? convertDigits(totals.effectiveDays, language) : totals.effectiveDays} {copy.normalDays}
               {totals.hourlyDays > 0 && (
                 <span className="text-xs text-purple-600 dark:text-purple-400 block font-normal">
-                  +{totals.hourlyDays} {language === 'fa' ? 'روز ساعتی' : 'سەعاتی'}
+                  +{convertDigits ? convertDigits(totals.hourlyDays, language) : totals.hourlyDays} {copy.hourlyDaysUnit}
                 </span>
               )}
             </span>
           </div>
           <div>
-            <span className="text-slate-400 block text-[11px]">{t('totalOvertimeHours')}</span>
+            <span className="text-slate-400 block text-[11px]">{copy.totalOvertimeHours}</span>
             <span className="text-sm sm:text-base font-bold text-amber-600 dark:text-amber-400">
               {formatHoursAndMinutes(Number((totals.totalOt + totals.totalHourlyHours).toFixed(4)), language)}
             </span>
           </div>
           <div>
-            <span className="text-slate-400 block text-[11px]">{t('netSalary')}</span>
+            <span className="text-slate-400 block text-[11px]">{copy.netSalary}</span>
             <span className="text-sm sm:text-base font-extrabold text-sky-600 dark:text-sky-400">
               {formatCurrency(totals.grandTotal, currency, language)}
             </span>
@@ -1445,7 +1633,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         {/* Modal Footer: Save & Cancel Buttons */}
         <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            <span>{totals.activeCount} {t('monthlyWorkingDays')}</span>
+            <span>{convertDigits ? convertDigits(totals.activeCount, language) : totals.activeCount} {copy.monthlyWorkingDays}</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1455,7 +1643,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
               disabled={isSaving}
               className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
-              {t('cancel')}
+              {copy.cancel}
             </button>
             <button
               type="button"
@@ -1464,7 +1652,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
               className="flex items-center gap-1.5 px-5 py-2 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-400 text-white font-semibold text-xs rounded-xl shadow-md shadow-sky-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Check className="w-4 h-4" />
-              <span>{isSaving ? t('savingAttendance') : t('saveQuickAttendance')}</span>
+              <span>{isSaving ? copy.savingAttendance : copy.saveQuickAttendance}</span>
             </button>
           </div>
         </div>
