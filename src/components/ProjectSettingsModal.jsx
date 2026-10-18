@@ -21,8 +21,206 @@ import {
   RotateCcw
 } from 'lucide-react';
 
+const PROJECT_SETTINGS_COPY = {
+  fa: {
+    modalTitle: 'مدیریت و ویرایش پروژه',
+    selectedProject: 'انتخاب پروژه:',
+    newProject: 'ایجاد پروژه جدید',
+    tabs: {
+      general: 'پروژه‌ها',
+      sections: 'بخش‌ها',
+      archived: 'بایگانی‌شده',
+      trash: 'حذف‌شده'
+    },
+    totalPersonnel: 'کل پرسنل اختصاص‌یافته',
+    totalLogsRecorded: 'کل رکوردهای حضور',
+    personUnit: 'نفر',
+    recordUnit: 'رکورد',
+    projectName: 'نام پروژه',
+    projectNamePlaceholder: 'مثال: پروژه ورامین، سد ایذه...',
+    projectCurrency: 'واحد پول پروژه',
+    currencies: {
+      IQD: { label: 'دینار عراق', symbol: 'د.ع' },
+      IRT: { label: 'تومان ایران', symbol: 'تومان' },
+      USD: { label: 'دلار آمریکا', symbol: '$' }
+    },
+    standardWorkHours: 'ساعت کار استاندارد روزانه',
+    overtimeMultiplier: 'ضریب اضافه کاری',
+    notes: 'توضیحات و یادداشت',
+    notesPlaceholder: 'ملاحظات خاص این پروژه...',
+    unarchiveProject: 'خروج از بایگانی',
+    archiveProject: 'بایگانی کردن پروژه',
+    moveToTrash: 'انتقال به سطل آشغال',
+    cancel: 'انصراف',
+    saveChanges: 'ذخیره تغییرات',
+    save: 'ذخیره',
+    projectNameRequired: 'نام پروژه الزامی است',
+    projectSavedSuccess: 'تنظیمات پروژه با موفقیت ذخیره و همگام‌سازی شد',
+    cannotArchiveDefaultProject: 'پروژه پیش‌فرض سیستم قابل بایگانی نیست',
+    confirmArchiveProject: 'آیا از بایگانی کردن این پروژه اطمینان دارید؟',
+    cannotDeleteDefaultProject: 'پروژه پیش‌فرض سیستم قابل حذف نیست',
+    confirmDeleteProject: (name) => `آیا از حذف پروژه «${name}» اطمینان دارید؟ تمامی رکوردهای مرتبط با این پروژه حذف خواهند شد.`,
+    moveToTrashConfirm: (name) => `انتقال به سطل آشغال: «${name}»؟`,
+    permanentDeleteSectionConfirm: 'آیا از حذف دائمی این بخش اطمینان دارید؟ این عملیات غیرقابل بازگشت است.',
+    permanentDeleteProjectConfirm: (name) => `آیا از حذف دائمی پروژه «${name}» اطمینان دارید؟ این عملیات غیرقابل بازگشت است.`,
+    projectSections: 'بخش‌های پروژه (ساب‌پروژه‌ها)',
+    projectSectionsDesc: 'تعریف، ویرایش نام و مدیریت زیرپروژه‌ها جهت تفکیک دقیق هزینه‌ها و کارکرد پرسنل',
+    newSectionPlaceholder: 'نام بخش جدید (مثال: زراعت، تاسیسات...)',
+    addSection: 'افزودن',
+    noSectionsYet: 'هنوز بخشی برای این پروژه تعریف نشده است.',
+    editSectionName: 'ویرایش نام بخش',
+    archiveSection: 'بایگانی بخش',
+    archivedTitle: 'بایگانی‌شده',
+    archivedDesc: 'پروژه‌ها و بخش‌های غیرفعال در اینجا قرار می‌گیرند تا فضای کاری شما خلوت بماند.',
+    archivedSectionsTitle: 'بخش‌های بایگانی‌شده این پروژه',
+    noArchivedSections: 'هیچ بخش بایگانی‌شده‌ای وجود ندارد.',
+    unarchive: 'خروج از بایگانی',
+    archivedProjectsTitle: 'پروژه‌های بایگانی‌شده',
+    noArchivedProjects: 'هیچ پروژه‌ای بایگانی نشده است.',
+    trashTitle: 'سطل آشغال و بازیابی اطلاعات',
+    trashDesc: 'موارد حذف‌شده در اینجا نگهداری می‌شوند تا در صورت نیاز بازیابی شوند یا به صورت دائمی حذف گردند.',
+    deletedSectionsTitle: 'بخش‌های حذف‌شده این پروژه',
+    noDeletedSections: 'هیچ بخش حذف‌شده‌ای وجود ندارد.',
+    restore: 'بازیابی',
+    permanentDelete: 'حذف دائمی',
+    deletedProjectsTitle: 'پروژه‌های حذف‌شده',
+    noDeletedProjects: 'هیچ پروژه حذف‌شده‌ای در سطل آشغال نیست.'
+  },
+  ku: {
+    modalTitle: 'بەڕێوەبردن و دەستکاریکردنی پڕۆژە',
+    selectedProject: 'پڕۆژەی هەڵبژێردراو:',
+    newProject: 'دروستکردنی پڕۆژەی نوێ',
+    tabs: {
+      general: 'پڕۆژەکان',
+      sections: 'بەشەکان',
+      archived: 'ئەرشیڤکراو',
+      trash: 'سڕاوەکان'
+    },
+    totalPersonnel: 'تەواوی کارمەندانی دیاریکراو',
+    totalLogsRecorded: 'تەواوی تۆمارەکانی ئامادەبوون',
+    personUnit: 'کەس',
+    recordUnit: 'تۆمار',
+    projectName: 'ناوی پڕۆژە',
+    projectNamePlaceholder: 'نموونە: پڕۆژەی گەنم، بەنداوی دووکان...',
+    projectCurrency: 'دراوی پڕۆژە',
+    currencies: {
+      IQD: { label: 'دیناری عێراقی', symbol: 'د.ع' },
+      IRT: { label: 'تمەنی ئێرانی', symbol: 'تمەن' },
+      USD: { label: 'دۆلاری ئەمریکی', symbol: '$' }
+    },
+    standardWorkHours: 'کاتژمێری کاری پێوانەیی ڕۆژانە',
+    overtimeMultiplier: 'هاوکۆلکەی زیادەکاری',
+    notes: 'تێبینی و ڕوونکردنەوە',
+    notesPlaceholder: 'تێبینییە تایبەتەکانی ئەم پڕۆژەیە...',
+    unarchiveProject: 'دەرکردن لە ئەرشیڤ',
+    archiveProject: 'ئەرشیڤکردنی پڕۆژە',
+    moveToTrash: 'گواستنەوە بۆ تەنەکەی خۆڵ',
+    cancel: 'پاشگەزبوونەوە',
+    saveChanges: 'پاشەکەوتکردنی گۆڕانکارییەکان',
+    save: 'پاشەکەوتکردن',
+    projectNameRequired: 'ناوی پڕۆژە پێویستە',
+    projectSavedSuccess: 'ڕێکخستنەکانی پڕۆژە بە سەرکەوتوویی پاشەکەوت و هاوکات کران',
+    cannotArchiveDefaultProject: 'پڕۆژەی بنەڕەتی سیستەم ناتوانرێت ئەرشیڤ بکرێت',
+    confirmArchiveProject: 'ئایا دڵنیایت لە ئەرشیڤکردنی ئەم پڕۆژەیە؟',
+    cannotDeleteDefaultProject: 'پڕۆژەی بنەڕەتی سیستەم ناتوانرێت بسڕدرێتەوە',
+    confirmDeleteProject: (name) => `ئایا دڵنیایت لە سڕینەوەی پڕۆژەی «${name}»؟ هەموو تۆمارە پەیوەندیدارەکان دەسڕدرێنەوە.`,
+    moveToTrashConfirm: (name) => `گواستنەوە بۆ تەنەکەی خۆڵ: «${name}»؟`,
+    permanentDeleteSectionConfirm: 'ئایا دڵنیایت لە سڕینەوەی یەکجارەکی ئەم بەشە؟ ئەم کردارە ناگەڕێتەوە.',
+    permanentDeleteProjectConfirm: (name) => `ئایا دڵنیایت لە سڕینەوەی یەکجارەکی پڕۆژەی «${name}»؟ ئەم کردارە ناگەڕێتەوە.`,
+    projectSections: 'بەشەکانی پڕۆژە (ژێرپڕۆژەکان)',
+    projectSectionsDesc: 'دیاریکردن، دەستکاریکردنی ناو و بەڕێوەبردنی ژێرپڕۆژەکان بۆ جیاکردنەوەی وردی تێچوو و کارکردن',
+    newSectionPlaceholder: 'ناوی بەشی نوێ (نموونە: چاندن، دامەزراندن...)',
+    addSection: 'زیادکردن',
+    noSectionsYet: 'هێشتا هیچ بەشێک بۆ ئەم پڕۆژەیە پێناسە نەکراوە.',
+    editSectionName: 'دەستکاریکردنی ناوی بەش',
+    archiveSection: 'ئەرشیڤکردنی بەش',
+    archivedTitle: 'ئەرشیڤکراو',
+    archivedDesc: 'پڕۆژە و بەشە ناچالاکەکان لێرە دەپارێزرێن بۆ ئەوەی شوێنی کارەکەت ڕێک و خاوێن بێت.',
+    archivedSectionsTitle: 'بەشە ئەرشیڤکراوەکانی ئەم پڕۆژەیە',
+    noArchivedSections: 'هیچ بەشێکی ئەرشیڤکراو نییە.',
+    unarchive: 'دەرکردن لە ئەرشیڤ',
+    archivedProjectsTitle: 'پڕۆژە ئەرشیڤکراوەکان',
+    noArchivedProjects: 'هیچ پڕۆژەیەک ئەرشیڤ نەکراوە.',
+    trashTitle: 'تەنەکەی خۆڵ و گەڕاندنەوەی زانیاری',
+    trashDesc: 'بڕگە سڕاوەکان لێرە دەمێننەوە بۆ ئەوەی لە کاتی پێویستدا بگەڕێندرێنەوە یان بەیەکجاری بسڕدرێنەوە.',
+    deletedSectionsTitle: 'بەشە سڕاوەکانی ئەم پڕۆژەیە',
+    noDeletedSections: 'هیچ بەشێکی سڕاوە نییە.',
+    restore: 'گەڕاندنەوە',
+    permanentDelete: 'سڕینەوەی یەکجارەکی',
+    deletedProjectsTitle: 'پڕۆژە سڕاوەکان',
+    noDeletedProjects: 'هیچ پڕۆژەیەکی سڕاوە لە تەنەکەی خۆڵدا نییە.'
+  },
+  en: {
+    modalTitle: 'Project Management & Settings',
+    selectedProject: 'Selected Project:',
+    newProject: 'New Project',
+    tabs: {
+      general: 'Projects',
+      sections: 'Sections',
+      archived: 'Archived',
+      trash: 'Deleted'
+    },
+    totalPersonnel: 'Total Assigned Personnel',
+    totalLogsRecorded: 'Total Attendance Logs',
+    personUnit: 'People',
+    recordUnit: 'Records',
+    projectName: 'Project Name',
+    projectNamePlaceholder: 'e.g., Downtown Site, Facility B...',
+    projectCurrency: 'Project Currency',
+    currencies: {
+      IQD: { label: 'Iraqi Dinar', symbol: 'IQD' },
+      IRT: { label: 'Iranian Toman', symbol: 'IRT' },
+      USD: { label: 'US Dollar', symbol: '$' }
+    },
+    standardWorkHours: 'Standard Daily Work Hours',
+    overtimeMultiplier: 'Overtime Multiplier',
+    notes: 'Notes & Description',
+    notesPlaceholder: 'Specific considerations for this project...',
+    unarchiveProject: 'Unarchive Project',
+    archiveProject: 'Archive Project',
+    moveToTrash: 'Move to Trash',
+    cancel: 'Cancel',
+    saveChanges: 'Save Changes',
+    save: 'Save',
+    projectNameRequired: 'Project name is required',
+    projectSavedSuccess: 'Project settings successfully saved and synchronized',
+    cannotArchiveDefaultProject: 'System default project cannot be archived',
+    confirmArchiveProject: 'Are you sure you want to archive this project?',
+    cannotDeleteDefaultProject: 'System default project cannot be deleted',
+    confirmDeleteProject: (name) => `Are you sure you want to delete project "${name}"? All associated records will be removed.`,
+    moveToTrashConfirm: (name) => `Move to trash: "${name}"?`,
+    permanentDeleteSectionConfirm: 'Are you sure you want to permanently delete this section? This action cannot be undone.',
+    permanentDeleteProjectConfirm: (name) => `Are you sure you want to permanently delete project "${name}"? This action cannot be undone.`,
+    projectSections: 'Project Sections (Sub-Projects)',
+    projectSectionsDesc: 'Define, rename, and manage sub-sections for accurate cost and attendance allocation.',
+    newSectionPlaceholder: 'New section name (e.g., Electrical, Planting...)',
+    addSection: 'Add',
+    noSectionsYet: 'No sub-sections defined for this project yet.',
+    editSectionName: 'Edit Section Name',
+    archiveSection: 'Archive Section',
+    archivedTitle: 'Archived',
+    archivedDesc: 'Inactive projects and sections are stored here to keep your workspace clutter-free.',
+    archivedSectionsTitle: 'Archived Sections in This Project',
+    noArchivedSections: 'No archived sections found.',
+    unarchive: 'Unarchive',
+    archivedProjectsTitle: 'Archived Projects',
+    noArchivedProjects: 'No archived projects found.',
+    trashTitle: 'Trash & Data Recovery',
+    trashDesc: 'Deleted items are kept here so they can be restored or permanently removed if needed.',
+    deletedSectionsTitle: 'Deleted Sections in This Project',
+    noDeletedSections: 'No deleted sections found.',
+    restore: 'Restore',
+    permanentDelete: 'Delete Permanently',
+    deletedProjectsTitle: 'Deleted Projects',
+    noDeletedProjects: 'No deleted projects in trash.'
+  }
+};
+
 export function ProjectSettingsModal() {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const c = PROJECT_SETTINGS_COPY[langKey] || PROJECT_SETTINGS_COPY.fa;
+
   const { 
     projects,
     activeProjects,
@@ -42,7 +240,7 @@ export function ProjectSettingsModal() {
     setEditingProjectId
   } = useProject();
 
-  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'sections' | 'trash'
+  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'sections' | 'archived' | 'trash'
   const [sectionsFilter, setSectionsFilter] = useState('active'); // 'active' | 'archived'
   
   // Target project to edit (defaults to editingProjectId or currentProject)
@@ -187,7 +385,7 @@ export function ProjectSettingsModal() {
 
   // Move section to trash (soft delete)
   const handleMoveSectionToTrash = async (sec) => {
-    const confirmText = (t('moveToTrash') || 'انتقال به سطل آشغال') + `: «${sec.name}»؟`;
+    const confirmText = c.moveToTrashConfirm(sec.name);
     if (window.confirm(confirmText)) {
       try {
         const updatedSec = {
@@ -220,7 +418,7 @@ export function ProjectSettingsModal() {
 
   // Permanent delete section handler
   const handlePermanentDeleteSection = async (sec) => {
-    const confirmText = t('permanentDeleteConfirm') || 'آیا از حذف دائمی این بخش اطمینان دارید؟ این عملیات غیرقابل بازگشت است.';
+    const confirmText = c.permanentDeleteSectionConfirm;
     if (window.confirm(confirmText)) {
       try {
         await db.projectSections.delete(sec.id);
@@ -239,7 +437,7 @@ export function ProjectSettingsModal() {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
-      setErrorMsg(t('projectNameRequired') || 'نام پروژه الزامی است');
+      setErrorMsg(c.projectNameRequired);
       return;
     }
 
@@ -256,7 +454,7 @@ export function ProjectSettingsModal() {
         notes: notes.trim()
       });
 
-      setSuccessMsg(language === 'fa' ? 'تنظیمات پروژه با موفقیت ذخیره و همگام‌سازی شد' : t('projectSavedSuccess') || 'تنظیمات با موفقیت ذخیره شد');
+      setSuccessMsg(c.projectSavedSuccess);
       setTimeout(() => {
         setIsProjectSettingsModalOpen(false);
       }, 1000);
@@ -270,10 +468,10 @@ export function ProjectSettingsModal() {
 
   const handleArchive = async () => {
     if (isDefaultProject) {
-      alert(t('cannotArchiveDefaultProject') || 'پروژه پیش‌فرض سیستم قابل بایگانی نیست');
+      alert(c.cannotArchiveDefaultProject);
       return;
     }
-    if (confirm(t('confirmArchiveProject') || 'آیا از بایگانی کردن این پروژه اطمینان دارید؟')) {
+    if (confirm(c.confirmArchiveProject)) {
       try {
         await archiveProject(targetProject.id);
         setIsProjectSettingsModalOpen(false);
@@ -294,10 +492,10 @@ export function ProjectSettingsModal() {
 
   const handleSoftDelete = async () => {
     if (isDefaultProject) {
-      alert(t('cannotDeleteDefaultProject') || 'پروژه پیش‌فرض سیستم قابل حذف نیست');
+      alert(c.cannotDeleteDefaultProject);
       return;
     }
-    const confirmMsg = (t('moveToTrash') || 'انتقال به سطل آشغال') + `: «${targetProject.name}»؟`;
+    const confirmMsg = c.moveToTrashConfirm(targetProject.name);
     if (confirm(confirmMsg)) {
       try {
         await softDeleteProject(targetProject.id);
@@ -310,12 +508,10 @@ export function ProjectSettingsModal() {
 
   const handleDelete = async () => {
     if (isDefaultProject) {
-      alert(t('cannotDeleteDefaultProject') || 'پروژه پیش‌فرض سیستم قابل حذف نیست');
+      alert(c.cannotDeleteDefaultProject);
       return;
     }
-    const confirmMsg = language === 'fa'
-      ? `آیا از حذف پروژه «${targetProject.name}» اطمینان دارید؟ تمامی رکوردهای مرتبط با این پروژه حذف خواهند شد.`
-      : t('confirmDeleteProject') || 'آیا از حذف این پروژه اطمینان دارید؟';
+    const confirmMsg = c.confirmDeleteProject(targetProject.name);
     if (confirm(confirmMsg)) {
       try {
         await deleteProject(targetProject.id);
@@ -327,9 +523,16 @@ export function ProjectSettingsModal() {
   };
 
   const currencies = [
-    { code: 'IQD', label: t('iqdCurrency') || 'دینار عراق', symbol: 'د.ع' },
-    { code: 'IRT', label: t('irtCurrency') || 'تومان ایران', symbol: 'تومان' },
-    { code: 'USD', label: t('usdCurrency') || 'دلار آمریکا', symbol: '$' }
+    { code: 'IQD', label: c.currencies.IQD.label, symbol: c.currencies.IQD.symbol },
+    { code: 'IRT', label: c.currencies.IRT.label, symbol: c.currencies.IRT.symbol },
+    { code: 'USD', label: c.currencies.USD.label, symbol: c.currencies.USD.symbol }
+  ];
+
+  const TABS = [
+    { id: 'general', icon: FolderKanban, label: c.tabs.general },
+    { id: 'sections', icon: Layers, label: c.tabs.sections },
+    { id: 'archived', icon: Archive, label: c.tabs.archived },
+    { id: 'trash', icon: Trash2, label: c.tabs.trash }
   ];
 
   return (
@@ -349,7 +552,7 @@ export function ProjectSettingsModal() {
             </div>
             <div>
               <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                {language === 'fa' ? 'مدیریت و ویرایش پروژه' : language === 'ku' ? 'بەڕێوەبردن و دەستکاریکردنی پڕۆژە' : 'Project Management'}
+                {c.modalTitle}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {targetProject.name}
@@ -370,7 +573,7 @@ export function ProjectSettingsModal() {
         <div className="px-6 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">
             <FolderKanban className="w-4 h-4 text-sky-500 flex-shrink-0" />
-            <span>{language === 'fa' ? 'انتخاب پروژه:' : language === 'ku' ? 'پڕۆژەی هەڵبژێردراو:' : 'Selected Project:'}</span>
+            <span>{c.selectedProject}</span>
           </div>
           <div className="flex items-center gap-2 flex-1 justify-end">
             <select
@@ -395,7 +598,7 @@ export function ProjectSettingsModal() {
                 setIsNewProjectModalOpen(true);
               }}
               className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-400 rounded-xl transition-colors border border-emerald-200/50 dark:border-emerald-800/50"
-              title={language === 'fa' ? 'ایجاد پروژه جدید' : 'New Project'}
+              title={c.newProject}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -405,38 +608,29 @@ export function ProjectSettingsModal() {
         {/* Tab Switcher: Navbar Style */}
         <div className="px-6 pt-4 pb-2 shrink-0 flex justify-center">
           <div className="inline-flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/60 p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
-            {(() => {
-              const TABS = [
-                { id: 'general', icon: FolderKanban, label: language === 'fa' ? 'پروژه‌ها' : 'Projects' },
-                { id: 'sections', icon: Layers, label: language === 'fa' ? 'بخش‌ها' : 'Sections' },
-                { id: 'archived', icon: Archive, label: language === 'fa' ? 'بایگانی‌شده' : 'Archived' },
-                { id: 'trash', icon: Trash2, label: language === 'fa' ? 'حذف‌شده' : 'Deleted' }
-              ];
-              
-              return TABS.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`relative justify-center p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 ${
-                      isActive
-                        ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 transition-transform hover:scale-110" />
-                    {isActive && (
-                      <span className="text-xs font-semibold px-1 whitespace-nowrap animate-fade-in">
-                        {tab.label}
-                      </span>
-                    )}
-                  </button>
-                );
-              });
-            })()}
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative justify-center p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 ${
+                    isActive
+                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30 scale-105 font-bold border border-sky-400/30'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 transition-transform hover:scale-110" />
+                  {isActive && (
+                    <span className="text-xs font-semibold px-1 whitespace-nowrap animate-fade-in">
+                      {tab.label}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -454,10 +648,10 @@ export function ProjectSettingsModal() {
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    {t('totalPersonnel') || 'کل پرسنل اختصاص‌یافته'}
+                    {c.totalPersonnel}
                   </div>
                   <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">
-                    {stats.workers} نفر
+                    {stats.workers} {c.personUnit}
                   </div>
                 </div>
               </div>
@@ -468,10 +662,10 @@ export function ProjectSettingsModal() {
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    {t('totalLogsRecorded') || 'کل رکوردهای حضور'}
+                    {c.totalLogsRecorded}
                   </div>
                   <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">
-                    {stats.logs} رکورد
+                    {stats.logs} {c.recordUnit}
                   </div>
                 </div>
               </div>
@@ -495,36 +689,36 @@ export function ProjectSettingsModal() {
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('projectName') || 'نام پروژه'} <span className="text-rose-500">*</span>
+                  {c.projectName} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="مثال: پروژه ورامین، سد ایذه..."
+                  placeholder={c.projectNamePlaceholder}
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('projectCurrency') || 'واحد پول پروژه'}
+                  {c.projectCurrency}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {currencies.map((c) => (
+                  {currencies.map((curr) => (
                     <button
-                      key={c.code}
+                      key={curr.code}
                       type="button"
-                      onClick={() => setCurrency(c.code)}
+                      onClick={() => setCurrency(curr.code)}
                       className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-0.5 ${
-                        currency === c.code
+                        currency === curr.code
                           ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 shadow-xs'
                           : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}
                     >
-                      <span>{c.label}</span>
-                      <span className="text-[10px] opacity-60">({c.symbol})</span>
+                      <span>{curr.label}</span>
+                      <span className="text-[10px] opacity-60">({curr.symbol})</span>
                     </button>
                   ))}
                 </div>
@@ -534,7 +728,7 @@ export function ProjectSettingsModal() {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{t('standardWorkHours') || 'ساعت کار استاندارد روزانه'}</span>
+                    <span>{c.standardWorkHours}</span>
                   </label>
                   <input
                     type="number"
@@ -550,7 +744,7 @@ export function ProjectSettingsModal() {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1">
                     <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{t('overtimeMultiplier') || 'ضریب اضافه کاری'}</span>
+                    <span>{c.overtimeMultiplier}</span>
                   </label>
                   <input
                     type="number"
@@ -566,13 +760,13 @@ export function ProjectSettingsModal() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('notes') || 'توضیحات و یادداشت'}
+                  {c.notes}
                 </label>
                 <textarea
                   rows="2"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="ملاحظات خاص این پروژه..."
+                  placeholder={c.notesPlaceholder}
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden resize-none"
                 />
               </div>
@@ -585,7 +779,7 @@ export function ProjectSettingsModal() {
                       type="button"
                       onClick={handleUnarchive}
                       className="p-2 text-slate-400 hover:text-amber-600 bg-slate-50 hover:bg-amber-50 dark:bg-slate-800/50 dark:hover:bg-amber-950/50 rounded-xl transition-colors border border-transparent hover:border-amber-200/50 dark:hover:border-amber-800/50 shadow-xs"
-                      title={t('unarchiveProject') || 'خروج از بایگانی'}
+                      title={c.unarchiveProject}
                     >
                       <Archive className="w-5 h-5" />
                     </button>
@@ -594,7 +788,7 @@ export function ProjectSettingsModal() {
                       type="button"
                       onClick={handleArchive}
                       className="p-2 text-slate-400 hover:text-amber-600 bg-slate-50 hover:bg-amber-50 dark:bg-slate-800/50 dark:hover:bg-amber-950/50 rounded-xl transition-colors border border-transparent hover:border-amber-200/50 dark:hover:border-amber-800/50 shadow-xs"
-                      title={t('archiveProject') || 'بایگانی کردن پروژه'}
+                      title={c.archiveProject}
                     >
                       <Archive className="w-5 h-5" />
                     </button>
@@ -604,7 +798,7 @@ export function ProjectSettingsModal() {
                     type="button"
                     onClick={handleSoftDelete}
                     className="p-2 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 dark:bg-slate-800/50 dark:hover:bg-rose-950/50 rounded-xl transition-colors border border-transparent hover:border-rose-200/50 dark:hover:border-rose-800/50 shadow-xs"
-                    title={t('moveToTrash') || 'انتقال به سطل آشغال'}
+                    title={c.moveToTrash}
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -617,7 +811,7 @@ export function ProjectSettingsModal() {
                   onClick={() => setIsProjectSettingsModalOpen(false)}
                   className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
                 >
-                  {t('cancel')}
+                  {c.cancel}
                 </button>
                 <button
                   type="submit"
@@ -629,7 +823,7 @@ export function ProjectSettingsModal() {
                   ) : (
                     <>
                       <Check className="w-4 h-4" />
-                      <span>{t('saveChanges') || 'ذخیره تغییرات'}</span>
+                      <span>{c.saveChanges}</span>
                     </>
                   )}
                 </button>
@@ -642,12 +836,10 @@ export function ProjectSettingsModal() {
             <div className="flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                  {t('projectSections') || 'بخش‌های پروژه (ساب‌پروژه‌ها)'}
+                  {c.projectSections}
                 </h4>
                 <p className="text-[11px] text-slate-400">
-                  {language === 'fa' 
-                    ? 'تعریف، ویرایش نام و مدیریت زیرپروژه‌ها جهت تفکیک دقیق هزینه‌ها و کارکرد پرسنل'
-                    : 'Define, edit names, and manage sub-sections for strict cost and attendance allocation.'}
+                  {c.projectSectionsDesc}
                 </p>
               </div>
             </div>
@@ -658,7 +850,7 @@ export function ProjectSettingsModal() {
                 type="text"
                 value={newSectionName}
                 onChange={(e) => setNewSectionName(e.target.value)}
-                placeholder={language === 'fa' ? 'نام بخش جدید (مثال: زراعت، تاسیسات...)' : 'New section name...'}
+                placeholder={c.newSectionPlaceholder}
                 className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
               />
               <button
@@ -667,7 +859,7 @@ export function ProjectSettingsModal() {
                 className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all"
               >
                 <Plus className="w-4 h-4" />
-                <span>{t('addSection') || 'افزودن'}</span>
+                <span>{c.addSection}</span>
               </button>
             </form>
 
@@ -676,7 +868,7 @@ export function ProjectSettingsModal() {
               {activeSections.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
                   <Layers className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                  <span>{language === 'fa' ? 'هنوز بخشی برای این پروژه تعریف نشده است.' : 'No sub-sections defined for this project yet.'}</span>
+                  <span>{c.noSectionsYet}</span>
                 </div>
               ) : (
                 activeSections.map((sec) => (
@@ -703,7 +895,7 @@ export function ProjectSettingsModal() {
                           onClick={() => handleSaveEditSection(sec)}
                           disabled={!editingSectionName.trim()}
                           className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors"
-                          title={t('save') || 'ذخیره'}
+                          title={c.save}
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -711,7 +903,7 @@ export function ProjectSettingsModal() {
                           type="button"
                           onClick={() => setEditingSectionId(null)}
                           className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                          title={t('cancel') || 'انصراف'}
+                          title={c.cancel}
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -733,7 +925,7 @@ export function ProjectSettingsModal() {
                             type="button"
                             onClick={() => handleStartEditSection(sec)}
                             className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                            title={language === 'fa' ? 'ویرایش نام بخش' : 'Edit Section Name'}
+                            title={c.editSectionName}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -741,7 +933,7 @@ export function ProjectSettingsModal() {
                             type="button"
                             onClick={() => handleArchiveSection(sec)}
                             className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-colors"
-                            title={t('archive') || 'بایگانی بخش'}
+                            title={c.archiveSection}
                           >
                             <Archive className="w-3.5 h-3.5" />
                           </button>
@@ -749,7 +941,7 @@ export function ProjectSettingsModal() {
                             type="button"
                             onClick={() => handleMoveSectionToTrash(sec)}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
-                            title={t('moveToTrash') || 'انتقال به سطل آشغال'}
+                            title={c.moveToTrash}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -767,25 +959,23 @@ export function ProjectSettingsModal() {
             <div>
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-1.5">
                 <Archive className="w-4 h-4 text-amber-500" />
-                <span>{t('archived') || 'بایگانی‌شده'}</span>
+                <span>{c.archivedTitle}</span>
               </h4>
               <p className="text-[11px] text-slate-400">
-                {language === 'fa'
-                  ? 'پروژه‌ها و بخش‌های غیرفعال در اینجا قرار می‌گیرند تا فضای کاری شما خلوت بماند.'
-                  : 'Inactive projects and sections are kept here to declutter your workspace.'}
+                {c.archivedDesc}
               </p>
             </div>
 
             {/* 1. Archived Sections for this project */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                <span>بخش‌های بایگانی‌شده این پروژه</span>
+                <span>{c.archivedSectionsTitle}</span>
                 <span className="text-[11px] text-slate-400 font-mono">({archivedSections.length})</span>
               </div>
 
               {archivedSections.length === 0 ? (
                 <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <span>هیچ بخش بایگانی‌شده‌ای وجود ندارد.</span>
+                  <span>{c.noArchivedSections}</span>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-40 overflow-y-auto pe-1">
@@ -804,16 +994,16 @@ export function ProjectSettingsModal() {
                           type="button"
                           onClick={() => handleUnarchiveSection(sec)}
                           className="flex items-center gap-1 px-2.5 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors"
-                          title={t('unarchive')}
+                          title={c.unarchive}
                         >
                           <Archive className="w-3 h-3" />
-                          <span>{t('unarchive') || 'خروج از بایگانی'}</span>
+                          <span>{c.unarchive}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleMoveSectionToTrash(sec)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 bg-rose-50/50 dark:bg-rose-950/30 rounded-lg transition-colors"
-                          title={t('moveToTrash')}
+                          title={c.moveToTrash}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -827,13 +1017,13 @@ export function ProjectSettingsModal() {
             {/* 2. Archived Projects */}
             <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                <span>پروژه‌های بایگانی‌شده</span>
+                <span>{c.archivedProjectsTitle}</span>
                 <span className="text-[11px] text-slate-400 font-mono">({archivedProjects?.length || 0})</span>
               </div>
 
               {(!archivedProjects || archivedProjects.length === 0) ? (
                 <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <span>هیچ پروژه‌ای بایگانی نشده است.</span>
+                  <span>{c.noArchivedProjects}</span>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-40 overflow-y-auto pe-1">
@@ -861,15 +1051,15 @@ export function ProjectSettingsModal() {
                             }
                           }}
                           className="flex items-center gap-1 px-2.5 py-1 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors"
-                          title={t('unarchive')}
+                          title={c.unarchive}
                         >
                           <Archive className="w-3 h-3" />
-                          <span>{t('unarchive') || 'خروج از بایگانی'}</span>
+                          <span>{c.unarchive}</span>
                         </button>
                         <button
                           type="button"
                           onClick={async () => {
-                            if (window.confirm((t('moveToTrash') || 'انتقال به سطل آشغال') + ` (${p.name})`)) {
+                            if (window.confirm(c.moveToTrashConfirm(p.name))) {
                               try {
                                 await softDeleteProject(p.id);
                               } catch (err) {
@@ -878,7 +1068,7 @@ export function ProjectSettingsModal() {
                             }
                           }}
                           className="p-1.5 text-slate-400 hover:text-rose-600 bg-rose-50/50 dark:bg-rose-950/30 rounded-lg transition-colors"
-                          title={t('moveToTrash')}
+                          title={c.moveToTrash}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -890,30 +1080,28 @@ export function ProjectSettingsModal() {
             </div>
           </div>
         ) : (
-          /* Tab 3: Trash & Recovery (Deleted Sections & Deleted Projects) */
+          /* Tab 4: Trash & Recovery (Deleted Sections & Deleted Projects) */
           <div className="p-6 space-y-5">
             <div>
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-1.5">
                 <Trash2 className="w-4 h-4 text-rose-500" />
-                <span>{t('trash') || 'سطل آشغال و بازیابی اطلاعات'}</span>
+                <span>{c.trashTitle}</span>
               </h4>
               <p className="text-[11px] text-slate-400">
-                {language === 'fa'
-                  ? 'موارد حذف‌شده در اینجا نگهداری می‌شوند تا در صورت نیاز بازیابی شوند یا به صورت دائمی حذف گردند.'
-                  : 'Deleted items are kept here so they can be restored or permanently removed.'}
+                {c.trashDesc}
               </p>
             </div>
 
             {/* 1. Deleted Sections for this project */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                <span>{t('deletedSections') || 'بخش‌های حذف‌شده این پروژه'}</span>
+                <span>{c.deletedSectionsTitle}</span>
                 <span className="text-[11px] text-slate-400 font-mono">({deletedSections.length})</span>
               </div>
 
               {deletedSections.length === 0 ? (
                 <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <span>هیچ بخش حذف‌شده‌ای وجود ندارد.</span>
+                  <span>{c.noDeletedSections}</span>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-40 overflow-y-auto pe-1">
@@ -937,16 +1125,16 @@ export function ProjectSettingsModal() {
                           type="button"
                           onClick={() => handleRestoreSection(sec)}
                           className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
-                          title={t('restore')}
+                          title={c.restore}
                         >
                           <RotateCcw className="w-3 h-3" />
-                          <span>{t('restore') || 'بازیابی'}</span>
+                          <span>{c.restore}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handlePermanentDeleteSection(sec)}
                           className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-100/70 dark:bg-rose-950/60 rounded-lg transition-colors"
-                          title={t('permanentDelete')}
+                          title={c.permanentDelete}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -960,13 +1148,13 @@ export function ProjectSettingsModal() {
             {/* 2. Deleted Projects */}
             <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                <span>{t('deletedProjects') || 'پروژه‌های حذف‌شده'}</span>
+                <span>{c.deletedProjectsTitle}</span>
                 <span className="text-[11px] text-slate-400 font-mono">({trashProjects?.length || 0})</span>
               </div>
 
               {(!trashProjects || trashProjects.length === 0) ? (
                 <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <span>هیچ پروژه حذف‌شده‌ای در سطل آشغال نیست.</span>
+                  <span>{c.noDeletedProjects}</span>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-40 overflow-y-auto pe-1">
@@ -994,15 +1182,15 @@ export function ProjectSettingsModal() {
                             }
                           }}
                           className="flex items-center gap-1 px-2.5 py-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
-                          title={t('restore')}
+                          title={c.restore}
                         >
                           <RotateCcw className="w-3 h-3" />
-                          <span>{t('restore') || 'بازیابی'}</span>
+                          <span>{c.restore}</span>
                         </button>
                         <button
                           type="button"
                           onClick={async () => {
-                            if (window.confirm((t('permanentDeleteConfirm') || 'آیا از حذف دائمی اطمینان دارید؟') + ` (${p.name})`)) {
+                            if (window.confirm(c.permanentDeleteProjectConfirm(p.name))) {
                               try {
                                 await deleteProject(p.id);
                               } catch (err) {
@@ -1011,7 +1199,7 @@ export function ProjectSettingsModal() {
                             }
                           }}
                           className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-100/70 dark:bg-rose-950/60 rounded-lg transition-colors"
-                          title={t('permanentDelete')}
+                          title={c.permanentDelete}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
