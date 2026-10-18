@@ -190,6 +190,7 @@ export function AccountSubsidiaryLedgerSection({
   onBack,
   onQuickDeposit
 }) {
+  const txt = COPY[language] || COPY.fa;
   const isRtl = language === 'fa' || language === 'ku';
 
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'this_month' | 'last_month' | 'custom'

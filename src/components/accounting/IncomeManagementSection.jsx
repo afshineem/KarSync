@@ -121,6 +121,7 @@ export function IncomeManagementSection({
   currency = 'IQD',
   language = 'fa' 
 }) {
+  const txt = COPY[language] || COPY.fa;
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState(null);
   const [incomeToDelete, setIncomeToDelete] = useState(null);

@@ -343,6 +343,7 @@ export function AccountSubsidiaryLedgerModal({
   onSelectEntity,
   onClose
 }) {
+  const txt = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
