@@ -32,6 +32,52 @@ const PENDING_DELETED_ACCOUNTS_KEY = 'workshop_pending_deleted_accounts';
 const PENDING_DELETED_INCOMES_KEY = 'workshop_pending_deleted_incomes';
 export const WORKER_PROJECTS_STORAGE_KEY = 'workshop_worker_projects';
 
+export function getActiveWorkspaceContext() {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("workshop_auth_session") : null;
+    if (raw) {
+      const user = JSON.parse(raw);
+      const workspaceId = user.workspace_id || user.workspaceId || user.workspaceCode;
+      const userId = user.id || user.userId;
+      
+      const isLegacyOwner = 
+        userId === "867f5819-e911-45f2-9d4f-d4a7f955ef5f" ||
+        user.email === "afshineem@gmail.com" ||
+        workspaceId === "4a2980ba-f500-4689-9b13-e0c8df300f70" ||
+        workspaceId === "KAR101" ||
+        userId === "admin_local" ||
+        (!userId && !user.email);
+      
+      return {
+        workspaceId,
+        userId,
+        email: user.email,
+        isLegacyOwner
+      };
+    }
+  } catch (_) {}
+
+  return {
+    workspaceId: null,
+    userId: null,
+    email: null,
+    isLegacyOwner: true // fallback for offline standalone prototype
+  };
+}
+
+export function getScopedSettingKey(baseKey) {
+  const ctx = getActiveWorkspaceContext();
+  if (ctx.isLegacyOwner) {
+    return baseKey;
+  }
+  const scopeId = ctx.workspaceId || ctx.userId;
+  if (!scopeId) {
+    return `${baseKey}_unauthenticated_sandbox`;
+  }
+  return `${baseKey}_ws_${scopeId}`;
+}
+
+
 export function getPendingDeletedAccounts() {
   try {
     const raw = localStorage.getItem(PENDING_DELETED_ACCOUNTS_KEY);
@@ -529,7 +575,7 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
     const { data: sData } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_worker_metadata')
+      .eq('setting_key', getScopedSettingKey('app_worker_metadata'))
       .maybeSingle();
     if (sData?.setting_value) {
       cloudMetadata = JSON.parse(sData.setting_value) || {};
@@ -1081,21 +1127,21 @@ function subscribeToRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
       const key = payload.new?.setting_key || payload.old?.setting_key;
       console.log('⚡ Realtime Settings table change detected:', key);
-      if (key === 'app_financial_accounts') {
+      if (key === getScopedSettingKey('app_financial_accounts')) {
         await pullFinancialAccountsLive(true);
-      } else if (key === 'app_treasury_incomes') {
+      } else if (key === getScopedSettingKey('app_treasury_incomes')) {
         await pullTreasuryIncomesLive(true);
-      } else if (key === 'app_account_transfers') {
+      } else if (key === getScopedSettingKey('app_account_transfers')) {
         await pullAccountTransfersLive(true);
-      } else if (key === 'app_counterparties') {
+      } else if (key === getScopedSettingKey('app_counterparties')) {
         await pullCounterpartiesLive(true);
-      } else if (key === 'app_global_overdraft_policy') {
+      } else if (key === getScopedSettingKey('app_global_overdraft_policy')) {
         await pullGlobalOverdraftPolicyLive();
-      } else if (key === 'app_projects') {
+      } else if (key === getScopedSettingKey('app_projects')) {
         await pullProjectsLive(true);
-      } else if (key === 'app_project_sections') {
+      } else if (key === getScopedSettingKey('app_project_sections')) {
         await pullProjectSectionsLive(true);
-      } else if (key === 'app_groups') {
+      } else if (key === getScopedSettingKey('app_groups')) {
         await pullGroupsLive(true);
       }
     })
@@ -1138,7 +1184,7 @@ export async function pullProjectsLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_projects')
+      .eq('setting_key', getScopedSettingKey('app_projects'))
       .maybeSingle();
 
     if (!sErr && sData?.setting_value) {
@@ -1179,11 +1225,18 @@ export async function pullProjectsLive(force = false) {
           });
         }
 
-        // Remove local projects that were deleted in cloud (except DEFAULT_PROJECT_ID)
+        // Remove local projects that were deleted in cloud (or legacy default project if active user is not legacy owner)
         const localProjects = await db.projects.toArray();
+        const ctx = getActiveWorkspaceContext();
         for (const lp of localProjects) {
-          if (lp.id !== DEFAULT_PROJECT_ID && !validCloudProjectIds.has(lp.id)) {
-            await db.projects.delete(lp.id);
+          if (!validCloudProjectIds.has(lp.id)) {
+            if (lp.id === DEFAULT_PROJECT_ID) {
+              if (!ctx.isLegacyOwner && lp.name === 'باخی سه‌رته‌ک') {
+                await db.projects.delete(lp.id);
+              }
+            } else {
+              await db.projects.delete(lp.id);
+            }
           }
         }
       });
@@ -1209,7 +1262,7 @@ export async function pushProjectLive(p) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_projects')
+      .eq('setting_key', getScopedSettingKey('app_projects'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -1242,7 +1295,7 @@ export async function pushProjectLive(p) {
     const mergedList = Array.from(mergedMap.values());
 
     const { error } = await supabase.from('settings').upsert({
-      setting_key: 'app_projects',
+      setting_key: getScopedSettingKey('app_projects'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
@@ -1275,7 +1328,7 @@ export async function deleteProjectLive(projectId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_projects')
+      .eq('setting_key', getScopedSettingKey('app_projects'))
       .maybeSingle();
 
     let projects = [];
@@ -1287,7 +1340,7 @@ export async function deleteProjectLive(projectId) {
 
     const filtered = projects.filter(p => p.id !== projectId);
     await supabase.from('settings').upsert({
-      setting_key: 'app_projects',
+      setting_key: getScopedSettingKey('app_projects'),
       setting_value: JSON.stringify(filtered),
       updated_at: new Date().toISOString()
     });
@@ -1318,7 +1371,7 @@ export async function pullProjectSectionsLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_project_sections')
+      .eq('setting_key', getScopedSettingKey('app_project_sections'))
       .maybeSingle();
 
     if (!sErr && sData?.setting_value) {
@@ -1385,7 +1438,7 @@ export async function pushProjectSectionLive(s) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_project_sections')
+      .eq('setting_key', getScopedSettingKey('app_project_sections'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -1413,7 +1466,7 @@ export async function pushProjectSectionLive(s) {
 
     const mergedList = Array.from(mergedMap.values());
     const { error } = await supabase.from('settings').upsert({
-      setting_key: 'app_project_sections',
+      setting_key: getScopedSettingKey('app_project_sections'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
@@ -1443,7 +1496,7 @@ export async function deleteProjectSectionLive(sectionId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_project_sections')
+      .eq('setting_key', getScopedSettingKey('app_project_sections'))
       .maybeSingle();
 
     let sections = [];
@@ -1455,7 +1508,7 @@ export async function deleteProjectSectionLive(sectionId) {
 
     const filtered = sections.filter(sec => sec.id !== sectionId);
     await supabase.from('settings').upsert({
-      setting_key: 'app_project_sections',
+      setting_key: getScopedSettingKey('app_project_sections'),
       setting_value: JSON.stringify(filtered),
       updated_at: new Date().toISOString()
     });
@@ -1486,7 +1539,7 @@ export async function pullWorkerProjectsLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_worker_projects')
+      .eq('setting_key', getScopedSettingKey('app_worker_projects'))
       .maybeSingle();
 
     let cloudMap = {};
@@ -1537,7 +1590,7 @@ export async function pushWorkerProjectMapLive(workerId, projectId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_worker_projects')
+      .eq('setting_key', getScopedSettingKey('app_worker_projects'))
       .maybeSingle();
 
     let cloudMap = {};
@@ -1550,7 +1603,7 @@ export async function pushWorkerProjectMapLive(workerId, projectId) {
     cloudMap[workerId] = projectId;
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_worker_projects',
+      setting_key: getScopedSettingKey('app_worker_projects'),
       setting_value: JSON.stringify(cloudMap),
       updated_at: new Date().toISOString()
     });
@@ -1574,7 +1627,7 @@ export async function removeWorkerProjectMapLive(workerId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_worker_projects')
+      .eq('setting_key', getScopedSettingKey('app_worker_projects'))
       .maybeSingle();
 
     let cloudMap = {};
@@ -1587,7 +1640,7 @@ export async function removeWorkerProjectMapLive(workerId) {
     delete cloudMap[workerId];
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_worker_projects',
+      setting_key: getScopedSettingKey('app_worker_projects'),
       setting_value: JSON.stringify(cloudMap),
       updated_at: new Date().toISOString()
     });
@@ -1614,7 +1667,7 @@ export async function syncAllWorkerProjectsToCloud() {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_worker_projects')
+      .eq('setting_key', getScopedSettingKey('app_worker_projects'))
       .maybeSingle();
 
     let cloudMap = {};
@@ -1627,7 +1680,7 @@ export async function syncAllWorkerProjectsToCloud() {
     const merged = { ...cloudMap, ...map };
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_worker_projects',
+      setting_key: getScopedSettingKey('app_worker_projects'),
       setting_value: JSON.stringify(merged),
       updated_at: new Date().toISOString()
     });
@@ -1656,7 +1709,7 @@ export async function pullGroupsLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_groups')
+      .eq('setting_key', getScopedSettingKey('app_groups'))
       .maybeSingle();
 
     if (!sErr && sData?.setting_value) {
@@ -1729,7 +1782,7 @@ export async function pushGroupLive(group) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_groups')
+      .eq('setting_key', getScopedSettingKey('app_groups'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -1766,7 +1819,7 @@ export async function pushGroupLive(group) {
     const mergedList = Array.from(mergedMap.values());
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_groups',
+      setting_key: getScopedSettingKey('app_groups'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
@@ -1789,7 +1842,7 @@ export async function deleteGroupLive(groupId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_groups')
+      .eq('setting_key', getScopedSettingKey('app_groups'))
       .maybeSingle();
 
     let list = [];
@@ -1823,7 +1876,7 @@ export async function deleteGroupLive(groupId) {
     }
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_groups',
+      setting_key: getScopedSettingKey('app_groups'),
       setting_value: JSON.stringify(updatedList),
       updated_at: now
     });
@@ -1862,7 +1915,7 @@ export async function pushAllGroupsToCloud() {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_groups')
+      .eq('setting_key', getScopedSettingKey('app_groups'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -1892,7 +1945,7 @@ export async function pushAllGroupsToCloud() {
     const mergedList = Array.from(mergedMap.values());
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_groups',
+      setting_key: getScopedSettingKey('app_groups'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
@@ -1919,7 +1972,7 @@ export async function pullWorkerMetadataLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_worker_metadata')
+      .eq('setting_key', getScopedSettingKey('app_worker_metadata'))
       .maybeSingle();
 
     let cloudMetadata = {};
@@ -2038,7 +2091,7 @@ export async function pullWorkerMetadataLive(force = false) {
 
     if (hasLocalChanges) {
       await supabase.from('settings').upsert({
-        setting_key: 'app_worker_metadata',
+        setting_key: getScopedSettingKey('app_worker_metadata'),
         setting_value: JSON.stringify(cloudMetadata),
         updated_at: new Date().toISOString()
       });
@@ -2058,7 +2111,7 @@ export async function pushWorkerMetadataLive(workerId, metadata) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_worker_metadata')
+      .eq('setting_key', getScopedSettingKey('app_worker_metadata'))
       .maybeSingle();
 
     let cloudMetadata = {};
@@ -2076,7 +2129,7 @@ export async function pushWorkerMetadataLive(workerId, metadata) {
     };
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_worker_metadata',
+      setting_key: getScopedSettingKey('app_worker_metadata'),
       setting_value: JSON.stringify(cloudMetadata),
       updated_at: now
     });
@@ -2094,7 +2147,7 @@ export async function syncAllWorkerMetadataToCloud() {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_worker_metadata')
+      .eq('setting_key', getScopedSettingKey('app_worker_metadata'))
       .maybeSingle();
 
     let cloudMetadata = {};
@@ -2127,7 +2180,7 @@ export async function syncAllWorkerMetadataToCloud() {
     }
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_worker_metadata',
+      setting_key: getScopedSettingKey('app_worker_metadata'),
       setting_value: JSON.stringify(cloudMetadata),
       updated_at: new Date().toISOString()
     });
@@ -2428,7 +2481,7 @@ export async function pushPaymentsLive() {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_payments')
+      .eq('setting_key', getScopedSettingKey('app_payments'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -2456,7 +2509,7 @@ export async function pushPaymentsLive() {
     }));
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_payments',
+      setting_key: getScopedSettingKey('app_payments'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
@@ -2499,7 +2552,7 @@ export async function pullPaymentsLive(force = false) {
     const { data, error } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_payments')
+      .eq('setting_key', getScopedSettingKey('app_payments'))
       .maybeSingle();
 
     if (!error && data && data.setting_value) {
@@ -2711,7 +2764,7 @@ export async function pullExpensesLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_expenses')
+      .eq('setting_key', getScopedSettingKey('app_expenses'))
       .maybeSingle();
 
     if (!sErr && sData?.setting_value) {
@@ -2838,7 +2891,7 @@ export async function pushExpenseLive(expense) {
     const { data: sData } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_expenses')
+      .eq('setting_key', getScopedSettingKey('app_expenses'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -2866,7 +2919,7 @@ export async function pushExpenseLive(expense) {
 
     const mergedList = Array.from(mergedMap.values());
     await supabase.from('settings').upsert({
-      setting_key: 'app_expenses',
+      setting_key: getScopedSettingKey('app_expenses'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
@@ -2929,7 +2982,7 @@ export async function softDeleteExpenseLive(expenseId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_expenses')
+      .eq('setting_key', getScopedSettingKey('app_expenses'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -2937,7 +2990,7 @@ export async function softDeleteExpenseLive(expenseId) {
         const expenses = JSON.parse(data.setting_value) || [];
         const updated = expenses.map(e => e.id === expenseId ? { ...e, deletedAt: now, updatedAt: now } : e);
         await supabase.from('settings').upsert({
-          setting_key: 'app_expenses',
+          setting_key: getScopedSettingKey('app_expenses'),
           setting_value: JSON.stringify(updated),
           updated_at: now
         });
@@ -2978,7 +3031,7 @@ export async function restoreExpenseLive(expenseId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_expenses')
+      .eq('setting_key', getScopedSettingKey('app_expenses'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -2986,7 +3039,7 @@ export async function restoreExpenseLive(expenseId) {
         const expenses = JSON.parse(data.setting_value) || [];
         const updated = expenses.map(e => e.id === expenseId ? { ...e, deletedAt: null, updatedAt: now } : e);
         await supabase.from('settings').upsert({
-          setting_key: 'app_expenses',
+          setting_key: getScopedSettingKey('app_expenses'),
           setting_value: JSON.stringify(updated),
           updated_at: now
         });
@@ -3035,7 +3088,7 @@ export async function archiveExpenseLive(expenseId, isArchived = true) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_expenses')
+      .eq('setting_key', getScopedSettingKey('app_expenses'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -3048,7 +3101,7 @@ export async function archiveExpenseLive(expenseId, isArchived = true) {
           updatedAt: now
         } : e);
         await supabase.from('settings').upsert({
-          setting_key: 'app_expenses',
+          setting_key: getScopedSettingKey('app_expenses'),
           setting_value: JSON.stringify(updated),
           updated_at: now
         });
@@ -3097,7 +3150,7 @@ export async function permanentDeleteExpenseLive(expenseId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_expenses')
+      .eq('setting_key', getScopedSettingKey('app_expenses'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -3105,7 +3158,7 @@ export async function permanentDeleteExpenseLive(expenseId) {
         const expenses = JSON.parse(data.setting_value) || [];
         const filtered = expenses.filter(e => e.id !== expenseId);
         await supabase.from('settings').upsert({
-          setting_key: 'app_expenses',
+          setting_key: getScopedSettingKey('app_expenses'),
           setting_value: JSON.stringify(filtered),
           updated_at: new Date().toISOString()
         });
@@ -3179,7 +3232,7 @@ export async function pushAllExpensesToCloud() {
     const { data: sData } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_expenses')
+      .eq('setting_key', getScopedSettingKey('app_expenses'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -3198,7 +3251,7 @@ export async function pushAllExpensesToCloud() {
 
     const mergedList = Array.from(mergedMap.values());
     await supabase.from('settings').upsert({
-      setting_key: 'app_expenses',
+      setting_key: getScopedSettingKey('app_expenses'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
     });
@@ -3216,7 +3269,7 @@ export async function pullExpenseCategoriesLive() {
     const { data: sData } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_expense_categories')
+      .eq('setting_key', getScopedSettingKey('app_expense_categories'))
       .maybeSingle();
 
     if (sData?.setting_value) {
@@ -3273,7 +3326,7 @@ export async function pushExpenseCategoryLive(cat) {
   try {
     const list = await db.expenseCategories.toArray();
     await supabase.from('settings').upsert({
-      setting_key: 'app_expense_categories',
+      setting_key: getScopedSettingKey('app_expense_categories'),
       setting_value: JSON.stringify(list),
       updated_at: new Date().toISOString()
     });
@@ -3303,7 +3356,7 @@ export async function deleteExpenseCategoryLive(catId) {
   try {
     const list = await db.expenseCategories.toArray();
     await supabase.from('settings').upsert({
-      setting_key: 'app_expense_categories',
+      setting_key: getScopedSettingKey('app_expense_categories'),
       setting_value: JSON.stringify(list),
       updated_at: new Date().toISOString()
     });
@@ -3341,7 +3394,7 @@ export async function pullFinancialAccountsLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_financial_accounts')
+      .eq('setting_key', getScopedSettingKey('app_financial_accounts'))
       .maybeSingle();
 
     if (!sErr && sData?.setting_value) {
@@ -3454,7 +3507,7 @@ export async function pushFinancialAccountLive(account) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_financial_accounts')
+      .eq('setting_key', getScopedSettingKey('app_financial_accounts'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -3482,7 +3535,7 @@ export async function pushFinancialAccountLive(account) {
     }
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_financial_accounts',
+      setting_key: getScopedSettingKey('app_financial_accounts'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
     });
@@ -3512,7 +3565,7 @@ export async function deleteFinancialAccountLive(accountId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_financial_accounts')
+      .eq('setting_key', getScopedSettingKey('app_financial_accounts'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -3530,7 +3583,7 @@ export async function deleteFinancialAccountLive(accountId) {
           cloudAccounts.push({ id: accountId, deletedAt: new Date().toISOString(), status: 'deleted' });
         }
         await supabase.from('settings').upsert({
-          setting_key: 'app_financial_accounts',
+          setting_key: getScopedSettingKey('app_financial_accounts'),
           setting_value: JSON.stringify(cloudAccounts),
           updated_at: new Date().toISOString()
         });
@@ -3561,7 +3614,7 @@ export async function pushAllFinancialAccountsToCloud() {
     const { data: sData } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_financial_accounts')
+      .eq('setting_key', getScopedSettingKey('app_financial_accounts'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -3587,7 +3640,7 @@ export async function pushAllFinancialAccountsToCloud() {
     }
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_financial_accounts',
+      setting_key: getScopedSettingKey('app_financial_accounts'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
     });
@@ -3617,7 +3670,7 @@ export async function pullTreasuryIncomesLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_treasury_incomes')
+      .eq('setting_key', getScopedSettingKey('app_treasury_incomes'))
       .maybeSingle();
 
     if (!sErr && sData?.setting_value) {
@@ -3695,7 +3748,7 @@ export async function pushTreasuryIncomeLive(income) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_treasury_incomes')
+      .eq('setting_key', getScopedSettingKey('app_treasury_incomes'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -3723,7 +3776,7 @@ export async function pushTreasuryIncomeLive(income) {
     }
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_treasury_incomes',
+      setting_key: getScopedSettingKey('app_treasury_incomes'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
     });
@@ -3750,7 +3803,7 @@ export async function deleteTreasuryIncomeLive(incomeId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_treasury_incomes')
+      .eq('setting_key', getScopedSettingKey('app_treasury_incomes'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -3763,7 +3816,7 @@ export async function deleteTreasuryIncomeLive(incomeId) {
           return ci;
         });
         await supabase.from('settings').upsert({
-          setting_key: 'app_treasury_incomes',
+          setting_key: getScopedSettingKey('app_treasury_incomes'),
           setting_value: JSON.stringify(cloudIncomes),
           updated_at: new Date().toISOString()
         });
@@ -3786,7 +3839,7 @@ export async function pushAllTreasuryIncomesToCloud() {
     const pendingDeleted = new Set(getPendingDeletedIncomes());
     const active = list.filter(i => !pendingDeleted.has(i.id) && !i.deletedAt);
     await supabase.from('settings').upsert({
-      setting_key: 'app_treasury_incomes',
+      setting_key: getScopedSettingKey('app_treasury_incomes'),
       setting_value: JSON.stringify(active),
       updated_at: new Date().toISOString()
     });
@@ -3808,7 +3861,7 @@ export async function pushGlobalOverdraftPolicyLive(policy) {
   if (!navigator.onLine) return;
   try {
     await supabase.from('settings').upsert({
-      setting_key: 'app_global_overdraft_policy',
+      setting_key: getScopedSettingKey('app_global_overdraft_policy'),
       setting_value: JSON.stringify({ policy, updatedAt: new Date().toISOString() }),
       updated_at: new Date().toISOString()
     });
@@ -3827,7 +3880,7 @@ export async function pullGlobalOverdraftPolicyLive() {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_global_overdraft_policy')
+      .eq('setting_key', getScopedSettingKey('app_global_overdraft_policy'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -3860,7 +3913,7 @@ export async function pullAccountTransfersLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_account_transfers')
+      .eq('setting_key', getScopedSettingKey('app_account_transfers'))
       .maybeSingle();
 
     if (!sErr && sData?.setting_value) {
@@ -3941,7 +3994,7 @@ export async function pushAccountTransferLive(transfer) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_account_transfers')
+      .eq('setting_key', getScopedSettingKey('app_account_transfers'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -3968,7 +4021,7 @@ export async function pushAccountTransferLive(transfer) {
     }
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_account_transfers',
+      setting_key: getScopedSettingKey('app_account_transfers'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
     });
@@ -3996,7 +4049,7 @@ export async function deleteAccountTransferLive(transferId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_account_transfers')
+      .eq('setting_key', getScopedSettingKey('app_account_transfers'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -4009,7 +4062,7 @@ export async function deleteAccountTransferLive(transferId) {
           return ct;
         });
         await supabase.from('settings').upsert({
-          setting_key: 'app_account_transfers',
+          setting_key: getScopedSettingKey('app_account_transfers'),
           setting_value: JSON.stringify(cloudTransfers),
           updated_at: new Date().toISOString()
         });
@@ -4031,7 +4084,7 @@ export async function pushAllAccountTransfersToCloud() {
     const list = await db.accountTransfers.toArray();
     const active = list.filter((t) => !t.deletedAt && t.status !== 'deleted');
     await supabase.from('settings').upsert({
-      setting_key: 'app_account_transfers',
+      setting_key: getScopedSettingKey('app_account_transfers'),
       setting_value: JSON.stringify(active),
       updated_at: new Date().toISOString()
     });
@@ -4087,7 +4140,7 @@ export async function pullCounterpartiesLive(force = false) {
     const { data: sData, error: sErr } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_counterparties')
+      .eq('setting_key', getScopedSettingKey('app_counterparties'))
       .maybeSingle();
 
     if (!sErr && sData?.setting_value) {
@@ -4162,7 +4215,7 @@ export async function pushCounterpartyLive(counterparty) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_counterparties')
+      .eq('setting_key', getScopedSettingKey('app_counterparties'))
       .maybeSingle();
 
     let mergedMap = new Map();
@@ -4181,7 +4234,7 @@ export async function pushCounterpartyLive(counterparty) {
     });
 
     await supabase.from('settings').upsert({
-      setting_key: 'app_counterparties',
+      setting_key: getScopedSettingKey('app_counterparties'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
     });
@@ -4205,7 +4258,7 @@ export async function deleteCounterpartyLive(counterpartyId) {
     const { data } = await supabase
       .from('settings')
       .select('setting_value')
-      .eq('setting_key', 'app_counterparties')
+      .eq('setting_key', getScopedSettingKey('app_counterparties'))
       .maybeSingle();
 
     if (data?.setting_value) {
@@ -4218,7 +4271,7 @@ export async function deleteCounterpartyLive(counterpartyId) {
           return cp;
         });
         await supabase.from('settings').upsert({
-          setting_key: 'app_counterparties',
+          setting_key: getScopedSettingKey('app_counterparties'),
           setting_value: JSON.stringify(cloudList),
           updated_at: new Date().toISOString()
         });
@@ -4238,7 +4291,7 @@ export async function pushAllCounterpartiesToCloud() {
     const pendingDeleted = new Set(getPendingDeletedCounterparties());
     const active = list.filter((cp) => !pendingDeleted.has(cp.id) && !cp.deletedAt && cp.status !== 'deleted');
     await supabase.from('settings').upsert({
-      setting_key: 'app_counterparties',
+      setting_key: getScopedSettingKey('app_counterparties'),
       setting_value: JSON.stringify(active),
       updated_at: new Date().toISOString()
     });

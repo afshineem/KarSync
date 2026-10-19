@@ -379,7 +379,7 @@ export async function ensureDefaultProjectExists(userId = 'default_user') {
     const projectCount = await db.projects.count();
     let currentDefault = await db.projects.get(DEFAULT_PROJECT_ID);
 
-    if (projectCount === 0 || !currentDefault) {
+    if (projectCount === 0) {
       currentDefault = {
         id: DEFAULT_PROJECT_ID,
         userId: userId || 'default_user',
@@ -395,29 +395,32 @@ export async function ensureDefaultProjectExists(userId = 'default_user') {
       await db.projects.put(currentDefault);
     }
 
+    const activePrj = currentDefault || (await db.projects.toCollection().first());
+    const fallbackProjectId = activePrj?.id || DEFAULT_PROJECT_ID;
+
     // Forcefully migrate ALL workers, logs, and payments without a valid projectId
     const allWorkers = await db.workers.toArray();
     for (const w of allWorkers) {
       if (!w.projectId) {
-        await db.workers.update(w.id, { projectId: DEFAULT_PROJECT_ID, userId: w.userId || userId || 'default_user' });
+        await db.workers.update(w.id, { projectId: fallbackProjectId, userId: w.userId || userId || 'default_user' });
       }
     }
 
     const allLogs = await db.attendanceLogs.toArray();
     for (const l of allLogs) {
       if (!l.projectId) {
-        await db.attendanceLogs.update(l.id, { projectId: DEFAULT_PROJECT_ID, userId: l.userId || userId || 'default_user' });
+        await db.attendanceLogs.update(l.id, { projectId: fallbackProjectId, userId: l.userId || userId || 'default_user' });
       }
     }
 
     const allPayments = await db.payments.toArray();
     for (const p of allPayments) {
       if (!p.projectId) {
-        await db.payments.update(p.id, { projectId: DEFAULT_PROJECT_ID, userId: p.userId || userId || 'default_user' });
+        await db.payments.update(p.id, { projectId: fallbackProjectId, userId: p.userId || userId || 'default_user' });
       }
     }
 
-    return currentDefault;
+    return activePrj;
   } catch (err) {
     console.warn('ensureDefaultProjectExists warning:', err);
     return null;

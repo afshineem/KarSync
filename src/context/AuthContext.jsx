@@ -263,12 +263,20 @@ export function AuthProvider({ children }) {
         console.warn('Could not fetch profile:', error.message);
       }
 
+      let userWs = null;
+      try {
+        const { data: ws } = await supabase.from('workspaces').select('*').eq('owner_id', supabaseUser.id).limit(1).maybeSingle();
+        userWs = ws;
+      } catch (_) {}
+
       const adminCreds = getAdminCredentials();
       const sessionUser = {
         role: 'admin',
         id: supabaseUser.id,
         userId: supabaseUser.id,
         email: supabaseUser.email,
+        workspace_id: userWs?.id || null,
+        workspaceCode: userWs?.workspace_code || null,
         name: profile?.full_name || supabaseUser.user_metadata?.full_name || adminCreds.name || supabaseUser.email.split('@')[0],
         avatar: profile?.avatar || adminCreds.avatar || supabaseUser.user_metadata?.avatar_url || '',
         title: profile?.title || adminCreds.title || 'مدیر ارشد کارگاه',
@@ -895,14 +903,31 @@ export function AuthProvider({ children }) {
               const { data: ownerWs } = await supabase.from('workspaces').select('*').eq('owner_id', verifiedUser.id).limit(1).maybeSingle();
               wsData = ownerWs;
             }
+            if (!wsData) {
+              const generatedCode = 'KAR' + Math.floor(100 + Math.random() * 900);
+              const companyName = verifiedUser.user_metadata?.company_name || 'کارگاه من';
+              const { data: createdWs } = await supabase.from('workspaces').insert({
+                name: companyName,
+                workspace_code: generatedCode,
+                owner_id: verifiedUser.id,
+                max_users_limit: 5,
+                plan_tier: 'free'
+              }).select().maybeSingle();
+              if (createdWs) {
+                wsData = createdWs;
+              }
+            }
             if (wsData) {
               sessionUser.workspace_id = wsData.id;
+              sessionUser.workspaceCode = wsData.workspace_code;
+              if (db.workspaces) await db.workspaces.put(wsData);
+
               const { data: existingAdmin } = await supabase.from('app_users').select('*').eq('id', verifiedUser.id).maybeSingle();
               if (!existingAdmin) {
                 const newAdmin = {
                   id: verifiedUser.id,
                   workspace_id: wsData.id,
-                  username: 'admin',
+                  username: verifiedUser.email ? verifiedUser.email.split('@')[0] : 'admin',
                   full_name: sessionUser.name || 'مدیر سیستم',
                   role: 'admin',
                   is_active: true,
@@ -910,6 +935,7 @@ export function AuthProvider({ children }) {
                   can_edit_past_records: true
                 };
                 await supabase.from('app_users').insert(newAdmin);
+                if (db.app_users) await db.app_users.put(newAdmin);
               }
             }
           } catch (e) {
@@ -1048,34 +1074,85 @@ export function AuthProvider({ children }) {
           onboarding_completed: true,
           updated_at: new Date().toISOString()
         });
+
+        if (user.workspace_id) {
+          await supabase.from('workspaces').update({ name: companyName }).eq('id', user.workspace_id);
+          if (db.workspaces) {
+            await db.workspaces.update(user.workspace_id, { name: companyName }).catch(() => {});
+          }
+        }
       } catch (err) {
         console.warn('Could not update profile onboarding in Supabase:', err);
       }
     }
   };
 
-  // Logout handler
+  // Logout handler & strict tenant data isolation
   async function enforceDataIsolation(newUserId) {
     try {
       const lastUserId = localStorage.getItem('last_active_user_id');
-      if (lastUserId && lastUserId !== newUserId) {
+      const isSwitchingUser = lastUserId && lastUserId !== newUserId;
+      
+      const tablesToClear = [
+        'current_session', 'projects', 'projectSections', 'counterparties', 
+        'workers', 'attendanceLogs', 'payments', 'expenseCategories', 
+        'expenses', 'treasuryIncomes', 'financialAccounts', 'accountTransfers', 
+        'groups', 'projectExpenses', 'audit_logs'
+      ];
+
+      if (isSwitchingUser) {
         console.warn('User switched! Wiping local Dexie database for data isolation.');
-        const tablesToClear = [
-          'current_session', 'projects', 'workers', 'attendanceLogs', 
-          'payments', 'expenseCategories', 'expenses', 'treasuryIncomes', 
-          'financialAccounts', 'accountTransfers', 'groups', 'audit_logs'
-        ];
         await withImmutabilityBypass(async () => {
           for (const t of tablesToClear) {
             if (db[t]) await db[t].clear();
           }
         });
+
+        localStorage.removeItem('karsync_active_project_id');
+        localStorage.removeItem('workshop_worker_projects');
+        localStorage.removeItem('karsync_product_tour_seen');
+        localStorage.removeItem('workshop_pending_deleted_workers');
+        localStorage.removeItem('workshop_pending_deleted_logs');
+        localStorage.removeItem('workshop_pending_deleted_payments');
+        localStorage.removeItem('workshop_pending_deleted_projects');
+        localStorage.removeItem('workshop_pending_deleted_sections');
+        localStorage.removeItem('workshop_pending_deleted_groups');
+        localStorage.removeItem('workshop_pending_deleted_accounts');
+        localStorage.removeItem('workshop_pending_deleted_incomes');
+        localStorage.removeItem('workshop_pending_deleted_counterparties');
+        localStorage.removeItem('workshop_pending_deleted_expenses');
       }
+
+      // Defensive check: If the active user is NOT the legacy owner (afshineem@gmail.com / 867f5819-e911-45f2-9d4f-d4a7f955ef5f),
+      // purge any leaked legacy data (باخی سه‌رته‌ک, باخی سه‌رو, لاشه به‌رد, کاک هیمن) from local Dexie
+      const isLegacyOwner = 
+        newUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f' || 
+        newUserId === 'admin_local';
+
+      if (!isLegacyOwner && newUserId) {
+        await withImmutabilityBypass(async () => {
+          const legacyPrj = await db.projects?.get('prj_default_main');
+          if (legacyPrj && legacyPrj.name === 'باخی سه‌رته‌ک') {
+            await db.projects.delete('prj_default_main');
+          }
+          if (db.projectSections) {
+            await db.projectSections.where('id').equals('sec_bakhy_sehro').delete();
+          }
+          if (db.groups) {
+            await db.groups.where('id').equals('grp_1790279475978_4429').delete();
+          }
+          if (db.counterparties) {
+            await db.counterparties.where('id').equals('cpt_mv1ajm8n_vz6gx').delete();
+          }
+        });
+      }
+
       if (newUserId) localStorage.setItem('last_active_user_id', newUserId);
     } catch(err) {
       console.error('Isolation check failed:', err);
     }
   };
+
   const logout = async () => {
     try {
       await supabase.auth.signOut();
@@ -1093,15 +1170,30 @@ export function AuthProvider({ children }) {
     // Clear Dexie local database to ensure data isolation between different accounts
     try {
       const tablesToClear = [
-        'current_session', 'projects', 'workers', 'attendanceLogs', 
-        'payments', 'expenseCategories', 'expenses', 'treasuryIncomes', 
-        'financialAccounts', 'accountTransfers', 'groups', 'audit_logs'
+        'current_session', 'projects', 'projectSections', 'counterparties', 
+        'workers', 'attendanceLogs', 'payments', 'expenseCategories', 
+        'expenses', 'treasuryIncomes', 'financialAccounts', 'accountTransfers', 
+        'groups', 'projectExpenses', 'audit_logs'
       ];
       await withImmutabilityBypass(async () => {
         for (const t of tablesToClear) {
           if (db[t]) await db[t].clear();
         }
       });
+      localStorage.removeItem('last_active_user_id');
+      localStorage.removeItem('karsync_active_project_id');
+      localStorage.removeItem('workshop_worker_projects');
+      localStorage.removeItem('karsync_product_tour_seen');
+      localStorage.removeItem('workshop_pending_deleted_workers');
+      localStorage.removeItem('workshop_pending_deleted_logs');
+      localStorage.removeItem('workshop_pending_deleted_payments');
+      localStorage.removeItem('workshop_pending_deleted_projects');
+      localStorage.removeItem('workshop_pending_deleted_sections');
+      localStorage.removeItem('workshop_pending_deleted_groups');
+      localStorage.removeItem('workshop_pending_deleted_accounts');
+      localStorage.removeItem('workshop_pending_deleted_incomes');
+      localStorage.removeItem('workshop_pending_deleted_counterparties');
+      localStorage.removeItem('workshop_pending_deleted_expenses');
     } catch(err) {
       console.error('Error clearing local data:', err);
     }

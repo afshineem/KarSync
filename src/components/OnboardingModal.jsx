@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
+import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { 
   Building2, 
   User, 
@@ -25,7 +26,7 @@ import {
 export function OnboardingModal() {
   const { t, language, direction } = useLanguage();
   const { user, completeOnboarding } = useAuth();
-  const { createProject } = useProject();
+  const { createProject, updateProject, switchProject } = useProject();
 
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,13 +85,31 @@ export function OnboardingModal() {
     setErrorMsg('');
 
     try {
-      // 1. Create first project
-      await createProject({
-        name: projectName.trim(),
-        currency: defaultCurrency,
-        standardWorkHours: Number(standardWorkHours) || 8,
-        overtimeMultiplier: Number(overtimeMultiplier) || 1.0
-      });
+      // 1. Create first project or customize existing default placeholder
+      const defaultPrj = await db.projects.get(DEFAULT_PROJECT_ID);
+      const isCleanDefault = defaultPrj && (defaultPrj.name === 'پروژه مرکزی (کارگاه)' || !defaultPrj.name);
+
+      if (isCleanDefault) {
+        await updateProject(DEFAULT_PROJECT_ID, {
+          name: projectName.trim(),
+          currency: defaultCurrency,
+          standardWorkHours: Number(standardWorkHours) || 8,
+          overtimeMultiplier: Number(overtimeMultiplier) || 1.0,
+          userId: user?.id || user?.userId || 'default_user',
+          notes: ''
+        });
+        if (switchProject) switchProject(DEFAULT_PROJECT_ID);
+      } else {
+        await createProject({
+          name: projectName.trim(),
+          currency: defaultCurrency,
+          standardWorkHours: Number(standardWorkHours) || 8,
+          overtimeMultiplier: Number(overtimeMultiplier) || 1.0
+        });
+        if (defaultPrj && defaultPrj.name === 'پروژه مرکزی (کارگاه)') {
+          await db.projects.delete(DEFAULT_PROJECT_ID);
+        }
+      }
 
       // 2. Complete onboarding profile
       await completeOnboarding({
