@@ -476,7 +476,7 @@ export function LoginView({ theme, toggleTheme }) {
   return (
     <div
       dir={direction}
-      className="relative min-h-screen bg-[#f3f6f4] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between p-3 sm:p-6 lg:p-8 overflow-x-hidden selection:bg-sky-500 selection:text-white transition-colors duration-300"
+      className="relative min-h-screen bg-[#f3f6f4] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between p-2.5 sm:p-4 lg:p-6 overflow-x-hidden selection:bg-sky-500 selection:text-white transition-colors duration-300"
     >
       {/* Ambient Liquid Glass Glow Orbs */}
       <div className="fixed -top-32 -right-32 w-96 h-96 bg-sky-500/12 dark:bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -547,28 +547,28 @@ export function LoginView({ theme, toggleTheme }) {
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* 2. MAIN 12-COLUMN APPLE LIQUID GLASS WORKSPACE                     */}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      <main className="relative z-10 w-full max-w-5xl mx-auto my-auto py-4 sm:py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <main className="relative z-10 w-full max-w-5xl mx-auto my-auto py-2 sm:py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-stretch">
 
           {/* =============================================================== */}
           {/* COLUMN A (5 COLS ON DESKTOP): EXECUTIVE HERO & FEATURE SHOWCASE */}
           {/* =============================================================== */}
-          <div className="lg:col-span-5 relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl flex flex-col justify-between order-2 lg:order-1">
+          <div className="lg:col-span-5 relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl flex flex-col justify-between order-2 lg:order-1">
             {/* Internal Decorative Glows */}
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-sky-500/20 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 space-y-6">
+            <div className="relative z-10 space-y-4">
               {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/15 border border-sky-400/25 text-sky-300 text-[11px] font-bold">
+              <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-sky-500/15 border border-sky-400/25 text-sky-300 text-[10px] sm:text-[11px] font-bold">
                 <Sparkles className="w-3.5 h-3.5 text-sky-400" />
                 <span>{copy.heroBadge}</span>
               </div>
 
               {/* Brand Hero Header */}
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md p-2 flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md p-2 flex items-center justify-center shadow-lg">
                     <img
                       src="/karsync-logo.png"
                       alt="KarSync"
@@ -576,7 +576,7 @@ export function LoginView({ theme, toggleTheme }) {
                     />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-black tracking-tight text-white">
+                    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
                       KarSync
                     </h1>
                     <p className="text-xs text-sky-300/90 font-medium">
@@ -585,53 +585,53 @@ export function LoginView({ theme, toggleTheme }) {
                   </div>
                 </div>
 
-                <h2 className="text-lg sm:text-xl font-extrabold text-white leading-snug pt-2">
+                <h2 className="text-base sm:text-lg font-extrabold text-white leading-snug pt-1">
                   {copy.heroTitle}
                 </h2>
-                <p className="text-xs text-slate-300/85 leading-relaxed">
+                <p className="text-[11px] sm:text-xs text-slate-300/85 leading-relaxed">
                   {copy.heroDesc}
                 </p>
               </div>
 
               {/* 3 Glass Feature Capsules */}
-              <div className="space-y-3 pt-1">
-                <div className="p-3.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-300 flex items-center justify-center shrink-0 mt-0.5">
-                    <CalendarCheck className="w-4.5 h-4.5" />
+              <div className="space-y-2 pt-0.5">
+                <div className="p-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <CalendarCheck className="w-4 h-4" />
                   </div>
                   <div>
                     <h3 className="text-xs font-bold text-white">
                       {copy.feat1Title}
                     </h3>
-                    <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
+                    <p className="text-[10px] sm:text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
                       {copy.feat1Desc}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
-                    <WalletCards className="w-4.5 h-4.5" />
+                <div className="p-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <WalletCards className="w-4 h-4" />
                   </div>
                   <div>
                     <h3 className="text-xs font-bold text-white">
                       {copy.feat2Title}
                     </h3>
-                    <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
+                    <p className="text-[10px] sm:text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
                       {copy.feat2Desc}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center shrink-0 mt-0.5">
-                    <ShieldCheck className="w-4.5 h-4.5" />
+                <div className="p-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/10 backdrop-blur-md transition-all flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
                     <h3 className="text-xs font-bold text-white">
                       {copy.feat3Title}
                     </h3>
-                    <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
+                    <p className="text-[10px] sm:text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
                       {copy.feat3Desc}
                     </p>
                   </div>
@@ -640,7 +640,7 @@ export function LoginView({ theme, toggleTheme }) {
             </div>
 
             {/* Bottom Security Pill */}
-            <div className="relative z-10 mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-2 text-[11px] text-slate-400">
+            <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2 text-[10px] sm:text-[11px] text-slate-400">
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span>{copy.securityFooter}</span>
@@ -654,19 +654,19 @@ export function LoginView({ theme, toggleTheme }) {
           <div className="lg:col-span-7 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col justify-between order-1 lg:order-2">
 
             {/* Card Top Content */}
-            <div className="p-6 sm:p-8 space-y-6 flex-1">
+            <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 flex-1">
 
               {/* Header Row + Segmented Mode Switcher ([APP_THEME_BUTTON]) */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/70 dark:border-slate-800">
+              <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-200/70 dark:border-slate-800">
                 <div>
-                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                     {authMode === 'signin'
                       ? copy.signInHeaderTitle
                       : authMode === 'signup'
                       ? copy.signUpHeaderTitle
                       : copy.twoFaTitle}
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {authMode === 'signin'
                       ? copy.signInHeaderSubtitle
                       : authMode === 'signup'
@@ -679,7 +679,7 @@ export function LoginView({ theme, toggleTheme }) {
 
                 {/* [APP_THEME_BUTTON] Segmented Control for SignIn / SignUp */}
                 {authMode !== '2fa' && (
-                  <div className="h-11 inline-flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 self-start sm:self-auto shrink-0">
+                  <div className="h-9 sm:h-10 inline-flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/90 p-1 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/70 shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -753,15 +753,15 @@ export function LoginView({ theme, toggleTheme }) {
               {/* MODE 1: SIGN IN FORM                                        */}
               {/* ─────────────────────────────────────────────────────────── */}
               {authMode === 'signin' && (
-                <form id="karsync-auth-form" onSubmit={handleSignIn} className="space-y-4">
+                <form id="karsync-auth-form" onSubmit={handleSignIn} className="space-y-3">
                   {/* Featured Workspace Code Sub-Card */}
-                  <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-2">
+                  <div className="p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                        <Building2 className="w-4 h-4 text-indigo-500" />
+                        <Building2 className="w-3.5 h-3.5 text-indigo-500" />
                         <span>{copy.workspaceCodeLabel}</span>
                       </label>
-                      <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
                         {copy.workspaceCodeHint}
                       </span>
                     </div>
@@ -772,14 +772,14 @@ export function LoginView({ theme, toggleTheme }) {
                       value={workspaceCode}
                       onChange={(e) => setWorkspaceCode(e.target.value.toUpperCase())}
                       placeholder="KARS-101"
-                      className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-base font-black font-mono focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-center tracking-[0.2em] dir-ltr uppercase shadow-2xs"
+                      className="w-full px-3.5 py-2 sm:py-2.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm sm:text-base font-black font-mono focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-center tracking-[0.2em] dir-ltr uppercase shadow-2xs"
                     />
                   </div>
 
                   {/* Credentials Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                     {/* Username / Email / Worker Code */}
-                    <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2">
+                    <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-sky-500" />
                         <span>{copy.identifierLabel}</span>
@@ -791,14 +791,14 @@ export function LoginView({ theme, toggleTheme }) {
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
                         placeholder={copy.identifierPlaceholder}
-                        className={`w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all ${
+                        className={`w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all ${
                           identifier ? 'text-left' : 'text-start'
                         }`}
                       />
                     </div>
 
                     {/* Password */}
-                    <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2">
+                    <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 text-amber-500" />
                         <span>{copy.passwordLabel}</span>
@@ -810,16 +810,16 @@ export function LoginView({ theme, toggleTheme }) {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-10 transition-all text-left dir-ltr"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-9 transition-all text-left dir-ltr"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
                           title={copy.showPasswordTitle}
                           aria-label={copy.showPasswordTitle}
-                          className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                          className="absolute end-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                         >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                         </button>
                       </div>
                     </div>
@@ -831,10 +831,10 @@ export function LoginView({ theme, toggleTheme }) {
               {/* MODE 2: TWO-FACTOR AUTHENTICATION (2FA) CHALLENGE           */}
               {/* ─────────────────────────────────────────────────────────── */}
               {authMode === '2fa' && (
-                <form id="karsync-auth-form" onSubmit={handleVerify2FASubmit} className="space-y-4 animate-in fade-in duration-150">
-                  <div className="p-5 rounded-2xl bg-sky-500/5 dark:bg-sky-950/30 border border-sky-500/20 dark:border-sky-800/50 text-center space-y-3">
-                    <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25">
-                      <Smartphone className="w-6 h-6" />
+                <form id="karsync-auth-form" onSubmit={handleVerify2FASubmit} className="space-y-3.5 animate-in fade-in duration-150">
+                  <div className="p-4 rounded-2xl bg-sky-500/5 dark:bg-sky-950/30 border border-sky-500/20 dark:border-sky-800/50 text-center space-y-2.5">
+                    <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/25">
+                      <Smartphone className="w-5 h-5" />
                     </div>
 
                     <div className="max-w-xs mx-auto">
@@ -846,7 +846,7 @@ export function LoginView({ theme, toggleTheme }) {
                           onChange={(e) => setTotpCode(e.target.value)}
                           placeholder="XXXX-XXXX"
                           required
-                          className="w-full text-center tracking-widest font-mono text-lg font-bold px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500 uppercase"
+                          className="w-full text-center tracking-widest font-mono text-base font-bold px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-sky-500 uppercase"
                         />
                       ) : (
                         <input
@@ -859,7 +859,7 @@ export function LoginView({ theme, toggleTheme }) {
                           onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
                           placeholder={copy.totpPlaceholder}
                           required
-                          className="w-full text-center tracking-[0.45em] font-mono text-2xl font-black px-4 py-3.5 bg-white dark:bg-slate-900 border-2 border-sky-500/40 rounded-2xl text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500 shadow-inner"
+                          className="w-full text-center tracking-[0.45em] font-mono text-xl font-black px-3 py-2.5 bg-white dark:bg-slate-900 border-2 border-sky-500/40 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500 shadow-inner"
                         />
                       )}
                     </div>
@@ -899,10 +899,10 @@ export function LoginView({ theme, toggleTheme }) {
               {/* MODE 3: SIGN UP FORM (2-COLUMN RESPONSIVE GRID)             */}
               {/* ─────────────────────────────────────────────────────────── */}
               {authMode === 'signup' && (
-                <form id="karsync-auth-form" onSubmit={handleSignUp} className="space-y-4">
+                <form id="karsync-auth-form" onSubmit={handleSignUp} className="space-y-3">
                   {/* Row 1: Workshop Name & Manager Name */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                    <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                         <Building2 className="w-3.5 h-3.5 text-emerald-500" />
                         <span>{copy.companyNameLabel}</span>
@@ -912,11 +912,11 @@ export function LoginView({ theme, toggleTheme }) {
                         value={signupCompanyName}
                         onChange={(e) => setSignupCompanyName(e.target.value)}
                         placeholder={copy.companyNamePlaceholder}
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
                       />
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                    <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-indigo-500" />
                         <span>{copy.managerNameLabel}</span>
@@ -926,14 +926,14 @@ export function LoginView({ theme, toggleTheme }) {
                         value={signupFullName}
                         onChange={(e) => setSignupFullName(e.target.value)}
                         placeholder={copy.managerNamePlaceholder}
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all"
                       />
                     </div>
                   </div>
 
                   {/* Row 2: Work Email & Password + Strength Meter */}
-                  <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-3.5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                       <div className="space-y-1.5">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                           <Mail className="w-3.5 h-3.5 text-sky-500" />
@@ -946,7 +946,7 @@ export function LoginView({ theme, toggleTheme }) {
                           value={signupEmail}
                           onChange={(e) => setSignupEmail(e.target.value)}
                           placeholder={copy.workEmailPlaceholder}
-                          className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left dir-ltr"
                         />
                       </div>
 
@@ -962,23 +962,23 @@ export function LoginView({ theme, toggleTheme }) {
                             value={signupPassword}
                             onChange={(e) => setSignupPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-10 transition-all text-left dir-ltr"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-9 transition-all text-left dir-ltr"
                           />
                           <button
                             type="button"
                             onClick={() => setShowSignupPassword(!showSignupPassword)}
                             title={copy.showPasswordTitle}
                             aria-label={copy.showPasswordTitle}
-                            className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                            className="absolute end-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                           >
-                            {showSignupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            {showSignupPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </div>
                     </div>
 
                     {/* Live Password Strength Meter */}
-                    <PasswordStrengthMeter password={signupPassword} showChecks={true} />
+                    <PasswordStrengthMeter password={signupPassword} showChecks={false} />
                   </div>
                 </form>
               )}
@@ -988,11 +988,11 @@ export function LoginView({ theme, toggleTheme }) {
             {/* ───────────────────────────────────────────────────────────── */}
             {/* STICKY GLASS BOTTOM ACTION DOCK                               */}
             {/* ───────────────────────────────────────────────────────────── */}
-            <div className="px-6 sm:px-8 py-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="px-4 sm:px-6 py-2.5 sm:py-3.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
               {/* Left/Start Context Switch Helper */}
-              <div className="text-xs text-slate-500 dark:text-slate-400">
+              <div className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-start">
                 {authMode === 'signin' && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
                     <span>{copy.switchToSignUpPrompt}</span>
                     <button
                       type="button"
@@ -1008,7 +1008,7 @@ export function LoginView({ theme, toggleTheme }) {
                   </div>
                 )}
                 {authMode === 'signup' && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
                     <span>{copy.switchToSignInPrompt}</span>
                     <button
                       type="button"
@@ -1039,7 +1039,7 @@ export function LoginView({ theme, toggleTheme }) {
                   (authMode === 'signin' && remainingSeconds > 0) ||
                   (authMode === '2fa' && !totpCode.trim())
                 }
-                className={`w-full sm:w-auto min-w-[210px] py-3 px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-white shadow-lg transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50 ${
+                className={`w-full sm:w-auto min-w-[190px] py-2.5 sm:py-3 px-5 rounded-xl sm:rounded-2xl font-extrabold text-xs sm:text-sm text-white shadow-md transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50 ${
                   authMode === 'signup'
                     ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/25'
                     : 'bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 shadow-sky-500/25'
