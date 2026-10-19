@@ -47,7 +47,8 @@ import {
   CheckSquare,
   Square,
   CornerDownLeft,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Search
 } from 'lucide-react';
 
 export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
