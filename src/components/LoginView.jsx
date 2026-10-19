@@ -25,11 +25,12 @@ import {
   Sparkles,
   Languages,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 
 export function LoginView({ theme, toggleTheme }) {
-  const { login, signUp, completeTwoFactorLogin, getLoginLockStatus } = useAuth();
+  const { login, signUp, completeTwoFactorLogin, cancelTwoFactorLogin, resendEmailOtp, getLoginLockStatus } = useAuth();
   const { t, language, changeLanguage, direction, convertDigits, numberFormat } = useLanguage();
 
   const isRtl = direction === 'rtl';
@@ -46,6 +47,9 @@ export function LoginView({ theme, toggleTheme }) {
   // 2FA Challenge State
   const [totpCode, setTotpCode] = useState('');
   const [isUsingBackup, setIsUsingBackup] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [isResending, setIsResending] = useState(false);
 
   // Sign Up Form State
   const [signupEmail, setSignupEmail] = useState('');
@@ -101,8 +105,13 @@ export function LoginView({ theme, toggleTheme }) {
       createAccountBtn: 'ایجاد کارگاه و ورود به برنامه',
       creatingAccount: 'در حال ساخت کارگاه...',
       twoFaTitle: 'تایید هویت دو مرحله‌ای (2FA)',
+      twoFaEmailTitle: 'تایید رمز موقت ایمیل',
       twoFaTotpDesc: 'کد ۶ رقمی نمایش داده شده در برنامه تایید هویت دو مرحله‌ای را وارد کنید:',
       twoFaBackupDesc: 'یکی از کدهای بازیابی اضطراری ۸ کاراکتری خود را وارد کنید:',
+      twoFaEmailDesc: (email) => `رمز موقت ۶ رقمی به ایمیل ${email} ارسال شد. لطفاً آن را وارد نمایید:`,
+      resendOtpIn: (time) => `ارسال مجدد کد پس از ${time}`,
+      resendOtpBtn: 'ارسال مجدد کد تایید',
+      msgOtpResent: 'کد تایید جدید به ایمیل شما ارسال شد.',
       totpPlaceholder: '۰۰۰۰۰۰',
       verifyAndSignIn: 'تایید کد و ورود به سیستم',
       useAuthenticatorApp: 'ورود با کد ۶ رقمی برنامه تایید هویت',
@@ -168,8 +177,13 @@ export function LoginView({ theme, toggleTheme }) {
       createAccountBtn: 'دروستکردنی کارگە و چوونەژوورەوە',
       creatingAccount: 'لە حاڵەتی دروستکردنی کارگەدا...',
       twoFaTitle: 'پشتڕاستکردنەوەی دوو هەنگاوی (2FA)',
+      twoFaEmailTitle: 'پشتڕاستکردنەوەی تێپەڕەوشەی کاتی ئیمەیڵ',
       twoFaTotpDesc: 'کۆدی ٦ ژمارەیی ناو بەرنامەی پشتڕاستکردنەوەی دوو هەنگاوی بنووسە:',
       twoFaBackupDesc: 'یەکێک لە کۆدە فریاگوزارییە ٨ پیتییەکانت بنووسە:',
+      twoFaEmailDesc: (email) => `تێپەڕەوشەی کاتیی ٦ ژمارەیی بۆ ئیمەیڵی ${email} نێردرا. تکایە بنووسە:`,
+      resendOtpIn: (time) => `ناردنەوەی کۆد پاش ${time}`,
+      resendOtpBtn: 'ناردنەوەی کۆدی پشتڕاستکردنەوە',
+      msgOtpResent: 'کۆدی نوێ بۆ ئیمەیڵەکەت نێردرا.',
       totpPlaceholder: '٠٠٠٠٠٠',
       verifyAndSignIn: 'پشتڕاستکردنەوە و چوونەژوورەوە',
       useAuthenticatorApp: 'چوونەژوورەوە بە کۆدی ٦ ژمارەیی بەرنامەی پشتڕاستکردنەوە',
@@ -235,8 +249,13 @@ export function LoginView({ theme, toggleTheme }) {
       createAccountBtn: 'Create Workshop & Sign In',
       creatingAccount: 'Creating workspace...',
       twoFaTitle: 'Two-Factor Authentication (2FA)',
+      twoFaEmailTitle: 'Email Verification Code',
       twoFaTotpDesc: 'Enter the 6-digit verification code from your Authenticator app:',
       twoFaBackupDesc: 'Enter one of your 8-character emergency recovery codes:',
+      twoFaEmailDesc: (email) => `A 6-digit temporary code was sent to ${email}. Please enter it:`,
+      resendOtpIn: (time) => `Resend code in ${time}`,
+      resendOtpBtn: 'Resend verification code',
+      msgOtpResent: 'A new verification code was sent to your email.',
       totpPlaceholder: '000000',
       verifyAndSignIn: 'Verify & Sign In',
       useAuthenticatorApp: 'Use 6-digit Authenticator code',
@@ -369,6 +388,20 @@ export function LoginView({ theme, toggleTheme }) {
     return convertDigits ? convertDigits(raw, numberFormat) : raw;
   };
 
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
   const handleSignIn = async (e) => {
     e.preventDefault();
     setErrorMessage('');
@@ -396,8 +429,10 @@ export function LoginView({ theme, toggleTheme }) {
         }
       } else if (res.requires2FA) {
         setAuthMode('2fa');
+        setPendingEmail(res.email || (identifier.includes('@') ? identifier : ''));
         setTotpCode('');
         setIsUsingBackup(false);
+        setResendCooldown(60);
       }
     } catch (err) {
       setErrorMessage(localizeAuthError(err?.message, copy.errInvalidCredentials));
@@ -407,14 +442,14 @@ export function LoginView({ theme, toggleTheme }) {
   };
 
   const handleVerify2FASubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setErrorMessage('');
 
     if (!totpCode.trim()) return;
 
     setIsSubmitting(true);
     try {
-      const res = await completeTwoFactorLogin(totpCode);
+      const res = await completeTwoFactorLogin(totpCode, pendingEmail);
       if (!res.success) {
         if (res.error === 'rateLimited') {
           setRemainingSeconds(300);
@@ -427,6 +462,26 @@ export function LoginView({ theme, toggleTheme }) {
       setErrorMessage(localizeAuthError(err?.message, copy.err2faInvalid));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || isResending || !pendingEmail) return;
+    setIsResending(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const res = await resendEmailOtp(pendingEmail);
+      if (res.success) {
+        setSuccessMessage(copy.msgOtpResent);
+        setResendCooldown(60);
+      } else {
+        setErrorMessage(localizeAuthError(res.error, copy.errNetwork));
+      }
+    } catch (err) {
+      setErrorMessage(localizeAuthError(err?.message, copy.errNetwork));
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -455,6 +510,12 @@ export function LoginView({ theme, toggleTheme }) {
 
       if (!res.success) {
         setErrorMessage(localizeAuthError(res.error, copy.errSignUpFailed));
+      } else if (res.requires2FA) {
+        setAuthMode('2fa');
+        setPendingEmail(res.email || signupEmail);
+        setTotpCode('');
+        setResendCooldown(60);
+        setSuccessMessage(copy.msgEmailConfirmation);
       } else if (res.message === 'checkEmailConfirmation') {
         setSuccessMessage(copy.msgEmailConfirmation);
       }
@@ -664,6 +725,8 @@ export function LoginView({ theme, toggleTheme }) {
                       ? copy.signInHeaderTitle
                       : authMode === 'signup'
                       ? copy.signUpHeaderTitle
+                      : pendingEmail
+                      ? copy.twoFaEmailTitle
                       : copy.twoFaTitle}
                   </h2>
                   <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -671,6 +734,8 @@ export function LoginView({ theme, toggleTheme }) {
                       ? copy.signInHeaderSubtitle
                       : authMode === 'signup'
                       ? copy.signUpHeaderSubtitle
+                      : pendingEmail
+                      ? copy.twoFaEmailDesc(pendingEmail)
                       : isUsingBackup
                       ? copy.twoFaBackupDesc
                       : copy.twoFaTotpDesc}
@@ -834,7 +899,17 @@ export function LoginView({ theme, toggleTheme }) {
                 <form id="karsync-auth-form" onSubmit={handleVerify2FASubmit} className="space-y-3.5 animate-in fade-in duration-150">
                   <div className="p-4 rounded-2xl bg-sky-500/5 dark:bg-sky-950/30 border border-sky-500/20 dark:border-sky-800/50 text-center space-y-2.5">
                     <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/25">
-                      <Smartphone className="w-5 h-5" />
+                      {pendingEmail ? <Mail className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                        {pendingEmail
+                          ? copy.twoFaEmailDesc(pendingEmail)
+                          : isUsingBackup
+                          ? copy.twoFaBackupDesc
+                          : copy.twoFaTotpDesc}
+                      </p>
                     </div>
 
                     <div className="max-w-xs mx-auto">
@@ -856,35 +931,67 @@ export function LoginView({ theme, toggleTheme }) {
                           maxLength={6}
                           autoFocus
                           value={totpCode}
-                          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            setTotpCode(val);
+                          }}
                           placeholder={copy.totpPlaceholder}
                           required
                           className="w-full text-center tracking-[0.45em] font-mono text-xl font-black px-3 py-2.5 bg-white dark:bg-slate-900 border-2 border-sky-500/40 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500 shadow-inner"
                         />
                       )}
                     </div>
+
+                    {/* Resend OTP button with countdown timer */}
+                    {pendingEmail && (
+                      <div className="pt-1 flex items-center justify-center text-xs">
+                        {resendCooldown > 0 ? (
+                          <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1 font-medium">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{copy.resendOtpIn(formatLockTime(resendCooldown))}</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleResendOtp}
+                            disabled={isResending}
+                            className="font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
+                            <span>{copy.resendOtpBtn}</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between pt-1 px-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsUsingBackup(!isUsingBackup);
-                        setTotpCode('');
-                        setErrorMessage('');
-                      }}
-                      className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <KeyRound className="w-3.5 h-3.5" />
-                      <span>
-                        {isUsingBackup ? copy.useAuthenticatorApp : copy.useBackupCode}
-                      </span>
-                    </button>
+                    {!pendingEmail ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUsingBackup(!isUsingBackup);
+                          setTotpCode('');
+                          setErrorMessage('');
+                        }}
+                        className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>
+                          {isUsingBackup ? copy.useAuthenticatorApp : copy.useBackupCode}
+                        </span>
+                      </button>
+                    ) : (
+                      <span />
+                    )}
 
                     <button
                       type="button"
                       onClick={() => {
+                        cancelTwoFactorLogin?.();
                         setAuthMode('signin');
+                        setPendingEmail('');
+                        setTotpCode('');
                         setErrorMessage('');
                       }}
                       className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
@@ -1025,7 +1132,7 @@ export function LoginView({ theme, toggleTheme }) {
                 )}
                 {authMode === '2fa' && (
                   <span className="font-semibold text-sky-600 dark:text-sky-400">
-                    {copy.twoFaTitle}
+                    {pendingEmail ? copy.twoFaEmailTitle : copy.twoFaTitle}
                   </span>
                 )}
               </div>

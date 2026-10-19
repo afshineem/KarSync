@@ -69,6 +69,7 @@ export function AuthProvider({ children }) {
   };
 
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [pending2FALogin, setPending2FALogin] = useState(null);
 
   // Direct entry for personnel through a personal link / QR code (no login page).
   // status: 'idle' | 'loading' | 'error'
@@ -524,6 +525,25 @@ export function AuthProvider({ children }) {
           });
         } catch (_) {}
 
+        // If email confirmation is required by Supabase (data.session is null)
+        if (!data.session) {
+          setPending2FALogin({
+            type: 'email_otp',
+            otpType: 'signup',
+            email: trimmedEmail,
+            userMetadata: metadata,
+            authUser: data.user
+          });
+
+          return {
+            success: true,
+            requires2FA: true,
+            twoFaType: 'email_otp',
+            email: trimmedEmail,
+            message: 'checkEmailConfirmation'
+          };
+        }
+
         const sessionUser = {
           role: 'admin',
           id: data.user.id,
@@ -572,59 +592,68 @@ export function AuthProvider({ children }) {
     // 0. Supabase Auth if it's an email (Admin/Owner login)
     if (rawInput.includes('@')) {
       try {
+        const cleanEmail = rawInput.toLowerCase();
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: rawInput.toLowerCase(),
+          email: cleanEmail,
           password: passwordInput
         });
 
         if (error) {
+          // If account email is pending confirmation, send signup OTP and transition to 2FA
+          if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
+            try {
+              await supabase.auth.resend({
+                type: 'signup',
+                email: cleanEmail
+              });
+            } catch (_) {}
+
+            setPending2FALogin({
+              type: 'email_otp',
+              otpType: 'signup',
+              email: cleanEmail,
+              workspaceCode: rawCode
+            });
+
+            return {
+              success: true,
+              requires2FA: true,
+              twoFaType: 'email_otp',
+              email: cleanEmail
+            };
+          }
+
           recordFailedLogin();
           return { success: false, error: error.message };
         }
 
         if (data?.user) {
           resetLoginAttempts();
-          let sessionUser = await fetchUserProfile(data.user);
-          
-          // Seed admin into app_users & workspace if missing
+
+          // Elevate account security with 6-digit email OTP (Requirement #2)
           try {
-            let wsData = null;
-            if (rawCode) {
-               const { data: existingWs } = await supabase.from('workspaces').select('*').eq('workspace_code', rawCode).maybeSingle();
-               wsData = existingWs;
-            }
-            if (!wsData) {
-               const { data: ownerWs } = await supabase.from('workspaces').select('*').eq('owner_id', data.user.id).limit(1).maybeSingle();
-               wsData = ownerWs;
-            }
-            if (wsData) {
-               sessionUser.workspace_id = wsData.id;
-               const { data: existingAdmin } = await supabase.from('app_users').select('*').eq('id', data.user.id).maybeSingle();
-               if (!existingAdmin) {
-                 const newAdmin = {
-                   id: data.user.id,
-                   workspace_id: wsData.id,
-                   username: 'admin',
-                   full_name: sessionUser.name || 'مدیر سیستم',
-                   role: 'admin',
-                   is_active: true,
-                   session_version: 1,
-                   can_edit_past_records: true
-                 };
-                 await supabase.from('app_users').insert(newAdmin);
-               }
-            }
-          } catch(e) { console.warn(e); }
-
-          setUser(sessionUser);
-          localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
-
-          // Force sync to fetch workspaces and app_users from Supabase
-          if (navigator.onLine) {
-            console.log('🔄 Forcing full sync after admin login...');
-            await pullAllFromSupabase().catch(err => console.warn('Forced sync failed:', err));
+            await supabase.auth.signInWithOtp({
+              email: cleanEmail,
+              options: { shouldCreateUser: false }
+            });
+          } catch (otpErr) {
+            console.warn('Could not send email OTP:', otpErr);
           }
-          return { success: true, role: 'admin', user: sessionUser };
+
+          setPending2FALogin({
+            type: 'email_otp',
+            otpType: 'email',
+            email: cleanEmail,
+            workspaceCode: rawCode,
+            authUser: data.user
+          });
+
+          return {
+            success: true,
+            requires2FA: true,
+            twoFaType: 'email_otp',
+            email: cleanEmail
+          };
         }
       } catch (err) {
         console.error('Supabase Auth Error:', err);
@@ -814,12 +843,101 @@ export function AuthProvider({ children }) {
       return v.toString(16);
     });
   };
-  // Complete 2FA login verification
-  const completeTwoFactorLogin = async (codeOrBackup) => {
+  // Complete 2FA login verification (Email OTP & Authenticator TOTP)
+  const completeTwoFactorLogin = async (codeOrBackup, emailParam) => {
+    const cleanInput = normalizeDigits(String(codeOrBackup || '')).trim();
+    const pending = pending2FALogin;
+    const targetEmail = emailParam || pending?.email;
+
+    // 1. Email OTP Verification (Requirement #2: 6-digit email temporary code)
+    if (targetEmail || pending?.type === 'email_otp') {
+      const emailToVerify = targetEmail || pending?.email;
+      const otpType = pending?.otpType || 'email';
+
+      try {
+        let verifyRes = await supabase.auth.verifyOtp({
+          email: emailToVerify,
+          token: cleanInput,
+          type: otpType === 'signup' ? 'signup' : 'email'
+        });
+
+        if (verifyRes.error) {
+          // Fallback to alternate type
+          const altType = otpType === 'signup' ? 'email' : 'signup';
+          const altRes = await supabase.auth.verifyOtp({
+            email: emailToVerify,
+            token: cleanInput,
+            type: altType
+          });
+          if (!altRes.error) {
+            verifyRes = altRes;
+          }
+        }
+
+        if (verifyRes.error) {
+          recordFailedLogin();
+          return { success: false, error: 'invalid2FACode', detail: verifyRes.error.message };
+        }
+
+        const verifiedUser = verifyRes.data?.user || pending?.authUser;
+        if (verifiedUser) {
+          resetLoginAttempts();
+          let sessionUser = await fetchUserProfile(verifiedUser);
+
+          // Workspace setup if provided or needed
+          try {
+            let wsData = null;
+            if (pending?.workspaceCode) {
+              const { data: existingWs } = await supabase.from('workspaces').select('*').eq('workspace_code', pending.workspaceCode).maybeSingle();
+              wsData = existingWs;
+            }
+            if (!wsData) {
+              const { data: ownerWs } = await supabase.from('workspaces').select('*').eq('owner_id', verifiedUser.id).limit(1).maybeSingle();
+              wsData = ownerWs;
+            }
+            if (wsData) {
+              sessionUser.workspace_id = wsData.id;
+              const { data: existingAdmin } = await supabase.from('app_users').select('*').eq('id', verifiedUser.id).maybeSingle();
+              if (!existingAdmin) {
+                const newAdmin = {
+                  id: verifiedUser.id,
+                  workspace_id: wsData.id,
+                  username: 'admin',
+                  full_name: sessionUser.name || 'مدیر سیستم',
+                  role: 'admin',
+                  is_active: true,
+                  session_version: 1,
+                  can_edit_past_records: true
+                };
+                await supabase.from('app_users').insert(newAdmin);
+              }
+            }
+          } catch (e) {
+            console.warn('Workspace sync error:', e);
+          }
+
+          await enforceDataIsolation(sessionUser.id);
+          setUser(sessionUser);
+          localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+          setPending2FALogin(null);
+
+          // Force sync
+          if (navigator.onLine) {
+            console.log('🔄 Forcing full sync after 2FA login...');
+            await pullAllFromSupabase().catch(err => console.warn('Forced sync failed:', err));
+          }
+
+          return { success: true, role: 'admin', user: sessionUser };
+        }
+      } catch (err) {
+        console.error('Email OTP verify error:', err);
+        return { success: false, error: 'networkError' };
+      }
+    }
+
+    // 2. Local Authenticator App TOTP code or Backup code
     const twoFactor = getTwoFactorConfig();
     if (!twoFactor?.enabled) return { success: false, error: '2faNotActive' };
-
-    const cleanInput = String(codeOrBackup || '').trim();
 
     // Check 1: 6-digit TOTP code
     let isTotpValid = false;
@@ -862,16 +980,46 @@ export function AuthProvider({ children }) {
       };
       setUser(sessionUser);
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+      setPending2FALogin(null);
       // Force sync to fetch workspaces and app_users from Supabase
-          if (navigator.onLine) {
-            console.log('🔄 Forcing full sync after admin login...');
-            await pullAllFromSupabase().catch(err => console.warn('Forced sync failed:', err));
-          }
-          return { success: true, role: 'admin', user: sessionUser };
+      if (navigator.onLine) {
+        console.log('🔄 Forcing full sync after admin login...');
+        await pullAllFromSupabase().catch(err => console.warn('Forced sync failed:', err));
+      }
+      return { success: true, role: 'admin', user: sessionUser };
     }
 
     recordFailedLogin();
     return { success: false, error: 'invalid2FACode' };
+  };
+
+  const cancelTwoFactorLogin = () => {
+    setPending2FALogin(null);
+  };
+
+  const resendEmailOtp = async (emailParam) => {
+    const email = emailParam || pending2FALogin?.email;
+    if (!email) return { success: false, error: 'missingEmail' };
+
+    try {
+      if (pending2FALogin?.otpType === 'signup') {
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: false }
+        });
+        if (error) throw error;
+      }
+      return { success: true };
+    } catch (err) {
+      console.warn('Resend OTP error:', err);
+      return { success: false, error: err?.message || 'resendFailed' };
+    }
   };
 
   // Complete Onboarding Wizard
@@ -1086,6 +1234,9 @@ export function AuthProvider({ children }) {
         unlockScreen,
         login,
         completeTwoFactorLogin,
+        cancelTwoFactorLogin,
+        resendEmailOtp,
+        pending2FALogin,
         getLoginLockStatus,
         getTwoFactorConfig,
         enableTwoFactor,
