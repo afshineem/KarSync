@@ -42,8 +42,8 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useAutoBackup } from '../../hooks/useAutoBackup';
 
 export default function DataSyncSettingsTab({
-  language = 'fa',
-  isRtl = true,
+  language: propLanguage,
+  isRtl: propIsRtl,
   dbCounts,
   isSyncing,
   syncStatusMsg,
@@ -57,7 +57,9 @@ export default function DataSyncSettingsTab({
   backupLoading,
   backupMsg
 }) {
-  const { t } = useLanguage();
+  const { t, language: ctxLang = 'fa', direction = 'rtl', convertDigits } = useLanguage();
+  const lang = ['fa', 'ku', 'en'].includes(propLanguage) ? propLanguage : (['fa', 'ku', 'en'].includes(ctxLang) ? ctxLang : 'fa');
+  const isRtl = direction === 'rtl';
   const fileInputRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -99,36 +101,36 @@ export default function DataSyncSettingsTab({
   const operationalData = [
     {
       id: 'workers',
-      label: language === 'fa' ? 'پرسنل فعال' : language === 'ku' ? 'کرێکارانی چالاک' : 'Active Workers',
+      label: lang === 'fa' ? 'پرسنل فعال' : lang === 'ku' ? 'کرێکارانی چالاک' : 'Active Workers',
       count: dbCounts.workers,
-      sub: language === 'fa' ? `از کل ${dbCounts.totalWorkers} پرونده` : language === 'ku' ? `لە کۆی ${dbCounts.totalWorkers}` : `Out of ${dbCounts.totalWorkers} total`,
+      sub: lang === 'fa' ? `از کل ${dbCounts.totalWorkers} پرونده` : lang === 'ku' ? `لە کۆی ${dbCounts.totalWorkers}` : `Out of ${dbCounts.totalWorkers} total`,
       icon: Users2,
       color: 'text-sky-500',
       bg: 'bg-sky-500/10 dark:bg-sky-500/20'
     },
     {
       id: 'logs',
-      label: language === 'fa' ? 'لاگ‌های تردد و کارکرد' : language === 'ku' ? 'تۆماری ئامادەبوون' : 'Attendance Logs',
+      label: lang === 'fa' ? 'لاگ‌های تردد و کارکرد' : lang === 'ku' ? 'تۆماری ئامادەبوون' : 'Attendance Logs',
       count: dbCounts.logs,
-      sub: language === 'fa' ? 'ثبت‌های روزانه حضور' : language === 'ku' ? 'تۆمارە ڕۆژانەکان' : 'Daily work logs',
+      sub: lang === 'fa' ? 'ثبت‌های روزانه حضور' : lang === 'ku' ? 'تۆمارە ڕۆژانەکان' : 'Daily work logs',
       icon: Calendar,
       color: 'text-emerald-500',
       bg: 'bg-emerald-500/10 dark:bg-emerald-500/20'
     },
     {
       id: 'payments',
-      label: language === 'fa' ? 'پرداخت‌ها و مساعده‌ها' : language === 'ku' ? 'پێشەکی و پارەدان' : 'Payments & Advances',
+      label: lang === 'fa' ? 'پرداخت‌ها و مساعده‌ها' : lang === 'ku' ? 'پێشەکی و پارەدان' : 'Payments & Advances',
       count: dbCounts.payments,
-      sub: language === 'fa' ? 'اسناد و رسیدهای تسویه' : language === 'ku' ? 'پسووڵەی پارەدان' : 'Settlement receipts',
+      sub: lang === 'fa' ? 'اسناد و رسیدهای تسویه' : lang === 'ku' ? 'پسووڵەی پارەدان' : 'Settlement receipts',
       icon: Wallet,
       color: 'text-amber-500',
       bg: 'bg-amber-500/10 dark:bg-amber-500/20'
     },
     {
       id: 'expenses',
-      label: language === 'fa' ? 'فاکتورهای هزینه' : language === 'ku' ? 'خەرجییەکان' : 'Expenses & Bills',
+      label: lang === 'fa' ? 'فاکتورهای هزینه' : lang === 'ku' ? 'خەرجییەکان' : 'Expenses & Bills',
       count: dbCounts.expenses,
-      sub: language === 'fa' ? 'هزینه‌ها و مخارج جاری' : language === 'ku' ? 'پسووڵەی خەرجی' : 'Operational invoices',
+      sub: lang === 'fa' ? 'هزینه‌ها و مخارج جاری' : lang === 'ku' ? 'پسووڵەی خەرجی' : 'Operational invoices',
       icon: Receipt,
       color: 'text-rose-500',
       bg: 'bg-rose-500/10 dark:bg-rose-500/20'
@@ -138,36 +140,36 @@ export default function DataSyncSettingsTab({
   const structuralData = [
     {
       id: 'projects',
-      label: language === 'fa' ? 'پروژه‌ها و کارگاه‌ها' : language === 'ku' ? 'پڕۆژەکان' : 'Projects & Sites',
+      label: lang === 'fa' ? 'پروژه‌ها و کارگاه‌ها' : lang === 'ku' ? 'پڕۆژەکان' : 'Projects & Sites',
       count: dbCounts.projects,
-      sub: language === 'fa' ? 'محیط‌های کاری فعال' : language === 'ku' ? 'پڕۆژەی چالاک' : 'Active workspaces',
+      sub: lang === 'fa' ? 'محیط‌های کاری فعال' : lang === 'ku' ? 'پڕۆژەی چالاک' : 'Active workspaces',
       icon: FolderKanban,
       color: 'text-blue-500',
       bg: 'bg-blue-500/10 dark:bg-blue-500/20'
     },
     {
       id: 'sections',
-      label: language === 'fa' ? 'بخش‌ها و فازها' : language === 'ku' ? 'بەشەکانی پڕۆژە' : 'Project Sections',
+      label: lang === 'fa' ? 'بخش‌ها و فازها' : lang === 'ku' ? 'بەشەکانی پڕۆژە' : 'Project Sections',
       count: dbCounts.sections,
-      sub: language === 'fa' ? 'فازها و زون‌های کاری' : language === 'ku' ? 'زۆن و بەشەکان' : 'Zones & phases',
+      sub: lang === 'fa' ? 'فازها و زون‌های کاری' : lang === 'ku' ? 'زۆن و بەشەکان' : 'Zones & phases',
       icon: Building,
       color: 'text-indigo-500',
       bg: 'bg-indigo-500/10 dark:bg-indigo-500/20'
     },
     {
       id: 'categories',
-      label: language === 'fa' ? 'سرفصل‌های هزینه‌ها' : language === 'ku' ? 'سەردێڕەکان' : 'Expense Categories',
+      label: lang === 'fa' ? 'سرفصل‌های هزینه‌ها' : lang === 'ku' ? 'سەردێڕەکان' : 'Expense Categories',
       count: dbCounts.categories,
-      sub: language === 'fa' ? 'دسته‌بندی ۳ سطحی' : language === 'ku' ? 'سەردێڕی خەرجی' : 'Hierarchical headers',
+      sub: lang === 'fa' ? 'دسته‌بندی ۳ سطحی' : lang === 'ku' ? 'سەردێڕی خەرجی' : 'Hierarchical headers',
       icon: Layers,
       color: 'text-purple-500',
       bg: 'bg-purple-500/10 dark:bg-purple-500/20'
     },
     {
       id: 'groups',
-      label: language === 'fa' ? 'تیم‌ها و گروه‌های کاری' : language === 'ku' ? 'گرووپەکان' : 'Working Teams',
+      label: lang === 'fa' ? 'تیم‌ها و گروه‌های کاری' : lang === 'ku' ? 'گرووپەکان' : 'Working Teams',
       count: dbCounts.groups,
-      sub: language === 'fa' ? 'اکیپ‌ها و کارگروه‌ها' : language === 'ku' ? 'گرووپی کارمەندان' : 'Worker crews',
+      sub: lang === 'fa' ? 'اکیپ‌ها و کارگروه‌ها' : lang === 'ku' ? 'گرووپی کارمەندان' : 'Worker crews',
       icon: Users2,
       color: 'text-cyan-500',
       bg: 'bg-cyan-500/10 dark:bg-cyan-500/20'
@@ -200,13 +202,13 @@ export default function DataSyncSettingsTab({
     if (!isoStr) return t('neverBackedUp');
     try {
       const d = new Date(isoStr);
-      if (language === 'fa') {
+      if (lang === 'fa') {
         return (
           d.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }) +
           ' ' +
           d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
         );
-      } else if (language === 'ku') {
+      } else if (lang === 'ku') {
         return (
           d.toLocaleDateString('ckb', { year: 'numeric', month: 'short', day: 'numeric' }) +
           ' ' +
@@ -251,16 +253,16 @@ export default function DataSyncSettingsTab({
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {language === 'fa' ? 'سرویس همگام‌سازی ابری (Cloud Sync)' : language === 'ku' ? 'هاوکاتکردنی کلاود (Cloud Sync)' : 'Cloud Sync Engine'}
+                  {lang === 'fa' ? 'سرویس همگام‌سازی ابری (Cloud Sync)' : lang === 'ku' ? 'هاوکاتکردنی کلاود (Cloud Sync)' : 'Cloud Sync Engine'}
                 </h4>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  {language === 'fa' ? 'فعال' : language === 'ku' ? 'چالاک' : 'Active'}
+                  {lang === 'fa' ? 'فعال' : lang === 'ku' ? 'چالاک' : 'Active'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {language === 'fa'
+                {lang === 'fa'
                   ? 'ارتباط پیوسته با پایگاه داده جهت اشتراک‌گذاری تغییرات میان کاربران.'
-                  : language === 'ku'
+                  : lang === 'ku'
                   ? 'پەیوەندی بەردەوام بە سێرڤەر بۆ هاوبەشکردنی گۆڕانکارییەکان.'
                   : 'Real-time synchronization with cloud database across workspace devices.'}
               </p>
@@ -274,7 +276,7 @@ export default function DataSyncSettingsTab({
             className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-sky-500 dark:hover:border-sky-500 text-slate-700 dark:text-slate-200 flex items-center justify-center gap-2 transition-all duration-200 shadow-xs active:scale-95 disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-sky-500 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? (language === 'fa' ? 'در حال همگام‌سازی...' : language === 'ku' ? 'هاوکاتکردن...' : 'Syncing...') : (language === 'fa' ? 'همگام‌سازی دستی' : language === 'ku' ? 'هاوکاتکردنی دەستی' : 'Sync Now')}</span>
+            <span>{isSyncing ? (lang === 'fa' ? 'در حال همگام‌سازی...' : lang === 'ku' ? 'هاوکاتکردن...' : 'Syncing...') : (lang === 'fa' ? 'همگام‌سازی دستی' : lang === 'ku' ? 'هاوکاتکردنی دەستی' : 'Sync Now')}</span>
           </button>
         </div>
 
@@ -291,12 +293,12 @@ export default function DataSyncSettingsTab({
         <div>
           <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Database className="w-4 h-4 text-sky-500" />
-            <span>{language === 'fa' ? 'وضعیت پایگاه داده محلی (IndexedDB)' : language === 'ku' ? 'دۆخی داتابەیسی ناوخۆیی' : 'Local Database Status (IndexedDB)'}</span>
+            <span>{lang === 'fa' ? 'وضعیت پایگاه داده محلی (IndexedDB)' : lang === 'ku' ? 'دۆخی داتابەیسی ناوخۆیی' : 'Local Database Status (IndexedDB)'}</span>
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {language === 'fa'
+            {lang === 'fa'
               ? 'اطلاعات در مرورگر شما به صورت آفلاین ذخیره شده و مستقل از قطعی اینترنت عمل می‌کند.'
-              : language === 'ku'
+              : lang === 'ku'
               ? 'داتاکان لەناو مۆبایل یان کۆمپیوتەری خۆت بە شێوەی ئۆفلاین پارێزراون.'
               : 'Workspace records are securely retained offline inside IndexedDB storage.'}
           </p>
@@ -306,7 +308,7 @@ export default function DataSyncSettingsTab({
         <div className="space-y-2">
           <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <Activity className="w-3.5 h-3.5 text-slate-400" />
-            <span>{language === 'fa' ? 'داده‌های عملیاتی و حسابداری:' : language === 'ku' ? 'داتای کارگێڕی و دارایی:' : 'Operational & Accounting Data:'}</span>
+            <span>{lang === 'fa' ? 'داده‌های عملیاتی و حسابداری:' : lang === 'ku' ? 'داتای کارگێڕی و دارایی:' : 'Operational & Accounting Data:'}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {operationalData.map((item) => {
@@ -322,7 +324,7 @@ export default function DataSyncSettingsTab({
                       <Icon className={`w-3 h-3 ${item.color}`} />
                     </div>
                   </div>
-                  <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{item.count}</div>
+                  <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{convertDigits ? convertDigits(item.count, lang) : item.count}</div>
                   <div className="text-[10px] text-slate-400 truncate mt-0.5">{item.sub}</div>
                 </div>
               );
@@ -334,7 +336,7 @@ export default function DataSyncSettingsTab({
         <div className="space-y-2 pt-1">
           <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <FolderKanban className="w-3.5 h-3.5 text-slate-400" />
-            <span>{language === 'fa' ? 'ساختار، پروژه‌ها و دسته‌بندی‌ها:' : language === 'ku' ? 'پڕۆژە و پۆلێنکردن:' : 'Structures, Projects & Headers:'}</span>
+            <span>{lang === 'fa' ? 'ساختار، پروژه‌ها و دسته‌بندی‌ها:' : lang === 'ku' ? 'پڕۆژە و پۆلێنکردن:' : 'Structures, Projects & Headers:'}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {structuralData.map((item) => {
@@ -350,7 +352,7 @@ export default function DataSyncSettingsTab({
                       <Icon className={`w-3 h-3 ${item.color}`} />
                     </div>
                   </div>
-                  <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{item.count}</div>
+                  <div className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">{convertDigits ? convertDigits(item.count, lang) : item.count}</div>
                   <div className="text-[10px] text-slate-400 truncate mt-0.5">{item.sub}</div>
                 </div>
               );
@@ -374,7 +376,7 @@ export default function DataSyncSettingsTab({
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5" />
-                  <span>{language === 'fa' ? 'هوشمند' : language === 'ku' ? 'زیرەک' : 'Smart'}</span>
+                  <span>{lang === 'fa' ? 'هوشمند' : lang === 'ku' ? 'زیرەک' : 'Smart'}</span>
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
@@ -426,7 +428,7 @@ export default function DataSyncSettingsTab({
               <div>
                 <div className="text-[11px] text-slate-400">{t('totalSnapshotsStored')}</div>
                 <div className="text-xs font-bold font-mono text-slate-900 dark:text-white">
-                  {snapshots.length} / {autoBackupConfig.maxSnapshots} {language === 'fa' ? 'نسخه' : language === 'ku' ? 'وەشان' : 'snapshots'}
+                  {convertDigits ? convertDigits(snapshots.length, lang) : snapshots.length} / {convertDigits ? convertDigits(autoBackupConfig.maxSnapshots, lang) : autoBackupConfig.maxSnapshots} {lang === 'fa' ? 'نسخه' : lang === 'ku' ? 'وەشان' : 'snapshots'}
                 </div>
               </div>
             </div>
@@ -510,7 +512,7 @@ export default function DataSyncSettingsTab({
                             : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
-                        {count} {language === 'fa' ? 'نسخه' : language === 'ku' ? 'وەشان' : 'snaps'}
+                        {convertDigits ? convertDigits(count, lang) : count} {lang === 'fa' ? 'نسخه' : lang === 'ku' ? 'وەشان' : 'snaps'}
                       </button>
                     );
                   })}
@@ -528,7 +530,7 @@ export default function DataSyncSettingsTab({
               <span>{t('snapshotsHistoryTitle')}</span>
             </h4>
             <span className="text-[11px] text-slate-400 font-mono">
-              {snapshots.length} {language === 'fa' ? 'نقطه ثبت‌شده' : language === 'ku' ? 'خاڵی تۆمارکراو' : 'points'}
+              {convertDigits ? convertDigits(snapshots.length, lang) : snapshots.length} {lang === 'fa' ? 'نقطه ثبت‌شده' : lang === 'ku' ? 'خاڵی تۆمارکراو' : 'points'}
             </span>
           </div>
 
@@ -544,7 +546,8 @@ export default function DataSyncSettingsTab({
               {snapshots.map((snap) => {
                 const isAuto = snap.triggerType === 'auto';
                 const isExport = snap.triggerType === 'export_file';
-                const snapSizeKb = snap.dataSize ? (snap.dataSize / 1024).toFixed(1) : '0';
+                const snapSizeRaw = snap.dataSize ? (snap.dataSize / 1024).toFixed(1) : '0';
+                const snapSizeKb = convertDigits ? convertDigits(snapSizeRaw, lang) : snapSizeRaw;
                 const totalEntities =
                   (snap.summary?.workersCount || 0) +
                   (snap.summary?.logsCount || 0) +
@@ -587,23 +590,23 @@ export default function DataSyncSettingsTab({
                       {/* Summary Metrics Chips */}
                       <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 flex-wrap">
                         <span>
-                          {language === 'fa' ? 'پرسنل:' : language === 'ku' ? 'کرێکار:' : 'Workers:'}{' '}
-                          <strong className="text-slate-700 dark:text-slate-200">{snap.summary?.workersCount || 0}</strong>
+                          {lang === 'fa' ? 'پرسنل:' : lang === 'ku' ? 'کرێکار:' : 'Workers:'}{' '}
+                          <strong className="text-slate-700 dark:text-slate-200">{convertDigits ? convertDigits(snap.summary?.workersCount || 0, lang) : (snap.summary?.workersCount || 0)}</strong>
                         </span>
                         <span>•</span>
                         <span>
-                          {language === 'fa' ? 'لاگ‌ها:' : language === 'ku' ? 'تۆمار:' : 'Logs:'}{' '}
-                          <strong className="text-slate-700 dark:text-slate-200">{snap.summary?.logsCount || 0}</strong>
+                          {lang === 'fa' ? 'لاگ‌ها:' : lang === 'ku' ? 'تۆمار:' : 'Logs:'}{' '}
+                          <strong className="text-slate-700 dark:text-slate-200">{convertDigits ? convertDigits(snap.summary?.logsCount || 0, lang) : (snap.summary?.logsCount || 0)}</strong>
                         </span>
                         <span>•</span>
                         <span>
-                          {language === 'fa' ? 'فاکتورها:' : language === 'ku' ? 'خەرجی:' : 'Expenses:'}{' '}
-                          <strong className="text-slate-700 dark:text-slate-200">{snap.summary?.expensesCount || 0}</strong>
+                          {lang === 'fa' ? 'فاکتورها:' : lang === 'ku' ? 'خەرجی:' : 'Expenses:'}{' '}
+                          <strong className="text-slate-700 dark:text-slate-200">{convertDigits ? convertDigits(snap.summary?.expensesCount || 0, lang) : (snap.summary?.expensesCount || 0)}</strong>
                         </span>
                         <span>•</span>
                         <span>
-                          {language === 'fa' ? 'پرداخت‌ها:' : language === 'ku' ? 'پارەدان:' : 'Payments:'}{' '}
-                          <strong className="text-slate-700 dark:text-slate-200">{snap.summary?.paymentsCount || 0}</strong>
+                          {lang === 'fa' ? 'پرداخت‌ها:' : lang === 'ku' ? 'پارەدان:' : 'Payments:'}{' '}
+                          <strong className="text-slate-700 dark:text-slate-200">{convertDigits ? convertDigits(snap.summary?.paymentsCount || 0, lang) : (snap.summary?.paymentsCount || 0)}</strong>
                         </span>
                       </div>
                     </div>
@@ -672,7 +675,7 @@ export default function DataSyncSettingsTab({
                   {t('localDirSyncTitle')}
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                  {language === 'fa' ? 'دیسک سخت' : language === 'ku' ? 'هارددیسک' : 'Hard Drive'}
+                  {lang === 'fa' ? 'دیسک سخت' : lang === 'ku' ? 'هارددیسک' : 'Hard Drive'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
@@ -756,9 +759,9 @@ export default function DataSyncSettingsTab({
                   {t('dirStatusDisconnected')}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  {language === 'fa'
+                  {lang === 'fa'
                     ? 'با انتخاب یک پوشه، نسخه‌های پشتیبان بدون نیاز به اینترنت و بدون باز کردن پنجره دانلود، مستقیماً روی رایانه شما ذخیره می‌شوند.'
-                    : language === 'ku'
+                    : lang === 'ku'
                     ? 'بە دیاریکردنی بوخچەیەک، فایلەکان بەبێ ئینتەرنێت و بێدەنگ ڕاستەوخۆ لەسەر کۆمپیوتەرەکەت پاشەکەوت دەکرێن.'
                     : 'Select a local directory to silently save scheduled backup files to your hard drive.'}
                 </div>
@@ -885,9 +888,9 @@ export default function DataSyncSettingsTab({
                   {t('gdriveStatusDisconnected')}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  {language === 'fa'
+                  {lang === 'fa'
                     ? 'پشتیبان‌گیری ابری مستقل روی گوگل درایو شخصی شما، برای دسترسی آسان در صورت تعویض گوشی یا خرابی سیستم.'
-                    : language === 'ku'
+                    : lang === 'ku'
                     ? 'پاشەکەوتی سەربەخۆ لەسەر گووگڵ درایڤی کەسی بۆ گەڕاندنەوە لە کاتی گۆڕینی مۆبایل یان تێکچوونی سیستەم.'
                     : 'Independent cloud snapshots in your personal Google Drive for easy recovery when switching devices.'}
                 </div>
@@ -925,12 +928,12 @@ export default function DataSyncSettingsTab({
         <div>
           <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ArrowDownToLine className="w-4 h-4 text-emerald-500" />
-            <span>{language === 'fa' ? 'انتقال فیزیکی فایل (خروجی و ورودی دستی JSON)' : language === 'ku' ? 'گواستنەوەی فیزیکی فایل (JSON)' : 'Physical File Transfer (JSON Export & Import)'}</span>
+            <span>{lang === 'fa' ? 'انتقال فیزیکی فایل (خروجی و ورودی دستی JSON)' : lang === 'ku' ? 'گواستنەوەی فیزیکی فایل (JSON)' : 'Physical File Transfer (JSON Export & Import)'}</span>
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {language === 'fa'
+            {lang === 'fa'
               ? 'جهت جابه‌جایی دستی اطلاعات بین دو دستگاه مختلف یا ذخیره در فلش‌مموری.'
-              : language === 'ku'
+              : lang === 'ku'
               ? 'بۆ گواستنەوەی دەستی داتاکان لە نێوان دوو ئامێردا یان هەڵگرتن لەسەر فلاش.'
               : 'Export an external offline file for transferring records to another device or flash drive.'}
           </p>
@@ -944,10 +947,10 @@ export default function DataSyncSettingsTab({
             </div>
             <div>
               <div className="text-xs font-bold text-slate-900 dark:text-white">
-                {language === 'fa' ? 'دانلود فایل کامل پایگاه داده' : language === 'ku' ? 'داگرتنی فایلی تەواوی داتابەیس' : 'Download Full Database Backup'}
+                {lang === 'fa' ? 'دانلود فایل کامل پایگاه داده' : lang === 'ku' ? 'داگرتنی فایلی تەواوی داتابەیس' : 'Download Full Database Backup'}
               </div>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                {language === 'fa' ? 'شامل کلیه پرسنل، لاگ‌ها، پرداخت‌ها، فاکتورها، حساب‌ها و تنظیمات' : language === 'ku' ? 'هەموو داتاکانی کارگە لەخۆدەگرێت' : 'Includes all workers, logs, expenses, payments and accounts'}
+                {lang === 'fa' ? 'شامل کلیه پرسنل، لاگ‌ها، پرداخت‌ها، فاکتورها، حساب‌ها و تنظیمات' : lang === 'ku' ? 'هەموو داتاکانی کارگە لەخۆدەگرێت' : 'Includes all workers, logs, expenses, payments and accounts'}
               </div>
             </div>
           </div>
@@ -959,7 +962,7 @@ export default function DataSyncSettingsTab({
             className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center justify-center gap-2 transition-all duration-200 shadow-sm active:scale-95 flex-shrink-0"
           >
             <Download className="w-4 h-4" />
-            <span>{language === 'fa' ? 'دانلود فایل JSON' : language === 'ku' ? 'داگرتنی JSON' : 'Export JSON'}</span>
+            <span>{lang === 'fa' ? 'دانلود فایل JSON' : lang === 'ku' ? 'داگرتنی JSON' : 'Export JSON'}</span>
           </button>
         </div>
 
@@ -969,10 +972,10 @@ export default function DataSyncSettingsTab({
             <div>
               <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <ArrowUpFromLine className="w-4 h-4 text-sky-500" />
-                <span>{language === 'fa' ? 'بازیابی اطلاعات از فایل خارجی:' : language === 'ku' ? 'گەڕاندنەوەی زانیارییەکان لە فایلی دەرەکی:' : 'Import Records from External JSON:'}</span>
+                <span>{lang === 'fa' ? 'بازیابی اطلاعات از فایل خارجی:' : lang === 'ku' ? 'گەڕاندنەوەی زانیارییەکان لە فایلی دەرەکی:' : 'Import Records from External JSON:'}</span>
               </div>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                {language === 'fa' ? 'شیوه بازنویسی داده‌ها را انتخاب کنید:' : language === 'ku' ? 'شێوازی گەڕاندنەوە دیاریبکە:' : 'Select database write mode:'}
+                {lang === 'fa' ? 'شیوه بازنویسی داده‌ها را انتخاب کنید:' : lang === 'ku' ? 'شێوازی گەڕاندنەوە دیاریبکە:' : 'Select database write mode:'}
               </div>
             </div>
 
@@ -989,7 +992,7 @@ export default function DataSyncSettingsTab({
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
                 {restoreMode === 'replace' && (
-                  <span>{language === 'fa' ? 'جایگزینی کامل (Clean)' : language === 'ku' ? 'جێگرتنەوەی تەواو' : 'Clean Replace'}</span>
+                  <span>{lang === 'fa' ? 'جایگزینی کامل (Clean)' : lang === 'ku' ? 'جێگرتنەوەی تەواو' : 'Clean Replace'}</span>
                 )}
               </button>
 
@@ -1004,7 +1007,7 @@ export default function DataSyncSettingsTab({
               >
                 <Layers className="w-3.5 h-3.5" />
                 {restoreMode === 'merge' && (
-                  <span>{language === 'fa' ? 'ادغام با موجودی (Merge)' : language === 'ku' ? 'تێکەڵکردن' : 'Merge Records'}</span>
+                  <span>{lang === 'fa' ? 'ادغام با موجودی (Merge)' : lang === 'ku' ? 'تێکەڵکردن' : 'Merge Records'}</span>
                 )}
               </button>
             </div>
@@ -1015,9 +1018,9 @@ export default function DataSyncSettingsTab({
             <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>
-                {language === 'fa'
+                {lang === 'fa'
                   ? 'هشدار: در حالت جایگزینی کامل، تمامی اطلاعات فعلی حذف شده و داده‌های موجود در فایل JSON از نو ثبت می‌گردند.'
-                  : language === 'ku'
+                  : lang === 'ku'
                   ? 'ئاگاداری: هەموو داتاکانی ئێستا دەسڕدرێنەوە و داتای ناو فایلەکە جێگیر دەبێت.'
                   : 'Warning: Clean replace will clear all current workspace data and replace it with data from the JSON file.'}
               </span>
@@ -1056,7 +1059,7 @@ export default function DataSyncSettingsTab({
                 <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <span>{backupFile.name}</span>
                   <span className="text-[10px] text-slate-400 font-mono">
-                    ({(backupFile.size / 1024).toFixed(1)} KB)
+                    ({convertDigits ? convertDigits((backupFile.size / 1024).toFixed(1), lang) : (backupFile.size / 1024).toFixed(1)} KB)
                   </span>
                 </div>
                 <button
@@ -1068,17 +1071,17 @@ export default function DataSyncSettingsTab({
                   className="text-[11px] text-rose-500 hover:underline flex items-center gap-1 mt-1"
                 >
                   <X className="w-3 h-3" />
-                  <span>{language === 'fa' ? 'حذف و انتخاب فایل دیگر' : language === 'ku' ? 'لابردن' : 'Remove & choose another'}</span>
+                  <span>{lang === 'fa' ? 'حذف و انتخاب فایل دیگر' : lang === 'ku' ? 'لابردن' : 'Remove & choose another'}</span>
                 </button>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-1.5">
                 <Upload className="w-7 h-7 text-slate-400 mb-1" />
                 <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {language === 'fa' ? 'فایل JSON را به اینجا بکشید یا برای انتخاب کلیک کنید' : language === 'ku' ? 'فایلی JSON لێرە دابنێ' : 'Drag & drop backup JSON file here or click to browse'}
+                  {lang === 'fa' ? 'فایل JSON را به اینجا بکشید یا برای انتخاب کلیک کنید' : lang === 'ku' ? 'فایلی JSON لێرە دابنێ' : 'Drag & drop backup JSON file here or click to browse'}
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  {language === 'fa' ? 'پشتیبانی از فایل‌های پشتیبان استاندارد کارسینک' : language === 'ku' ? 'پشتیوانی فایلی ستانداردی KarSync' : 'Supports standard KarSync JSON export snapshots'}
+                  {lang === 'fa' ? 'پشتیبانی از فایل‌های پشتیبان استاندارد کارسینک' : lang === 'ku' ? 'پشتیوانی فایلی ستانداردی KarSync' : 'Supports standard KarSync JSON export snapshots'}
                 </div>
               </div>
             )}
@@ -1093,7 +1096,7 @@ export default function DataSyncSettingsTab({
               className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white flex items-center justify-center gap-2 transition-all shadow-md shadow-sky-600/20 active:scale-95"
             >
               <Upload className="w-4 h-4" />
-              <span>{backupLoading ? (language === 'fa' ? 'در حال بازیابی...' : language === 'ku' ? 'هێنانەوە...' : 'Restoring...') : (language === 'fa' ? 'تایید و بازیابی اطلاعات' : language === 'ku' ? 'هێنانەوەی داتا' : 'Confirm & Restore Data')}</span>
+              <span>{backupLoading ? (lang === 'fa' ? 'در حال بازیابی...' : lang === 'ku' ? 'هێنانەوە...' : 'Restoring...') : (lang === 'fa' ? 'تایید و بازیابی اطلاعات' : lang === 'ku' ? 'هێنانەوەی داتا' : 'Confirm & Restore Data')}</span>
             </button>
           </div>
 
@@ -1119,7 +1122,7 @@ export default function DataSyncSettingsTab({
 
       {/* CONFIRMATION RESTORE MODAL (Apple Liquid Glass) */}
       {confirmModalSnap && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200" dir={direction}>
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-white/60 dark:border-slate-800 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0 border border-sky-500/20">
@@ -1142,7 +1145,7 @@ export default function DataSyncSettingsTab({
                 <span>{formatSnapshotDate(confirmModalSnap.createdAt)}</span>
               </div>
               <div className="text-[11px] text-slate-400">
-                {language === 'fa' ? 'شناسه نسخه:' : language === 'ku' ? 'ناسنامەی وەشان:' : 'Snapshot ID:'}{' '}
+                {lang === 'fa' ? 'شناسه نسخه:' : lang === 'ku' ? 'ناسنامەی وەشان:' : 'Snapshot ID:'}{' '}
                 <span className="font-mono text-slate-600 dark:text-slate-300">{confirmModalSnap.id}</span>
               </div>
             </div>
@@ -1150,7 +1153,7 @@ export default function DataSyncSettingsTab({
             {/* Mode selection */}
             <div className="space-y-2">
               <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                {language === 'fa' ? 'نحوه اعمال بازگشت:' : language === 'ku' ? 'شێوازی گەڕاندنەوە:' : 'Rollback Mode:'}
+                {lang === 'fa' ? 'نحوه اعمال بازگشت:' : lang === 'ku' ? 'شێوازی گەڕاندنەوە:' : 'Rollback Mode:'}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -1163,10 +1166,10 @@ export default function DataSyncSettingsTab({
                   }`}
                 >
                   <div className="text-xs font-bold">
-                    {language === 'fa' ? 'جایگزینی کامل' : language === 'ku' ? 'جێگرتنەوەی تەواو' : 'Clean Replace'}
+                    {lang === 'fa' ? 'جایگزینی کامل' : lang === 'ku' ? 'جێگرتنەوەی تەواو' : 'Clean Replace'}
                   </div>
                   <div className="text-[10px] opacity-75 mt-0.5">
-                    {language === 'fa' ? 'داده‌های فعلی با این نسخه جایگزین می‌شوند' : language === 'ku' ? 'داتاکانی ئێستا دەسڕدرێنەوە' : 'Overwrite current data'}
+                    {lang === 'fa' ? 'داده‌های فعلی با این نسخه جایگزین می‌شوند' : lang === 'ku' ? 'داتاکانی ئێستا دەسڕدرێنەوە' : 'Overwrite current data'}
                   </div>
                 </button>
 
@@ -1180,10 +1183,10 @@ export default function DataSyncSettingsTab({
                   }`}
                 >
                   <div className="text-xs font-bold">
-                    {language === 'fa' ? 'ادغام اطلاعات' : language === 'ku' ? 'تێکەڵکردنی داتا' : 'Merge Data'}
+                    {lang === 'fa' ? 'ادغام اطلاعات' : lang === 'ku' ? 'تێکەڵکردنی داتا' : 'Merge Data'}
                   </div>
                   <div className="text-[10px] opacity-75 mt-0.5">
-                    {language === 'fa' ? 'رکوردها بدون حذف موارد جدید اضافه می‌شوند' : language === 'ku' ? 'تێکەڵ دەکرێت بەبێ سڕینەوە' : 'Merge without clearing new'}
+                    {lang === 'fa' ? 'رکوردها بدون حذف موارد جدید اضافه می‌شوند' : lang === 'ku' ? 'تێکەڵ دەکرێت بەبێ سڕینەوە' : 'Merge without clearing new'}
                   </div>
                 </button>
               </div>
@@ -1197,7 +1200,7 @@ export default function DataSyncSettingsTab({
                 disabled={isRestoringSnap}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
               >
-                {language === 'fa' ? 'انصراف' : language === 'ku' ? 'پاشگەزبوونەوە' : 'Cancel'}
+                {t('cancel')}
               </button>
 
               <button
@@ -1217,8 +1220,8 @@ export default function DataSyncSettingsTab({
                 <RotateCcw className={`w-3.5 h-3.5 ${isRestoringSnap ? 'animate-spin' : ''}`} />
                 <span>
                   {isRestoringSnap
-                    ? language === 'fa' ? 'در حال بازیابی...' : language === 'ku' ? 'هێنانەوە...' : 'Restoring...'
-                    : language === 'fa' ? 'تأیید و بازگشت' : language === 'ku' ? 'پشتڕاستکردنەوە' : 'Confirm Rollback'}
+                    ? lang === 'fa' ? 'در حال بازیابی...' : lang === 'ku' ? 'هێنانەوە...' : 'Restoring...'
+                    : lang === 'fa' ? 'تأیید و بازگشت' : lang === 'ku' ? 'پشتڕاستکردنەوە' : 'Confirm Rollback'}
                 </span>
               </button>
             </div>
@@ -1228,7 +1231,7 @@ export default function DataSyncSettingsTab({
 
       {/* CLIENT ID CONFIG MODAL */}
       {isClientIdModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200" dir={direction}>
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-white/60 dark:border-slate-800 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 border border-blue-500/20">
@@ -1263,7 +1266,7 @@ export default function DataSyncSettingsTab({
                 onClick={() => setIsClientIdModalOpen(false)}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
               >
-                {language === 'fa' ? 'انصراف' : language === 'ku' ? 'پاشگەزبوونەوە' : 'Cancel'}
+                {t('cancel')}
               </button>
 
               <button
