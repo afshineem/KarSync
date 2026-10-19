@@ -721,7 +721,9 @@ export const translations = {
     tourStep4Title: 'بەڕێوەبردنی خەرجییەکان و پسووڵەکان',
     tourStep4Desc: 'تەواوی پسووڵە و خەرجییەکانی کارگە بە جیاکردنەوەی پۆلێنەکان و وێنەی پسووڵە بە شێوەیەکی ڕێکخراو تۆمار بکە.',
     tourStep5Title: 'هاوکاتکردنی کلاود و کارکردنی ئۆفلاین',
-    tourStep5Desc: 'کارسینک بە تەواوی ئۆفلاین کار دەکات! بەبێ ئینتەرنێتیش داتاکان پارێزراون و لەکاتی پەیوەستبووندا خۆکار هاوکات دەبن.'
+    tourStep5Desc: 'کارسینک بە تەواوی ئۆفلاین کار دەکات! بەبێ ئینتەرنێتیش داتاکان پارێزراون و لەکاتی پەیوەستبووندا خۆکار هاوکات دەبن.',
+    workshopCode: 'کۆدی کارگە',
+    copied: 'کۆپی کرا'
   },
   fa: {
 
@@ -1445,7 +1447,9 @@ export const translations = {
     tourStep4Title: 'مدیریت مخارج، فاکتورها و تنخواه',
     tourStep4Desc: 'تمامی فاکتورها و هزینه‌های جاری کارگاه رو با تفکیک سرفصل، طرف‌حساب و الصاق عکس فاکتور ثبت و مدیریت کنید.',
     tourStep5Title: 'همگام‌سازی ابری و کارکرد آفلاین',
-    tourStep5Desc: 'کارسینک کاملاً آفلاین عمل می‌کنه! حتی بدون اینترنت همه کارها انجام می‌شن و با اتصال به شبکه، خودکار با سرور و دستگاه‌های دیگه همگام می‌شن.'
+    tourStep5Desc: 'کارسینک کاملاً آفلاین عمل می‌کنه! حتی بدون اینترنت همه کارها انجام می‌شن و با اتصال به شبکه، خودکار با سرور و دستگاه‌های دیگه همگام می‌شن.',
+    workshopCode: 'کد کارگاه',
+    copied: 'کپی شد'
   },
   en: {
 
@@ -2169,6 +2173,8 @@ export const translations = {
     tourStep4Title: 'Expenses, Receipts & Invoices',
     tourStep4Desc: 'Track all project expenses and invoices with categories, payees, and photo attachments to keep workshop budgets transparent.',
     tourStep5Title: 'Cloud Sync & Offline Peace of Mind',
-    tourStep5Desc: 'KarSync works 100% offline! Your work is always safe locally and automatically synchronizes across devices when online.'
+    tourStep5Desc: 'KarSync works 100% offline! Your work is always safe locally and automatically synchronizes across devices when online.',
+    workshopCode: 'Workshop Code',
+    copied: 'Copied'
   }
 };

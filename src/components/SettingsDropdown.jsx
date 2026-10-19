@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
@@ -21,7 +23,10 @@ import {
   ShieldCheck,
   Building,
   Landmark,
-  CheckCircle2
+  CheckCircle2,
+  Building2,
+  Copy,
+  Check
 } from 'lucide-react';
 
 const SETTINGS_DROPDOWN_COPY = {
@@ -139,6 +144,24 @@ export function SettingsDropdown({
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
+  const [copiedWsCode, setCopiedWsCode] = useState(false);
+  const activeWorkspace = useLiveQuery(async () => {
+    try {
+      if (db.workspaces) {
+        const list = await db.workspaces.toArray();
+        return list[0] || null;
+      }
+    } catch (_) {}
+    return null;
+  }, []);
+  const displayWsCode = user?.workspaceCode || activeWorkspace?.workspace_code || 'KARS-101';
+
+  const handleCopyWsCode = (e) => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(displayWsCode);
+    setCopiedWsCode(true);
+    setTimeout(() => setCopiedWsCode(false), 2000);
+  };
 
   const dropdownRef = useRef(null);
 
@@ -262,6 +285,31 @@ export function SettingsDropdown({
                 {c.manageAccount}
                 {isRtl ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               </span>
+            </div>
+
+            {/* Copyable Workshop Code Pill */}
+            <div 
+              onClick={handleCopyWsCode}
+              title={copiedWsCode ? c.copied : `${c.workshopCode} ${displayWsCode}`}
+              className="mt-2 inline-flex items-center justify-between w-full px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 transition-all cursor-pointer group/ws text-[11px]"
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Building2 className="w-3 h-3 text-sky-500 flex-shrink-0" />
+                <span className="text-slate-500 dark:text-slate-400 font-medium text-[10px]">{c.workshopCode}</span>
+                <span className="font-mono font-bold tracking-wider">{displayWsCode}</span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                {copiedWsCode ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-400 text-[10px]">{c.copied}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 opacity-60 group-hover/ws:opacity-100 transition-opacity" />
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

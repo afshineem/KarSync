@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Plus, X, Search, ShieldCheck, Edit, Trash2, ShieldBan, UserCog, Activity, UserPlus, Power, ShieldAlert, Key } from 'lucide-react';
+import { Users, Shield, Plus, X, Search, ShieldCheck, Edit, Trash2, ShieldBan, UserCog, Activity, UserPlus, Power, ShieldAlert, Key, Building2, Copy, Check } from 'lucide-react';
 import { db } from '../db/db';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/realtimeSync';
@@ -136,6 +136,16 @@ export default function UsersSettingsTab() {
   const [workspace, setWorkspace] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [copiedWsCode, setCopiedWsCode] = useState(false);
+
+  const displayWsCode = currentUser?.workspaceCode || workspace?.workspace_code || 'KARS-101';
+
+  const handleCopyWsCode = (e) => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(displayWsCode);
+    setCopiedWsCode(true);
+    setTimeout(() => setCopiedWsCode(false), 2000);
+  };
 
   useEffect(() => {
     loadData();
@@ -184,7 +194,7 @@ export default function UsersSettingsTab() {
           targetWorkspace = {
              id: targetWorkspaceId,
              name: c.defaultWorkspaceName,
-             workspace_code: 'KAR101',
+             workspace_code: 'KARS-101',
              owner_id: safeAuth.userId,
              max_users_limit: 10,
              plan_tier: 'free',
@@ -431,6 +441,22 @@ export default function UsersSettingsTab() {
                     <p className="text-xs text-slate-500 mt-1">
                       {c.packageUsageDesc(activeUsersCount, workspace.max_users_limit)}
                     </p>
+                    
+                    {/* Copyable Workshop Code Pill */}
+                    <div 
+                      onClick={handleCopyWsCode}
+                      title={copiedWsCode ? c.copied : `${c.workshopCodeLabel} ${displayWsCode}`}
+                      className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 transition-all cursor-pointer group/ws text-xs"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">{c.workshopCodeLabel}</span>
+                      <span className="font-mono font-bold tracking-wider text-slate-800 dark:text-slate-100">{displayWsCode}</span>
+                      {copiedWsCode ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500 animate-in zoom-in-75" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5 text-sky-400 group-hover/ws:text-sky-600 dark:group-hover/ws:text-sky-200 transition-colors" />
+                      )}
+                    </div>
                   </div>
                 </div>
                 

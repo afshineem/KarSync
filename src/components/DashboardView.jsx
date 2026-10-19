@@ -32,7 +32,9 @@ import {
   AlertCircle,
   Plus,
   PieChart,
-  CalendarCheck
+  CalendarCheck,
+  Building2,
+  Copy
 } from 'lucide-react';
 
 export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
@@ -48,6 +50,24 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   } = useLanguage();
   const { user } = useAuth();
   const { currentProject, openWorkerProfile, openGlobalSettings } = useProject();
+  const [copiedWsCode, setCopiedWsCode] = useState(false);
+  const activeWorkspace = useLiveQuery(async () => {
+    try {
+      if (db.workspaces) {
+        const list = await db.workspaces.toArray();
+        return list[0] || null;
+      }
+    } catch (_) {}
+    return null;
+  }, []);
+  const displayWsCode = user?.workspaceCode || activeWorkspace?.workspace_code || 'KARS-101';
+
+  const handleCopyWsCode = (e) => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(displayWsCode);
+    setCopiedWsCode(true);
+    setTimeout(() => setCopiedWsCode(false), 2000);
+  };
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -107,7 +127,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       openSettlementDeskBtn: 'ورود به میز تسویه کامل',
       allAccountsSettledMsg: 'تبریک! تمام حساب‌های پرسنل کاملاً تسویه هستند و بدهی معوقی وجود ندارد.',
       defaultWorkerRole: 'کارگر',
-      pendingSettlementLabel: 'طلب معوق نیازمند پرداخت'
+      pendingSettlementLabel: 'طلب معوق نیازمند پرداخت',
+      workshopCode: 'کد کارگاه:',
+      copied: 'کپی شد!'
     },
     ku: {
       generalExpense: 'خەرجی گشتی',
@@ -161,7 +183,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       openSettlementDeskBtn: 'چوونە ناو مێزی پاکتاوی تەواو',
       allAccountsSettledMsg: 'پیرۆزە! تەواوی حیسابی کرێکاران پاکتاو کراوە و هیچ قەرزێکی دواکەوتوو نییە.',
       defaultWorkerRole: 'کرێکار',
-      pendingSettlementLabel: 'بڕە پارەی شایستەی دواکەوتوو'
+      pendingSettlementLabel: 'بڕە پارەی شایستەی دواکەوتوو',
+      workshopCode: 'کۆدی کارگە:',
+      copied: 'کۆپی کرا!'
     },
     en: {
       generalExpense: 'General Expense',
@@ -215,7 +239,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       openSettlementDeskBtn: 'Open Settlement Desk',
       allAccountsSettledMsg: 'All worker accounts are settled! Zero outstanding debt.',
       defaultWorkerRole: 'Worker',
-      pendingSettlementLabel: 'Pending settlement'
+      pendingSettlementLabel: 'Pending settlement',
+      workshopCode: 'Workshop Code:',
+      copied: 'Copied!'
     }
   }[langKey];
 
@@ -752,6 +778,23 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   {localizeProjectName(currentProject?.name)}
                 </span>
+                {/* Workshop Code Pill */}
+                <button
+                  type="button"
+                  onClick={handleCopyWsCode}
+                  title={copiedWsCode ? copy.copied : `${copy.workshopCode} ${displayWsCode}`}
+                  aria-label={copiedWsCode ? copy.copied : `${copy.workshopCode} ${displayWsCode}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 transition-all cursor-pointer group active:scale-95 shadow-2xs"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-sky-500 group-hover:scale-110 transition-transform" />
+                  <span className="text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">{copy.workshopCode}</span>
+                  <span className="font-mono font-bold tracking-wider">{displayWsCode}</span>
+                  {copiedWsCode ? (
+                    <Check className="w-3 h-3 text-emerald-500 animate-in zoom-in-75" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-sky-400 group-hover:text-sky-600 dark:group-hover:text-sky-200 transition-colors" />
+                  )}
+                </button>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
                 <span>{liveDateString}</span>
