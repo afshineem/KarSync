@@ -2800,11 +2800,14 @@ export async function fullSyncBothDirections() {
   await pullProjectSectionsLive();
   await pullExpensesLive();
   await pullExpenseCategoriesLive(true);
-  await pushAllLocalToCloud();
-  await pushAllGroupsToCloud();
-  await syncAllWorkerMetadataToCloud();
-  await pushPaymentsLive();
-  await pushAllExpensesToCloud();
+  const ctx = getActiveWorkspaceContext();
+  if (ctx.isLegacyOwner) {
+    await pushAllLocalToCloud();
+    await pushAllGroupsToCloud();
+    await syncAllWorkerMetadataToCloud();
+    await pushPaymentsLive();
+    await pushAllExpensesToCloud();
+  }
   await syncFinancialDataLive();
 }
 
@@ -4226,10 +4229,13 @@ export async function syncFinancialDataLive() {
     await pullAccountTransfersLive(true);
     await pullCounterpartiesLive(true);
     await pullGlobalOverdraftPolicyLive();
-    await pushAllFinancialAccountsToCloud();
-    await pushAllTreasuryIncomesToCloud();
-    await pushAllAccountTransfersToCloud();
-    await pushAllCounterpartiesToCloud();
+    const ctx = getActiveWorkspaceContext();
+    if (ctx.isLegacyOwner) {
+      await pushAllFinancialAccountsToCloud();
+      await pushAllTreasuryIncomesToCloud();
+      await pushAllAccountTransfersToCloud();
+      await pushAllCounterpartiesToCloud();
+    }
     window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
     window.dispatchEvent(new CustomEvent('workshop-incomes-sync'));
     window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
