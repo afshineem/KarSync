@@ -316,12 +316,27 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     }
   }, [isOpen, selectedDate, unloggedWorkers, existingDateLogs.length, targetProjectId, initialDate, groups]);
 
+  // Search query & filter within logging modal
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
+
   // Section & Group filter within logging modal
   const [filterModalSection, setFilterModalSection] = useState('all');
   const [filterModalGroup, setFilterModalGroup] = useState('all'); // 'all', 'master', or groupId
 
   const filteredUnloggedWorkers = useMemo(() => {
+    const q = (searchQuery || '').trim().toLowerCase();
+
     return unloggedWorkers.filter((w) => {
+      // 0. Search query filter
+      if (q) {
+        const nameMatch = (w.name || '').toLowerCase().includes(q);
+        const roleMatch = (w.role || '').toLowerCase().includes(q);
+        const groupName = groups.find(g => String(g.id) === String(w.groupId))?.name || '';
+        const groupMatch = groupName.toLowerCase().includes(q);
+        if (!nameMatch && !roleMatch && !groupMatch) return false;
+      }
+
       // 1. Section filter
       if (filterModalSection !== 'all') {
         const assignedSec = workerConfigs[w.id]?.sectionId ?? w.defaultSectionId;
@@ -344,7 +359,23 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
       return true;
     });
-  }, [unloggedWorkers, filterModalSection, filterModalGroup, workerConfigs]);
+  }, [unloggedWorkers, filterModalSection, filterModalGroup, workerConfigs, searchQuery, groups]);
+
+  // Filter groups in group mode by search query
+  const filteredGroups = useMemo(() => {
+    const q = (searchQuery || '').trim().toLowerCase();
+    if (!q) return groups;
+
+    return groups.filter((g) => {
+      const nameMatch = (g.name || '').toLowerCase().includes(q);
+      const descMatch = (g.description || '').toLowerCase().includes(q);
+      const members = unloggedWorkers.filter(w => String(w.groupId || '') === String(g.id));
+      const hasMatchingMember = members.some(w => 
+        (w.name || '').toLowerCase().includes(q) || (w.role || '').toLowerCase().includes(q)
+      );
+      return nameMatch || descMatch || hasMatchingMember;
+    });
+  }, [groups, searchQuery, unloggedWorkers]);
 
   // Quick Select/Toggle by Group or Masters
   const handleSelectGroupMembers = (groupId) => {
@@ -828,7 +859,16 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (searchQuery) {
+          e.preventDefault();
+          setSearchQuery('');
+        } else {
+          onClose();
+        }
+      } else if (e.key === '/' && document.activeElement !== searchInputRef.current && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         if (!isSaving && canModifyDate(selectedDate)) {
@@ -1061,8 +1101,37 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             </div>
 
             {/* Filter by Section & Selection Helpers */}
-            <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
+            <div className="flex items-center gap-2 flex-wrap self-end md:self-auto flex-1 justify-end">
               
+              {/* Universal Live Search Box (Activates with /) */}
+              <div className="relative flex items-center min-w-[200px] sm:min-w-[240px] max-w-xs flex-1 sm:flex-initial">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('searchAttendancePlaceholder')}
+                  className="w-full ps-8 pe-12 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 focus:bg-white dark:focus:bg-slate-900 border border-slate-200/70 dark:border-slate-700/80 focus:border-sky-500 dark:focus:border-sky-500 rounded-2xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                />
+                <div className="absolute end-2 flex items-center gap-1">
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-600 hover:bg-rose-500 hover:text-white text-slate-700 dark:text-slate-200 flex items-center justify-center text-[10px] font-bold cursor-pointer transition-colors"
+                      title="پاک کردن جستجو"
+                    >
+                      ✕
+                    </button>
+                  ) : (
+                    <kbd className="hidden sm:inline-flex items-center justify-center h-4 px-1.5 text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md shadow-2xs pointer-events-none">
+                      /
+                    </kbd>
+                  )}
+                </div>
+              </div>
+
               {/* Project Section Filter (if applicable) */}
               {entryMode === 'individual' && projectSections.length > 0 && (
                 <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-medium">
@@ -1288,9 +1357,25 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                     {t('noGroupsCreatedNotice')}
                   </p>
                 </div>
+              ) : filteredGroups.length === 0 ? (
+                <div className="p-8 bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 rounded-3xl text-center space-y-2 backdrop-blur-md">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-400 flex items-center justify-center">
+                    <Search className="w-6 h-6 opacity-60" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {language === 'fa' ? 'هیچ گروه یا پرسنلی مطابق با جستجوی شما یافت نشد' : language === 'ku' ? 'هیچ تیم یان کرێکارێک بە پێی گەڕانەکەت نەدۆزرایەوە' : 'No groups or workers matched your search'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer pt-1"
+                  >
+                    {language === 'fa' ? 'پاک کردن عبارت جستجو' : language === 'ku' ? 'سڕینەوەی دەقی گەڕان' : 'Clear search query'}
+                  </button>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {groups.map((group) => {
+                  {filteredGroups.map((group) => {
                     const groupMembers = unloggedWorkers.filter(w => String(w.groupId || '') === String(group.id));
                     const isChecked = !!selectedGroups[group.id];
                     const cfg = groupConfigs[group.id] || { type: 'full', overtimeHours: 0, notes: '', sectionId: '__default__' };
@@ -1707,8 +1792,29 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {filteredUnloggedWorkers.map((worker) => {
+              {filteredUnloggedWorkers.length === 0 ? (
+                <div className="p-8 bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 rounded-3xl text-center space-y-2 backdrop-blur-md">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-400 flex items-center justify-center">
+                    <Search className="w-6 h-6 opacity-60" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {language === 'fa' ? 'هیچ پرسنلی مطابق با جستجوی شما یافت نشد' : language === 'ku' ? 'هیچ کرێکارێک بە پێی گەڕانەکەت نەدۆزرایەوە' : 'No workers matched your search'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setFilterModalGroup('all');
+                      setFilterModalSection('all');
+                    }}
+                    className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer pt-1"
+                  >
+                    {language === 'fa' ? 'پاک کردن فیلترها و جستجو' : language === 'ku' ? 'سڕینەوەی فلتەر و گەڕان' : 'Clear filters and search'}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {filteredUnloggedWorkers.map((worker) => {
                   const isChecked = !!selectedWorkers[worker.id];
                   const cfg = workerConfigs[worker.id] || { type: 'full', overtimeHours: 0, notes: '' };
                   const pay = calculateWorkerDayPay(worker);
@@ -1987,6 +2093,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                   );
                 })}
               </div>
+              )}
             </div>
           )}
 

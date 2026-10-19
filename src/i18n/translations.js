@@ -680,6 +680,7 @@ export const translations = {
     excludedMembersCount: '{count} نەفر غائیب / جیاکراوە',
     excludeMemberFromGroup: 'غیاب / جیاکردنەوە لە تۆماری ئەمڕۆ',
     includeMemberInGroup: 'ئامادە / زیادکردنەوە بۆ تۆماری ئەمڕۆ',
+    searchAttendancePlaceholder: 'گەڕان لە پرسنل یان تیم... (کلیلەی /)',
     // Product Tour
     productTour: 'گەشتی ناساندنی بەرنامە',
     tourStepCount: 'هەنگاوی {current} لە {total}',
@@ -1379,6 +1380,7 @@ export const translations = {
     excludedMembersCount: '{count} نفر غایب / مستثنی',
     excludeMemberFromGroup: 'غیبت / استثنا کردن این پرسنل از ثبت امروز',
     includeMemberInGroup: 'حضور / بازگرداندن این پرسنل به لیست ثبت امروز',
+    searchAttendancePlaceholder: 'جستجوی پرسنل یا گروه کاری... (کلید /)',
     // Product Tour
     productTour: 'تور معرفی برنامه',
     tourStepCount: 'گام {current} از {total}',
@@ -2078,6 +2080,7 @@ export const translations = {
     excludedMembersCount: '{count} Absent / Excluded',
     excludeMemberFromGroup: 'Mark absent / Exclude this worker today',
     includeMemberInGroup: 'Mark present / Include this worker today',
+    searchAttendancePlaceholder: 'Search workers or work groups... (Press /)',
     // Product Tour
     productTour: 'Product Tour',
     tourStepCount: 'Step {current} of {total}',
