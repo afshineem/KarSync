@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCurrency, formatAmount } from '../../utils/formatters';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { 
   X, 
   CreditCard, 
@@ -166,9 +167,14 @@ export function AddEditAccountModal({
   onSave,
   initialData = null,
   currency = 'IQD',
-  language = 'fa'
+  language = null
 }) {
-  const txt = COPY[language] || COPY.fa;
+  const { language: ctxLang = 'fa', direction = 'rtl' } = useLanguage();
+  const activeLang = language || ctxLang;
+  const lang = ['fa', 'ku', 'en'].includes(activeLang) ? activeLang : 'fa';
+  const isRtl = direction === 'rtl';
+  const txt = COPY[lang] || COPY.fa;
+
   const [type, setType] = useState('bank'); // 'bank' | 'cash'
   const [name, setName] = useState('');
   const [bankName, setBankName] = useState('');
@@ -186,7 +192,6 @@ export function AddEditAccountModal({
 
   // بانک‌های پرکاربرد جهت انتخاب سریع
   const popularBanks = txt.popularBanks;
-
 
   useEffect(() => {
     if (initialData) {
@@ -267,7 +272,10 @@ export function AddEditAccountModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div 
+      dir={direction} 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150"
+    >
       <div 
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
@@ -350,7 +358,7 @@ export function AddEditAccountModal({
                 {/* نام بانک */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    <Building2 className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
+                    <Building2 className={`w-3.5 h-3.5 inline text-slate-400 ${isRtl ? 'ml-1' : 'mr-1'}`} />
                     <span>{txt.labelBankName}</span>
                   </label>
                   <input
@@ -378,7 +386,7 @@ export function AddEditAccountModal({
                 {/* نام صاحب حساب */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    <User className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
+                    <User className={`w-3.5 h-3.5 inline text-slate-400 ${isRtl ? 'ml-1' : 'mr-1'}`} />
                     <span>{txt.labelHolder}</span>
                   </label>
                   <input
@@ -394,7 +402,7 @@ export function AddEditAccountModal({
               {/* شماره کارت ۱۶ رقمی */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  <CreditCard className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
+                  <CreditCard className={`w-3.5 h-3.5 inline text-slate-400 ${isRtl ? 'ml-1' : 'mr-1'}`} />
                   <span>{txt.labelCardNumber}</span>
                 </label>
                 <input
@@ -448,7 +456,7 @@ export function AddEditAccountModal({
               {/* فیلدهای اختصاصی صندوق نقدی */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  <User className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
+                  <User className={`w-3.5 h-3.5 inline text-slate-400 ${isRtl ? 'ml-1' : 'mr-1'}`} />
                   <span>{txt.labelKeeper}</span>
                 </label>
                 <input
@@ -503,7 +511,7 @@ export function AddEditAccountModal({
           {/* سیاست اضافه برداشت (کسری موجودی) این حساب */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              <ShieldAlert className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
+              <ShieldAlert className={`w-3.5 h-3.5 inline text-slate-400 ${isRtl ? 'ml-1' : 'mr-1'}`} />
               <span>{txt.labelOverdraftPolicy}</span>
             </label>
             <select
@@ -524,7 +532,7 @@ export function AddEditAccountModal({
           {/* یادداشت / توضیحات */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              <FileText className="w-3.5 h-3.5 inline ml-1 text-slate-400" />
+              <FileText className={`w-3.5 h-3.5 inline text-slate-400 ${isRtl ? 'ml-1' : 'mr-1'}`} />
               <span>{txt.labelNotes}</span>
             </label>
             <textarea

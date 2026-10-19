@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { migrateClosedTransactionsToCashBox } from '../../db/db';
 import { pushPaymentsLive, pushAllExpensesToCloud } from '../../services/realtimeSync';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 /**
  * AccountsSettingsTab
@@ -233,9 +234,14 @@ export function AccountsSettingsTab({
   onQuickDeposit = null,
   onQuickTransfer = null,
   currency = 'IQD',
-  language = 'fa'
+  language = null
 }) {
-  const txt = COPY[language] || COPY.fa;
+  const { language: ctxLang = 'fa', direction = 'rtl', convertDigits, formatNumber } = useLanguage();
+  const activeLang = language || ctxLang;
+  const lang = ['fa', 'ku', 'en'].includes(activeLang) ? activeLang : 'fa';
+  const isRtl = direction === 'rtl';
+  const txt = COPY[lang] || COPY.fa;
+
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'bank' | 'cash'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
@@ -290,11 +296,12 @@ export function AccountsSettingsTab({
 
     // ۴. بررسی وجود هرگونه تراکنش و سند مالی
     if (txCount > 0) {
+      const formattedTxCount = convertDigits ? convertDigits(txCount, lang) : txCount;
       setAccountBlockedFromDelete({
         account,
         reason: 'has_transactions',
         title: txt.blockedTxTitle,
-        message: txt.blockedTxMsg(txCount),
+        message: txt.blockedTxMsg(formattedTxCount),
         txCount,
         currentBalance: balData?.currentBalance ?? 0
       });
@@ -310,9 +317,11 @@ export function AccountsSettingsTab({
       const res = await migrateClosedTransactionsToCashBox(undefined, true);
       pushPaymentsLive().catch(() => {});
       pushAllExpensesToCloud().catch(() => {});
+      const pCount = convertDigits ? convertDigits(res.updatedPaymentsCount, lang) : res.updatedPaymentsCount;
+      const eCount = convertDigits ? convertDigits(res.updatedExpensesCount, lang) : res.updatedExpensesCount;
       setMigrationStatus({
         type: 'success',
-        message: txt.migrationSuccess(res.updatedPaymentsCount, res.updatedExpensesCount)
+        message: txt.migrationSuccess(pCount, eCount)
       });
       setTimeout(() => setMigrationStatus(null), 6000);
     } catch (err) {
@@ -415,7 +424,7 @@ export function AccountsSettingsTab({
           <button
             type="button"
             onClick={() => setActiveFilter('all')}
-            title={`${txt.tabAll} (${accounts.length})`}
+            title={`${txt.tabAll} (${convertDigits ? convertDigits(accounts.length, lang) : accounts.length})`}
             className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
               activeFilter === 'all'
                 ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -426,8 +435,8 @@ export function AccountsSettingsTab({
             {activeFilter === 'all' && (
               <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
                 <span>{txt.tabAll}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
-                  {accounts.length}
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono">
+                  {convertDigits ? convertDigits(accounts.length, lang) : accounts.length}
                 </span>
               </span>
             )}
@@ -436,7 +445,7 @@ export function AccountsSettingsTab({
           <button
             type="button"
             onClick={() => setActiveFilter('bank')}
-            title={`${txt.tabBank} (${bankAccountsCount})`}
+            title={`${txt.tabBank} (${convertDigits ? convertDigits(bankAccountsCount, lang) : bankAccountsCount})`}
             className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
               activeFilter === 'bank'
                 ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -447,8 +456,8 @@ export function AccountsSettingsTab({
             {activeFilter === 'bank' && (
               <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
                 <span>{txt.tabBank}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
-                  {bankAccountsCount}
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono">
+                  {convertDigits ? convertDigits(bankAccountsCount, lang) : bankAccountsCount}
                 </span>
               </span>
             )}
@@ -457,7 +466,7 @@ export function AccountsSettingsTab({
           <button
             type="button"
             onClick={() => setActiveFilter('cash')}
-            title={`${txt.tabCash} (${cashAccountsCount})`}
+            title={`${txt.tabCash} (${convertDigits ? convertDigits(cashAccountsCount, lang) : cashAccountsCount})`}
             className={`relative flex items-center justify-center p-2 sm:p-2.5 rounded-xl transition-all duration-300 ease-in-out ${
               activeFilter === 'cash'
                 ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
@@ -468,8 +477,8 @@ export function AccountsSettingsTab({
             {activeFilter === 'cash' && (
               <span className="text-xs font-bold px-1.5 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in duration-200">
                 <span>{txt.tabCash}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
-                  {cashAccountsCount}
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono">
+                  {convertDigits ? convertDigits(cashAccountsCount, lang) : cashAccountsCount}
                 </span>
               </span>
             )}
@@ -698,7 +707,7 @@ export function AccountsSettingsTab({
                         : isDef
                           ? txt.tipDefaultSystem
                           : tx > 0
-                            ? txt.tipHasTx(tx)
+                            ? txt.tipHasTx(convertDigits ? convertDigits(tx, lang) : tx)
                             : txt.tipDelete;
 
                       return (
@@ -765,7 +774,7 @@ export function AccountsSettingsTab({
           onClose={() => setIsAddModalOpen(false)}
           onSave={onAddAccount}
           currency={currency}
-          language={language}
+          language={lang}
         />
       )}
 
@@ -777,13 +786,16 @@ export function AccountsSettingsTab({
           onSave={(data) => onUpdateAccount(editingAccount.id, data)}
           initialData={editingAccount}
           currency={currency}
-          language={language}
+          language={lang}
         />
       )}
 
       {/* دیالوگ تأیید حذف حساب */}
       {accountToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
+        <div 
+          dir={direction} 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in"
+        >
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center mb-3">
               <AlertTriangle className="w-6 h-6" />
@@ -816,7 +828,10 @@ export function AccountsSettingsTab({
 
       {/* دیالوگ اخطار عدم امکان حذف حساب دارای گردش مالی */}
       {accountBlockedFromDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
+        <div 
+          dir={direction} 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in"
+        >
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl text-center space-y-4">
             <div className="w-14 h-14 rounded-3xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center border border-rose-200 dark:border-rose-900 shadow-sm">
               <Ban className="w-7 h-7" />
@@ -833,7 +848,7 @@ export function AccountsSettingsTab({
 
             <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 text-start space-y-2">
               <p className="leading-relaxed font-medium">
-                {accountBlockedFromDelete.message || txt.blockedTxMsg(accountBlockedFromDelete.txCount)}
+                {accountBlockedFromDelete.message || txt.blockedTxMsg(convertDigits ? convertDigits(accountBlockedFromDelete.txCount, lang) : accountBlockedFromDelete.txCount)}
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                 {txt.blockedTxStandardsMsg}
@@ -841,7 +856,7 @@ export function AccountsSettingsTab({
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] font-bold">
                 <span>{txt.lblCurrentBalance}</span>
                 <span className="font-mono text-emerald-600 dark:text-emerald-400" dir="ltr">
-                  {formatCurrency(accountBlockedFromDelete.currentBalance, currency, language)}
+                  {formatCurrency(accountBlockedFromDelete.currentBalance, currency, lang)}
                 </span>
               </div>
             </div>
