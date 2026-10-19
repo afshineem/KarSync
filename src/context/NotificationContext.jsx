@@ -22,7 +22,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS = {
   // Attendance & Personnel Rules
   dailyAttendanceReminder: true,
   dailyAttendanceReminderTime: '19:00',
-  dailyAttendanceAlwaysRemind: true, // Show soft reminder during day if 0 logs today
+  dailyAttendanceAlwaysRemind: false, // Only alert at or after reminderTime
   settlementDueReminder: true,
   settlementDueDays: 15,
   consecutiveAbsenceAlert: true,
@@ -147,7 +147,10 @@ export function NotificationProvider({ children }) {
     try {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (saved) {
-        return { ...DEFAULT_NOTIFICATION_SETTINGS, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        // Ensure legacy dailyAttendanceAlwaysRemind: true does not bypass reminder time
+        delete parsed.dailyAttendanceAlwaysRemind;
+        return { ...DEFAULT_NOTIFICATION_SETTINGS, ...parsed, dailyAttendanceAlwaysRemind: false };
       }
     } catch (_) {}
     return DEFAULT_NOTIFICATION_SETTINGS;
@@ -461,14 +464,14 @@ export function NotificationProvider({ children }) {
       const reminderTime = settings.dailyAttendanceReminderTime || '19:00';
       const isPastReminderTime = currentHHMM >= reminderTime;
 
-      if (!isTodayShiftRecorded && (isPastReminderTime || settings.dailyAttendanceAlwaysRemind)) {
+      if (!isTodayShiftRecorded && isPastReminderTime) {
         const dedupKey = `missing_attendance_${projectId}_${todayStr}_all`;
 
         alerts.push({
           id: dedupKey,
           dedupKey,
           category: 'attendance',
-          severity: isPastReminderTime ? 'critical' : 'warning',
+          severity: 'warning',
           title:
             language === 'fa'
               ? 'کارکرد امروز هنوز ثبت نشده است'

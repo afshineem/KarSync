@@ -174,14 +174,23 @@ export default function NotificationsSettingsTab() {
               {settings.dailyAttendanceReminder && (
                 <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2.5 animate-in fade-in duration-150">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-sky-500" />
-                      {language === 'fa'
-                        ? 'ساعت هشدار ویژه شبانه:'
-                        : language === 'ku'
-                        ? 'کاتژمێری بیرخستنەوە:'
-                        : 'Priority Reminder Time:'}
-                    </span>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-sky-500" />
+                        {language === 'fa'
+                          ? 'زمان یادآوری:'
+                          : language === 'ku'
+                          ? 'کاتژمێری بیرخستنەوە:'
+                          : 'Reminder Time:'}
+                      </span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {language === 'fa'
+                          ? 'هشدار فقط در صورت عدم ثبت کارکرد پس از این ساعت نمایش داده می‌شود'
+                          : language === 'ku'
+                          ? 'ئاگادارکردنەوە تەنها لە دوای ئەم کاتژمێرە نیشان دەدرێت'
+                          : 'Alert is only shown after this time if attendance is unrecorded'}
+                      </p>
+                    </div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {timePresets.map((timeStr) => {
                         const isSelected = settings.dailyAttendanceReminderTime === timeStr;
