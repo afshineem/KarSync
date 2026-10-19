@@ -315,7 +315,7 @@ export function ProductTour({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleDismiss}
-            className="text-xs font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors px-2 py-1.5 rounded-xl"
+            className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors px-2 py-1.5 rounded-xl cursor-pointer"
           >
             {t('tourSkip')}
           </button>
@@ -325,7 +325,7 @@ export function ProductTour({ isOpen, onClose }) {
               <button
                 type="button"
                 onClick={handlePrev}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1 active:scale-95"
+                className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
               >
                 {isRtl ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
                 <span>{t('tourPrev')}</span>
@@ -335,10 +335,10 @@ export function ProductTour({ isOpen, onClose }) {
             <button
               type="button"
               onClick={handleNext}
-              className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md active:scale-95 flex items-center gap-1.5 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer ${
                 isLastStep
-                  ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
-                  : 'bg-primary hover:bg-primary-hover shadow-primary/20'
+                  ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                  : 'bg-sky-600 hover:bg-sky-500 shadow-sky-600/30'
               }`}
             >
               <span>{isLastStep ? t('tourFinish') : t('tourNext')}</span>
