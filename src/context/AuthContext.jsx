@@ -169,6 +169,43 @@ export function AuthProvider({ children }) {
     if (!user) return { success: false, error: 'noUser' };
     const cleanPass = normalizeDigits(passwordInput).trim();
 
+    // 1. Supabase Cloud Account check (if logged in with email / Supabase)
+    if (user.email && user.email.includes('@')) {
+      try {
+        if (navigator.onLine && supabase) {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: user.email.toLowerCase(),
+            password: passwordInput
+          });
+          if (!error && data?.user) {
+            setIsScreenLocked(false);
+            lastActivityRef.current = Date.now();
+            return { success: true };
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase screen unlock check error:', err);
+      }
+    }
+
+    // 2. app_users table check (multi-tenant local/offline database)
+    if (db.app_users && user.id) {
+      try {
+        const appUser = await db.app_users.get(user.id);
+        if (appUser && appUser.password_hash) {
+          const isValid = (cleanPass === appUser.password_hash) || (await verifyPassword(cleanPass, appUser.password_hash));
+          if (isValid) {
+            setIsScreenLocked(false);
+            lastActivityRef.current = Date.now();
+            return { success: true };
+          }
+        }
+      } catch (e) {
+        console.warn('Local app_users check error:', e);
+      }
+    }
+
+    // 3. Admin legacy/prototype fallback
     if (user.role === 'admin') {
       const adminCreds = getAdminCredentials();
       const isValid = await verifyPassword(cleanPass, adminCreds.password || 'admin');
