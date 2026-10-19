@@ -88,15 +88,24 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     } catch (_) {}
   };
 
-  // Close on Escape key press
+  // Close on Escape & Save on Ctrl+Enter / Cmd+Enter
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isSaving && canModifyDate(selectedDate)) {
+          if ((entryMode === 'individual' && selectedCount > 0) || (entryMode === 'group' && selectedGroupId)) {
+            handleBatchSubmit();
+          }
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isSaving, canModifyDate, selectedDate, entryMode, selectedCount, selectedGroupId, handleBatchSubmit]);
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -983,6 +992,104 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
           </div>
 
+          {/* Quick Group & Role Filter Chips (in Individual Mode) */}
+          {entryMode === 'individual' && unloggedWorkers.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pt-1">
+              {/* All Workers Chip */}
+              <button
+                type="button"
+                onClick={() => setFilterModalGroup('all')}
+                className={`px-3 py-1.5 rounded-2xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer border ${
+                  filterModalGroup === 'all'
+                    ? 'bg-sky-500 text-white border-sky-400 shadow-sm shadow-sky-500/20'
+                    : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>{t('allWorkersFilter')}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  filterModalGroup === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}>
+                  {unloggedWorkers.length}
+                </span>
+              </button>
+
+              {/* Master Workers Chip */}
+              {unloggedWorkers.some(w => w.isMaster || (w.role && /استاد|اوستا|master|سرکارگر/i.test(w.role))) && (
+                <div className="flex items-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setFilterModalGroup(filterModalGroup === 'master' ? 'all' : 'master')}
+                    className={`px-3 py-1.5 rounded-s-2xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                      filterModalGroup === 'master'
+                        ? 'bg-amber-500 text-white border-amber-400 shadow-sm shadow-amber-500/20'
+                        : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{t('mastersFilter')}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      filterModalGroup === 'master' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}>
+                      {unloggedWorkers.filter(w => w.isMaster || (w.role && /استاد|اوستا|master|سرکارگر/i.test(w.role))).length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectGroupMembers('master')}
+                    className={`px-2 py-1.5 rounded-e-2xl text-[11px] font-bold border-y border-e transition-all cursor-pointer ${
+                      filterModalGroup === 'master'
+                        ? 'bg-amber-600 text-white border-amber-500 hover:bg-amber-700'
+                        : 'bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-slate-700 hover:bg-slate-200'
+                    }`}
+                    title={t('selectGroupMembers')}
+                  >
+                    <CheckSquare className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Groups Chips */}
+              {groups.map((grp) => {
+                const groupMembersCount = unloggedWorkers.filter(w => String(w.groupId || '') === String(grp.id)).length;
+                if (groupMembersCount === 0) return null;
+                const isFilterActive = String(filterModalGroup) === String(grp.id);
+
+                return (
+                  <div key={grp.id} className="flex items-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setFilterModalGroup(isFilterActive ? 'all' : grp.id)}
+                      className={`px-3 py-1.5 rounded-s-2xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                        isFilterActive
+                          ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm shadow-indigo-500/20'
+                          : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5 opacity-80" />
+                      <span>{grp.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                        isFilterActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        {groupMembersCount}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGroupMembers(grp.id)}
+                      className={`px-2 py-1.5 rounded-e-2xl text-[11px] font-bold border-y border-e transition-all cursor-pointer ${
+                        isFilterActive
+                          ? 'bg-indigo-700 text-white border-indigo-600 hover:bg-indigo-800'
+                          : 'bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-slate-700 hover:bg-slate-200'
+                      }`}
+                      title={`${t('selectGroupMembers')}: ${grp.name}`}
+                    >
+                      <CheckSquare className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Group Mode Configuration Card */}
           {entryMode === 'group' && (
             <div className="p-5 sm:p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
@@ -1479,8 +1586,8 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       <div className="border-t border-slate-200/80 dark:border-slate-800 shrink-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl shadow-lg z-20">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           
-          {/* Live Dynamic Figures: Selected Count + Gross Wages + OT Hours */}
-          <div className="flex items-center gap-3 flex-wrap">
+          {/* Live Dynamic Figures: Selected Count + Shift Breakdown + Gross Wages + OT Hours */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <div className="px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2">
               <UserCheck className="w-4 h-4 text-sky-500" />
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -1490,6 +1597,25 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
             {summaryTotals.count > 0 && (
               <>
+                {/* Granular Breakdown Badges */}
+                <div className="hidden sm:flex items-center gap-1.5">
+                  {summaryTotals.fullCount > 0 && (
+                    <span className="px-2 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+                      {t('fullDaysCountBadge', { count: summaryTotals.fullCount })}
+                    </span>
+                  )}
+                  {summaryTotals.halfCount > 0 && (
+                    <span className="px-2 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200/60 dark:border-amber-800/60 text-[11px] font-black text-amber-700 dark:text-amber-300">
+                      {t('halfDaysCountBadge', { count: summaryTotals.halfCount })}
+                    </span>
+                  )}
+                  {summaryTotals.hourlyCount > 0 && (
+                    <span className="px-2 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-800/60 text-[11px] font-black text-purple-700 dark:text-purple-300">
+                      {t('hourlyDaysCountBadge', { count: summaryTotals.hourlyCount })}
+                    </span>
+                  )}
+                </div>
+
                 <div className="px-3 py-1.5 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-800/60 flex items-center gap-2">
                   <Coins className="w-4 h-4 text-sky-500" />
                   <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">مجموع دستمزد:</span>
@@ -1511,7 +1637,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             )}
           </div>
 
-          {/* Action Buttons: Cancel + Submit */}
+          {/* Action Buttons: Cancel + Submit + Shortcut Hint */}
           <div className="flex items-center gap-2.5 self-end sm:self-auto w-full sm:w-auto">
             <button
               type="button"
@@ -1528,9 +1654,13 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                 onClick={handleBatchSubmit}
                 disabled={isSaving || !canModifyDate(selectedDate) || (entryMode === 'individual' && selectedCount === 0) || (entryMode === 'group' && !selectedGroupId)}
                 className="flex-2 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 disabled:opacity-50 text-white font-black text-xs rounded-2xl shadow-lg shadow-sky-500/25 transition-all cursor-pointer active:scale-95"
+                title={t('shortcutHint')}
               >
                 <Check className="w-4 h-4 stroke-[2.5]" />
                 <span>{isSaving ? t('savingAttendance') : t('saveBatchAttendance')}</span>
+                <span className="hidden md:inline-block text-[10px] font-mono opacity-75 bg-white/20 px-1.5 py-0.5 rounded-md">
+                  Ctrl+Enter
+                </span>
               </button>
             )}
           </div>
