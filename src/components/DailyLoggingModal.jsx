@@ -88,24 +88,6 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     } catch (_) {}
   };
 
-  // Close on Escape & Save on Ctrl+Enter / Cmd+Enter
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        if (!isSaving && canModifyDate(selectedDate)) {
-          if ((entryMode === 'individual' && selectedCount > 0) || (entryMode === 'group' && selectedGroupId)) {
-            handleBatchSubmit();
-          }
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, isSaving, canModifyDate, selectedDate, entryMode, selectedCount, selectedGroupId, handleBatchSubmit]);
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -702,6 +684,25 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   };
 
   const selectedCount = Object.keys(selectedWorkers).filter(id => selectedWorkers[id]).length;
+
+  // Close on Escape & Save on Ctrl+Enter / Cmd+Enter
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isSaving && canModifyDate(selectedDate)) {
+          if ((entryMode === 'individual' && selectedCount > 0) || (entryMode === 'group' && selectedGroupId)) {
+            handleBatchSubmit();
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, isSaving, canModifyDate, selectedDate, entryMode, selectedCount, selectedGroupId, handleBatchSubmit]);
 
   // Real-time batch calculation of wages and overtime for selected workers
   const summaryTotals = useMemo(() => {
