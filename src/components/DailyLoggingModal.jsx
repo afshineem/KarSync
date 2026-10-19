@@ -1395,22 +1395,10 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                                   >
                                     <span>{t('hourlyOnlyOption')}</span>
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateGroupConfigItem(group.id, 'type', 'absent')}
-                                    className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
-                                      cfg.type === 'absent'
-                                        ? 'bg-rose-500 text-white font-bold shadow-xs'
-                                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
-                                    }`}
-                                  >
-                                    <span>{t('absentOption')}</span>
-                                  </button>
                                 </div>
 
                                 {/* Overtime Stepper with Quick Chips */}
-                                {cfg.type !== 'absent' && (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                     <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-2xl px-2.5 py-1 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
                                       <Clock className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                                       <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
@@ -1521,7 +1509,6 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                                       )}
                                     </div>
                                   </div>
-                                )}
                               </div>
 
                               {/* Section Allocation & Notes Input */}
