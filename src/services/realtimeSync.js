@@ -2179,7 +2179,8 @@ export async function pullWorkerMetadataLive(force = false) {
       } catch (_) {}
     }
 
-    if (hasLocalChanges) {
+    const ctx = getActiveWorkspaceContext();
+    if (hasLocalChanges && ctx.isLegacyOwner) {
       await supabase.from('settings').upsert({
         setting_key: getScopedSettingKey('app_worker_metadata'),
         setting_value: JSON.stringify(cloudMetadata),
@@ -3520,9 +3521,10 @@ export async function pullFinancialAccountsLive(force = false) {
 
     const localAccounts = await db.financialAccounts.toArray();
 
-    // If cloud setting has never been seeded or is null, push our local accounts to initialize it
+    // If cloud setting has never been seeded or is null, push our local accounts ONLY for legacy owner
     if (cloudAccounts === null || !Array.isArray(cloudAccounts)) {
-      if (localAccounts.length > 0) {
+      const ctx = getActiveWorkspaceContext();
+      if (ctx.isLegacyOwner && localAccounts.length > 0) {
         await pushAllFinancialAccountsToCloud();
       }
       return;
@@ -3800,7 +3802,8 @@ export async function pullTreasuryIncomesLive(force = false) {
     const localIncomes = await db.treasuryIncomes.toArray();
 
     if (cloudIncomes === null || !Array.isArray(cloudIncomes)) {
-      if (localIncomes.length > 0) {
+      const ctx = getActiveWorkspaceContext();
+      if (ctx.isLegacyOwner && localIncomes.length > 0) {
         await pushAllTreasuryIncomesToCloud();
       }
       return;
@@ -4047,7 +4050,8 @@ export async function pullAccountTransfersLive(force = false) {
     const localTransfers = await db.accountTransfers.toArray();
 
     if (cloudTransfers === null || !Array.isArray(cloudTransfers)) {
-      if (localTransfers.length > 0) {
+      const ctx = getActiveWorkspaceContext();
+      if (ctx.isLegacyOwner && localTransfers.length > 0) {
         await pushAllAccountTransfersToCloud();
       }
       return;
@@ -4279,7 +4283,8 @@ export async function pullCounterpartiesLive(force = false) {
     const localCounterparties = await db.counterparties.toArray();
 
     if (cloudCounterparties === null || !Array.isArray(cloudCounterparties)) {
-      if (localCounterparties.length > 0) {
+      const ctx = getActiveWorkspaceContext();
+      if (ctx.isLegacyOwner && localCounterparties.length > 0) {
         await pushAllCounterpartiesToCloud();
       }
       return;
