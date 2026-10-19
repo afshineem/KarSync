@@ -613,7 +613,9 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Unified Login Handler with Multi-tenant & Brute-Force Rate Limiting
+  // Unified Login Handler with Role-Segregated Architecture
+  // Admin Login: email + password (workspaceCode is optional / auto-detected)
+  // Personnel Login: workspaceCode + username/id + password
   const login = async (workspaceCodeInput, usernameOrEmailInput, passwordInput) => {
     const lockStatus = getLoginLockStatus();
     if (lockStatus.isLocked) {
@@ -624,12 +626,16 @@ export function AuthProvider({ children }) {
       };
     }
 
-    const rawCode = (workspaceCodeInput || '').trim().toUpperCase();
     const rawInput = (usernameOrEmailInput || '').trim();
+    const isEmailInput = rawInput.includes('@');
+    const rawCode = (workspaceCodeInput || '').trim().toUpperCase();
     const cleanUser = normalizeUsername(rawInput);
     const cleanPass = normalizeDigits(passwordInput).trim();
 
-    if (!rawCode || !cleanUser || !cleanPass) {
+    // Validation:
+    // If logging in with email (Admin/Owner), rawCode is optional!
+    // If logging in with username/worker ID (Personnel), rawCode is required.
+    if (!cleanUser || !cleanPass || (!isEmailInput && !rawCode)) {
       return { success: false, error: 'invalidCredentials' };
     }
 

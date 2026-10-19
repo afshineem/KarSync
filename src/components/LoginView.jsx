@@ -26,17 +26,24 @@ import {
   Languages,
   ArrowLeft,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  HelpCircle,
+  Shield
 } from 'lucide-react';
 
 export function LoginView({ theme, toggleTheme }) {
-  const { login, signUp, completeTwoFactorLogin, cancelTwoFactorLogin, resendEmailOtp, getLoginLockStatus } = useAuth();
+  const { login, signUp, completeTwoFactorLogin, cancelTwoFactorLogin, resendEmailOtp, getLoginLockStatus, resetPassword } = useAuth();
   const { t, language, changeLanguage, direction, convertDigits, numberFormat } = useLanguage();
 
   const isRtl = direction === 'rtl';
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
 
   const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup' | '2fa'
+  const [loginRole, setLoginRole] = useState('admin'); // 'admin' | 'staff'
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [resetSentSuccess, setResetSentSuccess] = useState(false);
 
   // Sign In Form State
   const [workspaceCode, setWorkspaceCode] = useState('');
@@ -84,7 +91,20 @@ export function LoginView({ theme, toggleTheme }) {
       signInTab: 'ورود به حساب',
       signUpTab: 'ثبت‌نام کارگاه جدید',
       signInHeaderTitle: 'ورود به پیشخوان کارگاه',
-      signInHeaderSubtitle: 'مشخصات کارگاه و حساب کاربری خود را جهت ورود وارد نمایید',
+      signInHeaderSubtitle: 'مشخصات حساب کاربری خود را جهت ورود وارد نمایید',
+      roleAdminTab: 'مدیران و کارفرمایان',
+      roleStaffTab: 'پرسنل و همکاران کارگاه',
+      adminEmailLabel: 'ایمیل کاری مدیر',
+      adminEmailPlaceholder: 'manager@company.com',
+      forgotPasswordLink: 'رمز عبور خود را فراموش کرده‌اید؟',
+      forgotModalTitle: 'بازیابی حساب و رمز عبور',
+      forgotModalSubtitle: 'ایمیل ثبت‌نامی خود را وارد کنید تا لینک تغییر رمز برای شما ارسال شود',
+      sendResetLinkBtn: 'ارسال لینک بازیابی رمز',
+      sendingResetLink: 'در حال ارسال...',
+      resetLinkSentMsg: 'لینک بازیابی رمز عبور به ایمیل شما ارسال شد. لطفاً صندوق ورودی (و پوشه هرزنامه/Spam) خود را بررسی کنید.',
+      closeBtn: 'بستن',
+      errEmailRequired: 'لطفاً ایمیل کاری خود را وارد کنید.',
+      errAdminSignInFields: 'لطفاً ایمیل کاری و رمز عبور را وارد کنید.',
       signUpHeaderTitle: 'ایجاد کارگاه و حساب مدیریت',
       signUpHeaderSubtitle: 'در کمتر از یک دقیقه کارگاه جدید خود را راه‌اندازی کنید',
       workspaceCodeLabel: 'کد کارگاه',
@@ -156,7 +176,20 @@ export function LoginView({ theme, toggleTheme }) {
       signInTab: 'چوونەژوورەوە',
       signUpTab: 'تۆمارکردنی کارگەی نوێ',
       signInHeaderTitle: 'چوونەژوورەوە بۆ داشبۆردی کارگە',
-      signInHeaderSubtitle: 'زانیارییەکانی کارگە و هەژمارەکەت بنووسە بۆ چوونەژوورەوە',
+      signInHeaderSubtitle: 'زانیارییەکانی هەژمارەکەت بنووسە بۆ چوونەژوورەوە',
+      roleAdminTab: 'بەڕێوەبەران و خاوەنکاران',
+      roleStaffTab: 'کارمەندان و کرێکارانی کارگە',
+      adminEmailLabel: 'ئیمەیڵی کاری بەڕێوەبەر',
+      adminEmailPlaceholder: 'manager@company.com',
+      forgotPasswordLink: 'تێپەڕەوشەکەت لەبیرچووە؟',
+      forgotModalTitle: 'گێڕانەوەی هەژمار و تێپەڕەوشە',
+      forgotModalSubtitle: 'ئیمەیڵەکەت بنووسە بۆ ئەوەی بەستەری گۆڕینی تێپەڕەوشەت بۆ بنێردرێت',
+      sendResetLinkBtn: 'ناردنی بەستەری گێڕانەوە',
+      sendingResetLink: 'لە حاڵەتی ناردندا...',
+      resetLinkSentMsg: 'بەستەری گێڕانەوەی تێپەڕەوشە بۆ ئیمەیڵەکەت نێردرا. تکایە سندوقی نامەکانت بپشکنە.',
+      closeBtn: 'داخستن',
+      errEmailRequired: 'تکایە ئیمەیڵی کارەکەت بنووسە.',
+      errAdminSignInFields: 'تکایە ئیمەیڵ و تێپەڕەوشە بە تەواوی بنووسە.',
       signUpHeaderTitle: 'دروستکردنی کارگە و هەژماری بەڕێوەبەر',
       signUpHeaderSubtitle: 'لە کەمتر لە خولەکێکدا کارگە نوێیەکەت دابمەزرێنە',
       workspaceCodeLabel: 'کۆدی کارگە',
@@ -228,7 +261,20 @@ export function LoginView({ theme, toggleTheme }) {
       signInTab: 'Sign In',
       signUpTab: 'Create Workshop',
       signInHeaderTitle: 'Sign In to Workshop Hub',
-      signInHeaderSubtitle: 'Enter your workspace code and credentials to access your dashboard',
+      signInHeaderSubtitle: 'Enter your credentials to access your workspace',
+      roleAdminTab: 'Managers & Owners',
+      roleStaffTab: 'Workshop Staff & Crew',
+      adminEmailLabel: 'Manager Work Email',
+      adminEmailPlaceholder: 'manager@company.com',
+      forgotPasswordLink: 'Forgot your password?',
+      forgotModalTitle: 'Account & Password Recovery',
+      forgotModalSubtitle: 'Enter your registered work email to receive a secure password reset link',
+      sendResetLinkBtn: 'Send Recovery Link',
+      sendingResetLink: 'Sending link...',
+      resetLinkSentMsg: 'A password reset link has been dispatched to your email. Please check your inbox and spam folder.',
+      closeBtn: 'Close',
+      errEmailRequired: 'Please enter your work email.',
+      errAdminSignInFields: 'Please enter both your work email and password.',
       signUpHeaderTitle: 'Create New Workshop Account',
       signUpHeaderSubtitle: 'Launch your workshop management workspace in under a minute',
       workspaceCodeLabel: 'Workspace Code',
@@ -412,14 +458,23 @@ export function LoginView({ theme, toggleTheme }) {
       return;
     }
 
-    if (!workspaceCode.trim() || !identifier.trim() || !password.trim()) {
-      setErrorMessage(copy.errMissingSignInFields);
-      return;
+    if (loginRole === 'admin') {
+      if (!identifier.trim() || !password.trim()) {
+        setErrorMessage(copy.errAdminSignInFields);
+        return;
+      }
+    } else {
+      if (!workspaceCode.trim() || !identifier.trim() || !password.trim()) {
+        setErrorMessage(copy.errMissingSignInFields);
+        return;
+      }
     }
 
     setIsSubmitting(true);
     try {
-      const res = await login(workspaceCode, identifier, password);
+      // In admin mode, workspaceCode is optional / auto-detected
+      const targetWorkspaceCode = loginRole === 'admin' ? '' : workspaceCode;
+      const res = await login(targetWorkspaceCode, identifier, password);
       if (!res.success) {
         if (res.error === 'rateLimited') {
           setRemainingSeconds(res.remainingSeconds || 300);
@@ -815,82 +870,185 @@ export function LoginView({ theme, toggleTheme }) {
               )}
 
               {/* ─────────────────────────────────────────────────────────── */}
-              {/* MODE 1: SIGN IN FORM                                        */}
+              {/* MODE 1: SIGN IN FORM (ROLE-SEGREGATED: ADMIN VS STAFF)     */}
               {/* ─────────────────────────────────────────────────────────── */}
               {authMode === 'signin' && (
-                <form id="karsync-auth-form" onSubmit={handleSignIn} className="space-y-3">
-                  {/* Featured Workspace Code Sub-Card */}
-                  <div className="p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                        <span>{copy.workspaceCodeLabel}</span>
-                      </label>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                        {copy.workspaceCodeHint}
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      autoFocus
-                      value={workspaceCode}
-                      onChange={(e) => setWorkspaceCode(e.target.value.toUpperCase())}
-                      placeholder="KARS-101"
-                      className="w-full px-3.5 py-2 sm:py-2.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm sm:text-base font-black font-mono focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-center tracking-[0.2em] dir-ltr uppercase shadow-2xs"
-                    />
+                <form id="karsync-auth-form" onSubmit={handleSignIn} className="space-y-3.5">
+                  
+                  {/* Role Selector Pill [APP_THEME_BUTTON] */}
+                  <div className="p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1 shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginRole('admin');
+                        setErrorMessage('');
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
+                        loginRole === 'admin'
+                          ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25 scale-[1.02]'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <Building2 className="w-4 h-4 shrink-0" />
+                      <span>{copy.roleAdminTab}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginRole('staff');
+                        setErrorMessage('');
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
+                        loginRole === 'staff'
+                          ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25 scale-[1.02]'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <User className="w-4 h-4 shrink-0" />
+                      <span>{copy.roleStaffTab}</span>
+                    </button>
                   </div>
 
-                  {/* Credentials Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-                    {/* Username / Email / Worker Code */}
-                    <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-sky-500" />
-                        <span>{copy.identifierLabel}</span>
-                      </label>
-                      <input
-                        type="text"
-                        autoComplete="username"
-                        dir={identifier ? 'ltr' : direction}
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder={copy.identifierPlaceholder}
-                        className={`w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all ${
-                          identifier ? 'text-left' : 'text-start'
-                        }`}
-                      />
-                    </div>
-
-                    {/* Password */}
-                    <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-amber-500" />
-                        <span>{copy.passwordLabel}</span>
-                      </label>
-                      <div className="relative">
+                  {/* BRANCH A: STAFF / PERSONNEL LOGIN (Requires Workspace Code) */}
+                  {loginRole === 'staff' && (
+                    <>
+                      {/* Featured Workspace Code Sub-Card */}
+                      <div className="p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-1.5 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>{copy.workspaceCodeLabel}</span>
+                          </label>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                            {copy.workspaceCodeHint}
+                          </span>
+                        </div>
                         <input
-                          type={showPassword ? 'text' : 'password'}
-                          autoComplete="current-password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-9 transition-all text-left dir-ltr"
+                          type="text"
+                          autoComplete="off"
+                          autoFocus
+                          value={workspaceCode}
+                          onChange={(e) => setWorkspaceCode(e.target.value.toUpperCase())}
+                          placeholder="KARS-101"
+                          className="w-full px-3.5 py-2 sm:py-2.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm sm:text-base font-black font-mono focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-center tracking-[0.2em] dir-ltr uppercase shadow-2xs"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          title={copy.showPasswordTitle}
-                          aria-label={copy.showPasswordTitle}
-                          className="absolute end-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                        >
-                          {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
+                      </div>
+
+                      {/* Staff Credentials Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                        <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-sky-500" />
+                            <span>{copy.identifierLabel}</span>
+                          </label>
+                          <input
+                            type="text"
+                            autoComplete="username"
+                            dir={identifier ? 'ltr' : direction}
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder={copy.identifierPlaceholder}
+                            className={`w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all ${
+                              identifier ? 'text-left' : 'text-start'
+                            }`}
+                          />
+                        </div>
+
+                        <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-amber-500" />
+                            <span>{copy.passwordLabel}</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showPassword ? 'text' : 'password'}
+                              autoComplete="current-password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              placeholder="••••••••"
+                              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-9 transition-all text-left dir-ltr"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              title={copy.showPasswordTitle}
+                              aria-label={copy.showPasswordTitle}
+                              className="absolute end-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                            >
+                              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* BRANCH B: ADMIN / OWNER LOGIN (Direct Email & Password - No Workspace Code needed!) */}
+                  {loginRole === 'admin' && (
+                    <div className="space-y-3 animate-in fade-in duration-200">
+                      {/* Work Email */}
+                      <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-sky-500" />
+                          <span>{copy.adminEmailLabel}</span>
+                        </label>
+                        <input
+                          type="email"
+                          autoComplete="email"
+                          dir="ltr"
+                          autoFocus
+                          value={identifier}
+                          onChange={(e) => setIdentifier(e.target.value)}
+                          placeholder={copy.adminEmailPlaceholder}
+                          className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-left"
+                        />
+                      </div>
+
+                      {/* Password + Forgot Link */}
+                      <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-amber-500" />
+                            <span>{copy.passwordLabel}</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForgotEmail(identifier.includes('@') ? identifier : '');
+                              setResetSentSuccess(false);
+                              setShowForgotModal(true);
+                            }}
+                            className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                          >
+                            {copy.forgotPasswordLink}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-9 transition-all text-left dir-ltr"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            title={copy.showPasswordTitle}
+                            aria-label={copy.showPasswordTitle}
+                            className="absolute end-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                          >
+                            {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+
                 </form>
-              )}
+              )}}
 
               {/* ─────────────────────────────────────────────────────────── */}
               {/* MODE 2: TWO-FACTOR AUTHENTICATION (2FA) CHALLENGE           */}
@@ -1191,6 +1349,117 @@ export function LoginView({ theme, toggleTheme }) {
           {t('ownerName')} • {t('allRightsReserved')}
         </p>
       </footer>
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 4. FORGOT PASSWORD MODAL (Apple Liquid Glass)                  */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md p-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl border border-white/60 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.2)] space-y-4 animate-in zoom-in-95 duration-200">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                    {copy.forgotModalTitle}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {copy.forgotModalSubtitle}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {resetSentSuccess ? (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 text-xs font-semibold space-y-2 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>{copy.resetLinkSentMsg}</span>
+                </div>
+                <div className="pt-2 text-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    {copy.closeBtn}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!forgotEmail.trim()) {
+                    setErrorMessage(copy.errEmailRequired);
+                    return;
+                  }
+                  setIsSendingReset(true);
+                  try {
+                    const res = await resetPassword(forgotEmail.trim().toLowerCase());
+                    if (res.success) {
+                      setResetSentSuccess(true);
+                    } else {
+                      setErrorMessage(res.error || copy.errNetwork);
+                    }
+                  } catch (err) {
+                    setErrorMessage(err?.message || copy.errNetwork);
+                  } finally {
+                    setIsSendingReset(false);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-sky-500" />
+                    <span>{copy.adminEmailLabel}</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    dir="ltr"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="manager@company.com"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs font-medium focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    {copy.closeBtn}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingReset || !forgotEmail.trim()}
+                    className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-md shadow-sky-600/25 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSendingReset ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>{copy.sendingResetLink}</span>
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>{copy.sendResetLinkBtn}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
