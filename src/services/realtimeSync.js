@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID, deduplicateExpenseCategories } from '../db/db';
+import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID, deduplicateExpenseCategories, wipeAllLocalData } from '../db/db';
 import { getSyncConfig, saveSyncConfig, setLastSyncTime, getLastSyncTime } from './syncService';
 import { roundCurrency } from '../utils/formatters';
 
@@ -45,14 +45,13 @@ export function getActiveWorkspaceContext() {
         user.email === "afshineem@gmail.com" ||
         workspaceId === "4a2980ba-f500-4689-9b13-e0c8df300f70" ||
         workspaceId === "KAR101" ||
-        userId === "admin_local" ||
-        (!userId && !user.email);
+        userId === "admin_local";
       
       return {
         workspaceId,
         userId,
         email: user.email,
-        isLegacyOwner
+        isLegacyOwner: Boolean(isLegacyOwner)
       };
     }
   } catch (_) {}
@@ -61,7 +60,7 @@ export function getActiveWorkspaceContext() {
     workspaceId: null,
     userId: null,
     email: null,
-    isLegacyOwner: true // fallback for offline standalone prototype
+    isLegacyOwner: false // unauthenticated sessions must never be treated as legacy owner
   };
 }
 
@@ -500,6 +499,12 @@ export async function initRealtimeSync() {
 export async function autoInitialSync() {
   if (!navigator.onLine) return;
 
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) {
+    console.warn('[Sync] Unauthenticated session - skipping autoInitialSync.');
+    return;
+  }
+
   const [wRes, lRes] = await Promise.all([
     supabase.from('workers').select('*'),
     supabase.from('attendance_logs').select('*')
@@ -517,9 +522,15 @@ export async function autoInitialSync() {
 
   console.log(`Cloud state: ${cloudWorkers.length} workers, ${cloudLogs.length} logs | Local state: ${localWorkers.length} workers, ${localLogs.length} logs`);
 
-  // Case A: Cloud is empty but local has data -> Push local data to cloud
+  // Case A: Cloud is empty (fresh account or newly created workspace)
   if (cloudWorkers.length === 0 && localWorkers.length > 0) {
-    console.log('📤 Cloud is newly initialized. Pushing all existing local data to Supabase...');
+    // SECURITY GUARD: If local workers do NOT belong to this verified tenant, NEVER push them to cloud!
+    if (!ctx.isLegacyOwner) {
+      console.warn('⚠️ Fresh non-legacy cloud account detected with existing local workers. Wiping local database to prevent cross-account leakage.');
+      await wipeAllLocalData();
+      return;
+    }
+    console.log('📤 Cloud is newly initialized for legacy owner. Pushing verified local data to Supabase...');
     await Promise.all([
       pushWorkersLive(localWorkers),
       pushLogsLive(localLogs)
@@ -543,21 +554,23 @@ export async function autoInitialSync() {
   await pullCounterpartiesLive(true);
   await pullGlobalOverdraftPolicyLive();
 
-  // Auto-detect and push any local workers missing in cloud (Mohammad, Mostafa, etc.)
-  const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
-  const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt);
-  if (missingWorkers.length > 0) {
-    console.log(`Pushing ${missingWorkers.length} missing local workers to cloud...`);
-    for (const mw of missingWorkers) {
-      await pushWorkerLive(mw);
+  // Auto-detect and push any local workers missing in cloud ONLY for legacy owner
+  if (ctx.isLegacyOwner) {
+    const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
+    const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt);
+    if (missingWorkers.length > 0) {
+      console.log(`Pushing ${missingWorkers.length} missing local workers to cloud...`);
+      for (const mw of missingWorkers) {
+        await pushWorkerLive(mw);
+      }
     }
+    await pushAllGroupsToCloud();
+    await syncAllWorkerMetadataToCloud();
+    await pushAllExpensesToCloud();
+    await pushAllFinancialAccountsToCloud();
+    await pushAllTreasuryIncomesToCloud();
+    await pushAllAccountTransfersToCloud();
   }
-  await pushAllGroupsToCloud();
-  await syncAllWorkerMetadataToCloud();
-  await pushAllExpensesToCloud();
-  await pushAllFinancialAccountsToCloud();
-  await pushAllTreasuryIncomesToCloud();
-  await pushAllAccountTransfersToCloud();
 }
 
 /**
@@ -1253,10 +1266,17 @@ export async function pullProjectsLive(force = false) {
  */
 export async function pushProjectLive(p) {
   if (!navigator.onLine) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
   try {
     const localProjects = await db.projects.toArray();
     const pendingDeleted = new Set(getPendingDeletedProjects());
-    const filteredLocal = localProjects.filter(prj => !pendingDeleted.has(prj.id));
+    const filteredLocal = localProjects.filter(prj => {
+      if (pendingDeleted.has(prj.id)) return false;
+      if (!ctx.isLegacyOwner && prj.userId && prj.userId !== ctx.userId) return false;
+      return true;
+    });
 
     // Fetch latest cloud projects to merge safely
     const { data } = await supabase
@@ -1430,10 +1450,17 @@ export async function pullProjectSectionsLive(force = false) {
  */
 export async function pushProjectSectionLive(s) {
   if (!navigator.onLine) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
   try {
     const localSections = await db.projectSections.toArray();
     const pendingDeleted = new Set(getPendingDeletedSections());
-    const filteredLocal = localSections.filter(sec => !pendingDeleted.has(sec.id));
+    const filteredLocal = localSections.filter(sec => {
+      if (pendingDeleted.has(sec.id)) return false;
+      if (!ctx.isLegacyOwner && sec.userId && sec.userId !== ctx.userId) return false;
+      return true;
+    });
 
     const { data } = await supabase
       .from('settings')
@@ -1907,6 +1934,9 @@ export async function archiveGroupLive(groupId, isArchived = true) {
 
 export async function pushAllGroupsToCloud() {
   if (!navigator.onLine) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
   try {
     const localGroups = await db.groups.toArray();
     if (localGroups.length === 0) return;
@@ -3221,12 +3251,19 @@ export async function deleteExpenseLive(expenseId) {
  */
 export async function pushAllExpensesToCloud() {
   if (!navigator.onLine) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
   try {
     const localExpenses = await db.expenses.toArray();
     if (!localExpenses || localExpenses.length === 0) return;
 
     const pendingDeleted = new Set(getPendingDeletedExpenses());
-    const filteredLocal = localExpenses.filter(e => !pendingDeleted.has(e.id));
+    const filteredLocal = localExpenses.filter(e => {
+      if (pendingDeleted.has(e.id)) return false;
+      if (!ctx.isLegacyOwner && e.userId && e.userId !== ctx.userId) return false;
+      return true;
+    });
     if (filteredLocal.length === 0) return;
 
     const { data: sData } = await supabase
@@ -3601,6 +3638,9 @@ export async function deleteFinancialAccountLive(accountId) {
  */
 export async function pushAllFinancialAccountsToCloud() {
   if (!navigator.onLine) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
   try {
     clearPendingAccountDeletion('acc_default_cash');
     clearPendingAccountDeletion('acc_default_bank');
@@ -3834,6 +3874,9 @@ export async function deleteTreasuryIncomeLive(incomeId) {
  */
 export async function pushAllTreasuryIncomesToCloud() {
   if (!navigator.onLine) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
   try {
     const list = await db.treasuryIncomes.toArray();
     const pendingDeleted = new Set(getPendingDeletedIncomes());
@@ -4080,6 +4123,9 @@ export async function deleteAccountTransferLive(transferId) {
  */
 export async function pushAllAccountTransfersToCloud() {
   if (!navigator.onLine || !db.accountTransfers) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
   try {
     const list = await db.accountTransfers.toArray();
     const active = list.filter((t) => !t.deletedAt && t.status !== 'deleted');
@@ -4286,6 +4332,9 @@ export async function deleteCounterpartyLive(counterpartyId) {
 
 export async function pushAllCounterpartiesToCloud() {
   if (!navigator.onLine || !db.counterparties) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
   try {
     const list = await db.counterparties.toArray();
     const pendingDeleted = new Set(getPendingDeletedCounterparties());

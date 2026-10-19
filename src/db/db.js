@@ -359,6 +359,49 @@ export async function withImmutabilityBypass(fn) {
   }
 }
 
+/**
+ * Deep wipe of all local IndexedDB tables and tenant-specific localStorage keys.
+ * Used on user logout, account switching, or tenant change to guarantee 100% zero-leakage.
+ */
+export async function wipeAllLocalData() {
+  await withImmutabilityBypass(async () => {
+    for (const table of db.tables) {
+      try {
+        await table.clear();
+      } catch (err) {
+        console.warn(`[Wipe] Warning clearing table ${table.name}:`, err);
+      }
+    }
+  });
+
+  if (typeof localStorage !== 'undefined') {
+    const preserveKeys = new Set([
+      'karsync_theme',
+      'karsync_language',
+      'karsync_direction',
+      'karsync_calendar_type'
+    ]);
+    
+    const allKeys = Object.keys(localStorage);
+    for (const key of allKeys) {
+      if (
+        key.startsWith('workshop_') ||
+        key.startsWith('karsync_') ||
+        key === 'last_active_user_id' ||
+        key === 'last_active_workspace_id' ||
+        key === 'workshop_auth_session' ||
+        key === 'admin_auth' ||
+        key === 'worker_creds_map' ||
+        key === 'login_attempts'
+      ) {
+        if (!preserveKeys.has(key)) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  }
+}
+
 db.payments.hook('deleting', function (primKey, obj) {
   if (immutabilityBypassDepth > 0) return;
   if (obj && (obj.status === 'approved' || obj.approval_status === 'approved')) {

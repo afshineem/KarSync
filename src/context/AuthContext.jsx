@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { db, withImmutabilityBypass } from '../db/db';
+import { db, withImmutabilityBypass, wipeAllLocalData } from '../db/db';
 import { supabase, pushWorkerMetadataLive } from '../services/realtimeSync';
 import { pullAllFromSupabase } from '../services/syncService';
 import {
@@ -323,7 +323,7 @@ export function AuthProvider({ children }) {
         supabaseUser
       };
 
-      await enforceDataIsolation(sessionUser.id);
+      await enforceDataIsolation(sessionUser.id, sessionUser.workspace_id);
       setUser(sessionUser);
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
       return sessionUser;
@@ -601,7 +601,7 @@ export function AuthProvider({ children }) {
           supabaseUser: data.user
         };
 
-        await enforceDataIsolation(sessionUser.id);
+        await enforceDataIsolation(sessionUser.id, sessionUser.workspace_id);
         setUser(sessionUser);
         localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
         return { success: true, user: sessionUser };
@@ -859,7 +859,7 @@ export function AuthProvider({ children }) {
         is_active: true
       };
 
-      await enforceDataIsolation(sessionUser.id);
+      await enforceDataIsolation(sessionUser.id, sessionUser.workspace_id);
       setUser(sessionUser);
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
       
@@ -985,7 +985,7 @@ export function AuthProvider({ children }) {
             console.warn('Workspace sync error:', e);
           }
 
-          await enforceDataIsolation(sessionUser.id);
+          await enforceDataIsolation(sessionUser.id, sessionUser.workspace_id);
           setUser(sessionUser);
           localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
           setPending2FALogin(null);
@@ -1131,39 +1131,32 @@ export function AuthProvider({ children }) {
   };
 
   // Logout handler & strict tenant data isolation
-  async function enforceDataIsolation(newUserId) {
+  async function enforceDataIsolation(newUserId, newWorkspaceId) {
     try {
       const lastUserId = localStorage.getItem('last_active_user_id');
-      const isSwitchingUser = lastUserId && lastUserId !== newUserId;
+      const lastWorkspaceId = localStorage.getItem('last_active_workspace_id');
+      const isSwitchingUser = (lastUserId && lastUserId !== newUserId) || (lastWorkspaceId && newWorkspaceId && lastWorkspaceId !== newWorkspaceId);
       
-      const tablesToClear = [
-        'current_session', 'projects', 'projectSections', 'counterparties', 
-        'workers', 'attendanceLogs', 'payments', 'expenseCategories', 
-        'expenses', 'treasuryIncomes', 'financialAccounts', 'accountTransfers', 
-        'groups', 'projectExpenses', 'audit_logs'
-      ];
-
-      if (isSwitchingUser) {
-        console.warn('User switched! Wiping local Dexie database for data isolation.');
-        await withImmutabilityBypass(async () => {
-          for (const t of tablesToClear) {
-            if (db[t]) await db[t].clear();
+      let hasAlienData = false;
+      if (!isSwitchingUser && newUserId) {
+        // Defensive check: verify local IndexedDB does not contain records from a different user
+        try {
+          const samplePrj = await db.projects?.limit(10).toArray() || [];
+          if (samplePrj.some(p => p.userId && p.userId !== newUserId)) {
+            hasAlienData = true;
           }
-        });
+          if (!hasAlienData) {
+            const sampleWorkers = await db.workers?.limit(10).toArray() || [];
+            if (sampleWorkers.some(w => w.userId && w.userId !== newUserId)) {
+              hasAlienData = true;
+            }
+          }
+        } catch (_) {}
+      }
 
-        localStorage.removeItem('karsync_active_project_id');
-        localStorage.removeItem('workshop_worker_projects');
-        localStorage.removeItem('karsync_product_tour_seen');
-        localStorage.removeItem('workshop_pending_deleted_workers');
-        localStorage.removeItem('workshop_pending_deleted_logs');
-        localStorage.removeItem('workshop_pending_deleted_payments');
-        localStorage.removeItem('workshop_pending_deleted_projects');
-        localStorage.removeItem('workshop_pending_deleted_sections');
-        localStorage.removeItem('workshop_pending_deleted_groups');
-        localStorage.removeItem('workshop_pending_deleted_accounts');
-        localStorage.removeItem('workshop_pending_deleted_incomes');
-        localStorage.removeItem('workshop_pending_deleted_counterparties');
-        localStorage.removeItem('workshop_pending_deleted_expenses');
+      if (isSwitchingUser || hasAlienData) {
+        console.warn('⚠️ User/tenant switch detected or alien local records found! Deep wiping local database for strict tenant isolation.');
+        await wipeAllLocalData();
       }
 
       // Defensive check: If the active user is NOT the legacy owner (afshineem@gmail.com / 867f5819-e911-45f2-9d4f-d4a7f955ef5f),
@@ -1191,6 +1184,7 @@ export function AuthProvider({ children }) {
       }
 
       if (newUserId) localStorage.setItem('last_active_user_id', newUserId);
+      if (newWorkspaceId) localStorage.setItem('last_active_workspace_id', newWorkspaceId);
     } catch(err) {
       console.error('Isolation check failed:', err);
     }
@@ -1204,39 +1198,15 @@ export function AuthProvider({ children }) {
     setUser(null);
     setIsScreenLocked(false);
     
-    // Clear legacy
+    // Clear legacy credentials
     localStorage.removeItem(AUTH_SESSION_KEY);
     localStorage.removeItem(ADMIN_AUTH_KEY);
     localStorage.removeItem(WORKER_CREDS_KEY);
     clearStoredWorkerAccessToken();
 
-    // Clear Dexie local database to ensure data isolation between different accounts
+    // Deep wipe Dexie local database and local storage to guarantee 100% zero-leakage between accounts
     try {
-      const tablesToClear = [
-        'current_session', 'projects', 'projectSections', 'counterparties', 
-        'workers', 'attendanceLogs', 'payments', 'expenseCategories', 
-        'expenses', 'treasuryIncomes', 'financialAccounts', 'accountTransfers', 
-        'groups', 'projectExpenses', 'audit_logs'
-      ];
-      await withImmutabilityBypass(async () => {
-        for (const t of tablesToClear) {
-          if (db[t]) await db[t].clear();
-        }
-      });
-      localStorage.removeItem('last_active_user_id');
-      localStorage.removeItem('karsync_active_project_id');
-      localStorage.removeItem('workshop_worker_projects');
-      localStorage.removeItem('karsync_product_tour_seen');
-      localStorage.removeItem('workshop_pending_deleted_workers');
-      localStorage.removeItem('workshop_pending_deleted_logs');
-      localStorage.removeItem('workshop_pending_deleted_payments');
-      localStorage.removeItem('workshop_pending_deleted_projects');
-      localStorage.removeItem('workshop_pending_deleted_sections');
-      localStorage.removeItem('workshop_pending_deleted_groups');
-      localStorage.removeItem('workshop_pending_deleted_accounts');
-      localStorage.removeItem('workshop_pending_deleted_incomes');
-      localStorage.removeItem('workshop_pending_deleted_counterparties');
-      localStorage.removeItem('workshop_pending_deleted_expenses');
+      await wipeAllLocalData();
     } catch(err) {
       console.error('Error clearing local data:', err);
     }
