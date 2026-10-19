@@ -643,7 +643,18 @@ export const translations = {
     specificMonth: 'مانگی دیاریکراو',
     categoryDistribution: 'دابەشبوونی بەشە خەرجییەکان',
     sectionDistribution: 'دابەشبوون بەپێی بەشەکان',
-    resetFilters: 'پاککردنەوەی فلتەرەکان'
+    resetFilters: 'پاککردنەوەی فلتەرەکان',
+    // Lock Screen & Security
+    screenLockedTitle: 'قفڵکردنی پەردە',
+    screenLockedDesc: 'سیستەم بەهۆی ناچالاکییەوە قفڵکراوە',
+    enterPasswordPlaceholder: 'تێپەڕەوشەی چوونەژوورەوە بنووسە',
+    unlockScreenBtn: 'کردنەوەی قفڵ',
+    unlockingScreen: 'کردنەوەی قفڵ...',
+    incorrectPasswordError: 'تێپەڕەوشەی داخڵکراو هەڵەیە',
+    dearUser: 'بەکارهێنەری بەڕێز',
+    showPassword: 'پیشاندانی تێپەڕەوشە',
+    hidePassword: 'شاردنەوەی تێپەڕەوشە',
+    errorOccurred: 'هەڵەیەک ڕوویدا'
   },
   fa: {
 
@@ -1289,7 +1300,18 @@ export const translations = {
     specificMonth: 'ماه خاص',
     categoryDistribution: 'تفکیک سهم سرفصل‌های هزینه',
     sectionDistribution: 'تفکیک بر اساس بخش‌های پروژه',
-    resetFilters: 'بازنشانی فیلترها'
+    resetFilters: 'بازنشانی فیلترها',
+    // Lock Screen & Security
+    screenLockedTitle: 'قفل صفحه',
+    screenLockedDesc: 'سیستم بر اثر بی‌حرکتی قفل شده است',
+    enterPasswordPlaceholder: 'رمز عبور ورود را وارد کنید',
+    unlockScreenBtn: 'بازگشایی قفل',
+    unlockingScreen: 'در حال بازگشایی...',
+    incorrectPasswordError: 'رمز عبور وارد شده اشتباه است',
+    dearUser: 'کاربر گرامی',
+    showPassword: 'نمایش رمز عبور',
+    hidePassword: 'پنهان کردن رمز عبور',
+    errorOccurred: 'خطایی رخ داد'
   },
   en: {
 
@@ -1935,6 +1957,17 @@ export const translations = {
     specificMonth: 'Specific Month',
     categoryDistribution: 'Category Share Distribution',
     sectionDistribution: 'Section Share Distribution',
-    resetFilters: 'Reset Filters'
+    resetFilters: 'Reset Filters',
+    // Lock Screen & Security
+    screenLockedTitle: 'Screen Locked',
+    screenLockedDesc: 'Screen locked due to inactivity',
+    enterPasswordPlaceholder: 'Enter password to unlock',
+    unlockScreenBtn: 'Unlock Screen',
+    unlockingScreen: 'Unlocking...',
+    incorrectPasswordError: 'Incorrect password',
+    dearUser: 'Respected User',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    errorOccurred: 'An error occurred'
   }
 };

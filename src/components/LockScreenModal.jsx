@@ -5,7 +5,7 @@ import { Lock, Unlock, LogOut, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export function LockScreenModal() {
   const { isScreenLocked, unlockScreen, user, logout } = useAuth();
-  const { language, direction } = useLanguage();
+  const { t, direction } = useLanguage();
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -13,8 +13,6 @@ export function LockScreenModal() {
   const [isUnlocking, setIsUnlocking] = useState(false);
 
   if (!isScreenLocked || !user) return null;
-
-  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
 
   const handleUnlock = async (e) => {
     e.preventDefault();
@@ -25,22 +23,18 @@ export function LockScreenModal() {
     try {
       const res = await unlockScreen(password);
       if (!res.success) {
-        setErrorMsg(
-          langKey === 'fa'
-            ? 'رمز عبور وارد شده اشتباه است'
-            : langKey === 'ku'
-            ? 'تێپەڕەوشەی داخڵکراو هەڵەیە'
-            : 'Incorrect password'
-        );
+        setErrorMsg(t('incorrectPasswordError'));
       } else {
         setPassword('');
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Error');
+      setErrorMsg(err.message || t('errorOccurred'));
     } finally {
       setIsUnlocking(false);
     }
   };
+
+  const displayName = user.name || t('dearUser');
 
   return (
     <div
@@ -53,7 +47,7 @@ export function LockScreenModal() {
           {user.avatar ? (
             <img
               src={user.avatar}
-              alt={user.name || 'User'}
+              alt={displayName}
               className="w-full h-full object-cover rounded-3xl border-2 border-sky-500 shadow-xl"
             />
           ) : (
@@ -67,14 +61,10 @@ export function LockScreenModal() {
         </div>
 
         <h3 className="text-base font-extrabold text-white">
-          {user.name || 'کاربر گرامی'}
+          {displayName}
         </h3>
         <p className="text-xs text-slate-400 mt-1">
-          {langKey === 'fa'
-            ? 'سیستم بر اثر بی‌حرکتی قفل شده است'
-            : langKey === 'ku'
-            ? 'سیستەم بەهۆی ناچالاکییەوە قفڵکراوە'
-            : 'Screen locked due to inactivity'}
+          {t('screenLockedDesc')}
         </p>
 
         {errorMsg && (
@@ -91,13 +81,15 @@ export function LockScreenModal() {
               autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={langKey === 'fa' ? 'رمز عبور ورود را وارد کنید' : 'Enter password'}
+              placeholder={t('enterPasswordPlaceholder')}
               required
               className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-hidden focus:ring-2 focus:ring-sky-500 pe-10"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? t('hidePassword') : t('showPassword')}
+              title={showPassword ? t('hidePassword') : t('showPassword')}
               className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -110,7 +102,7 @@ export function LockScreenModal() {
             className="w-full py-2.5 bg-sky-600 hover:bg-sky-500 active:scale-[0.99] text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Unlock className="w-4 h-4" />
-            <span>{isUnlocking ? '...' : (langKey === 'fa' ? 'بازگشایی قفل' : 'کردنەوەی قفڵ')}</span>
+            <span>{isUnlocking ? t('unlockingScreen') : t('unlockScreenBtn')}</span>
           </button>
         </form>
 
@@ -118,14 +110,14 @@ export function LockScreenModal() {
           <button
             type="button"
             onClick={() => {
-              if (window.confirm(langKey === 'fa' ? 'آیا مایل به خروج از حساب کاربری هستید؟' : 'Do you want to log out?')) {
+              if (window.confirm(t('logoutConfirm'))) {
                 logout();
               }
             }}
             className="text-xs font-semibold text-slate-500 hover:text-rose-400 transition-colors flex items-center justify-center gap-1 mx-auto"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>{langKey === 'fa' ? 'خروج از حساب کاربری' : 'Log out'}</span>
+            <span>{t('logoutAccount')}</span>
           </button>
         </div>
       </div>
