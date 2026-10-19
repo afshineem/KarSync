@@ -673,6 +673,10 @@ export const translations = {
     noGroupSelectedNotice: 'تکایە سەرەتا تیمێکی کاری هەڵبژێرە بۆ بینینی ئەندامان و تۆماری دەوام.',
     noMembersInGroupNotice: 'هیچ کرێکارێکی تۆمارنەکراو لەم تیمەدا بۆ ئەم ڕۆژە بەردەست نییە.',
     groupDailyWageTotal: 'کۆی کرێی ڕۆژانە:',
+    noGroupsCreatedNotice: 'هیچ تیمێکی کاری لە سیستەمدا دروست نەکراوە.',
+    readyToLogGroupsCount: '{count} تیمی کاری بەردەست بۆ تۆمارکردن',
+    groupMembersCountBadge: '{count} کرێکار',
+    allGroupMembersLogged: 'هەموو ئەندامانی ئەم تیمە تۆمارکراون',
     // Product Tour
     productTour: 'گەشتی ناساندنی بەرنامە',
     tourStepCount: 'هەنگاوی {current} لە {total}',
@@ -1365,6 +1369,10 @@ export const translations = {
     noGroupSelectedNotice: 'لطفاً ابتدا یک گروه کاری را انتخاب کنید تا لیست اعضا و جزئیات شیفت نمایش داده شود.',
     noMembersInGroupNotice: 'هیچ پرسنل ثبت‌نشده‌ای در این گروه کاری برای تاریخ امروز وجود ندارد.',
     groupDailyWageTotal: 'مجموع دستمزد روزانه اکیپ:',
+    noGroupsCreatedNotice: 'هیچ گروه کاری در سیستم تعریف نشده است.',
+    readyToLogGroupsCount: '{count} گروه کاری آماده ثبت',
+    groupMembersCountBadge: '{count} نفر پرسنل',
+    allGroupMembersLogged: 'همه پرسنل این گروه قبلاً ثبت شده‌اند',
     // Product Tour
     productTour: 'تور معرفی برنامه',
     tourStepCount: 'گام {current} از {total}',
@@ -2057,6 +2065,10 @@ export const translations = {
     noGroupSelectedNotice: 'Please select a work crew above to preview members and configure shift settings.',
     noMembersInGroupNotice: 'No unlogged workers found in this crew for this date.',
     groupDailyWageTotal: 'Total Crew Daily Wage:',
+    noGroupsCreatedNotice: 'No work groups defined in the system.',
+    readyToLogGroupsCount: '{count} Work Groups Ready to Log',
+    groupMembersCountBadge: '{count} Workers',
+    allGroupMembersLogged: 'All workers in this crew are already logged',
     // Product Tour
     productTour: 'Product Tour',
     tourStepCount: 'Step {current} of {total}',
