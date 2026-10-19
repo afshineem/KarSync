@@ -37,6 +37,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { LockScreenModal } from './components/LockScreenModal';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { ProductTour } from './components/ProductTour';
+import { FloatingSetupChecklist } from './components/FloatingSetupChecklist';
 import { SubsidiarySearchModal } from './components/accounting/SubsidiarySearchModal';
 import { AccountSubsidiaryLedgerModal } from './components/accounting/AccountSubsidiaryLedgerModal';
 import { NotificationProvider } from './context/NotificationContext';
@@ -589,6 +590,11 @@ function AppContent() {
         isOpen={isCounterpartiesModalOpen}
         onClose={() => setIsCounterpartiesModalOpen(false)}
       />
+
+      {/* Floating Setup Checklist Widget */}
+      {isAdmin && (
+        <FloatingSetupChecklist />
+      )}
 
     </div>
   );

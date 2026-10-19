@@ -20,7 +20,8 @@ import {
   Keyboard,
   ShieldCheck,
   Building,
-  Landmark
+  Landmark,
+  CheckCircle2
 } from 'lucide-react';
 
 const SETTINGS_DROPDOWN_COPY = {
@@ -50,6 +51,7 @@ const SETTINGS_DROPDOWN_COPY = {
     shortcuts: 'کلید میانبر',
     installPwa: 'نصب اپلیکیشن روی دستگاه',
     productTour: 'تور معرفی برنامه',
+    setupChecklist: 'چک‌لیست راه‌اندازی کارگاه',
     logoutConfirm: 'آیا مطمئن هستید که می‌خواهید از حساب خود خارج شوید؟',
     logout: 'خروج از حساب کاربری',
     aboutSystem: 'درباره سیستم'
@@ -80,6 +82,7 @@ const SETTINGS_DROPDOWN_COPY = {
     shortcuts: 'شۆرتکاتەکان',
     installPwa: 'دامەزراندنی ئەپ لەسەر ئامێر',
     productTour: 'گەشتی ناساندنی بەرنامە',
+    setupChecklist: 'چک‌لیستی قۆناغەکانی کارگە',
     logoutConfirm: 'ئایا دڵنیایت لە چوونەدەرەوە لە هەژمارەکەت؟',
     logout: 'چوونەدەرەوە لە هەژمار',
     aboutSystem: 'دەربارەی سیستەم'
@@ -110,6 +113,7 @@ const SETTINGS_DROPDOWN_COPY = {
     shortcuts: 'Shortcuts',
     installPwa: 'Install App on Device',
     productTour: 'Product Tour',
+    setupChecklist: 'Setup Checklist',
     logoutConfirm: 'Are you sure you want to sign out?',
     logout: 'Sign Out',
     aboutSystem: 'About System'
@@ -398,6 +402,24 @@ export function SettingsDropdown({
       </div>
 
       <div className="border-t border-slate-200/60 dark:border-white/10 pt-1 space-y-1">
+        {/* Setup Checklist Quick Launcher */}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            window.dispatchEvent(new CustomEvent('karsync-open-setup-checklist'));
+          }}
+          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-700 dark:text-slate-300 group cursor-pointer"
+        >
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
+            <span>{c.setupChecklist}</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+            6 Tasks
+          </span>
+        </button>
+
         {/* Product Tour Action */}
         <button
           type="button"
