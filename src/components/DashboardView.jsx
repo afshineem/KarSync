@@ -961,6 +961,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
           <button
             onClick={onOpenLoggingModal}
+            data-tour="quick-log-btn"
             className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-200/60 dark:border-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />

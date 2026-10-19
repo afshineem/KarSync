@@ -287,17 +287,55 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     }
   }, [isOpen, selectedDate, unloggedWorkers, existingDateLogs.length, targetProjectId, initialDate]);
 
-  // Section filter within logging modal
+  // Section & Group filter within logging modal
   const [filterModalSection, setFilterModalSection] = useState('all');
+  const [filterModalGroup, setFilterModalGroup] = useState('all'); // 'all', 'master', or groupId
 
   const filteredUnloggedWorkers = useMemo(() => {
-    if (filterModalSection === 'all') return unloggedWorkers;
     return unloggedWorkers.filter((w) => {
-      const assignedSec = workerConfigs[w.id]?.sectionId ?? w.defaultSectionId;
-      if (filterModalSection === 'unassigned') return !assignedSec;
-      return assignedSec === filterModalSection;
+      // 1. Section filter
+      if (filterModalSection !== 'all') {
+        const assignedSec = workerConfigs[w.id]?.sectionId ?? w.defaultSectionId;
+        if (filterModalSection === 'unassigned') {
+          if (assignedSec) return false;
+        } else if (assignedSec !== filterModalSection) {
+          return false;
+        }
+      }
+
+      // 2. Group / Master filter
+      if (filterModalGroup !== 'all') {
+        if (filterModalGroup === 'master') {
+          const isMaster = w.isMaster || (w.role && /استاد|اوستا|master|سرکارگر/i.test(w.role));
+          if (!isMaster) return false;
+        } else {
+          if (String(w.groupId || '') !== String(filterModalGroup)) return false;
+        }
+      }
+
+      return true;
     });
-  }, [unloggedWorkers, filterModalSection, workerConfigs]);
+  }, [unloggedWorkers, filterModalSection, filterModalGroup, workerConfigs]);
+
+  // Quick Select/Toggle by Group or Masters
+  const handleSelectGroupMembers = (groupId) => {
+    setSelectedWorkers((prev) => {
+      const updated = { ...prev };
+      const targetWorkers = unloggedWorkers.filter((w) => {
+        if (groupId === 'master') {
+          return w.isMaster || (w.role && /استاد|اوستا|master|سرکارگر/i.test(w.role));
+        }
+        return String(w.groupId || '') === String(groupId);
+      });
+
+      // If all are already selected, unselect them; otherwise select all
+      const allSelected = targetWorkers.length > 0 && targetWorkers.every((w) => updated[w.id]);
+      targetWorkers.forEach((w) => {
+        updated[w.id] = !allSelected;
+      });
+      return updated;
+    });
+  };
 
   // Bulk move selected workers to section today
   const handleBulkAssignSection = (targetSecId) => {

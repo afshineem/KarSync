@@ -36,6 +36,7 @@ import { initRealtimeSync, pushLogsLive, pushPaymentsLive, pushAllExpensesToClou
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LockScreenModal } from './components/LockScreenModal';
 import { InstallPwaModal } from './components/InstallPwaModal';
+import { ProductTour } from './components/ProductTour';
 import { SubsidiarySearchModal } from './components/accounting/SubsidiarySearchModal';
 import { AccountSubsidiaryLedgerModal } from './components/accounting/AccountSubsidiaryLedgerModal';
 import { NotificationProvider } from './context/NotificationContext';
@@ -137,6 +138,27 @@ function AppContent() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
+
+  // Product Tour State & Global Listeners
+  const [isProductTourOpen, setIsProductTourOpen] = useState(false);
+  useEffect(() => {
+    const handleStartTour = () => setIsProductTourOpen(true);
+    window.addEventListener('karsync-start-tour', handleStartTour);
+
+    // Auto-trigger on first-time login for admin if onboarding is completed
+    const tourSeen = localStorage.getItem('karsync_product_tour_seen');
+    if (!tourSeen && onboardingCompleted && user?.role === 'admin') {
+      const timer = setTimeout(() => {
+        setIsProductTourOpen(true);
+      }, 1200);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('karsync-start-tour', handleStartTour);
+      };
+    }
+
+    return () => window.removeEventListener('karsync-start-tour', handleStartTour);
+  }, [onboardingCompleted, user?.role]);
 
   // Live queries for quick modals
   const allWorkers = useLiveQuery(() => db.workers.toArray()) || [];
@@ -518,6 +540,12 @@ function AppContent() {
       <InstallPwaModal
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
+      />
+
+      {/* Interactive 5-Step Product Tour */}
+      <ProductTour
+        isOpen={isProductTourOpen}
+        onClose={() => setIsProductTourOpen(false)}
       />
 
       {/* Global Subsidiary Search Modal (Shift+M) */}

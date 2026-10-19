@@ -2582,6 +2582,25 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                   <span>{language === 'fa' ? 'طراحی و توسعه اختصاصی: افشین زارعی' : language === 'ku' ? 'دیزاین و پرۆگرامسازی: ئەفشین زارعی' : 'Designed & Developed by: Afshin Zarei'}</span>
                 </div>
 
+                {/* Replay Product Tour Button */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('karsync-start-tour'));
+                      }, 150);
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-sky-600/25 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>
+                      {language === 'fa' ? 'اجرای تور معرفی و راهنمای برنامه' : language === 'ku' ? 'دەستپێکردنی گەشتی ناساندنی بەرنامە' : 'Start Interactive Product Tour'}
+                    </span>
+                  </button>
+                </div>
+
                 <div className="text-[11px] text-slate-400">
                   © 2026 KarSync System. All rights reserved.
                 </div>

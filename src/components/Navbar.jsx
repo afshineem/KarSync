@@ -166,6 +166,7 @@ export function Navbar({
                     <div key={item.id} className="relative group">
                       <button
                         onClick={() => setActiveTab(item.id)}
+                        data-tour={`nav-${item.id}`}
                         aria-label={item.label}
                         className={`relative p-2.5 rounded-xl transition-all duration-300 ease-in-out flex items-center gap-2 ${
                           isActive
@@ -203,7 +204,9 @@ export function Navbar({
 
             {/* Right Controls: Compact ProjectSwitcher + Notification Bell + Settings Dropdown Trigger */}
             <div className="flex items-center gap-2 flex-shrink-0 relative">
-              <ProjectSwitcher />
+              <div data-tour="project-switcher" className="inline-flex">
+                <ProjectSwitcher />
+              </div>
 
               {/* Notification Center Bell Button */}
               <div className="relative">
@@ -244,6 +247,7 @@ export function Navbar({
               <div className="relative">
                 <button
                   type="button"
+                  data-tour="settings-sync"
                   onClick={() => {
                     setIsSettingsDropdownOpen((prev) => !prev);
                     setIsNotificationDropdownOpen(false);
@@ -301,6 +305,7 @@ export function Navbar({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
+                data-tour={`mobile-nav-${item.id}`}
                 aria-label={item.label}
                 title={item.label}
                 className={`relative flex-1 flex items-center justify-center py-2.5 rounded-2xl transition-all duration-200 active:scale-95 ${

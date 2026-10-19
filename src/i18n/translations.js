@@ -654,7 +654,33 @@ export const translations = {
     dearUser: 'بەکارهێنەری بەڕێز',
     showPassword: 'پیشاندانی تێپەڕەوشە',
     hidePassword: 'شاردنەوەی تێپەڕەوشە',
-    errorOccurred: 'هەڵەیەک ڕوویدا'
+    errorOccurred: 'هەڵەیەک ڕوویدا',
+    // Daily Attendance Enhancements
+    allWorkersFilter: 'هەموو کرێکاران',
+    mastersFilter: 'وەستاکان (مامۆستایان)',
+    filterGroup: 'گرووپ:',
+    selectGroupMembers: 'دیاریکردنی ئەندامانی گرووپ',
+    shortcutHint: 'Ctrl+Enter بۆ تۆمارکردنی خێرا',
+    fullDaysCountBadge: '{count} تەواو',
+    halfDaysCountBadge: '{count} نیوە',
+    hourlyDaysCountBadge: '{count} کاتژمێری',
+    // Product Tour
+    productTour: 'گەشتی ناساندنی بەرنامە',
+    tourStepCount: 'هەنگاوی {current} لە {total}',
+    tourSkip: 'تێپەڕاندن',
+    tourNext: 'دواتر',
+    tourPrev: 'پێشتر',
+    tourFinish: 'دەستپێکردن',
+    tourStep1Title: 'بەڕێوەبردن و گۆڕینی پڕۆژەکان',
+    tourStep1Desc: 'لێرەوە دەتوانیت تەنها بە یەک کلیک لە نێوان کارگە، پڕۆژە و فازە جیاوازەکاندا هاتوچۆ بکەیت و زانیارییەکانیان جیاواز ببینیت.',
+    tourStep2Title: 'تۆماری ئامادەبوونی ڕۆژانەی کارمەندان',
+    tourStep2Desc: 'دەفتەری کاغەزی ئامادەبوون لەبیربکە! لە کەمتر لە ۱۰ چرکەدا کارکرد، کاتی زیادە، پێشەکی یان غیابی کارمەندان بە تەنیا یان بە کۆمەڵ تۆمار بکە.',
+    tourStep3Title: 'حیساباتی زیرەک و پسووڵەی مووچە',
+    tourStep3Desc: 'هەژمارکردنی خۆکاری مووچە، کاتی زیادە و کەمکردنەوەی پێشەکییەکان لە چەند چرکەیەکدا بۆ دەرهێنانی پسووڵەی فەرمی.',
+    tourStep4Title: 'بەڕێوەبردنی خەرجییەکان و پسووڵەکان',
+    tourStep4Desc: 'تەواوی پسووڵە و خەرجییەکانی کارگە بە جیاکردنەوەی پۆلێنەکان و وێنەی پسووڵە بە شێوەیەکی ڕێکخراو تۆمار بکە.',
+    tourStep5Title: 'هاوکاتکردنی کلاود و کارکردنی ئۆفلاین',
+    tourStep5Desc: 'کارسینک بە تەواوی ئۆفلاین کار دەکات! بەبێ ئینتەرنێتیش داتاکان پارێزراون و لەکاتی پەیوەستبووندا خۆکار هاوکات دەبن.'
   },
   fa: {
 
@@ -1311,7 +1337,33 @@ export const translations = {
     dearUser: 'کاربر گرامی',
     showPassword: 'نمایش رمز عبور',
     hidePassword: 'پنهان کردن رمز عبور',
-    errorOccurred: 'خطایی رخ داد'
+    errorOccurred: 'خطایی رخ داد',
+    // Daily Attendance Enhancements
+    allWorkersFilter: 'همه پرسنل',
+    mastersFilter: 'استادکاران',
+    filterGroup: 'گروه کاری:',
+    selectGroupMembers: 'انتخاب اعضای گروه',
+    shortcutHint: 'Ctrl+Enter برای ثبت سریع',
+    fullDaysCountBadge: '{count} تمام‌وقت',
+    halfDaysCountBadge: '{count} نیمه‌وقت',
+    hourlyDaysCountBadge: '{count} ساعتی',
+    // Product Tour
+    productTour: 'تور معرفی برنامه',
+    tourStepCount: 'گام {current} از {total}',
+    tourSkip: 'رد شدن',
+    tourNext: 'بعدی',
+    tourPrev: 'قبلی',
+    tourFinish: 'شروع کار با برنامه',
+    tourStep1Title: 'مدیریت و سوییچ سریع کارگاه‌ها',
+    tourStep1Desc: 'از اینجا می‌تونید فقط با یک کلیک بین کارگاه‌ها، پروژه‌ها و فازهای مختلف کاری جابه‌جا بشید و اطلاعات هر کدوم رو تفکیک‌شده ببینید.',
+    tourStep2Title: 'ثبت کارکرد روزانه پرسنل',
+    tourStep2Desc: 'دفتر حضور و غیاب کاغذی رو کنار بذارید! در کمتر از ۱۰ ثانیه کارکرد، اضافه‌کاری، مساعده یا غیبت پرسنل رو فردی یا دسته‌جمعی ثبت کنید.',
+    tourStep3Title: 'تسویه‌حساب هوشمند و فیش حقوقی',
+    tourStep3Desc: 'محاسبه خودکار دستمزد، اضافه‌کاری و کسر مساعده‌ها در چند ثانیه. فقط کارگر رو انتخاب کنید تا فیش رسمی و رسید تسویه تحویل بگیرید.',
+    tourStep4Title: 'مدیریت مخارج، فاکتورها و تنخواه',
+    tourStep4Desc: 'تمامی فاکتورها و هزینه‌های جاری کارگاه رو با تفکیک سرفصل، طرف‌حساب و الصاق عکس فاکتور ثبت و مدیریت کنید.',
+    tourStep5Title: 'همگام‌سازی ابری و کارکرد آفلاین',
+    tourStep5Desc: 'کارسینک کاملاً آفلاین عمل می‌کنه! حتی بدون اینترنت همه کارها انجام می‌شن و با اتصال به شبکه، خودکار با سرور و دستگاه‌های دیگه همگام می‌شن.'
   },
   en: {
 
@@ -1968,6 +2020,32 @@ export const translations = {
     dearUser: 'Respected User',
     showPassword: 'Show password',
     hidePassword: 'Hide password',
-    errorOccurred: 'An error occurred'
+    errorOccurred: 'An error occurred',
+    // Daily Attendance Enhancements
+    allWorkersFilter: 'All Workers',
+    mastersFilter: 'Master Workers',
+    filterGroup: 'Group:',
+    selectGroupMembers: 'Select Group Members',
+    shortcutHint: 'Ctrl+Enter for quick submit',
+    fullDaysCountBadge: '{count} Full Day',
+    halfDaysCountBadge: '{count} Half Day',
+    hourlyDaysCountBadge: '{count} Hourly',
+    // Product Tour
+    productTour: 'Product Tour',
+    tourStepCount: 'Step {current} of {total}',
+    tourSkip: 'Skip',
+    tourNext: 'Next',
+    tourPrev: 'Back',
+    tourFinish: 'Get Started',
+    tourStep1Title: 'Multi-Project & Site Switcher',
+    tourStep1Desc: 'Effortlessly switch between different workshops, sites, or project phases in a single click with complete data segregation.',
+    tourStep2Title: 'Quick Daily Attendance & Shift Logs',
+    tourStep2Desc: 'Forget paper logs! Record daily attendance, overtime, advances, and absences individually or in bulk in under 10 seconds.',
+    tourStep3Title: 'Smart Settlements & Payroll',
+    tourStep3Desc: 'Automated wage calculations, overtime bonuses, and advance deductions with instant settlement receipts and audit trails.',
+    tourStep4Title: 'Expenses, Receipts & Invoices',
+    tourStep4Desc: 'Track all project expenses and invoices with categories, payees, and photo attachments to keep workshop budgets transparent.',
+    tourStep5Title: 'Cloud Sync & Offline Peace of Mind',
+    tourStep5Desc: 'KarSync works 100% offline! Your work is always safe locally and automatically synchronizes across devices when online.'
   }
 };

@@ -49,6 +49,7 @@ const SETTINGS_DROPDOWN_COPY = {
     accounts: 'حساب‌ها',
     shortcuts: 'کلید میانبر',
     installPwa: 'نصب اپلیکیشن روی دستگاه',
+    productTour: 'تور معرفی برنامه',
     logoutConfirm: 'آیا مطمئن هستید که می‌خواهید از حساب خود خارج شوید؟',
     logout: 'خروج از حساب کاربری',
     aboutSystem: 'درباره سیستم'
@@ -78,6 +79,7 @@ const SETTINGS_DROPDOWN_COPY = {
     accounts: 'حیسابەکان',
     shortcuts: 'شۆرتکاتەکان',
     installPwa: 'دامەزراندنی ئەپ لەسەر ئامێر',
+    productTour: 'گەشتی ناساندنی بەرنامە',
     logoutConfirm: 'ئایا دڵنیایت لە چوونەدەرەوە لە هەژمارەکەت؟',
     logout: 'چوونەدەرەوە لە هەژمار',
     aboutSystem: 'دەربارەی سیستەم'
@@ -107,6 +109,7 @@ const SETTINGS_DROPDOWN_COPY = {
     accounts: 'Accounts',
     shortcuts: 'Shortcuts',
     installPwa: 'Install App on Device',
+    productTour: 'Product Tour',
     logoutConfirm: 'Are you sure you want to sign out?',
     logout: 'Sign Out',
     aboutSystem: 'About System'
@@ -395,6 +398,24 @@ export function SettingsDropdown({
       </div>
 
       <div className="border-t border-slate-200/60 dark:border-white/10 pt-1 space-y-1">
+        {/* Product Tour Action */}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            window.dispatchEvent(new CustomEvent('karsync-start-tour'));
+          }}
+          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-700 dark:text-slate-300 group cursor-pointer"
+        >
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+            <span>{c.productTour}</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">
+            Tour
+          </span>
+        </button>
+
         {/* PWA Install Quick Action */}
         <button
           type="button"
