@@ -393,8 +393,8 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   };
 
   // Calculate day wage preview for a worker
-  const calculateWorkerDayPay = (worker) => {
-    const cfg = workerConfigs[worker.id] || { type: 'full', overtimeHours: 0 };
+  const calculateWorkerDayPay = (worker, customCfg = null) => {
+    const cfg = customCfg || workerConfigs[worker.id] || { type: 'full', overtimeHours: 0 };
     const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
     const hourlyRate = worker.overtimeHourlyRate > 0 
       ? worker.overtimeHourlyRate 
@@ -715,7 +715,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     if (entryMode === 'group') {
       const groupWorkers = unloggedWorkers.filter(w => w.groupId === selectedGroupId);
       groupWorkers.forEach((w) => {
-        const pay = calculateWorkerDayPay(w);
+        const pay = calculateWorkerDayPay(w, groupConfig);
         totalGrossPay += pay.total;
         totalOtHours += Number(groupConfig.overtimeHours) || 0;
         if (groupConfig.type === 'full') fullCount++;
@@ -1092,94 +1092,323 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           )}
 
           {/* Group Mode Configuration Card */}
+          {/* Group Mode Configuration & Live Members Preview (Apple Liquid Glass Protocol) */}
           {entryMode === 'group' && (
-            <div className="p-5 sm:p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-              <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
-                <Users className="w-5 h-5 text-sky-500" />
-                <h3 className="font-black text-sm text-slate-900 dark:text-white">
-                  تنظیمات حضور و غیاب گروهی (اکیپ)
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
-                    انتخاب گروه کاری
-                  </label>
-                  <select
-                    value={selectedGroupId}
-                    onChange={(e) => setSelectedGroupId(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
-                  >
-                    <option value="">-- گروه را انتخاب کنید --</option>
-                    {groups.map(g => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {selectedGroupId && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
-                      {t('attendanceType')}
-                    </label>
-                    <select
-                      value={groupConfig.type}
-                      onChange={(e) => setGroupConfig({...groupConfig, type: e.target.value})}
-                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
-                    >
-                      <option value="full">{t('fullDayOption')}</option>
-                      <option value="half">{t('halfDayOption')}</option>
-                      <option value="hourly">{t('hourlyOnlyOption')}</option>
-                      <option value="absent">{t('absentOption')}</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {selectedGroupId && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  {groupConfig.type !== 'absent' && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
-                        {t('overtime')} ({t('hoursShort')})
-                      </label>
-                      <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden p-1">
-                        <button 
-                          type="button" 
-                          onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: Math.max(0, prev.overtimeHours - 0.5)}))} 
-                          className="w-10 h-8 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
-                        >
-                          -
-                        </button>
-                        <div className="flex-1 text-center font-mono font-black text-sm text-slate-900 dark:text-white">
-                          {formatHoursAndMinutes(groupConfig.overtimeHours, language)}
-                        </div>
-                        <button 
-                          type="button" 
-                          onClick={() => setGroupConfig(prev => ({...prev, overtimeHours: prev.overtimeHours + 0.5}))} 
-                          className="w-10 h-8 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
-                        >
-                          +
-                        </button>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                
+                {/* 1. Primary Controls Card (7 cols on desktop) */}
+                <div className="lg:col-span-7 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">
+                          {t('groupAttendanceConfig')}
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          {t('selectWorkGroup')}
+                        </p>
                       </div>
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
-                      {t('notesOptional')}
-                    </label>
-                    <input
-                      type="text"
-                      value={groupConfig.notes}
-                      onChange={(e) => setGroupConfig({...groupConfig, notes: e.target.value})}
-                      placeholder="توضیحات و شرح کار اکیپ..."
-                      className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                    />
+                    {selectedGroupId && (
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                        {unloggedWorkers.filter(w => String(w.groupId || '') === String(selectedGroupId)).length} نفر در اکیپ
+                      </span>
+                    )}
                   </div>
+
+                  {/* Group Selector Dropdown / Chips */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      {t('selectWorkGroup')}
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedGroupId}
+                        onChange={(e) => setSelectedGroupId(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-black text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer appearance-none"
+                      >
+                        <option value="">{t('chooseGroupPlaceholder')}</option>
+                        {groups.map(g => {
+                          const count = unloggedWorkers.filter(w => String(w.groupId || '') === String(g.id)).length;
+                          return (
+                            <option key={g.id} value={g.id}>
+                              {g.name} ({count} نفر پرسنل قابل ثبت)
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute end-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {selectedGroupId && (
+                    <>
+                      {/* [APP_THEME_BUTTON] Shift Type Selector */}
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                          {t('attendanceType')}
+                        </label>
+                        <div className="h-10 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => setGroupConfig(prev => ({ ...prev, type: 'full' }))}
+                            className={`flex-1 sm:flex-initial h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-200 px-3.5 text-xs cursor-pointer ${
+                              groupConfig.type === 'full'
+                                ? 'bg-sky-500 text-white font-black shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-bold'
+                            }`}
+                          >
+                            <span>{t('fullDayOption')}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGroupConfig(prev => ({ ...prev, type: 'half' }))}
+                            className={`flex-1 sm:flex-initial h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-200 px-3.5 text-xs cursor-pointer ${
+                              groupConfig.type === 'half'
+                                ? 'bg-amber-500 text-white font-black shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-bold'
+                            }`}
+                          >
+                            <span>{t('halfDayOption')}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGroupConfig(prev => ({ ...prev, type: 'hourly' }))}
+                            className={`flex-1 sm:flex-initial h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-200 px-3.5 text-xs cursor-pointer ${
+                              groupConfig.type === 'hourly'
+                                ? 'bg-purple-500 text-white font-black shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-bold'
+                            }`}
+                          >
+                            <span>{t('hourlyOnlyOption')}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGroupConfig(prev => ({ ...prev, type: 'absent' }))}
+                            className={`flex-1 sm:flex-initial h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-200 px-3.5 text-xs cursor-pointer ${
+                              groupConfig.type === 'absent'
+                                ? 'bg-rose-500 text-white font-black shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-bold'
+                            }`}
+                          >
+                            <span>{t('absentOption')}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Overtime Controls with Quick Chips */}
+                      {groupConfig.type !== 'absent' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {t('overtime')} ({t('hoursShort')})
+                            </label>
+                            {groupConfig.overtimeHours > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setGroupConfig(prev => ({ ...prev, overtimeHours: 0 }))}
+                                className="text-[11px] font-bold text-rose-500 hover:text-rose-600 cursor-pointer"
+                              >
+                                بازنشانی
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                            {/* Stepper Input */}
+                            <div className="flex items-center bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl overflow-hidden p-1 sm:w-48 shrink-0">
+                              <button 
+                                type="button" 
+                                onClick={() => setGroupConfig(prev => ({ ...prev, overtimeHours: Math.max(0, prev.overtimeHours - 0.5) }))} 
+                                className="w-10 h-9 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl font-black text-slate-700 dark:text-slate-200 transition-colors shadow-xs cursor-pointer active:scale-95"
+                              >
+                                -
+                              </button>
+                              <div className="flex-1 text-center font-mono font-black text-sm text-slate-900 dark:text-white">
+                                {formatHoursAndMinutes(groupConfig.overtimeHours, language)}
+                              </div>
+                              <button 
+                                type="button" 
+                                onClick={() => setGroupConfig(prev => ({ ...prev, overtimeHours: Math.min(24, prev.overtimeHours + 0.5) }))} 
+                                className="w-10 h-9 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl font-black text-slate-700 dark:text-slate-200 transition-colors shadow-xs cursor-pointer active:scale-95"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            {/* Quick Increment Chips */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => setGroupConfig(prev => ({ ...prev, overtimeHours: Math.min(24, (Number(prev.overtimeHours) || 0) + 0.5) }))}
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-700 dark:text-slate-300 hover:text-sky-600 text-xs font-black transition-all active:scale-95 cursor-pointer"
+                              >
+                                +30 دقیقه
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setGroupConfig(prev => ({ ...prev, overtimeHours: Math.min(24, (Number(prev.overtimeHours) || 0) + 1.0) }))}
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-700 dark:text-slate-300 hover:text-sky-600 text-xs font-black transition-all active:scale-95 cursor-pointer"
+                              >
+                                +1 ساعت
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setGroupConfig(prev => ({ ...prev, overtimeHours: Math.min(24, (Number(prev.overtimeHours) || 0) + 2.0) }))}
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-sky-50 dark:bg-slate-800 dark:hover:bg-sky-950/60 text-slate-700 dark:text-slate-300 hover:text-sky-600 text-xs font-black transition-all active:scale-95 cursor-pointer"
+                              >
+                                +2 ساعت
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Section Allocation & Notes */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        {projectSections.length > 0 && (
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                              {t('projectSection') || 'بخش کارگاهی'}
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={groupConfig.sectionId || ''}
+                                onChange={(e) => setGroupConfig(prev => ({ ...prev, sectionId: e.target.value || null }))}
+                                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer appearance-none"
+                              >
+                                <option value="">{t('noSection') || 'عمومی'}</option>
+                                {projectSections.map((sec) => (
+                                  <option key={sec.id} value={sec.id}>
+                                    {sec.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className={projectSections.length > 0 ? '' : 'sm:col-span-2'}>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                            {t('notesOptional')}
+                          </label>
+                          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl px-3.5 py-2.5">
+                            <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                            <input
+                              type="text"
+                              value={groupConfig.notes}
+                              onChange={(e) => setGroupConfig(prev => ({ ...prev, notes: e.target.value }))}
+                              placeholder={t('groupNotesPlaceholder')}
+                              className="w-full bg-transparent text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              )}
+
+                {/* 2. Group Members Live Preview Card (5 cols on desktop) */}
+                <div className="lg:col-span-5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-sky-500" />
+                        <h4 className="font-black text-xs text-slate-900 dark:text-white">
+                          {t('groupMembersList')}
+                        </h4>
+                      </div>
+                      {selectedGroupId && (
+                        <span className="text-xs font-black font-mono text-slate-500 dark:text-slate-400">
+                          {unloggedWorkers.filter(w => String(w.groupId || '') === String(selectedGroupId)).length} نفر
+                        </span>
+                      )}
+                    </div>
+
+                    {!selectedGroupId ? (
+                      <div className="py-12 px-4 text-center space-y-3">
+                        <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
+                          <Users className="w-6 h-6 opacity-60" />
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs mx-auto">
+                          {t('noGroupSelectedNotice')}
+                        </p>
+                      </div>
+                    ) : unloggedWorkers.filter(w => String(w.groupId || '') === String(selectedGroupId)).length === 0 ? (
+                      <div className="py-10 px-4 text-center space-y-2.5 bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/10 rounded-2xl">
+                        <div className="w-10 h-10 mx-auto rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                          <CheckCircle2 className="w-5 h-5" />
+                        </div>
+                        <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                          {t('noMembersInGroupNotice')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                        {unloggedWorkers
+                          .filter(w => String(w.groupId || '') === String(selectedGroupId))
+                          .map((worker) => {
+                            const pay = calculateWorkerDayPay(worker, groupConfig);
+                            const isMaster = worker.isMaster || (worker.role && /استاد|اوستا|master|سرکارگر/i.test(worker.role));
+                            return (
+                              <div
+                                key={worker.id}
+                                className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-3 hover:bg-white dark:hover:bg-slate-800 transition-colors"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span 
+                                      onClick={() => openWorkerProfile(worker.id)}
+                                      className="font-black text-xs text-slate-900 dark:text-white hover:text-sky-500 transition-colors cursor-pointer truncate"
+                                    >
+                                      {worker.name}
+                                    </span>
+                                    {isMaster && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60">
+                                        استادکار
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                                    {worker.role || 'پرسنل'} • {formatCurrency(worker.dailyRate, currency, language)}
+                                  </p>
+                                </div>
+
+                                <div className="text-end shrink-0">
+                                  <span className="text-xs font-black font-mono text-sky-600 dark:text-sky-400 block">
+                                    {formatCurrency(pay.total, currency, language)}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    {groupConfig.type === 'hourly' ? t('hourlyOnlyOption') : groupConfig.type === 'half' ? t('halfDayOption') : groupConfig.type === 'absent' ? t('absentOption') : t('fullDayOption')}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Group Calculation Subtotal */}
+                  {selectedGroupId && unloggedWorkers.filter(w => String(w.groupId || '') === String(selectedGroupId)).length > 0 && (
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        {t('groupDailyWageTotal')}
+                      </span>
+                      <span className="text-sm font-black font-mono text-slate-900 dark:text-white">
+                        {formatAmount(summaryTotals.totalGrossPay, currency)} {getCurrencySymbol(currency, language)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+              </div>
             </div>
           )}
 
@@ -1592,7 +1821,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             <div className="px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2">
               <UserCheck className="w-4 h-4 text-sky-500" />
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                {summaryTotals.count} {t('workers') || 'پرسنل'}
+                {t('selectedPersonsCount', { count: summaryTotals.count })}
               </span>
             </div>
 
