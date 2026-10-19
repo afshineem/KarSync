@@ -76,6 +76,30 @@ export function getScopedSettingKey(baseKey) {
   return `${baseKey}_ws_${scopeId}`;
 }
 
+export function getScopedWorkersQuery() {
+  const ctx = getActiveWorkspaceContext();
+  let query = supabase.from('workers').select('*');
+  if (ctx.isLegacyOwner) {
+    return query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
+  }
+  if (ctx.userId) {
+    return query.eq('user_id', ctx.userId);
+  }
+  return query.eq('user_id', 'unauthenticated_empty_state');
+}
+
+export function getScopedAttendanceLogsQuery() {
+  const ctx = getActiveWorkspaceContext();
+  let query = supabase.from('attendance_logs').select('*');
+  if (ctx.isLegacyOwner) {
+    return query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
+  }
+  if (ctx.userId) {
+    return query.eq('user_id', ctx.userId);
+  }
+  return query.eq('user_id', 'unauthenticated_empty_state');
+}
+
 
 export function getPendingDeletedAccounts() {
   try {
@@ -506,8 +530,8 @@ export async function autoInitialSync() {
   }
 
   const [wRes, lRes] = await Promise.all([
-    supabase.from('workers').select('*'),
-    supabase.from('attendance_logs').select('*')
+    getScopedWorkersQuery(),
+    getScopedAttendanceLogsQuery()
   ]);
 
   if (wRes.error || lRes.error) {
@@ -577,9 +601,26 @@ export async function autoInitialSync() {
  * Reconcile Supabase cloud rows into Dexie local database with automatic deduplication
  */
 export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
+  const ctx = getActiveWorkspaceContext();
   const duplicateIdsToDeleteFromCloud = [];
   const pendingWorkers = new Set(getPendingDeletedWorkers());
   const pendingLogs = new Set(getPendingDeletedLogs());
+
+  // Filter rows strictly to active tenant
+  const tenantWorkers = (cloudWorkers || []).filter(w => {
+    if (ctx.isLegacyOwner) return true;
+    return w.user_id === ctx.userId;
+  });
+  const tenantLogs = (cloudLogs || []).filter(l => {
+    if (ctx.isLegacyOwner) return true;
+    return l.user_id === ctx.userId;
+  });
+
+  // For non-legacy accounts, if cloud has 0 workers, purge any local worker residue
+  if (!ctx.isLegacyOwner && ctx.userId && tenantWorkers.length === 0) {
+    await db.workers.clear();
+    await db.attendanceLogs.clear();
+  }
 
   await purgeDummySeedWorkers();
 
@@ -597,7 +638,7 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
 
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
     // 1. Reconcile Workers
-    for (const w of cloudWorkers) {
+    for (const w of tenantWorkers) {
       if (w.deleted_at) {
         await db.workers.delete(w.id);
         await db.attendanceLogs.where('workerId').equals(w.id).delete();
@@ -666,7 +707,7 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
     // 2. Reconcile Attendance Logs
     const dedupedLogsMap = new Map();
 
-    for (const l of cloudLogs) {
+    for (const l of tenantLogs) {
       const canonicalId = getAttendanceLogId(l.worker_id, l.date);
       if (l.deleted_at) {
         await db.attendanceLogs.delete(l.id);
@@ -891,6 +932,10 @@ function subscribeToRealtime() {
         }
       } else if (payload.new) {
         const w = payload.new;
+        const ctx = getActiveWorkspaceContext();
+        if (!ctx.isLegacyOwner && w.user_id && w.user_id !== ctx.userId) {
+          return; // Ignore worker change from other tenants
+        }
         if (w.deleted_at) {
           await db.workers.delete(w.id);
           await db.attendanceLogs.where('workerId').equals(w.id).delete();
@@ -936,6 +981,10 @@ function subscribeToRealtime() {
         }
       } else if (payload.new) {
         const l = payload.new;
+        const ctx = getActiveWorkspaceContext();
+        if (!ctx.isLegacyOwner && l.user_id && l.user_id !== ctx.userId) {
+          return; // Ignore attendance log change from other tenants
+        }
         const canonicalId = getAttendanceLogId(l.worker_id, l.date);
         if (l.deleted_at) {
           await db.attendanceLogs.delete(l.id);
@@ -1253,6 +1302,17 @@ export async function pullProjectsLive(force = false) {
           }
         }
       });
+    } else {
+      // Cloud has 0 projects for this tenant. Purge any alien projects from Dexie.
+      const ctx = getActiveWorkspaceContext();
+      if (!ctx.isLegacyOwner && ctx.userId) {
+        const localProjects = await db.projects.toArray();
+        for (const lp of localProjects) {
+          if (lp.userId && lp.userId !== ctx.userId) {
+            await db.projects.delete(lp.id);
+          }
+        }
+      }
     }
   } catch (err) {
     console.warn('pullProjectsLive warning:', err);
@@ -2236,21 +2296,24 @@ export async function pullRemoteChangesSilently(force = false) {
     await pullWorkerProjectsLive();
     await pullGroupsLive();
     await pullWorkerMetadataLive();
+    const ctx = getActiveWorkspaceContext();
     const [wRes, lRes] = await Promise.all([
-      supabase.from('workers').select('*'),
-      supabase.from('attendance_logs').select('*')
+      getScopedWorkersQuery(),
+      getScopedAttendanceLogsQuery()
     ]);
 
     if (!wRes.error && !lRes.error && (wRes.data || lRes.data)) {
       await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
 
-      // Auto-detect and push any local workers that are missing in cloud (Mohammad, Mostafa, etc.)
-      const cloudWorkerIds = new Set((wRes.data || []).map(w => w.id));
-      const localWorkers = await db.workers.toArray();
-      const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt);
-      if (missingWorkers.length > 0) {
-        for (const mw of missingWorkers) {
-          await pushWorkerLive(mw);
+      // Auto-detect and push any local workers that are missing in cloud ONLY for legacy owner
+      if (ctx.isLegacyOwner) {
+        const cloudWorkerIds = new Set((wRes.data || []).map(w => w.id));
+        const localWorkers = await db.workers.toArray();
+        const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt);
+        if (missingWorkers.length > 0) {
+          for (const mw of missingWorkers) {
+            await pushWorkerLive(mw);
+          }
         }
       }
     }
@@ -2297,6 +2360,9 @@ export async function pushLogsLive(logs) {
 
   if (!navigator.onLine) return;
 
+  const ctx = getActiveWorkspaceContext();
+  const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
+
   const payload = logs.map(l => {
     let cleanNotes = (l.notes || '').trim();
     // Cleanly strip any old META block first
@@ -2315,6 +2381,7 @@ export async function pushLogsLive(logs) {
 
     return {
       id: getAttendanceLogId(l.workerId, l.date),
+      user_id: l.userId || effectiveUserId,
       worker_id: l.workerId,
       date: l.date,
       type: l.type || 'full',
@@ -2371,8 +2438,12 @@ export async function pushWorkerLive(w) {
 
   if (!navigator.onLine) return;
 
+  const ctx = getActiveWorkspaceContext();
+  const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
+
   const payload = {
     id: w.id,
+    user_id: w.userId || effectiveUserId,
     name: w.name,
     phone: w.phone || null,
     role: w.role || 'کارگر',
@@ -2419,8 +2490,12 @@ export async function pushWorkersLive(workers) {
 
   if (!navigator.onLine) return;
 
+  const ctx = getActiveWorkspaceContext();
+  const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
+
   const payload = workers.map(w => ({
     id: w.id,
+    user_id: w.userId || effectiveUserId,
     name: w.name,
     phone: w.phone || null,
     role: w.role || 'کارگر',
