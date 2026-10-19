@@ -677,6 +677,9 @@ export const translations = {
     readyToLogGroupsCount: '{count} تیمی کاری بەردەست بۆ تۆمارکردن',
     groupMembersCountBadge: '{count} کرێکار',
     allGroupMembersLogged: 'هەموو ئەندامانی ئەم تیمە تۆمارکراون',
+    excludedMembersCount: '{count} نەفر غائیب / جیاکراوە',
+    excludeMemberFromGroup: 'غیاب / جیاکردنەوە لە تۆماری ئەمڕۆ',
+    includeMemberInGroup: 'ئامادە / زیادکردنەوە بۆ تۆماری ئەمڕۆ',
     // Product Tour
     productTour: 'گەشتی ناساندنی بەرنامە',
     tourStepCount: 'هەنگاوی {current} لە {total}',
@@ -1373,6 +1376,9 @@ export const translations = {
     readyToLogGroupsCount: '{count} گروه کاری آماده ثبت',
     groupMembersCountBadge: '{count} نفر پرسنل',
     allGroupMembersLogged: 'همه پرسنل این گروه قبلاً ثبت شده‌اند',
+    excludedMembersCount: '{count} نفر غایب / مستثنی',
+    excludeMemberFromGroup: 'غیبت / استثنا کردن این پرسنل از ثبت امروز',
+    includeMemberInGroup: 'حضور / بازگرداندن این پرسنل به لیست ثبت امروز',
     // Product Tour
     productTour: 'تور معرفی برنامه',
     tourStepCount: 'گام {current} از {total}',
@@ -2069,6 +2075,9 @@ export const translations = {
     readyToLogGroupsCount: '{count} Work Groups Ready to Log',
     groupMembersCountBadge: '{count} Workers',
     allGroupMembersLogged: 'All workers in this crew are already logged',
+    excludedMembersCount: '{count} Absent / Excluded',
+    excludeMemberFromGroup: 'Mark absent / Exclude this worker today',
+    includeMemberInGroup: 'Mark present / Include this worker today',
     // Product Tour
     productTour: 'Product Tour',
     tourStepCount: 'Step {current} of {total}',

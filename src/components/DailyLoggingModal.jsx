@@ -70,6 +70,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [selectedGroups, setSelectedGroups] = useState({});
   const [groupConfigs, setGroupConfigs] = useState({});
+  const [excludedGroupWorkers, setExcludedGroupWorkers] = useState({});
   const [expandedGroupMembers, setExpandedGroupMembers] = useState({});
   const [isAlreadyLoggedExpanded, setIsAlreadyLoggedExpanded] = useState(false);
   const [groupConfig, setGroupConfig] = useState({
@@ -255,6 +256,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       });
       setSelectedGroups(initialSelectedGrps);
       setGroupConfigs(initialGroupCfgs);
+      setExcludedGroupWorkers({});
 
       setGroupConfig({
         type: 'full',
@@ -408,6 +410,14 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     }));
   };
 
+  // Toggle exclusion (absent exception) for a specific worker inside a group
+  const toggleGroupWorkerExclusion = (workerId) => {
+    setExcludedGroupWorkers((prev) => ({
+      ...prev,
+      [workerId]: !prev[workerId]
+    }));
+  };
+
   // Select all / Deselect all for unlogged workers
   const handleSelectAll = () => {
     const all = {};
@@ -493,17 +503,20 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     updateGroupConfigItem(groupId, 'overtimeHours', newDecimal);
   };
 
-  // Calculate day wage preview for an entire group
+  // Calculate day wage preview for an entire group (respecting absent/excluded workers)
   const calculateGroupDayPay = (groupId) => {
     const gCfg = groupConfigs[groupId] || { type: 'full', overtimeHours: 0, notes: '' };
     const members = unloggedWorkers.filter(w => String(w.groupId || '') === String(groupId));
+    const activeMembers = members.filter(w => !excludedGroupWorkers[w.id]);
     let totalPay = 0;
-    members.forEach((w) => {
+    activeMembers.forEach((w) => {
       const pay = calculateWorkerDayPay(w, gCfg);
       totalPay += pay.total;
     });
     return {
-      memberCount: members.length,
+      totalCount: members.length,
+      activeCount: activeMembers.length,
+      excludedCount: members.length - activeMembers.length,
       totalPay: roundCurrency(totalPay, currency)
     };
   };
@@ -582,7 +595,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         return;
       }
       checkedWorkerIds = unloggedWorkers
-        .filter(w => w.groupId && activeGroupIds.includes(String(w.groupId)))
+        .filter(w => w.groupId && activeGroupIds.includes(String(w.groupId)) && !excludedGroupWorkers[w.id])
         .map(w => w.id);
 
       if (checkedWorkerIds.length === 0) {
@@ -844,9 +857,10 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       activeGroupIds.forEach((grpId) => {
         const gCfg = groupConfigs[grpId] || { type: 'full', overtimeHours: 0, notes: '' };
         const members = unloggedWorkers.filter(w => String(w.groupId || '') === String(grpId));
-        totalMembersCount += members.length;
+        const activeMembers = members.filter(w => !excludedGroupWorkers[w.id]);
+        totalMembersCount += activeMembers.length;
 
-        members.forEach((w) => {
+        activeMembers.forEach((w) => {
           const pay = calculateWorkerDayPay(w, gCfg);
           totalGrossPay += pay.total;
           totalOtHours += Number(gCfg.overtimeHours) || 0;
@@ -887,7 +901,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       halfCount,
       hourlyCount
     };
-  }, [entryMode, selectedGroups, groupConfigs, unloggedWorkers, selectedWorkers, workerConfigs, currency]);
+  }, [entryMode, selectedGroups, groupConfigs, excludedGroupWorkers, unloggedWorkers, selectedWorkers, workerConfigs, currency]);
 
   if (!isOpen) return null;
 
@@ -1324,8 +1338,18 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                                   {/* Member count badge */}
                                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
                                     <Users className="w-3 h-3 text-indigo-500" />
-                                    <span>{t('groupMembersCountBadge', { count: groupMembers.length })}</span>
+                                    <span>
+                                      {isChecked && groupPay.excludedCount > 0
+                                        ? `${groupPay.activeCount} از ${groupMembers.length} نفر حاضر`
+                                        : t('groupMembersCountBadge', { count: groupMembers.length })}
+                                    </span>
                                   </span>
+
+                                  {isChecked && groupPay.excludedCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60 shrink-0">
+                                      {t('excludedMembersCount', { count: groupPay.excludedCount })}
+                                    </span>
+                                  )}
 
                                   {groupHasNoUnlogged && (
                                     <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800 shrink-0">
@@ -1567,21 +1591,31 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                                   </div>
                                 </button>
 
-                                {isExpanded && (
-                                  <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                 {isExpanded && (
+                                  <div className="mt-2 space-y-1.5 max-h-56 overflow-y-auto pr-1">
                                     {groupMembers.map((worker) => {
+                                      const isExcluded = !!excludedGroupWorkers[worker.id];
                                       const pay = calculateWorkerDayPay(worker, cfg);
                                       const isMaster = worker.isMaster || (worker.role && /استاد|اوستا|master|سرکارگر/i.test(worker.role));
                                       return (
                                         <div
                                           key={worker.id}
-                                          className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs"
+                                          className={`p-2 rounded-2xl border transition-all flex items-center justify-between gap-2.5 text-xs ${
+                                            isExcluded
+                                              ? 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40 opacity-70'
+                                              : 'bg-white dark:bg-slate-900 border-slate-200/70 dark:border-slate-800'
+                                          }`}
                                         >
+                                          {/* Member Info */}
                                           <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-1.5">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
                                               <span 
                                                 onClick={() => openWorkerProfile(worker.id)}
-                                                className="font-bold text-slate-900 dark:text-white hover:text-indigo-500 cursor-pointer truncate"
+                                                className={`font-bold transition-colors cursor-pointer truncate ${
+                                                  isExcluded 
+                                                    ? 'line-through text-slate-400 dark:text-slate-500' 
+                                                    : 'text-slate-900 dark:text-white hover:text-indigo-500'
+                                                }`}
                                               >
                                                 {worker.name}
                                               </span>
@@ -1590,14 +1624,45 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                                                   استادکار
                                                 </span>
                                               )}
+                                              {isExcluded && (
+                                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                                                  {language === 'fa' ? 'غایب امروز' : language === 'ku' ? 'غائیبی ئەمڕۆ' : 'Absent today'}
+                                                </span>
+                                              )}
                                             </div>
-                                            <span className="text-[10px] text-slate-400">
+                                            <span className="text-[10px] text-slate-400 block mt-0.5">
                                               {worker.role || 'پرسنل'} • {formatCurrency(worker.dailyRate, currency, language)} / روز
                                             </span>
                                           </div>
-                                          <span className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400 shrink-0">
-                                            {formatCurrency(pay.total, currency, language)}
-                                          </span>
+
+                                          {/* Wage & Exclusion Toggle Button */}
+                                          <div className="flex items-center gap-2 shrink-0">
+                                            <span className={`font-mono font-bold text-xs ${
+                                              isExcluded 
+                                                ? 'line-through text-slate-400' 
+                                                : 'text-indigo-600 dark:text-indigo-400'
+                                            }`}>
+                                              {isExcluded ? '0' : formatCurrency(pay.total, currency, language)}
+                                            </span>
+
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleGroupWorkerExclusion(worker.id);
+                                              }}
+                                              className={`px-2 py-1 rounded-xl text-[10px] font-black transition-all cursor-pointer active:scale-95 ${
+                                                isExcluded
+                                                  ? 'bg-rose-500 text-white hover:bg-rose-600 shadow-xs'
+                                                  : 'bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600'
+                                              }`}
+                                              title={isExcluded ? t('includeMemberInGroup') : t('excludeMemberFromGroup')}
+                                            >
+                                              {isExcluded
+                                                ? (language === 'fa' ? 'ثبت غیبت' : language === 'ku' ? 'غائیب' : 'Absent')
+                                                : (language === 'fa' ? 'حاضر' : language === 'ku' ? 'ئامادە' : 'Present')}
+                                            </button>
+                                          </div>
                                         </div>
                                       );
                                     })}
