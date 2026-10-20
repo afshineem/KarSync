@@ -1048,7 +1048,7 @@ export function LoginView({ theme, toggleTheme }) {
                   )}
 
                 </form>
-              )}}
+              )}
 
               {/* ─────────────────────────────────────────────────────────── */}
               {/* MODE 2: TWO-FACTOR AUTHENTICATION (2FA) CHALLENGE           */}

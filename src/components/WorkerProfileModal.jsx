@@ -578,17 +578,18 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
     allPayments
       .filter((p) => (p.type || '').toLowerCase() !== 'settlement' && !p.deletedAt)
       .forEach((p) => {
-        const isSettled = fin?.isPaymentSettled(p);
+        const isBonus = (p.type || '').toLowerCase() === 'bonus' || (p.type || '').toLowerCase() === 'eid';
+        const isSettled = isBonus ? true : fin?.isPaymentSettled(p);
         events.push({
           id: `pay_${p.id}`,
-          kind: 'advance',
+          kind: isBonus ? 'bonus' : 'advance',
           rawDate: p.date || p.createdAt || '',
           date: p.date || p.createdAt || '',
           data: p,
           isSettled,
-          type: p.type || c.advance,
+          type: isBonus ? (c.bonusBadge || 'عیدی و پاداش') : (p.type || c.advance),
           amount: Number(p.amount) || 0,
-          title: c.advancePaymentTitle,
+          title: isBonus ? (c.bonusPaymentTitle || 'سند پرداخت عیدی و پاداش') : c.advancePaymentTitle,
           notes: p.notes
         });
       });

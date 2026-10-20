@@ -147,10 +147,11 @@ export function useAccounting(options = {}) {
           if (p.deletedAt) return false;
           const matchesProject = !p.projectId || p.projectId === projectId || projectId === DEFAULT_PROJECT_ID || projectWorkerIds.has(String(p.workerId));
           if (!matchesProject) return false;
-          // فقط مساعده‌ها و تسویه‌ها خروجی واقعی پول هستند
+          // مساعده‌ها، پاداش‌ها/عیدی‌ها و تسویه‌ها خروجی واقعی پول هستند
           const isAdvance = p.type === 'advance';
+          const isBonus = p.type === 'bonus' || p.type === 'eid';
           const isSettlement = p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled';
-          return isAdvance || isSettlement;
+          return isAdvance || isBonus || isSettlement;
         })
         .sort((a, b) => (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || ''));
     },
@@ -328,16 +329,20 @@ export function useAccounting(options = {}) {
         entry.totalOutflow += amt;
         entry.outflowsCount += 1;
         const isAdvance = p.type === 'advance';
+        const isBonus = p.type === 'bonus' || p.type === 'eid';
         const workerName = p.workerName || workerMap.get(String(p.workerId)) || 'پرسنل';
+        const category = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : 'worker_settlement';
+        const categoryLabel = isBonus ? (p.bonusTitle || 'عیدی و پاداش پرسنل') : isAdvance ? 'مساعده پرسنل' : 'تسویه دستمزد پرسنل';
+        const title = isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : `تسویه حساب نهایی ${workerName}`;
         entry.transactions.push({
           id: p.id,
           rawDate: (p.date || p.createdAt || '').slice(0, 10),
           time: p.time || (p.createdAt ? p.createdAt.slice(11, 16) : ''),
           createdAt: p.createdAt || (p.date ? `${p.date}T00:00:00Z` : ''),
           type: 'outflow',
-          category: isAdvance ? 'advance_payment' : 'worker_settlement',
-          categoryLabel: isAdvance ? 'مساعده پرسنل' : 'تسویه دستمزد پرسنل',
-          title: isAdvance ? `پرداخت مساعده به ${workerName}` : `تسویه حساب نهایی ${workerName}`,
+          category,
+          categoryLabel,
+          title,
           description: p.notes || (p.referenceNumber ? `کد رهگیری: ${p.referenceNumber}` : ''),
           personName: workerName,
           inflowAmount: 0,
@@ -497,11 +502,14 @@ export function useAccounting(options = {}) {
     let totalAdvances = 0;
     let totalSettlements = 0;
 
+    let totalBonuses = 0;
     payments.forEach((p) => {
       const amt = Number(p.amount) || 0;
       totalPersonnel += amt;
       if (p.type === 'advance') {
         totalAdvances += amt;
+      } else if (p.type === 'bonus' || p.type === 'eid') {
+        totalBonuses += amt;
       } else {
         totalSettlements += amt;
       }
@@ -595,21 +603,25 @@ export function useAccounting(options = {}) {
     payments.forEach((p) => {
       const dateStr = (p.date || p.createdAt || '').slice(0, 10);
       const isAdvance = p.type === 'advance';
+      const isBonus = p.type === 'bonus' || p.type === 'eid';
       const workerName = p.workerName || workerMap.get(String(p.workerId)) || 'پرسنل';
       const acc = p.accountId ? accountMap.get(String(p.accountId)) : null;
+      const category = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : 'worker_settlement';
+      const categoryLabel = isBonus ? (p.bonusTitle || 'عیدی و پاداش پرسنل') : isAdvance ? 'مساعده پرسنل' : 'تسویه دستمزد پرسنل';
+      const title = isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : `تسویه حساب نهایی ${workerName}`;
 
       rawTransactions.push({
         id: p.id,
         rawDate: dateStr,
         createdAt: p.createdAt || `${dateStr}T00:00:00Z`,
         type: 'outflow', // خروجی
-        category: isAdvance ? 'advance_payment' : 'worker_settlement',
-        categoryLabel: isAdvance ? 'مساعده پرسنل' : 'تسویه دستمزد پرسنل',
+        category,
+        categoryLabel,
         amount: Number(p.amount) || 0,
         accountType: p.accountType || acc?.type || p.paymentMethod || 'cash',
         accountId: p.accountId || null,
         accountName: acc?.name || (p.paymentMethod === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
-        title: isAdvance ? `پرداخت مساعده به ${workerName}` : `تسویه حساب نهایی ${workerName}`,
+        title,
         description: p.notes || (p.referenceNumber ? `کد رهگیری: ${p.referenceNumber}` : ''),
         personName: workerName,
         tableName: 'payments',

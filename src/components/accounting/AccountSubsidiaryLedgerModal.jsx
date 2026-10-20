@@ -470,14 +470,18 @@ export function AccountSubsidiaryLedgerModal({
       });
     });
 
-    // ب) پرداخت‌ها: مساعده‌ها و تسویه‌حساب‌ها (پرداختی به کارگر - خروجی از حساب کارگر)
+    // ب) پرداخت‌ها: مساعده‌ها، پاداش‌ها و تسویه‌حساب‌ها (پرداختی به کارگر)
     workerPayments.forEach((p) => {
       const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
-      const cat = isAdvance ? 'advance_payment' : 'worker_settlement';
-      const catLabel = isAdvance ? txt.payAdvanceCat : txt.paySettlementCat;
+      const isBonus = p.type === 'bonus' || p.type === 'eid';
+      const cat = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : 'worker_settlement';
+      const catLabel = isBonus ? (p.bonusTitle || txt.payBonusCat) : isAdvance ? txt.payAdvanceCat : txt.paySettlementCat;
 
-      const desc = p.note || p.description || (isAdvance ? txt.payAdvanceDesc : txt.paySettlementDesc);
+      const desc = p.notes || p.note || p.description || (isBonus ? txt.payBonusDesc : isAdvance ? txt.payAdvanceDesc : txt.paySettlementDesc);
 
+      // توجه: عیدی و پاداش یک هدیه مازاد است و نباید طلب دستمزد پرسنل را بدهکار یا مستهلک کند.
+      // برای اینکه در دفتر معین پرسنل شفاف باشد، به عنوان رویداد خنثی یا بستانکار ثبت می‌شود یا
+      // مستقیماً نمایش داده می‌شود بدون اینکه تعهد دستمزد کاهش یابد.
       combinedEvents.push({
         id: `pay_${p.id}`,
         rawDate: (p.date || p.createdAt || '').slice(0, 10),
@@ -487,9 +491,9 @@ export function AccountSubsidiaryLedgerModal({
         categoryLabel: catLabel,
         description: desc,
         counterparty: entityData.name,
-        type: 'outflow',
+        type: isBonus ? 'bonus_gift' : 'outflow',
         amount: Number(p.amount) || 0,
-        sourceLabel: txt.paySource
+        sourceLabel: isBonus ? (txt.payBonusCat || 'عیدی و پاداش') : txt.paySource
       });
     });
 
@@ -504,6 +508,9 @@ export function AccountSubsidiaryLedgerModal({
       if (ev.type === 'inflow') {
         running += ev.amount;
         totalIn += ev.amount;
+      } else if (ev.type === 'bonus_gift') {
+        // عیدی و پاداش طلب پرسنل را کسر نمی‌کند
+        ev.isBonus = true;
       } else {
         running -= ev.amount;
         totalOut += ev.amount;

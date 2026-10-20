@@ -15,7 +15,8 @@ import {
   formatCurrency 
 } from '../utils/formatters';
 import { 
-  Banknote, 
+  Banknote,
+  Gift, 
   X, 
   User, 
   Calendar, 
@@ -46,6 +47,21 @@ import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 
 const COPY = {
   fa: {
+    paymentTypeLabel: 'نوع پرداخت:',
+    paymentTypeAdvance: 'مساعده و پیش‌پرداخت',
+    paymentTypeBonus: 'عیدی و پاداش تشویقی',
+    bonusCategoryLabel: 'مناسبت یا عنوان پاداش:',
+    bonusPresetNowruz: 'عیدی مناسبتی (نوروز / اعیاد)',
+    bonusPresetGoodJob: 'پاداش حسن انجام کار و انگیزه',
+    bonusPresetManagement: 'پاداش صلاحدید مدیریت',
+    bonusPresetOther: 'سایر پاداش‌ها',
+    bonusCustomTitlePlaceholder: 'عنوان یا مناسبت پاداش را وارد کنید...',
+    bonusNonDeductibleNotice: 'این مبلغ به عنوان هدیه و پاداش پرداخت می‌شود، از حساب/صندوق کسر می‌گردد ولی در تسویه حساب کسر نخواهد شد و پرسنل را بدهکار نمی‌کند.',
+    bonusSuccessMsg: 'عیدی و پاداش با موفقیت ثبت شد',
+    submitBonus: 'ثبت سند عیدی و پاداش',
+    totalBonusesReceivedLabel: 'مجموع پاداش‌های دریافت‌شده:',
+    bonusModalTitle: 'ثبت سند عیدی و پاداش تشویقی پرسنل',
+    bonusModalSubtitle: 'پرداخت پاداش، عیدی‌های مناسبتی یا هدیه به پرسنل کارگاه با ثبت در دفاتر مالی',
     selectedAccountDefault: 'حساب انتخابی',
     cashAccountDefault: 'صندوق',
     workshopCashDesk: '{c.workshopCashDesk}',
@@ -101,6 +117,21 @@ const COPY = {
     zeroAmount: '۰'
   },
   ku: {
+    paymentTypeLabel: 'جۆری پارەدان:',
+    paymentTypeAdvance: 'پێشەکی و مووچەی پێشوەختە',
+    paymentTypeBonus: 'جەژنانە و پاداشتی هاندەر',
+    bonusCategoryLabel: 'بۆنە یان ناونیشانی پاداشت:',
+    bonusPresetNowruz: 'جەژنانەی بۆنەکان (نەورۆز / جەژنەکان)',
+    bonusPresetGoodJob: 'پاداشتی شایستەیی و ئەنجامدانی چاکی کار',
+    bonusPresetManagement: 'پاداشتی دەسەڵاتی بەڕێوەبەرایەتی',
+    bonusPresetOther: 'پاداشتەکانی تر',
+    bonusCustomTitlePlaceholder: 'ناونیشان یان هۆکاری پاداشت بنووسە...',
+    bonusNonDeductibleNotice: 'ئەم بڕە پارەیە وەک دیاری و پاداشت دەدرێت، لە حیساب/سندوق کەم دەبێتەوە بەڵام لە پاکتاودا داشکاندنی بۆ ناکرێت و کرێکار قەرزدار ناکات.',
+    bonusSuccessMsg: 'جەژنانە و پاداشت بە سەرکەوتوویی تۆمارکرا',
+    submitBonus: 'تۆمارکردنی بەڵگەنامەی پاداشت',
+    totalBonusesReceivedLabel: 'کۆی پاداشتە وەرگیراوەکان:',
+    bonusModalTitle: 'تۆمارکردنی بەڵگەنامەی جەژنانە و پاداشت',
+    bonusModalSubtitle: 'پارەدانی پاداشت، جەژنانەی بۆنەکان یان دیاری بۆ کرێکاران لەگەڵ تۆماری دارایی',
     selectedAccountDefault: 'حیسابی هەڵبژێردراو',
     cashAccountDefault: 'سندوق',
     workshopCashDesk: 'سندوقی نەختی کارگە',
@@ -156,6 +187,21 @@ const COPY = {
     zeroAmount: '٠'
   },
   en: {
+    paymentTypeLabel: 'Payment Type:',
+    paymentTypeAdvance: 'Advance Payment',
+    paymentTypeBonus: 'Bonus & Festive Gift',
+    bonusCategoryLabel: 'Bonus Reason / Title:',
+    bonusPresetNowruz: 'Festive Gift (Nowruz / Eid)',
+    bonusPresetGoodJob: 'Performance & Merit Bonus',
+    bonusPresetManagement: 'Management Discretionary Bonus',
+    bonusPresetOther: 'Other Bonuses',
+    bonusCustomTitlePlaceholder: 'Enter bonus reason or title...',
+    bonusNonDeductibleNotice: 'This amount is granted as a gift/bonus. It reduces bank/cash balance but will NOT be deducted from settlements and never makes the worker indebted.',
+    bonusSuccessMsg: 'Bonus & Gift recorded successfully',
+    submitBonus: 'Record Bonus & Gift',
+    totalBonusesReceivedLabel: 'Total Bonuses Received:',
+    bonusModalTitle: 'Record Personnel Bonus & Festive Gift',
+    bonusModalSubtitle: 'Grant performance bonus or festive gifts with complete ledger tracking',
     selectedAccountDefault: 'Selected Account',
     cashAccountDefault: 'Cash Drawer',
     workshopCashDesk: 'Workshop Cash Drawer',
@@ -217,7 +263,8 @@ export function AdvancePaymentModal({
   onClose, 
   workers = [], 
   targetWorkerId = null, 
-  targetMonth = null 
+  targetMonth = null,
+  initialPaymentType = "advance" // "advance" | "bonus"
 }) {
   const { t, language, direction } = useLanguage();
   const c = COPY[language] || COPY.fa;
@@ -226,7 +273,10 @@ export function AdvancePaymentModal({
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
-  const [workerId, setWorkerId] = useState(targetWorkerId || '');
+  const [paymentType, setPaymentType] = useState(initialPaymentType || "advance"); // "advance" | "bonus"
+  const [bonusPreset, setBonusPreset] = useState("nowruz");
+  const [customBonusTitle, setCustomBonusTitle] = useState("");
+  const [workerId, setWorkerId] = useState(targetWorkerId || "");
   const [month, setMonth] = useState(targetMonth || getCurrentYearMonth());
   const [date, setDate] = useState(getTodayDateString());
   const [amount, setAmount] = useState('');
@@ -379,6 +429,10 @@ export function AdvancePaymentModal({
       const workerName = selectedWorker?.name || 'Unknown';
       const chosenAccount = financialAccounts.find((a) => String(a.id) === String(selectedAccountId)) || defaultAccount;
 
+      const derivedBonusTitle = paymentType === "bonus"
+        ? (customBonusTitle.trim() || (bonusPreset === "nowruz" ? c.bonusPresetNowruz : bonusPreset === "good_job" ? c.bonusPresetGoodJob : bonusPreset === "management" ? c.bonusPresetManagement : c.bonusPresetOther))
+        : null;
+
       const newPayment = {
         id: generatePaymentId(),
         projectId: targetProjectId,
@@ -388,18 +442,19 @@ export function AdvancePaymentModal({
         month: derivedMonth,
         date,
         time: currentTime,
-        type: 'advance',
+        type: paymentType, // "advance" or "bonus"
+        bonusTitle: derivedBonusTitle,
         amount: numAmount,
         currency,
         accountId: chosenAccount?.id ? String(chosenAccount.id) : null,
-        accountName: chosenAccount?.name || '',
-        accountType: chosenAccount?.type || 'cash',
+        accountName: chosenAccount?.name || "",
+        accountType: chosenAccount?.type || "cash",
         referenceNumber: referenceNumber.trim() || null,
         notes: notes.trim() || null,
-        status: 'draft',
-        approval_status: 'draft',
-        settlement_status: 'partial',
-        created_by: user?.id || 'admin',
+        status: "draft",
+        approval_status: "draft",
+        settlement_status: paymentType === "bonus" ? "not_applicable" : "partial",
+        created_by: user?.id || "admin",
         createdAt: now.toISOString(),
         updatedAt: now.toISOString()
       };
@@ -418,7 +473,7 @@ export function AdvancePaymentModal({
           onClose();
         }, 2000);
       } else {
-        setFeedback({ type: 'success', message: c.advanceSuccessMsg });
+        setFeedback({ type: 'success', message: paymentType === 'bonus' ? c.bonusSuccessMsg : c.advanceSuccessMsg });
         setTimeout(() => {
           onClose();
         }, 800);
@@ -451,20 +506,28 @@ export function AdvancePaymentModal({
       <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-xs z-20">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-md shadow-amber-500/25 shrink-0">
-              <Banknote className="w-5 h-5 stroke-[2.2]" />
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-md shrink-0 transition-all duration-300 ${
+              paymentType === "bonus"
+                ? "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-purple-500/25"
+                : "bg-gradient-to-tr from-amber-500 to-amber-600 text-white shadow-amber-500/25"
+            }`}>
+              {paymentType === "bonus" ? <Gift className="w-5 h-5 stroke-[2.2]" /> : <Banknote className="w-5 h-5 stroke-[2.2]" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  {c.advanceModalTitle}
+                  {paymentType === "bonus" ? c.bonusModalTitle : c.advanceModalTitle}
                 </h2>
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-900/60 shadow-2xs">
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-2xs transition-colors duration-300 ${
+                  paymentType === "bonus"
+                    ? "bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-900/60"
+                    : "bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-900/60"
+                }`}>
                   {currentProject?.name || c.workshopProject}
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {c.advanceModalSubtitle}
+                {paymentType === "bonus" ? c.bonusModalSubtitle : c.advanceModalSubtitle}
               </p>
             </div>
           </div>
@@ -495,6 +558,40 @@ export function AdvancePaymentModal({
                 <span>{feedback.message}</span>
               </div>
             )}
+
+            {/* [APP_THEME_BUTTON] Mode Switcher: Advance vs Bonus */}
+            <div className="p-1 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2 px-3">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{c.paymentTypeLabel}</span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setPaymentType("advance")}
+                  className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
+                    paymentType === "advance"
+                      ? "bg-amber-500 text-white shadow-md shadow-amber-500/25"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Banknote className="w-4 h-4 shrink-0" />
+                  <span>{c.paymentTypeAdvance}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentType("bonus")}
+                  className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
+                    paymentType === "bonus"
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Gift className="w-4 h-4 shrink-0" />
+                  <span>{c.paymentTypeBonus}</span>
+                </button>
+              </div>
+            </div>
 
             {/* Desktop 12-Column Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -568,12 +665,53 @@ export function AdvancePaymentModal({
 
                         <div className="col-span-2 sm:col-span-1">
                           <span className="block text-[10px] text-amber-800/70 dark:text-amber-300/70 font-bold mb-0.5">
-                            {c.totalAdvancesReceivedLabel}
+                            {paymentType === "bonus" ? c.totalBonusesReceivedLabel : c.totalAdvancesReceivedLabel}
                           </span>
-                          <span className="font-black text-amber-600 dark:text-amber-400 font-mono text-xs">
-                            {formatCurrency(totalWorkerAdvances, currency, language)}
+                          <span className={`font-black font-mono text-xs ${paymentType === "bonus" ? "text-purple-600 dark:text-purple-400" : "text-amber-600 dark:text-amber-400"}`}>
+                            {formatCurrency(paymentType === "bonus" ? totalWorkerBonuses : totalWorkerAdvances, currency, language)}
                           </span>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Bonus Reason / Title Selector (If Bonus mode) */}
+                    {paymentType === "bonus" && (
+                      <div className="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/40 space-y-3">
+                        <label className="block text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                          <Gift className="w-4 h-4 text-purple-500" />
+                          <span>{c.bonusCategoryLabel}</span>
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { id: "nowruz", label: c.bonusPresetNowruz },
+                            { id: "good_job", label: c.bonusPresetGoodJob },
+                            { id: "management", label: c.bonusPresetManagement },
+                            { id: "other", label: c.bonusPresetOther }
+                          ].map((bp) => (
+                            <button
+                              key={bp.id}
+                              type="button"
+                              onClick={() => setBonusPreset(bp.id)}
+                              className={`py-2 px-2.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                                bonusPreset === bp.id
+                                  ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                                  : "bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-purple-300"
+                              }`}
+                            >
+                              {bp.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {bonusPreset === "other" && (
+                          <input
+                            type="text"
+                            value={customBonusTitle}
+                            onChange={(e) => setCustomBonusTitle(e.target.value)}
+                            placeholder={c.bonusCustomTitlePlaceholder}
+                            className="w-full px-3.5 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-white"
+                          />
+                        )}
                       </div>
                     )}
 
@@ -581,21 +719,27 @@ export function AdvancePaymentModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                          <span>{t('paymentDate')}</span> <span className="text-rose-500">*</span>
+                          <Calendar className={`w-3.5 h-3.5 ${paymentType === "bonus" ? "text-purple-500" : "text-amber-500"}`} />
+                          <span>{t("paymentDate")}</span> <span className="text-rose-500">*</span>
                         </label>
                         <input
                           type="date"
                           value={date}
                           onChange={(e) => setDate(e.target.value)}
                           required
-                          className="w-full px-3.5 py-2.5 text-xs font-bold bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white font-mono cursor-pointer shadow-xs"
+                          className={`w-full px-3.5 py-2.5 text-xs font-bold bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 ${
+                            paymentType === "bonus" ? "focus:ring-purple-500" : "focus:ring-amber-500"
+                          } text-slate-900 dark:text-white font-mono cursor-pointer shadow-xs`}
                         />
                       </div>
 
                       <div className="flex flex-col justify-end">
-                        <div className="text-[11px] text-slate-400 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                          {c.advanceDeductionNote}
+                        <div className={`text-[11px] p-2.5 rounded-2xl border ${
+                          paymentType === "bonus"
+                            ? "bg-purple-50/70 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-900/60 font-medium"
+                            : "bg-slate-50 dark:bg-slate-800/40 text-slate-400 border-slate-200/60 dark:border-slate-700/60"
+                        }`}>
+                          {paymentType === "bonus" ? c.bonusNonDeductibleNotice : c.advanceDeductionNote}
                         </div>
                       </div>
                     </div>
@@ -902,6 +1046,8 @@ export function AdvancePaymentModal({
               className={`px-7 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer shadow-md ${
                 currentOverdraft && !currentOverdraft.hasSufficientFunds && currentOverdraft.effectivePolicy === 'never_allow'
                   ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/25'
+                  : paymentType === 'bonus'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-600/25'
                   : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25'
               }`}
             >
@@ -917,8 +1063,8 @@ export function AdvancePaymentModal({
                 </>
               ) : (
                 <>
-                  <Coins className="w-4 h-4" />
-                  <span>{c.submitAdvance}</span>
+                  {paymentType === 'bonus' ? <Gift className="w-4 h-4" /> : <Coins className="w-4 h-4" />}
+                  <span>{paymentType === 'bonus' ? c.submitBonus : c.submitAdvance}</span>
                 </>
               )}
             </button>
