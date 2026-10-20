@@ -126,7 +126,7 @@ export function Navbar({
   return (
     <>
       {/* Top Navbar */}
-      <header className="sticky top-0 z-40 no-print transition-all duration-300">
+      <header className="sticky top-0 z-50 no-print transition-all duration-300">
         {/* Apple Liquid Glass Background Layer */}
         <div className="absolute inset-0 bg-white/55 dark:bg-slate-950/55 backdrop-blur-3xl backdrop-saturate-200 border-b border-slate-200/50 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_24px_0_rgba(0,0,0,0.4)] -z-10 pointer-events-none" />
         

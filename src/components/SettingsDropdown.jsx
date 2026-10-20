@@ -18,6 +18,7 @@ import {
   Download,
   User,
   Users2,
+  UserCheck,
   FolderKanban,
   Keyboard,
   ShieldCheck,
@@ -48,6 +49,8 @@ const SETTINGS_DROPDOWN_COPY = {
     light: 'روز',
     darkModeTitle: 'حالت شب (تاریک)',
     dark: 'شب',
+    settingsTitle: 'تنظیمات',
+    workers: 'مدیریت پرسنل',
     globalSettingsTitle: 'تنظیمات جامع سیستم',
     globalSettingsDesc: 'ظاهر، زبان، مالی، کارگاه‌ها و دیتابیس',
     users: 'کاربران',
@@ -79,6 +82,8 @@ const SETTINGS_DROPDOWN_COPY = {
     light: 'ڕۆژ',
     darkModeTitle: 'دۆخی شەو (تاریک)',
     dark: 'شەو',
+    settingsTitle: 'ڕێکخستنەکان',
+    workers: 'بەڕێوەبردنی کرێکاران',
     globalSettingsTitle: 'ڕێکخستنە گشتییەکانی سیستەم',
     globalSettingsDesc: 'ڕووکار، زمان، دارایی، کارگەکان و داتابەیس',
     users: 'بەکارهێنەران',
@@ -110,6 +115,8 @@ const SETTINGS_DROPDOWN_COPY = {
     light: 'Light',
     darkModeTitle: 'Dark Mode',
     dark: 'Dark',
+    settingsTitle: 'Settings',
+    workers: 'Personnel',
     globalSettingsTitle: 'Global System Settings',
     globalSettingsDesc: 'Appearance, Language, Finance, Projects & DB',
     users: 'Users',
@@ -240,7 +247,7 @@ export function SettingsDropdown({
   return (
     <div 
       ref={dropdownRef}
-      className={`absolute top-full mt-2 w-80 sm:w-84 max-w-[calc(100vw-1.5rem)] bg-white/70 dark:bg-slate-950/70 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/60 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.15)] z-50 p-2.5 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 ltr:left-auto rtl:left-0 rtl:right-auto space-y-2`}
+      className={`absolute top-full mt-2 w-80 sm:w-84 max-w-[calc(100vw-1.5rem)] bg-white/70 dark:bg-slate-950/70 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/60 dark:border-white/15 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.2),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.15)] z-[60] p-2.5 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 ltr:left-auto rtl:left-0 rtl:right-auto space-y-2`}
     >
       {/* 1. Glass User Identity Card with Direct Profile/Security Shortcut */}
       <div 
@@ -380,131 +387,106 @@ export function SettingsDropdown({
         </div>
       </div>
 
-      {/* 4. Primary Master Button: Open Global Settings Hub */}
-      <button
-        type="button"
-        onClick={() => handleOpenTab('general')}
-        className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-sky-500/15 via-indigo-500/15 to-sky-500/15 hover:from-sky-500/25 hover:via-indigo-500/25 hover:to-sky-500/25 border border-sky-500/30 text-sky-950 dark:text-sky-100 flex items-center justify-between transition-all group shadow-xs"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-            <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
-          </div>
-          <div className="text-start">
-            <div className="text-xs font-bold leading-tight">
-              {c.globalSettingsTitle}
-            </div>
-            <div className="text-[10px] text-sky-600/80 dark:text-sky-400/80 mt-0.5">
-              {c.globalSettingsDesc}
-            </div>
-          </div>
-        </div>
-        {isRtl ? (
-          <ChevronLeft className="w-4 h-4 text-sky-600 dark:text-sky-400 group-hover:-translate-x-0.5 transition-transform" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-sky-600 dark:text-sky-400 group-hover:translate-x-0.5 transition-transform" />
-        )}
-      </button>
-
-      {/* 5. Smart Quick Shortcuts Grid */}
-      <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+      {/* 4. Large Icon-Only Shortcut Grid (Users, Accounts, Shortcuts, Personnel) */}
+      <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+        {/* Users */}
         <button
           type="button"
           onClick={() => handleOpenTab('users')}
-          className="p-2 rounded-xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 text-center transition-all group flex flex-col items-center gap-1 shadow-2xs"
+          className="p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+          title={c.users}
+          aria-label={c.users}
         >
-          <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Users2 className="w-3.5 h-3.5" />
-          </div>
-          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
-            {c.users}
-          </span>
+          <Users2 className="w-5 h-5 transition-transform group-hover:scale-110" />
         </button>
 
+        {/* Accounts */}
         <button
           type="button"
           onClick={() => handleOpenTab('accounting_accounts')}
-          className="p-2 rounded-xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 text-center transition-all group flex flex-col items-center gap-1 shadow-2xs"
+          className="p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
           title={c.accountsTitle}
+          aria-label={c.accounts}
         >
-          <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Landmark className="w-3.5 h-3.5" />
-          </div>
-          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
-            {c.accounts}
-          </span>
+          <Landmark className="w-5 h-5 transition-transform group-hover:scale-110" />
         </button>
 
+        {/* Shortcuts */}
         <button
           type="button"
           onClick={() => handleOpenTab('shortcuts')}
-          className="p-2 rounded-xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 text-center transition-all group flex flex-col items-center gap-1 shadow-2xs"
+          className="p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+          title={c.shortcuts}
+          aria-label={c.shortcuts}
         >
-          <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Keyboard className="w-3.5 h-3.5" />
-          </div>
-          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
-            {c.shortcuts}
-          </span>
+          <Keyboard className="w-5 h-5 transition-transform group-hover:scale-110" />
         </button>
-      </div>
 
-      <div className="border-t border-slate-200/60 dark:border-white/10 pt-1 space-y-1">
-        {/* Setup Checklist Quick Launcher */}
+        {/* Personnel Management (Workers) */}
         <button
           type="button"
           onClick={() => {
             onClose();
-            window.dispatchEvent(new CustomEvent('karsync-open-setup-checklist'));
+            window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'));
           }}
-          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-700 dark:text-slate-300 group cursor-pointer"
+          className="p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+          title={c.workers}
+          aria-label={c.workers}
+        >
+          <UserCheck className="w-5 h-5 transition-transform group-hover:scale-110" />
+        </button>
+      </div>
+
+      {/* 5. Lower Actions Section */}
+      <div className="border-t border-slate-200/60 dark:border-white/10 pt-1.5 space-y-1">
+        {/* Simple Monochrome Settings Button (Moved to next section, above Product Tour) */}
+        <button
+          type="button"
+          onClick={() => handleOpenTab('general')}
+          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-700 dark:text-slate-200 group cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
-            <span>{c.setupChecklist}</span>
+            <Settings className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:rotate-45 transition-transform duration-300" />
+            <span>{c.settingsTitle}</span>
           </div>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-            6 Tasks
-          </span>
+          {isRtl ? (
+            <ChevronLeft className="w-4 h-4 text-slate-400 group-hover:-translate-x-0.5 transition-transform" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+          )}
         </button>
 
-        {/* Product Tour Action */}
+        {/* Product Tour Action (Monochrome icon, no badge) */}
         <button
           type="button"
           onClick={() => {
             onClose();
             window.dispatchEvent(new CustomEvent('karsync-start-tour'));
           }}
-          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-700 dark:text-slate-300 group cursor-pointer"
+          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-700 dark:text-slate-200 group cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
-            <Sparkles className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+            <Sparkles className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:scale-110 transition-transform" />
             <span>{c.productTour}</span>
           </div>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">
-            Tour
-          </span>
         </button>
 
-        {/* PWA Install Quick Action */}
+        {/* PWA Install Quick Action (Monochrome icon, no badge) */}
         <button
           type="button"
           onClick={() => {
             onClose();
             if (onOpenInstallModal) onOpenInstallModal();
           }}
-          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-700 dark:text-slate-300"
+          className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-semibold hover:bg-white/60 dark:hover:bg-white/[0.08] transition-colors text-slate-700 dark:text-slate-200 group cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
-            <Download className="w-4 h-4 text-emerald-500" />
+            <Download className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:scale-110 transition-transform" />
             <span>{c.installPwa}</span>
           </div>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
-            PWA
-          </span>
         </button>
 
-        {/* Logout Action */}
+        {/* Logout Action (Keeps distinct danger rose styling) */}
         <button
           type="button"
           onClick={() => {
