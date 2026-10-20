@@ -322,24 +322,6 @@ export function SettingsDropdown({
         </div>
       </div>
 
-      {/* 2. Active Project Context Badge */}
-      <div 
-        onClick={() => handleOpenTab('projects')}
-        className="px-3 py-1.5 rounded-xl bg-slate-100/60 dark:bg-slate-900/60 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 border border-slate-200/50 dark:border-white/5 flex items-center justify-between transition-colors cursor-pointer text-xs"
-        title={c.projectsTitle}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <Building className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 flex-shrink-0">
-            {c.activeProjectPrefix}
-          </span>
-          <span className="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
-            {projectName}
-          </span>
-        </div>
-        {isRtl ? <ChevronLeft className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
-      </div>
-
       {/* 3. High-Efficiency Quick Toolbar (Sync & Theme [APP_THEME_BUTTON]) */}
       <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/5">
         {/* Quick Cloud Sync */}
