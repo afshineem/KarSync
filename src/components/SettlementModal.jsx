@@ -1613,7 +1613,7 @@ export function SettlementModal({
             description: settlementMode === 'group' 
               ? c.groupSettlementAuditDesc(groupMembers.length, worker.groupName)
               : c.individualSettlementAuditDesc(worker.name),
-            amount: amountNum,
+            amount: payAmount,
             worker_name: settlementMode === 'group' ? `${c.groupPrefix}${worker.groupName}` : worker.name
           }
         });
