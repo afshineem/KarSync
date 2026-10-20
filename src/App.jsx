@@ -146,15 +146,20 @@ function AppContent() {
     const handleStartTour = () => setIsProductTourOpen(true);
     window.addEventListener('karsync-start-tour', handleStartTour);
 
-    // Auto-trigger on first-time login for admin if onboarding is completed
-    const tourSeen = localStorage.getItem('karsync_product_tour_seen');
-    if (!tourSeen && onboardingCompleted && user?.role === 'admin') {
+    // Auto-trigger only on initial first-time onboarding for this user
+    const userTourKey = "karsync_product_tour_seen_" + (user?.id || user?.userId || "default");
+    const tourSeen = localStorage.getItem(userTourKey) || localStorage.getItem("karsync_product_tour_seen");
+    if (!tourSeen && onboardingCompleted && user?.role === "admin") {
+      try {
+        localStorage.setItem(userTourKey, "true");
+        localStorage.setItem("karsync_product_tour_seen", "true");
+      } catch (_) {}
       const timer = setTimeout(() => {
         setIsProductTourOpen(true);
-      }, 1200);
+      }, 1500);
       return () => {
         clearTimeout(timer);
-        window.removeEventListener('karsync-start-tour', handleStartTour);
+        window.removeEventListener("karsync-start-tour", handleStartTour);
       };
     }
 

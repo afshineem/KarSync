@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import {
   FolderKanban,
   CalendarCheck,
@@ -15,6 +16,7 @@ import {
 
 export function ProductTour({ isOpen, onClose }) {
   const { t, language, direction, convertDigits } = useLanguage();
+  const { user } = useAuth();
   const lang = ['fa', 'ku', 'en'].includes(language) ? language : 'fa';
   const isRtl = direction === 'rtl';
 
@@ -165,7 +167,9 @@ export function ProductTour({ isOpen, onClose }) {
 
   const handleDismiss = () => {
     try {
-      localStorage.setItem('karsync_product_tour_seen', 'true');
+      const userTourKey = "karsync_product_tour_seen_" + (user?.id || user?.userId || "default");
+      localStorage.setItem(userTourKey, "true");
+      localStorage.setItem("karsync_product_tour_seen", "true");
     } catch (_) {}
     if (onClose) onClose();
   };

@@ -29,16 +29,27 @@ export function FloatingSetupChecklist() {
   const { openProjectSettings, openGlobalSettings } = useProject();
   const isRtl = direction === 'rtl';
 
-  const userKey = user?.id || user?.userId || 'default_user';
-  const DISMISS_STORAGE_KEY = `karsync_setup_checklist_dismissed_${userKey}`;
+  const userKey = user?.id || user?.userId || "default_user";
+  const DISMISS_STORAGE_KEY = "karsync_setup_checklist_dismissed_" + userKey;
 
   const [isDismissed, setIsDismissed] = useState(() => {
     try {
-      return localStorage.getItem(DISMISS_STORAGE_KEY) === 'true';
+      // Check both user-scoped key and fallback key
+      return localStorage.getItem(DISMISS_STORAGE_KEY) === "true" || localStorage.getItem("karsync_setup_checklist_dismissed") === "true";
     } catch {
       return false;
     }
   });
+
+  // Keep isDismissed in sync when user object finishes loading
+  useEffect(() => {
+    try {
+      const isSavedDismissed = localStorage.getItem(DISMISS_STORAGE_KEY) === "true" || localStorage.getItem("karsync_setup_checklist_dismissed") === "true";
+      if (isSavedDismissed) {
+        setIsDismissed(true);
+      }
+    } catch (_) {}
+  }, [DISMISS_STORAGE_KEY]);
 
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -182,7 +193,8 @@ export function FloatingSetupChecklist() {
     setIsDismissed(true);
     setIsExpanded(false);
     try {
-      localStorage.setItem(DISMISS_STORAGE_KEY, 'true');
+      localStorage.setItem(DISMISS_STORAGE_KEY, "true");
+      localStorage.setItem("karsync_setup_checklist_dismissed", "true");
     } catch (_) {}
   };
 
