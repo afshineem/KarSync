@@ -796,16 +796,25 @@ export function SettlementModal({
   }, [effectiveAllWorkers, selectedGroupId]);
 
   // Automatically find or set the supervisor (Master)
+  // IMPORTANT: Do NOT include selectedSupervisorId in deps — it would cause an
+  // infinite loop: setSelectedSupervisorId → re-render → effect re-runs → repeat.
+  // We read selectedSupervisorId via a ref so the effect only re-runs when
+  // groupMembers actually changes (i.e., group selection changes).
   useEffect(() => {
     if (groupMembers.length > 0) {
       const masterWorker = groupMembers.find((w) => w?.teamRole === 'Master');
       if (masterWorker) {
-        setSelectedSupervisorId(masterWorker.id);
-      } else if (!selectedSupervisorId || !groupMembers.some((w) => w.id === selectedSupervisorId)) {
-        setSelectedSupervisorId(groupMembers[0].id);
+        // Only update if the value is actually different to avoid infinite loops
+        setSelectedSupervisorId((prev) => (prev === masterWorker.id ? prev : masterWorker.id));
+      } else {
+        setSelectedSupervisorId((prev) => {
+          const validInGroup = groupMembers.some((w) => w.id === prev);
+          if (!prev || !validInGroup) return groupMembers[0].id;
+          return prev;
+        });
       }
     }
-  }, [groupMembers, selectedSupervisorId]);
+  }, [groupMembers]);
 
   const supervisorWorker = useMemo(() => {
     return groupMembers.find((w) => w.id === selectedSupervisorId) || groupMembers[0] || null;
