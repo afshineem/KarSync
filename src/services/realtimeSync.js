@@ -2674,6 +2674,19 @@ export async function pullPaymentsLive(force = false) {
         const validCloudPayments = cloudPayments.filter(p => !pendingDeleted.has(p.id) && !p.deletedAt && p.status !== 'deleted');
         const validCloudIds = new Set(validCloudPayments.map(p => p.id));
 
+        // Collect IDs to rollback BEFORE entering the transaction.
+        // rollbackPaymentSettlement accesses attendanceLogs (not in this tx scope)
+        // and performs async network calls — both are illegal inside a Dexie transaction.
+        const idsToRollbackAndDelete = [];
+        if (validCloudPayments.length > 0) {
+          const localPaymentsSnapshot = await db.payments.toArray();
+          for (const lp of localPaymentsSnapshot) {
+            if (pendingDeleted.has(lp.id) || !validCloudIds.has(lp.id)) {
+              idsToRollbackAndDelete.push(lp.id);
+            }
+          }
+        }
+
         await db.transaction('rw', db.payments, async () => {
           for (const p of validCloudPayments) {
             const localP = await db.payments.get(p.id);
@@ -2685,17 +2698,17 @@ export async function pullPaymentsLive(force = false) {
               amount: roundCurrency(p.amount, p.currency)
             });
           }
-          // If cloud has a populated list, remove any local records that were deleted remotely
-          if (validCloudPayments.length > 0) {
-            const localPayments = await db.payments.toArray();
-            for (const lp of localPayments) {
-              if (pendingDeleted.has(lp.id) || !validCloudIds.has(lp.id)) {
-                await rollbackPaymentSettlement(lp.id).catch(console.warn);
-                await db.payments.delete(lp.id);
-              }
-            }
+          // Delete stale local payments inside the transaction (safe — only payments store)
+          for (const id of idsToRollbackAndDelete) {
+            await db.payments.delete(id);
           }
         });
+
+        // Run settlement rollbacks AFTER the transaction commits — this accesses
+        // attendanceLogs + performs network I/O, which are forbidden inside a tx.
+        for (const id of idsToRollbackAndDelete) {
+          await rollbackPaymentSettlement(id).catch(console.warn);
+        }
       }
     }
   } catch (err) {
