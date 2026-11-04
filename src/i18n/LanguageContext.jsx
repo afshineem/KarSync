@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { translations } from './translations';
+import { db } from '../db/db';
 
 const LanguageContext = createContext();
 
@@ -46,15 +47,35 @@ const JALALI_MONTHS = {
 
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('workshop_lang') || 'ku';
+    return localStorage.getItem('workshop_lang') || localStorage.getItem('karsync_language') || 'ku';
   });
 
   const direction = language === 'en' ? 'ltr' : 'rtl';
 
   useEffect(() => {
+    // If language was not in localStorage, attempt to restore from Dexie db.settings
+    if (db?.settings) {
+      db.settings.get('language').then((record) => {
+        if (record?.value && ['ku', 'fa', 'en'].includes(record.value)) {
+          const currentLocal = localStorage.getItem('workshop_lang') || localStorage.getItem('karsync_language');
+          if (!currentLocal) {
+            setLanguage(record.value);
+            localStorage.setItem('workshop_lang', record.value);
+            localStorage.setItem('karsync_language', record.value);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('workshop_lang', language);
+    localStorage.setItem('karsync_language', language);
     document.documentElement.setAttribute('dir', direction);
     document.documentElement.setAttribute('lang', language);
+    if (db?.settings) {
+      db.settings.put({ key: 'language', value: language }).catch(() => {});
+    }
   }, [language, direction]);
 
   const t = (key, replacements = {}) => {
@@ -73,6 +94,11 @@ export function LanguageProvider({ children }) {
   const changeLanguage = (newLang) => {
     if (['ku', 'fa', 'en'].includes(newLang)) {
       setLanguage(newLang);
+      localStorage.setItem('workshop_lang', newLang);
+      localStorage.setItem('karsync_language', newLang);
+      if (db?.settings) {
+        db.settings.put({ key: 'language', value: newLang }).catch(() => {});
+      }
     }
   };
 

@@ -179,17 +179,22 @@ function AppContent() {
 
   // Theme Management: 'light' or 'dark'
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('workshop_theme');
+    const saved = localStorage.getItem('workshop_theme') || localStorage.getItem('karsync_theme') || localStorage.getItem('theme');
     if (saved) return saved;
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
   useEffect(() => {
     localStorage.setItem('workshop_theme', theme);
+    localStorage.setItem('karsync_theme', theme);
+    localStorage.setItem('theme', theme);
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+    if (db?.settings) {
+      db.settings.put({ key: 'theme', value: theme }).catch(() => {});
     }
   }, [theme]);
 
@@ -218,18 +223,18 @@ function AppContent() {
     seedInitialDataIfEmpty().then(async () => {
       // Migrate all closed past transactions (settlements, advances, paid expenses) to the cash box
       const migRes = await migrateClosedTransactionsToCashBox();
-      if (migRes?.updatedPaymentsCount > 0) {
+      if (migRes?.updatedPaymentsCount > 0 && navigator.onLine) {
         pushPaymentsLive().catch(() => {});
       }
-      if (migRes?.updatedExpensesCount > 0) {
+      if (migRes?.updatedExpensesCount > 0 && navigator.onLine) {
         pushAllExpensesToCloud().catch(() => {});
       }
 
       const res = await reconcileSettlementEpochs();
-      if (res?.totalLogsUpdated?.length) {
+      if (res?.totalLogsUpdated?.length && navigator.onLine) {
         pushLogsLive(res.totalLogsUpdated).catch(() => {});
       }
-      if (res?.totalAdvancesUpdated?.length) {
+      if (res?.totalAdvancesUpdated?.length && navigator.onLine) {
         pushPaymentsLive().catch(() => {});
       }
     });

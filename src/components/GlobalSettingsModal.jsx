@@ -304,9 +304,16 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
+      localStorage.setItem('workshop_theme', 'dark');
+      localStorage.setItem('karsync_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
+      localStorage.setItem('workshop_theme', 'light');
+      localStorage.setItem('karsync_theme', 'light');
+    }
+    if (db?.settings) {
+      db.settings.put({ key: 'theme', value: newTheme }).catch(() => {});
     }
   };
 

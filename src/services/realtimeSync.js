@@ -494,6 +494,7 @@ export async function initRealtimeSync() {
   // Sync automatically when browser comes back online
   window.addEventListener('online', () => {
     console.log('🌐 Internet connection restored. Syncing with Supabase...');
+    subscribeToRealtime();
     flushPendingDeletions().catch(() => {});
     fullSyncBothDirections().catch(() => {});
   });
@@ -548,13 +549,7 @@ export async function autoInitialSync() {
 
   // Case A: Cloud is empty (fresh account or newly created workspace)
   if (cloudWorkers.length === 0 && localWorkers.length > 0) {
-    // SECURITY GUARD: If local workers do NOT belong to this verified tenant, NEVER push them to cloud!
-    if (!ctx.isLegacyOwner) {
-      console.warn('⚠️ Fresh non-legacy cloud account detected with existing local workers. Wiping local database to prevent cross-account leakage.');
-      await wipeAllLocalData();
-      return;
-    }
-    console.log('📤 Cloud is newly initialized for legacy owner. Pushing verified local data to Supabase...');
+    console.log('📤 Cloud is newly initialized. Pushing local data to Supabase...');
     await Promise.all([
       pushWorkersLive(localWorkers),
       pushLogsLive(localLogs)
@@ -616,11 +611,6 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
     return l.user_id === ctx.userId;
   });
 
-  // For non-legacy accounts, if cloud has 0 workers, purge any local worker residue
-  if (!ctx.isLegacyOwner && ctx.userId && tenantWorkers.length === 0) {
-    await db.workers.clear();
-    await db.attendanceLogs.clear();
-  }
 
   await purgeDummySeedWorkers();
 
@@ -916,9 +906,11 @@ export async function pushAllLocalToCloud() {
  * Subscribe to WebSocket changes in real time
  */
 function subscribeToRealtime() {
-  if (realtimeChannel) {
-    supabase.removeChannel(realtimeChannel);
-  }
+  if (!navigator.onLine) return;
+  try {
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+    }
 
   realtimeChannel = supabase
     .channel('workshop-live-stream')
@@ -1210,6 +1202,9 @@ function subscribeToRealtime() {
     .subscribe((status) => {
       console.log('📡 Supabase WebSocket channel status:', status);
     });
+  } catch (err) {
+    console.warn('Realtime subscription error (offline or network):', err);
+  }
 }
 
 /**

@@ -377,9 +377,15 @@ export async function wipeAllLocalData() {
   if (typeof localStorage !== 'undefined') {
     const preserveKeys = new Set([
       'karsync_theme',
+      'workshop_theme',
+      'theme',
       'karsync_language',
+      'workshop_lang',
       'karsync_direction',
-      'karsync_calendar_type'
+      'karsync_calendar_type',
+      'karsync_time_format',
+      'karsync_timezone',
+      'karsync_number_format'
     ]);
     
     const allKeys = Object.keys(localStorage);
@@ -896,14 +902,19 @@ export async function seedInitialDataIfEmpty(userId = 'default_user') {
   await purgeBankToBankTransfers();
 
   const settingsCount = await db.settings.count();
+  const currentLang = (typeof localStorage !== 'undefined' ? (localStorage.getItem('workshop_lang') || localStorage.getItem('karsync_language')) : null) || 'ku';
   if (settingsCount === 0) {
     await db.settings.bulkAdd([
       { key: 'workshop_name', value: 'کارگەی ئاسنگەری و دارتاشی (Central Workshop)' },
       { key: 'default_currency', value: 'IQD' },
-      { key: 'language', value: 'ku' },
+      { key: 'language', value: currentLang },
       { key: 'global_overdraft_policy', value: 'ask_each_time' }
     ]);
   } else {
+    const existingLang = await db.settings.get('language');
+    if (!existingLang) {
+      await db.settings.put({ key: 'language', value: currentLang });
+    }
     const existing = await db.settings.get('global_overdraft_policy');
     if (!existing) {
       await db.settings.put({ key: 'global_overdraft_policy', value: 'ask_each_time' });

@@ -145,6 +145,7 @@ export function LoginView({ theme, toggleTheme }) {
       errInvalidWorkspaceCode: 'کد کارگاه وارد شده یافت نشد. لطفاً کد کارگاه را بررسی کنید.',
       errAccountBlocked: 'این حساب کاربری غیرفعال شده است. لطفاً با مدیر کارگاه تماس بگیرید.',
       errNetwork: 'خطا در برقراری ارتباط با سرور. لطفاً اتصال اینترنت خود را بررسی کنید.',
+      errOfflineAuth: 'دستگاه شما آفلاین است. لطفاً از رمز عبور محلی مدیر استفاده کنید یا به اینترنت متصل شوید.',
       errUserAlreadyExists: 'این ایمیل قبلاً ثبت شده است. لطفاً از بخش ورود به حساب استفاده کنید.',
       errEmailNotConfirmed: 'ایمیل شما هنوز تایید نشده است. لطفاً صندوق ورودی ایمیل خود را بررسی کنید.',
       errInvalidEmailFormat: 'ساختار ایمیل وارد شده معتبر نیست.',
@@ -230,6 +231,7 @@ export function LoginView({ theme, toggleTheme }) {
       errInvalidWorkspaceCode: 'کۆدی کارگە نەدۆزرایەوە. تکایە کۆدی کارگەکە بپشکنە.',
       errAccountBlocked: 'ئەم هەژمارە ناچالاک کراوە. تکایە پەیوەندی بە بەڕێوەبەری کارگەوە بکە.',
       errNetwork: 'هەڵە لە پەیوەستبوون بە سێرڤەر. تکایە هێڵی ئینتەرنێتەکەت بپشکنە.',
+      errOfflineAuth: 'ئامێرەکەت ئۆفلاینە. تکایە بە تێپەڕەوشەی ناوخۆیی بەڕێوەبەر بچۆ ژوورەوە یان پەیوەست بە بە ئینتەرنێتەوە.',
       errUserAlreadyExists: 'ئەم ئیمەیڵە پێشتر تۆمار کراوە. تکایە لە بەشی چوونەژوورەوە هەوڵ بدە.',
       errEmailNotConfirmed: 'ئیمەیڵەکەت هێشتا پشتڕاست نەکراوەتەوە. تکایە سندوقی ئیمەیڵەکەت بپشکنە.',
       errInvalidEmailFormat: 'شێوازی ئیمەیڵی نووسراو دروست نییە.',
@@ -315,6 +317,7 @@ export function LoginView({ theme, toggleTheme }) {
       errInvalidWorkspaceCode: 'Workspace code not found. Please check your workshop code.',
       errAccountBlocked: 'This account has been deactivated. Please contact your workshop administrator.',
       errNetwork: 'Could not connect to server. Please check your internet connection.',
+      errOfflineAuth: 'Device is offline. Please sign in with local admin password or connect to the internet.',
       errUserAlreadyExists: 'An account with this email already exists. Please sign in instead.',
       errEmailNotConfirmed: 'Your email is not confirmed yet. Please check your inbox.',
       errInvalidEmailFormat: 'Please enter a valid email address.',
@@ -345,6 +348,9 @@ export function LoginView({ theme, toggleTheme }) {
     }
     if (errStr === 'accountBlocked') {
       return copy.errAccountBlocked;
+    }
+    if (errStr === 'offlineAuthNotAvailable') {
+      return copy.errOfflineAuth;
     }
     if (errStr === 'networkError' || lower.includes('failed to fetch') || lower.includes('network')) {
       return copy.errNetwork;
