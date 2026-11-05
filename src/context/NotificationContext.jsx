@@ -857,7 +857,7 @@ export function NotificationProvider({ children }) {
               ? 'پشکنینی بەڵگەنامەکان'
               : 'Review Records',
           actionType: 'NAVIGATE_TAB',
-          actionPayload: { tab: 'accounting' }
+          actionPayload: { tab: 'accounting', section: 'ledger', filterStatus: 'draft' }
         });
       }
     }
@@ -935,9 +935,22 @@ export function NotificationProvider({ children }) {
           })
         );
       } else if (actionType === 'NAVIGATE_TAB' && actionPayload?.tab) {
+        if (actionPayload.section === 'ledger') {
+          try {
+            localStorage.setItem('karsync_financials_active_section', 'ledger');
+            if (actionPayload.filterStatus) {
+              localStorage.setItem('karsync_financials_approval_filter', actionPayload.filterStatus);
+            }
+          } catch (_) {}
+          window.dispatchEvent(
+            new CustomEvent('karsync-open-financial-ledger', {
+              detail: { filterStatus: actionPayload.filterStatus || 'draft' }
+            })
+          );
+        }
         window.dispatchEvent(
           new CustomEvent('navigateApp', {
-            detail: { tab: actionPayload.tab }
+            detail: { tab: actionPayload.tab, ...actionPayload }
           })
         );
       } else if (actionType === 'OPEN_SETTINGS_TAB' && actionPayload?.tab) {

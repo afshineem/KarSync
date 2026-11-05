@@ -27,6 +27,7 @@ import { AddEditAccountModal } from './accounting/AddEditAccountModal';
 import { AccountSubsidiaryLedgerModal } from './accounting/AccountSubsidiaryLedgerModal';
 import { CounterpartiesView } from './CounterpartiesView';
 import { SpendAnalyticsSection } from './accounting/SpendAnalyticsSection';
+import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
 
 // Utilities & LiveSync
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
@@ -193,7 +194,10 @@ const COPY = {
     employerSign: 'امضای کارفرما / سرمایه‌گذار',
     allCategories: 'همه سرفصل‌ها',
     activeFilterCategory: (name) => `فیلتر سرفصل فعال: ${name}`,
-    clearFilter: 'حذف فیلتر'
+    clearFilter: 'حذف فیلتر',
+    draftBannerTitle: (cnt) => `تعداد ${cnt} سند مالی موقت (پیش‌نویس) در انتظار تأیید نهایی شماست.`,
+    draftBannerDesc: 'اسناد تسویه‌حساب، مساعده و هزینه‌ها تا زمان تأیید نهایی مدیر در وضعیت پیش‌نویس قرار دارند.',
+    reviewAndApproveBtn: 'بررسی و تأیید اسناد'
   },
   ku: {
     pageTitle: 'حیسابداری و کاروباری دارایی',
@@ -299,7 +303,10 @@ const COPY = {
     employerSign: 'واژۆی خاوەنکار',
     allCategories: 'هەموو بەشەکان',
     activeFilterCategory: (name) => `فلتەری بەشی چالاک: ${name}`,
-    clearFilter: 'سڕینەوەی فلتەر'
+    clearFilter: 'سڕینەوەی فلتەر',
+    draftBannerTitle: (cnt) => `${cnt} بەڵگەنامەی دارایی چاوەڕوانی پەسەندکردنی کۆتاییە.`,
+    draftBannerDesc: 'بەڵگەنامە تۆمارکراوەکان تا پەسەندکردنی بەڕێوەبەر لە دۆخی ڕەشنووسدان.',
+    reviewAndApproveBtn: 'پشکنین و پەسەندکردنی بەڵگەنامەکان'
   },
   en: {
     pageTitle: 'Finance & Accounting',
@@ -405,7 +412,10 @@ const COPY = {
     employerSign: 'Employer / Client Signature',
     allCategories: 'All Categories',
     activeFilterCategory: (name) => `Active Category Filter: ${name}`,
-    clearFilter: 'Clear Filter'
+    clearFilter: 'Clear Filter',
+    draftBannerTitle: (cnt) => `${cnt} draft financial documents are awaiting your final approval.`,
+    draftBannerDesc: 'Recorded settlements, advances, and expenses remain in draft status until approved by admin.',
+    reviewAndApproveBtn: 'Review & Approve Documents'
   }
 };
 
@@ -469,7 +479,7 @@ export function FinancialsView() {
     } catch (_) {}
   };
 
-  // Accounting Hook (Supplies Treasury, Accounts, and Ledger logic)
+  // Accounting Hook (Supplies Treasury, Accounts, and Two-Stage Approval Ledger logic)
   const {
     financialAccounts: accounts = [],
     accountBalances = new Map(),
@@ -478,8 +488,51 @@ export function FinancialsView() {
     transferBetweenAccounts,
     addAccount,
     updateAccount,
-    globalOverdraftPolicy = 'ask_each_time'
+    globalOverdraftPolicy = 'ask_each_time',
+    filteredLedgerItems = [],
+    ledgerStats = { total: 0, draft: 0, approved: 0, amended: 0 },
+    approvalStatusFilter,
+    setApprovalStatusFilter,
+    dateFilterMode: ledgerDateFilterMode,
+    setDateFilterMode: setLedgerDateFilterMode,
+    selectedMonth: ledgerSelectedMonth,
+    setSelectedMonth: setLedgerSelectedMonth,
+    customStartDate: ledgerCustomStartDate,
+    setCustomStartDate: setLedgerCustomStartDate,
+    customEndDate: ledgerCustomEndDate,
+    setCustomEndDate: setLedgerCustomEndDate,
+    categoryFilter: ledgerCatFilter,
+    setCategoryFilter: setLedgerCatFilter,
+    accountTypeFilter: ledgerAccountTypeFilter,
+    setAccountTypeFilter: setLedgerAccountTypeFilter,
+    searchQuery: ledgerSearchQuery,
+    setSearchQuery: setLedgerSearchQuery,
+    deleteDraftLedgerItem,
+    batchDeleteDraftLedgerItems
   } = useAccounting();
+
+  // Listen for notification or external command to open the Ledger & filter drafts
+  useEffect(() => {
+    try {
+      const pendingFilter = localStorage.getItem('karsync_financials_approval_filter');
+      if (pendingFilter) {
+        setActiveSection('ledger');
+        setApprovalStatusFilter?.(pendingFilter);
+        setLedgerDateFilterMode?.('all');
+        localStorage.removeItem('karsync_financials_approval_filter');
+      }
+    } catch (_) {}
+
+    const handleOpenLedgerEvent = (e) => {
+      setActiveSection('ledger');
+      if (e.detail?.filterStatus) {
+        setApprovalStatusFilter?.(e.detail.filterStatus);
+        setLedgerDateFilterMode?.('all');
+      }
+    };
+    window.addEventListener('karsync-open-financial-ledger', handleOpenLedgerEvent);
+    return () => window.removeEventListener('karsync-open-financial-ledger', handleOpenLedgerEvent);
+  }, [setApprovalStatusFilter, setLedgerDateFilterMode]);
 
   const handleSaveIncome = async (data) => {
     if (data.id) {
@@ -1317,6 +1370,39 @@ export function FinancialsView() {
       </div>
 
       {/* ======================================================== */}
+      {/* 2.5 PENDING APPROVALS BANNER (اسناد موقت در انتظار تایید) */}
+      {/* ======================================================== */}
+      {ledgerStats?.draft > 0 && activeSection !== 'ledger' && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-amber-500/10 dark:from-amber-950/40 dark:via-amber-900/40 dark:to-amber-950/40 border border-amber-300/80 dark:border-amber-700/60 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top duration-200 no-print">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-950 dark:text-amber-200">
+                {c.draftBannerTitle(ledgerStats.draft)}
+              </h4>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                {c.draftBannerDesc}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveSection('ledger');
+              setApprovalStatusFilter?.('draft');
+              setLedgerDateFilterMode?.('all');
+            }}
+            className="px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-amber-500/25 flex items-center gap-1.5 self-start sm:self-center transition-all active:scale-95 cursor-pointer"
+          >
+            <span>{c.reviewAndApproveBtn}</span>
+            {direction === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
+        </div>
+      )}
+
+      {/* ======================================================== */}
       {/* 3. CENTRAL SEGMENTED CONTROLLER (تم یکپارچه دکمه کارسینک) */}
       {/* ======================================================== */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap no-print">
@@ -1342,7 +1428,8 @@ export function FinancialsView() {
             {
               id: 'ledger',
               label: c.ledgerTab,
-              icon: Receipt
+              icon: Receipt,
+              badge: ledgerStats?.draft > 0 ? ledgerStats.draft : null
             }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -1364,6 +1451,15 @@ export function FinancialsView() {
                 {isSelected && (
                   <span className="text-xs font-semibold whitespace-nowrap">
                     {tab.label}
+                  </span>
+                )}
+                {tab.badge && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-black leading-none ${
+                    isSelected
+                      ? 'bg-amber-400 text-slate-950'
+                      : 'bg-amber-500 text-white'
+                  }`}>
+                    {tab.badge}
                   </span>
                 )}
               </button>
@@ -1426,7 +1522,17 @@ export function FinancialsView() {
           fromDate={fromDate}
           toDate={toDate}
           onSelectCategory={(catId) => {
-            setLedgerCategoryFilter(catId);
+            if (catId === 'settlements') {
+              setLedgerCatFilter?.('worker_settlement');
+              setLedgerSearchQuery?.('');
+            } else if (catId === 'advances') {
+              setLedgerCatFilter?.('advance_payment');
+              setLedgerSearchQuery?.('');
+            } else {
+              setLedgerCatFilter?.('workshop_expense');
+              const catObj = spendData.categoriesList.find((c) => c.id === catId);
+              setLedgerSearchQuery?.(catObj?.name || '');
+            }
             setActiveSection('ledger');
           }}
           onPrintReport={() => window.print()}
@@ -1764,126 +1870,37 @@ export function FinancialsView() {
       )}
 
       {/* ======================================================== */}
-      {/* 6. SECTION 3: UNIFIED GENERAL LEDGER (دفتر روزنامه)      */}
+      {/* 6. SECTION 3: UNIFIED GENERAL LEDGER (دفتر روزنامه و تایید اسناد) */}
       {/* ======================================================== */}
       {activeSection === 'ledger' && (
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center font-bold">
-                  <Receipt className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                      {c.ledgerTitle}
-                    </h3>
-                    {ledgerCategoryFilter !== 'all' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                        <span>{c.activeFilterCategory(spendData.categoriesList.find(c => c.id === ledgerCategoryFilter)?.name || ledgerCategoryFilter)}</span>
-                        <button
-                          type="button"
-                          onClick={() => setLedgerCategoryFilter('all')}
-                          className="hover:text-rose-500 cursor-pointer"
-                          title={c.clearFilter}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs text-slate-400 font-mono">
-                    {ledgerTransactions.length} {c.recordedTransactions}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleExportLedgerExcel}
-                className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>{c.exportExcel}</span>
-              </button>
-            </div>
-
-            {ledgerTransactions.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 text-xs">
-                {c.noTransactionsInPeriod}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-[11px]">
-                    <tr>
-                      <th className="px-4 py-3.5 text-start">{c.thDate}</th>
-                      <th className="px-4 py-3.5 text-start">{c.thFlow}</th>
-                      <th className="px-4 py-3.5 text-start">{c.thCategory}</th>
-                      <th className="px-4 py-3.5 text-start">{c.thDesc}</th>
-                      <th className="px-4 py-3.5 text-start">{c.thParty}</th>
-                      <th className="px-4 py-3.5 text-start">{c.thAccountSource}</th>
-                      <th className="px-4 py-3.5 text-end">{c.thAmount(getCurrencySymbol(currency, langKey))}</th>
-                      <th className="px-4 py-3.5 text-center no-print">{c.thActions}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                    {ledgerTransactions.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-sky-50/40 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="px-4 py-3 font-bold font-mono text-slate-900 dark:text-white whitespace-nowrap">
-                          {tx.date}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold ${
-                            tx.flow === 'in'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                              : tx.flow === 'out'
-                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                              : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
-                          }`}>
-                            {tx.flow === 'in' ? '+' : tx.flow === 'out' ? '-' : '⇄'} {tx.flow === 'in' ? c.flowIn : tx.flow === 'out' ? c.flowOut : c.flowTransfer}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            {tx.categoryName || '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
-                          {tx.title}
-                        </td>
-                        <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">
-                          {tx.party}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-medium">
-                          {tx.accountName || c.cashboxFallback}
-                        </td>
-                        <td className={`px-4 py-3 text-end font-black font-mono text-sm ${
-                          tx.flow === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
-                        }`}>
-                          {formatAmount(tx.amount, currency)}
-                        </td>
-                        <td className="px-4 py-3 text-center no-print">
-                          {tx.id.startsWith('payment_') && (
-                            <button
-                              type="button"
-                              onClick={() => setEditingPayment(tx.raw)}
-                              className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              title={c.viewAndEditTooltip}
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+        <section id="general-ledger-section" aria-label="General Ledger Table" className="animate-in fade-in duration-200">
+          <GeneralLedgerTable
+            ledgerItems={filteredLedgerItems}
+            financialAccounts={accounts}
+            ledgerStats={ledgerStats}
+            approvalStatusFilter={approvalStatusFilter}
+            setApprovalStatusFilter={setApprovalStatusFilter}
+            dateFilterMode={ledgerDateFilterMode}
+            setDateFilterMode={setLedgerDateFilterMode}
+            selectedMonth={ledgerSelectedMonth}
+            setSelectedMonth={setLedgerSelectedMonth}
+            customStartDate={ledgerCustomStartDate}
+            setCustomStartDate={setLedgerCustomStartDate}
+            customEndDate={ledgerCustomEndDate}
+            setCustomEndDate={setLedgerCustomEndDate}
+            categoryFilter={ledgerCatFilter}
+            setCategoryFilter={setLedgerCatFilter}
+            accountTypeFilter={ledgerAccountTypeFilter}
+            setAccountTypeFilter={setLedgerAccountTypeFilter}
+            searchQuery={ledgerSearchQuery}
+            setSearchQuery={setLedgerSearchQuery}
+            currency={currency}
+            language={language}
+            projectName={currentProject?.name || 'KarSync'}
+            onDeleteDraftItem={deleteDraftLedgerItem}
+            onBatchDeleteDraftItems={batchDeleteDraftLedgerItems}
+          />
+        </section>
       )}
 
       {/* ======================================================== */}
