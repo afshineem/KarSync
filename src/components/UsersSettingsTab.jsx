@@ -4,6 +4,7 @@ import { db } from '../db/db';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/realtimeSync';
 import { logAuditAction, getSafeAuthContext, generateUUID } from '../services/auditLogger';
+import { generateWorkspaceCode } from '../utils/workspaceCode';
 import { useLanguage } from '../i18n/LanguageContext';
 import UserFormModal from './UserFormModal';
 import AuditLogsTab from "./AuditLogsTab";
@@ -138,7 +139,7 @@ export default function UsersSettingsTab() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [copiedWsCode, setCopiedWsCode] = useState(false);
 
-  const displayWsCode = currentUser?.workspaceCode || workspace?.workspace_code || 'KARS-101';
+  const displayWsCode = currentUser?.workspaceCode || workspace?.workspace_code || '';
 
   const handleCopyWsCode = (e) => {
     e.stopPropagation();
@@ -194,7 +195,7 @@ export default function UsersSettingsTab() {
           targetWorkspace = {
              id: targetWorkspaceId,
              name: c.defaultWorkspaceName,
-             workspace_code: 'KARS-101',
+             workspace_code: currentUser?.workspaceCode || generateWorkspaceCode(),
              owner_id: safeAuth.userId,
              max_users_limit: 10,
              plan_tier: 'free',
@@ -224,6 +225,24 @@ export default function UsersSettingsTab() {
                 await db.app_users.bulkPut(remoteUsers);
                 localUsers = await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray();
                 setUsersList(localUsers);
+             } else {
+                // Resilient fallback from settings backup
+                const { data: backupRow } = await supabase
+                  .from('settings')
+                  .select('setting_value')
+                  .eq('setting_key', `app_users_ws_${targetWorkspaceId}`)
+                  .maybeSingle();
+
+                if (backupRow?.setting_value) {
+                  try {
+                    const parsedUsers = JSON.parse(backupRow.setting_value);
+                    if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
+                      await db.app_users.bulkPut(parsedUsers);
+                      localUsers = await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray();
+                      setUsersList(localUsers);
+                    }
+                  } catch (_) {}
+                }
              }
            } catch(e) {
              console.warn('Could not fetch app_users from Supabase:', e);
@@ -270,7 +289,7 @@ export default function UsersSettingsTab() {
       // Save to local
       if (db.app_users) await db.app_users.put(userData);
 
-      // Save to remote
+      // Save to remote (app_users table & resilient settings registry)
       if (navigator.onLine) {
         if (selectedUser) {
            const { error } = await supabase.from('app_users').update(userData).eq('id', selectedUser.id);
@@ -279,6 +298,15 @@ export default function UsersSettingsTab() {
            const { error } = await supabase.from('app_users').insert(userData);
            if (error) console.error("Failed to insert user remotely:", error);
         }
+
+        try {
+          const allLocalUsers = await db.app_users.where('workspace_id').equals(safeAuth.workspaceId).toArray();
+          await supabase.from('settings').upsert({
+            setting_key: `app_users_ws_${safeAuth.workspaceId}`,
+            setting_value: JSON.stringify(allLocalUsers),
+            updated_at: new Date().toISOString()
+          });
+        } catch (_) {}
       }
 
       await logAuditAction({
@@ -317,6 +345,14 @@ export default function UsersSettingsTab() {
       if (db.app_users) await db.app_users.delete(userToDelete.id);
       if (navigator.onLine) {
         await supabase.from('app_users').delete().eq('id', userToDelete.id);
+        try {
+          const allLocalUsers = await db.app_users.where('workspace_id').equals(safeAuth.workspaceId).toArray();
+          await supabase.from('settings').upsert({
+            setting_key: `app_users_ws_${safeAuth.workspaceId}`,
+            setting_value: JSON.stringify(allLocalUsers),
+            updated_at: new Date().toISOString()
+          });
+        } catch (_) {}
       }
 
       await logAuditAction({
@@ -354,6 +390,15 @@ export default function UsersSettingsTab() {
           is_active: updated.is_active, 
           session_version: updated.session_version 
         }).eq('id', updated.id);
+
+        try {
+          const allLocalUsers = await db.app_users.where('workspace_id').equals(safeAuth.workspaceId).toArray();
+          await supabase.from('settings').upsert({
+            setting_key: `app_users_ws_${safeAuth.workspaceId}`,
+            setting_value: JSON.stringify(allLocalUsers),
+            updated_at: new Date().toISOString()
+          });
+        } catch (_) {}
       }
 
       await logAuditAction({

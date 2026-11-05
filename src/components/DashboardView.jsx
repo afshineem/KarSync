@@ -60,7 +60,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     } catch (_) {}
     return null;
   }, []);
-  const displayWsCode = user?.workspaceCode || activeWorkspace?.workspace_code || 'KARS-101';
+  const displayWsCode = user?.workspaceCode || activeWorkspace?.workspace_code || '';
 
   const handleCopyWsCode = (e) => {
     e.stopPropagation();

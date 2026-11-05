@@ -10,6 +10,7 @@ import {
 } from '../services/workerAccess';
 import { hashPassword, verifyPassword, evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { verifyTOTPCode, verifyAndConsumeBackupCode, generateBackupCodes } from '../utils/totpSecurity';
+import { generateWorkspaceCode, normalizeWorkspaceCode, isWorkspaceCodeMatch } from '../utils/workspaceCode';
 
 const AUTH_SESSION_KEY = 'workshop_auth_session';
 const ADMIN_AUTH_KEY = 'workshop_admin_auth';
@@ -305,6 +306,59 @@ export function AuthProvider({ children }) {
         const { data: ws } = await supabase.from('workspaces').select('*').eq('owner_id', supabaseUser.id).limit(1).maybeSingle();
         userWs = ws;
       } catch (_) {}
+
+      if (!userWs) {
+        try {
+          const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+          if (regData?.setting_value) {
+            const list = JSON.parse(regData.setting_value);
+            if (Array.isArray(list)) {
+              userWs = list.find(w => w.owner_id === supabaseUser.id) || null;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // If workspace does not exist yet for this admin, generate and register a 6-char random workspace code
+      if (!userWs) {
+        const generatedCode = generateWorkspaceCode();
+        const companyName = profile?.company_name || supabaseUser.user_metadata?.company_name || 'کارگاه من';
+        const newWs = {
+          id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'ws_' + Date.now(),
+          name: companyName,
+          workspace_code: generatedCode,
+          owner_id: supabaseUser.id,
+          max_users_limit: 10,
+          plan_tier: 'free',
+          created_at: new Date().toISOString()
+        };
+
+        try {
+          const { data: createdWs } = await supabase.from('workspaces').insert(newWs).select().maybeSingle();
+          userWs = createdWs || newWs;
+        } catch (_) {
+          userWs = newWs;
+        }
+
+        try {
+          const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+          let regList = [];
+          if (regData?.setting_value) {
+            try { regList = JSON.parse(regData.setting_value); } catch (_) {}
+          }
+          const filtered = regList.filter(w => w.id !== userWs.id && w.owner_id !== supabaseUser.id);
+          filtered.push(userWs);
+          await supabase.from('settings').upsert({
+            setting_key: 'app_workspaces_registry',
+            setting_value: JSON.stringify(filtered),
+            updated_at: new Date().toISOString()
+          });
+        } catch (_) {}
+      }
+
+      if (userWs && db.workspaces) {
+        await db.workspaces.put(userWs).catch(() => {});
+      }
 
       const adminCreds = getAdminCredentials();
       const sessionUser = {
@@ -744,19 +798,39 @@ export function AuthProvider({ children }) {
       }
     }
     try {
-      // 1. Check workspace
+      // 1. Check workspace with resilient matching (supports modern 6-char random codes & legacy aliases)
       let workspace = null;
+      const cleanInputCode = normalizeWorkspaceCode(rawCode);
+
       if (db.workspaces) {
-        const wsArr = await db.workspaces.where('workspace_code').equals(rawCode).toArray();
-        if (wsArr.length > 0) workspace = wsArr[0];
+        try {
+          const allLocalWs = await db.workspaces.toArray();
+          workspace = allLocalWs.find(ws => isWorkspaceCodeMatch(cleanInputCode, ws.workspace_code)) || null;
+        } catch (_) {}
       }
       
       if (!workspace && navigator.onLine) {
-        // Fallback to Supabase
-        const { data, error } = await supabase.from('workspaces').select('*').eq('workspace_code', rawCode).maybeSingle();
-        if (data) {
-          workspace = data;
-          if (db.workspaces) await db.workspaces.put(data);
+        // Fallback A: Supabase workspaces table
+        try {
+          const { data: allRemoteWs } = await supabase.from('workspaces').select('*');
+          if (allRemoteWs && allRemoteWs.length > 0) {
+            workspace = allRemoteWs.find(ws => isWorkspaceCodeMatch(cleanInputCode, ws.workspace_code)) || null;
+            if (workspace && db.workspaces) await db.workspaces.put(workspace).catch(() => {});
+          }
+        } catch (_) {}
+
+        // Fallback B: Supabase settings workspaces registry (resilient to RLS)
+        if (!workspace) {
+          try {
+            const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+            if (regData?.setting_value) {
+              const regList = JSON.parse(regData.setting_value);
+              if (Array.isArray(regList)) {
+                workspace = regList.find(ws => isWorkspaceCodeMatch(cleanInputCode, ws.workspace_code)) || null;
+                if (workspace && db.workspaces) await db.workspaces.put(workspace).catch(() => {});
+              }
+            }
+          } catch (_) {}
         }
       }
 
@@ -765,90 +839,173 @@ export function AuthProvider({ children }) {
         return { success: false, error: 'invalidWorkspaceCode' };
       }
 
-      // 2. Check user in app_users
+      // 2. Check user in app_users (System users: operator, viewer, etc.)
       let appUser = null;
       if (db.app_users) {
-        const userArr = await db.app_users.where({ workspace_id: workspace.id, username: cleanUser }).toArray();
-        if (userArr.length > 0) appUser = userArr[0];
+        try {
+          const userArr = await db.app_users.where('workspace_id').equals(workspace.id).toArray();
+          appUser = userArr.find(u => normalizeUsername(u.username) === cleanUser) || null;
+        } catch (_) {}
       }
 
       if (!appUser && navigator.onLine) {
-        const { data } = await supabase.from('app_users').select('*').match({ workspace_id: workspace.id, username: cleanUser }).maybeSingle();
-        if (data) {
-          appUser = data;
-          if (db.app_users) await db.app_users.put(data);
+        // A: Check remote app_users table
+        try {
+          const { data: remoteUsers } = await supabase.from('app_users').select('*').eq('workspace_id', workspace.id);
+          if (remoteUsers && remoteUsers.length > 0) {
+            appUser = remoteUsers.find(u => normalizeUsername(u.username) === cleanUser) || null;
+            if (appUser && db.app_users) await db.app_users.put(appUser).catch(() => {});
+          }
+        } catch (_) {}
+
+        // B: Check resilient scoped settings registry
+        if (!appUser) {
+          try {
+            const { data: sData } = await supabase.from('settings').select('setting_value').eq('setting_key', `app_users_ws_${workspace.id}`).maybeSingle();
+            if (sData?.setting_value) {
+              const sUsers = JSON.parse(sData.setting_value);
+              if (Array.isArray(sUsers)) {
+                appUser = sUsers.find(u => normalizeUsername(u.username) === cleanUser) || null;
+                if (appUser && db.app_users) await db.app_users.put(appUser).catch(() => {});
+              }
+            }
+          } catch (_) {}
         }
       }
 
-      // 2.3 Check worker credentials fallback (for personnel login)
+      // 2.3 Check worker credentials fallback (for personnel / workshop workers login)
       if (!appUser) {
-        const workerCredsMap = getWorkerCredentialsMap();
+        let workerCredsMap = getWorkerCredentialsMap();
+
+        // If local creds map is empty (e.g. after logout or fresh device), fetch live from cloud settings
+        if (Object.keys(workerCredsMap).length === 0 && navigator.onLine) {
+          try {
+            const [cRes, mRes] = await Promise.all([
+              supabase.from('settings').select('setting_value').eq('setting_key', 'app_worker_credentials').maybeSingle(),
+              supabase.from('settings').select('setting_value').eq('setting_key', `app_worker_metadata_ws_${workspace.id}`).maybeSingle()
+            ]);
+
+            let mergedCloudCreds = {};
+            if (cRes.data?.setting_value) {
+              try { mergedCloudCreds = { ...mergedCloudCreds, ...JSON.parse(cRes.data.setting_value) }; } catch (_) {}
+            }
+            if (mRes.data?.setting_value) {
+              try {
+                const metaMap = JSON.parse(mRes.data.setting_value);
+                for (const [wId, meta] of Object.entries(metaMap)) {
+                  if (meta.username && meta.password) {
+                    mergedCloudCreds[wId] = { username: meta.username, password: meta.password };
+                  }
+                }
+              } catch (_) {}
+            }
+
+            if (Object.keys(mergedCloudCreds).length > 0) {
+              workerCredsMap = mergedCloudCreds;
+              localStorage.setItem(WORKER_CREDS_KEY, JSON.stringify(mergedCloudCreds));
+            }
+          } catch (_) {}
+        }
+
+        // Match against worker credentials map
         for (const [workerId, creds] of Object.entries(workerCredsMap)) {
-           if (creds.username && normalizeUsername(creds.username) === cleanUser && creds.password && normalizeDigits(creds.password) === cleanPass) {
-             let workerName = cleanUser;
-             let isActive = true;
-             if (db.workers) {
+          if (creds.username && normalizeUsername(creds.username) === cleanUser) {
+            const storedPass = normalizeDigits(creds.password).trim();
+            if (storedPass === cleanPass) {
+              let workerName = cleanUser;
+              let isActive = true;
+
+              // Check worker status locally
+              if (db.workers) {
                 try {
                   const w = await db.workers.get(workerId);
                   if (w) {
-                     workerName = w.name;
-                     if (w.isActive === 0) isActive = false;
+                    workerName = w.name || cleanUser;
+                    if (w.isActive === 0) isActive = false;
                   }
-                } catch (e) {
-                  console.warn('Could not fetch worker from db', e);
-                }
-             }
-             
-             if (!isActive) {
-               return { success: false, error: 'accountBlocked' };
-             }
+                } catch (_) {}
+              }
 
-             appUser = {
-               id: workerId,
-               workspace_id: workspace.id,
-               username: cleanUser,
-               full_name: workerName,
-               role: 'worker',
-               is_active: true,
-               session_version: 1,
-               can_edit_past_records: false,
-               password_hash: cleanPass
-             };
-             break;
-           }
+              // Check worker status remotely if not found locally
+              if (workerName === cleanUser && navigator.onLine) {
+                try {
+                  const { data: remoteW } = await supabase.from('workers').select('name, is_active').eq('id', workerId).maybeSingle();
+                  if (remoteW) {
+                    workerName = remoteW.name || cleanUser;
+                    if (remoteW.is_active === 0) isActive = false;
+                  }
+                } catch (_) {}
+              }
+
+              if (!isActive) {
+                return { success: false, error: 'accountBlocked' };
+              }
+
+              appUser = {
+                id: workerId,
+                workspace_id: workspace.id,
+                username: cleanUser,
+                full_name: workerName,
+                role: 'worker',
+                is_active: true,
+                session_version: 1,
+                can_edit_past_records: false,
+                password_hash: cleanPass
+              };
+              break;
+            }
+          }
         }
       }
 
       // 2.5 Check legacy admin credentials fallback (for prototype/local development)
       const adminCreds = getAdminCredentials();
-      if ((cleanUser === 'admin' && cleanPass === 'admin') || (cleanUser === adminCreds.username && cleanPass === adminCreds.password)) {
+      const isLegacyAdmin = (cleanUser === 'admin' && cleanPass === 'admin') || (cleanUser === adminCreds.username && cleanPass === adminCreds.password);
+
+      if (isLegacyAdmin) {
         if (!appUser) {
-           appUser = {
-             id: 'admin_local',
-             workspace_id: workspace.id,
-             username: cleanUser,
-             full_name: adminCreds.name || 'مدیر سیستم',
-             role: 'admin',
-             is_active: true,
-             session_version: 1,
-             can_edit_past_records: true,
-             password_hash: cleanPass
-           };
-           if (db.app_users) await db.app_users.put(appUser);
-           if (navigator.onLine) supabase.from('app_users').upsert(appUser).then();
+          appUser = {
+            id: 'admin_local',
+            workspace_id: workspace.id,
+            username: cleanUser,
+            full_name: adminCreds.name || 'مدیر سیستم',
+            role: 'admin',
+            is_active: true,
+            session_version: 1,
+            can_edit_past_records: true,
+            password_hash: cleanPass
+          };
+          if (db.app_users) await db.app_users.put(appUser);
+          if (navigator.onLine) supabase.from('app_users').upsert(appUser).then();
         } else if (!appUser.password_hash) {
-           // Fix missing hash for existing admin
-           appUser.password_hash = cleanPass;
-           if (db.app_users) await db.app_users.put(appUser);
-           if (navigator.onLine) supabase.from('app_users').update({ password_hash: cleanPass }).eq('id', appUser.id).then();
+          appUser.password_hash = cleanPass;
+          if (db.app_users) await db.app_users.put(appUser);
+          if (navigator.onLine) supabase.from('app_users').update({ password_hash: cleanPass }).eq('id', appUser.id).then();
         }
-      } else if (!appUser || appUser.password_hash !== cleanPass) { // Very simple password check for prototype
-        const rec = recordFailedLogin();
-        return {
-          success: false,
-          error: rec.isLocked ? 'rateLimited' : 'invalidCredentials',
-          remainingSeconds: rec.remainingSeconds
-        };
+      } else {
+        // Authenticate appUser credentials
+        if (!appUser) {
+          const rec = recordFailedLogin();
+          return {
+            success: false,
+            error: rec.isLocked ? 'rateLimited' : 'invalidCredentials',
+            remainingSeconds: rec.remainingSeconds
+          };
+        }
+
+        const storedPass = normalizeDigits(appUser.password_hash || '').trim();
+        const isPassValid = 
+          (storedPass && storedPass === cleanPass) ||
+          (appUser.password_hash && (await verifyPassword(cleanPass, appUser.password_hash)));
+
+        if (!isPassValid) {
+          const rec = recordFailedLogin();
+          return {
+            success: false,
+            error: rec.isLocked ? 'rateLimited' : 'invalidCredentials',
+            remainingSeconds: rec.remainingSeconds
+          };
+        }
       }
 
       if (!appUser.is_active) {
@@ -979,18 +1136,40 @@ export function AuthProvider({ children }) {
               wsData = ownerWs;
             }
             if (!wsData) {
-              const generatedCode = 'KAR' + Math.floor(100 + Math.random() * 900);
+              const generatedCode = generateWorkspaceCode();
               const companyName = verifiedUser.user_metadata?.company_name || 'کارگاه من';
-              const { data: createdWs } = await supabase.from('workspaces').insert({
+              const newWs = {
+                id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'ws_' + Date.now(),
                 name: companyName,
                 workspace_code: generatedCode,
                 owner_id: verifiedUser.id,
-                max_users_limit: 5,
-                plan_tier: 'free'
-              }).select().maybeSingle();
-              if (createdWs) {
-                wsData = createdWs;
+                max_users_limit: 10,
+                plan_tier: 'free',
+                created_at: new Date().toISOString()
+              };
+
+              try {
+                const { data: createdWs } = await supabase.from('workspaces').insert(newWs).select().maybeSingle();
+                wsData = createdWs || newWs;
+              } catch (_) {
+                wsData = newWs;
               }
+
+              // Resiliently register in settings table
+              try {
+                const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+                let regList = [];
+                if (regData?.setting_value) {
+                  try { regList = JSON.parse(regData.setting_value); } catch (_) {}
+                }
+                const filtered = regList.filter(w => w.id !== wsData.id && w.owner_id !== verifiedUser.id);
+                filtered.push(wsData);
+                await supabase.from('settings').upsert({
+                  setting_key: 'app_workspaces_registry',
+                  setting_value: JSON.stringify(filtered),
+                  updated_at: new Date().toISOString()
+                });
+              } catch (_) {}
             }
             if (wsData) {
               sessionUser.workspace_id = wsData.id;
