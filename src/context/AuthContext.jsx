@@ -10,7 +10,7 @@ import {
 } from '../services/workerAccess';
 import { hashPassword, verifyPassword, evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { verifyTOTPCode, verifyAndConsumeBackupCode, generateBackupCodes } from '../utils/totpSecurity';
-import { generateWorkspaceCode, normalizeWorkspaceCode, isWorkspaceCodeMatch } from '../utils/workspaceCode';
+import { generateWorkspaceCode, normalizeWorkspaceCode, isWorkspaceCodeMatch, isLegacyWorkspaceCode } from '../utils/workspaceCode';
 
 const AUTH_SESSION_KEY = 'workshop_auth_session';
 const ADMIN_AUTH_KEY = 'workshop_admin_auth';
@@ -302,24 +302,30 @@ export function AuthProvider({ children }) {
       }
 
       let userWs = null;
+      let regList = [];
+      try {
+        const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+        if (regData?.setting_value) {
+          try {
+            const parsed = JSON.parse(regData.setting_value);
+            if (Array.isArray(parsed)) regList = parsed;
+          } catch (_) {}
+        }
+      } catch (_) {}
+
       try {
         const { data: ws } = await supabase.from('workspaces').select('*').eq('owner_id', supabaseUser.id).limit(1).maybeSingle();
         userWs = ws;
       } catch (_) {}
 
-      if (!userWs) {
-        try {
-          const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
-          if (regData?.setting_value) {
-            const list = JSON.parse(regData.setting_value);
-            if (Array.isArray(list)) {
-              userWs = list.find(w => w.owner_id === supabaseUser.id) || null;
-            }
-          }
-        } catch (_) {}
+      const regWs = regList.find(w => w.owner_id === supabaseUser.id || (userWs && w.id === userWs.id)) || null;
+      if (!userWs && regWs) {
+        userWs = regWs;
+      } else if (userWs && regWs && !isLegacyWorkspaceCode(regWs.workspace_code)) {
+        userWs = { ...userWs, workspace_code: regWs.workspace_code };
       }
 
-      // If workspace does not exist yet for this admin, generate and register a 6-char random workspace code
+      // If workspace does not exist yet OR still has a legacy KAR* code, upgrade/provision a 6-char random workspace code
       if (!userWs) {
         const generatedCode = generateWorkspaceCode();
         const companyName = profile?.company_name || supabaseUser.user_metadata?.company_name || 'کارگاه من';
@@ -341,11 +347,21 @@ export function AuthProvider({ children }) {
         }
 
         try {
-          const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
-          let regList = [];
-          if (regData?.setting_value) {
-            try { regList = JSON.parse(regData.setting_value); } catch (_) {}
-          }
+          const filtered = regList.filter(w => w.id !== userWs.id && w.owner_id !== supabaseUser.id);
+          filtered.push(userWs);
+          await supabase.from('settings').upsert({
+            setting_key: 'app_workspaces_registry',
+            setting_value: JSON.stringify(filtered),
+            updated_at: new Date().toISOString()
+          });
+        } catch (_) {}
+      } else if (isLegacyWorkspaceCode(userWs.workspace_code)) {
+        const upgradedCode = generateWorkspaceCode();
+        userWs = { ...userWs, workspace_code: upgradedCode };
+        try {
+          await supabase.from('workspaces').update({ workspace_code: upgradedCode }).eq('id', userWs.id);
+        } catch (_) {}
+        try {
           const filtered = regList.filter(w => w.id !== userWs.id && w.owner_id !== supabaseUser.id);
           filtered.push(userWs);
           await supabase.from('settings').upsert({
@@ -357,6 +373,7 @@ export function AuthProvider({ children }) {
       }
 
       if (userWs && db.workspaces) {
+        await db.workspaces.clear().catch(() => {});
         await db.workspaces.put(userWs).catch(() => {});
       }
 
@@ -397,6 +414,83 @@ export function AuthProvider({ children }) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user && isMounted) {
             await fetchUserProfile(session.user);
+            return;
+          }
+        }
+
+        // For non-Supabase sessions (e.g. local admin / staff session), ensure workspace and 6-char random code are hydrated
+        const savedStr = localStorage.getItem(AUTH_SESSION_KEY);
+        if (savedStr && isMounted) {
+          const savedUser = JSON.parse(savedStr);
+          let wsToUse = null;
+
+          if (db.workspaces) {
+            const localWsList = await db.workspaces.toArray().catch(() => []);
+            wsToUse = localWsList.find(w => w.id === savedUser.workspace_id) || localWsList[0] || null;
+          }
+
+          let regList = [];
+          if (navigator.onLine) {
+            try {
+              const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+              if (regData?.setting_value) {
+                try {
+                  const parsed = JSON.parse(regData.setting_value);
+                  if (Array.isArray(parsed)) regList = parsed;
+                } catch (_) {}
+              }
+            } catch (_) {}
+
+            if (!wsToUse) {
+              try {
+                const { data: rWs } = await supabase.from('workspaces').select('*').limit(1).maybeSingle();
+                if (rWs) wsToUse = rWs;
+              } catch (_) {}
+            }
+
+            if (wsToUse) {
+              const regMatch = regList.find(w => w.id === wsToUse.id);
+              if (regMatch && !isLegacyWorkspaceCode(regMatch.workspace_code)) {
+                wsToUse = { ...wsToUse, workspace_code: regMatch.workspace_code };
+              }
+            } else if (regList.length > 0) {
+              wsToUse = regList[0];
+            }
+          }
+
+          if (wsToUse && isLegacyWorkspaceCode(wsToUse.workspace_code)) {
+            const upgradedCode = generateWorkspaceCode();
+            wsToUse = { ...wsToUse, workspace_code: upgradedCode };
+            if (navigator.onLine) {
+              try {
+                await supabase.from('workspaces').update({ workspace_code: upgradedCode }).eq('id', wsToUse.id);
+              } catch (_) {}
+              try {
+                const filtered = regList.filter(w => w.id !== wsToUse.id);
+                filtered.push(wsToUse);
+                await supabase.from('settings').upsert({
+                  setting_key: 'app_workspaces_registry',
+                  setting_value: JSON.stringify(filtered),
+                  updated_at: new Date().toISOString()
+                });
+              } catch (_) {}
+            }
+          }
+
+          if (wsToUse) {
+            if (db.workspaces) {
+              await db.workspaces.clear().catch(() => {});
+              await db.workspaces.put(wsToUse).catch(() => {});
+            }
+            if (savedUser.workspace_id !== wsToUse.id || savedUser.workspaceCode !== wsToUse.workspace_code) {
+              const updatedSession = {
+                ...savedUser,
+                workspace_id: wsToUse.id,
+                workspaceCode: wsToUse.workspace_code
+              };
+              setUser(updatedSession);
+              localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updatedSession));
+            }
           }
         }
       } catch (err) {
@@ -810,24 +904,38 @@ export function AuthProvider({ children }) {
       }
       
       if (!workspace && navigator.onLine) {
-        // Fallback A: Supabase workspaces table
+        // Fallback A: Supabase settings workspaces registry (resilient to RLS and contains latest 6-char codes)
         try {
-          const { data: allRemoteWs } = await supabase.from('workspaces').select('*');
-          if (allRemoteWs && allRemoteWs.length > 0) {
-            workspace = allRemoteWs.find(ws => isWorkspaceCodeMatch(cleanInputCode, ws.workspace_code)) || null;
-            if (workspace && db.workspaces) await db.workspaces.put(workspace).catch(() => {});
+          const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+          if (regData?.setting_value) {
+            const regList = JSON.parse(regData.setting_value);
+            if (Array.isArray(regList)) {
+              workspace = regList.find(ws => isWorkspaceCodeMatch(cleanInputCode, ws.workspace_code)) || null;
+              if (workspace && db.workspaces) await db.workspaces.put(workspace).catch(() => {});
+            }
           }
         } catch (_) {}
 
-        // Fallback B: Supabase settings workspaces registry (resilient to RLS)
+        // Fallback B: Supabase workspaces table
         if (!workspace) {
           try {
-            const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
-            if (regData?.setting_value) {
-              const regList = JSON.parse(regData.setting_value);
-              if (Array.isArray(regList)) {
-                workspace = regList.find(ws => isWorkspaceCodeMatch(cleanInputCode, ws.workspace_code)) || null;
-                if (workspace && db.workspaces) await db.workspaces.put(workspace).catch(() => {});
+            const { data: allRemoteWs } = await supabase.from('workspaces').select('*');
+            if (allRemoteWs && allRemoteWs.length > 0) {
+              const matchedRemote = allRemoteWs.find(ws => isWorkspaceCodeMatch(cleanInputCode, ws.workspace_code)) || null;
+              if (matchedRemote) {
+                workspace = matchedRemote;
+                // Check if settings registry has an upgraded 6-char code for this workspace
+                try {
+                  const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+                  if (regData?.setting_value) {
+                    const regList = JSON.parse(regData.setting_value);
+                    const regMatch = Array.isArray(regList) ? regList.find(w => w.id === matchedRemote.id) : null;
+                    if (regMatch && !isLegacyWorkspaceCode(regMatch.workspace_code)) {
+                      workspace = { ...matchedRemote, workspace_code: regMatch.workspace_code };
+                    }
+                  }
+                } catch (_) {}
+                if (db.workspaces) await db.workspaces.put(workspace).catch(() => {});
               }
             }
           } catch (_) {}
@@ -843,30 +951,44 @@ export function AuthProvider({ children }) {
       let appUser = null;
       if (db.app_users) {
         try {
-          const userArr = await db.app_users.where('workspace_id').equals(workspace.id).toArray();
-          appUser = userArr.find(u => normalizeUsername(u.username) === cleanUser) || null;
+          const userArr = await db.app_users.toArray();
+          appUser = userArr.find(u => normalizeUsername(u.username) === cleanUser && (!u.workspace_id || u.workspace_id === workspace.id)) ||
+                    userArr.find(u => normalizeUsername(u.username) === cleanUser) || null;
         } catch (_) {}
       }
 
       if (!appUser && navigator.onLine) {
         // A: Check remote app_users table
         try {
-          const { data: remoteUsers } = await supabase.from('app_users').select('*').eq('workspace_id', workspace.id);
+          const { data: remoteUsers } = await supabase.from('app_users').select('*');
           if (remoteUsers && remoteUsers.length > 0) {
-            appUser = remoteUsers.find(u => normalizeUsername(u.username) === cleanUser) || null;
+            appUser = remoteUsers.find(u => normalizeUsername(u.username) === cleanUser && u.workspace_id === workspace.id) ||
+                      remoteUsers.find(u => normalizeUsername(u.username) === cleanUser) || null;
             if (appUser && db.app_users) await db.app_users.put(appUser).catch(() => {});
           }
         } catch (_) {}
 
-        // B: Check resilient scoped settings registry
+        // B: Check resilient scoped settings registry (any app_users_ws_* key)
         if (!appUser) {
           try {
-            const { data: sData } = await supabase.from('settings').select('setting_value').eq('setting_key', `app_users_ws_${workspace.id}`).maybeSingle();
-            if (sData?.setting_value) {
-              const sUsers = JSON.parse(sData.setting_value);
-              if (Array.isArray(sUsers)) {
-                appUser = sUsers.find(u => normalizeUsername(u.username) === cleanUser) || null;
-                if (appUser && db.app_users) await db.app_users.put(appUser).catch(() => {});
+            const { data: sRows } = await supabase.from('settings').select('setting_key, setting_value').like('setting_key', 'app_users_ws_%');
+            if (sRows && sRows.length > 0) {
+              // Prioritize exact workspace match first
+              const sortedRows = [...sRows].sort((a, b) => (a.setting_key === `app_users_ws_${workspace.id}` ? -1 : 1));
+              for (const row of sortedRows) {
+                if (row.setting_value) {
+                  try {
+                    const sUsers = JSON.parse(row.setting_value);
+                    if (Array.isArray(sUsers)) {
+                      const matched = sUsers.find(u => normalizeUsername(u.username) === cleanUser);
+                      if (matched) {
+                        appUser = matched;
+                        if (db.app_users) await db.app_users.put(appUser).catch(() => {});
+                        break;
+                      }
+                    }
+                  } catch (_) {}
+                }
               }
             }
           } catch (_) {}
@@ -877,27 +999,30 @@ export function AuthProvider({ children }) {
       if (!appUser) {
         let workerCredsMap = getWorkerCredentialsMap();
 
-        // If local creds map is empty (e.g. after logout or fresh device), fetch live from cloud settings
-        if (Object.keys(workerCredsMap).length === 0 && navigator.onLine) {
+        // Always merge with latest cloud worker credentials when online so newly added workers are immediately found
+        if (navigator.onLine) {
           try {
-            const [cRes, mRes] = await Promise.all([
+            const [cRes, mRes, mGlobalRes] = await Promise.all([
               supabase.from('settings').select('setting_value').eq('setting_key', 'app_worker_credentials').maybeSingle(),
-              supabase.from('settings').select('setting_value').eq('setting_key', `app_worker_metadata_ws_${workspace.id}`).maybeSingle()
+              supabase.from('settings').select('setting_value').eq('setting_key', `app_worker_metadata_ws_${workspace.id}`).maybeSingle(),
+              supabase.from('settings').select('setting_value').eq('setting_key', 'app_worker_metadata').maybeSingle()
             ]);
 
-            let mergedCloudCreds = {};
+            let mergedCloudCreds = { ...workerCredsMap };
             if (cRes.data?.setting_value) {
               try { mergedCloudCreds = { ...mergedCloudCreds, ...JSON.parse(cRes.data.setting_value) }; } catch (_) {}
             }
-            if (mRes.data?.setting_value) {
-              try {
-                const metaMap = JSON.parse(mRes.data.setting_value);
-                for (const [wId, meta] of Object.entries(metaMap)) {
-                  if (meta.username && meta.password) {
-                    mergedCloudCreds[wId] = { username: meta.username, password: meta.password };
+            for (const metaSource of [mGlobalRes.data?.setting_value, mRes.data?.setting_value]) {
+              if (metaSource) {
+                try {
+                  const metaMap = JSON.parse(metaSource);
+                  for (const [wId, meta] of Object.entries(metaMap)) {
+                    if (meta && meta.username && meta.password) {
+                      mergedCloudCreds[wId] = { username: meta.username, password: meta.password };
+                    }
                   }
-                }
-              } catch (_) {}
+                } catch (_) {}
+              }
             }
 
             if (Object.keys(mergedCloudCreds).length > 0) {
@@ -1042,6 +1167,7 @@ export function AuthProvider({ children }) {
         name: appUser.full_name,
         username: appUser.username,
         workspace_id: workspace.id,
+        workspaceCode: workspace.workspace_code,
         permissions: appUser.permissions || [],
         can_edit_past_records: appUser.can_edit_past_records,
         session_version: appUser.session_version,
@@ -1265,6 +1391,22 @@ export function AuthProvider({ children }) {
       if (navigator.onLine) {
         console.log('🔄 Forcing full sync after admin login...');
         await pullAllFromSupabase().catch(err => console.warn('Forced sync failed:', err));
+      }
+      if (db.workspaces) {
+        try {
+          const allWs = await db.workspaces.toArray();
+          let mainWs = allWs[0] || null;
+          if (mainWs) {
+            if (isLegacyWorkspaceCode(mainWs.workspace_code)) {
+              mainWs = { ...mainWs, workspace_code: generateWorkspaceCode() };
+              await db.workspaces.put(mainWs).catch(() => {});
+            }
+            sessionUser.workspace_id = mainWs.id;
+            sessionUser.workspaceCode = mainWs.workspace_code;
+            setUser({ ...sessionUser });
+            localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+          }
+        } catch (_) {}
       }
       return { success: true, role: 'admin', user: sessionUser };
     }

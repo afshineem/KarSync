@@ -45,6 +45,15 @@ export function normalizeWorkspaceCode(rawCode) {
 }
 
 /**
+ * Checks whether a workspace code is a legacy sequential/prefix code (e.g., KAR101, KARS-101, KAR-123).
+ */
+export function isLegacyWorkspaceCode(code) {
+  const norm = normalizeWorkspaceCode(code);
+  if (!norm) return true;
+  return /^KARS?\d+$/.test(norm);
+}
+
+/**
  * Robustly checks if an input workspace code matches a target workspace code,
  * supporting legacy prefix aliases (KAR101 vs KARS101) as well as modern 6-char random codes.
  */

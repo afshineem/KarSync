@@ -4,7 +4,7 @@ import { db } from '../db/db';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/realtimeSync';
 import { logAuditAction, getSafeAuthContext, generateUUID } from '../services/auditLogger';
-import { generateWorkspaceCode } from '../utils/workspaceCode';
+import { generateWorkspaceCode, isLegacyWorkspaceCode } from '../utils/workspaceCode';
 import { useLanguage } from '../i18n/LanguageContext';
 import UserFormModal from './UserFormModal';
 import AuditLogsTab from "./AuditLogsTab";
@@ -139,7 +139,7 @@ export default function UsersSettingsTab() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [copiedWsCode, setCopiedWsCode] = useState(false);
 
-  const displayWsCode = currentUser?.workspaceCode || workspace?.workspace_code || '';
+  const displayWsCode = (!isLegacyWorkspaceCode(workspace?.workspace_code) && workspace?.workspace_code) || (!isLegacyWorkspaceCode(currentUser?.workspaceCode) && currentUser?.workspaceCode) || workspace?.workspace_code || currentUser?.workspaceCode || '';
 
   const handleCopyWsCode = (e) => {
     e.stopPropagation();
@@ -195,13 +195,33 @@ export default function UsersSettingsTab() {
           targetWorkspace = {
              id: targetWorkspaceId,
              name: c.defaultWorkspaceName,
-             workspace_code: currentUser?.workspaceCode || generateWorkspaceCode(),
+             workspace_code: (!isLegacyWorkspaceCode(currentUser?.workspaceCode) && currentUser?.workspaceCode) || generateWorkspaceCode(),
              owner_id: safeAuth.userId,
              max_users_limit: 10,
              plan_tier: 'free',
              created_at: new Date().toISOString()
           };
           if (db.workspaces) await db.workspaces.put(targetWorkspace).catch(()=>{});
+        } else if (isLegacyWorkspaceCode(targetWorkspace.workspace_code)) {
+          const upgradedCode = (!isLegacyWorkspaceCode(currentUser?.workspaceCode) && currentUser?.workspaceCode) || generateWorkspaceCode();
+          targetWorkspace = { ...targetWorkspace, workspace_code: upgradedCode };
+          if (db.workspaces) await db.workspaces.put(targetWorkspace).catch(()=>{});
+          if (navigator.onLine && supabase) {
+            try {
+              const { data: regData } = await supabase.from('settings').select('setting_value').eq('setting_key', 'app_workspaces_registry').maybeSingle();
+              let regList = [];
+              if (regData?.setting_value) {
+                try { regList = JSON.parse(regData.setting_value); } catch (_) {}
+              }
+              const filtered = regList.filter(w => w.id !== targetWorkspace.id);
+              filtered.push(targetWorkspace);
+              await supabase.from('settings').upsert({
+                setting_key: 'app_workspaces_registry',
+                setting_value: JSON.stringify(filtered),
+                updated_at: new Date().toISOString()
+              });
+            } catch (_) {}
+          }
         }
       } else {
         console.warn('No targetWorkspaceId found!');

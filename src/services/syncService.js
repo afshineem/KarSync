@@ -1,4 +1,5 @@
 import { db } from '../db/db';
+import { isLegacyWorkspaceCode } from '../utils/workspaceCode';
 
 const SYNC_CONFIG_KEY = 'workshop_sync_config';
 const LAST_SYNC_KEY = 'workshop_last_sync_time';
@@ -102,11 +103,12 @@ export async function pullAllFromSupabase() {
     'Accept': 'application/json'
   };
 
-  const [wRes, lRes, uRes, wsRes] = await Promise.all([
+  const [wRes, lRes, uRes, wsRes, sRes] = await Promise.all([
     fetch(`${cleanUrl}/rest/v1/workers?select=*`, { headers }),
     fetch(`${cleanUrl}/rest/v1/attendance_logs?select=*`, { headers }),
     fetch(`${cleanUrl}/rest/v1/app_users?select=*`, { headers }),
-    fetch(`${cleanUrl}/rest/v1/workspaces?select=*`, { headers })
+    fetch(`${cleanUrl}/rest/v1/workspaces?select=*`, { headers }),
+    fetch(`${cleanUrl}/rest/v1/settings?select=setting_key,setting_value&setting_key=eq.app_workspaces_registry`, { headers })
   ]);
 
   if (!wRes.ok || !lRes.ok || !uRes.ok || !wsRes.ok) {
@@ -116,10 +118,38 @@ export async function pullAllFromSupabase() {
   const workers = await wRes.json();
   const logs = await lRes.json();
   const appUsers = await uRes.json();
-  const workspaces = await wsRes.json();
+  let workspaces = await wsRes.json();
+
+  if (sRes.ok) {
+    try {
+      const sRows = await sRes.json();
+      if (sRows && sRows[0]?.setting_value) {
+        const regList = JSON.parse(sRows[0].setting_value);
+        if (Array.isArray(regList)) {
+          const wsMap = new Map(workspaces.map(w => [w.id, w]));
+          for (const rw of regList) {
+            if (!wsMap.has(rw.id) || !isLegacyWorkspaceCode(rw.workspace_code)) {
+              wsMap.set(rw.id, { ...(wsMap.get(rw.id) || {}), ...rw });
+            }
+          }
+          workspaces = Array.from(wsMap.values());
+        }
+      }
+    } catch (_) {}
+  }
 
   const localAppUsers = await db.app_users.toArray();
   const localWorkspaces = await db.workspaces.toArray();
+
+  // Preserve modern 6-char code if local already upgraded it
+  const localWsMap = new Map(localWorkspaces.map(w => [w.id, w]));
+  workspaces = workspaces.map(ws => {
+    const loc = localWsMap.get(ws.id);
+    if (loc && !isLegacyWorkspaceCode(loc.workspace_code) && isLegacyWorkspaceCode(ws.workspace_code)) {
+      return { ...ws, workspace_code: loc.workspace_code };
+    }
+    return ws;
+  });
 
   if (appUsers.length === 0 && localAppUsers.length > 0) {
     console.warn("Supabase returned empty app_users, but local has data. Check RLS! Skipping app_users clear.");

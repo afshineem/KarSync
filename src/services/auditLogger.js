@@ -99,7 +99,7 @@ export async function getSafeAuthContext() {
       } catch(e) {}
     }
 
-    // 6. Any workspace fallback
+    // 6. Any workspace fallback (local Dexie or remote Supabase)
     if (!isValidUUID(workspaceId)) {
       try {
         if (db.workspaces) {
@@ -109,6 +109,20 @@ export async function getSafeAuthContext() {
           }
         }
       } catch(e) {}
+    }
+
+    if (!isValidUUID(workspaceId) && navigator.onLine && supabase) {
+      try {
+        const { data: remoteWs } = await supabase.from('workspaces').select('*').limit(1).maybeSingle();
+        if (remoteWs && isValidUUID(remoteWs.id)) {
+          workspaceId = remoteWs.id;
+          if (db.workspaces) await db.workspaces.put(remoteWs).catch(() => {});
+        }
+      } catch(e) {}
+    }
+
+    if (!isValidUUID(workspaceId)) {
+      workspaceId = '4a2980ba-f500-4689-9b13-e0c8df300f70';
     }
 
     return { 

@@ -108,7 +108,7 @@ export function LoginView({ theme, toggleTheme }) {
       signUpHeaderTitle: 'ایجاد کارگاه و حساب مدیریت',
       signUpHeaderSubtitle: 'در کمتر از یک دقیقه کارگاه جدید خود را راه‌اندازی کنید',
       workspaceCodeLabel: 'کد کارگاه',
-      workspaceCodeHint: 'کد ۶ رقمی کارگاه (مثال: 7K8X9M)',
+      workspaceCodeHint: 'کد ۶ رقمی کارگاه (مثال: FC3PHE)',
       identifierLabel: 'ایمیل، نام کاربری یا کد پرسنلی',
       identifierPlaceholder: 'نام کاربری، ایمیل یا کد پرسنلی',
       passwordLabel: 'رمز عبور',
@@ -194,7 +194,7 @@ export function LoginView({ theme, toggleTheme }) {
       signUpHeaderTitle: 'دروستکردنی کارگە و هەژماری بەڕێوەبەر',
       signUpHeaderSubtitle: 'لە کەمتر لە خولەکێکدا کارگە نوێیەکەت دابمەزرێنە',
       workspaceCodeLabel: 'کۆدی کارگە',
-      workspaceCodeHint: 'کۆدی ٦ پیتی کارگە (نموونە: 7K8X9M)',
+      workspaceCodeHint: 'کۆدی ٦ پیتی کارگە (نموونە: FC3PHE)',
       identifierLabel: 'ئیمەیڵ، ناوی بەکارهێنەر یان کۆدی کرێکار',
       identifierPlaceholder: 'ناوی بەکارهێنەر، ئیمەیڵ یان کۆدی کرێکار',
       passwordLabel: 'تێپەڕەوشە',
@@ -280,7 +280,7 @@ export function LoginView({ theme, toggleTheme }) {
       signUpHeaderTitle: 'Create New Workshop Account',
       signUpHeaderSubtitle: 'Launch your workshop management workspace in under a minute',
       workspaceCodeLabel: 'Workspace Code',
-      workspaceCodeHint: '6-character workshop code (e.g. 7K8X9M)',
+      workspaceCodeHint: '6-character workshop code (e.g. FC3PHE)',
       identifierLabel: 'Email, Username or Worker ID',
       identifierPlaceholder: 'username or email@company.com',
       passwordLabel: 'Password',
@@ -937,7 +937,7 @@ export function LoginView({ theme, toggleTheme }) {
                           maxLength={10}
                           value={workspaceCode}
                           onChange={(e) => setWorkspaceCode(e.target.value.toUpperCase())}
-                          placeholder="7K8X9M"
+                          placeholder="FC3PHE"
                           className="w-full px-3.5 py-2 sm:py-2.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm sm:text-base font-black font-mono focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all text-center tracking-[0.2em] dir-ltr uppercase shadow-2xs"
                         />
                       </div>
