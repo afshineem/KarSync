@@ -26,6 +26,7 @@ import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { AddEditAccountModal } from './accounting/AddEditAccountModal';
 import { AccountSubsidiaryLedgerModal } from './accounting/AccountSubsidiaryLedgerModal';
 import { CounterpartiesView } from './CounterpartiesView';
+import { SpendAnalyticsSection } from './accounting/SpendAnalyticsSection';
 
 // Utilities & LiveSync
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
@@ -75,7 +76,12 @@ import {
   Eye,
   Plus,
   Briefcase,
-  Printer
+  Printer,
+  BarChart3,
+  PieChart,
+  Building2,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
 
 const SUMMARY_LAYOUT_KEY = 'karsync_financials_worker_layout';
@@ -163,7 +169,31 @@ const COPY = {
     fromDateLabel: 'از تاریخ',
     toDateLabel: 'تا تاریخ',
     cancelBtn: 'انصراف',
-    confirmRangeBtn: 'تایید بازه'
+    confirmRangeBtn: 'تایید بازه',
+    analyticsTab: 'گزارش و آنالیز مصارف',
+    heroTreasuryTab: 'موجودی و خزانه',
+    heroFlowTab: 'گردش مالی ماه',
+    periodTotalSpend: 'کل مصارف و هزینه‌ها',
+    periodTotalInflow: 'کل ورودی تنخواه:',
+    periodNetCash: 'تراز خالص دوره:',
+    outflowDocsCount: 'سند پرداختی',
+    thCategory: 'سرفصل هزینه',
+    thFlow: 'جریان',
+    flowIn: 'ورودی',
+    flowOut: 'خروجی',
+    flowTransfer: 'انتقال',
+    workshopExpense: 'هزینه کارگاه',
+    pettyCashIncome: 'شارژ تنخواه / واریز',
+    transferTitle: 'انتقال حساب به حساب',
+    printReportHeader: 'صورت وضعیت مالی و عملکرد خزانه‌داری کارگاه',
+    reportPeriod: 'دوره گزارش:',
+    printDate: 'تاریخ چاپ:',
+    accountantSign: 'امضای حسابدار / امور مالی',
+    projectManagerSign: 'امضای مدیر کارگاه / پروژه',
+    employerSign: 'امضای کارفرما / سرمایه‌گذار',
+    allCategories: 'همه سرفصل‌ها',
+    activeFilterCategory: (name) => `فیلتر سرفصل فعال: ${name}`,
+    clearFilter: 'حذف فیلتر'
   },
   ku: {
     pageTitle: 'حیسابداری و کاروباری دارایی',
@@ -245,7 +275,31 @@ const COPY = {
     fromDateLabel: 'لە بەرواری',
     toDateLabel: 'بۆ بەرواری',
     cancelBtn: 'پاشگەزبوونەوە',
-    confirmRangeBtn: 'پەسەندکردنی ماوە'
+    confirmRangeBtn: 'پەسەندکردنی ماوە',
+    analyticsTab: 'ڕاپۆرت و شیکاری خەرجییەکان',
+    heroTreasuryTab: 'باڵانس و خەزێنە',
+    heroFlowTab: 'ڕۆیشتنی پارەی مانگ',
+    periodTotalSpend: 'کۆی خەرجی و دەرچووەکان',
+    periodTotalInflow: 'کۆی داهاتی تنخوا:',
+    periodNetCash: 'باڵانسی پوختی مانگ:',
+    outflowDocsCount: 'بەڵگەنامەی خەرجی',
+    thCategory: 'بەشی خەرجی',
+    thFlow: 'جۆری ڕۆیشتن',
+    flowIn: 'داهات',
+    flowOut: 'خەرجی',
+    flowTransfer: 'گواستنەوە',
+    workshopExpense: 'خەرجی کارگە',
+    pettyCashIncome: 'داهات / تەنخوا',
+    transferTitle: 'گواستنەوەی نێوان حیسابەکان',
+    printReportHeader: 'ڕاپۆرتی دارایی و کارکردی خەزێنەی کارگە',
+    reportPeriod: 'ماوەی ڕاپۆرت:',
+    printDate: 'بەرواری چاپ:',
+    accountantSign: 'واژۆی ژمێریار',
+    projectManagerSign: 'واژۆی بەڕێوەبەری پڕۆژە',
+    employerSign: 'واژۆی خاوەنکار',
+    allCategories: 'هەموو بەشەکان',
+    activeFilterCategory: (name) => `فلتەری بەشی چالاک: ${name}`,
+    clearFilter: 'سڕینەوەی فلتەر'
   },
   en: {
     pageTitle: 'Finance & Accounting',
@@ -327,7 +381,31 @@ const COPY = {
     fromDateLabel: 'From Date',
     toDateLabel: 'To Date',
     cancelBtn: 'Cancel',
-    confirmRangeBtn: 'Apply Range'
+    confirmRangeBtn: 'Apply Range',
+    analyticsTab: 'Spend Analytics',
+    heroTreasuryTab: 'Treasury Health',
+    heroFlowTab: 'Monthly Flow',
+    periodTotalSpend: 'Total Period Outflows',
+    periodTotalInflow: 'Total Period Inflow:',
+    periodNetCash: 'Net Period Flow:',
+    outflowDocsCount: 'Paid Invoices',
+    thCategory: 'Category',
+    thFlow: 'Flow',
+    flowIn: 'Inflow',
+    flowOut: 'Outflow',
+    flowTransfer: 'Transfer',
+    workshopExpense: 'Workshop Expense',
+    pettyCashIncome: 'Petty Cash Recharge / Deposit',
+    transferTitle: 'Account Transfer',
+    printReportHeader: 'Workshop Treasury & Financial Statement',
+    reportPeriod: 'Report Period:',
+    printDate: 'Printed on:',
+    accountantSign: 'Accountant Signature',
+    projectManagerSign: 'Project Manager Signature',
+    employerSign: 'Employer / Client Signature',
+    allCategories: 'All Categories',
+    activeFilterCategory: (name) => `Active Category Filter: ${name}`,
+    clearFilter: 'Clear Filter'
   }
 };
 
@@ -339,13 +417,13 @@ export function FinancialsView() {
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
-  // Active main section: 'workers' | 'accounts' | 'ledger'
+  // Active main section: 'analytics' | 'workers' | 'accounts' | 'ledger'
   const [activeSection, setActiveSectionState] = useState(() => {
     try {
       const saved = localStorage.getItem(FINANCIAL_SECTION_KEY);
-      return saved && ['workers', 'accounts', 'ledger'].includes(saved) ? saved : 'workers';
+      return saved && ['analytics', 'workers', 'accounts', 'ledger'].includes(saved) ? saved : 'analytics';
     } catch {
-      return 'workers';
+      return 'analytics';
     }
   });
 
@@ -355,6 +433,10 @@ export function FinancialsView() {
       localStorage.setItem(FINANCIAL_SECTION_KEY, sec);
     } catch (_) {}
   };
+
+  // Hero view mode: 'flow' (گردش مالی و مصارف ماه) | 'treasury' (وضعیت موجودی صندوق و طلب کارگران)
+  const [heroMode, setHeroMode] = useState('flow');
+  const [ledgerCategoryFilter, setLedgerCategoryFilter] = useState('all');
 
   // Month & Date filters
   const selectedMonth = dateFilter.month || getCurrentYearMonth();
@@ -477,6 +559,61 @@ export function FinancialsView() {
     [targetProjectId]
   ) || [];
 
+  const allExpenses = useLiveQuery(
+    async () => {
+      const list = await db.expenses.toArray();
+      return list.filter((e) => (e.projectId || DEFAULT_PROJECT_ID) === targetProjectId && !e.deletedAt);
+    },
+    [targetProjectId]
+  ) || [];
+
+  const expenseCategories = useLiveQuery(
+    async () => {
+      return await db.expenseCategories.toArray();
+    },
+    []
+  ) || [];
+
+  const categoryMap = useMemo(() => {
+    const map = {};
+    expenseCategories.forEach((c) => {
+      map[c.id] = c;
+    });
+    return map;
+  }, [expenseCategories]);
+
+  const allIncomes = useLiveQuery(
+    async () => {
+      const list = await db.treasuryIncomes.toArray();
+      return list.filter((inc) => (inc.projectId || DEFAULT_PROJECT_ID) === targetProjectId && !inc.deletedAt);
+    },
+    [targetProjectId]
+  ) || [];
+
+  const allTransfers = useLiveQuery(
+    async () => {
+      const list = await db.treasuryTransfers.toArray();
+      return list.filter((tr) => (tr.projectId || DEFAULT_PROJECT_ID) === targetProjectId && !tr.deletedAt);
+    },
+    [targetProjectId]
+  ) || [];
+
+  const counterparties = useLiveQuery(
+    async () => {
+      const list = await db.counterparties.toArray();
+      return list.filter((cp) => (cp.projectId || DEFAULT_PROJECT_ID) === targetProjectId && !cp.deletedAt);
+    },
+    [targetProjectId]
+  ) || [];
+
+  const counterpartiesMap = useMemo(() => {
+    const map = {};
+    counterparties.forEach((cp) => {
+      map[cp.id] = cp;
+    });
+    return map;
+  }, [counterparties]);
+
   const allPayments = useLiveQuery(
     async () => {
       const [list, wList] = await Promise.all([
@@ -495,6 +632,148 @@ export function FinancialsView() {
     },
     [targetProjectId]
   ) || [];
+
+  // Date period helper for analytics & ledger
+  const isInSelectedPeriod = (dateStr) => {
+    if (!dateStr) return false;
+    const cleanDate = String(dateStr).slice(0, 10);
+    if (filterMode === 'monthly') {
+      return cleanDate.startsWith(selectedMonth);
+    }
+    if (filterMode === 'custom' && fromDate && toDate) {
+      return cleanDate >= fromDate && cleanDate <= toDate;
+    }
+    return true;
+  };
+
+  // Comprehensive Spend & Outflow Analytics (ماه جاری یا بازه انتخابی)
+  const spendData = useMemo(() => {
+    let totalWorkerOutflows = 0;
+    let workerAdvanceTotal = 0;
+    let workerSettlementTotal = 0;
+    let totalWorkshopExpenses = 0;
+    let totalInflow = 0;
+    let totalTransfers = 0;
+
+    const categoryAggregates = {};
+    const counterpartyAggregates = {};
+
+    // 1. Worker Payments (Advances + Settlements)
+    allPayments.forEach((p) => {
+      if (p.deletedAt) return;
+      const pDate = p.date || p.createdAt?.slice(0, 10);
+      if (!isInSelectedPeriod(pDate)) return;
+
+      const amt = Number(p.amount) || 0;
+      totalWorkerOutflows += amt;
+
+      const catKey = p.type === 'settlement' ? 'settlements' : 'advances';
+      const catName = p.type === 'settlement' ? c.settlementRecord : c.advancePayment;
+      const catColor = p.type === 'settlement' ? '#0ea5e9' : '#f59e0b';
+
+      if (p.type === 'settlement') workerSettlementTotal += amt;
+      else workerAdvanceTotal += amt;
+
+      if (!categoryAggregates[catKey]) {
+        categoryAggregates[catKey] = {
+          id: catKey,
+          name: catName,
+          amount: 0,
+          count: 0,
+          color: catColor,
+          isPayroll: true
+        };
+      }
+      categoryAggregates[catKey].amount += amt;
+      categoryAggregates[catKey].count += 1;
+
+      // Track worker as counterparty
+      const wName = p.workerName || workers.find((w) => String(w.id) === String(p.workerId))?.name || c.staffFallback;
+      if (!counterpartyAggregates[wName]) {
+        counterpartyAggregates[wName] = { name: wName, amount: 0, count: 0, type: 'worker' };
+      }
+      counterpartyAggregates[wName].amount += amt;
+      counterpartyAggregates[wName].count += 1;
+    });
+
+    // 2. Workshop Operational Expenses (از جدول db.expenses)
+    allExpenses.forEach((exp) => {
+      if (exp.deletedAt) return;
+      const eDate = exp.expenseDate || exp.date || exp.createdAt?.slice(0, 10);
+      if (!isInSelectedPeriod(eDate)) return;
+
+      const amt = Number(exp.amount) || 0;
+      totalWorkshopExpenses += amt;
+
+      const catObj = exp.categoryId ? categoryMap[exp.categoryId] : null;
+      const catId = exp.categoryId ? String(exp.categoryId) : 'uncategorized';
+      const catName = catObj?.name || exp.categoryName || c.workshopExpense;
+      const catColor = catObj?.color || '#8b5cf6';
+
+      if (!categoryAggregates[catId]) {
+        categoryAggregates[catId] = {
+          id: catId,
+          name: catName,
+          amount: 0,
+          count: 0,
+          color: catColor,
+          isPayroll: false
+        };
+      }
+      categoryAggregates[catId].amount += amt;
+      categoryAggregates[catId].count += 1;
+
+      // Track Counterparty (فروشنده / پیمانکار جزء / خدمات)
+      const cpName = exp.counterpartyName || counterpartiesMap[exp.counterpartyId]?.name || exp.vendorName || c.workshopExpense;
+      if (!counterpartyAggregates[cpName]) {
+        counterpartyAggregates[cpName] = { name: cpName, amount: 0, count: 0, type: 'vendor' };
+      }
+      counterpartyAggregates[cpName].amount += amt;
+      counterpartyAggregates[cpName].count += 1;
+    });
+
+    // 3. Incomes / Deposits into accounts
+    allIncomes.forEach((inc) => {
+      if (inc.deletedAt) return;
+      const incDate = inc.date || inc.createdAt?.slice(0, 10);
+      if (!isInSelectedPeriod(incDate)) return;
+      totalInflow += Number(inc.amount) || 0;
+    });
+
+    // 4. Transfers between accounts
+    allTransfers.forEach((tr) => {
+      if (tr.deletedAt) return;
+      const trDate = tr.date || tr.createdAt?.slice(0, 10);
+      if (!isInSelectedPeriod(trDate)) return;
+      totalTransfers += Number(tr.amount) || 0;
+    });
+
+    const totalOutflow = totalWorkerOutflows + totalWorkshopExpenses;
+
+    // Convert category aggregates to sorted array with percentages
+    const categoriesList = Object.values(categoryAggregates)
+      .map((cat) => ({
+        ...cat,
+        percentage: totalOutflow > 0 ? (cat.amount / totalOutflow) * 100 : 0
+      }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const counterpartiesList = Object.values(counterpartyAggregates)
+      .sort((a, b) => b.amount - a.amount);
+
+    return {
+      totalOutflow,
+      totalInflow,
+      netFlow: totalInflow - totalOutflow,
+      totalWorkerOutflows,
+      workerAdvanceTotal,
+      workerSettlementTotal,
+      totalWorkshopExpenses,
+      totalTransfers,
+      categoriesList,
+      counterpartiesList
+    };
+  }, [allPayments, allExpenses, allIncomes, allTransfers, categoryMap, counterpartiesMap, workers, filterMode, selectedMonth, fromDate, toDate, c]);
 
   // Month navigation helpers
   const handleShiftMonth = (delta) => {
@@ -573,20 +852,29 @@ export function FinancialsView() {
     }).sort((a, b) => b.netBalanceDue - a.netBalanceDue); // Sort by highest outstanding due first
   }, [workerFinancials, selectedWorkerId, workerStatusFilter, searchTerm, groupMap]);
 
-  // Unified Transactions Ledger List
+  // Unified Transactions Ledger List (پرداختی‌ها، هزینه‌های کارگاه، واریزی‌ها و انتقالات)
   const ledgerTransactions = useMemo(() => {
     const list = [];
 
-    // Payments to Workers (Advance & Settlement)
+    // 1. Payments to Workers (Advance & Settlement)
     allPayments
       .filter((p) => !p.deletedAt)
       .forEach((p) => {
+        const pDate = p.date || p.createdAt?.slice(0, 10) || '';
+        if (!isInSelectedPeriod(pDate)) return;
+
         const isSettlement = p.type === 'settlement';
+        const categoryKey = isSettlement ? 'settlements' : 'advances';
+
+        // Filter by category if set
+        if (ledgerCategoryFilter !== 'all' && ledgerCategoryFilter !== categoryKey) return;
+
         list.push({
           id: `payment_${p.id}`,
-          date: p.date || p.createdAt?.slice(0, 10) || '',
-          timestamp: new Date(p.date || p.createdAt || 0).getTime(),
-          category: isSettlement ? 'settlement' : 'advance',
+          date: pDate,
+          timestamp: new Date(pDate || 0).getTime(),
+          category: categoryKey,
+          categoryName: isSettlement ? c.settlementRecord : c.advancePayment,
           title: isSettlement ? c.settlementRecord : c.advancePayment,
           party: p.workerName || (workers.find((w) => String(w.id) === String(p.workerId))?.name) || c.staffFallback,
           amount: Number(p.amount) || 0,
@@ -598,28 +886,145 @@ export function FinancialsView() {
         });
       });
 
-    return list.sort((a, b) => b.timestamp - a.timestamp);
-  }, [allPayments, workers, accounts, t]);
+    // 2. Workshop Expenses (هزینه‌های کارگاه، متریال، فاکتورها)
+    allExpenses
+      .filter((e) => !e.deletedAt)
+      .forEach((exp) => {
+        const eDate = exp.expenseDate || exp.date || exp.createdAt?.slice(0, 10) || '';
+        if (!isInSelectedPeriod(eDate)) return;
 
-  // Export Ledger to Excel
-  const handleExportLedgerExcel = () => {
-    if (ledgerTransactions.length === 0) {
-      alert(c.noTransactionsToExport);
-      return;
+        const catId = exp.categoryId ? String(exp.categoryId) : 'uncategorized';
+        if (ledgerCategoryFilter !== 'all' && ledgerCategoryFilter !== catId) return;
+
+        const catObj = exp.categoryId ? categoryMap[exp.categoryId] : null;
+        const catName = catObj?.name || exp.categoryName || c.workshopExpense;
+        const partyName = exp.counterpartyName || counterpartiesMap[exp.counterpartyId]?.name || exp.vendorName || c.workshopExpense;
+
+        list.push({
+          id: `expense_${exp.id}`,
+          date: eDate,
+          timestamp: new Date(eDate || 0).getTime(),
+          category: catId,
+          categoryName: catName,
+          title: exp.title || exp.description || catName,
+          party: partyName,
+          amount: Number(exp.amount) || 0,
+          flow: 'out',
+          accountId: exp.accountId || null,
+          accountName: exp.accountName || (accounts.find((a) => String(a.id) === String(exp.accountId))?.name) || '',
+          notes: exp.notes || exp.description || '',
+          raw: exp
+        });
+      });
+
+    // 3. Incomes & Deposits (واریزی‌ها و شارژ تنخواه)
+    if (ledgerCategoryFilter === 'all' || ledgerCategoryFilter === 'incomes') {
+      allIncomes
+        .filter((inc) => !inc.deletedAt)
+        .forEach((inc) => {
+          const incDate = inc.date || inc.createdAt?.slice(0, 10) || '';
+          if (!isInSelectedPeriod(incDate)) return;
+
+          list.push({
+            id: `income_${inc.id}`,
+            date: incDate,
+            timestamp: new Date(incDate || 0).getTime(),
+            category: 'incomes',
+            categoryName: c.pettyCashIncome,
+            title: inc.source || inc.title || c.pettyCashIncome,
+            party: inc.payerName || inc.source || c.pettyCashIncome,
+            amount: Number(inc.amount) || 0,
+            flow: 'in',
+            accountId: inc.accountId || null,
+            accountName: inc.accountName || (accounts.find((a) => String(a.id) === String(inc.accountId))?.name) || '',
+            notes: inc.notes || inc.description || '',
+            raw: inc
+          });
+        });
     }
-    const rows = ledgerTransactions.map(tx => ({
-      [c.excelColDate]: tx.date,
-      [c.excelColTitle]: tx.title,
-      [c.excelColParty]: tx.party,
-      [c.excelColAccount]: tx.accountName || c.cashboxFallback,
-      [c.excelColAmount(currency)]: tx.amount,
-      [c.excelColNotes]: tx.notes || ''
-    }));
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+    // 4. Transfers between accounts
+    if (ledgerCategoryFilter === 'all' || ledgerCategoryFilter === 'transfers') {
+      allTransfers
+        .filter((tr) => !tr.deletedAt)
+        .forEach((tr) => {
+          const trDate = tr.date || tr.createdAt?.slice(0, 10) || '';
+          if (!isInSelectedPeriod(trDate)) return;
+
+          const fromAccName = accounts.find((a) => String(a.id) === String(tr.fromAccountId))?.name || '';
+          const toAccName = accounts.find((a) => String(a.id) === String(tr.toAccountId))?.name || '';
+
+          list.push({
+            id: `transfer_${tr.id}`,
+            date: trDate,
+            timestamp: new Date(trDate || 0).getTime(),
+            category: 'transfers',
+            categoryName: c.transferTitle,
+            title: `${fromAccName} -> ${toAccName}`,
+            party: c.transferTitle,
+            amount: Number(tr.amount) || 0,
+            flow: 'transfer',
+            accountId: tr.fromAccountId || null,
+            accountName: `${fromAccName} -> ${toAccName}`,
+            notes: tr.notes || tr.description || '',
+            raw: tr
+          });
+        });
+    }
+
+    return list.sort((a, b) => b.timestamp - a.timestamp);
+  }, [allPayments, allExpenses, allIncomes, allTransfers, categoryMap, counterpartiesMap, workers, accounts, ledgerCategoryFilter, filterMode, selectedMonth, fromDate, toDate, c]);
+
+  // Export Comprehensive Financials to Multi-Sheet Excel
+  const handleExportLedgerExcel = () => {
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Financial_Ledger');
-    XLSX.writeFile(workbook, `KarSync_Ledger_${getTodayDateString()}.xlsx`);
+
+    // Sheet 1: Spend & Cash Flow Summary
+    const summaryRows = [
+      { [c.thCategory]: c.periodTotalSpend, [c.excelColAmount(currency)]: spendData.totalOutflow },
+      { [c.thCategory]: c.periodTotalInflow, [c.excelColAmount(currency)]: spendData.totalInflow },
+      { [c.thCategory]: c.periodNetCash, [c.excelColAmount(currency)]: spendData.netFlow },
+      {},
+      { [c.thCategory]: '=== ' + c.analyticsTab + ' ===', [c.excelColAmount(currency)]: '' },
+      ...spendData.categoriesList.map((cat) => ({
+        [c.thCategory]: cat.name,
+        [c.excelColAmount(currency)]: cat.amount,
+        '%': Math.round(cat.percentage) + '%',
+        Count: cat.count
+      }))
+    ];
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    XLSX.utils.book_append_sheet(workbook, wsSummary, 'Summary_Analytics');
+
+    // Sheet 2: General Ledger Transactions
+    if (ledgerTransactions.length > 0) {
+      const ledgerRows = ledgerTransactions.map((tx) => ({
+        [c.excelColDate]: tx.date,
+        [c.thFlow]: tx.flow === 'in' ? c.flowIn : tx.flow === 'out' ? c.flowOut : c.flowTransfer,
+        [c.thCategory]: tx.categoryName || '',
+        [c.excelColTitle]: tx.title,
+        [c.excelColParty]: tx.party,
+        [c.excelColAccount]: tx.accountName || c.cashboxFallback,
+        [c.excelColAmount(currency)]: tx.amount,
+        [c.excelColNotes]: tx.notes || ''
+      }));
+      const wsLedger = XLSX.utils.json_to_sheet(ledgerRows);
+      XLSX.utils.book_append_sheet(workbook, wsLedger, 'General_Ledger');
+    }
+
+    // Sheet 3: Worker Balances & Wage Dues
+    const workerRows = displayedWorkers.map((wf) => ({
+      Worker: wf.worker.name,
+      Role: wf.worker.role || '',
+      UnsettledGross: wf.unsettledGross,
+      UnsettledAdvances: wf.unsettledAdvances,
+      NetBalanceDue: wf.netBalanceDue
+    }));
+    const wsWorkers = XLSX.utils.json_to_sheet(workerRows);
+    XLSX.utils.book_append_sheet(workbook, wsWorkers, 'Worker_Balances');
+
+    const periodLabel = filterMode === 'monthly' ? selectedMonth : `${fromDate}_${toDate}`;
+    XLSX.writeFile(workbook, `KarSync_Financial_Report_${periodLabel}.xlsx`);
   };
 
   // Quick Action Handlers
@@ -716,9 +1121,32 @@ export function FinancialsView() {
           {/* Main Financial Metrics */}
           <div className="lg:col-span-7 space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
-                <WalletCards className="w-4 h-4" />
-                <span>{c.treasuryPulse}</span>
+              {/* Dual Mode Switcher: Flow vs Treasury */}
+              <div className="inline-flex items-center p-1 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-md text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setHeroMode('flow')}
+                  className={`px-3 py-1.5 rounded-xl transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                    heroMode === 'flow'
+                      ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <TrendingDown className="w-3.5 h-3.5" />
+                  <span>{c.heroFlowTab}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHeroMode('treasury')}
+                  className={`px-3 py-1.5 rounded-xl transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                    heroMode === 'treasury'
+                      ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <Landmark className="w-3.5 h-3.5" />
+                  <span>{c.heroTreasuryTab}</span>
+                </button>
               </div>
 
               {/* Month Switcher Pill */}
@@ -756,43 +1184,85 @@ export function FinancialsView() {
               </div>
             </div>
 
-            {/* Big Headline Figure: Total Cash vs Dues */}
-            <div>
-              <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
-                <span>{formatAmount(heroMetrics.totalCashBalance, currency)}</span>
-                <span className="text-sm sm:text-base font-bold text-sky-400">{getCurrencySymbol(currency, language)}</span>
+            {/* Big Headline Figure: Depends on heroMode */}
+            {heroMode === 'flow' ? (
+              <div>
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+                  <span className="text-rose-400">{formatAmount(spendData.totalOutflow, currency)}</span>
+                  <span className="text-sm sm:text-base font-bold text-slate-300">{getCurrencySymbol(currency, language)}</span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1 flex items-center gap-2">
+                  <span>{c.periodTotalSpend}</span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                  <span className="text-rose-400 font-bold font-mono">
+                    {spendData.categoriesList.reduce((acc, cat) => acc + cat.count, 0)} {c.outflowDocsCount}
+                  </span>
+                </p>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1 flex items-center gap-2">
-                <span>{c.totalLiquidity}</span>
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span className="text-emerald-400 font-bold font-mono">{accounts.length} {c.accountsUnit}</span>
-              </p>
-            </div>
+            ) : (
+              <div>
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+                  <span>{formatAmount(heroMetrics.totalCashBalance, currency)}</span>
+                  <span className="text-sm sm:text-base font-bold text-sky-400">{getCurrencySymbol(currency, language)}</span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1 flex items-center gap-2">
+                  <span>{c.totalLiquidity}</span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span className="text-emerald-400 font-bold font-mono">{accounts.length} {c.accountsUnit}</span>
+                </p>
+              </div>
+            )}
 
             {/* Quick Metrics Badges */}
-            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
-              <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span className="text-slate-300">{c.wagesDue}</span>
-                <span className="font-black text-amber-300 font-mono">
-                  {formatAmount(heroMetrics.totalWagesDue, currency)} {getCurrencySymbol(currency, language)}
-                </span>
-              </div>
+            {heroMode === 'flow' ? (
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-slate-300">{c.periodTotalInflow}</span>
+                  <span className="font-black text-emerald-300 font-mono">
+                    {formatAmount(spendData.totalInflow, currency)} {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
 
-              <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="text-slate-300">{c.netLiquidity}</span>
-                <span className={`font-black font-mono ${heroMetrics.netLiquidity >= 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
-                  {formatAmount(heroMetrics.netLiquidity, currency)} {getCurrencySymbol(currency, language)}
-                </span>
-              </div>
+                <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-sky-400" />
+                  <span className="text-slate-300">{c.periodNetCash}</span>
+                  <span className={`font-black font-mono ${spendData.netFlow >= 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
+                    {formatAmount(spendData.netFlow, currency)} {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
 
-              <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-sky-400" />
-                <span className="text-slate-300">{c.dueCrew}</span>
-                <span className="font-black text-white">{heroMetrics.workersWithDueCount} {c.personsUnit}</span>
+                <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                  <span className="text-slate-300">{c.categoriesTitle}:</span>
+                  <span className="font-black text-white font-mono">{spendData.categoriesList.length}</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span className="text-slate-300">{c.wagesDue}</span>
+                  <span className="font-black text-amber-300 font-mono">
+                    {formatAmount(heroMetrics.totalWagesDue, currency)} {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+
+                <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-slate-300">{c.netLiquidity}</span>
+                  <span className={`font-black font-mono ${heroMetrics.netLiquidity >= 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
+                    {formatAmount(heroMetrics.netLiquidity, currency)} {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+
+                <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-sky-400" />
+                  <span className="text-slate-300">{c.dueCrew}</span>
+                  <span className="font-black text-white">{heroMetrics.workersWithDueCount} {c.personsUnit}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Quick Action Dock (4 Action Buttons) */}
@@ -846,9 +1316,14 @@ export function FinancialsView() {
       {/* ======================================================== */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap no-print">
         
-        {/* Main 3 Section Tabs (APP_THEME_BUTTON style) */}
+        {/* Main 4 Section Tabs (APP_THEME_BUTTON style) */}
         <div className="h-[52px] sm:h-[56px] inline-flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner backdrop-blur-md">
           {[
+            {
+              id: 'analytics',
+              label: c.analyticsTab,
+              icon: BarChart3
+            },
             {
               id: 'workers',
               label: c.workerBalancesTab,
@@ -932,6 +1407,27 @@ export function FinancialsView() {
         </div>
 
       </div>
+
+      {/* ======================================================== */}
+      {/* 4. SECTION 0: SPEND & OUTFLOW ANALYTICS (گزارش و آنالیز) */}
+      {/* ======================================================== */}
+      {activeSection === 'analytics' && (
+        <SpendAnalyticsSection
+          spendData={spendData}
+          currency={currency}
+          language={language}
+          filterMode={filterMode}
+          selectedMonth={selectedMonth}
+          fromDate={fromDate}
+          toDate={toDate}
+          onSelectCategory={(catId) => {
+            setLedgerCategoryFilter(catId);
+            setActiveSection('ledger');
+          }}
+          onPrintReport={() => window.print()}
+          onOpenCounterparties={() => setIsCounterpartiesModalOpen(true)}
+        />
+      )}
 
       {/* ======================================================== */}
       {/* 4. SECTION 1: WORKER FINANCIAL BALANCES (کارنامه پرسنل)  */}
@@ -1268,15 +1764,30 @@ export function FinancialsView() {
       {activeSection === 'ledger' && (
         <div className="space-y-4">
           <div className="overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 shadow-xl shadow-slate-200/50 dark:shadow-black/20">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center font-bold">
                   <Receipt className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                    {c.ledgerTitle}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                      {c.ledgerTitle}
+                    </h3>
+                    {ledgerCategoryFilter !== 'all' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                        <span>{c.activeFilterCategory(spendData.categoriesList.find(c => c.id === ledgerCategoryFilter)?.name || ledgerCategoryFilter)}</span>
+                        <button
+                          type="button"
+                          onClick={() => setLedgerCategoryFilter('all')}
+                          className="hover:text-rose-500 cursor-pointer"
+                          title={c.clearFilter}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-slate-400 font-mono">
                     {ledgerTransactions.length} {c.recordedTransactions}
                   </span>
@@ -1303,6 +1814,8 @@ export function FinancialsView() {
                   <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800 text-[11px]">
                     <tr>
                       <th className="px-4 py-3.5 text-start">{c.thDate}</th>
+                      <th className="px-4 py-3.5 text-start">{c.thFlow}</th>
+                      <th className="px-4 py-3.5 text-start">{c.thCategory}</th>
                       <th className="px-4 py-3.5 text-start">{c.thDesc}</th>
                       <th className="px-4 py-3.5 text-start">{c.thParty}</th>
                       <th className="px-4 py-3.5 text-start">{c.thAccountSource}</th>
@@ -1317,14 +1830,23 @@ export function FinancialsView() {
                           {tx.date}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold ${
-                            tx.category === 'settlement'
-                              ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20'
-                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold ${
+                            tx.flow === 'in'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : tx.flow === 'out'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
                           }`}>
-                            {tx.category === 'settlement' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Banknote className="w-3.5 h-3.5" />}
-                            <span>{tx.title}</span>
+                            {tx.flow === 'in' ? '+' : tx.flow === 'out' ? '-' : '⇄'} {tx.flow === 'in' ? c.flowIn : tx.flow === 'out' ? c.flowOut : c.flowTransfer}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {tx.categoryName || '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
+                          {tx.title}
                         </td>
                         <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">
                           {tx.party}
@@ -1332,18 +1854,22 @@ export function FinancialsView() {
                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-medium">
                           {tx.accountName || c.cashboxFallback}
                         </td>
-                        <td className="px-4 py-3 text-end font-black font-mono text-sm text-slate-900 dark:text-white">
+                        <td className={`px-4 py-3 text-end font-black font-mono text-sm ${
+                          tx.flow === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
+                        }`}>
                           {formatAmount(tx.amount, currency)}
                         </td>
                         <td className="px-4 py-3 text-center no-print">
-                          <button
-                            type="button"
-                            onClick={() => setEditingPayment(tx.raw)}
-                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                            title={c.viewAndEditTooltip}
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
+                          {tx.id.startsWith('payment_') && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingPayment(tx.raw)}
+                              className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                              title={c.viewAndEditTooltip}
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1583,6 +2109,69 @@ export function FinancialsView() {
         allWorkers={workers}
         onClose={() => setSelectedAccountForLedger(null)}
       />
+
+      {/* ======================================================== */}
+      {/* 8. PRINTABLE EXECUTIVE STATEMENT (فقط در زمان پرینت فعال است) */}
+      {/* ======================================================== */}
+      <div className="hidden print:block text-black p-6 space-y-6">
+        <div className="border-b-2 border-black pb-4 text-center">
+          <h1 className="text-xl font-bold">{c.printReportHeader}</h1>
+          <p className="text-sm mt-1 text-gray-600">
+            {c.reportPeriod} {filterMode === 'monthly' ? formatMonthOnly(selectedMonth, language) : `${fromDate} - ${toDate}`}
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {c.printDate} {getTodayDateString()}
+          </p>
+        </div>
+
+        {/* Executive Numbers */}
+        <div className="grid grid-cols-3 gap-4 text-center border p-4 rounded-lg bg-gray-50">
+          <div>
+            <div className="text-xs text-gray-500">{c.periodTotalSpend}</div>
+            <div className="text-lg font-bold font-mono">{formatAmount(spendData.totalOutflow, currency)} {getCurrencySymbol(currency, language)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">{c.periodTotalInflow}</div>
+            <div className="text-lg font-bold font-mono">{formatAmount(spendData.totalInflow, currency)} {getCurrencySymbol(currency, language)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">{c.periodNetCash}</div>
+            <div className="text-lg font-bold font-mono">{formatAmount(spendData.netFlow, currency)} {getCurrencySymbol(currency, language)}</div>
+          </div>
+        </div>
+
+        {/* Category Breakdown Table */}
+        <div>
+          <h3 className="font-bold text-sm mb-2">{c.categoriesTitle}</h3>
+          <table className="w-full text-right border text-xs">
+            <thead>
+              <tr className="bg-gray-100 border-b">
+                <th className="p-2 border-l">{c.thCategory}</th>
+                <th className="p-2 border-l">{c.documentsCount}</th>
+                <th className="p-2 border-l">{c.sharePercent}</th>
+                <th className="p-2 text-left">{c.amountTitle} ({getCurrencySymbol(currency, language)})</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spendData.categoriesList.map((cat) => (
+                <tr key={cat.id} className="border-b">
+                  <td className="p-2 border-l font-bold">{cat.name}</td>
+                  <td className="p-2 border-l">{cat.count}</td>
+                  <td className="p-2 border-l">{Math.round(cat.percentage)}%</td>
+                  <td className="p-2 text-left font-mono font-bold">{formatAmount(cat.amount, currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Signatures Dock */}
+        <div className="grid grid-cols-3 gap-6 pt-16 text-center text-xs">
+          <div className="border-t border-gray-400 pt-2 font-bold">{c.accountantSign}</div>
+          <div className="border-t border-gray-400 pt-2 font-bold">{c.projectManagerSign}</div>
+          <div className="border-t border-gray-400 pt-2 font-bold">{c.employerSign}</div>
+        </div>
+      </div>
 
     </div>
   );
