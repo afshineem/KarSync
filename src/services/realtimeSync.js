@@ -1156,24 +1156,26 @@ function subscribeToRealtime() {
         if (exp.deleted_at) {
           await db.expenses.delete(exp.id);
         } else {
+          const localE = await db.expenses.get(exp.id);
           await db.expenses.put({
+            ...(localE || {}),
             id: exp.id,
-            projectId: exp.project_id,
-            userId: exp.user_id,
-            sectionId: exp.section_id,
-            categoryId: exp.category_id,
-            personId: exp.person_id,
-            personName: exp.person_name,
+            projectId: exp.project_id || localE?.projectId,
+            userId: exp.user_id || localE?.userId,
+            sectionId: exp.section_id ?? localE?.sectionId ?? null,
+            categoryId: exp.category_id ?? localE?.categoryId ?? null,
+            personId: exp.person_id ?? localE?.personId ?? null,
+            personName: exp.person_name ?? localE?.personName ?? '',
             title: exp.title,
             amount: Number(exp.amount) || 0,
-            currency: exp.currency || 'IQD',
-            paymentStatus: exp.payment_status || 'paid',
-            paymentMethod: exp.payment_method || 'cash',
-            receiptUrl: exp.receipt_url,
-            description: exp.description,
-            expenseDate: exp.expense_date,
-            createdAt: exp.created_at,
-            updatedAt: exp.updated_at
+            currency: exp.currency || localE?.currency || 'IQD',
+            paymentStatus: exp.payment_status || localE?.paymentStatus || 'paid',
+            paymentMethod: exp.payment_method || localE?.paymentMethod || 'cash',
+            receiptUrl: exp.receipt_url ?? localE?.receiptUrl ?? null,
+            description: exp.description ?? localE?.description ?? '',
+            expenseDate: exp.expense_date || localE?.expenseDate,
+            createdAt: exp.created_at || localE?.createdAt,
+            updatedAt: exp.updated_at || localE?.updatedAt
           });
         }
       }
@@ -2685,6 +2687,13 @@ export async function pullPaymentsLive(force = false) {
         await db.transaction('rw', db.payments, async () => {
           for (const p of validCloudPayments) {
             const localP = await db.payments.get(p.id);
+            if (localP && localP.updatedAt && (p.updatedAt || p.updated_at)) {
+              const localTime = new Date(localP.updatedAt).getTime();
+              const cloudTime = new Date(p.updatedAt || p.updated_at).getTime();
+              if (localTime > cloudTime) {
+                continue;
+              }
+            }
             await db.payments.put({
               ...(localP || {}),
               ...p,
@@ -2900,27 +2909,31 @@ export async function pullExpensesLive(force = false) {
         const cloudMap = new Map();
         for (const ce of cloudExpenses) cloudMap.set(ce.id, ce);
         for (const te of tblData) {
+          const prev = cloudMap.get(te.id) || {};
           cloudMap.set(te.id, {
+            ...prev,
             id: te.id,
-            projectId: te.project_id,
-            userId: te.user_id,
-            sectionId: te.section_id,
-            categoryId: te.category_id,
-            personId: te.person_id,
-            personName: te.person_name,
-            title: te.title,
-            amount: Number(te.amount) || 0,
-            currency: te.currency || 'IQD',
-            paymentStatus: te.payment_status || 'paid',
-            paymentMethod: te.payment_method || 'cash',
-            receiptUrl: te.receipt_url,
-            description: te.description,
-            expenseDate: te.expense_date,
-            deletedAt: te.deleted_at || null,
-            isArchived: Boolean(te.is_archived),
-            archivedAt: te.archived_at || null,
-            createdAt: te.created_at,
-            updatedAt: te.updated_at
+            projectId: te.project_id || prev.projectId,
+            userId: te.user_id || prev.userId,
+            sectionId: te.section_id ?? prev.sectionId ?? null,
+            categoryId: te.category_id ?? prev.categoryId ?? null,
+            personId: te.person_id ?? prev.personId ?? null,
+            personName: te.person_name ?? prev.personName ?? '',
+            title: te.title || prev.title,
+            amount: Number(te.amount ?? prev.amount) || 0,
+            currency: te.currency || prev.currency || 'IQD',
+            paymentStatus: te.payment_status || prev.paymentStatus || 'paid',
+            paymentMethod: te.payment_method || prev.paymentMethod || 'cash',
+            receiptUrl: te.receipt_url ?? prev.receiptUrl ?? null,
+            description: te.description ?? prev.description ?? '',
+            expenseDate: te.expense_date || prev.expenseDate,
+            deletedAt: te.deleted_at || prev.deletedAt || null,
+            isArchived: Boolean(te.is_archived ?? prev.isArchived),
+            archivedAt: te.archived_at || prev.archivedAt || null,
+            createdAt: te.created_at || prev.createdAt,
+            updatedAt: prev.updatedAt && te.updated_at && new Date(prev.updatedAt) > new Date(te.updated_at)
+              ? prev.updatedAt
+              : (te.updated_at || prev.updatedAt)
           });
         }
         cloudExpenses = Array.from(cloudMap.values());

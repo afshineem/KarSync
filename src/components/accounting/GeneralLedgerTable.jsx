@@ -759,7 +759,7 @@ export function GeneralLedgerTable({
             type="button"
             onClick={() => setIsFilterOpen(!isFilterOpen)}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
-              isFilterOpen || (dateFilterMode !== 'all' && dateFilterMode !== 'month') || categoryFilter !== 'all' || accountTypeFilter !== 'all'
+              isFilterOpen || dateFilterMode !== 'all' || categoryFilter !== 'all' || accountTypeFilter !== 'all'
                 ? 'bg-sky-50 dark:bg-sky-950/60 border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 shadow-2xs'
                 : 'border border-transparent text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
             }`}
@@ -940,7 +940,7 @@ export function GeneralLedgerTable({
       )}
 
       {/* پنل فیلترها و جستجو */}
-      {(isFilterOpen || (dateFilterMode !== 'all' && dateFilterMode !== 'month') || categoryFilter !== 'all' || accountTypeFilter !== 'all') && (
+      {(isFilterOpen || dateFilterMode !== 'all' || categoryFilter !== 'all' || accountTypeFilter !== 'all') && (
         <div className="p-4 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs animate-in slide-in-from-top-2 duration-150">
           {/* فیلتر زمانی */}
           <div>

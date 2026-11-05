@@ -11,6 +11,7 @@ import {
 } from '../db/db';
 import { 
   pushExpenseLive, 
+  pushAllExpensesToCloud,
   pushPaymentsLive, 
   pushLogsLive,
   pushAccountTransferLive,
@@ -106,6 +107,7 @@ export function useTwoStageApproval() {
     try {
       await Promise.allSettled([
         pushPaymentsLive(),
+        pushAllExpensesToCloud(),
         pushAllAccountTransfersToCloud(),
         pushAllTreasuryIncomesToCloud()
       ]);

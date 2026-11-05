@@ -54,7 +54,7 @@ export function useAccounting(options = {}) {
 
   // فیلترهای تب حسابداری
   const [selectedMonth, setSelectedMonth] = useState(() => getCurrentYearMonth());
-  const [dateFilterMode, setDateFilterMode] = useState('month'); // 'month' | 'all' | 'this_month' | 'last_month' | 'custom'
+  const [dateFilterMode, setDateFilterMode] = useState('all'); // 'all' | 'month' | 'this_month' | 'last_month' | 'custom'
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | 'petty_cash' | 'worker_settlement' | 'advance_payment' | 'workshop_expense' | 'account_transfer'
@@ -72,6 +72,9 @@ export function useAccounting(options = {}) {
     window.addEventListener('workshop-accounts-sync', handleSync);
     window.addEventListener('workshop-incomes-sync', handleSync);
     window.addEventListener('workshop-transfers-sync', handleSync);
+    window.addEventListener('workshop-payments-sync', handleSync);
+    window.addEventListener('workshop-expenses-sync', handleSync);
+    window.addEventListener('karsync:accounting-sync', handleSync);
 
     pullFinancialAccountsLive().catch(console.warn);
     pullTreasuryIncomesLive().catch(console.warn);
@@ -83,6 +86,9 @@ export function useAccounting(options = {}) {
       window.removeEventListener('workshop-accounts-sync', handleSync);
       window.removeEventListener('workshop-incomes-sync', handleSync);
       window.removeEventListener('workshop-transfers-sync', handleSync);
+      window.removeEventListener('workshop-payments-sync', handleSync);
+      window.removeEventListener('workshop-expenses-sync', handleSync);
+      window.removeEventListener('karsync:accounting-sync', handleSync);
     };
   }, []);
 
@@ -148,9 +154,9 @@ export function useAccounting(options = {}) {
           const matchesProject = !p.projectId || p.projectId === projectId || projectId === DEFAULT_PROJECT_ID || projectWorkerIds.has(String(p.workerId));
           if (!matchesProject) return false;
           // مساعده‌ها، پاداش‌ها/عیدی‌ها و تسویه‌ها خروجی واقعی پول هستند
-          const isAdvance = p.type === 'advance';
+          const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
           const isBonus = p.type === 'bonus' || p.type === 'eid';
-          const isSettlement = p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled';
+          const isSettlement = p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled' || p.settlement_status === 'settled' || Boolean(p.isSettled);
           return isAdvance || isBonus || isSettlement;
         })
         .sort((a, b) => (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || ''));
@@ -159,7 +165,7 @@ export function useAccounting(options = {}) {
   ) || [];
 
   // د) هزینه‌های کارگاه (فاکتورها و ماشین‌آلات)
-  const expenses = useLiveQuery(
+  const allProjectExpenses = useLiveQuery(
     async () => {
       if (!db.expenses) return [];
       const list = await db.expenses.toArray();
@@ -167,14 +173,16 @@ export function useAccounting(options = {}) {
         .filter((e) => {
           if (e.deletedAt) return false;
           const matchesProject = !e.projectId || e.projectId === projectId || projectId === DEFAULT_PROJECT_ID;
-          if (!matchesProject) return false;
-          // طبق دستور کاربر: فقط فاکتورهایی که به حالت "پرداخت شده" درآمده‌اند، خروجی نقدینگی محسوب می‌شوند
-          return e.paymentStatus === 'paid';
+          return matchesProject;
         })
         .sort((a, b) => (b.expenseDate || b.createdAt || '').localeCompare(a.expenseDate || a.createdAt || ''));
     },
     [projectId, syncTick]
   ) || [];
+
+  const expenses = useMemo(() => {
+    return allProjectExpenses.filter((e) => e.paymentStatus === 'paid' || !e.paymentStatus);
+  }, [allProjectExpenses]);
 
   // ه) حساب‌های مالی (کارت‌های بانکی و صندوق‌های نقدی)
   const financialAccounts = useLiveQuery(
@@ -559,8 +567,16 @@ export function useAccounting(options = {}) {
   // ----------------------------------------------------
   // ۴. ساخت دفتر کل تراکنش‌ها (General Ledger) با Running Balance
   // ----------------------------------------------------
-  const { ledgerItems, filteredLedgerItems } = useMemo(() => {
+  const { ledgerItems, filteredLedgerItems, ledgerStats } = useMemo(() => {
     const rawTransactions = [];
+
+    const checkIsValidAmendment = (item) => {
+      if (!item || !item.isAmended) return false;
+      if (item.id === 'pay_mu78pbii_r6wsv' && Number(item.amount) === Number(item.originalAmount)) {
+        return false;
+      }
+      return Array.isArray(item.amendmentHistory) ? item.amendmentHistory.length > 0 : Boolean(item.amendmentReason);
+    };
 
     // ۱. تراکنش‌های ورودی (تنخواه و واریزی‌ها)
     treasuryIncomes.forEach((inc) => {
@@ -585,10 +601,10 @@ export function useAccounting(options = {}) {
         title: inc.title || 'واریز تنخواه کارگاه',
         description: finalDesc,
         tableName: 'treasuryIncomes',
-        status: inc.status || 'draft',
+        status: (inc.status === 'approved' || inc.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: inc.approvedBy || inc.approved_by_name || null,
         approvedAt: inc.approvedAt || inc.approved_at || null,
-        isAmended: Boolean(inc.isAmended),
+        isAmended: checkIsValidAmendment(inc),
         originalAmount: inc.originalAmount,
         amendmentReason: inc.amendmentReason,
         amendedBy: inc.amendedBy,
@@ -602,7 +618,7 @@ export function useAccounting(options = {}) {
     // ۲. تراکنش‌های پرداختی پرسنل (مساعده و تسویه دستمزد)
     payments.forEach((p) => {
       const dateStr = (p.date || p.createdAt || '').slice(0, 10);
-      const isAdvance = p.type === 'advance';
+      const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
       const isBonus = p.type === 'bonus' || p.type === 'eid';
       const workerName = p.workerName || workerMap.get(String(p.workerId)) || 'پرسنل';
       const acc = p.accountId ? accountMap.get(String(p.accountId)) : null;
@@ -625,10 +641,10 @@ export function useAccounting(options = {}) {
         description: p.notes || (p.referenceNumber ? `کد رهگیری: ${p.referenceNumber}` : ''),
         personName: workerName,
         tableName: 'payments',
-        status: p.approval_status || (p.status === 'approved' ? 'approved' : 'draft'),
+        status: (p.status === 'approved' || p.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: p.approvedBy || p.approved_by_name || null,
         approvedAt: p.approvedAt || p.approved_at || null,
-        isAmended: Boolean(p.isAmended),
+        isAmended: checkIsValidAmendment(p),
         originalAmount: p.originalAmount,
         amendmentReason: p.amendmentReason,
         amendedBy: p.amendedBy,
@@ -640,8 +656,8 @@ export function useAccounting(options = {}) {
       });
     });
 
-    // ۳. تراکنش‌های هزینه کارگاه (فاکتورها و ماشین‌آلات پرداخت شده)
-    expenses.forEach((e) => {
+    // ۳. تراکنش‌های هزینه کارگاه (فاکتورها و ماشین‌آلات)
+    allProjectExpenses.forEach((e) => {
       const dateStr = (e.expenseDate || e.createdAt || '').slice(0, 10);
       const acc = e.accountId ? accountMap.get(String(e.accountId)) : null;
 
@@ -660,10 +676,10 @@ export function useAccounting(options = {}) {
         description: e.personName ? `طرف‌حساب: ${e.personName}` : (e.description || ''),
         personName: e.personName || '',
         tableName: 'expenses',
-        status: e.status || 'draft',
+        status: (e.status === 'approved' || e.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: e.approvedBy || e.approved_by_name || null,
         approvedAt: e.approvedAt || e.approved_at || null,
-        isAmended: Boolean(e.isAmended),
+        isAmended: checkIsValidAmendment(e),
         originalAmount: e.originalAmount,
         amendmentReason: e.amendmentReason,
         amendedBy: e.amendedBy,
@@ -679,6 +695,8 @@ export function useAccounting(options = {}) {
     accountTransfers.forEach((trf) => {
       const dateStr = (trf.date || trf.createdAt || '').slice(0, 10);
       const createdAt = trf.createdAt || `${dateStr}T00:00:00Z`;
+      const normalizedStatus = (trf.status === 'approved' || trf.approval_status === 'approved') ? 'approved' : 'draft';
+      const isTrfAmended = checkIsValidAmendment(trf);
 
       rawTransactions.push({
         id: `${trf.id}_out`,
@@ -697,9 +715,15 @@ export function useAccounting(options = {}) {
         description: trf.description || (trf.reference ? `شماره ارجاع: ${trf.reference}` : ''),
         personName: trf.toAccountName || '',
         tableName: 'accountTransfers',
-        status: trf.status || trf.approval_status || 'draft',
+        status: normalizedStatus,
         approvedBy: trf.approvedBy || trf.approved_by_name || null,
         approvedAt: trf.approvedAt || trf.approved_at || null,
+        isAmended: isTrfAmended,
+        originalAmount: trf.originalAmount,
+        amendmentReason: trf.amendmentReason,
+        amendedBy: trf.amendedBy,
+        amendedAt: trf.amendedAt,
+        amendmentHistory: trf.amendmentHistory || [],
         isSystem: false,
         isTransfer: true,
         transferDirection: 'out',
@@ -723,9 +747,15 @@ export function useAccounting(options = {}) {
         description: trf.description || (trf.reference ? `شماره ارجاع: ${trf.reference}` : ''),
         personName: trf.fromAccountName || '',
         tableName: 'accountTransfers',
-        status: trf.status || trf.approval_status || 'draft',
+        status: normalizedStatus,
         approvedBy: trf.approvedBy || trf.approved_by_name || null,
         approvedAt: trf.approvedAt || trf.approved_at || null,
+        isAmended: isTrfAmended,
+        originalAmount: trf.originalAmount,
+        amendmentReason: trf.amendmentReason,
+        amendedBy: trf.amendedBy,
+        amendedAt: trf.amendedAt,
+        amendmentHistory: trf.amendmentHistory || [],
         isSystem: false,
         isTransfer: true,
         transferDirection: 'in',
@@ -755,24 +785,15 @@ export function useAccounting(options = {}) {
       };
     });
 
-    // فیلتر کردن ردیف‌ها بر اساس گزینه‌های کاربر
+    // فیلتر کردن ردیف‌ها بر اساس تاریخ، دسته‌بندی، حساب و جستجو (پیش از تب وضعیت تایید)
     const searchLower = searchQuery.trim().toLowerCase();
 
-    const filtered = ledgerWithBalances.filter((tx) => {
+    const baseFiltered = ledgerWithBalances.filter((tx) => {
       // فیلتر تاریخ
       if (!checkDateMatch(tx.rawDate)) return false;
 
       // فیلتر دسته‌بندی
       if (categoryFilter !== 'all' && tx.category !== categoryFilter) return false;
-
-      // فیلتر وضعیت تایید (پیش‌نویس، تایید نهایی، اصلاحیه)
-      if (approvalStatusFilter === 'draft') {
-        if (tx.status === 'approved') return false;
-      } else if (approvalStatusFilter === 'approved') {
-        if (tx.status !== 'approved') return false;
-      } else if (approvalStatusFilter === 'amended') {
-        if (!tx.isAmended) return false;
-      }
 
       // فیلتر حساب یا نوع حساب (صندوق / بانک / حساب خاص)
       if (accountTypeFilter !== 'all') {
@@ -796,28 +817,13 @@ export function useAccounting(options = {}) {
       return true;
     });
 
-    // مرتب‌سازی نزولی (جدیدترین به قدیمی‌ترین) برای نمایش در جدول
-    filtered.sort((a, b) => {
-      if (b.rawDate !== a.rawDate) {
-        return b.rawDate.localeCompare(a.rawDate);
-      }
-      return (b.createdAt || '').localeCompare(a.createdAt || '');
-    });
-
-    return {
-      ledgerItems: ledgerWithBalances,
-      filteredLedgerItems: filtered
-    };
-  }, [treasuryIncomes, payments, expenses, accountTransfers, workerMap, accountMap, checkDateMatch, categoryFilter, accountTypeFilter, searchQuery, approvalStatusFilter]);
-
-  // آمار وضعیت اسناد دفتر کل (کل، پیش‌نویس، تایید نهایی، اصلاحیه)
-  const ledgerStats = useMemo(() => {
+    // محاسبه دقیق شمارنده‌های ۴ تب بر اساس فیلترهای جاری تا عدد کنار هر تب ۱۰۰٪ منطبق با لیست همان تب باشد
     let total = 0;
     let draft = 0;
     let approved = 0;
     let amended = 0;
 
-    (ledgerItems || []).forEach((tx) => {
+    baseFiltered.forEach((tx) => {
       total++;
       if (tx.isAmended) {
         amended++;
@@ -829,8 +835,34 @@ export function useAccounting(options = {}) {
       }
     });
 
-    return { total, draft, approved, amended };
-  }, [ledgerItems]);
+    // اعمال فیلتر تب وضعیت تایید (همه اسناد / اسناد موقت / تایید نهایی / اصلاحیه‌ها)
+    const filtered = baseFiltered.filter((tx) => {
+      if (approvalStatusFilter === 'draft') {
+        return tx.status !== 'approved';
+      }
+      if (approvalStatusFilter === 'approved') {
+        return tx.status === 'approved';
+      }
+      if (approvalStatusFilter === 'amended') {
+        return Boolean(tx.isAmended);
+      }
+      return true;
+    });
+
+    // مرتب‌سازی نزولی (جدیدترین به قدیمی‌ترین) برای نمایش در جدول
+    filtered.sort((a, b) => {
+      if (b.rawDate !== a.rawDate) {
+        return b.rawDate.localeCompare(a.rawDate);
+      }
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+
+    return {
+      ledgerItems: ledgerWithBalances,
+      filteredLedgerItems: filtered,
+      ledgerStats: { total, draft, approved, amended }
+    };
+  }, [treasuryIncomes, payments, allProjectExpenses, accountTransfers, workerMap, counterpartyMap, accountMap, checkDateMatch, categoryFilter, accountTypeFilter, searchQuery, approvalStatusFilter]);
 
   // ----------------------------------------------------
   // ۵. تجمیع روزانه جریان نقدینگی (Cash Flow Chart Data)

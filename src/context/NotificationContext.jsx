@@ -828,9 +828,19 @@ export function NotificationProvider({ children }) {
     // RULE S2: Pending Approvals in Multi-User Workspace
     // ---------------------------------------------------------
     if (settings.pendingApprovalAlert && canManageSettlement) {
-      const pendingExpenses = expenses.filter((e) => e.status === 'draft' || e.status === 'pending_approval').length;
-      const pendingPayments = payments.filter((p) => p.approval_status === 'pending' || p.status === 'draft').length;
-      const totalPending = pendingExpenses + pendingPayments;
+      const isApprovedDoc = (rec) => rec?.status === 'approved' || rec?.approval_status === 'approved';
+      const pendingExpenses = expenses.filter((e) => !e.deletedAt && e.status !== 'deleted' && !isApprovedDoc(e)).length;
+      const pendingPayments = payments.filter((p) => {
+        if (p.deletedAt || p.status === 'deleted') return false;
+        const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
+        const isBonus = p.type === 'bonus' || p.type === 'eid';
+        const isSettlement = p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled' || p.settlement_status === 'settled' || Boolean(p.isSettled);
+        if (!isAdvance && !isBonus && !isSettlement) return false;
+        return !isApprovedDoc(p);
+      }).length;
+      const pendingIncomes = (dbSnapshot.treasuryIncomes || []).filter((inc) => !inc.deletedAt && inc.status !== 'deleted' && !isApprovedDoc(inc)).length;
+      const pendingTransfers = (dbSnapshot.accountTransfers || []).filter((trf) => !trf.deletedAt && trf.status !== 'deleted' && !isApprovedDoc(trf)).length;
+      const totalPending = pendingExpenses + pendingPayments + pendingIncomes + pendingTransfers;
 
       if (totalPending > 0) {
         const dedupKey = `pending_approvals_${projectId}_${totalPending}`;

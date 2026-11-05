@@ -1232,37 +1232,23 @@ export function assertRecordMutable(record) {
 }
 
 /**
- * پاکسازی اسناد انتقال بانک به بانک ایجاد شده قبلی از پایگاه داده محلی و ابری طبق درخواست کاربر
+ * پاکسازی 플래گ اصلاحیه آزمایشی قدیمی که مبلغ آن تغییر نکرده بود
  */
 export async function purgeBankToBankTransfers() {
   try {
-    if (!db.accountTransfers) return;
-    const allTransfers = await db.accountTransfers.toArray();
-    if (!allTransfers || allTransfers.length === 0) return;
-
-    // شناسایی ۲ سند انتقال بانک به بانک ایجاد شده پیش از اصلاحیه
-    const toDelete = allTransfers.filter((trf) => {
-      const isBankToBank = (trf.fromAccountType === 'bank' && trf.toAccountType === 'bank');
-      const isLegacyAutoApproved = (trf.status === 'approved' && (trf.approved_by === 'admin' || !trf.approvedBy || trf.approvedBy === 'مدیر سیستم'));
-      return isBankToBank || isLegacyAutoApproved;
-    });
-
-    if (toDelete.length > 0) {
-      for (const item of toDelete) {
-        await db.accountTransfers.delete(item.id);
-      }
-      try {
-        const { deleteAccountTransferLive } = await import('../services/realtimeSync');
-        for (const item of toDelete) {
-          await deleteAccountTransferLive(item.id);
-        }
-      } catch (cloudErr) {
-        console.warn('Realtime cloud sync for purged transfers deferred:', cloudErr);
-      }
-      console.log(`✅ [KarSync DB] Successfully purged ${toDelete.length} bank-to-bank transfer documents.`);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('workshop-transfers-sync'));
-        window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
+    if (db.payments) {
+      const legacyAmended = await db.payments.get('pay_mu78pbii_r6wsv');
+      if (legacyAmended && legacyAmended.isAmended && Number(legacyAmended.amount) === Number(legacyAmended.originalAmount)) {
+        const cleaned = { ...legacyAmended };
+        delete cleaned.isAmended;
+        delete cleaned.originalAmount;
+        delete cleaned.previousAmount;
+        delete cleaned.amendmentReason;
+        delete cleaned.amendedBy;
+        delete cleaned.amended_by;
+        delete cleaned.amendedAt;
+        delete cleaned.amendmentHistory;
+        await db.payments.put(cleaned);
       }
     }
   } catch (err) {
