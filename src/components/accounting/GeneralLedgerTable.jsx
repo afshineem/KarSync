@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { formatCurrency, formatAmount, formatNumber, normalizeDigits, formatMonthOnly } from '../../utils/formatters';
+import { formatCurrency, formatAmount, formatNumber, normalizeDigits, formatMonthOnly, getCurrencySymbol } from '../../utils/formatters';
 import * as XLSX from 'xlsx';
 import { 
   Table as TableIcon, 
@@ -187,6 +187,8 @@ const COPY = {
     monthDraftBadge: (cnt) => `${cnt} منتظر تایید`,
     showMoreInMonth: (rem, total) => `نمایش ${rem} سند دیگر این ماه (مشاهده همه ${total} سند)`,
     showLessInMonth: 'بستن و نمایش ۱۲ سند اول',
+    currencyNoteBadge: (unit) => `واحد مبالغ: ${unit}`,
+    currencyFooterNote: (unit) => `تمامی اعداد، مبالغ و مانده حساب‌های این جدول بر حسب «${unit}» می‌باشند.`,
     excelHeaders: {
       row: 'ردیف',
       date: 'تاریخ',
@@ -349,6 +351,8 @@ const COPY = {
     monthDraftBadge: (cnt) => `${cnt} چاوەڕێی پەسەند`,
     showMoreInMonth: (rem, total) => `پیشاندانی ${rem} بەڵگەنامەی تر (هەموو ${total})`,
     showLessInMonth: 'پیشاندانی کورتکراوە (١٢ بەڵگەنامە)',
+    currencyNoteBadge: (unit) => `دراو: ${unit}`,
+    currencyFooterNote: (unit) => `هەموو ژمارە، بڕە پارە و باڵانسەکانی ئەم خشتەیە بەپێی «${unit}» هەژمار کراون.`,
     excelHeaders: {
       row: 'ڕیز',
       date: 'بەروار',
@@ -511,6 +515,8 @@ const COPY = {
     monthDraftBadge: (cnt) => `${cnt} pending`,
     showMoreInMonth: (rem, total) => `Show ${rem} more in this month (All ${total})`,
     showLessInMonth: 'Show less (First 12)',
+    currencyNoteBadge: (unit) => `Amounts in: ${unit}`,
+    currencyFooterNote: (unit) => `All figures, transaction amounts, and running balances in this table are denominated in ${unit}.`,
     excelHeaders: {
       row: 'Row',
       date: 'Date',
@@ -873,12 +879,16 @@ export function GeneralLedgerTable({
             <TableIcon className="w-5 h-5 stroke-[2.2]" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-black text-slate-900 dark:text-white">
                 {txt.title}
               </h2>
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
                 {txt.txCount(ledgerItems.length)}
+              </span>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/70 inline-flex items-center gap-1">
+                <Coins className="w-3 h-3 text-amber-500" />
+                <span>{txt.currencyNoteBadge(getCurrencySymbol(currency, language))}</span>
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1335,13 +1345,13 @@ export function GeneralLedgerTable({
                             {group.inflowTotal > 0 && (
                               <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                                 <span className="font-sans text-[10px] text-slate-400 me-1">{txt.monthInflowLabel}</span>
-                                +{formatCurrency(group.inflowTotal, currency, language)}
+                                +{formatAmount(group.inflowTotal, currency)}
                               </span>
                             )}
                             {group.outflowTotal > 0 && (
                               <span className="text-rose-600 dark:text-rose-400 font-bold">
                                 <span className="font-sans text-[10px] text-slate-400 me-1">{txt.monthOutflowLabel}</span>
-                                -{formatCurrency(group.outflowTotal, currency, language)}
+                                -{formatAmount(group.outflowTotal, currency)}
                               </span>
                             )}
                           </div>
@@ -1390,8 +1400,10 @@ export function GeneralLedgerTable({
                           key={tx.id + '_' + idx}
                           className={`transition-colors ${
                             isSelected
-                              ? 'bg-emerald-50/70 dark:bg-emerald-950/30'
-                              : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/30'
+                              ? 'bg-emerald-50/80 dark:bg-emerald-950/35'
+                              : idx % 2 === 1
+                              ? 'bg-slate-100/70 dark:bg-slate-800/45 hover:bg-sky-50/60 dark:hover:bg-slate-800/75'
+                              : 'bg-white dark:bg-slate-900 hover:bg-sky-50/60 dark:hover:bg-slate-800/75'
                           }`}
                         >
                           {/* ۱. چک‌باکس انتخاب یا شماره ردیف */}
@@ -1459,7 +1471,7 @@ export function GeneralLedgerTable({
                             )}
                           </td>
 
-                          {/* ۴. مبلغ سند همراه با آیکون جهت جریان */}
+                          {/* ۴. مبلغ سند همراه با آیکون جهت جریان (بدون تکرار نام واحد پول) */}
                           <td className={`py-2 px-3 whitespace-nowrap font-mono font-bold ${
                             isInflow ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                           }`}>
@@ -1469,20 +1481,20 @@ export function GeneralLedgerTable({
                               ) : (
                                 <ArrowUpRight className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                               )}
-                              <span>{isInflow ? '+' : '-'}{formatCurrency(tx.amount, currency, language)}</span>
+                              <span>{isInflow ? '+' : '-'}{formatAmount(tx.amount, currency)}</span>
                               {tx.isAmended && tx.originalAmount !== undefined && (
                                 <span className="text-[10px] text-slate-400 line-through ms-1">
-                                  {formatCurrency(tx.originalAmount, currency, language)}
+                                  {formatAmount(tx.originalAmount, currency)}
                                 </span>
                               )}
                             </div>
                           </td>
 
-                          {/* ۵. مانده حساب پس از تراکنش */}
+                          {/* ۵. مانده حساب پس از تراکنش (بدون تکرار نام واحد پول) */}
                           <td className={`py-2 px-3 whitespace-nowrap font-mono font-bold hidden md:table-cell ${
                             isPositiveBalance ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400'
                           }`}>
-                            {formatCurrency(tx.runningBalance, currency, language)}
+                            {formatAmount(tx.runningBalance, currency)}
                           </td>
 
                           {/* ۶. وضعیت تک‌خطی + دکمه‌های عملیات فشرده */}
@@ -1587,6 +1599,19 @@ export function GeneralLedgerTable({
           </table>
         )}
       </div>
+
+      {/* پانویس راهنمای واحد پولی در پایین جدول */}
+      {ledgerItems.length > 0 && (
+        <div className="px-4 sm:px-5 py-2.5 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-1.5">
+            <Info className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+            <span>{txt.currencyFooterNote(getCurrencySymbol(currency, language))}</span>
+          </div>
+          <span className="font-mono font-bold text-slate-600 dark:text-slate-300">
+            {currency} ({getCurrencySymbol(currency, language)})
+          </span>
+        </div>
+      )}
 
       {/* مودال صدور اصلاحیه سند تایید نهایی شده */}
       {amendmentModalTx && (
