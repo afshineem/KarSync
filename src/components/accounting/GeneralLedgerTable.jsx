@@ -5,6 +5,7 @@ import {
   Table as TableIcon, 
   ArrowDownLeft, 
   ArrowUpRight, 
+  ArrowUpDown,
   Filter, 
   Search, 
   Download, 
@@ -28,7 +29,12 @@ import {
   ChevronUp,
   Layers,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  Receipt,
+  List,
+  FolderKanban,
+  RotateCcw
 } from 'lucide-react';
 import { VerificationBadge } from '../common/VerificationBadge';
 import { useTwoStageApproval } from '../../hooks/useTwoStageApproval';
@@ -189,6 +195,11 @@ const COPY = {
     showLessInMonth: 'بستن و نمایش ۱۲ سند اول',
     currencyNoteBadge: (unit) => `واحد مبالغ: ${unit}`,
     currencyFooterNote: (unit) => `تمامی اعداد، مبالغ و مانده حساب‌های این جدول بر حسب «${unit}» می‌باشند.`,
+    viewGrouped: 'گروه‌بندی ماهانه',
+    viewFlat: 'نمای کلی (بدون دسته‌بندی)',
+    sortNewestFirst: 'جدید به قدیم',
+    sortOldestFirst: 'قدیم به جدید',
+    resetFilters: 'پاک‌سازی فیلترها',
     excelHeaders: {
       row: 'ردیف',
       date: 'تاریخ',
@@ -353,6 +364,11 @@ const COPY = {
     showLessInMonth: 'پیشاندانی کورتکراوە (١٢ بەڵگەنامە)',
     currencyNoteBadge: (unit) => `دراو: ${unit}`,
     currencyFooterNote: (unit) => `هەموو ژمارە، بڕە پارە و باڵانسەکانی ئەم خشتەیە بەپێی «${unit}» هەژمار کراون.`,
+    viewGrouped: 'پۆلێنی مانگانە',
+    viewFlat: 'لیستی گشتی (بێ پۆلێن)',
+    sortNewestFirst: 'نوێ بۆ کۆن',
+    sortOldestFirst: 'کۆن بۆ نوێ',
+    resetFilters: 'پاککردنەوەی فلتەر',
     excelHeaders: {
       row: 'ڕیز',
       date: 'بەروار',
@@ -517,6 +533,11 @@ const COPY = {
     showLessInMonth: 'Show less (First 12)',
     currencyNoteBadge: (unit) => `Amounts in: ${unit}`,
     currencyFooterNote: (unit) => `All figures, transaction amounts, and running balances in this table are denominated in ${unit}.`,
+    viewGrouped: 'Monthly Grouped',
+    viewFlat: 'Flat List (Ungrouped)',
+    sortNewestFirst: 'Newest First',
+    sortOldestFirst: 'Oldest First',
+    resetFilters: 'Reset Filters',
     excelHeaders: {
       row: 'Row',
       date: 'Date',
@@ -583,13 +604,35 @@ export function GeneralLedgerTable({
   const [isDeleting, setIsDeleting] = useState(false);
   const [collapsedMonths, setCollapsedMonths] = useState(null); // Set of collapsed monthKeys; null = auto (only first month & draft months open)
   const [expandedFullMonths, setExpandedFullMonths] = useState(() => new Set()); // Months where >12 items are fully shown
+  const [viewMode, setViewMode] = useState('grouped'); // 'grouped' (ماه‌به‌ماه) | 'flat' (نمای کلی بدون دسته‌بندی)
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' (جدید به قدیم) | 'asc' (قدیم به جدید)
 
   const { approveRecord, batchApproveRecords, amendRecord, canApprove, user } = useTwoStageApproval();
 
-  // گروه‌بندی تراکنش‌ها بر اساس ماه (از جدیدترین ماه به قدیمی‌ترین ماه)
+  // مرتب‌سازی آیتم‌های دفتر کل بر اساس جهت انتخابی (جدید به قدیم یا قدیم به جدید)
+  const sortedLedgerItems = useMemo(() => {
+    const arr = [...ledgerItems];
+    arr.sort((a, b) => {
+      const dateA = a.rawDate || '';
+      const dateB = b.rawDate || '';
+      if (dateA !== dateB) {
+        return sortOrder === 'desc'
+          ? dateB.localeCompare(dateA)
+          : dateA.localeCompare(dateB);
+      }
+      const timeA = a.createdAt || '';
+      const timeB = b.createdAt || '';
+      return sortOrder === 'desc'
+        ? String(timeB).localeCompare(String(timeA))
+        : String(timeA).localeCompare(String(timeB));
+    });
+    return arr;
+  }, [ledgerItems, sortOrder]);
+
+  // گروه‌بندی تراکنش‌ها بر اساس ماه (با رعایت ترتیب صعودی یا نزولی)
   const monthlyGroups = useMemo(() => {
     const map = new Map();
-    ledgerItems.forEach((tx) => {
+    sortedLedgerItems.forEach((tx) => {
       const mKey = (tx.rawDate || '').slice(0, 7) || 'unknown';
       if (!map.has(mKey)) {
         map.set(mKey, {
@@ -607,8 +650,12 @@ export function GeneralLedgerTable({
       else grp.outflowTotal += Number(tx.amount) || 0;
       if (tx.status !== 'approved') grp.draftCount += 1;
     });
-    return Array.from(map.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
-  }, [ledgerItems, language]);
+    return Array.from(map.values()).sort((a, b) =>
+      sortOrder === 'desc'
+        ? b.monthKey.localeCompare(a.monthKey)
+        : a.monthKey.localeCompare(b.monthKey)
+    );
+  }, [sortedLedgerItems, language, sortOrder]);
 
   // تعیین وضعیت باز/بسته بودن هر ماه (به‌صورت پیش‌فرض فقط جدیدترین ماه و ماه‌های دارای پیش‌نویس باز هستند)
   const isMonthCollapsed = useCallback((mKey, index, draftCount) => {
@@ -870,6 +917,213 @@ export function GeneralLedgerTable({
     XLSX.writeFile(workbook, fileName);
   }, [ledgerItems, currency, language, projectName]);
 
+  // رندر یک ردیف تراکنش در جدول (مشترک بین حالت گروه‌بندی ماهانه و نمای کلی)
+  const renderTransactionRow = (tx, idx) => {
+    const isInflow = tx.type === 'inflow';
+    const isPositiveBalance = tx.runningBalance >= 0;
+    const isDraft = tx.status !== 'approved';
+    const isSelected = selectedIds.has(tx.id);
+    const isCurrentlyApproving = approvingId === tx.id;
+
+    let categoryBadgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+    let shortCatLabel = tx.categoryLabel;
+    if (tx.category === 'petty_cash') {
+      categoryBadgeClass = 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80';
+      shortCatLabel = txt.catShortIncome;
+    } else if (tx.category === 'worker_settlement') {
+      categoryBadgeClass = 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80';
+      shortCatLabel = txt.catShortSettlement;
+    } else if (tx.category === 'advance_payment') {
+      categoryBadgeClass = 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80';
+      shortCatLabel = txt.catShortAdvance;
+    } else if (tx.category === 'worker_bonus') {
+      categoryBadgeClass = 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/80';
+      shortCatLabel = txt.catShortBonus;
+    } else if (tx.category === 'workshop_expense') {
+      categoryBadgeClass = 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80';
+      shortCatLabel = txt.catShortExpense;
+    } else if (tx.category === 'account_transfer') {
+      categoryBadgeClass = 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/80';
+      shortCatLabel = txt.catShortTransfer;
+    }
+
+    const primaryDisplayTitle = (tx.category === 'worker_settlement' || tx.category === 'advance_payment' || tx.category === 'worker_bonus')
+      ? (tx.personName || tx.title)
+      : tx.title;
+
+    return (
+      <tr
+        key={tx.id + '_' + idx}
+        className={`transition-colors ${
+          isSelected
+            ? 'bg-emerald-50/80 dark:bg-emerald-950/35'
+            : idx % 2 === 1
+            ? 'bg-slate-100/70 dark:bg-slate-800/45 hover:bg-sky-50/60 dark:hover:bg-slate-800/75'
+            : 'bg-white dark:bg-slate-900 hover:bg-sky-50/60 dark:hover:bg-slate-800/75'
+        }`}
+      >
+        {/* ۱. چک‌باکس انتخاب یا شماره ردیف */}
+        <td className="py-2 px-3 text-center">
+          {isDraft ? (
+            <button
+              type="button"
+              onClick={() => handleToggleSelectItem(tx.id)}
+              className="p-1 text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
+              title={txt.tipSelectForBatch}
+            >
+              {isSelected ? (
+                <CheckSquare className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <Square className="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+              )}
+            </button>
+          ) : (
+            <span className="text-slate-400 font-mono text-[10px]">{idx + 1}</span>
+          )}
+        </td>
+
+        {/* ۲. تاریخ */}
+        <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-600 dark:text-slate-400 text-[11px]">
+          {tx.rawDate}
+        </td>
+
+        {/* ۳. طرف‌حساب + تگ دسته‌بندی + حساب + توضیح کوتاه */}
+        <td className="py-2 px-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-bold text-slate-900 dark:text-white text-xs">
+              {primaryDisplayTitle}
+            </span>
+
+            <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${categoryBadgeClass}`}>
+              {shortCatLabel}
+            </span>
+
+            {tx.accountName && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-100/90 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200/70 dark:border-slate-700/70">
+                {tx.accountType === 'bank' ? (
+                  <CreditCard className="w-2.5 h-2.5 text-sky-500 shrink-0" />
+                ) : (
+                  <Coins className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                )}
+                <span className="truncate max-w-[100px]">{tx.accountName}</span>
+              </span>
+            )}
+
+            {tx.description && (
+              <span
+                className="text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-[220px] hidden sm:inline"
+                title={tx.description}
+              >
+                • {tx.description}
+              </span>
+            )}
+          </div>
+
+          {tx.isAmended && tx.amendmentReason && (
+            <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5 flex items-center gap-1">
+              <span>{txt.amendmentReasonPrefix}</span>
+              <span className="truncate max-w-xs">{tx.amendmentReason}</span>
+            </div>
+          )}
+        </td>
+
+        {/* ۴. مبلغ سند همراه با آیکون جهت جریان */}
+        <td className={`py-2 px-3 whitespace-nowrap font-mono font-bold ${
+          isInflow ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+        }`}>
+          <div className="inline-flex items-center gap-1">
+            {isInflow ? (
+              <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            ) : (
+              <ArrowUpRight className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+            )}
+            <span>{isInflow ? '+' : '-'}{formatAmount(tx.amount, currency)}</span>
+            {tx.isAmended && tx.originalAmount !== undefined && (
+              <span className="text-[10px] text-slate-400 line-through ms-1">
+                {formatAmount(tx.originalAmount, currency)}
+              </span>
+            )}
+          </div>
+        </td>
+
+        {/* ۵. مانده حساب پس از تراکنش */}
+        <td className={`py-2 px-3 whitespace-nowrap font-mono font-bold hidden md:table-cell ${
+          isPositiveBalance ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400'
+        }`}>
+          {formatAmount(tx.runningBalance, currency)}
+        </td>
+
+        {/* ۶. وضعیت تک‌خطی + دکمه‌های عملیات فشرده */}
+        <td className="py-2 px-3 whitespace-nowrap">
+          <div className="flex items-center justify-end gap-1.5">
+            <VerificationBadge
+              status={tx.status}
+              approvedBy={tx.approvedBy}
+              approvedAt={tx.approvedAt}
+              isAmended={tx.isAmended}
+              showDetails={false}
+              size="xs"
+              language={language}
+            />
+
+            {isDraft ? (
+              <>
+                <button
+                  type="button"
+                  disabled={isCurrentlyApproving || isDeleting}
+                  onClick={() => handleSingleApprove(tx)}
+                  className="px-2.5 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  title={txt.tipFinalApproveCurrent}
+                >
+                  {isCurrentlyApproving ? (
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  )}
+                  <span>{txt.btnFinalApprove}</span>
+                </button>
+
+                {onDeleteDraftItem && (
+                  <button
+                    type="button"
+                    disabled={isCurrentlyApproving || isDeleting}
+                    onClick={() => setDocumentToDelete(tx)}
+                    className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                    title={txt.btnDeleteDraft}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setAmendmentModalTx(tx)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-300 dark:hover:bg-purple-950/50 transition-colors cursor-pointer"
+                  title={txt.tipIssueAmend}
+                >
+                  <FileEdit className="w-3.5 h-3.5" />
+                </button>
+
+                {tx.isAmended && (
+                  <button
+                    type="button"
+                    onClick={() => setHistoryModalTx(tx)}
+                    className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/50 transition-colors cursor-pointer"
+                    title={txt.tipViewHistory}
+                  >
+                    <History className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
       {/* هدر دفتر کل */}
@@ -886,10 +1140,6 @@ export function GeneralLedgerTable({
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
                 {txt.txCount(ledgerItems.length)}
               </span>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/70 inline-flex items-center gap-1">
-                <Coins className="w-3 h-3 text-amber-500" />
-                <span>{txt.currencyNoteBadge(getCurrencySymbol(currency, language))}</span>
-              </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {txt.subtitle}
@@ -902,8 +1152,8 @@ export function GeneralLedgerTable({
           <button
             type="button"
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
-              isFilterOpen || dateFilterMode !== 'all' || categoryFilter !== 'all' || accountTypeFilter !== 'all'
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              isFilterOpen || dateFilterMode !== 'all' || categoryFilter !== 'all' || accountTypeFilter !== 'all' || searchQuery?.trim()
                 ? 'bg-sky-50 dark:bg-sky-950/60 border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 shadow-2xs'
                 : 'border border-transparent text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'
             }`}
@@ -915,7 +1165,7 @@ export function GeneralLedgerTable({
           <button
             type="button"
             onClick={handleExportExcel}
-            className="px-3 py-1.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 border border-transparent text-xs font-bold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 border border-transparent text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>{txt.excelExport}</span>
@@ -923,10 +1173,10 @@ export function GeneralLedgerTable({
         </div>
       </div>
 
-      {/* تب‌های دسترسی سریع به وضعیت تایید + چیپ‌های دسته‌بندی + جستجوی سریع */}
-      <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        {/* ۱. تب‌های ۴گانه وضعیت سند */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+      {/* نوار تب‌های وضعیت سند + کنترل‌های نوع نمایش (گروهی/کلی) و چیدمان (قدیم/جدید) */}
+      <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 flex flex-wrap items-center justify-between gap-3">
+        {/* ۱. تب‌های ۴گانه وضعیت سند (بدون اسکرول‌بار مزاحم، منطبق با زبان طراحی برنامه) */}
+        <div className="inline-flex flex-wrap items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 shadow-inner">
           {[
             {
               id: 'all',
@@ -956,95 +1206,103 @@ export function GeneralLedgerTable({
             const Icon = tab.icon;
             const isActive = approvalStatusFilter === tab.id;
             return (
-              <div key={tab.id} className="relative group shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setApprovalStatusFilter?.(tab.id)}
-                  className={`relative px-3 py-2 rounded-2xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
-                    isActive
-                      ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 transition-transform group-hover:scale-110 shrink-0" />
-                  
-                  {isActive && (
-                    <span className="text-xs font-bold px-0.5 whitespace-nowrap animate-in fade-in duration-200">
-                      {tab.label}
-                    </span>
-                  )}
-
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full leading-none transition-colors ${
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}>
-                    {tab.count}
-                  </span>
-                </button>
-
-                {!isActive && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setApprovalStatusFilter?.(tab.id)}
+                title={tab.label}
+                className={`px-3 py-1.5 rounded-xl transition-all duration-300 ease-in-out flex items-center gap-1.5 cursor-pointer ${
+                  isActive
+                    ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 font-bold border border-sky-400/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700/80 border border-transparent'
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                
+                {isActive && (
+                  <span className="text-xs font-bold px-0.5 whitespace-nowrap">
                     {tab.label}
-                  </div>
+                  </span>
                 )}
-              </div>
+
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full leading-none transition-colors ${
+                  isActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
             );
           })}
         </div>
 
-        {/* ۲. نوار چیپ‌های دسته‌بندی سریع + جستجوی آنی + باز/بستن ماه‌ها */}
+        {/* ۲. کنترل‌های نمایش: حالت نمایش (گروهی ماهانه / لیست کلی)، ترتیب سورت (جدید/قدیم) و باز/بستن ماه‌ها */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* چیپ‌های فیلتر دسته‌بندی */}
-          <div className="inline-flex items-center gap-1 bg-slate-200/60 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/60 overflow-x-auto">
+          {/* سوئیچ حالت نمایش: گروه‌بندی ماهانه یا نمای کلی بدون دسته‌بندی (با الگوی APP_THEME_BUTTON) */}
+          <div className="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 shadow-inner">
             {[
-              { id: 'all', label: txt.chipAll },
-              { id: 'worker_settlement', label: txt.chipSettlements },
-              { id: 'advance_payment', label: txt.chipAdvances },
-              { id: 'workshop_expense', label: txt.chipExpenses },
-              { id: 'petty_cash', label: txt.chipIncomes }
-            ].map((chip) => {
-              const active = categoryFilter === chip.id;
+              { id: 'grouped', label: txt.viewGrouped, icon: FolderKanban },
+              { id: 'flat', label: txt.viewFlat, icon: List }
+            ].map((mode) => {
+              const Icon = mode.icon;
+              const isActive = viewMode === mode.id;
               return (
                 <button
-                  key={chip.id}
+                  key={mode.id}
                   type="button"
-                  onClick={() => setCategoryFilter?.(chip.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                    active
-                      ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  onClick={() => setViewMode(mode.id)}
+                  title={mode.label}
+                  className={`px-2.5 py-1.5 rounded-xl transition-all duration-300 ease-in-out flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/25 font-bold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700/70'
                   }`}
                 >
-                  {chip.label}
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  {isActive && (
+                    <span className="text-[11px] font-bold whitespace-nowrap">
+                      {mode.label}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* باکس جستجوی سریع */}
-          <div className="relative flex-1 sm:flex-initial sm:w-48">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery?.(e.target.value)}
-              placeholder={txt.searchDetailedPh}
-              className="w-full h-8 ps-7 pe-6 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-sky-400"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute start-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery?.('')}
-                className="absolute end-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+          {/* سوئیچ تغییر چیدمان و سورت زمانی: جدید به قدیم / قدیم به جدید (با الگوی APP_THEME_BUTTON) */}
+          <div className="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 shadow-inner">
+            {[
+              { id: 'desc', label: txt.sortNewestFirst, icon: ArrowUpDown },
+              { id: 'asc', label: txt.sortOldestFirst, icon: History }
+            ].map((s) => {
+              const Icon = s.icon;
+              const isActive = sortOrder === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSortOrder(s.id)}
+                  title={s.label}
+                  className={`px-2.5 py-1.5 rounded-xl transition-all duration-300 ease-in-out flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/25 font-bold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700/70'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  {isActive && (
+                    <span className="text-[11px] font-bold whitespace-nowrap">
+                      {s.label}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* دکمه باز / بستن همه ماه‌ها */}
-          {monthlyGroups.length > 1 && (
+          {/* دکمه باز / بستن همه ماه‌ها (فقط در حالت گروه‌بندی ماهانه) */}
+          {viewMode === 'grouped' && monthlyGroups.length > 1 && (
             <button
               type="button"
               onClick={handleToggleAllMonths}
@@ -1141,122 +1399,187 @@ export function GeneralLedgerTable({
         </div>
       )}
 
-      {/* پنل فیلترها و جستجو */}
-      {(isFilterOpen || dateFilterMode !== 'all' || categoryFilter !== 'all' || accountTypeFilter !== 'all') && (
-        <div className="p-4 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs animate-in slide-in-from-top-2 duration-150">
-          {/* فیلتر زمانی */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-              <Calendar className="w-3 h-3 inline ml-1" />
-              <span>{txt.filterTimeRange}</span>
-            </label>
-            <select
-              value={dateFilterMode}
-              onChange={(e) => setDateFilterMode(e.target.value)}
-              className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
-            >
-              <option value="month">{txt.optSelectedMonth(formatMonthOnly(selectedMonth, language) || selectedMonth)}</option>
-              <option value="all">{txt.optAllTime}</option>
-              <option value="this_month">{txt.optThisMonth}</option>
-              <option value="last_month">{txt.optLastMonth}</option>
-              <option value="custom">{txt.optCustomRange}</option>
-            </select>
-          </div>
-
-          {/* فیلتر دسته‌بندی */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-              <Tag className="w-3 h-3 inline ml-1" />
-              <span>{txt.filterCategory}</span>
-            </label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
-            >
-              <option value="all">{txt.optAllCategories}</option>
-              <option value="petty_cash">{txt.optPettyCash}</option>
-              <option value="worker_settlement">{txt.optWorkerSettlement}</option>
-              <option value="advance_payment">{txt.optAdvancePayment}</option>
-              <option value="workshop_expense">{txt.optWorkshopExpense}</option>
-            </select>
-          </div>
-
-          {/* فیلتر نوع حساب */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-              <CreditCard className="w-3 h-3 inline ml-1" />
-              <span>{txt.filterAccount}</span>
-            </label>
-            <select
-              value={accountTypeFilter}
-              onChange={(e) => setAccountTypeFilter(e.target.value)}
-              className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
-            >
-              <option value="all">{txt.optAllAccounts}</option>
-              <option value="cash">{txt.optAllCash}</option>
-              <option value="bank">{txt.optAllBank}</option>
-              {financialAccounts.length > 0 && (
-                <optgroup label={txt.groupWorkshopAccounts}>
-                  {financialAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.type === 'bank' ? '💳 ' : '🪙 '}
-                      {acc.name}
-                      {acc.isDefault ? ' ★' : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-
-          {/* فیلتر جستجو متنی */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-              <Search className="w-3 h-3 inline ml-1" />
-              <span>{txt.searchPh}</span>
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={txt.searchDetailedPh}
-                className="w-full h-9 ps-8 pe-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
-              />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute start-2.5 top-1/2 -translate-y-1/2" />
+      {/* پنل کولپس فیلترها و جستجو (شامل ۵ دکمه دسته‌بندی با زبان طراحی برنامه، بازه زمانی و سرچ یکتا) */}
+      {isFilterOpen && (
+        <div className="p-4 bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-3.5 text-xs animate-in slide-in-from-top-2 duration-150">
+          {/* ردیف ۱: دکمه‌های ۵گانه دسته‌بندی با الگوی APP_THEME_BUTTON + دکمه ریست فیلترها */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200/70 dark:border-slate-700/60">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                <Tag className="w-3.5 h-3.5 text-sky-500" />
+                <span>{txt.filterCategory}:</span>
+              </span>
+              <div className="inline-flex flex-wrap items-center gap-1 bg-slate-200/70 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/70 shadow-inner">
+                {[
+                  { id: 'all', label: txt.chipAll, icon: Layers },
+                  { id: 'worker_settlement', label: txt.chipSettlements, icon: Users },
+                  { id: 'advance_payment', label: txt.chipAdvances, icon: Coins },
+                  { id: 'workshop_expense', label: txt.chipExpenses, icon: Receipt },
+                  { id: 'petty_cash', label: txt.chipIncomes, icon: ArrowDownLeft }
+                ].map((cat) => {
+                  const Icon = cat.icon;
+                  const isActive = categoryFilter === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setCategoryFilter?.(cat.id)}
+                      title={cat.label}
+                      className={`px-3 py-1.5 rounded-xl transition-all duration-300 ease-in-out flex items-center gap-1.5 cursor-pointer ${
+                        isActive
+                          ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/25 font-bold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700/70'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {isActive && (
+                        <span className="text-xs font-bold whitespace-nowrap">
+                          {cat.label}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {(dateFilterMode !== 'all' || categoryFilter !== 'all' || accountTypeFilter !== 'all' || searchQuery?.trim() || customStartDate || customEndDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFilterMode?.('all');
+                  setCategoryFilter?.('all');
+                  setAccountTypeFilter?.('all');
+                  setSearchQuery?.('');
+                  setCustomStartDate?.('');
+                  setCustomEndDate?.('');
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/70 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{txt.resetFilters}</span>
+              </button>
+            )}
           </div>
 
-          {/* بازه سفارشی در صورت انتخاب */}
-          {dateFilterMode === 'custom' && (
-            <div className="sm:col-span-2 lg:col-span-4 pt-2 border-t border-slate-200/60 dark:border-slate-700 flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500">{txt.lblFromDate}</span>
+          {/* ردیف ۲: بازه زمانی (پیش‌فرض + از تاریخ / تا تاریخ)، فیلتر حساب و باکس جستجو (تک‌نسخه‌ای) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+            {/* انتخاب سریع بازه زمانی */}
+            <div className="lg:col-span-3">
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                <Calendar className="w-3 h-3 inline me-1 text-sky-500" />
+                <span>{txt.filterTimeRange}</span>
+              </label>
+              <select
+                value={dateFilterMode}
+                onChange={(e) => setDateFilterMode(e.target.value)}
+                className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
+              >
+                <option value="all">{txt.optAllTime}</option>
+                <option value="month">{txt.optSelectedMonth(formatMonthOnly(selectedMonth, language) || selectedMonth)}</option>
+                <option value="this_month">{txt.optThisMonth}</option>
+                <option value="last_month">{txt.optLastMonth}</option>
+                <option value="custom">{txt.optCustomRange}</option>
+              </select>
+            </div>
+
+            {/* انتخاب مستقیم بازه زمانی (از تاریخ / تا تاریخ) */}
+            <div className="lg:col-span-4 grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  {txt.lblFromDate}
+                </label>
                 <input
                   type="date"
                   value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="h-8 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                  onChange={(e) => {
+                    setCustomStartDate?.(e.target.value);
+                    if (e.target.value && dateFilterMode !== 'custom') {
+                      setDateFilterMode?.('custom');
+                    }
+                  }}
+                  className="w-full h-9 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 font-mono"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500">{txt.lblToDate}</span>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  {txt.lblToDate}
+                </label>
                 <input
                   type="date"
                   value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="h-8 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                  onChange={(e) => {
+                    setCustomEndDate?.(e.target.value);
+                    if (e.target.value && dateFilterMode !== 'custom') {
+                      setDateFilterMode?.('custom');
+                    }
+                  }}
+                  className="w-full h-9 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 font-mono"
                 />
               </div>
             </div>
-          )}
+
+            {/* فیلتر نوع حساب */}
+            <div className="lg:col-span-2">
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                <CreditCard className="w-3 h-3 inline me-1 text-sky-500" />
+                <span>{txt.filterAccount}</span>
+              </label>
+              <select
+                value={accountTypeFilter}
+                onChange={(e) => setAccountTypeFilter(e.target.value)}
+                className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
+              >
+                <option value="all">{txt.optAllAccounts}</option>
+                <option value="cash">{txt.optAllCash}</option>
+                <option value="bank">{txt.optAllBank}</option>
+                {financialAccounts.length > 0 && (
+                  <optgroup label={txt.groupWorkshopAccounts}>
+                    {financialAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.type === 'bank' ? '💳 ' : '🪙 '}
+                        {acc.name}
+                        {acc.isDefault ? ' ★' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+
+            {/* باکس جستجوی یکتا در داخل کولپس فیلتر */}
+            <div className="lg:col-span-3">
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                <Search className="w-3 h-3 inline me-1 text-sky-500" />
+                <span>{txt.searchPh}</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={txt.searchDetailedPh}
+                  className="w-full h-9 ps-8 pe-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-sky-400"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute start-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute end-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* جدول داده‌های دفتر کل (۶ ستونه، فشرده و گروه‌بندی‌شده بر اساس ماه) */}
+      {/* جدول داده‌های دفتر کل (۶ ستونه، با پشتیبانی از حالت گروه‌بندی ماهانه و حالت کلی بدون دسته‌بندی) */}
       <div className="overflow-x-auto">
-        {ledgerItems.length === 0 ? (
+        {sortedLedgerItems.length === 0 ? (
           <div className="p-8 sm:p-12 text-center">
             <div className="w-14 h-14 mx-auto rounded-3xl bg-slate-100 dark:bg-slate-800/60 text-slate-400 flex items-center justify-center mb-3">
               <TableIcon className="w-7 h-7" />
@@ -1291,8 +1614,18 @@ export function GeneralLedgerTable({
                     <span className="text-[10px] text-slate-400">#</span>
                   )}
                 </th>
-                {/* ۲. تاریخ */}
-                <th className="py-2.5 px-3 whitespace-nowrap w-24">{txt.thDate}</th>
+                {/* ۲. تاریخ (با قابلیت کلیک جهت تغییر سورت قدیم/جدید) */}
+                <th className="py-2.5 px-3 whitespace-nowrap w-24">
+                  <button
+                    type="button"
+                    onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                    className="inline-flex items-center gap-1 hover:text-sky-600 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                    title={sortOrder === 'desc' ? txt.sortNewestFirst : txt.sortOldestFirst}
+                  >
+                    <span>{txt.thDate}</span>
+                    <ArrowUpDown className="w-3 h-3 text-sky-500" />
+                  </button>
+                </th>
                 {/* ۳. طرف‌حساب، دسته‌بندی، حساب و شرح */}
                 <th className="py-2.5 px-3">{txt.thTitleCounterparty}</th>
                 {/* ۴. مبلغ سند (همراه جهت ورودی/خروجی) */}
@@ -1304,297 +1637,95 @@ export function GeneralLedgerTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-              {monthlyGroups.map((group, groupIdx) => {
-                const collapsed = isMonthCollapsed(group.monthKey, groupIdx, group.draftCount);
-                const isFullExpanded = expandedFullMonths.has(group.monthKey);
-                const MAX_VISIBLE_PER_MONTH = 12;
-                const visibleGroupItems = isFullExpanded
-                  ? group.items
-                  : group.items.slice(0, MAX_VISIBLE_PER_MONTH);
-                const hiddenCount = group.items.length - visibleGroupItems.length;
+              {viewMode === 'flat' ? (
+                sortedLedgerItems.map((tx, idx) => renderTransactionRow(tx, idx))
+              ) : (
+                monthlyGroups.map((group, groupIdx) => {
+                  const collapsed = isMonthCollapsed(group.monthKey, groupIdx, group.draftCount);
+                  const isFullExpanded = expandedFullMonths.has(group.monthKey);
+                  const MAX_VISIBLE_PER_MONTH = 12;
+                  const visibleGroupItems = isFullExpanded
+                    ? group.items
+                    : group.items.slice(0, MAX_VISIBLE_PER_MONTH);
+                  const hiddenCount = group.items.length - visibleGroupItems.length;
 
-                return (
-                  <React.Fragment key={group.monthKey}>
-                    {/* سرفصل تاشو ماهانه */}
-                    <tr
-                      onClick={() => handleToggleMonth(group.monthKey)}
-                      className="bg-slate-100/75 hover:bg-slate-200/60 dark:bg-slate-800/70 dark:hover:bg-slate-800 cursor-pointer select-none transition-colors border-y border-slate-200/70 dark:border-slate-700/60"
-                    >
-                      <td colSpan={6} className="py-2 px-3.5">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 shadow-2xs">
-                              {collapsed ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5 text-sky-500" />}
-                            </span>
-                            <Calendar className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                            <span className="font-black text-slate-800 dark:text-slate-100 text-xs">
-                              {group.label}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
-                              {txt.monthDocsCount(group.items.length)}
-                            </span>
-                            {group.draftCount > 0 && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-400/40">
-                                {txt.monthDraftBadge(group.draftCount)}
+                  return (
+                    <React.Fragment key={group.monthKey}>
+                      {/* سرفصل تاشو ماهانه */}
+                      <tr
+                        onClick={() => handleToggleMonth(group.monthKey)}
+                        className="bg-slate-100/75 hover:bg-slate-200/60 dark:bg-slate-800/70 dark:hover:bg-slate-800 cursor-pointer select-none transition-colors border-y border-slate-200/70 dark:border-slate-700/60"
+                      >
+                        <td colSpan={6} className="py-2 px-3.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 shadow-2xs">
+                                {collapsed ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5 text-sky-500" />}
                               </span>
-                            )}
+                              <Calendar className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                              <span className="font-black text-slate-800 dark:text-slate-100 text-xs">
+                                {group.label}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
+                                {txt.monthDocsCount(group.items.length)}
+                              </span>
+                              {group.draftCount > 0 && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-400/40">
+                                  {txt.monthDraftBadge(group.draftCount)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* خلاصه ورودی و خروجی ماه در هدر */}
+                            <div className="flex items-center gap-3 text-[11px] font-mono">
+                              {group.inflowTotal > 0 && (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                  <span className="font-sans text-[10px] text-slate-400 me-1">{txt.monthInflowLabel}</span>
+                                  +{formatAmount(group.inflowTotal, currency)}
+                                </span>
+                              )}
+                              {group.outflowTotal > 0 && (
+                                <span className="text-rose-600 dark:text-rose-400 font-bold">
+                                  <span className="font-sans text-[10px] text-slate-400 me-1">{txt.monthOutflowLabel}</span>
+                                  -{formatAmount(group.outflowTotal, currency)}
+                                </span>
+                              )}
+                            </div>
                           </div>
-
-                          {/* خلاصه ورودی و خروجی ماه در هدر */}
-                          <div className="flex items-center gap-3 text-[11px] font-mono">
-                            {group.inflowTotal > 0 && (
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                                <span className="font-sans text-[10px] text-slate-400 me-1">{txt.monthInflowLabel}</span>
-                                +{formatAmount(group.inflowTotal, currency)}
-                              </span>
-                            )}
-                            {group.outflowTotal > 0 && (
-                              <span className="text-rose-600 dark:text-rose-400 font-bold">
-                                <span className="font-sans text-[10px] text-slate-400 me-1">{txt.monthOutflowLabel}</span>
-                                -{formatAmount(group.outflowTotal, currency)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {/* ردیف‌های تراکنش ماه (در صورت باز بودن ماه) */}
-                    {!collapsed && visibleGroupItems.map((tx, idx) => {
-                      const isInflow = tx.type === 'inflow';
-                      const isPositiveBalance = tx.runningBalance >= 0;
-                      const isDraft = tx.status !== 'approved';
-                      const isSelected = selectedIds.has(tx.id);
-                      const isCurrentlyApproving = approvingId === tx.id;
-
-                      // برچسب کوتاه و استایل دسته‌بندی (بدون تکرار کلمات اضافی)
-                      let categoryBadgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-                      let shortCatLabel = tx.categoryLabel;
-                      if (tx.category === 'petty_cash') {
-                        categoryBadgeClass = 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80';
-                        shortCatLabel = txt.catShortIncome;
-                      } else if (tx.category === 'worker_settlement') {
-                        categoryBadgeClass = 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80';
-                        shortCatLabel = txt.catShortSettlement;
-                      } else if (tx.category === 'advance_payment') {
-                        categoryBadgeClass = 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80';
-                        shortCatLabel = txt.catShortAdvance;
-                      } else if (tx.category === 'worker_bonus') {
-                        categoryBadgeClass = 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/80';
-                        shortCatLabel = txt.catShortBonus;
-                      } else if (tx.category === 'workshop_expense') {
-                        categoryBadgeClass = 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80';
-                        shortCatLabel = txt.catShortExpense;
-                      } else if (tx.category === 'account_transfer') {
-                        categoryBadgeClass = 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/80';
-                        shortCatLabel = txt.catShortTransfer;
-                      }
-
-                      // عنوان خلاصه و تمیز (برای پرسنل نام شخص، برای سایر موارد عنوان سند)
-                      const primaryDisplayTitle = (tx.category === 'worker_settlement' || tx.category === 'advance_payment' || tx.category === 'worker_bonus')
-                        ? (tx.personName || tx.title)
-                        : tx.title;
-
-                      return (
-                        <tr
-                          key={tx.id + '_' + idx}
-                          className={`transition-colors ${
-                            isSelected
-                              ? 'bg-emerald-50/80 dark:bg-emerald-950/35'
-                              : idx % 2 === 1
-                              ? 'bg-slate-100/70 dark:bg-slate-800/45 hover:bg-sky-50/60 dark:hover:bg-slate-800/75'
-                              : 'bg-white dark:bg-slate-900 hover:bg-sky-50/60 dark:hover:bg-slate-800/75'
-                          }`}
-                        >
-                          {/* ۱. چک‌باکس انتخاب یا شماره ردیف */}
-                          <td className="py-2 px-3 text-center">
-                            {isDraft ? (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleSelectItem(tx.id)}
-                                className="p-1 text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
-                                title={txt.tipSelectForBatch}
-                              >
-                                {isSelected ? (
-                                  <CheckSquare className="w-4 h-4 text-emerald-600" />
-                                ) : (
-                                  <Square className="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
-                                )}
-                              </button>
-                            ) : (
-                              <span className="text-slate-400 font-mono text-[10px]">{idx + 1}</span>
-                            )}
-                          </td>
-
-                          {/* ۲. تاریخ */}
-                          <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-600 dark:text-slate-400 text-[11px]">
-                            {tx.rawDate}
-                          </td>
-
-                          {/* ۳. طرف‌حساب + تگ دسته‌بندی + حساب + توضیح کوتاه */}
-                          <td className="py-2 px-3">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="font-bold text-slate-900 dark:text-white text-xs">
-                                {primaryDisplayTitle}
-                              </span>
-
-                              <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${categoryBadgeClass}`}>
-                                {shortCatLabel}
-                              </span>
-
-                              {tx.accountName && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-100/90 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200/70 dark:border-slate-700/70">
-                                  {tx.accountType === 'bank' ? (
-                                    <CreditCard className="w-2.5 h-2.5 text-sky-500 shrink-0" />
-                                  ) : (
-                                    <Coins className="w-2.5 h-2.5 text-amber-500 shrink-0" />
-                                  )}
-                                  <span className="truncate max-w-[100px]">{tx.accountName}</span>
-                                </span>
-                              )}
-
-                              {tx.description && (
-                                <span
-                                  className="text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-[220px] hidden sm:inline"
-                                  title={tx.description}
-                                >
-                                  • {tx.description}
-                                </span>
-                              )}
-                            </div>
-
-                            {tx.isAmended && tx.amendmentReason && (
-                              <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5 flex items-center gap-1">
-                                <span>{txt.amendmentReasonPrefix}</span>
-                                <span className="truncate max-w-xs">{tx.amendmentReason}</span>
-                              </div>
-                            )}
-                          </td>
-
-                          {/* ۴. مبلغ سند همراه با آیکون جهت جریان (بدون تکرار نام واحد پول) */}
-                          <td className={`py-2 px-3 whitespace-nowrap font-mono font-bold ${
-                            isInflow ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                          }`}>
-                            <div className="inline-flex items-center gap-1">
-                              {isInflow ? (
-                                <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                              ) : (
-                                <ArrowUpRight className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              )}
-                              <span>{isInflow ? '+' : '-'}{formatAmount(tx.amount, currency)}</span>
-                              {tx.isAmended && tx.originalAmount !== undefined && (
-                                <span className="text-[10px] text-slate-400 line-through ms-1">
-                                  {formatAmount(tx.originalAmount, currency)}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* ۵. مانده حساب پس از تراکنش (بدون تکرار نام واحد پول) */}
-                          <td className={`py-2 px-3 whitespace-nowrap font-mono font-bold hidden md:table-cell ${
-                            isPositiveBalance ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400'
-                          }`}>
-                            {formatAmount(tx.runningBalance, currency)}
-                          </td>
-
-                          {/* ۶. وضعیت تک‌خطی + دکمه‌های عملیات فشرده */}
-                          <td className="py-2 px-3 whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <VerificationBadge
-                                status={tx.status}
-                                approvedBy={tx.approvedBy}
-                                approvedAt={tx.approvedAt}
-                                isAmended={tx.isAmended}
-                                showDetails={false}
-                                size="xs"
-                                language={language}
-                              />
-
-                              {isDraft ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    disabled={isCurrentlyApproving || isDeleting}
-                                    onClick={() => handleSingleApprove(tx)}
-                                    className="px-2.5 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                    title={txt.tipFinalApproveCurrent}
-                                  >
-                                    {isCurrentlyApproving ? (
-                                      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                      <ShieldCheck className="w-3.5 h-3.5" />
-                                    )}
-                                    <span>{txt.btnFinalApprove}</span>
-                                  </button>
-
-                                  {onDeleteDraftItem && (
-                                    <button
-                                      type="button"
-                                      disabled={isCurrentlyApproving || isDeleting}
-                                      onClick={() => setDocumentToDelete(tx)}
-                                      className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                      title={txt.btnDeleteDraft}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => setAmendmentModalTx(tx)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-300 dark:hover:bg-purple-950/50 transition-colors cursor-pointer"
-                                    title={txt.tipIssueAmend}
-                                  >
-                                    <FileEdit className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  {tx.isAmended && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setHistoryModalTx(tx)}
-                                      className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/50 transition-colors cursor-pointer"
-                                      title={txt.tipViewHistory}
-                                    >
-                                      <History className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-
-                    {/* دکمه نمایش بیشتر در صورتی که یک ماه بیش از ۱۲ سند داشته باشد */}
-                    {!collapsed && group.items.length > MAX_VISIBLE_PER_MONTH && (
-                      <tr className="bg-slate-50/40 dark:bg-slate-900/40">
-                        <td colSpan={6} className="py-2 px-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleFullMonthItems(group.monthKey)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800/70 text-[11px] font-bold transition-colors cursor-pointer"
-                          >
-                            {isFullExpanded ? (
-                              <>
-                                <ChevronUp className="w-3.5 h-3.5" />
-                                <span>{txt.showLessInMonth}</span>
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="w-3.5 h-3.5" />
-                                <span>{txt.showMoreInMonth(hiddenCount, group.items.length)}</span>
-                              </>
-                            )}
-                          </button>
                         </td>
                       </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+
+                      {/* ردیف‌های تراکنش ماه (در صورت باز بودن ماه) */}
+                      {!collapsed && visibleGroupItems.map((tx, idx) => renderTransactionRow(tx, idx))}
+
+                      {/* دکمه نمایش بیشتر در صورتی که یک ماه بیش از ۱۲ سند داشته باشد */}
+                      {!collapsed && group.items.length > MAX_VISIBLE_PER_MONTH && (
+                        <tr className="bg-slate-50/40 dark:bg-slate-900/40">
+                          <td colSpan={6} className="py-2 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleFullMonthItems(group.monthKey)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800/70 text-[11px] font-bold transition-colors cursor-pointer"
+                            >
+                              {isFullExpanded ? (
+                                <>
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                  <span>{txt.showLessInMonth}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                  <span>{txt.showMoreInMonth(hiddenCount, group.items.length)}</span>
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
+              )}
             </tbody>
           </table>
         )}
