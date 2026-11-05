@@ -561,6 +561,7 @@ export function FinancialsView() {
 
   const allExpenses = useLiveQuery(
     async () => {
+      if (!db.expenses) return [];
       const list = await db.expenses.toArray();
       return list.filter((e) => (e.projectId || DEFAULT_PROJECT_ID) === targetProjectId && !e.deletedAt);
     },
@@ -569,6 +570,7 @@ export function FinancialsView() {
 
   const expenseCategories = useLiveQuery(
     async () => {
+      if (!db.expenseCategories) return [];
       return await db.expenseCategories.toArray();
     },
     []
@@ -584,6 +586,7 @@ export function FinancialsView() {
 
   const allIncomes = useLiveQuery(
     async () => {
+      if (!db.treasuryIncomes) return [];
       const list = await db.treasuryIncomes.toArray();
       return list.filter((inc) => (inc.projectId || DEFAULT_PROJECT_ID) === targetProjectId && !inc.deletedAt);
     },
@@ -592,7 +595,8 @@ export function FinancialsView() {
 
   const allTransfers = useLiveQuery(
     async () => {
-      const list = await db.treasuryTransfers.toArray();
+      if (!db.accountTransfers) return [];
+      const list = await db.accountTransfers.toArray();
       return list.filter((tr) => (tr.projectId || DEFAULT_PROJECT_ID) === targetProjectId && !tr.deletedAt);
     },
     [targetProjectId]
@@ -600,6 +604,7 @@ export function FinancialsView() {
 
   const counterparties = useLiveQuery(
     async () => {
+      if (!db.counterparties) return [];
       const list = await db.counterparties.toArray();
       return list.filter((cp) => (cp.projectId || DEFAULT_PROJECT_ID) === targetProjectId && !cp.deletedAt);
     },
