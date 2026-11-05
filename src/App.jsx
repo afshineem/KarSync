@@ -140,31 +140,13 @@ function AppContent() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
 
-  // Product Tour State & Global Listeners
+  // Product Tour State & Global Listeners (Only triggered for brand-new users after OnboardingModal or manually via settings)
   const [isProductTourOpen, setIsProductTourOpen] = useState(false);
   useEffect(() => {
     const handleStartTour = () => setIsProductTourOpen(true);
     window.addEventListener('karsync-start-tour', handleStartTour);
-
-    // Auto-trigger only on initial first-time onboarding for this user
-    const userTourKey = "karsync_product_tour_seen_" + (user?.id || user?.userId || "default");
-    const tourSeen = localStorage.getItem(userTourKey) || localStorage.getItem("karsync_product_tour_seen");
-    if (!tourSeen && onboardingCompleted && user?.role === "admin") {
-      try {
-        localStorage.setItem(userTourKey, "true");
-        localStorage.setItem("karsync_product_tour_seen", "true");
-      } catch (_) {}
-      const timer = setTimeout(() => {
-        setIsProductTourOpen(true);
-      }, 1500);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener("karsync-start-tour", handleStartTour);
-      };
-    }
-
     return () => window.removeEventListener('karsync-start-tour', handleStartTour);
-  }, [onboardingCompleted, user?.role]);
+  }, []);
 
   // Live queries for quick modals
   const allWorkers = useLiveQuery(() => db.workers.toArray()) || [];

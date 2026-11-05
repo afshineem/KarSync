@@ -118,6 +118,11 @@ export function OnboardingModal() {
         phone: phone.trim(),
         defaultCurrency
       });
+
+      // 3. Trigger the interactive Product Tour for brand-new users right after onboarding
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('karsync-start-tour'));
+      }, 600);
     } catch (err) {
       console.error('Onboarding error:', err);
       setErrorMsg(err.message || t('onboardingError') || (language === 'ku' ? 'هەڵە لە تەواوکردنی ڕێکخستنی سەرەتایی' : language === 'fa' ? 'خطا در تکمیل فرآیند راه‌اندازی' : 'Error completing onboarding'));

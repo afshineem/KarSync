@@ -392,7 +392,7 @@ export async function wipeAllLocalData() {
     for (const key of allKeys) {
       if (
         key.startsWith('workshop_') ||
-        key.startsWith('karsync_') ||
+        (key.startsWith('karsync_') && !key.startsWith('karsync_product_tour_seen') && !key.startsWith('karsync_setup_checklist_dismissed')) ||
         key === 'last_active_user_id' ||
         key === 'last_active_workspace_id' ||
         key === 'workshop_auth_session' ||

@@ -56,11 +56,9 @@ export function FloatingSetupChecklist() {
   // Allow reopening externally from settings or navigation
   useEffect(() => {
     const handleReopen = () => {
+      setIsManuallyReopened(true);
       setIsDismissed(false);
       setIsExpanded(true);
-      try {
-        localStorage.removeItem(DISMISS_STORAGE_KEY);
-      } catch (_) {}
     };
     window.addEventListener('karsync-open-setup-checklist', handleReopen);
     return () => window.removeEventListener('karsync-open-setup-checklist', handleReopen);
@@ -189,9 +187,24 @@ export function FloatingSetupChecklist() {
   const progressPercent = Math.round((completedCount / totalCount) * 100);
   const isAllComplete = completedCount === totalCount;
 
+  // Track if manually reopened via custom event (so user can still view it from settings if desired)
+  const [isManuallyReopened, setIsManuallyReopened] = useState(false);
+
+  // Auto-persist dismissal when all 6 setup tasks are already completed (existing user)
+  useEffect(() => {
+    if (isAllComplete && !isManuallyReopened) {
+      setIsDismissed(true);
+      try {
+        localStorage.setItem(DISMISS_STORAGE_KEY, "true");
+        localStorage.setItem("karsync_setup_checklist_dismissed", "true");
+      } catch (_) {}
+    }
+  }, [isAllComplete, isManuallyReopened, DISMISS_STORAGE_KEY]);
+
   const handleDismiss = () => {
     setIsDismissed(true);
     setIsExpanded(false);
+    setIsManuallyReopened(false);
     try {
       localStorage.setItem(DISMISS_STORAGE_KEY, "true");
       localStorage.setItem("karsync_setup_checklist_dismissed", "true");
@@ -203,7 +216,7 @@ export function FloatingSetupChecklist() {
     return String(num).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
   };
 
-  if (isDismissed) {
+  if (isDismissed || (isAllComplete && !isManuallyReopened)) {
     return null;
   }
 
@@ -364,7 +377,13 @@ export function FloatingSetupChecklist() {
 
               <button
                 type="button"
-                onClick={() => setIsExpanded(false)}
+                onClick={() => {
+                  if (isAllComplete) {
+                    handleDismiss();
+                  } else {
+                    setIsExpanded(false);
+                  }
+                }}
                 className={`text-xs font-bold px-4 py-2 rounded-xl text-white shadow-md transition-all active:scale-95 cursor-pointer ${
                   isAllComplete
                     ? 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-500/25'
