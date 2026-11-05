@@ -505,6 +505,7 @@ export function GeneralLedgerTable({
   onDeleteDraftItem,
   onBatchDeleteDraftItems
 }) {
+  const txt = COPY[language] || COPY.fa;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBatchApproving, setIsBatchApproving] = useState(false);
