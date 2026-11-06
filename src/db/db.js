@@ -1040,47 +1040,46 @@ export async function reconcileSettlementEpochs() {
 
     for (const st of settlements) {
       const effectivePeriodEnd = st.periodEndDate || (st.month ? `${st.month}-31` : (st.date || '9999-12-31'));
-
-      if (st.settlement_subtype || st.isGroupSettlement || referencedReceiptIds.has(String(st.id))) {
-        // Even for referenced settlements, ensure logs dated strictly after the settlement period
-        // are NEVER falsely marked as settled by this receipt!
-        if (st.workerId) {
-          const wLogs = await db.attendanceLogs.where('workerId').equals(String(st.workerId)).toArray();
-          const wronglySettled = wLogs.filter((l) => l.settlementReceiptId === st.id && (l.date || '') > effectivePeriodEnd);
-          if (wronglySettled.length > 0) {
-            const cleanWrongly = wronglySettled.map((l) => {
-              let cleanNotes = l.notes || '';
-              if (cleanNotes.includes('"st":1') || cleanNotes.includes('"st": 1')) {
-                cleanNotes = cleanNotes.replace(/"st":\s*1,?/g, '').replace(/,"rid":\s*"[^"]*"/g, '').replace(/"rid":\s*"[^"]*",?/g, '');
-              }
-              return {
-                ...l,
-                isSettled: false,
-                settlementReceiptId: null,
-                notes: cleanNotes,
-                updatedAt: new Date().toISOString()
-              };
-            });
-            await db.attendanceLogs.bulkPut(cleanWrongly);
-          }
-        }
-        continue;
-      }
-
       const stDate = effectivePeriodEnd;
-      let workerIdsToSettle = [];
 
+      let workerIdsToSettle = [];
       if (st.workerId) {
         workerIdsToSettle.push(String(st.workerId));
       }
 
-      // If settlement is explicitly an active group settlement, find all group members
+      // If settlement is explicitly an active group settlement, include all group members
       if (st.isGroupSettlement && st.groupId) {
         const groupWorkers = await db.workers.filter((w) => w.groupId === st.groupId).toArray();
         groupWorkers.forEach((w) => {
           const wIdStr = String(w.id);
           if (!workerIdsToSettle.includes(wIdStr)) workerIdsToSettle.push(wIdStr);
         });
+      }
+
+      for (const workerIdStr of workerIdsToSettle) {
+        // Clean any wrongly settled future logs worked strictly after settlement cutoff
+        const workerLogs = await db.attendanceLogs.where('workerId').equals(workerIdStr).toArray();
+        const wronglySettled = workerLogs.filter((l) => l.settlementReceiptId === st.id && (l.date || '') > effectivePeriodEnd);
+        if (wronglySettled.length > 0) {
+          const cleanWrongly = wronglySettled.map((l) => {
+            let cleanNotes = l.notes || '';
+            if (cleanNotes.includes('"st":1') || cleanNotes.includes('"st": 1')) {
+              cleanNotes = cleanNotes.replace(/"st":\s*1,?/g, '').replace(/,"rid":\s*"[^"]*"/g, '').replace(/"rid":\s*"[^"]*",?/g, '');
+            }
+            return {
+              ...l,
+              isSettled: false,
+              settlementReceiptId: null,
+              notes: cleanNotes,
+              updatedAt: new Date().toISOString()
+            };
+          });
+          await db.attendanceLogs.bulkPut(cleanWrongly);
+        }
+      }
+
+      if (referencedReceiptIds.has(String(st.id))) {
+        continue;
       }
 
       for (const workerIdStr of workerIdsToSettle) {

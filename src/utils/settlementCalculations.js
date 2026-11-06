@@ -100,9 +100,13 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
       }
       return true;
     }
-    // Legacy support: marked isSettled without receiptId, but worker has settlements and date is on or before last settlement period end
-    if (l.isSettled && settlementReceipts.length > 0) {
-      if (lastSettlementPeriodEnd && (l.date || '') <= lastSettlementPeriodEnd) {
+    // Explicitly marked isSettled (e.g. prior cycle settlement, leave settlement, or historical data)
+    if (l.isSettled) {
+      if (settlementReceipts.length > 0) {
+        if (lastSettlementPeriodEnd && (l.date || '') <= lastSettlementPeriodEnd) {
+          return true;
+        }
+      } else {
         return true;
       }
     }
@@ -119,7 +123,13 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
       }
       return true;
     }
-    if (p.isSettled && lastSettlementPeriodEnd && (p.date || '') <= lastSettlementPeriodEnd) return true;
+    if (p.isSettled) {
+      if (settlementReceipts.length > 0) {
+        if (lastSettlementPeriodEnd && (p.date || '') <= lastSettlementPeriodEnd) return true;
+      } else {
+        return true;
+      }
+    }
     return false;
   };
 

@@ -13,7 +13,8 @@ import {
   formatHoursAndMinutes, 
   formatFullDateWithWeekday, 
   formatDateDisplay,
-  roundCurrency 
+  roundCurrency,
+  getCurrentYearMonth 
 } from '../utils/formatters';
 import { calculateWorkerFinancials } from '../utils/settlementCalculations';
 import { 
@@ -69,10 +70,10 @@ const COPY = {
     accountStatusCreditor: 'وضعیت حساب: طلبکار از کارگاه',
     accountStatusDebtor: 'وضعیت حساب: بدهکار مساعده',
     unsettledDaysPending: (count) => `${count} روز کارکرد جاری در انتظار تسویه`,
-    finalNetPayableBalance: '{c.finalNetPayableBalance}',
-    currentWorkGross: '{c.currentWorkGross}',
-    advancesMinus: '{c.advancesMinus}',
-    totalSettledHistory: '{c.totalSettledHistory}',
+    finalNetPayableBalance: 'مانده نهایی قابل پرداخت به پرسنل',
+    currentWorkGross: 'کارکرد جاری (+)',
+    advancesMinus: 'مساعده‌ها (-)',
+    totalSettledHistory: 'مجموع تسویه‌شده',
     workTermsAndWage: 'شرایط کاری و دستمزد',
     masterRole: 'استادکار / سرتیم',
     workerRole: 'نیروی کار',
@@ -119,16 +120,21 @@ const COPY = {
     closeBtn: 'بستن',
     workerPortalTitle: 'لینک ورود اختصاصی پرسنل',
     workerPortalDesc: (name) => `با این لینک (یا بارکد)، ${name} مستقیم و بدون نام کاربری، رمز عبور و کد کارگاه وارد پروفایل خودش می‌شود و فقط صورت‌حساب و گزارش کارکرد خودش را می‌بیند.`,
-    workerPortalWarning: '{c.workerPortalWarning}',
+    workerPortalWarning: 'هر فردی با این لینک می‌تواند وارد پروفایل شود؛ صرفاً برای خود پرسنل ارسال کنید. این لینک فقط یک‌بار نمایش داده می‌شود؛ در صورت مفقودی، لینک جدید بسازید.',
     linkCopiedAlert: 'لینک ورود کپی شد.',
-    copyLinkBtn: '{c.copyLinkBtn}',
-    shareBtn: '{c.shareBtn}',
+    copyLinkBtn: 'کپی لینک ورود',
+    shareBtn: 'اشتراک‌گذاری',
     shareTitle: 'لینک ورود به پروفایل',
-    revokeAlert: '{c.revokeAlert}',
+    revokeAlert: 'دسترسی پرسنل با این لینک لغو شد.',
     pleaseWait: 'لطفاً صبر کنید…',
     generateLinkBtn: 'ساخت لینک ورود',
-    generateLinkWarning: '{c.generateLinkWarning}',
-    revokeAccessBtn: '{c.revokeAccessBtn}'
+    generateLinkWarning: 'ساخت لینک جدید، لینک قبلی این پرسنل را نامعتبر خواهد کرد.',
+    revokeAccessBtn: 'ابطال دسترسی لینک',
+    pastCycleNotice: (count, month) => `${count} روز کارکرد از دوره قبلی (${month}) تسویه‌نشده باقی مانده است. در صورتی که این دوره پیش از مرخصی تسویه شده است، می‌توانید با یک کلیک آن را به عنوان «تسویه‌شده» بایگانی کنید.`,
+    settlePastCycleBtn: (count) => `تسویه و بایگانی کارکردهای دوره قبل (${count} روز)`,
+    settlingPastCycle: 'در حال تسویه و بایگانی…',
+    pastCycleSettledSuccess: 'کارکردهای دوره قبل تسویه و بایگانی شدند.',
+    revertConfirmPastCycle: (count) => `آیا از ثبت تسویه برای ${count} روز کارکرد دوره قبلی این پرسنل اطمینان دارید؟`
   },
   ku: {
     phoneCallTitle: 'پەیوەندی تەلەفۆنی',
@@ -224,6 +230,11 @@ const COPY = {
     logHourlyTitle: 'تۆماری کارکردی کاتژمێری',
     advancePaymentTitle: 'پارەدانی پێشەکی نەختینە / بانکی',
     settlementDocumentTitle: 'بەڵگەنامەی پاکتاوی کۆتایی',
+    pastCycleNotice: (count, month) => `${count} ڕۆژی کارکرد لە خولی پێشوو (${month}) بە یەکلا نەکراوەیی ماوەتەوە. ئەگەر پێش مۆڵەت پاکتاو کراون، دەتوانیت بە یەک کلیک وەک پاکتاوکراو تۆماریان بکەیت.`,
+    settlePastCycleBtn: (count) => `پاکتاو و ئەرشیڤکردنی خولی پێشوو (${count} ڕۆژ)`,
+    settlingPastCycle: 'خەریکی پاکتاوکردنە…',
+    pastCycleSettledSuccess: 'کارکردەکانی خولی پێشوو پاکتاوکران.',
+    revertConfirmPastCycle: (count) => `دڵنیایت لە پاکتاوکردنی ${count} ڕۆژی خولی پێشووی ئەم کرێکارە؟`
   },
   en: {
     phoneCallTitle: 'Phone Call',
@@ -319,6 +330,11 @@ const COPY = {
     logHourlyTitle: 'Hourly attendance',
     advancePaymentTitle: 'Cash / Bank advance payment',
     settlementDocumentTitle: 'Final settlement document',
+    pastCycleNotice: (count, month) => `${count} work days from prior cycle (${month}) remain open. If settled before leave, you can mark them as settled with one click.`,
+    settlePastCycleBtn: (count) => `Settle & Archive Prior Cycle (${count} days)`,
+    settlingPastCycle: 'Settling prior cycle…',
+    pastCycleSettledSuccess: 'Prior cycle work logs marked as settled.',
+    revertConfirmPastCycle: (count) => `Are you sure you want to mark ${count} prior cycle days as settled?`
   }
 };
 
@@ -434,9 +450,15 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
   const allPayments = useLiveQuery(async () => {
     if (!workerId) return [];
-    const payments = await db.payments.where('workerId').equals(workerId).toArray();
-    return payments.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [workerId]) || [];
+    const w = await db.workers.get(workerId);
+    const payments = await db.payments.toArray();
+    return payments
+      .filter((p) => !p.deletedAt && p.status !== 'deleted' && (
+        String(p.workerId) === String(workerId) || 
+        (w?.groupId && p.isGroupSettlement && p.groupId === w.groupId)
+      ))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [workerId, worker?.groupId]) || [];
 
   // All workers & groups for settlement modal pass-through
   const allWorkers = useLiveQuery(() => db.workers.toArray()) || [];
@@ -547,6 +569,36 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       await pushLogsLive(fixed).catch(console.warn);
     } finally {
       setIsRepairingSettled(false);
+    }
+  };
+
+  // Detect unsettled logs from previous months (prior cycle before leave / reactivation)
+  const currentMonthPrefix = getCurrentYearMonth();
+  const pastCycleUnsettledLogs = useMemo(() => {
+    if (!fin?.unsettledLogs) return [];
+    return fin.unsettledLogs.filter((l) => (l.date || '').slice(0, 7) < currentMonthPrefix);
+  }, [fin?.unsettledLogs, currentMonthPrefix]);
+
+  const [isSettlingPastCycle, setIsSettlingPastCycle] = useState(false);
+  const handleSettlePastCycleLogs = async () => {
+    if (pastCycleUnsettledLogs.length === 0) return;
+    if (!window.confirm(c.revertConfirmPastCycle(pastCycleUnsettledLogs.length))) return;
+    setIsSettlingPastCycle(true);
+    try {
+      const now = new Date().toISOString();
+      const settlementRecordId = `settled_prior_cycle_${worker.id}_${Date.now()}`;
+      const updatedLogs = pastCycleUnsettledLogs.map((l) => ({
+        ...l,
+        isSettled: true,
+        settlementReceiptId: settlementRecordId,
+        updatedAt: now
+      }));
+      await db.attendanceLogs.bulkPut(updatedLogs);
+      await pushLogsLive(updatedLogs).catch(console.warn);
+    } catch (e) {
+      console.error('Error settling past cycle logs:', e);
+    } finally {
+      setIsSettlingPastCycle(false);
     }
   };
 
@@ -816,6 +868,32 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
               className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold shrink-0 cursor-pointer shadow-xs transition-colors"
             >
               {isRepairingSettled ? c.repairing : c.revertToCurrentLogs}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Past Cycle Unsettled Logs Banner (Returning from Leave / Prior Period) */}
+      {pastCycleUnsettledLogs.length > 0 && (
+        <div className="bg-sky-50 dark:bg-sky-950/40 border-b border-sky-300 dark:border-sky-800 shrink-0">
+          <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+              <div className="text-sky-900 dark:text-sky-200 leading-relaxed font-medium">
+                {c.pastCycleNotice(
+                  pastCycleUnsettledLogs.length,
+                  pastCycleUnsettledLogs[0]?.date?.slice(0, 7) || 'دوره قبل'
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={isSettlingPastCycle}
+              onClick={handleSettlePastCycleLogs}
+              className="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white font-bold shrink-0 cursor-pointer shadow-xs transition-colors flex items-center justify-center gap-1.5 text-xs whitespace-nowrap"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>{isSettlingPastCycle ? c.settlingPastCycle : c.settlePastCycleBtn(pastCycleUnsettledLogs.length)}</span>
             </button>
           </div>
         </div>
@@ -1181,17 +1259,18 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         </div>
       </div>
 
-      {/* UI element */}
-      <div className="no-print fixed bottom-0 start-0 end-0 z-30 p-3 sm:px-6 lg:px-8 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex items-center justify-between">
-        <div className="flex items-center gap-3 sm:gap-6">
+      {/* Responsive Footer */}
+      <div className="no-print fixed bottom-0 start-0 end-0 z-30 p-2.5 sm:p-3 sm:px-6 lg:px-8 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4">
+        {/* Row 1 on mobile, left side on desktop: Balance & Personnel Details */}
+        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-6">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">{c.workerAccountBalance}</span>
-            <span className={`text-base sm:text-lg font-black font-mono tracking-tight ${
+            <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">{c.workerAccountBalance}</span>
+            <span className={`text-sm sm:text-lg font-black font-mono tracking-tight ${
               stats.netBalanceDue >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
             }`} dir="ltr">
               {formatCurrency(stats.netBalanceDue, currency, language)}
             </span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
               stats.netBalanceDue >= 0
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                 : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
@@ -1202,40 +1281,43 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
 
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <span>{c.workerIdLabel}</span>
-            <span className="font-mono text-slate-700 dark:text-slate-300">{worker?.id}</span>
+            <span className="font-mono text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[11px]">
+              {worker?.personnelCode || worker?.code || worker?.id?.slice(0, 12)}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* UI element */}
+        {/* Row 2 on mobile, right side on desktop: Action Buttons */}
+        <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2">
+          {/* Add Advance Button */}
           <button
             type="button"
             onClick={() => setIsAdvanceModalOpen(true)}
-            className="px-3.5 sm:px-4 h-10 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="h-10 px-2 sm:px-4 rounded-xl sm:rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
           >
-            <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span>{c.addAdvanceBtn}</span>
+            <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="truncate">{c.addAdvanceBtn}</span>
           </button>
 
-          {/* UI element */}
+          {/* Settle Account Button */}
           <button
             type="button"
             onClick={() => setIsSettlementModalOpen(true)}
-            className="px-3.5 sm:px-4 h-10 rounded-2xl bg-primary text-white hover:bg-primary/90 text-xs font-bold shadow-md shadow-primary/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            className="h-10 px-2 sm:px-4 rounded-xl sm:rounded-2xl bg-primary text-white hover:bg-primary/90 text-xs font-bold shadow-md shadow-primary/20 transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Receipt className="w-4 h-4" />
-            <span>{c.settleAccountBtn}</span>
+            <Receipt className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="truncate">{c.settleAccountBtn}</span>
           </button>
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
 
-          {/* UI element */}
+          {/* Close Button */}
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 sm:px-4 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            className="h-10 px-2 sm:px-4 rounded-xl sm:rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <span>{c.closeBtn}</span>
             <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded font-mono">

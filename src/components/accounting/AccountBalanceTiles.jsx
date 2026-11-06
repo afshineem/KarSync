@@ -41,9 +41,9 @@ const COPY = {
     positiveStatus: 'مثبت',
     negativeStatus: 'کسری',
     currentBalance: 'موجودی فعلی:',
-    initialBalance: '{txt.initialBalance}',
-    inflows: '{txt.inflows}',
-    outflows: '{txt.outflows}',
+    initialBalance: 'موجودی اولیه:',
+    inflows: 'واریزی‌ها (+):',
+    outflows: 'برداشت‌ها (-):',
     subsidiaryLedger: 'دفتر معین',
     transferFrom: (name) => `انتقال وجه از ${name}`,
     depositTo: (name) => `افزایش موجودی ${name}`

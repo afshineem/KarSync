@@ -84,7 +84,7 @@ const COPY = {
     emptyMsg: 'هیچ تراکنشی منطبق با فیلتر انتخابی برای این حساب ثبت نشده است.',
     systemSource: 'سیستمی',
     manualSource: 'دستی',
-    footerTotalAndBalance: '{txt.footerTotalAndBalance}'
+    footerTotalAndBalance: 'مجموع و مانده نهایی معین:'
   },
   ku: {
     alertNoTransactions: 'هیچ مامەڵەیەک لەم حیسابەدا نەدۆزرایەوە.',
