@@ -114,3 +114,41 @@ Whenever this trigger phrase is issued for a specific section, page, or modal, y
 * After completing every translation task, you MUST always provide an up-to-date, structured checklist of all system modules and views in your response, clearly categorizing:
   - ✅ **بخش‌های تکمیل‌شده (Completed Sections):** Sections translated with the bottom-up zero-leakage protocol.
   - ⏳ **بخش‌های باقی‌مانده (Pending Sections):** Upcoming modules in line for translation.
+
+## Major Feature & Architectural Evolution Protocol (اساسنامه توسعه و آپدیت بنیادین کارسینک)
+**Trigger Phrases:**
+- «... را طبق اساسنامه کارسینک انجام بده»
+- «طبق اساسنامه: ...»
+- «طرح جامع: ...»
+
+Whenever a major update, complex feature, or system refactor is requested using these triggers, you MUST strictly follow this multi-stage architectural process before writing any code:
+
+### Stage 1: Deep Internal Engineering Loop (چرخه موشکافی و تدوین درونی)
+Run a rigorous, multi-pass engineering analysis cycle internally:
+1. **Codebase & State Audit (بررسی و آنالیز عمیق کدهای فعلی):**
+   - Thoroughly inspect all existing components, state stores, database models (Dexie/Supabase), sync logic, and business rules impacted by the proposed update.
+2. **Requirements Deconstruction (کالبدشکافی مهندسی درخواست):**
+   - Dissect the user's request with a system architect's mindset, identifying edge cases, potential regressions, side effects, and implicit needs.
+3. **Initial Blueprinting (طرح‌ریزی اولیه):**
+   - Formulate a draft implementation strategy connecting the current codebase with the target state.
+4. **Ruthless Self-Critique (نقد و پالایش سخت‌گیرانه):**
+   - Stress-test the draft: Identify redundant code, missing validations, UX friction points, security risks, or scalability bottlenecks. Eliminate all flaws.
+5. **Secondary Refinement (طرح‌ریزی ثانویه و بهینه‌سازی):**
+   - Rework the blueprint incorporating all critique findings, aligning perfectly with KarSync's architecture and the user's intent.
+6. **Convergence Loop (حلقه تکرار تا کمال):**
+   - Iterate steps 2 through 5 until reaching a rock-solid, production-grade architectural solution.
+
+### Stage 2: Structured Chat Output (ارائه خروجی سه‌گانه در چت)
+Present the outcome of the refined blueprint clearly to the user in three dedicated sections:
+* **۷.۱: تحلیل درخواست اولیه کاربر (User Request Analysis):**
+  - Systematic breakdown of the requested feature, objectives, constraints, and its exact impact on KarSync.
+* **۷.۲: معرفی مهندسی آپدیت (Architectural Specification):**
+  - High-level technical design, affected modules/components, data flow, schema/state changes, and integration points.
+* **۷.۳: ارائه نقشه راه کامل (Comprehensive Step-by-Step Roadmap):**
+  - Detailed, sequential implementation roadmap broken into clear phases, milestones, and verification checks.
+
+### Stage 3: Interactive Alignment & Explicit Go-Ahead (تعامل و اخذ تاییدیه)
+1. **Interactive Q&A:** At the end of the roadmap, raise any strategic questions, design choices, or architectural tradeoffs to the user.
+2. **Roadmap Revision:** If the user provides feedback or answers, refine and update the roadmap accordingly.
+3. **STRICT CODING LOCK:** **DO NOT WRITE OR MODIFY ANY CODE FILES** until the user explicitly approves the roadmap and gives the green light (e.g. «تایید است، شروع کن» / "Proceed with coding").
+
