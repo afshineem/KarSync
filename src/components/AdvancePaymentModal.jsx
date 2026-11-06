@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generatePaymentId, DEFAULT_PROJECT_ID } from '../db/db';
@@ -327,8 +327,8 @@ export function AdvancePaymentModal({
   const pastAdvances = useLiveQuery(
     async () => {
       if (!workerId || !db.payments) return [];
-      const all = await db.payments.where('workerId').equals(workerId).toArray();
-      return all.filter((p) => !p.deletedAt && p.type === 'advance' && p.status !== 'deleted');
+      const all = await db.payments.toArray();
+      return all.filter((p) => !p.deletedAt && String(p.workerId) === String(workerId) && p.type === 'advance' && p.status !== 'deleted');
     },
     [workerId]
   ) || [];
@@ -337,22 +337,43 @@ export function AdvancePaymentModal({
     return pastAdvances.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   }, [pastAdvances]);
 
+  const wasOpenRef = useRef(false);
+
+  // Initialize form state ONLY when the modal transitions from closed to open
   useEffect(() => {
-    if (isOpen) {
-      const initialWorkerId = targetWorkerId || (workers[0]?.id || '');
+    if (isOpen && !wasOpenRef.current) {
+      const initialWorkerId = targetWorkerId 
+        ? String(targetWorkerId) 
+        : (workers[0]?.id ? String(workers[0].id) : '');
       setWorkerId(initialWorkerId);
       setMonth(targetMonth || getCurrentYearMonth());
       setDate(getTodayDateString());
       setAmount('');
-      setSelectedAccountId(effectiveAccountId);
+      setSelectedAccountId(defaultAccount?.id ? String(defaultAccount.id) : '');
       setPaymentMethodTab('all');
       setReferenceNumber('');
       setNotes('');
       setFeedback({ type: '', message: '' });
       setToastMessage(null);
+      setPaymentType(initialPaymentType || 'advance');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, defaultAccount]);
+    wasOpenRef.current = isOpen;
+  }, [isOpen, targetWorkerId, targetMonth, initialPaymentType, defaultAccount?.id, workers]);
+
+  // When workers load asynchronously after modal opens and no worker is selected yet:
+  useEffect(() => {
+    if (isOpen && !workerId && workers.length > 0) {
+      const initialWorkerId = targetWorkerId ? String(targetWorkerId) : String(workers[0].id);
+      setWorkerId(initialWorkerId);
+    }
+  }, [isOpen, workerId, workers, targetWorkerId]);
+
+  // When default account loads asynchronously after modal opens and no account is selected yet:
+  useEffect(() => {
+    if (isOpen && !selectedAccountId && defaultAccount?.id) {
+      setSelectedAccountId(String(defaultAccount.id));
+    }
+  }, [isOpen, selectedAccountId, defaultAccount?.id]);
 
   // Close on Escape key press
   useEffect(() => {
@@ -634,7 +655,7 @@ export function AdvancePaymentModal({
                           className="w-full px-4 py-3 text-xs sm:text-sm font-bold bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white cursor-pointer shadow-xs transition-all"
                         >
                           {workers.map((w) => (
-                            <option key={w.id} value={w.id}>
+                            <option key={w.id} value={String(w.id)}>
                               {w.name} {w.role ? `(${w.role})` : ''} - {w.wageType === 'contract' ? c.contractType : c.dailyType}
                             </option>
                           ))}

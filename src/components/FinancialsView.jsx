@@ -2051,7 +2051,7 @@ export function FinancialsView() {
           isOpen={isGlobalAdvanceModalOpen}
           onClose={() => setIsGlobalAdvanceModalOpen(false)}
           workers={workers.filter((w) => w.isActive === 1)}
-          targetWorkerId={workers.filter((w) => w.isActive === 1)[0]?.id}
+          targetWorkerId={null}
           targetMonth={selectedMonth}
         />
       )}
