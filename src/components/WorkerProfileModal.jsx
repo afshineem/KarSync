@@ -10,6 +10,8 @@ import { createWorkerAccessLink, revokeWorkerAccessLinks } from '../services/wor
 import { pushLogsLive } from '../services/realtimeSync';
 import { 
   formatCurrency, 
+  formatAmount,
+  getCurrencySymbol,
   formatHoursAndMinutes, 
   formatFullDateWithWeekday, 
   formatDateDisplay,
@@ -346,6 +348,11 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
 
   // UI element
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isPastCycleDismissed, setIsPastCycleDismissed] = useState(false);
+
+  useEffect(() => {
+    setIsPastCycleDismissed(false);
+  }, [workerId]);
 
   // UI element
   const [activityTypeFilter, setActivityTypeFilter] = useState('all');
@@ -696,54 +703,54 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       dir={direction}
       className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-[#f3f6f4] dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none"
     >
-      {/* UI element */}
+      {/* Modal Header */}
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shrink-0 z-20 shadow-xs">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-            {/* UI element */}
-            <div className="flex items-center gap-3.5 min-w-0">
+        <div className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5">
+          <div className="flex items-center justify-between gap-2.5 sm:gap-4">
+            {/* Left: Avatar + Worker Info */}
+            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
               <div className="relative shrink-0">
-                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-xl flex items-center justify-center shadow-lg shadow-sky-500/25 border border-white/60 dark:border-slate-800">
-                  {worker?.name ? worker.name.charAt(0) : <User className="w-6 h-6" />}
+                <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-black text-lg sm:text-xl flex items-center justify-center shadow-lg shadow-sky-500/25 border border-white/60 dark:border-slate-800">
+                  {worker?.name ? worker.name.charAt(0) : <User className="w-5 h-5 sm:w-6 sm:h-6" />}
                 </div>
                 <span 
-                  className={`absolute -bottom-1 -end-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
+                  className={`absolute -bottom-0.5 -end-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
                     worker?.isActive !== false ? 'bg-emerald-500' : 'bg-rose-500'
                   }`} 
                   title={worker?.isActive !== false ? c.active : c.inactive}
                 />
               </div>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <h2 className="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
                     {worker?.name || '...'}
                   </h2>
                   {worker?.role && (
-                    <span className="px-2.5 py-0.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 text-xs font-bold">
+                    <span className="px-2 py-0.5 rounded-lg sm:rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 text-[10px] sm:text-xs font-bold">
                       {worker.role}
                     </span>
                   )}
                   {group?.name && (
-                    <span className="px-2.5 py-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-sky-500" />
+                    <span className="hidden xs:inline-flex px-2 py-0.5 rounded-lg sm:rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-xs font-semibold items-center gap-1">
+                      <Layers className="w-3 h-3 text-sky-500" />
                       <span>{group.name}</span>
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-3 mt-0.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                   {worker?.phone ? (
                     <a 
                       href={`tel:${worker.phone}`} 
-                      className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400 hover:underline font-mono font-bold transition-colors"
+                      className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline font-mono font-bold transition-colors"
                       title={c.phoneCallTitle}
                     >
-                      <Phone className="w-3.5 h-3.5" />
+                      <Phone className="w-3 h-3" />
                       <span>{worker.phone}</span>
                     </a>
                   ) : (
-                    <span className="text-slate-400 text-xs">{c.noPhone}</span>
+                    <span className="text-slate-400 text-[10px] sm:text-xs">{c.noPhone}</span>
                   )}
 
                   <span className="text-slate-300 dark:text-slate-700">•</span>
@@ -751,30 +758,30 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   
                   {Number(worker?.overtimeHourlyRate) > 0 && (
                     <>
-                      <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <span>{c.overtimePrefix} <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker.overtimeHourlyRate, currency, language)}</strong>{c.perHourSuffix}</span>
+                      <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+                      <span className="hidden sm:inline">{c.overtimePrefix} <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker.overtimeHourlyRate, currency, language)}</strong>{c.perHourSuffix}</span>
                     </>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* UI element */}
-            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              {/* UI element */}
+            {/* Right: Actions (More Tools & Close in same row) */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* More Tools Menu */}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsMoreMenuOpen(prev => !prev)}
                   aria-label={c.moreToolsTitle}
                   title={c.moreToolsTitle}
-                  className={`h-11 sm:h-12 w-11 sm:w-12 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-95 border shadow-xs cursor-pointer ${
+                  className={`h-9 w-9 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-95 border shadow-xs cursor-pointer ${
                     isMoreMenuOpen
                       ? 'bg-primary text-white border-primary shadow-primary/20'
                       : 'bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200/90 dark:border-slate-700/80'
                   }`}
                 >
-                  <MoreHorizontal className="w-5 h-5" />
+                  <MoreHorizontal className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
 
                 {isMoreMenuOpen && (
@@ -833,136 +840,165 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 )}
               </div>
 
-              {/* UI element */}
+              {/* Close Button */}
               <button
                 type="button"
                 onClick={onClose}
                 aria-label={c.closeEsc}
                 title={c.closeEsc}
-                className="h-11 sm:h-12 w-11 sm:w-12 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all duration-150 active:scale-95 border border-slate-200/90 dark:border-slate-700/80 shadow-xs shrink-0 cursor-pointer"
+                className="h-9 w-9 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all duration-150 active:scale-95 border border-slate-200/90 dark:border-slate-700/80 shadow-xs shrink-0 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* UI element */}
-      {fin?.suspiciousSettledLogs?.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-300 dark:border-amber-800 shrink-0">
-          <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <div className="flex-1 text-amber-900 dark:text-amber-200 leading-relaxed">
-              <b>{c.financialWarning}</b> {c.suspiciousLogsDesc(
-                fin.suspiciousSettledLogs.length,
-                fin.suspiciousSettledLogs.slice(0, 5).map((l) => l.date).join(c.commaSeparator),
-                fin.suspiciousSettledLogs.length > 5,
-                fin.lastSettlementDate
-              )}
-            </div>
-            <button
-              type="button"
-              disabled={isRepairingSettled}
-              onClick={handleRepairSuspiciousLogs}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold shrink-0 cursor-pointer shadow-xs transition-colors"
-            >
-              {isRepairingSettled ? c.repairing : c.revertToCurrentLogs}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Past Cycle Unsettled Logs Banner (Returning from Leave / Prior Period) */}
-      {pastCycleUnsettledLogs.length > 0 && (
-        <div className="bg-sky-50 dark:bg-sky-950/40 border-b border-sky-300 dark:border-sky-800 shrink-0">
-          <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
-              <div className="text-sky-900 dark:text-sky-200 leading-relaxed font-medium">
-                {c.pastCycleNotice(
-                  pastCycleUnsettledLogs.length,
-                  pastCycleUnsettledLogs[0]?.date?.slice(0, 7) || 'دوره قبل'
+      {/* Main Continuous Scroll Area (Hero + Banners + Content) */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {/* Suspicious Settled Logs Warning */}
+        {fin?.suspiciousSettledLogs?.length > 0 && (
+          <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-300 dark:border-amber-800">
+            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <div className="flex-1 text-amber-900 dark:text-amber-200 leading-relaxed">
+                <b>{c.financialWarning}</b> {c.suspiciousLogsDesc(
+                  fin.suspiciousSettledLogs.length,
+                  fin.suspiciousSettledLogs.slice(0, 5).map((l) => l.date).join(c.commaSeparator),
+                  fin.suspiciousSettledLogs.length > 5,
+                  fin.lastSettlementDate
                 )}
               </div>
+              <button
+                type="button"
+                disabled={isRepairingSettled}
+                onClick={handleRepairSuspiciousLogs}
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold shrink-0 cursor-pointer shadow-xs transition-colors"
+              >
+                {isRepairingSettled ? c.repairing : c.revertToCurrentLogs}
+              </button>
             </div>
+          </div>
+        )}
+
+        {/* Past Cycle Unsettled Logs Banner (Dismissible) */}
+        {!isPastCycleDismissed && pastCycleUnsettledLogs.length > 0 && (
+          <div className="bg-sky-50 dark:bg-sky-950/40 border-b border-sky-300 dark:border-sky-800 relative">
+            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 pe-12 sm:pe-12 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                <div className="text-sky-900 dark:text-sky-200 leading-relaxed font-medium">
+                  {c.pastCycleNotice(
+                    pastCycleUnsettledLogs.length,
+                    `\u2066${pastCycleUnsettledLogs[0]?.date?.slice(0, 7) || 'دوره قبل'}\u2069`
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSettlingPastCycle}
+                onClick={handleSettlePastCycleLogs}
+                className="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white font-bold shrink-0 cursor-pointer shadow-xs transition-colors flex items-center justify-center gap-1.5 text-xs whitespace-nowrap self-start sm:self-auto"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isSettlingPastCycle ? c.settlingPastCycle : c.settlePastCycleBtn(pastCycleUnsettledLogs.length)}</span>
+              </button>
+            </div>
+            {/* Dismiss Banner Button */}
             <button
               type="button"
-              disabled={isSettlingPastCycle}
-              onClick={handleSettlePastCycleLogs}
-              className="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white font-bold shrink-0 cursor-pointer shadow-xs transition-colors flex items-center justify-center gap-1.5 text-xs whitespace-nowrap"
+              onClick={() => setIsPastCycleDismissed(true)}
+              aria-label={c.closeBtn}
+              title={c.closeBtn}
+              className="absolute top-2.5 end-2.5 sm:top-3 sm:end-3 p-1 rounded-lg text-sky-700/80 dark:text-sky-300 hover:bg-sky-200/50 dark:hover:bg-sky-900/60 transition-colors cursor-pointer"
             >
-              <Check className="w-3.5 h-3.5" />
-              <span>{isSettlingPastCycle ? c.settlingPastCycle : c.settlePastCycleBtn(pastCycleUnsettledLogs.length)}</span>
+              <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* UI element */}
-      <div className="no-print px-4 py-3 sm:px-6 lg:px-8 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
-        <div className="max-w-7xl mx-auto w-full relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-slate-950 text-white border border-white/10 shadow-2xl">
-          {/* UI element */}
-          <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-10 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        {/* Hero Card (Inside Scrollable Container) */}
+        <div className="no-print px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4">
+          <div className="max-w-7xl mx-auto w-full relative overflow-hidden rounded-3xl p-4 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-slate-950 text-white border border-white/10 shadow-2xl">
+            {/* Background ambient glow */}
+            <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-10 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-            {/* UI element */}
-            <div className="lg:col-span-7 space-y-3">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
-                <span className={`w-2 h-2 rounded-full ${stats.netBalanceDue >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-pulse'}`} />
-                <span className={stats.netBalanceDue >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                  {stats.netBalanceDue >= 0 ? c.accountStatusCreditor : c.accountStatusDebtor}
-                </span>
-                <span className="text-slate-500">•</span>
-                <span className="text-slate-400">{c.unsettledDaysPending(stats.unsettledDaysCount)}</span>
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-center">
+              {/* Left: Account Status & Balance */}
+              <div className="lg:col-span-7 space-y-2 sm:space-y-3">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${stats.netBalanceDue >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-pulse'}`} />
+                    <span className={stats.netBalanceDue >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {stats.netBalanceDue >= 0 ? c.accountStatusCreditor : c.accountStatusDebtor}
+                    </span>
+                  </span>
+                  <span className="text-slate-500 hidden xs:inline">•</span>
+                  <span className="text-slate-300 text-[11px] sm:text-xs">
+                    {c.unsettledDaysPending(stats.unsettledDaysCount)}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 block mb-0.5 sm:mb-1">{c.finalNetPayableBalance}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-2xl sm:text-3xl md:text-4xl font-black font-mono tracking-tight ${
+                      stats.netBalanceDue >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`} dir="ltr">
+                      {formatCurrency(stats.netBalanceDue, currency, language)}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <span className="text-[11px] font-bold text-slate-400 block mb-1">{c.finalNetPayableBalance}</span>
-                <div className="flex items-baseline gap-2">
-                  <span className={`text-2xl sm:text-3xl md:text-4xl font-black font-mono tracking-tight ${
-                    stats.netBalanceDue >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`} dir="ltr">
-                    {formatCurrency(stats.netBalanceDue, currency, language)}
-                  </span>
+              {/* Right: 3 KPI Cards */}
+              <div className="lg:col-span-5 grid grid-cols-3 gap-2 sm:gap-2.5 bg-white/5 p-2.5 sm:p-3.5 rounded-2xl border border-white/10 backdrop-blur-md">
+                {/* Current Work Gross */}
+                <div className="p-2 sm:p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                  <span className="text-[10px] sm:text-xs text-slate-400 block font-medium leading-tight">{c.currentWorkGross}</span>
+                  <div className="mt-1">
+                    <span className="text-xs sm:text-sm font-black font-mono text-slate-100 block" dir="ltr">
+                      +{formatAmount(stats.unsettledGrossPay)}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-normal block">
+                      {getCurrencySymbol(currency, language)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Advances */}
+                <div className="p-2 sm:p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col justify-between">
+                  <span className="text-[10px] sm:text-xs text-amber-300 block font-medium leading-tight">{c.advancesMinus}</span>
+                  <div className="mt-1">
+                    <span className="text-xs sm:text-sm font-black font-mono text-amber-400 block" dir="ltr">
+                      -{formatAmount(stats.unsettledAdvances)}
+                    </span>
+                    <span className="text-[9px] text-amber-300/80 font-normal block">
+                      {getCurrencySymbol(currency, language)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Total Settled */}
+                <div className="p-2 sm:p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 flex flex-col justify-between">
+                  <span className="text-[10px] sm:text-xs text-sky-300 block font-medium leading-tight">{c.totalSettledHistory}</span>
+                  <div className="mt-1">
+                    <span className="text-xs sm:text-sm font-black font-mono text-sky-400 block" dir="ltr">
+                      {formatAmount(stats.settledGrossPay)}
+                    </span>
+                    <span className="text-[9px] text-sky-300/80 font-normal block">
+                      {getCurrencySymbol(currency, language)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* UI element */}
-            <div className="lg:col-span-5 grid grid-cols-3 gap-2.5 bg-white/5 p-3.5 rounded-2xl border border-white/10 backdrop-blur-md">
-              {/* UI element */}
-              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
-                <span className="text-[10px] text-slate-400 block truncate">{c.currentWorkGross}</span>
-                <span className="text-xs sm:text-sm font-black font-mono text-slate-200 mt-1 block truncate" dir="ltr">
-                  +{formatCurrency(stats.unsettledGrossPay, currency, language)}
-                </span>
-              </div>
-
-              {/* UI element */}
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col justify-between">
-                <span className="text-[10px] text-amber-300 block truncate">{c.advancesMinus}</span>
-                <span className="text-xs sm:text-sm font-black font-mono text-amber-400 mt-1 block truncate" dir="ltr">
-                  -{formatCurrency(stats.unsettledAdvances, currency, language)}
-                </span>
-              </div>
-
-              {/* UI element */}
-              <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 flex flex-col justify-between">
-                <span className="text-[10px] text-sky-300 block truncate">{c.totalSettledHistory}</span>
-                <span className="text-xs sm:text-sm font-black font-mono text-sky-400 mt-1 block truncate" dir="ltr">
-                  {formatCurrency(stats.settledGrossPay, currency, language)}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
-      </div>
 
-      {/* UI element */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 pb-32">
+        <div className="max-w-7xl mx-auto w-full p-3.5 sm:p-6 lg:p-8 pb-32">
           
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             
@@ -1298,7 +1334,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
             className="h-10 px-2 sm:px-4 rounded-xl sm:rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
           >
             <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span className="truncate">{c.addAdvanceBtn}</span>
+            <span>{c.addAdvanceBtn}</span>
           </button>
 
           {/* Settle Account Button */}
@@ -1308,7 +1344,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
             className="h-10 px-2 sm:px-4 rounded-xl sm:rounded-2xl bg-primary text-white hover:bg-primary/90 text-xs font-bold shadow-md shadow-primary/20 transition-all active:scale-95 flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <Receipt className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span className="truncate">{c.settleAccountBtn}</span>
+            <span>{language === 'fa' ? 'تسویه‌حساب' : c.settleAccountBtn}</span>
           </button>
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
