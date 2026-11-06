@@ -91,7 +91,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
   const [activeCategory, setActiveCategory] = useState('all');
   const dropdownRef = useRef(null);
 
-  // Close when clicking outside
+  // Click outside listener
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -108,14 +108,14 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
     };
   }, [isOpen, onClose]);
 
-  // Dynamic viewport edge containment (identical to SettingsDropdown)
+  // Dynamic viewport edge containment for desktop/tablet: keeps dropdown cleanly attached under the bell button
   useEffect(() => {
     if (!isOpen || !dropdownRef.current) return;
     const adjustPosition = () => {
       if (!dropdownRef.current) return;
-      dropdownRef.current.style.transform = 'none';
+      dropdownRef.current.style.transform = '';
       const rect = dropdownRef.current.getBoundingClientRect();
-      const padding = 10;
+      const padding = 12;
       if (rect.right > window.innerWidth - padding) {
         const overflow = rect.right - (window.innerWidth - padding);
         dropdownRef.current.style.transform = `translateX(-${overflow}px)`;
@@ -200,18 +200,11 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
   const ActionArrow = isRtl ? ArrowUpLeft : ArrowUpRight;
 
   return (
-    <>
-      {/* Mobile Overlay to dismiss on tap outside (no blur, pure clean dimming so app remains sharp) */}
-      <div
-        className="fixed inset-0 bg-black/25 z-40 sm:hidden animate-in fade-in duration-200"
-        onClick={onClose}
-      />
-
-      <div
-        ref={dropdownRef}
-        dir={direction}
-        className="fixed sm:absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 sm:top-full sm:translate-y-0 sm:left-auto sm:mt-2 w-[calc(100vw-2.5rem)] sm:w-96 max-w-[360px] sm:max-w-none bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl backdrop-saturate-150 border border-white/70 dark:border-white/10 rounded-3xl shadow-[0_24px_60px_rgba(0,0,0,0.22)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.7)] z-50 p-4 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-200 select-none ltr:sm:right-0 ltr:sm:left-auto rtl:sm:left-0 rtl:sm:right-auto flex flex-col gap-3 max-h-[80vh] sm:max-h-[600px] overflow-hidden"
-      >
+    <div
+      ref={dropdownRef}
+      dir={direction}
+      className="absolute top-full mt-3 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] rounded-3xl bg-white/40 dark:bg-slate-900/50 backdrop-blur-3xl backdrop-saturate-200 border border-white/60 dark:border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.15),inset_0_1px_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_1px_0_rgba(255,255,255,0.1)] p-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 select-none ltr:right-0 ltr:left-auto rtl:left-0 rtl:right-auto flex flex-col gap-3 max-h-[calc(100vh-5.5rem)] overflow-y-auto custom-scrollbar"
+    >
       {/* 1. Header Bar */}
       <div className="flex items-center justify-between px-1 pt-0.5">
         <div className="flex items-center gap-2.5">
@@ -411,6 +404,5 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
         </button>
       </div>
     </div>
-    </>
   );
 }
