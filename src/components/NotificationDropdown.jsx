@@ -201,16 +201,16 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
 
   return (
     <>
-      {/* Mobile Backdrop Overlay to dismiss on tap outside */}
+      {/* Mobile Overlay to dismiss on tap outside (no blur, pure clean dimming so app remains sharp) */}
       <div
-        className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-40 sm:hidden animate-in fade-in duration-200"
+        className="fixed inset-0 bg-black/25 z-40 sm:hidden animate-in fade-in duration-200"
         onClick={onClose}
       />
 
       <div
         ref={dropdownRef}
         dir={direction}
-        className="fixed sm:absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto top-16 sm:top-full mt-2 w-[calc(100vw-2.5rem)] sm:w-96 max-w-[360px] sm:max-w-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl backdrop-saturate-150 border border-white/60 dark:border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.65)] z-50 p-4 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:sm:right-0 ltr:sm:left-auto rtl:sm:left-0 rtl:sm:right-auto flex flex-col gap-3 max-h-[82vh] sm:max-h-[600px] overflow-hidden"
+        className="fixed sm:absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 sm:top-full sm:translate-y-0 sm:left-auto sm:mt-2 w-[calc(100vw-2.5rem)] sm:w-96 max-w-[360px] sm:max-w-none bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl backdrop-saturate-150 border border-white/70 dark:border-white/10 rounded-3xl shadow-[0_24px_60px_rgba(0,0,0,0.22)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.7)] z-50 p-4 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-200 select-none ltr:sm:right-0 ltr:sm:left-auto rtl:sm:left-0 rtl:sm:right-auto flex flex-col gap-3 max-h-[80vh] sm:max-h-[600px] overflow-hidden"
       >
       {/* 1. Header Bar */}
       <div className="flex items-center justify-between px-1 pt-0.5">
