@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from './AuthContext';
 import { useProject } from './ProjectContext';
 import { getTodayDateString, formatCurrency } from '../utils/formatters';
+import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
 
 const NotificationContext = createContext(null);
 
@@ -505,23 +506,25 @@ export function NotificationProvider({ children }) {
       const dueWorkers = [];
 
       workers.forEach((w) => {
-        const unsettledActiveLogs = attendanceLogs.filter(
-          (l) =>
-            String(l.workerId) === String(w.id) &&
-            !l.isSettled &&
-            l.type !== 'absent'
+        const workerLogs = attendanceLogs.filter((l) => String(l.workerId) === String(w.id));
+        const workerPayments = payments.filter(
+          (p) => String(p.workerId) === String(w.id) || (w.groupId && p.groupId === w.groupId)
         );
-        if (unsettledActiveLogs.length >= dueThreshold) {
+        const fin = calculateWorkerFinancials(w, workerLogs, workerPayments, currency);
+
+        // Only trigger if worker genuinely has outstanding balance due (> 0) AND has accumulated active days >= threshold
+        if (fin && fin.netBalanceDue > 0 && fin.unsettledLogs.length >= dueThreshold) {
           dueWorkers.push({
             worker: w,
-            daysCount: unsettledActiveLogs.length
+            daysCount: fin.unsettledLogs.length,
+            balanceDue: fin.netBalanceDue
           });
         }
       });
 
       if (dueWorkers.length > 0) {
         const topWorker = dueWorkers.sort((a, b) => b.daysCount - a.daysCount)[0];
-        const dedupKey = `settlement_due_${projectId}_${dueWorkers.length}_${topWorker.daysCount}`;
+        const dedupKey = `settlement_due_${projectId}`;
 
         alerts.push({
           id: dedupKey,
@@ -562,36 +565,24 @@ export function NotificationProvider({ children }) {
       const indebtedWorkers = [];
 
       workers.forEach((w) => {
-        const unsettledLogs = attendanceLogs.filter(
-          (l) => String(l.workerId) === String(w.id) && !l.isSettled
+        const workerLogs = attendanceLogs.filter((l) => String(l.workerId) === String(w.id));
+        const workerPayments = payments.filter(
+          (p) => String(p.workerId) === String(w.id) || (w.groupId && p.groupId === w.groupId)
         );
-        const unsettledPayments = payments.filter(
-          (p) =>
-            String(p.workerId) === String(w.id) &&
-            !p.isSettled &&
-            p.type === 'advance'
-        );
+        const fin = calculateWorkerFinancials(w, workerLogs, workerPayments, currency);
 
-        const totalEarned = unsettledLogs.reduce(
-          (sum, l) => sum + (Number(l.totalDayPay) || 0),
-          0
-        );
-        const totalAdvances = unsettledPayments.reduce(
-          (sum, p) => sum + (Number(p.amount) || 0),
-          0
-        );
-
-        if (totalAdvances > totalEarned && totalAdvances > 0) {
+        // Negative netBalanceDue means worker received more in advances than earned
+        if (fin && fin.netBalanceDue < 0) {
           indebtedWorkers.push({
             worker: w,
-            debtAmount: totalAdvances - totalEarned
+            debtAmount: Math.abs(fin.netBalanceDue)
           });
         }
       });
 
       if (indebtedWorkers.length > 0) {
         const topDebtor = indebtedWorkers.sort((a, b) => b.debtAmount - a.debtAmount)[0];
-        const dedupKey = `worker_debt_${projectId}_${indebtedWorkers.length}_${Math.round(topDebtor.debtAmount)}`;
+        const dedupKey = `worker_debt_${projectId}`;
 
         alerts.push({
           id: dedupKey,
