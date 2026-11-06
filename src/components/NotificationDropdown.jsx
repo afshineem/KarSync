@@ -200,11 +200,18 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
   const ActionArrow = isRtl ? ArrowUpLeft : ArrowUpRight;
 
   return (
-    <div
-      ref={dropdownRef}
-      dir={direction}
-      className="fixed sm:absolute inset-x-3 sm:inset-x-auto top-16 sm:top-full mt-1 sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/80 dark:border-white/15 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.7)] z-50 p-3 sm:p-3.5 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:sm:right-0 ltr:sm:left-auto rtl:sm:left-0 rtl:sm:right-auto flex flex-col gap-2.5 max-h-[85vh] sm:max-h-[600px]"
-    >
+    <>
+      {/* Mobile Backdrop Overlay to dismiss on tap outside */}
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 sm:hidden animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+
+      <div
+        ref={dropdownRef}
+        dir={direction}
+        className="fixed sm:absolute inset-x-3 sm:inset-x-auto top-16 sm:top-full mt-1 sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-96 max-w-md sm:max-w-none bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/80 dark:border-white/15 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.75)] z-50 p-3.5 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:sm:right-0 ltr:sm:left-auto rtl:sm:left-0 rtl:sm:right-auto flex flex-col gap-2.5 max-h-[85vh] sm:max-h-[600px] overflow-hidden"
+      >
       {/* 1. Header Bar */}
       <div className="flex items-center justify-between px-1 pt-0.5">
         <div className="flex items-center gap-2">
@@ -398,5 +405,6 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
         </button>
       </div>
     </div>
+    </>
   );
 }
