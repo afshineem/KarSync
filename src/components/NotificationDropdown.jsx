@@ -203,24 +203,24 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
     <>
       {/* Mobile Backdrop Overlay to dismiss on tap outside */}
       <div
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 sm:hidden animate-in fade-in duration-200"
+        className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-40 sm:hidden animate-in fade-in duration-200"
         onClick={onClose}
       />
 
       <div
         ref={dropdownRef}
         dir={direction}
-        className="fixed sm:absolute inset-x-3 sm:inset-x-auto top-16 sm:top-full mt-1 sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-96 max-w-md sm:max-w-none bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/80 dark:border-white/15 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.75)] z-50 p-3.5 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:sm:right-0 ltr:sm:left-auto rtl:sm:left-0 rtl:sm:right-auto flex flex-col gap-2.5 max-h-[85vh] sm:max-h-[600px] overflow-hidden"
+        className="fixed sm:absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto top-16 sm:top-full mt-2 w-[calc(100vw-2.5rem)] sm:w-96 max-w-[360px] sm:max-w-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl backdrop-saturate-150 border border-white/60 dark:border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.65)] z-50 p-4 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:sm:right-0 ltr:sm:left-auto rtl:sm:left-0 rtl:sm:right-auto flex flex-col gap-3 max-h-[82vh] sm:max-h-[600px] overflow-hidden"
       >
       {/* 1. Header Bar */}
       <div className="flex items-center justify-between px-1 pt-0.5">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-sky-500/15 dark:bg-sky-500/20 border border-sky-500/25 flex items-center justify-center text-sky-600 dark:text-sky-400">
-            <Bell className="w-4 h-4" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-2xl bg-sky-500/15 dark:bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-xs">
+            <Bell className="w-4.5 h-4.5" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white">
                 {c.title}
               </h3>
               {unreadCount > 0 && (
@@ -241,7 +241,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
               type="button"
               onClick={markAllAsRead}
               title={c.markAllAsRead}
-              className="p-2 rounded-xl text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400 hover:bg-white/60 dark:hover:bg-white/10 transition-colors"
+              className="p-2 rounded-xl text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400 hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
             >
               <CheckCheck className="w-4 h-4" />
             </button>
@@ -253,15 +253,15 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
               if (onOpenNotificationSettings) onOpenNotificationSettings();
             }}
             title={c.notificationSettings}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 transition-colors"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
             <Settings className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* 2. Segmented Filter Bar ([APP_THEME_BUTTON] Pattern) */}
-      <div className="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-slate-200/55 dark:bg-slate-900/75 border border-white/60 dark:border-white/5">
+      {/* 2. Segmented Filter Bar: Pure [APP_THEME_BUTTON] Pattern with fixed container */}
+      <div className="h-[46px] w-full flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner backdrop-blur-md">
         {filterTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeCategory === tab.id;
@@ -277,18 +277,24 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
               onClick={() => setActiveCategory(tab.id)}
               title={tab.label}
               aria-label={tab.label}
-              className={`relative col-span-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-xl transition-all duration-200 ${
+              className={`relative h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 ease-in-out cursor-pointer active:scale-95 ${
                 isActive
-                  ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white font-bold shadow-sm shadow-sky-500/30'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
+                  ? 'flex-1 bg-sky-500 text-white shadow-md shadow-sky-500/30 font-bold px-3'
+                  : 'px-2.5 text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
               }`}
             >
-              <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-white' : ''}`} />
-              <span className="text-[10px] sm:text-[11px] font-bold truncate">
-                {tab.label}
-              </span>
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {isActive && (
+                <span className="text-[11px] font-bold whitespace-nowrap animate-in fade-in duration-200">
+                  {tab.label}
+                </span>
+              )}
               {catCount > 0 && (
-                <span className={`text-[9px] px-1 py-0.2 rounded-full font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-black leading-none ${
+                    isActive ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
                   {formatNumber(catCount)}
                 </span>
               )}
