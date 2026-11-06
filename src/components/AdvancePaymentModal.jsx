@@ -337,6 +337,20 @@ export function AdvancePaymentModal({
     return pastAdvances.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   }, [pastAdvances]);
 
+  // Query past bonuses for this worker
+  const pastBonuses = useLiveQuery(
+    async () => {
+      if (!workerId || !db.payments) return [];
+      const all = await db.payments.toArray();
+      return all.filter((p) => !p.deletedAt && String(p.workerId) === String(workerId) && p.type === 'bonus' && p.status !== 'deleted');
+    },
+    [workerId]
+  ) || [];
+
+  const totalWorkerBonuses = useMemo(() => {
+    return pastBonuses.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [pastBonuses]);
+
   const wasOpenRef = useRef(false);
 
   // Initialize form state ONLY when the modal transitions from closed to open
@@ -413,7 +427,7 @@ export function AdvancePaymentModal({
     }
 
     if (!bypassOverdraft) {
-      const overdraftCheck = checkAccountOverdraft(selectedAccountId, numAmount);
+      const overdraftCheck = checkAccountOverdraft(effectiveAccountId, numAmount);
       if (!overdraftCheck.hasSufficientFunds) {
         if (overdraftCheck.effectivePolicy === 'never_allow') {
           setOverdraftPromptData({
@@ -448,7 +462,7 @@ export function AdvancePaymentModal({
       const derivedMonth = date ? date.slice(0, 7) : month;
 
       const workerName = selectedWorker?.name || 'Unknown';
-      const chosenAccount = financialAccounts.find((a) => String(a.id) === String(selectedAccountId)) || defaultAccount;
+      const chosenAccount = financialAccounts.find((a) => String(a.id) === String(effectiveAccountId)) || defaultAccount;
 
       const derivedBonusTitle = paymentType === "bonus"
         ? (customBonusTitle.trim() || (bonusPreset === "nowruz" ? c.bonusPresetNowruz : bonusPreset === "good_job" ? c.bonusPresetGoodJob : bonusPreset === "management" ? c.bonusPresetManagement : c.bonusPresetOther))
@@ -923,7 +937,7 @@ export function AdvancePaymentModal({
 
                     {filteredFinancialAccounts.length > 0 ? (
                       <select
-                        value={selectedAccountId}
+                        value={selectedAccountId || effectiveAccountId}
                         onChange={(e) => setSelectedAccountId(e.target.value)}
                         className="w-full px-3.5 py-3 text-xs bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white cursor-pointer font-bold shadow-xs transition-all"
                       >
