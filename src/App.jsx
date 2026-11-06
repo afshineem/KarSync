@@ -449,7 +449,7 @@ function AppContent() {
 
   // 3. If Admin/Staff, render Full Workshop Management Application
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200 pb-16 md:pb-0">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200 pb-16 md:pb-0 overflow-x-clip">
       
       {/* SaaS First-time Onboarding Wizard */}
       {isAdmin && !onboardingCompleted && (

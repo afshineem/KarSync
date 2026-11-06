@@ -2486,7 +2486,7 @@ export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onO
 
   const isRtl = direction === 'rtl';
 
-  return (
+  const fabContent = (
     <>
       {/* Backdrop overlay when speed-dial is expanded */}
       {isOpen && (
@@ -2497,8 +2497,8 @@ export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onO
       )}
 
       <div
-        className={`fixed bottom-24 md:bottom-8 ${
-          isRtl ? 'left-4 sm:left-8' : 'right-4 sm:right-8'
+        className={`fixed bottom-20 sm:bottom-24 md:bottom-8 ${
+          isRtl ? 'left-3 sm:left-6' : 'right-3 sm:right-6'
         } z-40 no-print flex flex-col items-center gap-2.5 pointer-events-none`}
       >
         {/* Speed-dial Pop-up Actions */}
@@ -2594,4 +2594,6 @@ export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onO
       </div>
     </>
   );
+
+  return typeof document !== 'undefined' ? createPortal(fabContent, document.body) : fabContent;
 }

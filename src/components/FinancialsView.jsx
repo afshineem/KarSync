@@ -125,9 +125,13 @@ const COPY = {
     settlementAction: 'تسویه حساب پرسنل',
     transferAction: 'انتقال بین حساب‌ها',
     workerBalancesTab: 'تراز و کارنامه پرسنل',
+    workerBalancesTabShort: 'کارنامه',
     loansTab: 'وام و تسهیلات',
+    loansTabShort: 'وام‌ها',
     accountsTab: 'صندوق‌ها و حساب‌های مالی',
+    accountsTabShort: 'حساب‌ها',
     ledgerTab: 'دفتر روزنامه تراکنش‌ها',
+    ledgerTabShort: 'دفتر کل',
     customDateRange: 'فیلتر بازه زمانی دلخواه',
     dateRange: 'بازه زمانی',
     addAccount: 'تعریف حساب یا کارت بانکی جدید',
@@ -176,6 +180,7 @@ const COPY = {
     cancelBtn: 'انصراف',
     confirmRangeBtn: 'تایید بازه',
     analyticsTab: 'گزارش و آنالیز مصارف',
+    analyticsTabShort: 'آنالیز',
     heroTreasuryTab: 'موجودی و خزانه',
     heroFlowTab: 'گردش مالی ماه',
     periodTotalSpend: 'کل مصارف و هزینه‌ها',
@@ -235,9 +240,13 @@ const COPY = {
     settlementAction: 'تەواوکاری و پاکتاوی کرێکاران',
     transferAction: 'گواستنەوەی نێوان حیسابەکان',
     workerBalancesTab: 'تەرازووی کرێکاران',
+    workerBalancesTabShort: 'تەرازوو',
     loansTab: 'قەرز و ئاسانکاری',
+    loansTabShort: 'قەرزەکان',
     accountsTab: 'سندوق و کارتەکان',
+    accountsTabShort: 'حیسابەکان',
     ledgerTab: 'دەفتەری گشتی',
+    ledgerTabShort: 'دەفتەر',
     customDateRange: 'ماوەی بەرواری دڵخواز',
     dateRange: 'ماوەی بەروار',
     addAccount: 'پێناسەکردنی حیساب یان کارتی نوێ',
@@ -286,6 +295,7 @@ const COPY = {
     cancelBtn: 'پاشگەزبوونەوە',
     confirmRangeBtn: 'پەسەندکردنی ماوە',
     analyticsTab: 'ڕاپۆرت و شیکاری خەرجییەکان',
+    analyticsTabShort: 'شیکاری',
     heroTreasuryTab: 'باڵانس و خەزێنە',
     heroFlowTab: 'ڕۆیشتنی پارەی مانگ',
     periodTotalSpend: 'کۆی خەرجی و دەرچووەکان',
@@ -345,9 +355,13 @@ const COPY = {
     settlementAction: 'Final Settlement',
     transferAction: 'Account Transfer',
     workerBalancesTab: 'Worker Balances',
+    workerBalancesTabShort: 'Balances',
     loansTab: 'Staff Loans',
+    loansTabShort: 'Loans',
     accountsTab: 'Accounts & Wallets',
+    accountsTabShort: 'Accounts',
     ledgerTab: 'Financial Ledger',
+    ledgerTabShort: 'Ledger',
     customDateRange: 'Custom Date Range',
     dateRange: 'Date Range',
     addAccount: 'Add Account / Bank Card',
@@ -396,6 +410,7 @@ const COPY = {
     cancelBtn: 'Cancel',
     confirmRangeBtn: 'Apply Range',
     analyticsTab: 'Spend Analytics',
+    analyticsTabShort: 'Analytics',
     heroTreasuryTab: 'Treasury Health',
     heroFlowTab: 'Monthly Flow',
     periodTotalSpend: 'Total Period Outflows',
@@ -1443,32 +1458,37 @@ export function FinancialsView() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap no-print">
         
         {/* Main 4 Section Tabs (APP_THEME_BUTTON style) */}
-        <div className="h-[52px] sm:h-[56px] inline-flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner backdrop-blur-md">
+        <div className="h-[50px] sm:h-[56px] w-full sm:w-auto max-w-full overflow-x-auto no-scrollbar flex items-center justify-between sm:justify-start gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner backdrop-blur-md">
           {[
             {
               id: 'analytics',
               label: c.analyticsTab,
+              shortLabel: c.analyticsTabShort,
               icon: BarChart3
             },
             {
               id: 'workers',
               label: c.workerBalancesTab,
+              shortLabel: c.workerBalancesTabShort,
               icon: Users
             },
             {
               id: 'loans',
               label: c.loansTab,
+              shortLabel: c.loansTabShort,
               icon: Calculator,
               badge: activeLoansList.length > 0 ? activeLoansList.length : null
             },
             {
               id: 'accounts',
               label: c.accountsTab,
+              shortLabel: c.accountsTabShort,
               icon: Landmark
             },
             {
               id: 'ledger',
               label: c.ledgerTab,
+              shortLabel: c.ledgerTabShort,
               icon: Receipt,
               badge: ledgerStats?.draft > 0 ? ledgerStats.draft : null
             }
@@ -1482,16 +1502,17 @@ export function FinancialsView() {
                 onClick={() => setActiveSection(tab.id)}
                 aria-label={tab.label}
                 title={tab.label}
-                className={`relative h-full flex items-center gap-2 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer ${
+                className={`relative h-full flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer shrink-0 ${
                   isSelected
-                    ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 font-bold px-3.5 sm:px-4'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50 px-2.5 sm:px-3'
+                    ? 'flex-1 sm:flex-initial bg-sky-500 text-white shadow-md shadow-sky-500/30 font-bold px-3 sm:px-4'
+                    : 'px-2 sm:px-3 text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
                 }`}
               >
-                <Icon className="w-4.5 h-4.5 shrink-0" />
+                <Icon className="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0" />
                 {isSelected && (
-                  <span className="text-xs font-semibold whitespace-nowrap">
-                    {tab.label}
+                  <span className="text-xs font-semibold whitespace-nowrap animate-in fade-in duration-200">
+                    <span className="inline sm:hidden">{tab.shortLabel}</span>
+                    <span className="hidden sm:inline">{tab.label}</span>
                   </span>
                 )}
                 {tab.badge && (
