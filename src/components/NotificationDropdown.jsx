@@ -203,7 +203,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
     <div
       ref={dropdownRef}
       dir={direction}
-      className="absolute top-full mt-2 w-88 sm:w-96 max-w-[calc(100vw-1.25rem)] bg-white/78 dark:bg-slate-950/78 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/60 dark:border-white/15 rounded-3xl shadow-[0_16px_48px_0_rgba(0,0,0,0.22),inset_0_1px_1px_0_rgba(255,255,255,0.85)] dark:shadow-[0_16px_48px_0_rgba(0,0,0,0.65),inset_0_1px_1px_0_rgba(255,255,255,0.15)] z-50 p-3 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:right-0 ltr:left-auto rtl:left-0 rtl:right-auto flex flex-col gap-2.5"
+      className="fixed sm:absolute inset-x-3 sm:inset-x-auto top-16 sm:top-full mt-1 sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl backdrop-saturate-200 border border-slate-200/80 dark:border-white/15 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.7)] z-50 p-3 sm:p-3.5 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150 select-none ltr:sm:right-0 ltr:sm:left-auto rtl:sm:left-0 rtl:sm:right-auto flex flex-col gap-2.5 max-h-[85vh] sm:max-h-[600px]"
     >
       {/* 1. Header Bar */}
       <div className="flex items-center justify-between px-1 pt-0.5">
@@ -254,7 +254,7 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
       </div>
 
       {/* 2. Segmented Filter Bar ([APP_THEME_BUTTON] Pattern) */}
-      <div className="flex items-center justify-between gap-1 p-1 rounded-2xl bg-slate-200/55 dark:bg-slate-900/75 border border-white/60 dark:border-white/5">
+      <div className="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-slate-200/55 dark:bg-slate-900/75 border border-white/60 dark:border-white/5">
         {filterTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeCategory === tab.id;
@@ -270,21 +270,20 @@ export function NotificationDropdown({ isOpen, onClose, onOpenNotificationSettin
               onClick={() => setActiveCategory(tab.id)}
               title={tab.label}
               aria-label={tab.label}
-              className={`relative flex items-center justify-center gap-1.5 py-1.5 rounded-xl transition-all duration-300 ease-in-out ${
+              className={`relative col-span-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-xl transition-all duration-200 ${
                 isActive
-                  ? 'flex-1 px-3 bg-gradient-to-r from-sky-500 to-sky-600 text-white font-bold shadow-sm shadow-sky-500/30'
-                  : 'px-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
+                  ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white font-bold shadow-sm shadow-sky-500/30'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
               }`}
             >
-              <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : ''}`} />
-              {isActive && (
-                <span className="text-[11px] font-bold whitespace-nowrap animate-in fade-in duration-200">
-                  {tab.label}
-                  {catCount > 0 ? ` (${formatNumber(catCount)})` : ''}
+              <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-white' : ''}`} />
+              <span className="text-[10px] sm:text-[11px] font-bold truncate">
+                {tab.label}
+              </span>
+              {catCount > 0 && (
+                <span className={`text-[9px] px-1 py-0.2 rounded-full font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                  {formatNumber(catCount)}
                 </span>
-              )}
-              {!isActive && catCount > 0 && (
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
               )}
             </button>
           );
