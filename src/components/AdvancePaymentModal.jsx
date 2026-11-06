@@ -359,7 +359,12 @@ export function AdvancePaymentModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [toastMessage, setToastMessage] = useState(null);
-  const { checkAccountOverdraft, accountBalances } = useAccounting();
+  const { 
+    financialAccounts: acctAccounts, 
+    defaultAccount: acctDefault, 
+    checkAccountOverdraft, 
+    accountBalances 
+  } = useAccounting({ projectId: targetProjectId });
   const [overdraftPromptData, setOverdraftPromptData] = useState(null);
 
   // Loan-specific states
@@ -401,27 +406,84 @@ export function AdvancePaymentModal({
     };
   }, [amount, currency, loanInterestType, loanInterestPercent, loanInterestAmount, loanDurationMonths, loanStartOption]);
 
-  // Financial accounts live query
-  const financialAccounts = useLiveQuery(
+  // Direct Dexie accounts query as fallback / real-time backup
+  const directFinancialAccounts = useLiveQuery(
     async () => {
       if (!db.financialAccounts) return [];
       const list = await db.financialAccounts.toArray();
-      return list.filter((a) => !a.deletedAt && a.isActive);
+      return list.filter((a) => !a.deletedAt && a.status !== 'deleted');
     },
     []
   ) || [];
 
-  const defaultAccount = useMemo(() => {
-    return financialAccounts.find((a) => a.isDefault) || financialAccounts[0] || null;
-  }, [financialAccounts]);
+  const financialAccounts = useMemo(() => {
+    if (acctAccounts && acctAccounts.length > 0) return acctAccounts;
+    return directFinancialAccounts;
+  }, [acctAccounts, directFinancialAccounts]);
 
-  const effectiveAccountId = selectedAccountId || defaultAccount?.id || (financialAccounts[0]?.id ? String(financialAccounts[0].id) : '');
+  const defaultAccount = useMemo(() => {
+    if (acctDefault) return acctDefault;
+    return financialAccounts.find((a) => a.isDefault) || financialAccounts[0] || null;
+  }, [acctDefault, financialAccounts]);
 
   // Filter financial accounts based on method tab
   const filteredFinancialAccounts = useMemo(() => {
     if (paymentMethodTab === 'all') return financialAccounts;
     return financialAccounts.filter((a) => a.type === paymentMethodTab);
   }, [financialAccounts, paymentMethodTab]);
+
+  const handlePaymentMethodTabChange = (tab) => {
+    setPaymentMethodTab(tab);
+    const targetAccounts = tab === 'all' 
+      ? financialAccounts 
+      : financialAccounts.filter((a) => a.type === tab);
+    if (targetAccounts.length > 0) {
+      const isCurrentInTarget = targetAccounts.some((a) => String(a.id) === String(selectedAccountId));
+      if (!isCurrentInTarget) {
+        const next = targetAccounts.find((a) => a.isDefault) || targetAccounts[0];
+        if (next) setSelectedAccountId(String(next.id));
+      }
+    }
+  };
+
+  const effectiveAccountId = useMemo(() => {
+    if (selectedAccountId) {
+      const matchInFiltered = filteredFinancialAccounts.find((a) => String(a.id) === String(selectedAccountId));
+      if (matchInFiltered) return String(matchInFiltered.id);
+      const matchInAll = financialAccounts.find((a) => String(a.id) === String(selectedAccountId));
+      if (matchInAll) return String(matchInAll.id);
+    }
+    if (filteredFinancialAccounts.length > 0) {
+      const def = filteredFinancialAccounts.find((a) => a.isDefault) || filteredFinancialAccounts[0];
+      return String(def.id);
+    }
+    return defaultAccount?.id ? String(defaultAccount.id) : '';
+  }, [selectedAccountId, filteredFinancialAccounts, financialAccounts, defaultAccount]);
+
+  const effectiveAccountObj = useMemo(() => {
+    const targetId = effectiveAccountId || selectedAccountId;
+    return financialAccounts.find((a) => String(a.id) === String(targetId)) 
+      || defaultAccount;
+  }, [financialAccounts, effectiveAccountId, selectedAccountId, defaultAccount]);
+
+  const effectiveAccountBalance = useMemo(() => {
+    if (!effectiveAccountObj) return 0;
+    const b = accountBalances?.get(String(effectiveAccountObj.id));
+    return b ? b.currentBalance : (Number(effectiveAccountObj.initialBalance) || 0);
+  }, [effectiveAccountObj, accountBalances]);
+
+  // Keep selectedAccountId synced whenever tab or accounts change
+  useEffect(() => {
+    if (filteredFinancialAccounts.length > 0) {
+      const isSelectedValid = filteredFinancialAccounts.some((a) => String(a.id) === String(selectedAccountId));
+      if (!isSelectedValid) {
+        const nextAcc = filteredFinancialAccounts.find((a) => a.isDefault) || filteredFinancialAccounts[0];
+        if (nextAcc) {
+          setSelectedAccountId(String(nextAcc.id));
+        }
+      }
+    }
+  }, [filteredFinancialAccounts, selectedAccountId]);
 
   const currentOverdraft = useMemo(() => {
     const numAmount = roundCurrency(Number(amount), currency);
@@ -542,12 +604,15 @@ export function AdvancePaymentModal({
       return;
     }
 
+    const finalAccount = effectiveAccountObj || financialAccounts.find((a) => String(a.id) === String(effectiveAccountId)) || defaultAccount;
+    const finalAccountId = finalAccount?.id ? String(finalAccount.id) : null;
+
     if (!bypassOverdraft) {
-      const overdraftCheck = checkAccountOverdraft(effectiveAccountId, numAmount);
+      const overdraftCheck = checkAccountOverdraft(finalAccountId, numAmount);
       if (!overdraftCheck.hasSufficientFunds) {
         if (overdraftCheck.effectivePolicy === 'never_allow') {
           setOverdraftPromptData({
-            accountName: overdraftCheck.account?.name || c.selectedAccountDefault,
+            accountName: finalAccount?.name || overdraftCheck.account?.name || c.selectedAccountDefault,
             currentBalance: overdraftCheck.currentBalance,
             requestedAmount: numAmount,
             shortfall: overdraftCheck.shortfall,
@@ -555,12 +620,12 @@ export function AdvancePaymentModal({
           });
           setFeedback({
             type: 'error',
-            message: c.overdraftBlockedPolicyError(overdraftCheck.account?.name || c.cashAccountDefault)
+            message: c.overdraftBlockedPolicyError(finalAccount?.name || overdraftCheck.account?.name || c.cashAccountDefault)
           });
           return;
         } else if (overdraftCheck.effectivePolicy === 'ask_each_time') {
           setOverdraftPromptData({
-            accountName: overdraftCheck.account?.name || c.selectedAccountDefault,
+            accountName: finalAccount?.name || overdraftCheck.account?.name || c.selectedAccountDefault,
             currentBalance: overdraftCheck.currentBalance,
             requestedAmount: numAmount,
             shortfall: overdraftCheck.shortfall,
@@ -578,7 +643,7 @@ export function AdvancePaymentModal({
       const derivedMonth = date ? date.slice(0, 7) : month;
 
       const workerName = selectedWorker?.name || 'Unknown';
-      const chosenAccount = financialAccounts.find((a) => String(a.id) === String(effectiveAccountId)) || defaultAccount;
+      const chosenAccount = finalAccount;
 
       const derivedBonusTitle = paymentType === "bonus"
         ? (customBonusTitle.trim() || (bonusPreset === "nowruz" ? c.bonusPresetNowruz : bonusPreset === "good_job" ? c.bonusPresetGoodJob : bonusPreset === "management" ? c.bonusPresetManagement : c.bonusPresetOther))
@@ -598,7 +663,7 @@ export function AdvancePaymentModal({
         bonusTitle: derivedBonusTitle,
         amount: numAmount,
         currency,
-        accountId: chosenAccount?.id ? String(chosenAccount.id) : null,
+        accountId: finalAccountId,
         accountName: chosenAccount?.name || "",
         accountType: chosenAccount?.type || "cash",
         referenceNumber: referenceNumber.trim() || null,
@@ -632,7 +697,7 @@ export function AdvancePaymentModal({
           monthlyInstallment: loanCalculations.monthlyInstallment,
           startMonth: loanCalculations.startMonth,
           status: 'active', // 'active' | 'settled' | 'paused'
-          sourceAccountId: chosenAccount?.id ? String(chosenAccount.id) : null,
+          sourceAccountId: finalAccountId,
           sourceAccountName: chosenAccount?.name || '',
           disbursementPaymentId: paymentId,
           notes: notes.trim() || null,
@@ -647,12 +712,12 @@ export function AdvancePaymentModal({
 
       pushPaymentsLive().catch(() => {});
 
-      const finalCheck = checkAccountOverdraft(effectiveAccountId, numAmount);
+      const finalCheck = checkAccountOverdraft(finalAccountId, numAmount);
       if (numAmount > 0 && !finalCheck.hasSufficientFunds) {
         const resultingNeg = Math.abs(finalCheck.currentBalance - numAmount);
         setToastMessage({
           type: 'warning',
-          text: c.negativeBalanceWarningToast(finalCheck.account?.name || c.cashAccountDefault, formatCurrency(resultingNeg, currency, language))
+          text: c.negativeBalanceWarningToast(finalAccount?.name || finalCheck.account?.name || c.cashAccountDefault, formatCurrency(resultingNeg, currency, language))
         });
         setTimeout(() => {
           onClose();
@@ -762,48 +827,68 @@ export function AdvancePaymentModal({
             )}
 
             {/* [APP_THEME_BUTTON] Mode Switcher: Advance vs Bonus vs Loan */}
-            <div className="p-1 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 shadow-xs">
-              <div className="flex items-center gap-2 px-3">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{c.paymentTypeLabel}</span>
+            <div className="p-2 sm:p-2.5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+                  {c.paymentTypeLabel}
+                </span>
               </div>
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800 overflow-x-auto">
+              <div className="h-11 inline-flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-inner w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setPaymentType("advance")}
-                  className={`flex items-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer whitespace-nowrap ${
+                  title={c.paymentTypeAdvance}
+                  aria-label={c.paymentTypeAdvance}
+                  className={`h-full flex items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer active:scale-95 ${
                     paymentType === "advance"
-                      ? "bg-amber-500 text-white shadow-md shadow-amber-500/25"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      ? "flex-1 sm:flex-initial bg-amber-500 text-white shadow-md shadow-amber-500/30 px-4"
+                      : "px-3 text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50"
                   }`}
                 >
                   <Banknote className="w-4 h-4 shrink-0" />
-                  <span>{c.paymentTypeAdvance}</span>
+                  {paymentType === "advance" && (
+                    <span className="whitespace-nowrap animate-in fade-in duration-200">
+                      {c.paymentTypeAdvance}
+                    </span>
+                  )}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPaymentType("bonus")}
-                  className={`flex items-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer whitespace-nowrap ${
+                  title={c.paymentTypeBonus}
+                  aria-label={c.paymentTypeBonus}
+                  className={`h-full flex items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer active:scale-95 ${
                     paymentType === "bonus"
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      ? "flex-1 sm:flex-initial bg-purple-600 text-white shadow-md shadow-purple-600/30 px-4"
+                      : "px-3 text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50"
                   }`}
                 >
                   <Gift className="w-4 h-4 shrink-0" />
-                  <span>{c.paymentTypeBonus}</span>
+                  {paymentType === "bonus" && (
+                    <span className="whitespace-nowrap animate-in fade-in duration-200">
+                      {c.paymentTypeBonus}
+                    </span>
+                  )}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPaymentType("loan")}
-                  className={`flex items-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer whitespace-nowrap ${
+                  title={c.paymentTypeLoan}
+                  aria-label={c.paymentTypeLoan}
+                  className={`h-full flex items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer active:scale-95 ${
                     paymentType === "loan"
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/25"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      ? "flex-1 sm:flex-initial bg-blue-600 text-white shadow-md shadow-blue-600/30 px-4"
+                      : "px-3 text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50"
                   }`}
                 >
                   <FileText className="w-4 h-4 shrink-0" />
-                  <span>{c.paymentTypeLoan}</span>
+                  {paymentType === "loan" && (
+                    <span className="whitespace-nowrap animate-in fade-in duration-200">
+                      {c.paymentTypeLoan}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
@@ -1284,63 +1369,89 @@ export function AdvancePaymentModal({
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                       {c.accountTypeFilterLabel}
                     </label>
-                    <div className="h-10 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner w-full">
+                    <div className="h-10 flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner w-full">
                       <button
                         type="button"
-                        onClick={() => setPaymentMethodTab('all')}
-                        className={`flex-1 h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer text-xs ${
+                        onClick={() => handlePaymentMethodTabChange('all')}
+                        title={c.allAccountsTab}
+                        aria-label={c.allAccountsTab}
+                        className={`h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 ease-in-out active:scale-95 cursor-pointer text-xs font-bold ${
                           paymentMethodTab === 'all'
-                            ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 font-black'
-                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                            ? 'flex-1 bg-amber-600 text-white shadow-md shadow-amber-600/30 px-3'
+                            : 'px-2.5 text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
                         }`}
                       >
-                        <span>{c.allAccountsTab}</span>
+                        <Layers className="w-3.5 h-3.5 shrink-0" />
+                        {paymentMethodTab === 'all' && (
+                          <span className="whitespace-nowrap animate-in fade-in duration-200">{c.allAccountsTab}</span>
+                        )}
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => setPaymentMethodTab('bank')}
-                        className={`flex-1 h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer text-xs ${
+                        onClick={() => handlePaymentMethodTabChange('bank')}
+                        title={c.bankCardTab}
+                        aria-label={c.bankCardTab}
+                        className={`h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 ease-in-out active:scale-95 cursor-pointer text-xs font-bold ${
                           paymentMethodTab === 'bank'
-                            ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 font-black'
-                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                            ? 'flex-1 bg-amber-600 text-white shadow-md shadow-amber-600/30 px-3'
+                            : 'px-2.5 text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
                         }`}
                       >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        <span>{c.bankCardTab}</span>
+                        <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                        {paymentMethodTab === 'bank' && (
+                          <span className="whitespace-nowrap animate-in fade-in duration-200">{c.bankCardTab}</span>
+                        )}
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => setPaymentMethodTab('cash')}
-                        className={`flex-1 h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer text-xs ${
+                        onClick={() => handlePaymentMethodTabChange('cash')}
+                        title={c.cashDeskTab}
+                        aria-label={c.cashDeskTab}
+                        className={`h-full flex items-center justify-center gap-1.5 rounded-xl transition-all duration-300 ease-in-out active:scale-95 cursor-pointer text-xs font-bold ${
                           paymentMethodTab === 'cash'
-                            ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 font-black'
-                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                            ? 'flex-1 bg-amber-600 text-white shadow-md shadow-amber-600/30 px-3'
+                            : 'px-2.5 text-slate-500 hover:text-slate-900 hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700/50'
                         }`}
                       >
-                        <Wallet className="w-3.5 h-3.5" />
-                        <span>{c.cashDeskTab}</span>
+                        <Wallet className="w-3.5 h-3.5 shrink-0" />
+                        {paymentMethodTab === 'cash' && (
+                          <span className="whitespace-nowrap animate-in fade-in duration-200">{c.cashDeskTab}</span>
+                        )}
                       </button>
                     </div>
                   </div>
 
                   {/* Financial Account Dropdown */}
                   <div className="space-y-1.5 pt-1">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {c.chooseSourceAccountLabel}
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="advance-account-select" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {c.chooseSourceAccountLabel}
+                      </label>
+                      {effectiveAccountObj && (
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border flex items-center gap-1 ${
+                          effectiveAccountBalance >= (roundCurrency(Number(amount), currency) || 0)
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                            : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+                        }`}>
+                          <span>{c.balanceLabel}:</span>
+                          <span>{formatCurrency(effectiveAccountBalance, currency, language)}</span>
+                        </span>
+                      )}
+                    </div>
 
                     {filteredFinancialAccounts.length > 0 ? (
                       <select
-                        value={selectedAccountId || effectiveAccountId}
+                        id="advance-account-select"
+                        value={effectiveAccountId}
                         onChange={(e) => setSelectedAccountId(e.target.value)}
                         className="w-full px-3.5 py-3 text-xs bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white cursor-pointer font-bold shadow-xs transition-all"
                       >
                         {filteredFinancialAccounts.map((acc) => {
                           const b = accountBalances?.get(String(acc.id))?.currentBalance ?? (Number(acc.initialBalance) || 0);
                           return (
-                            <option key={acc.id} value={acc.id}>
+                            <option key={acc.id} value={String(acc.id)}>
                               {acc.type === 'bank' ? c.cardPrefix : c.cashPrefix}
                               {acc.name} {acc.bankName ? `(${acc.bankName})` : ''} - {c.balanceLabel} {formatCurrency(b, currency, language)} {acc.isDefault ? c.defaultBadge : ''}
                             </option>

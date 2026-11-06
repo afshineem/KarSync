@@ -195,7 +195,7 @@ export function useAccounting(options = {}) {
         await seedDefaultFinancialAccounts(projectId, user?.id);
         list = await db.financialAccounts.toArray();
       }
-      list = list.filter((acc) => !acc.deletedAt && (!acc.projectId || acc.projectId === projectId || projectId === DEFAULT_PROJECT_ID));
+      list = list.filter((acc) => !acc.deletedAt && acc.status !== 'deleted' && (!acc.projectId || acc.projectId === projectId || acc.projectId === DEFAULT_PROJECT_ID || projectId === DEFAULT_PROJECT_ID));
       return list.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
     },
     [projectId, user, syncTick]
@@ -1161,7 +1161,14 @@ export function useAccounting(options = {}) {
   // بررسی اضافه برداشت بر اساس سیاست حساب و سراسری
   const checkAccountOverdraft = useCallback((accountId, amount) => {
     const numAmount = Number(amount) || 0;
-    const acc = financialAccounts.find((a) => String(a.id) === String(accountId)) || defaultAccount;
+    const strTargetId = accountId ? String(accountId) : null;
+    let acc = strTargetId ? financialAccounts.find((a) => String(a.id) === strTargetId) : null;
+    if (!acc && strTargetId && accountBalances.has(strTargetId)) {
+      acc = accountBalances.get(strTargetId)?.account;
+    }
+    if (!acc) {
+      acc = defaultAccount;
+    }
     if (!acc) {
       return {
         hasSufficientFunds: true,
