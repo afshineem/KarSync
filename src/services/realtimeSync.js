@@ -2087,7 +2087,12 @@ export async function pullWorkerMetadataLive(force = false) {
               ...meta,
               groupId: w.groupId || null,
               teamRole: w.teamRole || 'Worker',
-            wageType: w.wageType || 'standard',
+              wageType: w.wageType || 'standard',
+              monthlySalary: Number(w.monthlySalary) || 0,
+              monthlyLeaveDays: Number(w.monthlyLeaveDays) || 0,
+              leavePolicy: w.leavePolicy || 'accumulate',
+              bonusLeaveDays: Number(w.bonusLeaveDays) || 0,
+              fridayRateMultiplier: Number(w.fridayRateMultiplier) || 2.0,
               defaultSectionId: w.defaultSectionId || null,
               isArchived: !!(w.isArchived || w.status === 'archived'),
               status: w.status || (w.isArchived ? 'archived' : 'active'),
@@ -2112,6 +2117,26 @@ export async function pullWorkerMetadataLive(force = false) {
           }
           if (meta.wageType && w.wageType !== meta.wageType) {
             updates.wageType = meta.wageType;
+            needsUpdate = true;
+          }
+          if (meta.monthlySalary !== undefined && w.monthlySalary !== meta.monthlySalary) {
+            updates.monthlySalary = meta.monthlySalary;
+            needsUpdate = true;
+          }
+          if (meta.monthlyLeaveDays !== undefined && w.monthlyLeaveDays !== meta.monthlyLeaveDays) {
+            updates.monthlyLeaveDays = meta.monthlyLeaveDays;
+            needsUpdate = true;
+          }
+          if (meta.leavePolicy !== undefined && w.leavePolicy !== meta.leavePolicy) {
+            updates.leavePolicy = meta.leavePolicy;
+            needsUpdate = true;
+          }
+          if (meta.bonusLeaveDays !== undefined && w.bonusLeaveDays !== meta.bonusLeaveDays) {
+            updates.bonusLeaveDays = meta.bonusLeaveDays;
+            needsUpdate = true;
+          }
+          if (meta.fridayRateMultiplier !== undefined && w.fridayRateMultiplier !== meta.fridayRateMultiplier) {
+            updates.fridayRateMultiplier = meta.fridayRateMultiplier;
             needsUpdate = true;
           }
           if (meta.defaultSectionId !== undefined && w.defaultSectionId !== meta.defaultSectionId) {
@@ -2256,7 +2281,12 @@ export async function syncAllWorkerMetadataToCloud() {
           ...existingMeta,
           groupId: w.groupId || null,
           teamRole: w.teamRole || 'Worker',
-            wageType: w.wageType || 'standard',
+          wageType: w.wageType || 'standard',
+          monthlySalary: Number(w.monthlySalary) || 0,
+          monthlyLeaveDays: Number(w.monthlyLeaveDays) || 0,
+          leavePolicy: w.leavePolicy || 'accumulate',
+          bonusLeaveDays: Number(w.bonusLeaveDays) || 0,
+          fridayRateMultiplier: Number(w.fridayRateMultiplier) || 2.0,
           defaultSectionId: w.defaultSectionId || null,
           isArchived: !!(w.isArchived || w.status === 'archived'),
           status: w.status || (w.isArchived ? 'archived' : 'active'),
@@ -2417,7 +2447,12 @@ export async function pushWorkerLive(w) {
   await pushWorkerMetadataLive(w.id, {
     groupId: w.groupId || null,
     teamRole: w.teamRole || 'Worker',
-            wageType: w.wageType || 'standard',
+    wageType: w.wageType || 'standard',
+    monthlySalary: Number(w.monthlySalary) || 0,
+    monthlyLeaveDays: Number(w.monthlyLeaveDays) || 0,
+    leavePolicy: w.leavePolicy || 'accumulate',
+    bonusLeaveDays: Number(w.bonusLeaveDays) || 0,
+    fridayRateMultiplier: Number(w.fridayRateMultiplier) || 2.0,
     defaultSectionId: w.defaultSectionId || null,
     isArchived: !!(w.isArchived || w.status === 'archived'),
     status: w.status || (w.isArchived ? 'archived' : 'active'),

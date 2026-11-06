@@ -82,6 +82,9 @@ const COPY = {
     directCall: 'تماس مستقیم',
     noPhone: 'بدون تلفن',
     lblDailyRate: 'نرخ روزانه:',
+    lblMonthlySalary: 'حقوق ماهانه:',
+    monthlyShort: 'ماهانه:',
+    badgeMonthly: 'حقوق ثابت',
     contractRate: 'کنتراکت',
     agreedRate: 'توافقی',
     lblCurrentBalance: 'مانده حساب:',
@@ -162,6 +165,9 @@ const COPY = {
     directCall: 'پەیوەندی ڕاستەوخۆ',
     noPhone: 'بێ ژمارە',
     lblDailyRate: 'حەقدەستی ڕۆژانە:',
+    lblMonthlySalary: 'مووچەی مانگانە:',
+    monthlyShort: 'مانگانە:',
+    badgeMonthly: 'مووچەی جێگیر',
     contractRate: 'کۆنتراکت',
     agreedRate: 'ڕێککەوتن',
     lblCurrentBalance: 'باڵانسی ئێستا:',
@@ -242,6 +248,9 @@ const COPY = {
     directCall: 'Direct Call',
     noPhone: 'No phone',
     lblDailyRate: 'Daily Rate:',
+    lblMonthlySalary: 'Monthly Salary:',
+    monthlyShort: 'Monthly:',
+    badgeMonthly: 'Fixed Salary',
     contractRate: 'Contract',
     agreedRate: 'Agreed',
     lblCurrentBalance: 'Current Balance:',
@@ -821,6 +830,11 @@ export function WorkersView() {
                       {txt.badgeMaster}
                     </span>
                   )}
+                  {worker.wageType === 'monthly' && (
+                    <span className="text-[10px] px-2 py-0.2 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 font-bold">
+                      {txt.badgeMonthly}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -972,9 +986,15 @@ export function WorkersView() {
           {/* باکس شیشه‌ای دستمزد و مانده حساب */}
           <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">{txt.lblDailyRate}</span>
+              <span className="text-slate-400">
+                {worker.wageType === 'monthly' ? txt.lblMonthlySalary : txt.lblDailyRate}
+              </span>
               <span className="font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
-                {worker.wageType === 'contract' ? txt.contractRate : formatCurrency(worker.dailyRate, currency, language)}
+                {worker.wageType === 'monthly'
+                  ? `${formatCurrency(worker.monthlySalary, currency, language)} / ${language === 'fa' ? 'ماه' : language === 'ku' ? 'مانگ' : 'mo'}`
+                  : worker.wageType === 'contract'
+                  ? txt.contractRate
+                  : formatCurrency(worker.dailyRate, currency, language)}
               </span>
             </div>
 
@@ -1051,9 +1071,15 @@ export function WorkersView() {
 
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <div className="text-end hidden sm:block">
-            <span className="text-[9px] text-slate-400 block">{txt.dailyShort}</span>
+            <span className="text-[9px] text-slate-400 block">
+              {worker.wageType === 'monthly' ? txt.monthlyShort : txt.dailyShort}
+            </span>
             <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300" dir="ltr">
-              {worker.wageType === 'contract' ? txt.agreedRate : formatCurrency(worker.dailyRate, currency, language)}
+              {worker.wageType === 'monthly'
+                ? formatCurrency(worker.monthlySalary, currency, language)
+                : worker.wageType === 'contract'
+                ? txt.agreedRate
+                : formatCurrency(worker.dailyRate, currency, language)}
             </span>
           </div>
 

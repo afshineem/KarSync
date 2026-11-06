@@ -55,6 +55,9 @@ export function EditRecordModal({ log, isOpen, onClose }) {
       fullDayOption: 'روز کامل',
       halfDayOption: 'نیمه‌روز',
       hourlyOnlyOption: 'ساعتی',
+      presentDayOption: 'حاضر',
+      leaveDayOption: 'مرخصی باحقوق',
+      absentDayOption: 'غایب',
       overtimeHours: 'ساعات اضافه‌کاری',
       overtimeDesc: 'میزان کارکرد مازاد بر ساعات استاندارد',
       hours: 'ساعت',
@@ -94,6 +97,9 @@ export function EditRecordModal({ log, isOpen, onClose }) {
       fullDayOption: 'ڕۆژی تەواو',
       halfDayOption: 'نیوەڕۆژ',
       hourlyOnlyOption: 'کاتژمێری',
+      presentDayOption: 'ئامادە',
+      leaveDayOption: 'مۆڵەت',
+      absentDayOption: 'غائیب',
       overtimeHours: 'کاتژمێری زیادەکاری',
       overtimeDesc: 'بڕی کارکردی زیاتر لە دەوامی ئاسایی',
       hours: 'کاتژمێر',
@@ -133,6 +139,9 @@ export function EditRecordModal({ log, isOpen, onClose }) {
       fullDayOption: 'Full Day',
       halfDayOption: 'Half Day',
       hourlyOnlyOption: 'Hourly',
+      presentDayOption: 'Present',
+      leaveDayOption: 'Paid Leave',
+      absentDayOption: 'Absent',
       overtimeHours: 'Overtime Hours',
       overtimeDesc: 'Hours worked beyond standard day shift',
       hours: 'Hours',
@@ -253,15 +262,36 @@ export function EditRecordModal({ log, isOpen, onClose }) {
   if (!isOpen || !log) return null;
 
   // Real-time calculations
+  const isMonthly = worker?.wageType === 'monthly';
   const decimalHours = toDecimalHours(hours, minutes);
   const hourlyRate = (worker?.overtimeHourlyRate > 0)
     ? worker.overtimeHourlyRate
-    : Math.round((worker?.dailyRate || 0) / standardHours);
+    : Math.round((isMonthly ? (worker?.monthlySalary || 0) / 30 : (worker?.dailyRate || 0)) / standardHours);
 
   let calculatedDailyWage = 0;
   let calculatedOvertimeWage = 0;
 
-  if (type === 'hourly') {
+  if (isMonthly) {
+    let isFri = false;
+    try {
+      const [ly, lm, ld] = (log.date || '').split('-').map(Number);
+      isFri = new Date(ly, lm - 1, ld).getDay() === 5;
+    } catch (_) {}
+
+    let fridayExtra = 0;
+    if (isFri && (type === 'present' || type === 'full')) {
+      const mult = Number(worker?.fridayRateMultiplier ?? 2.0);
+      if (mult > 1.0) {
+        const sampleDaily = (worker?.monthlySalary || 0) / 30;
+        fridayExtra = roundCurrency(sampleDaily * (mult - 1.0), currency);
+      }
+    }
+    calculatedDailyWage = fridayExtra;
+    calculatedOvertimeWage = roundCurrency(decimalHours * hourlyRate, currency);
+  } else if (type === 'absent') {
+    calculatedDailyWage = 0;
+    calculatedOvertimeWage = 0;
+  } else if (type === 'hourly') {
     calculatedDailyWage = 0;
     calculatedOvertimeWage = roundCurrency(decimalHours * hourlyRate, currency);
   } else {
@@ -454,46 +484,89 @@ export function EditRecordModal({ log, isOpen, onClose }) {
                 <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-3">
                   {t('typeColumn')} ({copy.dayStatusLabel}):
                 </label>
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setType('full')}
-                    className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
-                      type === 'full'
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-500/50'
-                    }`}
-                  >
-                    <Sun className="w-4 h-4" />
-                    <span>{copy.fullDayOption}</span>
-                  </button>
+                {isMonthly ? (
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setType('present')}
+                      className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                        type === 'present' || type === 'full'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-500/50'
+                      }`}
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      <span>{copy.presentDayOption}</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setType('half')}
-                    className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
-                      type === 'half'
-                        ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/25'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-500/50'
-                    }`}
-                  >
-                    <CloudSun className="w-4 h-4" />
-                    <span>{copy.halfDayOption}</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setType('leave')}
+                      className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                        type === 'leave'
+                          ? 'bg-sky-500 text-white border-sky-500 shadow-md shadow-sky-500/25'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-sky-500/50'
+                      }`}
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span>{copy.leaveDayOption}</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setType('hourly')}
-                    className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
-                      type === 'hourly'
-                        ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/25'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-purple-500/50'
-                    }`}
-                  >
-                    <Timer className="w-4 h-4" />
-                    <span>{copy.hourlyOnlyOption}</span>
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setType('absent')}
+                      className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                        type === 'absent'
+                          ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/25'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-rose-500/50'
+                      }`}
+                    >
+                      <UserX className="w-4 h-4" />
+                      <span>{copy.absentDayOption}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setType('full')}
+                      className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                        type === 'full'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-500/50'
+                      }`}
+                    >
+                      <Sun className="w-4 h-4" />
+                      <span>{copy.fullDayOption}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setType('half')}
+                      className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                        type === 'half'
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/25'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-500/50'
+                      }`}
+                    >
+                      <CloudSun className="w-4 h-4" />
+                      <span>{copy.halfDayOption}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setType('hourly')}
+                      className={`py-3 px-2 sm:px-4 text-xs font-black rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                        type === 'hourly'
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/25'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-purple-500/50'
+                      }`}
+                    >
+                      <Timer className="w-4 h-4" />
+                      <span>{copy.hourlyOnlyOption}</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Card 2: Hours and Minutes Stepper */}

@@ -93,6 +93,15 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     } catch (_) {}
   };
 
+  const isSelectedDateFriday = useMemo(() => {
+    try {
+      const [y, m, d] = selectedDate.split('-').map(Number);
+      return new Date(y, m - 1, d).getDay() === 5;
+    } catch {
+      return false;
+    }
+  }, [selectedDate]);
+
 
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -232,9 +241,10 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
       unloggedWorkers.forEach((w) => {
         // If this worker was already unchecked (marked absent) or today's shift already has logged workers, default to unchecked
+        const isMonthly = w.wageType === 'monthly';
         initialSelected[w.id] = absentSet.has(String(w.id)) || existingDateLogs.length > 0 ? false : true;
         initialConfigs[w.id] = {
-          type: 'full',
+          type: isMonthly ? 'present' : 'full',
           overtimeHours: 0,
           notes: '',
           sectionId: w.defaultSectionId || null
@@ -274,8 +284,9 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         unloggedWorkers.forEach((w) => {
           if (!updated[w.id]) {
             hasChanges = true;
+            const isMonthly = w.wageType === 'monthly';
             updated[w.id] = {
-              type: 'full',
+              type: isMonthly ? 'present' : 'full',
               overtimeHours: 0,
               notes: '',
               sectionId: w.defaultSectionId || null
@@ -555,25 +566,41 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
 
   // Calculate day wage preview for a worker
   const calculateWorkerDayPay = (worker, customCfg = null) => {
-    const cfg = customCfg || workerConfigs[worker.id] || { type: 'full', overtimeHours: 0 };
+    const isMonthly = worker.wageType === 'monthly';
+    const cfg = customCfg || workerConfigs[worker.id] || { type: isMonthly ? 'present' : 'full', overtimeHours: 0 };
     const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
     const hourlyRate = worker.overtimeHourlyRate > 0 
       ? worker.overtimeHourlyRate 
-      : Math.round((worker.dailyRate || 0) / standardHours);
+      : Math.round((isMonthly ? (worker.monthlySalary || 0) / 30 : (worker.dailyRate || 0)) / standardHours);
 
     let basePay = 0;
     let otPay = 0;
 
-    if (cfg.type === 'absent') {
-      basePay = 0;
-      otPay = 0;
-    } else if (cfg.type === 'hourly') {
-      basePay = 0;
+    if (isMonthly) {
+      // Monthly fixed salary: daily attendance records presence/absence.
+      // Friday/holiday work extra bonus pay (if configured and worker is present)
+      let fridayExtra = 0;
+      if (isSelectedDateFriday && (cfg.type === 'present' || cfg.type === 'full')) {
+        const mult = Number(worker.fridayRateMultiplier ?? 2.0);
+        if (mult > 1.0) {
+          const sampleDaily = (worker.monthlySalary || 0) / 30;
+          fridayExtra = roundCurrency(sampleDaily * (mult - 1.0), currency);
+        }
+      }
+      basePay = fridayExtra;
       otPay = roundCurrency(otHours * hourlyRate, currency);
     } else {
-      const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
-      basePay = roundCurrency((worker.dailyRate || 0) * baseFactor, currency);
-      otPay = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
+      if (cfg.type === 'absent') {
+        basePay = 0;
+        otPay = 0;
+      } else if (cfg.type === 'hourly') {
+        basePay = 0;
+        otPay = roundCurrency(otHours * hourlyRate, currency);
+      } else {
+        const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
+        basePay = roundCurrency((worker.dailyRate || 0) * baseFactor, currency);
+        otPay = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
+      }
     }
 
     return {
@@ -725,29 +752,43 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
             chosenSectionId = wCfg?.sectionId !== undefined ? wCfg.sectionId : (worker.defaultSectionId || null);
           }
 
+          const isMonthly = worker.wageType === 'monthly';
           const cfg = entryMode === 'group' 
             ? { ...currentGroupCfg, sectionId: chosenSectionId }
-            : workerConfigs[workerId] || { type: 'full', overtimeHours: 0, notes: '', sectionId: chosenSectionId };
+            : workerConfigs[workerId] || { type: isMonthly ? 'present' : 'full', overtimeHours: 0, notes: '', sectionId: chosenSectionId };
           const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
           const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
           const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
           const hourlyRate = wOtRate > 0 
             ? wOtRate 
-            : Math.round(wDaily / standardHours);
+            : Math.round((isMonthly ? (worker.monthlySalary || 0) / 30 : wDaily) / standardHours);
 
           let calculatedDailyWage = 0;
           let calculatedOvertimeWage = 0;
 
-          if (cfg.type === 'absent') {
-            calculatedDailyWage = 0;
-            calculatedOvertimeWage = 0;
-          } else if (cfg.type === 'hourly') {
-            calculatedDailyWage = 0;
+          if (isMonthly) {
+            let fridayExtra = 0;
+            if (isSelectedDateFriday && (cfg.type === 'present' || cfg.type === 'full')) {
+              const mult = Number(worker.fridayRateMultiplier ?? 2.0);
+              if (mult > 1.0) {
+                const sampleDaily = (worker.monthlySalary || 0) / 30;
+                fridayExtra = roundCurrency(sampleDaily * (mult - 1.0), currency);
+              }
+            }
+            calculatedDailyWage = fridayExtra;
             calculatedOvertimeWage = roundCurrency(otHours * hourlyRate, currency);
           } else {
-            const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
-            calculatedDailyWage = roundCurrency(wDaily * baseFactor, currency);
-            calculatedOvertimeWage = roundCurrency(otHours * wOtRate, currency);
+            if (cfg.type === 'absent') {
+              calculatedDailyWage = 0;
+              calculatedOvertimeWage = 0;
+            } else if (cfg.type === 'hourly') {
+              calculatedDailyWage = 0;
+              calculatedOvertimeWage = roundCurrency(otHours * hourlyRate, currency);
+            } else {
+              const baseFactor = cfg.type === 'half' ? 0.5 : 1.0;
+              calculatedDailyWage = roundCurrency(wDaily * baseFactor, currency);
+              calculatedOvertimeWage = roundCurrency(otHours * wOtRate, currency);
+            }
           }
           const totalDayPay = roundCurrency(calculatedDailyWage + calculatedOvertimeWage, currency);
 
@@ -890,6 +931,9 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     let fullCount = 0;
     let halfCount = 0;
     let hourlyCount = 0;
+    let presentCount = 0;
+    let leaveCount = 0;
+    let absentCount = 0;
 
     if (entryMode === 'group') {
       const activeGroupIds = Object.keys(selectedGroups).filter(id => selectedGroups[id]);
@@ -905,9 +949,15 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
           const pay = calculateWorkerDayPay(w, gCfg);
           totalGrossPay += pay.total;
           totalOtHours += Number(gCfg.overtimeHours) || 0;
-          if (gCfg.type === 'full') fullCount++;
-          else if (gCfg.type === 'half') halfCount++;
-          else if (gCfg.type === 'hourly') hourlyCount++;
+          if (w.wageType === 'monthly') {
+            if (gCfg.type === 'leave') leaveCount++;
+            else if (gCfg.type === 'absent') absentCount++;
+            else presentCount++;
+          } else {
+            if (gCfg.type === 'full') fullCount++;
+            else if (gCfg.type === 'half') halfCount++;
+            else if (gCfg.type === 'hourly') hourlyCount++;
+          }
         });
       });
 
@@ -918,19 +968,28 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         totalOtHours,
         fullCount,
         halfCount,
-        hourlyCount
+        hourlyCount,
+        presentCount,
+        leaveCount,
+        absentCount
       };
     }
 
     unloggedWorkers.forEach((w) => {
       if (selectedWorkers[w.id]) {
         const pay = calculateWorkerDayPay(w);
-        const cfg = workerConfigs[w.id] || { type: 'full', overtimeHours: 0 };
+        const cfg = workerConfigs[w.id] || { type: w.wageType === 'monthly' ? 'present' : 'full', overtimeHours: 0 };
         totalGrossPay += pay.total;
         totalOtHours += Number(cfg.overtimeHours) || 0;
-        if (cfg.type === 'full') fullCount++;
-        else if (cfg.type === 'half') halfCount++;
-        else if (cfg.type === 'hourly') hourlyCount++;
+        if (w.wageType === 'monthly') {
+          if (cfg.type === 'leave') leaveCount++;
+          else if (cfg.type === 'absent') absentCount++;
+          else presentCount++;
+        } else {
+          if (cfg.type === 'full') fullCount++;
+          else if (cfg.type === 'half') halfCount++;
+          else if (cfg.type === 'hourly') hourlyCount++;
+        }
       }
     });
 
@@ -940,9 +999,12 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
       totalOtHours,
       fullCount,
       halfCount,
-      hourlyCount
+      hourlyCount,
+      presentCount,
+      leaveCount,
+      absentCount
     };
-  }, [entryMode, selectedGroups, groupConfigs, excludedGroupWorkers, unloggedWorkers, selectedWorkers, workerConfigs, currency]);
+  }, [entryMode, selectedGroups, groupConfigs, excludedGroupWorkers, unloggedWorkers, selectedWorkers, workerConfigs, currency, isSelectedDateFriday]);
 
   if (!isOpen) return null;
 
@@ -1876,7 +1938,19 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                               </div>
 
                               <p className="text-xs text-slate-400 font-medium mt-0.5 truncate">
-                                {worker.role || 'پرسنل'} • {formatCurrency(worker.dailyRate, currency, language)} / روز
+                                {worker.wageType === 'monthly' ? (
+                                  <span className="text-indigo-600 dark:text-indigo-400 font-bold inline-flex items-center gap-1">
+                                    <span>{language === 'fa' ? 'حقوق ثابت ماهانه:' : language === 'ku' ? 'مووچەی مانگانە:' : 'Monthly Salary:'}</span>
+                                    <span className="font-mono">{formatCurrency(worker.monthlySalary, currency, language)}</span>
+                                    {isSelectedDateFriday && (
+                                      <span className="ms-1 text-[9px] px-1.5 py-0.2 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                        {language === 'fa' ? `جمعه‌کاری (${worker.fridayRateMultiplier ?? 2.0}x)` : `هەینی (${worker.fridayRateMultiplier ?? 2.0}x)`}
+                                      </span>
+                                    )}
+                                  </span>
+                                ) : (
+                                  <>{worker.role || 'پرسنل'} • {formatCurrency(worker.dailyRate, currency, language)} / روز</>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -1884,10 +1958,35 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                           {/* Calculated Wage Preview Badge */}
                           {isChecked && (
                             <div className="text-end shrink-0">
-                              <span className="text-[10px] font-bold text-slate-400 block">دستمزد امروز</span>
-                              <span className="text-sm sm:text-base font-black font-mono text-sky-600 dark:text-sky-400">
-                                {formatCurrency(pay.total, currency, language)}
+                              <span className="text-[10px] font-bold text-slate-400 block">
+                                {worker.wageType === 'monthly' ? (language === 'fa' ? 'وضعیت حضور' : 'دۆخی ئامادەبوون') : 'دستمزد امروز'}
                               </span>
+                              {worker.wageType === 'monthly' ? (
+                                <div className="flex flex-col items-end">
+                                  <span className={`text-xs sm:text-sm font-black ${
+                                    cfg.type === 'leave'
+                                      ? 'text-sky-600 dark:text-sky-400'
+                                      : cfg.type === 'absent'
+                                      ? 'text-rose-600 dark:text-rose-400'
+                                      : 'text-emerald-600 dark:text-emerald-400'
+                                  }`}>
+                                    {cfg.type === 'leave'
+                                      ? (language === 'fa' ? 'مرخصی باحقوق' : language === 'ku' ? 'مۆڵەت' : 'Paid Leave')
+                                      : cfg.type === 'absent'
+                                      ? (language === 'fa' ? 'غایب' : language === 'ku' ? 'غائیب' : 'Absent')
+                                      : (language === 'fa' ? 'حاضر (ثابت)' : language === 'ku' ? 'ئامادە (جێگیر)' : 'Present')}
+                                  </span>
+                                  {pay.total > 0 && (
+                                    <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                                      +{formatCurrency(pay.total, currency, language)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-sm sm:text-base font-black font-mono text-sky-600 dark:text-sky-400">
+                                  {formatCurrency(pay.total, currency, language)}
+                                </span>
+                              )}
                             </div>
                           )}
 
@@ -1900,42 +1999,80 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                             {/* Day Type Selector [APP_THEME_BUTTON Style] & Overtime Stepper */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                               
-                              {/* [APP_THEME_BUTTON] Tri-state selector */}
-                              <div className="h-9 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => updateWorkerConfig(worker.id, 'type', 'full')}
-                                  className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
-                                    cfg.type === 'full'
-                                      ? 'bg-sky-500 text-white font-bold shadow-xs'
-                                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
-                                  }`}
-                                >
-                                  <span>{t('fullDayOption')}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => updateWorkerConfig(worker.id, 'type', 'half')}
-                                  className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
-                                    cfg.type === 'half'
-                                      ? 'bg-amber-500 text-white font-bold shadow-xs'
-                                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
-                                  }`}
-                                >
-                                  <span>{t('halfDayOption')}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => updateWorkerConfig(worker.id, 'type', 'hourly')}
-                                  className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
-                                    cfg.type === 'hourly'
-                                      ? 'bg-purple-500 text-white font-bold shadow-xs'
-                                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
-                                  }`}
-                                >
-                                  <span>{t('hourlyOnlyOption')}</span>
-                                </button>
-                              </div>
+                              {/* Day Selector */}
+                              {worker.wageType === 'monthly' ? (
+                                <div className="h-9 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateWorkerConfig(worker.id, 'type', 'present')}
+                                    className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                      cfg.type === 'present' || cfg.type === 'full'
+                                        ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                    }`}
+                                  >
+                                    <span>{language === 'fa' ? 'حاضر' : language === 'ku' ? 'ئامادە' : 'Present'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateWorkerConfig(worker.id, 'type', 'leave')}
+                                    className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                      cfg.type === 'leave'
+                                        ? 'bg-sky-500 text-white font-bold shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                    }`}
+                                  >
+                                    <span>{language === 'fa' ? 'مرخصی' : language === 'ku' ? 'مۆڵەت' : 'Leave'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateWorkerConfig(worker.id, 'type', 'absent')}
+                                    className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-3 text-xs cursor-pointer ${
+                                      cfg.type === 'absent'
+                                        ? 'bg-rose-500 text-white font-bold shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                    }`}
+                                  >
+                                    <span>{language === 'fa' ? 'غایب' : language === 'ku' ? 'غائیب' : 'Absent'}</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="h-9 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateWorkerConfig(worker.id, 'type', 'full')}
+                                    className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
+                                      cfg.type === 'full'
+                                        ? 'bg-sky-500 text-white font-bold shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                    }`}
+                                  >
+                                    <span>{t('fullDayOption')}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateWorkerConfig(worker.id, 'type', 'half')}
+                                    className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
+                                      cfg.type === 'half'
+                                        ? 'bg-amber-500 text-white font-bold shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                    }`}
+                                  >
+                                    <span>{t('halfDayOption')}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateWorkerConfig(worker.id, 'type', 'hourly')}
+                                    className={`h-full flex items-center gap-1 rounded-xl transition-all duration-200 px-2.5 text-xs cursor-pointer ${
+                                      cfg.type === 'hourly'
+                                        ? 'bg-purple-500 text-white font-bold shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium'
+                                    }`}
+                                  >
+                                    <span>{t('hourlyOnlyOption')}</span>
+                                  </button>
+                                </div>
+                              )}
 
                               {/* Overtime Stepper with Quick Chips */}
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -2146,13 +2283,27 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                           {worker.name}
                         </span>
                         <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
-                          log.type === 'hourly'
+                          log.type === 'leave'
+                            ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400'
+                            : log.type === 'absent'
+                            ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400'
+                            : log.type === 'hourly'
                             ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-400'
                             : log.type === 'half'
                             ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400'
                             : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400'
                         }`}>
-                          {log.type === 'hourly' ? t('hourlyOnlyOption') : log.type === 'half' ? t('halfDayOption') : t('fullDayOption')}
+                          {log.type === 'leave'
+                            ? (language === 'fa' ? 'مرخصی باحقوق' : language === 'ku' ? 'مۆڵەت' : 'Paid Leave')
+                            : log.type === 'absent'
+                            ? (language === 'fa' ? 'غایب' : language === 'ku' ? 'غائیب' : 'Absent')
+                            : log.type === 'present'
+                            ? (language === 'fa' ? 'حاضر' : language === 'ku' ? 'ئامادە' : 'Present')
+                            : log.type === 'hourly'
+                            ? t('hourlyOnlyOption')
+                            : log.type === 'half'
+                            ? t('halfDayOption')
+                            : t('fullDayOption')}
                         </span>
                         {log.overtimeHours > 0 && (
                           <span className="bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono">
@@ -2220,6 +2371,21 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                   {summaryTotals.hourlyCount > 0 && (
                     <span className="px-2 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-800/60 text-[11px] font-black text-purple-700 dark:text-purple-300">
                       {t('hourlyDaysCountBadge', { count: summaryTotals.hourlyCount })}
+                    </span>
+                  )}
+                  {summaryTotals.presentCount > 0 && (
+                    <span className="px-2 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+                      {language === 'fa' ? `${summaryTotals.presentCount} حاضر` : language === 'ku' ? `${summaryTotals.presentCount} ئامادە` : `${summaryTotals.presentCount} Present`}
+                    </span>
+                  )}
+                  {summaryTotals.leaveCount > 0 && (
+                    <span className="px-2 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-800/60 text-[11px] font-black text-sky-700 dark:text-sky-300">
+                      {language === 'fa' ? `${summaryTotals.leaveCount} مرخصی` : language === 'ku' ? `${summaryTotals.leaveCount} مۆڵەت` : `${summaryTotals.leaveCount} Leave`}
+                    </span>
+                  )}
+                  {summaryTotals.absentCount > 0 && (
+                    <span className="px-2 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200/60 dark:border-rose-800/60 text-[11px] font-black text-rose-700 dark:text-rose-300">
+                      {language === 'fa' ? `${summaryTotals.absentCount} غایب` : language === 'ku' ? `${summaryTotals.absentCount} غائیب` : `${summaryTotals.absentCount} Absent`}
                     </span>
                   )}
                 </div>

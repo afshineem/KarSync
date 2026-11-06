@@ -529,7 +529,15 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       settlementsReceived: fin.totalSettlementPaid,
       netBalanceDue: fin.netBalanceDue,
       totalDaysWorked: allLogs.length,
-      totalGrossEarnedAllTime: fin.unsettledGross + fin.settledGross
+      totalGrossEarnedAllTime: fin.unsettledGross + fin.settledGross,
+      isMonthlyWage: fin.isMonthlyWage,
+      presentDaysCount: fin.presentDaysCount,
+      leaveDaysCount: fin.leaveDaysCount,
+      absentDaysCount: fin.absentDaysCount,
+      unusedLeaveDays: fin.unusedLeaveDays,
+      absenceDeduction: fin.absenceDeduction,
+      fridayExtraPay: fin.fridayExtraPay,
+      encashmentPay: fin.encashmentPay
     };
   }, [worker, allLogs, allPayments, currency]);
 
@@ -754,7 +762,21 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   )}
 
                   <span className="text-slate-300 dark:text-slate-700">•</span>
-                  <span>{c.dailyRateLabel} <strong className="text-slate-900 dark:text-white font-mono font-bold">{formatCurrency(worker?.dailyRate || 0, currency, language)}</strong></span>
+                  {worker?.wageType === 'monthly' ? (
+                    <span>
+                      {language === 'fa' ? 'حقوق ماهانه:' : language === 'ku' ? 'مووچەی مانگانە:' : 'Monthly Salary:'}{' '}
+                      <strong className="text-slate-900 dark:text-white font-mono font-bold">
+                        {formatCurrency(worker?.monthlySalary || 0, currency, language)}
+                      </strong>
+                    </span>
+                  ) : (
+                    <span>
+                      {c.dailyRateLabel}{' '}
+                      <strong className="text-slate-900 dark:text-white font-mono font-bold">
+                        {formatCurrency(worker?.dailyRate || 0, currency, language)}
+                      </strong>
+                    </span>
+                  )}
                   
                   {Number(worker?.overtimeHourlyRate) > 0 && (
                     <>
@@ -1018,12 +1040,58 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 </div>
 
                 <div className="space-y-2.5 text-xs">
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="text-slate-500 dark:text-slate-400">{c.baseDailyWageLabel}</span>
-                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                      {formatCurrency(worker?.dailyRate || 0, currency, language)}
-                    </span>
-                  </div>
+                  {worker?.wageType === 'monthly' ? (
+                    <>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {language === 'fa' ? 'حقوق ثابت ماهانه:' : language === 'ku' ? 'مووچەی مانگانە:' : 'Monthly Salary:'}
+                        </span>
+                        <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
+                          {formatCurrency(worker?.monthlySalary || 0, currency, language)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {language === 'fa' ? 'مرخصی مجاز ماهانه:' : language === 'ku' ? 'مۆڵەتی ڕێگەپێدراو:' : 'Monthly Paid Leave:'}
+                        </span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          {worker?.monthlyLeaveDays ?? 2} {language === 'fa' ? 'روز در ماه' : language === 'ku' ? 'ڕۆژ لە مانگدا' : 'days/mo'}
+                          {Number(worker?.bonusLeaveDays) > 0 && (
+                            <span className="text-sky-600 text-[10px] ms-1">
+                              (+{worker.bonusLeaveDays} {language === 'fa' ? 'تشویقی' : 'پاداشت'})
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {language === 'fa' ? 'سیاست مرخصی باقی‌مانده:' : language === 'ku' ? 'سیستەمی مۆڵەت:' : 'Unused Leave Policy:'}
+                        </span>
+                        <span className="font-bold text-xs text-slate-700 dark:text-slate-300">
+                          {worker?.leavePolicy === 'encash'
+                            ? (language === 'fa' ? 'تسویه و بازخرید در حقوق' : language === 'ku' ? 'پارەدان لەگەڵ مووچە' : 'Encash in Payroll')
+                            : worker?.leavePolicy === 'expire'
+                            ? (language === 'fa' ? 'سوختن در پایان ماه' : language === 'ku' ? 'بەتاڵبوونەوە' : 'Expire at Month End')
+                            : (language === 'fa' ? 'انباشت و ذخیره برای ماه‌های آتی' : language === 'ku' ? 'کەڵەکەبوون بۆ مانگەکانی تر' : 'Accumulate')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {language === 'fa' ? 'ضریب کارکرد جمعه:' : language === 'ku' ? 'ڕێژەی کاری هەینی:' : 'Friday Multiplier:'}
+                        </span>
+                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                          {worker?.fridayRateMultiplier ?? 2.0}x
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
+                      <span className="text-slate-500 dark:text-slate-400">{c.baseDailyWageLabel}</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                        {formatCurrency(worker?.dailyRate || 0, currency, language)}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
                     <span className="text-slate-500 dark:text-slate-400">{c.overtimeHourlyRateLabel}</span>
@@ -1060,35 +1128,73 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="p-2.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
-                    <span className="text-[10px] text-slate-400 block mb-0.5">{c.fullDay}</span>
-                    <span className="text-base font-black text-slate-800 dark:text-slate-100 font-mono">
-                      {stats.unsettledFullDays}
-                    </span>
-                  </div>
+                {worker?.wageType === 'monthly' ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="p-2.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 text-center">
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mb-0.5">
+                        {language === 'fa' ? 'حاضر' : language === 'ku' ? 'ئامادە' : 'Present'}
+                      </span>
+                      <span className="text-base font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                        {stats.presentDaysCount || stats.unsettledFullDays || 0}
+                      </span>
+                    </div>
 
-                  <div className="p-2.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 text-center">
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 block mb-0.5">{c.halfDay}</span>
-                    <span className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">
-                      {stats.unsettledHalfDays}
-                    </span>
-                  </div>
+                    <div className="p-2.5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-center">
+                      <span className="text-[10px] text-sky-600 dark:text-sky-400 block mb-0.5">
+                        {language === 'fa' ? 'مرخصی باحقوق' : language === 'ku' ? 'مۆڵەت' : 'Leave'}
+                      </span>
+                      <span className="text-base font-black text-sky-600 dark:text-sky-400 font-mono">
+                        {stats.leaveDaysCount || 0}
+                      </span>
+                    </div>
 
-                  <div className="p-2.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-center">
-                    <span className="text-[10px] text-purple-600 dark:text-purple-400 block mb-0.5">{c.hourly}</span>
-                    <span className="text-base font-black text-purple-600 dark:text-purple-400 font-mono">
-                      {stats.unsettledHourlyDays}
-                    </span>
-                  </div>
+                    <div className="p-2.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 text-center">
+                      <span className="text-[10px] text-rose-600 dark:text-rose-400 block mb-0.5">
+                        {language === 'fa' ? 'غایب (کسر حقوق)' : language === 'ku' ? 'غائیب' : 'Absent'}
+                      </span>
+                      <span className="text-base font-black text-rose-600 dark:text-rose-400 font-mono">
+                        {stats.absentDaysCount || 0}
+                      </span>
+                    </div>
 
-                  <div className="p-2.5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-center">
-                    <span className="text-[10px] text-sky-600 dark:text-sky-400 block mb-0.5">{c.overtime}</span>
-                    <span className="text-xs font-black text-sky-600 dark:text-sky-400 font-mono">
-                      {formatHoursAndMinutes(stats.unsettledOvertimeHours)}
-                    </span>
+                    <div className="p-2.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-center">
+                      <span className="text-[10px] text-purple-600 dark:text-purple-400 block mb-0.5">{c.overtime}</span>
+                      <span className="text-xs font-black text-purple-600 dark:text-purple-400 font-mono">
+                        {formatHoursAndMinutes(stats.unsettledOvertimeHours)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-2.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                      <span className="text-[10px] text-slate-400 block mb-0.5">{c.fullDay}</span>
+                      <span className="text-base font-black text-slate-800 dark:text-slate-100 font-mono">
+                        {stats.unsettledFullDays}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 text-center">
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 block mb-0.5">{c.halfDay}</span>
+                      <span className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">
+                        {stats.unsettledHalfDays}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-center">
+                      <span className="text-[10px] text-purple-600 dark:text-purple-400 block mb-0.5">{c.hourly}</span>
+                      <span className="text-base font-black text-purple-600 dark:text-purple-400 font-mono">
+                        {stats.unsettledHourlyDays}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-center">
+                      <span className="text-[10px] text-sky-600 dark:text-sky-400 block mb-0.5">{c.overtime}</span>
+                      <span className="text-xs font-black text-sky-600 dark:text-sky-400 font-mono">
+                        {formatHoursAndMinutes(stats.unsettledOvertimeHours)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* UI element */}
@@ -1227,7 +1333,17 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                                   ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300'
                                   : 'bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300'
                               }`}>
-                                {isSettlement ? c.finalSettlement : isAdvance ? c.advance : (ev.type === 'half' ? c.halfDay : ev.type === 'hourly' ? c.hourly : c.fullDay)}
+                                {isSettlement
+                                  ? c.finalSettlement
+                                  : isAdvance
+                                  ? c.advance
+                                  : ev.type === 'leave'
+                                  ? (language === 'fa' ? 'مرخصی باحقوق' : language === 'ku' ? 'مۆڵەت' : 'Paid Leave')
+                                  : ev.type === 'absent'
+                                  ? (language === 'fa' ? 'غایب' : language === 'ku' ? 'غائیب' : 'Absent')
+                                  : ev.type === 'present'
+                                  ? (language === 'fa' ? 'حاضر' : language === 'ku' ? 'ئامادە' : 'Present')
+                                  : (ev.type === 'half' ? c.halfDay : ev.type === 'hourly' ? c.hourly : c.fullDay)}
                               </span>
 
                               {ev.isSettled ? (

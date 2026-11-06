@@ -209,7 +209,7 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     if (isCovered) {
       if (!useFlags) paymentBudget -= pay;
       settledLogs.push(l);
-      if (l.type === 'full') settledFullDays++;
+      if (l.type === 'full' || l.type === 'present') settledFullDays++;
       else if (l.type === 'half') settledHalfDays++;
       else if (l.type === 'hourly') settledHourlyDays++;
 
@@ -219,7 +219,7 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
       settledGross += pay;
     } else {
       unsettledLogs.push(l);
-      if (l.type === 'full') fullDays++;
+      if (l.type === 'full' || l.type === 'present') fullDays++;
       else if (l.type === 'half') halfDays++;
       else if (l.type === 'hourly') hourlyDays++;
 
@@ -230,7 +230,98 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     }
   });
 
-  const effectiveDays = fullDays + halfDays * 0.5;
+  const isMonthlyWage = worker.wageType === 'monthly';
+  let monthlySalary = Number(worker.monthlySalary) || 0;
+  let presentDaysCount = 0;
+  let leaveDaysCount = 0;
+  let absentDaysCount = 0;
+  let deductibleDays = 0;
+  let absenceDeduction = 0;
+  let unusedLeaveDays = 0;
+  let encashmentPay = 0;
+  let fridayExtraPay = 0;
+  let daysInBillingMonth = 30;
+
+  if (isMonthlyWage) {
+    const sampleDate = (unsettledLogs.length > 0 ? unsettledLogs[unsettledLogs.length - 1]?.date : null) || lastSettlementPeriodEnd || new Date().toISOString().slice(0, 10);
+    const dateParts = String(sampleDate).split('-');
+    if (dateParts.length >= 2) {
+      const y = parseInt(dateParts[0], 10);
+      const m = parseInt(dateParts[1], 10);
+      if (!isNaN(y) && !isNaN(m)) {
+        daysInBillingMonth = new Date(y, m, 0).getDate();
+      }
+    }
+    const dailyDeductRate = daysInBillingMonth > 0 ? (monthlySalary / daysInBillingMonth) : (monthlySalary / 30);
+
+    presentDaysCount = unsettledLogs.filter((l) => l.type === 'present' || l.type === 'full').length;
+    leaveDaysCount = unsettledLogs.filter((l) => l.type === 'leave').length;
+    absentDaysCount = unsettledLogs.filter((l) => l.type === 'absent').length;
+
+    const monthlyLeaveAllowance = Number(worker.monthlyLeaveDays) || 0;
+    const bonusLeaveAllowance = Number(worker.bonusLeaveDays) || 0;
+    const leavePolicy = worker.leavePolicy || 'accumulate';
+
+    let allowedLeaveThisPeriod = monthlyLeaveAllowance + bonusLeaveAllowance;
+    if (leavePolicy === 'accumulate') {
+      const settledLeaveTaken = settledLogs.filter((l) => l.type === 'leave').length;
+      const totalEarnedLeave = ((settlementReceipts.length + 1) * monthlyLeaveAllowance) + bonusLeaveAllowance;
+      allowedLeaveThisPeriod = Math.max(0, totalEarnedLeave - settledLeaveTaken);
+      const deductibleLeave = Math.max(0, leaveDaysCount - allowedLeaveThisPeriod);
+      unusedLeaveDays = Math.max(0, allowedLeaveThisPeriod - leaveDaysCount);
+      deductibleDays = absentDaysCount + deductibleLeave;
+      encashmentPay = 0;
+    } else if (leavePolicy === 'encash') {
+      const deductibleLeave = Math.max(0, leaveDaysCount - allowedLeaveThisPeriod);
+      unusedLeaveDays = Math.max(0, allowedLeaveThisPeriod - leaveDaysCount);
+      deductibleDays = absentDaysCount + deductibleLeave;
+      encashmentPay = roundCurrency(unusedLeaveDays * dailyDeductRate, currency);
+    } else {
+      // expire
+      const deductibleLeave = Math.max(0, leaveDaysCount - allowedLeaveThisPeriod);
+      deductibleDays = absentDaysCount + deductibleLeave;
+      unusedLeaveDays = 0;
+      encashmentPay = 0;
+    }
+
+    absenceDeduction = roundCurrency(deductibleDays * dailyDeductRate, currency);
+    const totalOtWage = roundCurrency(otHours * wOtRate, currency);
+
+    // Calculate Friday work extra bonus pay
+    fridayExtraPay = roundCurrency(
+      unsettledLogs.reduce((sum, l) => {
+        if (l.type === 'present' || l.type === 'full') {
+          try {
+            const [ly, lm, ld] = (l.date || '').split('-').map(Number);
+            if (new Date(ly, lm - 1, ld).getDay() === 5) {
+              const mult = Number(worker.fridayRateMultiplier ?? 2.0);
+              if (mult > 1.0) {
+                return sum + (dailyDeductRate * (mult - 1.0));
+              }
+            }
+          } catch (_) {}
+        }
+        return sum;
+      }, 0),
+      currency
+    );
+
+    // If there are active unsettled logs, monthly gross wage applies
+    if (unsettledLogs.length > 0) {
+      unsettledGross = roundCurrency(
+        Math.max(0, monthlySalary - absenceDeduction) + totalOtWage + fridayExtraPay + encashmentPay,
+        currency
+      );
+      basePay = roundCurrency(Math.max(0, monthlySalary - absenceDeduction), currency);
+      otPay = totalOtWage;
+    } else {
+      unsettledGross = 0;
+      basePay = 0;
+      otPay = 0;
+    }
+  }
+
+  const effectiveDays = isMonthlyWage ? (presentDaysCount + leaveDaysCount) : (fullDays + halfDays * 0.5);
   const settledEffectiveDays = settledFullDays + settledHalfDays * 0.5;
 
   // Unsettled advances are open advances in the current cycle
@@ -280,6 +371,18 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     netBalanceDue,
     status,
     isSettled: status === 'settled',
+    // Monthly wage details
+    isMonthlyWage,
+    monthlySalary,
+    daysInBillingMonth,
+    presentDaysCount,
+    leaveDaysCount,
+    absentDaysCount,
+    deductibleDays,
+    absenceDeduction,
+    unusedLeaveDays,
+    encashmentPay,
+    fridayExtraPay,
     // Settled stats
     settledLogs,
     suspiciousSettledLogs,

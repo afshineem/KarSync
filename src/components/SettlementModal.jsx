@@ -927,6 +927,19 @@ export function SettlementModal({
       (p) => (p.date || '') <= autoCutoffDate
     );
 
+    if (worker.wageType === 'monthly') {
+      const fin = calculateWorkerFinancials(worker, periodLogs, periodPayments, currency);
+      return {
+        ...individualCalculations,
+        ...fin,
+        unsettledLogs: periodLogs,
+        unsettledPayments: periodPayments,
+        grossEarnings: fin.unsettledGross,
+        advancesDeducted: fin.unsettledAdvances,
+        totalCumulativeDebt: fin.netBalanceDue
+      };
+    }
+
     const wDaily = Number(String(worker.dailyRate).replace(/,/g, '')) || 0;
     const wOtRate = Number(String(worker.overtimeHourlyRate).replace(/,/g, '')) || 0;
 

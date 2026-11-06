@@ -67,14 +67,39 @@ const COPY = {
     statusInactiveLabel: 'غیرفعال (مرخص شده)',
     secWages: 'سیستم دستمزد و نرخ کارکرد',
     wageDaily: 'دستمزد روزانه',
+    wageMonthly: 'حقوق ثابت ماهانه',
     wageContract: 'کنتراکت (مقاطعه‌کاری)',
     contractBannerTitle: 'پرسنل به صورت کنتراکت (توافقی) تعریف شده است',
     contractBannerDesc: 'برای پرسنل کنتراکت، دستمزد روزانه و اضافه کاری صفر منظور می‌شود و مبالغ به صورت توافقی پرداخت می‌گردد.',
+    monthlyBannerTitle: 'سیستم حقوق ثابت ماهانه و حضوروغیاب',
+    monthlyBannerDesc: 'برای این پرسنل حقوق ثابت ماهانه مبنا قرار می‌گیرد و روزانه صرفاً حضور، غیبت یا مرخصی ثبت می‌شود. غیبت مازاد بر سهمیه مرخصی از حقوق کسر می‌گردد.',
     lblDailyRate: 'نرخ دستمزد یک روز کامل',
+    lblMonthlySalary: 'مبلغ حقوق ثابت هر ماه',
+    quickMonthlyRates: [
+      { label: '۶۰۰ هزار', val: 600000 },
+      { label: '۷۵۰ هزار', val: 750000 },
+      { label: '۹۰۰ هزار', val: 900000 },
+      { label: '۱ میلیون', val: 1000000 },
+      { label: '۱.۲ میلیون', val: 1200000 },
+      { label: '۱.۵ میلیون', val: 1500000 }
+    ],
+    lblMonthlyLeaveDays: 'سهمیه مرخصی باحقوق در ماه',
+    leaveDaysUnit: 'روز / ماه',
+    lblLeavePolicy: 'سیاست مرخصی استفاده‌نشده',
+    policyAccumulate: 'ذخیره و انباشت برای ماه‌های آتی (قابلیت مرخصی تجمیعی)',
+    policyEncash: 'تسویه و بازخرید در حقوق همان ماه (پرداخت ریالی)',
+    policyExpire: 'سوختن سهمیه در پایان ماه (عدم انتقال)',
+    lblBonusLeaveDays: 'مرخصی تشویقی کارفرما (روزهای اضافه)',
+    bonusDaysUnit: 'روز',
+    lblFridayWorkMultiplier: 'ضریب کارکرد در جمعه‌ها و روزهای تعطیل',
+    fridayMultDouble: '۲.۰ برابر (تعطیل‌کاری دوبل)',
+    fridayMultOneHalf: '۱.۵ برابر (یک و نیم برابر)',
+    fridayMultRegular: '۱.۰ برابر (یک روز کاری عادی)',
+    fridayMultNone: 'بدون دستمزد پایه اضافی (فقط اضافه کاری ساعتی)',
     unitPrefix: 'واحد:',
     commonAmounts: 'مبالغ رایج:',
     lblOvertimeRate: 'نرخ هر ساعت اضافه‌کاری',
-    autoCalcTitle: 'محاسبه نرخ بر مبنای تقسیم مزد روزانه به ۸ ساعت کار',
+    autoCalcTitle: 'محاسبه نرخ بر مبنای تقسیم دستمزد به ساعات کار استاندارد',
     autoCalcBtn: 'محاسبه خودکار (پایه ۸ ساعت)',
     secOrg: 'گروه کاری و سازماندهی در کارگاه',
     lblWorkGroup: 'گروه کاری',
@@ -98,11 +123,14 @@ const COPY = {
     lblContractType: 'نوع قرارداد:',
     contractContractType: 'کنتراکت / مقاطعه‌کاری',
     contractDailyType: 'مزد روزانه عادی',
+    contractMonthlyType: 'حقوق ثابت ماهانه',
     lblPreviewDailyRate: 'دستمزد روزانه:',
+    lblPreviewMonthlySalary: 'حقوق ثابت ماهانه:',
     valAgreed: 'توافقی',
     lblPreviewOvertime: 'نرخ اضافه کاری:',
     perHour: '/ ساعت',
     lblEstimate30Days: 'برآورد ۳۰ روز کارکرد:',
+    lblLeaveAllowanceShort: 'مرخصی ماهانه:',
     cloudSyncTitle: 'یکپارچگی و همگام‌سازی ابری',
     cloudSyncDesc: 'مشخصات پرسنل به صورت آفلاین ذخیره شده و به محض اتصال به اینترنت با پایگاه داده ابری همگام‌سازی می‌شود.',
     phUsername: 'مثال: ali',
@@ -148,14 +176,39 @@ const COPY = {
     statusInactiveLabel: 'ناچالاک (مۆڵەتپێدراو)',
     secWages: 'جۆری کرێ و پارە',
     wageDaily: 'حەقدەستی ڕۆژانە',
+    wageMonthly: 'مووچەی جێگیری مانگانە',
     wageContract: 'کۆنتراکت (پەیمانکاری)',
     contractBannerTitle: 'کرێکار بە شێوەی کۆنتراکت دیاریکراوە',
     contractBannerDesc: 'بۆ کرێکارانی کۆنتراکت، کرێی ڕۆژانە و زیادەکاری بە صفر ئەژمار دەکرێت و پارەکەی بەپێی ڕێککەوتن دەدرێت.',
+    monthlyBannerTitle: 'سیستەمی مووچەی جێگیری مانگانە و ئامادەبوون',
+    monthlyBannerDesc: 'بۆ ئەم کارمەندە مووچەی جێگیر دەبێتە بنەما و ڕۆژانە تەنها ئامادەبوون، مۆڵەت یان نەهاتن تۆمار دەکرێت. نەهاتنی زیاتر لە مۆڵەت لە مووچە دەبڕدرێت.',
     lblDailyRate: 'حەقدەستی یەک ڕۆژی تەواو',
+    lblMonthlySalary: 'بڕی مووچەی جێگیری مانگانە',
+    quickMonthlyRates: [
+      { label: '٦٠٠ هەزار', val: 600000 },
+      { label: '٧٥٠ هەزار', val: 750000 },
+      { label: '٩٠٠ هەزار', val: 900000 },
+      { label: '١ ملیۆن', val: 1000000 },
+      { label: '١.٢ ملیۆن', val: 1200000 },
+      { label: '١.٥ ملیۆن', val: 1500000 }
+    ],
+    lblMonthlyLeaveDays: 'مۆڵەتی بەپارەی ڕێپێدراو لە مانگدا',
+    leaveDaysUnit: 'ڕۆژ / مانگ',
+    lblLeavePolicy: 'شێوازی مامەڵە لەگەڵ مۆڵەتی بەکارنەهاتوو',
+    policyAccumulate: 'پاشەکەوتکردن بۆ مانگەکانی داهاتوو (کەڵەکەبوون)',
+    policyEncash: 'پاکتاو و پێدانی پارە لەگەڵ مووچەی مانگ',
+    policyExpire: 'فەوتانی مۆڵەت لە کۆتایی مانگدا',
+    lblBonusLeaveDays: 'مۆڵەتی پاداشتی خاوەنکار (ڕۆژانی زیادە)',
+    bonusDaysUnit: 'ڕۆژ',
+    lblFridayWorkMultiplier: 'کۆلکەی کاری هەینی و پشووە فەرمییەکان',
+    fridayMultDouble: '٢.٠ هێندە (دووهێندە)',
+    fridayMultOneHalf: '١.٥ هێندە (یەک و نیو)',
+    fridayMultRegular: '١.٠ هێندە (ڕۆژی ئاسایی)',
+    fridayMultNone: 'بێ کرێی بنەڕەتی (تەنها کاتی زیادە)',
     unitPrefix: 'دراو:',
     commonAmounts: 'بڕە باوەکان:',
     lblOvertimeRate: 'کرێی هەر کاتژمێرێک زیادەکاری',
-    autoCalcTitle: 'ئەژمارکردن بەپێی دابەشکردنی حەقدەستی ڕۆژانە بەسەر ٨ کاتژمێر',
+    autoCalcTitle: 'ئەژمارکردن بەپێی دابەشکردنی حەقدەست بەسەر کاتژمێری ستاندارد',
     autoCalcBtn: 'ئەژمارکردنی خۆکار (بناغەی ٨ کاتژمێر)',
     secOrg: 'گرووپ و ڕێکخستن',
     lblWorkGroup: 'گرووپی کار',
@@ -179,11 +232,14 @@ const COPY = {
     lblContractType: 'جۆری پەیماننامە:',
     contractContractType: 'کۆنتراکت / پەیمانکاری',
     contractDailyType: 'حەقدەستی ڕۆژانەی ئاسایی',
+    contractMonthlyType: 'مووچەی جێگیری مانگانە',
     lblPreviewDailyRate: 'حەقدەستی ڕۆژانە:',
+    lblPreviewMonthlySalary: 'مووچەی جێگیری مانگانە:',
     valAgreed: 'ڕێککەوتن',
     lblPreviewOvertime: 'حەقدەستی زیادەکاری:',
     perHour: '/ کاتژمێر',
     lblEstimate30Days: 'خەمڵاندنی ٣٠ ڕۆژ کار:',
+    lblLeaveAllowanceShort: 'مۆڵەتی مانگانە:',
     cloudSyncTitle: 'هاوکاتکردنی کلاود',
     cloudSyncDesc: 'زانیارییەکان بە شێوەی ئۆفلاین پاشەکەوت دەکرێن و بە گەڕانەوەی ئینتەرنێت هاوکات دەبن.',
     phUsername: 'نموونە: feryad',
@@ -229,14 +285,39 @@ const COPY = {
     statusInactiveLabel: 'Inactive (Dismissed)',
     secWages: 'Wage System & Working Rates',
     wageDaily: 'Daily Wage',
+    wageMonthly: 'Fixed Monthly Salary',
     wageContract: 'Contract (Piecework)',
     contractBannerTitle: 'Worker is designated as Contract / Agreed',
     contractBannerDesc: 'For contract workers, daily wage and hourly overtime are set to zero, and payments are logged via contracts or settlements.',
+    monthlyBannerTitle: 'Fixed Monthly Salary & Attendance System',
+    monthlyBannerDesc: 'This worker is paid a fixed monthly salary. Daily logging records presence, leave, or absence. Absences exceeding leave allowance are deducted at settlement.',
     lblDailyRate: 'Full Day Wage Rate',
+    lblMonthlySalary: 'Monthly Fixed Salary',
+    quickMonthlyRates: [
+      { label: '600k', val: 600000 },
+      { label: '750k', val: 750000 },
+      { label: '900k', val: 900000 },
+      { label: '1M', val: 1000000 },
+      { label: '1.2M', val: 1200000 },
+      { label: '1.5M', val: 1500000 }
+    ],
+    lblMonthlyLeaveDays: 'Monthly Paid Leave Allowance',
+    leaveDaysUnit: 'days / mo',
+    lblLeavePolicy: 'Unused Leave Policy',
+    policyAccumulate: 'Accumulate / rollover to future months',
+    policyEncash: 'Encash and pay in monthly settlement',
+    policyExpire: 'Expire at month end',
+    lblBonusLeaveDays: 'Bonus Leave Days (Employer Grant)',
+    bonusDaysUnit: 'days',
+    lblFridayWorkMultiplier: 'Friday & Holiday Work Multiplier',
+    fridayMultDouble: '2.0x (Double Pay)',
+    fridayMultOneHalf: '1.5x (Time and a Half)',
+    fridayMultRegular: '1.0x (Regular Day)',
+    fridayMultNone: 'No extra base pay (Hourly OT only)',
     unitPrefix: 'Currency:',
     commonAmounts: 'Common Rates:',
     lblOvertimeRate: 'Hourly Overtime Rate',
-    autoCalcTitle: 'Calculate rate by dividing daily wage by 8 hours',
+    autoCalcTitle: 'Calculate rate by dividing wage by standard work hours',
     autoCalcBtn: 'Auto Calculate (8-Hour Basis)',
     secOrg: 'Work Team & Workshop Organization',
     lblWorkGroup: 'Work Team',
@@ -260,11 +341,14 @@ const COPY = {
     lblContractType: 'Contract Type:',
     contractContractType: 'Contract / Piecework',
     contractDailyType: 'Regular Daily Wage',
+    contractMonthlyType: 'Fixed Monthly Salary',
     lblPreviewDailyRate: 'Daily Wage:',
+    lblPreviewMonthlySalary: 'Monthly Salary:',
     valAgreed: 'Agreed',
     lblPreviewOvertime: 'Overtime Rate:',
     perHour: '/ hour',
     lblEstimate30Days: 'Estimated 30-Day Pay:',
+    lblLeaveAllowanceShort: 'Monthly Leave:',
     cloudSyncTitle: 'Cloud Sync & Integrity',
     cloudSyncDesc: 'Personnel data is saved offline and synchronizes with cloud database in real-time when connected.',
     phUsername: 'e.g. feryad',
@@ -295,8 +379,13 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
     role: '',
     groupId: '',
     teamRole: 'Worker',
-    wageType: 'standard',
+    wageType: 'standard', // 'standard' | 'monthly' | 'contract'
     dailyRate: '35000',
+    monthlySalary: '900000',
+    monthlyLeaveDays: '2',
+    leavePolicy: 'accumulate', // 'accumulate' | 'encash' | 'expire'
+    bonusLeaveDays: '0',
+    fridayRateMultiplier: '2.0', // '2.0' | '1.5' | '1.0' | '0'
     overtimeHourlyRate: '5000',
     defaultSectionId: '',
     isActive: 1,
@@ -338,6 +427,11 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           teamRole: workerToEdit.teamRole || 'Worker',
           wageType: workerToEdit.wageType || 'standard',
           dailyRate: String(workerToEdit.dailyRate ?? '35000'),
+          monthlySalary: String(workerToEdit.monthlySalary ?? '900000'),
+          monthlyLeaveDays: String(workerToEdit.monthlyLeaveDays ?? '2'),
+          leavePolicy: workerToEdit.leavePolicy || 'accumulate',
+          bonusLeaveDays: String(workerToEdit.bonusLeaveDays ?? '0'),
+          fridayRateMultiplier: String(workerToEdit.fridayRateMultiplier ?? '2.0'),
           overtimeHourlyRate: String(workerToEdit.overtimeHourlyRate ?? '5000'),
           defaultSectionId: workerToEdit.defaultSectionId || '',
           isActive: workerToEdit.isActive ?? 1,
@@ -353,6 +447,11 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           teamRole: 'Worker',
           wageType: 'standard',
           dailyRate: '35000',
+          monthlySalary: '900000',
+          monthlyLeaveDays: '2',
+          leavePolicy: 'accumulate',
+          bonusLeaveDays: '0',
+          fridayRateMultiplier: '2.0',
           overtimeHourlyRate: '5000',
           defaultSectionId: '',
           isActive: 1,
@@ -387,14 +486,25 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
   }, [projectSections, formData.defaultSectionId]);
 
   // محاسبات برآوردی
-  const numericDailyRate = formData.wageType === 'contract' ? 0 : (Number(formData.dailyRate) || 0);
-  const numericOvertimeRate = formData.wageType === 'contract' ? 0 : (Number(formData.overtimeHourlyRate) || 0);
-  const estimatedMonthlySalary = numericDailyRate * 30;
+  const isMonthly = formData.wageType === 'monthly';
+  const isContract = formData.wageType === 'contract';
+
+  const numericMonthlySalary = isMonthly ? (Number(formData.monthlySalary) || 0) : ((Number(formData.dailyRate) || 0) * 30);
+  const numericDailyRate = isContract ? 0 : isMonthly ? Math.round(numericMonthlySalary / 30) : (Number(formData.dailyRate) || 0);
+  const numericOvertimeRate = isContract ? 0 : (Number(formData.overtimeHourlyRate) || 0);
+  const estimatedMonthlySalary = numericMonthlySalary;
 
   // محاسبه خودکار نرخ اضافه کاری بر مبنای ۸ ساعت کار استاندارد
   const handleAutoCalculateOvertime = () => {
-    if (numericDailyRate > 0) {
-      // فرمول رایج: (دستمزد روزانه تقسیم بر ۸ ساعت) × ۱.۲۵ یا گرد شده
+    if (formData.wageType === 'monthly') {
+      const mSalary = Number(formData.monthlySalary) || 0;
+      if (mSalary > 0) {
+        // تقسیم بر ۳۰ روز و سپس ۸ ساعت
+        const hourlyBase = Math.round(mSalary / 30 / 8);
+        setFormData(prev => ({ ...prev, overtimeHourlyRate: String(hourlyBase) }));
+      }
+    } else if (numericDailyRate > 0) {
+      // فرمول رایج: (دستمزد روزانه تقسیم بر ۸ ساعت)
       const hourlyBase = Math.round(numericDailyRate / 8);
       setFormData(prev => ({ ...prev, overtimeHourlyRate: String(hourlyBase) }));
     }
@@ -411,11 +521,17 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
       return;
     }
 
-    const isContract = formData.wageType === 'contract';
-    const dailyRate = isContract ? 0 : Number(formData.dailyRate);
-    const overtimeRate = isContract ? 0 : Number(formData.overtimeHourlyRate);
+    const isContractWage = formData.wageType === 'contract';
+    const isMonthlyWage = formData.wageType === 'monthly';
+    const monthlySalaryVal = isMonthlyWage ? Number(formData.monthlySalary) || 0 : 0;
+    const dailyRate = isContractWage ? 0 : isMonthlyWage ? Math.round(monthlySalaryVal / 30) : Number(formData.dailyRate);
+    const overtimeRate = isContractWage ? 0 : Number(formData.overtimeHourlyRate);
+    const monthlyLeaveDays = isMonthlyWage ? Number(formData.monthlyLeaveDays) || 0 : 0;
+    const leavePolicy = isMonthlyWage ? (formData.leavePolicy || 'accumulate') : 'accumulate';
+    const bonusLeaveDays = isMonthlyWage ? Number(formData.bonusLeaveDays) || 0 : 0;
+    const fridayRateMultiplier = isMonthlyWage ? (Number(formData.fridayRateMultiplier) || 2.0) : 1.0;
 
-    if (isNaN(dailyRate) || dailyRate < 0 || isNaN(overtimeRate) || overtimeRate < 0) {
+    if (isNaN(dailyRate) || dailyRate < 0 || isNaN(overtimeRate) || overtimeRate < 0 || isNaN(monthlySalaryVal) || monthlySalaryVal < 0) {
       setFormError(txt.errRatesPositive);
       return;
     }
@@ -437,6 +553,11 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           teamRole: formData.teamRole || 'Worker',
           wageType: formData.wageType || 'standard',
           dailyRate: dailyRate,
+          monthlySalary: monthlySalaryVal,
+          monthlyLeaveDays: monthlyLeaveDays,
+          leavePolicy: leavePolicy,
+          bonusLeaveDays: bonusLeaveDays,
+          fridayRateMultiplier: fridayRateMultiplier,
           overtimeHourlyRate: overtimeRate,
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
           isActive: Number(formData.isActive),
@@ -459,6 +580,11 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           teamRole: formData.teamRole || 'Worker',
           wageType: formData.wageType || 'standard',
           dailyRate: dailyRate,
+          monthlySalary: monthlySalaryVal,
+          monthlyLeaveDays: monthlyLeaveDays,
+          leavePolicy: leavePolicy,
+          bonusLeaveDays: bonusLeaveDays,
+          fridayRateMultiplier: fridayRateMultiplier,
           overtimeHourlyRate: overtimeRate,
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
           isActive: 1,
@@ -674,8 +800,8 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       </span>
                     </div>
 
-                    {/* سگمنت نوع دستمزد (عادی / کنتراکت) */}
-                    <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                    {/* سگمنت نوع دستمزد (روزانه / ماهانه / کنتراکت) */}
+                    <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 gap-0.5">
                       <button
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, wageType: 'standard' }))}
@@ -686,6 +812,17 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                         }`}
                       >
                         {txt.wageDaily}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, wageType: 'monthly' }))}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          formData.wageType === 'monthly'
+                            ? 'bg-sky-500 text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        {txt.wageMonthly}
                       </button>
                       <button
                         type="button"
@@ -707,6 +844,175 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       <div>
                         <strong className="block font-black mb-0.5">{txt.contractBannerTitle}</strong>
                         {txt.contractBannerDesc}
+                      </div>
+                    </div>
+                  ) : formData.wageType === 'monthly' ? (
+                    <div className="space-y-4">
+                      {/* بنر راهنمای سیستم حقوق ثابت ماهانه */}
+                      <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200/80 dark:border-sky-900/40 text-sky-900 dark:text-sky-200 text-xs leading-relaxed flex items-start gap-2.5">
+                        <Sparkles className="w-4.5 h-4.5 text-sky-500 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block font-black mb-0.5">{txt.monthlyBannerTitle}</strong>
+                          {txt.monthlyBannerDesc}
+                        </div>
+                      </div>
+
+                      {/* مبلغ حقوق ثابت ماهانه */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {txt.lblMonthlySalary} <span className="text-rose-500">*</span>
+                          </label>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {txt.unitPrefix} {currency}
+                          </span>
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="10000"
+                            required
+                            value={formData.monthlySalary}
+                            onChange={(e) => setFormData({ ...formData, monthlySalary: e.target.value })}
+                            className="w-full px-4 py-2.5 ps-10 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 focus:outline-none transition-all"
+                          />
+                          <Coins className="w-4.5 h-4.5 text-sky-500 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+
+                        {/* چیپ‌های مبالغ حقوق ماهانه متداول */}
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          <span className="text-[11px] text-slate-400 font-medium me-1">{txt.commonAmounts}</span>
+                          {txt.quickMonthlyRates.map((chip) => (
+                            <button
+                              key={chip.val}
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, monthlySalary: String(chip.val) }))}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold font-mono transition-all cursor-pointer ${
+                                String(formData.monthlySalary) === String(chip.val)
+                                  ? 'bg-sky-500 text-white shadow-xs'
+                                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                              }`}
+                            >
+                              {chip.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* ردیف ۲ ستونه: سهمیه مرخصی مجاز در ماه + سیاست مرخصی استفاده نشده */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                        {/* سهمیه مرخصی مجاز */}
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {txt.lblMonthlyLeaveDays}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              max="31"
+                              step="0.5"
+                              value={formData.monthlyLeaveDays}
+                              onChange={(e) => setFormData({ ...formData, monthlyLeaveDays: e.target.value })}
+                              className="w-full px-4 py-2.5 ps-9 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-black font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 focus:outline-none transition-all"
+                            />
+                            <CalendarCheck className="w-4 h-4 text-emerald-500 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <span className="absolute end-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">
+                              {txt.leaveDaysUnit}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* سیاست مرخصی استفاده‌نشده */}
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {txt.lblLeavePolicy}
+                          </label>
+                          <select
+                            value={formData.leavePolicy || 'accumulate'}
+                            onChange={(e) => setFormData({ ...formData, leavePolicy: e.target.value })}
+                            className="w-full px-3.5 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:outline-none cursor-pointer transition-all"
+                          >
+                            <option value="accumulate">{txt.policyAccumulate}</option>
+                            <option value="encash">{txt.policyEncash}</option>
+                            <option value="expire">{txt.policyExpire}</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* ردیف ۲ ستونه: مرخصی تشویقی کارفرما + ضریب کارکرد در جمعه و تعطیلات */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                        {/* مرخصی تشویقی کارفرما */}
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {txt.lblBonusLeaveDays}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              max="30"
+                              step="1"
+                              value={formData.bonusLeaveDays}
+                              onChange={(e) => setFormData({ ...formData, bonusLeaveDays: e.target.value })}
+                              placeholder="0"
+                              className="w-full px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs sm:text-sm font-black font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 focus:outline-none transition-all"
+                            />
+                            <span className="absolute end-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">
+                              {txt.bonusDaysUnit}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* ضریب کارکرد در جمعه‌ها و روزهای تعطیل */}
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {txt.lblFridayWorkMultiplier}
+                          </label>
+                          <select
+                            value={String(formData.fridayRateMultiplier ?? '2.0')}
+                            onChange={(e) => setFormData({ ...formData, fridayRateMultiplier: e.target.value })}
+                            className="w-full px-3.5 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 focus:outline-none cursor-pointer transition-all"
+                          >
+                            <option value="2.0">{txt.fridayMultDouble}</option>
+                            <option value="1.5">{txt.fridayMultOneHalf}</option>
+                            <option value="1.0">{txt.fridayMultRegular}</option>
+                            <option value="0">{txt.fridayMultNone}</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* نرخ اضافه‌کاری ساعتی */}
+                      <div className="space-y-2 pt-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {txt.lblOvertimeRate} <span className="text-rose-500">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleAutoCalculateOvertime}
+                            className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                            title={txt.autoCalcTitle}
+                          >
+                            <Calculator className="w-3.5 h-3.5" />
+                            <span>{txt.autoCalcBtn}</span>
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="250"
+                            required
+                            value={formData.overtimeHourlyRate}
+                            onChange={(e) => setFormData({ ...formData, overtimeHourlyRate: e.target.value })}
+                            className="w-full px-4 py-2.5 ps-10 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 focus:outline-none transition-all"
+                          />
+                          <Clock className="w-4.5 h-4.5 text-sky-500 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -990,16 +1296,38 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
                       <span className="text-slate-500 dark:text-slate-400">{txt.lblContractType}</span>
                       <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {formData.wageType === 'contract' ? txt.contractContractType : txt.contractDailyType}
+                        {formData.wageType === 'contract'
+                          ? txt.contractContractType
+                          : formData.wageType === 'monthly'
+                          ? txt.contractMonthlyType
+                          : txt.contractDailyType}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                      <span className="text-slate-500 dark:text-slate-400">{txt.lblPreviewDailyRate}</span>
-                      <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm" dir="ltr">
-                        {formData.wageType === 'contract' ? txt.valAgreed : formatCurrency(numericDailyRate, currency, language)}
-                      </span>
-                    </div>
+                    {formData.wageType === 'monthly' ? (
+                      <>
+                        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/60 dark:border-sky-900/40">
+                          <span className="text-sky-800 dark:text-sky-300 font-bold">{txt.lblPreviewMonthlySalary}</span>
+                          <span className="font-mono font-black text-sky-700 dark:text-sky-300 text-sm" dir="ltr">
+                            {formatCurrency(numericMonthlySalary, currency, language)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40">
+                          <span className="text-emerald-800 dark:text-emerald-300 font-bold">{txt.lblLeaveAllowanceShort}</span>
+                          <span className="font-mono font-black text-emerald-700 dark:text-emerald-300 text-xs">
+                            {formData.monthlyLeaveDays} {txt.leaveDaysUnit}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                        <span className="text-slate-500 dark:text-slate-400">{txt.lblPreviewDailyRate}</span>
+                        <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm" dir="ltr">
+                          {formData.wageType === 'contract' ? txt.valAgreed : formatCurrency(numericDailyRate, currency, language)}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
                       <span className="text-slate-500 dark:text-slate-400">{txt.lblPreviewOvertime}</span>
@@ -1008,7 +1336,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       </span>
                     </div>
 
-                    {formData.wageType !== 'contract' && (
+                    {formData.wageType === 'standard' && (
                       <div className="flex items-center justify-between p-2.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40">
                         <span className="text-amber-800 dark:text-amber-300 font-bold">{txt.lblEstimate30Days}</span>
                         <span className="font-mono font-black text-amber-700 dark:text-amber-300 text-sm" dir="ltr">
