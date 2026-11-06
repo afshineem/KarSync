@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
+import { usePermissions } from '../context/AuthContext';
 import { useAccounting } from '../hooks/useAccounting';
 import * as XLSX from 'xlsx';
 import { 
@@ -510,6 +511,10 @@ export function FinancialsView() {
     deleteDraftLedgerItem,
     batchDeleteDraftLedgerItems
   } = useAccounting();
+
+  const { hasPermission } = usePermissions();
+  const canManageSettlement = hasPermission('settlement.manage');
+  const canManageAccounting = hasPermission('accounting.manage');
 
   // Listen for notification or external command to open the Ledger & filter drafts
   useEffect(() => {
@@ -1131,17 +1136,21 @@ export function FinancialsView() {
           {/* Left: General Utilities Dock (همگام با داک گزارش کارکرد) */}
           <div className="h-[52px] sm:h-[56px] flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner shrink-0 backdrop-blur-md self-end sm:self-auto">
             {/* دکمه طرف‌حساب‌ها */}
-            <button
-              type="button"
-              onClick={() => setIsCounterpartiesModalOpen(true)}
-              className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
-              title={c.counterpartiesBtn}
-            >
-              <Briefcase className="w-4.5 h-4.5 shrink-0" />
-              <span className="hidden sm:inline">{c.counterpartiesLabel}</span>
-            </button>
+            {canManageAccounting && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsCounterpartiesModalOpen(true)}
+                  className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
+                  title={c.counterpartiesBtn}
+                >
+                  <Briefcase className="w-4.5 h-4.5 shrink-0" />
+                  <span className="hidden sm:inline">{c.counterpartiesLabel}</span>
+                </button>
 
-            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+                <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+              </>
+            )}
 
             {/* خروجی اکسل */}
             <button
@@ -1177,7 +1186,7 @@ export function FinancialsView() {
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           
           {/* Main Financial Metrics */}
-          <div className="lg:col-span-7 space-y-4">
+          <div className={`${(canManageAccounting || canManageSettlement) ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-4`}>
             <div className="flex items-center justify-between flex-wrap gap-2">
               {/* Dual Mode Switcher: Flow vs Treasury */}
               <div className="inline-flex items-center p-1 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-md text-xs font-bold">
@@ -1324,47 +1333,57 @@ export function FinancialsView() {
           </div>
 
           {/* Quick Action Dock (4 Action Buttons) */}
-          <div className="lg:col-span-5 grid grid-cols-2 gap-2.5 sm:gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
-            {/* 1. شارژ حساب / ورودی پول */}
-            <button
-              type="button"
-              onClick={() => setIsIncomeModalOpen(true)}
-              className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs shadow-lg shadow-emerald-500/25 transition-all duration-300 cursor-pointer active:scale-95"
-            >
-              <ArrowDownLeft className="w-4 h-4" />
-              <span>{c.depositAction}</span>
-            </button>
+          {(canManageAccounting || canManageSettlement) && (
+            <div className="lg:col-span-5 grid grid-cols-2 gap-2.5 sm:gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+              {/* 1. شارژ حساب / ورودی پول */}
+              {canManageAccounting && (
+                <button
+                  type="button"
+                  onClick={() => setIsIncomeModalOpen(true)}
+                  className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs shadow-lg shadow-emerald-500/25 transition-all duration-300 cursor-pointer active:scale-95"
+                >
+                  <ArrowDownLeft className="w-4 h-4" />
+                  <span>{c.depositAction}</span>
+                </button>
+              )}
 
-            {/* 2. پرداخت مساعده */}
-            <button
-              type="button"
-              onClick={() => handleOpenAdvance()}
-              className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-300 cursor-pointer active:scale-95"
-            >
-              <Banknote className="w-4 h-4" />
-              <span>{c.advanceAction}</span>
-            </button>
+              {/* 2. پرداخت مساعده */}
+              {canManageSettlement && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenAdvance()}
+                  className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-300 cursor-pointer active:scale-95"
+                >
+                  <Banknote className="w-4 h-4" />
+                  <span>{c.advanceAction}</span>
+                </button>
+              )}
 
-            {/* 3. ثبت تسویه حساب نهایی */}
-            <button
-              type="button"
-              onClick={() => handleOpenIndividualSettlement()}
-              className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{c.settlementAction}</span>
-            </button>
+              {/* 3. ثبت تسویه حساب نهایی */}
+              {canManageSettlement && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenIndividualSettlement()}
+                  className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{c.settlementAction}</span>
+                </button>
+              )}
 
-            {/* 4. انتقال وجه بین حساب‌ها */}
-            <button
-              type="button"
-              onClick={() => setIsTransferModalOpen(true)}
-              className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
-            >
-              <ArrowLeftRight className="w-4 h-4 text-indigo-400" />
-              <span>{c.transferAction}</span>
-            </button>
-          </div>
+              {/* 4. انتقال وجه بین حساب‌ها */}
+              {canManageAccounting && (
+                <button
+                  type="button"
+                  onClick={() => setIsTransferModalOpen(true)}
+                  className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
+                >
+                  <ArrowLeftRight className="w-4 h-4 text-indigo-400" />
+                  <span>{c.transferAction}</span>
+                </button>
+              )}
+            </div>
+          )}
 
         </div>
       </div>
@@ -1492,18 +1511,20 @@ export function FinancialsView() {
           </button>
 
           {/* New Account Button (Accessible in Accounts section or always) */}
-          <button
-            type="button"
-            onClick={() => {
-              setEditingAccount(null);
-              setIsAccountModalOpen(true);
-            }}
-            className="h-[52px] sm:h-[56px] px-3.5 rounded-2xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-            title={c.addAccount}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">{c.newAccount}</span>
-          </button>
+          {canManageAccounting && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAccount(null);
+                setIsAccountModalOpen(true);
+              }}
+              className="h-[52px] sm:h-[56px] px-3.5 rounded-2xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              title={c.addAccount}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">{c.newAccount}</span>
+            </button>
+          )}
 
         </div>
 
@@ -1687,23 +1708,25 @@ export function FinancialsView() {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAdvance(wf.worker)}
-                          className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer"
-                          title={c.recordAdvanceTooltip}
-                        >
-                          <Banknote className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenIndividualSettlement(wf.worker)}
-                          className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-                        >
-                          {c.settleBtn}
-                        </button>
-                      </div>
+                      {canManageSettlement && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAdvance(wf.worker)}
+                            className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer"
+                            title={c.recordAdvanceTooltip}
+                          >
+                            <Banknote className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenIndividualSettlement(wf.worker)}
+                            className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                          >
+                            {c.settleBtn}
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                   </div>
@@ -1745,23 +1768,25 @@ export function FinancialsView() {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAdvance(wf.worker)}
-                          className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-all cursor-pointer"
-                          title={c.recordAdvanceTooltip}
-                        >
-                          <Banknote className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenIndividualSettlement(wf.worker)}
-                          className="px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-[11px] font-bold transition-all cursor-pointer active:scale-95"
-                        >
-                          {c.settleBtn}
-                        </button>
-                      </div>
+                      {canManageSettlement && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAdvance(wf.worker)}
+                            className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-all cursor-pointer"
+                            title={c.recordAdvanceTooltip}
+                          >
+                            <Banknote className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenIndividualSettlement(wf.worker)}
+                            className="px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-[11px] font-bold transition-all cursor-pointer active:scale-95"
+                          >
+                            {c.settleBtn}
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                   </div>
@@ -1835,31 +1860,33 @@ export function FinancialsView() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingAccount(acc);
-                          setIsAccountModalOpen(true);
-                        }}
-                        className="p-2 text-slate-400 hover:text-sky-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
-                        title={c.editAccountTooltip}
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsIncomeModalOpen(true);
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1"
-                      >
-                        <ArrowDownLeft className="w-3.5 h-3.5" />
-                        <span>{c.depositShort}</span>
-                      </button>
-                    </div>
+                    {canManageAccounting && (
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAccount(acc);
+                            setIsAccountModalOpen(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-sky-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+                          title={c.editAccountTooltip}
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsIncomeModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1"
+                        >
+                          <ArrowDownLeft className="w-3.5 h-3.5" />
+                          <span>{c.depositShort}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                 </div>

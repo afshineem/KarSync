@@ -43,6 +43,120 @@ export function normalizeUsername(str) {
     .replace(/ك/g, 'ک');
 }
 
+export const ROLE_DEFAULT_PERMISSIONS = {
+  admin: [
+    'dashboard.view',
+    'attendance.write',
+    'attendance.read',
+    'workers.manage',
+    'expenses.manage',
+    'settlement.manage',
+    'accounting.manage',
+    'reports.view',
+    'tasks.manage',
+    'users.manage'
+  ],
+  supervisor: [
+    'dashboard.view',
+    'attendance.write',
+    'attendance.read',
+    'workers.manage',
+    'tasks.manage'
+  ],
+  accountant: [
+    'dashboard.view',
+    'attendance.read',
+    'settlement.manage',
+    'accounting.manage',
+    'expenses.manage',
+    'reports.view'
+  ],
+  procurement: [
+    'expenses.manage'
+  ],
+  custom: []
+};
+
+export function hydrateUserFromRecord(rawUser) {
+  if (!rawUser) return null;
+  const rawPerms = Array.isArray(rawUser.permissions) ? rawUser.permissions : [];
+  const cleanPermissions = rawPerms.filter(
+    (p) => typeof p === 'string' && !p.startsWith('__')
+  );
+  const encodedProjects = rawPerms
+    .filter((p) => typeof p === 'string' && p.startsWith('__project__:'))
+    .map((p) => p.slice('__project__:'.length))
+    .filter(Boolean);
+  const hasEncodedAllProjects = rawPerms.includes('__all_projects__');
+  const hasExplicitProjectMeta =
+    rawPerms.includes('__all_projects__') ||
+    rawPerms.includes('__restricted_projects__') ||
+    encodedProjects.length > 0;
+
+  const roleLower = String(rawUser.role || '').toLowerCase();
+  const isAdminRole = roleLower === 'admin' || roleLower === 'owner';
+
+  let hasAllProjects = true;
+  if (isAdminRole) {
+    hasAllProjects = true;
+  } else if (typeof rawUser.has_all_projects_access === 'boolean') {
+    hasAllProjects = rawUser.has_all_projects_access;
+  } else if (hasExplicitProjectMeta) {
+    hasAllProjects = hasEncodedAllProjects;
+  } else {
+    hasAllProjects = false;
+  }
+
+  const allowedProjectIds =
+    Array.isArray(rawUser.allowed_project_ids) && rawUser.allowed_project_ids.length > 0
+      ? rawUser.allowed_project_ids
+      : encodedProjects;
+
+  const finalPermissions =
+    cleanPermissions.length > 0
+      ? cleanPermissions
+      : rawUser.role && rawUser.role !== 'custom' && !rawPerms.includes('__custom_perms__')
+        ? (ROLE_DEFAULT_PERMISSIONS[rawUser.role] || [])
+        : cleanPermissions;
+
+  return {
+    ...rawUser,
+    permissions: finalPermissions,
+    has_all_projects_access: hasAllProjects,
+    allowed_project_ids: allowedProjectIds
+  };
+}
+
+export function serializeUserForSupabase(userData) {
+  const cleanPerms = (Array.isArray(userData.permissions) ? userData.permissions : []).filter(
+    (p) => typeof p === 'string' && !p.startsWith('__')
+  );
+  const allowedIds = Array.isArray(userData.allowed_project_ids) ? userData.allowed_project_ids : [];
+  const hasAll = Boolean(userData.has_all_projects_access) || String(userData.role || '').toLowerCase() === 'admin';
+
+  const encodedPermissions = [
+    ...cleanPerms,
+    '__custom_perms__',
+    hasAll ? '__all_projects__' : '__restricted_projects__',
+    ...allowedIds.map((pid) => `__project__:${pid}`)
+  ];
+
+  return {
+    id: userData.id,
+    workspace_id: userData.workspace_id,
+    username: userData.username,
+    password_hash: userData.password_hash,
+    full_name: userData.full_name,
+    role: userData.role || 'custom',
+    is_active: userData.is_active ?? true,
+    session_version: userData.session_version || 1,
+    can_edit_past_records: Boolean(userData.can_edit_past_records),
+    permissions: encodedPermissions,
+    last_login_at: userData.last_login_at || null,
+    created_at: userData.created_at || new Date().toISOString()
+  };
+}
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -52,7 +166,7 @@ export function AuthProvider({ children }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (!parsed.role) parsed.role = 'admin';
-        return parsed;
+        return hydrateUserFromRecord(parsed);
       }
       return null;
     } catch {
@@ -410,7 +524,15 @@ export function AuthProvider({ children }) {
 
     async function initAuth() {
       try {
-        if (navigator.onLine) {
+        const savedStr = localStorage.getItem(AUTH_SESSION_KEY);
+        const savedUser = savedStr ? hydrateUserFromRecord(JSON.parse(savedStr)) : null;
+        const isStaffOrWorkerSession =
+          savedUser &&
+          (savedUser.via === 'app_user' ||
+            savedUser.via === 'access-link' ||
+            (!savedUser.supabaseUser && !savedUser.email && String(savedUser.role || '').toLowerCase() !== 'admin'));
+
+        if (navigator.onLine && !isStaffOrWorkerSession) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user && isMounted) {
             await fetchUserProfile(session.user);
@@ -418,10 +540,8 @@ export function AuthProvider({ children }) {
           }
         }
 
-        // For non-Supabase sessions (e.g. local admin / staff session), ensure workspace and 6-char random code are hydrated
-        const savedStr = localStorage.getItem(AUTH_SESSION_KEY);
-        if (savedStr && isMounted) {
-          const savedUser = JSON.parse(savedStr);
+        // For non-Supabase sessions (e.g. local admin / staff session), ensure workspace and latest permissions are hydrated
+        if (savedUser && isMounted) {
           let wsToUse = null;
 
           if (db.workspaces) {
@@ -477,21 +597,77 @@ export function AuthProvider({ children }) {
             }
           }
 
+          let latestStaffRecord = null;
+          if (savedUser.id && savedUser.role !== 'worker') {
+            if (db.app_users) {
+              try {
+                const localDoc = await db.app_users.get(savedUser.id);
+                if (localDoc) latestStaffRecord = hydrateUserFromRecord(localDoc);
+              } catch (_) {}
+            }
+            if (navigator.onLine) {
+              try {
+                const targetWsId = wsToUse?.id || savedUser.workspace_id;
+                const [remoteUserRes, settingsBackupRes] = await Promise.all([
+                  supabase.from('app_users').select('*').eq('id', savedUser.id).maybeSingle(),
+                  targetWsId
+                    ? supabase.from('settings').select('setting_value').eq('setting_key', `app_users_ws_${targetWsId}`).maybeSingle()
+                    : Promise.resolve({ data: null })
+                ]);
+                let backupUser = null;
+                if (settingsBackupRes?.data?.setting_value) {
+                  try {
+                    const parsedList = JSON.parse(settingsBackupRes.data.setting_value);
+                    if (Array.isArray(parsedList)) {
+                      backupUser = parsedList.find(u => u.id === savedUser.id) || null;
+                    }
+                  } catch (_) {}
+                }
+                const remoteUser = remoteUserRes?.data || null;
+                if (remoteUser || backupUser) {
+                  const mergedRaw = {
+                    ...(remoteUser || {}),
+                    ...(backupUser || {}),
+                    permissions:
+                      (Array.isArray(remoteUser?.permissions) && remoteUser.permissions.some(p => typeof p === 'string' && p.startsWith('__')))
+                        ? remoteUser.permissions
+                        : (backupUser?.permissions || remoteUser?.permissions || [])
+                  };
+                  latestStaffRecord = hydrateUserFromRecord(mergedRaw);
+                  if (db.app_users) {
+                    await db.app_users.put(latestStaffRecord).catch(() => {});
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+
+          let updatedSession = { ...savedUser };
           if (wsToUse) {
             if (db.workspaces) {
               await db.workspaces.clear().catch(() => {});
               await db.workspaces.put(wsToUse).catch(() => {});
             }
-            if (savedUser.workspace_id !== wsToUse.id || savedUser.workspaceCode !== wsToUse.workspace_code) {
-              const updatedSession = {
-                ...savedUser,
-                workspace_id: wsToUse.id,
-                workspaceCode: wsToUse.workspace_code
-              };
-              setUser(updatedSession);
-              localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updatedSession));
-            }
+            updatedSession.workspace_id = wsToUse.id;
+            updatedSession.workspaceCode = wsToUse.workspace_code;
           }
+
+          if (latestStaffRecord) {
+            updatedSession = hydrateUserFromRecord({
+              ...updatedSession,
+              role: latestStaffRecord.role || updatedSession.role,
+              name: latestStaffRecord.full_name || updatedSession.name,
+              permissions: latestStaffRecord.permissions,
+              can_edit_past_records: Boolean(latestStaffRecord.can_edit_past_records),
+              has_all_projects_access: Boolean(latestStaffRecord.has_all_projects_access),
+              allowed_project_ids: latestStaffRecord.allowed_project_ids || [],
+              session_version: latestStaffRecord.session_version || updatedSession.session_version,
+              is_active: latestStaffRecord.is_active ?? true
+            });
+          }
+
+          setUser(updatedSession);
+          localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updatedSession));
         }
       } catch (err) {
         console.warn('Auth init check warning:', err);
@@ -505,6 +681,18 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
       if (session?.user) {
+        try {
+          const currentSavedStr = localStorage.getItem(AUTH_SESSION_KEY);
+          const currentSaved = currentSavedStr ? JSON.parse(currentSavedStr) : null;
+          if (
+            currentSaved &&
+            (currentSaved.via === 'app_user' ||
+              currentSaved.via === 'access-link' ||
+              (!currentSaved.supabaseUser && !currentSaved.email && String(currentSaved.role || '').toLowerCase() !== 'admin'))
+          ) {
+            return;
+          }
+        } catch (_) {}
         await fetchUserProfile(session.user);
       } else if (event === 'SIGNED_OUT') {
         if (user?.supabaseUser) {
@@ -957,42 +1145,57 @@ export function AuthProvider({ children }) {
         } catch (_) {}
       }
 
-      if (!appUser && navigator.onLine) {
+      if (navigator.onLine) {
+        let remoteMatched = null;
+        let settingsMatched = null;
+
         // A: Check remote app_users table
         try {
           const { data: remoteUsers } = await supabase.from('app_users').select('*');
           if (remoteUsers && remoteUsers.length > 0) {
-            appUser = remoteUsers.find(u => normalizeUsername(u.username) === cleanUser && u.workspace_id === workspace.id) ||
-                      remoteUsers.find(u => normalizeUsername(u.username) === cleanUser) || null;
-            if (appUser && db.app_users) await db.app_users.put(appUser).catch(() => {});
+            remoteMatched = remoteUsers.find(u => normalizeUsername(u.username) === cleanUser && u.workspace_id === workspace.id) ||
+                            remoteUsers.find(u => normalizeUsername(u.username) === cleanUser) || null;
           }
         } catch (_) {}
 
         // B: Check resilient scoped settings registry (any app_users_ws_* key)
-        if (!appUser) {
-          try {
-            const { data: sRows } = await supabase.from('settings').select('setting_key, setting_value').like('setting_key', 'app_users_ws_%');
-            if (sRows && sRows.length > 0) {
-              // Prioritize exact workspace match first
-              const sortedRows = [...sRows].sort((a, b) => (a.setting_key === `app_users_ws_${workspace.id}` ? -1 : 1));
-              for (const row of sortedRows) {
-                if (row.setting_value) {
-                  try {
-                    const sUsers = JSON.parse(row.setting_value);
-                    if (Array.isArray(sUsers)) {
-                      const matched = sUsers.find(u => normalizeUsername(u.username) === cleanUser);
-                      if (matched) {
-                        appUser = matched;
-                        if (db.app_users) await db.app_users.put(appUser).catch(() => {});
-                        break;
-                      }
+        try {
+          const { data: sRows } = await supabase.from('settings').select('setting_key, setting_value').like('setting_key', 'app_users_ws_%');
+          if (sRows && sRows.length > 0) {
+            const sortedRows = [...sRows].sort((a, b) => (a.setting_key === `app_users_ws_${workspace.id}` ? -1 : 1));
+            for (const row of sortedRows) {
+              if (row.setting_value) {
+                try {
+                  const sUsers = JSON.parse(row.setting_value);
+                  if (Array.isArray(sUsers)) {
+                    const matched = sUsers.find(u => normalizeUsername(u.username) === cleanUser);
+                    if (matched) {
+                      settingsMatched = matched;
+                      break;
                     }
-                  } catch (_) {}
-                }
+                  }
+                } catch (_) {}
               }
             }
-          } catch (_) {}
+          }
+        } catch (_) {}
+
+        if (remoteMatched || settingsMatched) {
+          const merged = {
+            ...(remoteMatched || {}),
+            ...(settingsMatched || {}),
+            permissions:
+              (Array.isArray(remoteMatched?.permissions) && remoteMatched.permissions.some(p => typeof p === 'string' && p.startsWith('__')))
+                ? remoteMatched.permissions
+                : (settingsMatched?.permissions || remoteMatched?.permissions || [])
+          };
+          appUser = hydrateUserFromRecord(merged);
+          if (db.app_users) await db.app_users.put(appUser).catch(() => {});
         }
+      }
+
+      if (appUser) {
+        appUser = hydrateUserFromRecord(appUser);
       }
 
       // 2.3 Check worker credentials fallback (for personnel / workshop workers login)
@@ -1159,24 +1362,40 @@ export function AuthProvider({ children }) {
         await db.current_session.put(sessionData);
       }
 
-      const sessionUser = {
-        id: appUser.id,
-        userId: appUser.id,
-        workerId: appUser.role === 'worker' ? appUser.id : undefined,
-        role: appUser.role,
-        name: appUser.full_name,
-        username: appUser.username,
+      const hydratedAppUser = hydrateUserFromRecord(appUser);
+      const sessionUser = hydrateUserFromRecord({
+        id: hydratedAppUser.id,
+        userId: hydratedAppUser.id,
+        workerId: hydratedAppUser.role === 'worker' ? hydratedAppUser.id : undefined,
+        role: hydratedAppUser.role,
+        name: hydratedAppUser.full_name,
+        username: hydratedAppUser.username,
         workspace_id: workspace.id,
         workspaceCode: workspace.workspace_code,
-        permissions: appUser.permissions || [],
-        can_edit_past_records: appUser.can_edit_past_records,
-        session_version: appUser.session_version,
-        is_active: true
-      };
+        permissions: hydratedAppUser.permissions || [],
+        can_edit_past_records: Boolean(hydratedAppUser.can_edit_past_records),
+        has_all_projects_access: Boolean(hydratedAppUser.has_all_projects_access),
+        allowed_project_ids: hydratedAppUser.allowed_project_ids || [],
+        session_version: hydratedAppUser.session_version,
+        is_active: true,
+        via: hydratedAppUser.role === 'worker' ? 'worker' : 'app_user'
+      });
+
+      // Save first so onAuthStateChange sees this is an app_user session
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+      if (String(hydratedAppUser.role || '').toLowerCase() !== 'admin') {
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch (_) {}
+      }
 
       await enforceDataIsolation(sessionUser.id, sessionUser.workspace_id);
       setUser(sessionUser);
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionUser));
+
+      if (navigator.onLine && hydratedAppUser.role !== 'worker') {
+        pullAllFromSupabase().catch((err) => console.warn('Sync after staff login warning:', err));
+      }
       
       // Async log
       import('../services/auditLogger').then(({ logAuditAction }) => {
@@ -1690,51 +1909,73 @@ export function useAuth() {
 export const RBACContext = createContext(null);
 
 export function RBACProvider({ children }) {
-  const { user: legacyUser } = useAuth();
-  const [currentUser, setCurrentUser] = useState(null);
+  const { user: legacyUser, setUser } = useAuth();
+  const [currentUser, setCurrentUser] = useState(() => hydrateUserFromRecord(legacyUser));
   const [activeProject, setActiveProject] = useState(null);
   const [allowedProjects, setAllowedProjects] = useState([]);
   const [isRBACLoading, setIsRBACLoading] = useState(true);
 
   // Combine currentUser from RBAC with legacy user
-  const effectiveUser = currentUser || legacyUser;
+  const effectiveUser = hydrateUserFromRecord(currentUser || legacyUser);
 
-  // 1. Load from Dexie first (Offline First)
+  // 1. Keep RBAC user synchronized with AuthContext user & Dexie
   useEffect(() => {
-    async function loadOfflineSession() {
+    let isMounted = true;
+    async function syncRBACSession() {
       try {
-        const sessions = await db.current_session?.toArray() || [];
-        if (sessions.length > 0) {
-          const session = sessions[0];
-          const userDoc = await db.app_users?.get(session.user_id);
+        if (!legacyUser) {
+          if (isMounted) setCurrentUser(null);
+          return;
+        }
+        let merged = hydrateUserFromRecord(legacyUser);
+        if (legacyUser.id && legacyUser.role !== 'worker' && db.app_users) {
+          const userDoc = await db.app_users.get(legacyUser.id).catch(() => null);
           if (userDoc) {
-            setCurrentUser(userDoc);
+            const hydratedDoc = hydrateUserFromRecord(userDoc);
+            merged = hydrateUserFromRecord({
+              ...legacyUser,
+              ...hydratedDoc,
+              name: hydratedDoc.full_name || legacyUser.name
+            });
           }
         }
+        if (isMounted) {
+          setCurrentUser(merged);
+        }
       } catch (err) {
-        console.warn("Failed to load offline RBAC session:", err);
+        console.warn("Failed to sync RBAC session:", err);
       } finally {
-        setIsRBACLoading(false);
+        if (isMounted) setIsRBACLoading(false);
       }
     }
-    loadOfflineSession();
-  }, []);
+    syncRBACSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    legacyUser?.id,
+    legacyUser?.role,
+    JSON.stringify(legacyUser?.permissions),
+    legacyUser?.has_all_projects_access,
+    JSON.stringify(legacyUser?.allowed_project_ids)
+  ]);
 
   // 2. Setup Realtime Listener & Supabase Sync
   useEffect(() => {
-    if (!currentUser?.id) return;
+    const targetId = effectiveUser?.id;
+    if (!targetId || effectiveUser?.role === 'worker') return;
 
-    const channel = supabase.channel(`public:app_users:id=eq.${currentUser.id}`)
+    const channel = supabase.channel(`public:app_users:id=eq.${targetId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'app_users',
-        filter: `id=eq.${currentUser.id}`
+        filter: `id=eq.${targetId}`
       }, async (payload) => {
-        const newData = payload.new;
+        const newData = hydrateUserFromRecord(payload.new);
         
         // Kill session condition
-        if (newData.is_active === false || newData.session_version > (currentUser.session_version || 1)) {
+        if (newData.is_active === false || newData.session_version > (effectiveUser.session_version || 1)) {
           // Invalidate session
           if (db.current_session) await db.current_session.clear();
           localStorage.removeItem('workshop_auth_session'); 
@@ -1743,9 +1984,25 @@ export function RBACProvider({ children }) {
           alert("حساب کاربری شما توسط مدیر غیرفعال شد یا نشست شما منقضی گردید.");
           window.location.href = '/login';
         } else {
-          // Update local state and Dexie
+          // Update local state, AuthContext, and Dexie
           setCurrentUser(newData);
           if (db.app_users) await db.app_users.put(newData);
+          try {
+            const saved = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null');
+            if (saved && saved.id === newData.id) {
+              const updatedSaved = hydrateUserFromRecord({
+                ...saved,
+                role: newData.role,
+                name: newData.full_name || saved.name,
+                permissions: newData.permissions,
+                can_edit_past_records: newData.can_edit_past_records,
+                has_all_projects_access: newData.has_all_projects_access,
+                allowed_project_ids: newData.allowed_project_ids,
+                session_version: newData.session_version
+              });
+              localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updatedSaved));
+            }
+          } catch (_) {}
         }
       })
       .subscribe();
@@ -1753,13 +2010,16 @@ export function RBACProvider({ children }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser?.id, currentUser?.session_version]);
+  }, [effectiveUser?.id, effectiveUser?.session_version]);
 
   const hasPermission = (permissionKey) => {
     if (!effectiveUser) return false;
     const roleLower = String(effectiveUser?.role || '').toLowerCase();
     if (roleLower === 'admin' || roleLower === 'owner') return true;
-    return effectiveUser.permissions?.includes(permissionKey);
+    const perms = Array.isArray(effectiveUser.permissions) ? effectiveUser.permissions : [];
+    if (perms.includes(permissionKey)) return true;
+    if (permissionKey === 'attendance.read' && perms.includes('attendance.write')) return true;
+    return false;
   };
 
   const canAccessProject = (projectId) => {
@@ -1767,13 +2027,21 @@ export function RBACProvider({ children }) {
     const roleLower = String(effectiveUser?.role || '').toLowerCase();
     if (roleLower === 'admin' || roleLower === 'owner') return true;
     if (effectiveUser.has_all_projects_access) return true;
-    return allowedProjects.some(p => p.project_id === projectId);
+    const allowedIds = Array.isArray(effectiveUser.allowed_project_ids) ? effectiveUser.allowed_project_ids : [];
+    if (allowedIds.length > 0) {
+      return allowedIds.includes(projectId);
+    }
+    if (allowedProjects.length > 0) {
+      return allowedProjects.some(p => p.project_id === projectId);
+    }
+    return true;
   };
 
   const canModifyDate = (targetDate) => {
     if (!effectiveUser) return false;
     const roleLower = String(effectiveUser?.role || '').toLowerCase();
     if (roleLower === 'admin' || roleLower === 'owner') return true;
+    if (!hasPermission('attendance.write')) return false;
     
     const today = new Date().toISOString().split('T')[0];
     const target = new Date(targetDate).toISOString().split('T')[0];

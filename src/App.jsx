@@ -1,7 +1,7 @@
 import { runEmergencyCleanup } from "./db/migration_fix.js";
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
-import { AuthProvider, useAuth, RBACProvider } from './context/AuthContext';
+import { AuthProvider, useAuth, RBACProvider, usePermissions } from './context/AuthContext';
 import { ProjectProvider, useProject } from './context/ProjectContext';
 import { db, seedInitialDataIfEmpty, reconcileSettlementEpochs, migrateClosedTransactionsToCashBox } from './db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -45,6 +45,7 @@ import { ToastContainer } from './components/ToastContainer';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted, linkLogin, retryLinkLogin, dismissLinkLogin } = useAuth();
+  const { hasPermission } = usePermissions();
   const { language, numberFormat } = useLanguage();
   const { 
     profileWorkerId, 
@@ -54,14 +55,49 @@ function AppContent() {
     openGlobalSettings,
     closeGlobalSettings
   } = useProject();
+
+  const canViewDashboard = hasPermission('dashboard.view');
+  const canViewAttendance = hasPermission('attendance.read') || hasPermission('attendance.write') || hasPermission('workers.manage');
+  const canViewExpenses = hasPermission('expenses.manage');
+  const canViewAccounting = hasPermission('settlement.manage') || hasPermission('accounting.manage') || hasPermission('reports.view');
+
+  const isTabPermitted = (tabId) => {
+    if (tabId === 'dashboard') return canViewDashboard;
+    if (tabId === 'workers' || tabId === 'reports' || tabId === 'calendar') return canViewAttendance;
+    if (tabId === 'expenses') return canViewExpenses;
+    if (tabId === 'accounting' || tabId === 'financials' || tabId === 'settlements') return canViewAccounting;
+    if (tabId === 'counterparties') return hasPermission('accounting.manage') || hasPermission('settlement.manage');
+    return true;
+  };
+
+  const getFirstPermittedTab = () => {
+    if (canViewDashboard) return 'dashboard';
+    if (canViewAttendance) return 'workers';
+    if (canViewExpenses) return 'expenses';
+    if (canViewAccounting) return 'accounting';
+    return 'dashboard';
+  };
+
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Auto-redirect activeTab if current user does not have permission for it
+  useEffect(() => {
+    if (!user || isWorker) return;
+    if (!isTabPermitted(activeTab)) {
+      setActiveTab(getFirstPermittedTab());
+    }
+  }, [user?.id, user?.role, canViewDashboard, canViewAttendance, canViewExpenses, canViewAccounting, activeTab, isWorker]);
+
   useEffect(() => {
     const handleNavigate = (e) => {
-      if (e.detail?.tab) setActiveTab(e.detail.tab);
+      const targetTab = e.detail?.tab;
+      if (targetTab && isTabPermitted(targetTab)) {
+        setActiveTab(targetTab);
+      }
     };
     window.addEventListener('navigateApp', handleNavigate);
     return () => window.removeEventListener('navigateApp', handleNavigate);
-  }, []);
+  }, [canViewDashboard, canViewAttendance, canViewExpenses, canViewAccounting]);
 
   // Open a specific attendance day (e.g. from the audit log "eye" button):
   // Personnel hub > "گزارش کارکرد" > calendar, with that day's modal open.
@@ -70,13 +106,13 @@ function AppContent() {
   useEffect(() => {
     const handleOpenAttendanceDay = (e) => {
       const date = e.detail?.date;
-      if (!date) return;
+      if (!date || !canViewAttendance) return;
       setActiveTab('workers');
       setPersonnelNav({ subTab: 'calendar', date, nonce: Date.now() });
     };
     window.addEventListener('karsync-open-attendance-day', handleOpenAttendanceDay);
     return () => window.removeEventListener('karsync-open-attendance-day', handleOpenAttendanceDay);
-  }, []);
+  }, [canViewAttendance]);
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementWorker, setSettlementWorker] = useState(null);
@@ -94,10 +130,17 @@ function AppContent() {
 
   // Global listeners for Workers, Counterparties & Daily Logging modals
   useEffect(() => {
-    const handleOpenWorkers = () => setIsWorkersModalOpen(true);
-    const handleOpenAddWorker = () => setIsAddWorkerModalOpen(true);
-    const handleOpenCounterparties = () => setIsCounterpartiesModalOpen(true);
+    const handleOpenWorkers = () => {
+      if (hasPermission('workers.manage')) setIsWorkersModalOpen(true);
+    };
+    const handleOpenAddWorker = () => {
+      if (hasPermission('workers.manage')) setIsAddWorkerModalOpen(true);
+    };
+    const handleOpenCounterparties = () => {
+      if (hasPermission('accounting.manage') || hasPermission('settlement.manage')) setIsCounterpartiesModalOpen(true);
+    };
     const handleOpenDailyLoggingEvent = (e) => {
+      if (!hasPermission('attendance.write')) return;
       setLoggingModalDate(e.detail?.date || null);
       setIsLoggingModalOpen(true);
     };
@@ -111,13 +154,15 @@ function AppContent() {
       window.removeEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
       window.removeEventListener('karsync-open-daily-logging', handleOpenDailyLoggingEvent);
     };
-  }, []);
+  }, [hasPermission]);
 
   // Global listeners for Subsidiary Search and Ledger
   useEffect(() => {
-    const handleOpenSearch = () => setIsSubsidiarySearchOpen(true);
+    const handleOpenSearch = () => {
+      if (canViewAccounting) setIsSubsidiarySearchOpen(true);
+    };
     const handleOpenLedger = (e) => {
-      if (e.detail) {
+      if (e.detail && canViewAccounting) {
         setSelectedLedgerEntity(e.detail);
       }
     };
@@ -127,7 +172,7 @@ function AppContent() {
       window.removeEventListener('karsync-open-subsidiary-search', handleOpenSearch);
       window.removeEventListener('karsync-open-subsidiary-ledger', handleOpenLedger);
     };
-  }, []);
+  }, [canViewAccounting]);
 
   // Catch PWA beforeinstallprompt event globally
   useEffect(() => {
@@ -155,6 +200,7 @@ function AppContent() {
   const allPayments = useLiveQuery(() => db.payments.toArray()) || [];
 
   const handleOpenLoggingModal = (dateStr) => {
+    if (!hasPermission('attendance.write')) return;
     setLoggingModalDate(dateStr || null);
     setIsLoggingModalOpen(true);
   };
@@ -266,22 +312,22 @@ function AppContent() {
       if (!e.shiftKey) {
         if (e.key === '1') {
           e.preventDefault();
-          setActiveTab('dashboard');
+          if (canViewDashboard) setActiveTab('dashboard');
           return;
         }
         if (e.key === '2') {
           e.preventDefault();
-          setActiveTab('workers');
+          if (canViewAttendance) setActiveTab('workers');
           return;
         }
         if (e.key === '3') {
           e.preventDefault();
-          setActiveTab('expenses');
+          if (canViewExpenses) setActiveTab('expenses');
           return;
         }
         if (e.key === '4') {
           e.preventDefault();
-          setActiveTab('accounting');
+          if (canViewAccounting) setActiveTab('accounting');
           return;
         }
       }
@@ -290,12 +336,14 @@ function AppContent() {
 
       // Quick Actions
       if (keyUpper === 'D' || (e.shiftKey && (keyUpper === 'D' || e.code === 'KeyD'))) {
+        if (!hasPermission('attendance.write')) return;
         e.preventDefault();
         handleOpenLoggingModal();
         return;
       }
 
       if (keyUpper === 'L' || (e.shiftKey && (keyUpper === 'L' || e.code === 'KeyL'))) {
+        if (!hasPermission('users.manage')) return;
         e.preventDefault();
         openGlobalSettings('users');
         setTimeout(() => {
@@ -305,24 +353,28 @@ function AppContent() {
       }
 
       if (keyUpper === 'E' || (e.shiftKey && (keyUpper === 'E' || e.code === 'KeyE'))) {
+        if (!hasPermission('expenses.manage')) return;
         e.preventDefault();
         setIsExpenseModalOpen(true);
         return;
       }
 
       if (keyUpper === 'S' || (e.shiftKey && (keyUpper === 'S' || e.code === 'KeyS'))) {
+        if (!hasPermission('settlement.manage')) return;
         e.preventDefault();
         setIsSettlementModalOpen(true);
         return;
       }
 
       if (keyUpper === 'W' || (e.shiftKey && (keyUpper === 'W' || e.code === 'KeyW'))) {
+        if (!hasPermission('workers.manage')) return;
         e.preventDefault();
         setIsAddWorkerModalOpen(true);
         return;
       }
 
       if (e.shiftKey && (keyUpper === 'P' || e.code === 'KeyP')) {
+        if (!hasPermission('workers.manage')) return;
         e.preventDefault();
         setIsWorkersModalOpen(true);
         return;
@@ -330,18 +382,21 @@ function AppContent() {
 
       // Shift + O: Directly open Projects & Sections Settings
       if (e.shiftKey && (keyUpper === 'O' || e.code === 'KeyO')) {
+        if (!hasPermission('users.manage')) return;
         e.preventDefault();
         openGlobalSettings('projects');
         return;
       }
 
       if (keyUpper === 'P') {
+        if (!hasPermission('users.manage')) return;
         e.preventDefault();
         openGlobalSettings('projects');
         return;
       }
 
       if (e.shiftKey && (keyUpper === 'T' || e.code === 'KeyT')) {
+        if (!hasPermission('tasks.manage') || !canViewDashboard) return;
         e.preventDefault();
         setActiveTab('dashboard');
         setTimeout(() => {
@@ -351,12 +406,14 @@ function AppContent() {
       }
 
       if (e.shiftKey && (keyUpper === 'M' || e.code === 'KeyM')) {
+        if (!canViewAccounting) return;
         e.preventDefault();
         setIsSubsidiarySearchOpen((prev) => !prev);
         return;
       }
 
       if (e.shiftKey && (keyUpper === 'C' || e.code === 'KeyC')) {
+        if (!hasPermission('accounting.manage') && !hasPermission('settlement.manage')) return;
         e.preventDefault();
         setIsCounterpartiesModalOpen(true);
         return;
@@ -365,7 +422,7 @@ function AppContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [user, isWorker, openGlobalSettings]);
+  }, [user, isWorker, openGlobalSettings, canViewDashboard, canViewAttendance, canViewExpenses, canViewAccounting, hasPermission]);
 
   // 0. Personal link / QR code in progress (or failed): never flash the login page
   if (linkLogin && linkLogin.status !== 'idle') {
@@ -390,7 +447,7 @@ function AppContent() {
     return <WorkerViewPortal theme={theme} toggleTheme={toggleTheme} />;
   }
 
-  // 3. If Admin, render Full Workshop Management Application
+  // 3. If Admin/Staff, render Full Workshop Management Application
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200 pb-16 md:pb-0">
       
@@ -414,14 +471,14 @@ function AppContent() {
 
       {/* Main Content View */}
       <main key={numberFormat} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {activeTab === 'dashboard' && (
+        {activeTab === 'dashboard' && canViewDashboard && (
           <DashboardView
             onOpenLoggingModal={handleOpenLoggingModal}
             setActiveTab={setActiveTab}
           />
         )}
 
-        {(activeTab === 'workers' || activeTab === 'reports' || activeTab === 'calendar') && (
+        {(activeTab === 'workers' || activeTab === 'reports' || activeTab === 'calendar') && canViewAttendance && (
           <CalendarReportsView
             onOpenLoggingModal={handleOpenLoggingModal}
             navTarget={personnelNav}
@@ -429,29 +486,37 @@ function AppContent() {
           />
         )}
 
-        {activeTab === 'counterparties' && (
+        {activeTab === 'counterparties' && canViewAccounting && (
           <CounterpartiesView />
         )}
 
-        {activeTab === 'expenses' && (
+        {activeTab === 'expenses' && canViewExpenses && (
           <ExpensesView />
         )}
 
-        {(activeTab === 'accounting' || activeTab === 'financials' || activeTab === 'settlements') && (
+        {(activeTab === 'accounting' || activeTab === 'financials' || activeTab === 'settlements') && canViewAccounting && (
           <FinanceAndAccountingView initialSubTab="payroll" />
         )}
       </main>
 
       {/* Persistent Multi-Action Floating Action Button (FAB) */}
       <FloatingActionButton
-        onOpenDailyLogging={() => setIsLoggingModalOpen(true)}
-        onOpenSettlement={() => setIsSettlementModalOpen(true)}
-        onOpenExpense={() => setIsExpenseModalOpen(true)}
-        onClick={() => setIsLoggingModalOpen(true)}
+        onOpenDailyLogging={() => {
+          if (hasPermission('attendance.write')) setIsLoggingModalOpen(true);
+        }}
+        onOpenSettlement={() => {
+          if (hasPermission('settlement.manage')) setIsSettlementModalOpen(true);
+        }}
+        onOpenExpense={() => {
+          if (hasPermission('expenses.manage')) setIsExpenseModalOpen(true);
+        }}
+        onClick={() => {
+          if (hasPermission('attendance.write')) setIsLoggingModalOpen(true);
+        }}
       />
 
       {/* Quick Settlement Modal */}
-      {isSettlementModalOpen && (
+      {isSettlementModalOpen && hasPermission('settlement.manage') && (
         <SettlementModal
           isOpen={isSettlementModalOpen}
           onClose={() => {
@@ -468,21 +533,23 @@ function AppContent() {
       )}
 
       {/* Quick Add Expense Modal */}
-      {isExpenseModalOpen && (
+      {isExpenseModalOpen && hasPermission('expenses.manage') && (
         <AddExpenseModal
           onClose={() => setIsExpenseModalOpen(false)}
         />
       )}
 
       {/* Daily Attendance Logging Modal */}
-      <DailyLoggingModal
-        isOpen={isLoggingModalOpen}
-        initialDate={loggingModalDate}
-        onClose={() => {
-          setIsLoggingModalOpen(false);
-          setLoggingModalDate(null);
-        }}
-      />
+      {hasPermission('attendance.write') && (
+        <DailyLoggingModal
+          isOpen={isLoggingModalOpen}
+          initialDate={loggingModalDate}
+          onClose={() => {
+            setIsLoggingModalOpen(false);
+            setLoggingModalDate(null);
+          }}
+        />
+      )}
 
       {/* New Project Modal */}
       <NewProjectModal />

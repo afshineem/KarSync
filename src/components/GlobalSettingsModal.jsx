@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../i18n/LanguageContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import { db, DEFAULT_PROJECT_ID, generateSectionId } from '../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -108,6 +108,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     setUserRole,
     isAdmin
   } = useAuth();
+  const { hasPermission } = usePermissions();
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const twoFactorConfig = getTwoFactorConfig();
   const {
@@ -159,72 +160,95 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     if (initialTab) setActiveTab(normalizeSettingsTab(initialTab));
   }, [initialTab, isOpen]);
 
+  const canManageUsers = hasPermission('users.manage');
+  const canManageExpenses = hasPermission('expenses.manage');
+  const canManageAccounting = hasPermission('accounting.manage');
+
   // Sidebar navigation tabs ordered logically by priority & scope:
   // 1. Core Profile & Appearance: General -> Account & Security -> Users & Access
   // 2. Workshop & Financials: Projects -> Expense Categories -> Accounts & Banking
   // 3. System & Tools: Data & Sync -> Shortcuts -> About
-  const tabs = useMemo(() => [
-    {
-      id: 'general',
-      label: language === 'fa' ? 'عمومی و ظاهر' : language === 'ku' ? 'گشتی و ڕووکار' : 'General & Theme',
-      icon: Settings,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'notifications',
-      label: language === 'fa' ? 'اعلان‌ها و یادآورها' : language === 'ku' ? 'ئاگادارکردنەوەکان' : 'Notifications & Alerts',
-      icon: BellRing,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'account',
-      label: language === 'fa' ? 'حساب کاربری و امنیت' : language === 'ku' ? 'هەژمار و ئاسایش' : 'Account & Security',
-      icon: User,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'users',
-      label: language === 'fa' ? 'کاربران و دسترسی‌ها' : language === 'ku' ? 'بەکارهێنەران' : 'Users & Access',
-      icon: Users2,
-      color: 'text-indigo-500'
-    },
-    {
-      id: 'projects',
-      label: language === 'fa' ? 'پروژه‌ها و بخش‌ها' : language === 'ku' ? 'پڕۆژەکان و بەشەکان' : 'Projects & Structure',
-      icon: FolderKanban,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'categories',
-      label: language === 'fa' ? 'سرفصل‌های هزینه‌ها' : language === 'ku' ? 'سەردێڕی خەرجییەکان' : 'Expense Categories',
-      icon: Receipt,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'accounting_accounts',
-      label: language === 'fa' ? 'حساب‌ها و کارت‌های بانکی' : language === 'ku' ? 'حیساب و کارتەکان' : 'Financial Accounts',
-      icon: Landmark,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'sync_data',
-      label: language === 'fa' ? 'داده‌ها و همگام‌سازی' : language === 'ku' ? 'داتاکان و هاوکاتکردن' : 'Data & Cloud Sync',
-      icon: Cloud,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'shortcuts',
-      label: language === 'fa' ? 'کلیدهای میانبر کیبورد' : language === 'ku' ? 'شۆرتکاتەکانی کیبۆرد' : 'Keyboard Shortcuts',
-      icon: Keyboard,
-      color: 'text-sky-500'
-    },
-    {
-      id: 'about',
-      label: language === 'fa' ? 'درباره و نسخه' : language === 'ku' ? 'دەربارە و وەشان' : 'About & Version',
-      icon: Info,
-      color: 'text-sky-500'
+  const tabs = useMemo(() => {
+    const allTabs = [
+      {
+        id: 'general',
+        label: language === 'fa' ? 'عمومی و ظاهر' : language === 'ku' ? 'گشتی و ڕووکار' : 'General & Theme',
+        icon: Settings,
+        color: 'text-sky-500',
+        visible: true
+      },
+      {
+        id: 'notifications',
+        label: language === 'fa' ? 'اعلان‌ها و یادآورها' : language === 'ku' ? 'ئاگادارکردنەوەکان' : 'Notifications & Alerts',
+        icon: BellRing,
+        color: 'text-sky-500',
+        visible: true
+      },
+      {
+        id: 'account',
+        label: language === 'fa' ? 'حساب کاربری و امنیت' : language === 'ku' ? 'هەژمار و ئاسایش' : 'Account & Security',
+        icon: User,
+        color: 'text-sky-500',
+        visible: true
+      },
+      {
+        id: 'users',
+        label: language === 'fa' ? 'کاربران و دسترسی‌ها' : language === 'ku' ? 'بەکارهێنەران' : 'Users & Access',
+        icon: Users2,
+        color: 'text-indigo-500',
+        visible: canManageUsers
+      },
+      {
+        id: 'projects',
+        label: language === 'fa' ? 'پروژه‌ها و بخش‌ها' : language === 'ku' ? 'پڕۆژەکان و بەشەکان' : 'Projects & Structure',
+        icon: FolderKanban,
+        color: 'text-sky-500',
+        visible: canManageUsers
+      },
+      {
+        id: 'categories',
+        label: language === 'fa' ? 'سرفصل‌های هزینه‌ها' : language === 'ku' ? 'سەردێڕی خەرجییەکان' : 'Expense Categories',
+        icon: Receipt,
+        color: 'text-sky-500',
+        visible: canManageExpenses
+      },
+      {
+        id: 'accounting_accounts',
+        label: language === 'fa' ? 'حساب‌ها و کارت‌های بانکی' : language === 'ku' ? 'حیساب و کارتەکان' : 'Financial Accounts',
+        icon: Landmark,
+        color: 'text-sky-500',
+        visible: canManageAccounting
+      },
+      {
+        id: 'sync_data',
+        label: language === 'fa' ? 'داده‌ها و همگام‌سازی' : language === 'ku' ? 'داتاکان و هاوکاتکردن' : 'Data & Cloud Sync',
+        icon: Cloud,
+        color: 'text-sky-500',
+        visible: canManageUsers
+      },
+      {
+        id: 'shortcuts',
+        label: language === 'fa' ? 'کلیدهای میانبر کیبورد' : language === 'ku' ? 'شۆرتکاتەکانی کیبۆرد' : 'Keyboard Shortcuts',
+        icon: Keyboard,
+        color: 'text-sky-500',
+        visible: true
+      },
+      {
+        id: 'about',
+        label: language === 'fa' ? 'درباره و نسخه' : language === 'ku' ? 'دەربارە و وەشان' : 'About & Version',
+        icon: Info,
+        color: 'text-sky-500',
+        visible: true
+      }
+    ];
+    return allTabs.filter((tab) => tab.visible);
+  }, [language, canManageUsers, canManageExpenses, canManageAccounting]);
+
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t) => t.id === activeTab)) {
+      setActiveTab('general');
     }
-  ], [language]);
+  }, [tabs, activeTab]);
 
   // Keyboard shortcut listener (ESC to close, ArrowUp/ArrowDown to switch tabs)
   useEffect(() => {

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import { fullSyncBothDirections } from '../services/realtimeSync';
 import { 
@@ -147,7 +147,35 @@ export function SettingsDropdown({
   const isRtl = direction === 'rtl';
 
   const { user, logout } = useAuth();
+  const { hasPermission } = usePermissions();
   const { currentProject } = useProject();
+
+  const canManageUsers = hasPermission('users.manage');
+  const canManageAccounting = hasPermission('accounting.manage');
+  const canManageWorkers = hasPermission('workers.manage');
+
+  const roleBadgeText = (() => {
+    const r = user?.role || 'admin';
+    if (langKey === 'ku') {
+      if (r === 'admin') return 'بەڕێوەبەر';
+      if (r === 'supervisor') return 'سەرپەرشتیار';
+      if (r === 'accountant') return 'ژمێریار';
+      if (r === 'procurement') return 'دابینکاری';
+      return 'بەکارهێنەر';
+    }
+    if (langKey === 'en') {
+      if (r === 'admin') return 'Admin';
+      if (r === 'supervisor') return 'Supervisor';
+      if (r === 'accountant') return 'Accountant';
+      if (r === 'procurement') return 'Procurement';
+      return 'Staff';
+    }
+    if (r === 'admin') return 'مدیر';
+    if (r === 'supervisor') return 'سرپرست';
+    if (r === 'accountant') return 'حسابدار';
+    if (r === 'procurement') return 'تدارکات';
+    return 'کاربر';
+  })();
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
@@ -278,7 +306,7 @@ export function SettingsDropdown({
                 {user?.name || c.systemAdmin}
               </h4>
               <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex-shrink-0">
-                {c.adminBadge}
+                {roleBadgeText}
               </span>
             </div>
 
@@ -287,37 +315,39 @@ export function SettingsDropdown({
             </div>
 
             <div className="flex items-center justify-between mt-1 text-[10px] text-slate-400 dark:text-slate-500">
-              <span className="truncate">{user?.email || 'admin@karsync.com'}</span>
+              <span className="truncate">{user?.username || user?.email || 'admin@karsync.com'}</span>
               <span className="text-sky-500 opacity-0 group-hover:opacity-100 transition-opacity font-bold flex items-center gap-0.5 flex-shrink-0">
                 {c.manageAccount}
                 {isRtl ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               </span>
             </div>
 
-            {/* Copyable Workshop Code Pill */}
-            <div 
-              onClick={handleCopyWsCode}
-              title={copiedWsCode ? c.copied : `${c.workshopCode} ${displayWsCode}`}
-              className="mt-2 inline-flex items-center justify-between w-full px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 transition-all cursor-pointer group/ws text-[11px]"
-            >
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Building2 className="w-3 h-3 text-sky-500 flex-shrink-0" />
-                <span className="text-slate-500 dark:text-slate-400 font-medium text-[10px]">{c.workshopCode}</span>
-                <span className="font-mono font-bold tracking-wider">{displayWsCode}</span>
+            {/* Copyable Workshop Code Pill (Admin / User Managers only) */}
+            {canManageUsers && displayWsCode && (
+              <div 
+                onClick={handleCopyWsCode}
+                title={copiedWsCode ? c.copied : `${c.workshopCode} ${displayWsCode}`}
+                className="mt-2 inline-flex items-center justify-between w-full px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 transition-all cursor-pointer group/ws text-[11px]"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Building2 className="w-3 h-3 text-sky-500 flex-shrink-0" />
+                  <span className="text-slate-500 dark:text-slate-400 font-medium text-[10px]">{c.workshopCode}</span>
+                  <span className="font-mono font-bold tracking-wider">{displayWsCode}</span>
+                </div>
+                <div className="flex items-center gap-1 text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                  {copiedWsCode ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-500" />
+                      <span className="text-emerald-600 dark:text-emerald-400 text-[10px]">{c.copied}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3 opacity-60 group-hover/ws:opacity-100 transition-opacity" />
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-1 text-[10px] font-bold text-sky-600 dark:text-sky-400">
-                {copiedWsCode ? (
-                  <>
-                    <Check className="w-3 h-3 text-emerald-500" />
-                    <span className="text-emerald-600 dark:text-emerald-400 text-[10px]">{c.copied}</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3 opacity-60 group-hover/ws:opacity-100 transition-opacity" />
-                  </>
-                )}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -370,34 +400,38 @@ export function SettingsDropdown({
       </div>
 
       {/* 4. Large Icon-Only Shortcut Grid (Users, Accounts, Shortcuts, Personnel) */}
-      <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+      <div className="flex items-center gap-1.5 pt-0.5">
         {/* Users */}
-        <button
-          type="button"
-          onClick={() => handleOpenTab('users')}
-          className="p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-          title={c.users}
-          aria-label={c.users}
-        >
-          <Users2 className="w-5 h-5 transition-transform group-hover:scale-110" />
-        </button>
+        {canManageUsers && (
+          <button
+            type="button"
+            onClick={() => handleOpenTab('users')}
+            className="flex-1 p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+            title={c.users}
+            aria-label={c.users}
+          >
+            <Users2 className="w-5 h-5 transition-transform group-hover:scale-110" />
+          </button>
+        )}
 
         {/* Accounts */}
-        <button
-          type="button"
-          onClick={() => handleOpenTab('accounting_accounts')}
-          className="p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-          title={c.accountsTitle}
-          aria-label={c.accounts}
-        >
-          <Landmark className="w-5 h-5 transition-transform group-hover:scale-110" />
-        </button>
+        {canManageAccounting && (
+          <button
+            type="button"
+            onClick={() => handleOpenTab('accounting_accounts')}
+            className="flex-1 p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+            title={c.accountsTitle}
+            aria-label={c.accounts}
+          >
+            <Landmark className="w-5 h-5 transition-transform group-hover:scale-110" />
+          </button>
+        )}
 
         {/* Shortcuts */}
         <button
           type="button"
           onClick={() => handleOpenTab('shortcuts')}
-          className="p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+          className="flex-1 p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
           title={c.shortcuts}
           aria-label={c.shortcuts}
         >
@@ -405,18 +439,20 @@ export function SettingsDropdown({
         </button>
 
         {/* Personnel Management (Workers) */}
-        <button
-          type="button"
-          onClick={() => {
-            onClose();
-            window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'));
-          }}
-          className="p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-          title={c.workers}
-          aria-label={c.workers}
-        >
-          <UserCheck className="w-5 h-5 transition-transform group-hover:scale-110" />
-        </button>
+        {canManageWorkers && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'));
+            }}
+            className="flex-1 p-2.5 rounded-2xl bg-white/40 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.08] border border-white/50 dark:border-white/5 flex items-center justify-center transition-all group shadow-2xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+            title={c.workers}
+            aria-label={c.workers}
+          >
+            <UserCheck className="w-5 h-5 transition-transform group-hover:scale-110" />
+          </button>
+        )}
       </div>
 
       {/* 5. Lower Actions Section */}

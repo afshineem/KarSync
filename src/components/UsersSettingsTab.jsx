@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Plus, X, Search, ShieldCheck, Edit, Trash2, ShieldBan, UserCog, Activity, UserPlus, Power, ShieldAlert, Key, Building2, Copy, Check } from 'lucide-react';
 import { db } from '../db/db';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, hydrateUserFromRecord, serializeUserForSupabase } from '../context/AuthContext';
 import { supabase } from '../services/realtimeSync';
 import { logAuditAction, getSafeAuthContext, generateUUID } from '../services/auditLogger';
 import { generateWorkspaceCode, isLegacyWorkspaceCode } from '../utils/workspaceCode';
@@ -231,38 +231,51 @@ export default function UsersSettingsTab() {
       setWorkspace(targetWorkspace);
 
       if (db.app_users) {
-        let localUsers = await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray();
+        let localUsers = (await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray()).map(hydrateUserFromRecord);
         setUsersList(localUsers);
 
         if (navigator.onLine && supabase) {
            try {
-             const { data: remoteUsers, error } = await supabase
-               .from('app_users')
-               .select('*')
-               .eq('workspace_id', targetWorkspaceId);
-               
-             if (!error && remoteUsers && remoteUsers.length > 0) {
-                await db.app_users.bulkPut(remoteUsers);
-                localUsers = await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray();
-                setUsersList(localUsers);
-             } else {
-                // Resilient fallback from settings backup
-                const { data: backupRow } = await supabase
-                  .from('settings')
-                  .select('setting_value')
-                  .eq('setting_key', `app_users_ws_${targetWorkspaceId}`)
-                  .maybeSingle();
+             const [{ data: remoteUsers, error }, { data: backupRow }] = await Promise.all([
+               supabase.from('app_users').select('*').eq('workspace_id', targetWorkspaceId),
+               supabase.from('settings').select('setting_value').eq('setting_key', `app_users_ws_${targetWorkspaceId}`).maybeSingle()
+             ]);
 
-                if (backupRow?.setting_value) {
-                  try {
-                    const parsedUsers = JSON.parse(backupRow.setting_value);
-                    if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
-                      await db.app_users.bulkPut(parsedUsers);
-                      localUsers = await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray();
-                      setUsersList(localUsers);
-                    }
-                  } catch (_) {}
-                }
+             let parsedBackupUsers = [];
+             if (backupRow?.setting_value) {
+               try {
+                 const parsed = JSON.parse(backupRow.setting_value);
+                 if (Array.isArray(parsed)) parsedBackupUsers = parsed;
+               } catch (_) {}
+             }
+
+             const mergedMap = new Map();
+             if (!error && Array.isArray(remoteUsers)) {
+               for (const ru of remoteUsers) {
+                 mergedMap.set(ru.id, hydrateUserFromRecord(ru));
+               }
+             }
+             for (const bu of parsedBackupUsers) {
+               const existing = mergedMap.get(bu.id);
+               if (existing) {
+                 mergedMap.set(bu.id, hydrateUserFromRecord({
+                   ...existing,
+                   ...bu,
+                   permissions:
+                     (Array.isArray(existing.permissions) && existing.permissions.length > 0 && (!bu.permissions || bu.permissions.length === 0))
+                       ? existing.permissions
+                       : (bu.permissions || existing.permissions || [])
+                 }));
+               } else {
+                 mergedMap.set(bu.id, hydrateUserFromRecord(bu));
+               }
+             }
+
+             if (mergedMap.size > 0) {
+               const mergedUsers = Array.from(mergedMap.values());
+               await db.app_users.bulkPut(mergedUsers);
+               localUsers = (await db.app_users.where('workspace_id').equals(targetWorkspaceId).toArray()).map(hydrateUserFromRecord);
+               setUsersList(localUsers);
              }
            } catch(e) {
              console.warn('Could not fetch app_users from Supabase:', e);
@@ -289,7 +302,7 @@ export default function UsersSettingsTab() {
         return;
       }
 
-      const userData = {
+      const rawUserData = {
         ...formData,
         id: selectedUser ? selectedUser.id : generateUUID(),
         workspace_id: safeAuth.workspaceId,
@@ -299,12 +312,15 @@ export default function UsersSettingsTab() {
       };
 
       if (formData.password) {
-        userData.password_hash = formData.password;
+        rawUserData.password_hash = formData.password;
       } else if (selectedUser) {
-        userData.password_hash = selectedUser.password_hash;
+        rawUserData.password_hash = selectedUser.password_hash;
       }
 
-      delete userData.password;
+      delete rawUserData.password;
+
+      const userData = hydrateUserFromRecord(rawUserData);
+      const supabaseRow = serializeUserForSupabase(userData);
 
       // Save to local
       if (db.app_users) await db.app_users.put(userData);
@@ -312,15 +328,15 @@ export default function UsersSettingsTab() {
       // Save to remote (app_users table & resilient settings registry)
       if (navigator.onLine) {
         if (selectedUser) {
-           const { error } = await supabase.from('app_users').update(userData).eq('id', selectedUser.id);
+           const { error } = await supabase.from('app_users').update(supabaseRow).eq('id', selectedUser.id);
            if (error) console.error("Failed to update user remotely:", error);
         } else {
-           const { error } = await supabase.from('app_users').insert(userData);
+           const { error } = await supabase.from('app_users').insert(supabaseRow);
            if (error) console.error("Failed to insert user remotely:", error);
         }
 
         try {
-          const allLocalUsers = await db.app_users.where('workspace_id').equals(safeAuth.workspaceId).toArray();
+          const allLocalUsers = (await db.app_users.where('workspace_id').equals(safeAuth.workspaceId).toArray()).map(hydrateUserFromRecord);
           await supabase.from('settings').upsert({
             setting_key: `app_users_ws_${safeAuth.workspaceId}`,
             setting_value: JSON.stringify(allLocalUsers),

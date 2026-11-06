@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateProjectId, ensureDefaultProjectExists, seedDefaultExpenseCategories, DEFAULT_PROJECT_ID } from '../db/db';
 import { supabase, pullProjectsLive, pushProjectLive, deleteProjectLive } from '../services/realtimeSync';
-import { useAuth } from './AuthContext';
+import { useAuth, usePermissions } from './AuthContext';
 
 const ACTIVE_PROJECT_KEY = 'karsync_active_project_id';
 
@@ -10,6 +10,7 @@ const ProjectContext = createContext(null);
 
 export function ProjectProvider({ children }) {
   const { user } = useAuth();
+  const { canAccessProject } = usePermissions();
   const userId = user?.id || user?.userId || 'default_user';
 
   const [activeProjectId, setActiveProjectId] = useState(() => {
@@ -91,20 +92,22 @@ export function ProjectProvider({ children }) {
     return () => { isMounted = false; };
   }, []);
 
-  // Filter active, archived, and trash projects
+  // Filter active, archived, and trash projects according to user's project access permissions
   const activeProjects = useMemo(() => {
-    return allProjects.filter((p) => !p.deletedAt && p.status !== 'archived' && !p.isArchived);
-  }, [allProjects]);
+    const allActive = allProjects.filter((p) => !p.deletedAt && p.status !== 'archived' && !p.isArchived);
+    const permitted = allActive.filter((p) => canAccessProject(p.id));
+    return permitted.length > 0 ? permitted : allActive;
+  }, [allProjects, canAccessProject]);
 
   const archivedProjects = useMemo(() => {
-    return allProjects.filter((p) => !p.deletedAt && (p.status === 'archived' || p.isArchived));
-  }, [allProjects]);
+    return allProjects.filter((p) => !p.deletedAt && (p.status === 'archived' || p.isArchived) && canAccessProject(p.id));
+  }, [allProjects, canAccessProject]);
 
   const trashProjects = useMemo(() => {
-    return allProjects.filter((p) => !!p.deletedAt);
-  }, [allProjects]);
+    return allProjects.filter((p) => !!p.deletedAt && canAccessProject(p.id));
+  }, [allProjects, canAccessProject]);
 
-  // Current active project
+  // Current active project (must be an accessible project)
   const currentProject = useMemo(() => {
     if (!allProjects || allProjects.length === 0) {
       return {
@@ -118,14 +121,17 @@ export function ProjectProvider({ children }) {
       };
     }
 
-    const found = allProjects.find((p) => p.id === activeProjectId && !p.deletedAt);
-    if (found) return found;
+    const foundInActive = activeProjects.find((p) => p.id === activeProjectId);
+    if (foundInActive) return foundInActive;
 
-    // Fallback to first active project
+    const foundPermitted = allProjects.find((p) => p.id === activeProjectId && !p.deletedAt && canAccessProject(p.id));
+    if (foundPermitted) return foundPermitted;
+
+    // Fallback to first accessible active project
     if (activeProjects.length > 0) return activeProjects[0];
 
     return allProjects.find((p) => !p.deletedAt) || allProjects[0];
-  }, [allProjects, activeProjectId, activeProjects, userId]);
+  }, [allProjects, activeProjectId, activeProjects, userId, canAccessProject]);
 
   // Keep activeProjectId in sync if currentProject changes
   useEffect(() => {

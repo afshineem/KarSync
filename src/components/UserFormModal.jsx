@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
-import { usePermissions } from '../context/AuthContext';
-import { X, Save, Eye, EyeOff, Shield } from 'lucide-react';
+import { usePermissions, ROLE_DEFAULT_PERMISSIONS, hydrateUserFromRecord } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
+import { X, Save, Eye, EyeOff, Shield, FolderKanban, CheckSquare } from 'lucide-react';
 
 const USER_FORM_COPY = {
   fa: {
@@ -14,25 +15,33 @@ const USER_FORM_COPY = {
     password: 'کلمه عبور',
     passwordChangeOnly: ' (فقط در صورت تغییر)',
     passwordPlaceholder: 'حداقل ۶ کاراکتر',
-    organizationalRole: 'نقش سازمانی',
+    organizationalRole: 'نقش سازمانی (انتخاب سریع دسترسی‌ها)',
     roles: {
-      admin: 'مدیر (Admin)',
+      admin: 'مدیر ارشد (Admin - دسترسی کامل)',
       supervisor: 'سرپرست کارگاه (Supervisor)',
       accountant: 'حسابدار / مدیر مالی (Accountant)',
-      procurement: 'مسئول خرید / تدارکات (Procurement)',
+      procurement: 'مسئول هزینه‌ها / تدارکات (Procurement)',
       custom: 'سفارشی (Custom)'
     },
-    permissionsMatrix: 'ماتریس دسترسی‌ها:',
+    permissionsMatrix: 'دسترسی‌های مجاز کاربر (قابل شخصی‌سازی):',
+    selectAllPerms: 'انتخاب همه',
+    clearAllPerms: 'حذف همه',
     permissions: {
-      'attendance.write': 'ثبت کارکرد روزانه',
-      'attendance.read': 'فقط مشاهده حضور و غیاب',
-      'settlement.manage': 'ثبت و مدیریت تسویه حساب',
-      'expenses.manage': 'ثبت و ویرایش هزینه‌ها',
-      'reports.view': 'مشاهده گزارش‌های مالی',
-      'users.manage': 'مدیریت کاربران'
+      'dashboard.view': 'مشاهده پیشخوان (داشبورد)',
+      'attendance.write': 'ثبت و ویرایش کارکرد روزانه',
+      'attendance.read': 'مشاهده گزارش کارکرد و حضور و غیاب',
+      'workers.manage': 'مدیریت پرسنل (افزودن/ویرایش کارگر و گروه‌ها)',
+      'expenses.manage': 'ثبت و مدیریت هزینه‌ها و تنخواه',
+      'settlement.manage': 'ثبت و مدیریت تسویه حساب و مساعده',
+      'accounting.manage': 'مدیریت حسابداری، صندوق‌ها و طرف‌حساب‌ها',
+      'reports.view': 'مشاهده گزارش‌ها و آمارهای مالی',
+      'tasks.manage': 'مشاهده و مدیریت تسک‌های روزانه',
+      'users.manage': 'مدیریت کاربران، پروژه‌ها و تنظیمات کلان'
     },
     canEditPastRecords: 'اجازه ثبت یا ویرایش کارکرد برای روزهای گذشته',
     hasAllProjectsAccess: 'دسترسی به تمام پروژه‌ها',
+    allowedProjectsTitle: 'پروژه‌های مجاز برای این کاربر:',
+    noProjectSelectedHint: 'حداقل یک پروژه را برای دسترسی کاربر انتخاب کنید.',
     cancel: 'انصراف',
     save: 'ذخیره اطلاعات'
   },
@@ -46,25 +55,33 @@ const USER_FORM_COPY = {
     password: 'وشەی تێپەڕ',
     passwordChangeOnly: ' (تەنها لە کاتی گۆڕین)',
     passwordPlaceholder: 'لانی کەم ٦ پیت',
-    organizationalRole: 'ڕۆڵی ڕێکخراوەیی',
+    organizationalRole: 'ڕۆڵی ڕێکخراوەیی (هەڵبژاردنی خێرای دەسەڵاتەکان)',
     roles: {
-      admin: 'بەڕێوەبەر (Admin)',
+      admin: 'بەڕێوەبەری باڵا (Admin - دەسەڵاتی تەواو)',
       supervisor: 'سەرپەرشتیاری کارگە (Supervisor)',
       accountant: 'حیسابدار / بەڕێوەبەری دارایی (Accountant)',
-      procurement: 'بەرپرسی کڕین / پێداویستییەکان (Procurement)',
+      procurement: 'بەرپرسی خەرجییەکان / پێداویستی (Procurement)',
       custom: 'تایبەت (Custom)'
     },
-    permissionsMatrix: 'ماتریسی دەسەڵاتەکان:',
+    permissionsMatrix: 'دەسەڵاتە ڕێگەپێدراوەکانی بەکارهێنەر:',
+    selectAllPerms: 'هەڵبژاردنی هەمووی',
+    clearAllPerms: 'سڕینەوەی هەمووی',
     permissions: {
-      'attendance.write': 'تۆمارکردنی کارکردنی ڕۆژانە',
-      'attendance.read': 'تەنها بینینی ئامادەبوون و غیاب',
-      'settlement.manage': 'تۆمار و بەڕێوەبردنی یەکلاکردنەوەی حیساب',
-      'expenses.manage': 'تۆمار و دەستکاریکردنی خەرجییەکان',
-      'reports.view': 'بینینی ڕاپۆرتە داراییەکان',
-      'users.manage': 'بەڕێوەبردنی بەکارهێنەران'
+      'dashboard.view': 'بینینی داشبۆرد',
+      'attendance.write': 'تۆمار و دەستکاریکردنی کارکردنی ڕۆژانە',
+      'attendance.read': 'بینینی ڕاپۆرتی کارکردن و ئامادەبوون',
+      'workers.manage': 'بەڕێوەبردنی کارمەندان (زیادکردن/دەستکاریکردن)',
+      'expenses.manage': 'تۆمار و بەڕێوەبردنی خەرجییەکان',
+      'settlement.manage': 'تۆمار و بەڕێوەبردنی یەکلاکردنەوەی حیساب و موساعەدە',
+      'accounting.manage': 'بەڕێوەبردنی حیسابداری، سندوقەکان و لایەنەکان',
+      'reports.view': 'بینینی ڕاپۆرت و ئامارە داراییەکان',
+      'tasks.manage': 'بینین و بەڕێوەبردنی ئەرکەکانی ڕۆژانە',
+      'users.manage': 'بەڕێوەبردنی بەکارهێنەران، پڕۆژەکان و ڕێکخستنەکان'
     },
     canEditPastRecords: 'ڕێگەپێدان بۆ تۆمار یان دەستکاریکردنی کارکردنی ڕۆژانی ڕابردوو',
     hasAllProjectsAccess: 'دەسەڵاتی دەستگەیشتن بە تەواوی پڕۆژەکان',
+    allowedProjectsTitle: 'پڕۆژە ڕێگەپێدراوەکان بۆ ئەم بەکارهێنەرە:',
+    noProjectSelectedHint: 'تکایە لانیکەم پڕۆژەیەک هەڵبژێرە.',
     cancel: 'پاشگەزبوونەوە',
     save: 'پاشەکەوتکردنی زانیارییەکان'
   },
@@ -78,25 +95,33 @@ const USER_FORM_COPY = {
     password: 'Password',
     passwordChangeOnly: ' (only if changing)',
     passwordPlaceholder: 'At least 6 characters',
-    organizationalRole: 'Organizational Role',
+    organizationalRole: 'Organizational Role (Quick Preset)',
     roles: {
-      admin: 'Admin',
+      admin: 'Admin (Full Access)',
       supervisor: 'Workshop Supervisor',
       accountant: 'Accountant / Financial Officer',
-      procurement: 'Procurement Officer',
+      procurement: 'Expenses & Procurement Officer',
       custom: 'Custom'
     },
-    permissionsMatrix: 'Permissions Matrix:',
+    permissionsMatrix: 'User Permissions (Customizable):',
+    selectAllPerms: 'Select All',
+    clearAllPerms: 'Clear All',
     permissions: {
-      'attendance.write': 'Log Daily Attendance',
-      'attendance.read': 'View Attendance Logs Only',
-      'settlement.manage': 'Manage & Execute Settlements',
-      'expenses.manage': 'Log & Edit Expenses',
-      'reports.view': 'View Financial Reports',
-      'users.manage': 'Manage Users'
+      'dashboard.view': 'View Workshop Dashboard',
+      'attendance.write': 'Log & Edit Daily Attendance',
+      'attendance.read': 'View Attendance & Work Reports',
+      'workers.manage': 'Manage Personnel (Add/Edit Workers & Groups)',
+      'expenses.manage': 'Log & Manage Expenses',
+      'settlement.manage': 'Manage Settlements & Advances',
+      'accounting.manage': 'Manage Accounting, Accounts & Counterparties',
+      'reports.view': 'View Financial Reports & Analytics',
+      'tasks.manage': 'View & Manage Daily Tasks',
+      'users.manage': 'Manage Users, Projects & System Settings'
     },
     canEditPastRecords: 'Allow logging or editing attendance for past dates',
     hasAllProjectsAccess: 'Access to all projects',
+    allowedProjectsTitle: 'Allowed Projects for this User:',
+    noProjectSelectedHint: 'Please select at least one project for this user.',
     cancel: 'Cancel',
     save: 'Save User Information'
   }
@@ -108,6 +133,7 @@ export default function UserFormModal({ isOpen, onClose, onSave, initialData = n
   const c = USER_FORM_COPY[langKey] || USER_FORM_COPY.fa;
 
   const { hasPermission } = usePermissions();
+  const { activeProjects, currentProject } = useProject();
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -116,66 +142,104 @@ export default function UserFormModal({ isOpen, onClose, onSave, initialData = n
     role: 'custom',
     can_edit_past_records: false,
     has_all_projects_access: false,
+    allowed_project_ids: [],
     permissions: []
   });
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    const defaultProjId = currentProject?.id || activeProjects?.[0]?.id;
     if (initialData) {
+      const hydrated = hydrateUserFromRecord(initialData);
+      const initialAllowed =
+        Array.isArray(hydrated.allowed_project_ids) && hydrated.allowed_project_ids.length > 0
+          ? hydrated.allowed_project_ids
+          : defaultProjId
+            ? [defaultProjId]
+            : [];
       setFormData({
-        full_name: initialData.full_name || '',
-        username: initialData.username || '',
+        full_name: hydrated.full_name || '',
+        username: hydrated.username || '',
         password: '',
-        role: initialData.role || 'custom',
-        can_edit_past_records: initialData.can_edit_past_records || false,
-        has_all_projects_access: initialData.has_all_projects_access || false,
-        permissions: initialData.permissions || []
+        role: hydrated.role || 'custom',
+        can_edit_past_records: Boolean(hydrated.can_edit_past_records),
+        has_all_projects_access: Boolean(hydrated.has_all_projects_access),
+        allowed_project_ids: initialAllowed,
+        permissions: Array.isArray(hydrated.permissions) ? hydrated.permissions : []
       });
     } else {
       setFormData({
         full_name: '',
         username: '',
         password: '',
-        role: 'custom',
+        role: 'accountant',
         can_edit_past_records: false,
         has_all_projects_access: false,
-        permissions: []
+        allowed_project_ids: defaultProjId ? [defaultProjId] : [],
+        permissions: [...(ROLE_DEFAULT_PERMISSIONS.accountant || [])]
       });
     }
   }, [initialData, isOpen]);
 
   const handleRoleChange = (e) => {
     const newRole = e.target.value;
-    let newPermissions = [];
-    
-    if (newRole === 'admin') {
-      newPermissions = []; // Admin has all implicitly
-    } else if (newRole === 'supervisor') {
-      newPermissions = ['attendance.write', 'attendance.read', 'expenses.manage'];
-    } else if (newRole === 'accountant') {
-      newPermissions = ['settlement.manage', 'reports.view', 'attendance.read'];
-    } else if (newRole === 'procurement') {
-      newPermissions = ['expenses.manage'];
-    }
+    const presetPerms = ROLE_DEFAULT_PERMISSIONS[newRole] || [];
 
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       role: newRole,
-      permissions: newRole === 'custom' ? formData.permissions : newPermissions
-    });
+      has_all_projects_access: newRole === 'admin' ? true : prev.has_all_projects_access,
+      can_edit_past_records: newRole === 'admin' ? true : prev.can_edit_past_records,
+      permissions: newRole === 'custom' ? prev.permissions : [...presetPerms]
+    }));
   };
 
   const handlePermissionToggle = (perm) => {
-    setFormData(prev => ({
-      ...prev,
-      permissions: prev.permissions.includes(perm) 
-        ? prev.permissions.filter(p => p !== perm)
-        : [...prev.permissions, perm]
-    }));
+    setFormData((prev) => {
+      const exists = prev.permissions.includes(perm);
+      let nextPerms = exists
+        ? prev.permissions.filter((p) => p !== perm)
+        : [...prev.permissions, perm];
+
+      // If attendance.write is checked, automatically ensure attendance.read is also checked
+      if (!exists && perm === 'attendance.write' && !nextPerms.includes('attendance.read')) {
+        nextPerms.push('attendance.read');
+      }
+
+      // If user unchecks a permission while role === 'admin', switch role to 'custom' so RBAC doesn't grant full admin override
+      const nextRole = prev.role === 'admin' && exists ? 'custom' : prev.role;
+
+      return {
+        ...prev,
+        role: nextRole,
+        permissions: nextPerms
+      };
+    });
+  };
+
+  const handleProjectToggle = (projectId) => {
+    setFormData((prev) => {
+      const current = Array.isArray(prev.allowed_project_ids) ? prev.allowed_project_ids : [];
+      const exists = current.includes(projectId);
+      const nextProjects = exists
+        ? current.filter((id) => id !== projectId)
+        : [...current, projectId];
+      return {
+        ...prev,
+        allowed_project_ids: nextProjects
+      };
+    });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!formData.has_all_projects_access && (!formData.allowed_project_ids || formData.allowed_project_ids.length === 0)) {
+      const fallbackProjId = currentProject?.id || activeProjects?.[0]?.id;
+      if (fallbackProjId) {
+        onSave({ ...formData, allowed_project_ids: [fallbackProjId] });
+        return;
+      }
+    }
     onSave(formData);
   };
 
@@ -192,17 +256,21 @@ export default function UserFormModal({ isOpen, onClose, onSave, initialData = n
   if (!isOpen) return null;
 
   const permissionsList = [
+    { id: 'dashboard.view', label: c.permissions['dashboard.view'] },
     { id: 'attendance.write', label: c.permissions['attendance.write'] },
     { id: 'attendance.read', label: c.permissions['attendance.read'] },
-    { id: 'settlement.manage', label: c.permissions['settlement.manage'] },
+    { id: 'workers.manage', label: c.permissions['workers.manage'] },
     { id: 'expenses.manage', label: c.permissions['expenses.manage'] },
+    { id: 'settlement.manage', label: c.permissions['settlement.manage'] },
+    { id: 'accounting.manage', label: c.permissions['accounting.manage'] },
     { id: 'reports.view', label: c.permissions['reports.view'] },
+    { id: 'tasks.manage', label: c.permissions['tasks.manage'] },
     { id: 'users.manage', label: c.permissions['users.manage'] }
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" dir={direction}>
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2 text-slate-800 dark:text-white">
@@ -216,7 +284,7 @@ export default function UserFormModal({ isOpen, onClose, onSave, initialData = n
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="p-4 overflow-y-auto flex-1 space-y-4">
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 {c.fullName}
@@ -245,28 +313,29 @@ export default function UserFormModal({ isOpen, onClose, onSave, initialData = n
                 dir="ltr" 
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {c.password}{initialData ? c.passwordChangeOnly : ''}
-              </label>
-              <div className="relative">
-                <input 
-                  required={!initialData} 
-                  type={showPassword ? "text" : "password"} 
-                  placeholder={c.passwordPlaceholder}
-                  value={formData.password} 
-                  onChange={e => setFormData({...formData, password: e.target.value})} 
-                  className="w-full p-2.5 pe-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 dark:text-white" 
-                  dir="ltr" 
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute end-3 top-3 text-slate-400 hover:text-slate-600">
-                  {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
-                </button>
-              </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              {c.password}{initialData ? c.passwordChangeOnly : ''}
+            </label>
+            <div className="relative">
+              <input 
+                required={!initialData} 
+                type={showPassword ? "text" : "password"} 
+                placeholder={c.passwordPlaceholder}
+                value={formData.password} 
+                onChange={e => setFormData({...formData, password: e.target.value})} 
+                className="w-full p-2.5 pe-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 dark:text-white" 
+                dir="ltr" 
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute end-3 top-3 text-slate-400 hover:text-slate-600">
+                {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+              </button>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
               {c.organizationalRole}
             </label>
@@ -278,37 +347,122 @@ export default function UserFormModal({ isOpen, onClose, onSave, initialData = n
               <option value="custom">{c.roles.custom}</option>
             </select>
 
-            {formData.role === 'custom' && (
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2 mb-3">
-                <p className="text-xs font-semibold text-slate-500 mb-2">{c.permissionsMatrix}</p>
-                {permissionsList.map(perm => (
-                  <label key={perm.id} className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={formData.permissions.includes(perm.id)} 
-                      onChange={() => handlePermissionToggle(perm.id)} 
-                      className="rounded text-indigo-500 focus:ring-indigo-500 bg-white dark:bg-slate-900 border-slate-300" 
-                    />
-                    <span className="text-xs text-slate-700 dark:text-slate-300">{perm.label}</span>
-                  </label>
-                ))}
+            {/* Always visible permissions checklist so role presets are transparent and customizable */}
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 space-y-2.5 mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>{c.permissionsMatrix}</span>
+                </p>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, permissions: permissionsList.map(p => p.id) }))}
+                    className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold"
+                  >
+                    {c.selectAllPerms}
+                  </button>
+                  <span className="text-slate-300 dark:text-slate-600">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, role: prev.role === 'admin' ? 'custom' : prev.role, permissions: [] }))}
+                    className="text-slate-500 dark:text-slate-400 hover:underline font-medium"
+                  >
+                    {c.clearAllPerms}
+                  </button>
+                </div>
               </div>
-            )}
+
+              <div className="grid grid-cols-1 gap-2">
+                {permissionsList.map(perm => {
+                  const isChecked = formData.role === 'admin' || formData.permissions.includes(perm.id);
+                  return (
+                    <label
+                      key={perm.id}
+                      className={`flex items-center gap-2.5 p-2 rounded-lg border transition-colors cursor-pointer ${
+                        isChecked
+                          ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/60'
+                          : 'bg-white dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800'
+                      }`}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked} 
+                        onChange={() => handlePermissionToggle(perm.id)} 
+                        className="rounded text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-slate-900 border-slate-300 w-4 h-4" 
+                      />
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{perm.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={formData.can_edit_past_records} onChange={e => setFormData({...formData, can_edit_past_records: e.target.checked})} className="rounded text-indigo-500" />
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.role === 'admin' || formData.can_edit_past_records}
+                disabled={formData.role === 'admin'}
+                onChange={e => setFormData({...formData, can_edit_past_records: e.target.checked})}
+                className="rounded text-indigo-600 w-4 h-4"
+              />
               <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {c.canEditPastRecords}
               </span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={formData.has_all_projects_access} onChange={e => setFormData({...formData, has_all_projects_access: e.target.checked})} className="rounded text-indigo-500" />
+
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.role === 'admin' || formData.has_all_projects_access}
+                disabled={formData.role === 'admin'}
+                onChange={e => setFormData({...formData, has_all_projects_access: e.target.checked})}
+                className="rounded text-indigo-600 w-4 h-4"
+              />
               <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {c.hasAllProjectsAccess}
               </span>
             </label>
+
+            {/* Per-Project Access Checklist when has_all_projects_access is unchecked */}
+            {formData.role !== 'admin' && !formData.has_all_projects_access && activeProjects && activeProjects.length > 0 && (
+              <div className="p-3 rounded-xl bg-sky-50/60 dark:bg-sky-950/20 border border-sky-200/70 dark:border-sky-800/50 space-y-2 animate-in fade-in duration-150">
+                <p className="text-xs font-bold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                  <FolderKanban className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                  <span>{c.allowedProjectsTitle}</span>
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
+                  {activeProjects.map((proj) => {
+                    const isProjChecked = (formData.allowed_project_ids || []).includes(proj.id);
+                    return (
+                      <label
+                        key={proj.id}
+                        className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                          isProjChecked
+                            ? 'bg-white dark:bg-slate-800 border-sky-400 dark:border-sky-600 text-sky-900 dark:text-sky-200 font-bold shadow-2xs'
+                            : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isProjChecked}
+                          onChange={() => handleProjectToggle(proj.id)}
+                          className="rounded text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                        />
+                        <span className="truncate">{proj.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {(!formData.allowed_project_ids || formData.allowed_project_ids.length === 0) && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                    {c.noProjectSelectedHint}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </form>
 

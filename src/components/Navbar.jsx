@@ -87,12 +87,21 @@ export function Navbar({
 
   const { hasPermission, currentUser } = usePermissions();
 
-  const navItems = [
-    { id: 'dashboard', label: c.dashboard, icon: LayoutDashboard },
-    { id: 'workers', label: c.workers, icon: CalendarDays },
-    { id: 'expenses', label: c.expenses, icon: Receipt, hidden: !hasPermission('expenses.manage') },
-    { id: 'accounting', label: c.accounting, icon: Landmark, hidden: !hasPermission('settlement.manage') },
+  const canViewDashboard = hasPermission('dashboard.view');
+  const canViewAttendance = hasPermission('attendance.read') || hasPermission('attendance.write') || hasPermission('workers.manage');
+  const canViewExpenses = hasPermission('expenses.manage');
+  const canViewAccounting = hasPermission('settlement.manage') || hasPermission('accounting.manage') || hasPermission('reports.view');
+
+  const rawNavItems = [
+    { id: 'dashboard', label: c.dashboard, icon: LayoutDashboard, hidden: !canViewDashboard },
+    { id: 'workers', label: c.workers, icon: CalendarDays, hidden: !canViewAttendance },
+    { id: 'expenses', label: c.expenses, icon: Receipt, hidden: !canViewExpenses },
+    { id: 'accounting', label: c.accounting, icon: Landmark, hidden: !canViewAccounting },
   ].filter(item => !item.hidden);
+
+  const navItems = rawNavItems.length > 0
+    ? rawNavItems
+    : [{ id: 'dashboard', label: c.dashboard, icon: LayoutDashboard }];
 
   useEffect(() => {
     console.log("ALL LOCAL STORAGE KEYS:", Object.keys(localStorage));

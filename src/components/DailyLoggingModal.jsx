@@ -2298,7 +2298,16 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
  */
 export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onOpenExpense, onClick }) {
   const { t, language, direction } = useLanguage();
+  const { hasPermission } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
+
+  const canLogAttendance = hasPermission('attendance.write');
+  const canManageSettlement = hasPermission('settlement.manage');
+  const canManageExpenses = hasPermission('expenses.manage');
+
+  if (!canLogAttendance && !canManageSettlement && !canManageExpenses) {
+    return null;
+  }
 
   const handleAction = (callback) => {
     setIsOpen(false);
@@ -2335,61 +2344,67 @@ export function FloatingActionButton({ onOpenDailyLogging, onOpenSettlement, onO
           }`}
         >
           {/* Action 3: ثبت هزینه پروژه */}
-          <button
-            type="button"
-            onClick={() => handleAction(onOpenExpense)}
-            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
-            title={language === 'ku' ? 'تۆمارکردنی خەرجی کارگە' : 'ثبت هزینه جدید پروژه'}
-          >
-            <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-rose-300 dark:group-hover:border-rose-700 ${
-              isRtl ? 'order-2' : 'order-1'
-            }`}>
-              {language === 'ku' ? 'تۆمارکردنی خەرجی' : 'ثبت هزینه'}
-            </span>
-            <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white flex items-center justify-center shadow-lg shadow-rose-600/35 ring-2 ring-rose-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
-              isRtl ? 'order-1' : 'order-2'
-            }`}>
-              <Receipt className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
-            </div>
-          </button>
+          {canManageExpenses && (
+            <button
+              type="button"
+              onClick={() => handleAction(onOpenExpense)}
+              className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
+              title={language === 'ku' ? 'تۆمارکردنی خەرجی کارگە' : 'ثبت هزینه جدید پروژه'}
+            >
+              <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-rose-300 dark:group-hover:border-rose-700 ${
+                isRtl ? 'order-2' : 'order-1'
+              }`}>
+                {language === 'ku' ? 'تۆمارکردنی خەرجی' : 'ثبت هزینه'}
+              </span>
+              <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white flex items-center justify-center shadow-lg shadow-rose-600/35 ring-2 ring-rose-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
+                isRtl ? 'order-1' : 'order-2'
+              }`}>
+                <Receipt className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+              </div>
+            </button>
+          )}
 
           {/* Action 2: ثبت تسویه حساب */}
-          <button
-            type="button"
-            onClick={() => handleAction(onOpenSettlement)}
-            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
-            title={language === 'ku' ? 'تۆمارکردنی پاکتاوی حیساب' : 'ثبت تسویه حساب پرسنل / گروه'}
-          >
-            <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-emerald-300 dark:group-hover:border-emerald-700 ${
-              isRtl ? 'order-2' : 'order-1'
-            }`}>
-              {language === 'ku' ? 'تۆمارکردنی پاکتاو' : 'ثبت تسویه'}
-            </span>
-            <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white flex items-center justify-center shadow-lg shadow-emerald-600/35 ring-2 ring-emerald-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
-              isRtl ? 'order-1' : 'order-2'
-            }`}>
-              <CreditCard className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
-            </div>
-          </button>
+          {canManageSettlement && (
+            <button
+              type="button"
+              onClick={() => handleAction(onOpenSettlement)}
+              className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
+              title={language === 'ku' ? 'تۆمارکردنی پاکتاوی حیساب' : 'ثبت تسویه حساب پرسنل / گروه'}
+            >
+              <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-emerald-300 dark:group-hover:border-emerald-700 ${
+                isRtl ? 'order-2' : 'order-1'
+              }`}>
+                {language === 'ku' ? 'تۆمارکردنی پاکتاو' : 'ثبت تسویه'}
+              </span>
+              <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white flex items-center justify-center shadow-lg shadow-emerald-600/35 ring-2 ring-emerald-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
+                isRtl ? 'order-1' : 'order-2'
+              }`}>
+                <CreditCard className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+              </div>
+            </button>
+          )}
 
           {/* Action 1: ثبت کار روزانه */}
-          <button
-            type="button"
-            onClick={() => handleAction(onOpenDailyLogging || onClick)}
-            className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
-            title={language === 'ku' ? 'تۆمارکردنی ئامادەبوونی ڕۆژانە' : 'ثبت کارکرد روزانه پرسنل'}
-          >
-            <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-sky-300 dark:group-hover:border-sky-700 ${
-              isRtl ? 'order-2' : 'order-1'
-            }`}>
-              {language === 'ku' ? 'تۆماری کارکردی ڕۆژانە' : 'ثبت کار روزانه'}
-            </span>
-            <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white flex items-center justify-center shadow-lg shadow-sky-600/35 ring-2 ring-sky-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
-              isRtl ? 'order-1' : 'order-2'
-            }`}>
-              <CalendarPlus className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
-            </div>
-          </button>
+          {canLogAttendance && (
+            <button
+              type="button"
+              onClick={() => handleAction(onOpenDailyLogging || onClick)}
+              className="group flex items-center gap-2.5 focus:outline-none cursor-pointer pointer-events-auto"
+              title={language === 'ku' ? 'تۆمارکردنی ئامادەبوونی ڕۆژانە' : 'ثبت کارکرد روزانه پرسنل'}
+            >
+              <span className={`px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap transition-all duration-150 group-hover:scale-105 group-hover:border-sky-300 dark:group-hover:border-sky-700 ${
+                isRtl ? 'order-2' : 'order-1'
+              }`}>
+                {language === 'ku' ? 'تۆماری کارکردی ڕۆژانە' : 'ثبت کار روزانه'}
+              </span>
+              <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white flex items-center justify-center shadow-lg shadow-sky-600/35 ring-2 ring-sky-500/20 transition-all duration-200 group-hover:scale-110 active:scale-95 ${
+                isRtl ? 'order-1' : 'order-2'
+              }`}>
+                <CalendarPlus className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+              </div>
+            </button>
+          )}
         </div>
 
         {/* Main Floating Trigger Button (+) */}

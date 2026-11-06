@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
 import { TasksModal } from './TasksModal';
 import { TaskFormModal } from './TaskFormModal';
 import { useProject } from '../context/ProjectContext';
@@ -49,7 +49,19 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     convertDigits
   } = useLanguage();
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const { currentProject, openWorkerProfile, openGlobalSettings } = useProject();
+
+  const canLogAttendance = hasPermission('attendance.write');
+  const canReadAttendance = hasPermission('attendance.read') || canLogAttendance;
+  const canManageTasks = hasPermission('tasks.manage');
+  const canManageUsers = hasPermission('users.manage');
+  const canManageSettlement = hasPermission('settlement.manage');
+  const canManageExpenses = hasPermission('expenses.manage');
+  const canManageAccounting = hasPermission('accounting.manage');
+  const canViewReports = hasPermission('reports.view');
+  const canViewFinancialCards = canViewReports || canManageSettlement || canManageAccounting;
+  const canViewCostBreakdown = canViewFinancialCards || canManageExpenses;
   const [copiedWsCode, setCopiedWsCode] = useState(false);
   const activeWorkspace = useLiveQuery(async () => {
     try {
@@ -778,23 +790,25 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   {localizeProjectName(currentProject?.name)}
                 </span>
-                {/* Workshop Code Pill */}
-                <button
-                  type="button"
-                  onClick={handleCopyWsCode}
-                  title={copiedWsCode ? copy.copied : `${copy.workshopCode} ${displayWsCode}`}
-                  aria-label={copiedWsCode ? copy.copied : `${copy.workshopCode} ${displayWsCode}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 transition-all cursor-pointer group active:scale-95 shadow-2xs"
-                >
-                  <Building2 className="w-3.5 h-3.5 text-sky-500 group-hover:scale-110 transition-transform" />
-                  <span className="text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">{copy.workshopCode}</span>
-                  <span className="font-mono font-bold tracking-wider">{displayWsCode}</span>
-                  {copiedWsCode ? (
-                    <Check className="w-3 h-3 text-emerald-500 animate-in zoom-in-75" />
-                  ) : (
-                    <Copy className="w-3 h-3 text-sky-400 group-hover:text-sky-600 dark:group-hover:text-sky-200 transition-colors" />
-                  )}
-                </button>
+                {/* Workshop Code Pill (Admin / User Managers only) */}
+                {canManageUsers && displayWsCode && (
+                  <button
+                    type="button"
+                    onClick={handleCopyWsCode}
+                    title={copiedWsCode ? copy.copied : `${copy.workshopCode} ${displayWsCode}`}
+                    aria-label={copiedWsCode ? copy.copied : `${copy.workshopCode} ${displayWsCode}`}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/20 transition-all cursor-pointer group active:scale-95 shadow-2xs"
+                  >
+                    <Building2 className="w-3.5 h-3.5 text-sky-500 group-hover:scale-110 transition-transform" />
+                    <span className="text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">{copy.workshopCode}</span>
+                    <span className="font-mono font-bold tracking-wider">{displayWsCode}</span>
+                    {copiedWsCode ? (
+                      <Check className="w-3 h-3 text-emerald-500 animate-in zoom-in-75" />
+                    ) : (
+                      <Copy className="w-3 h-3 text-sky-400 group-hover:text-sky-600 dark:group-hover:text-sky-200 transition-colors" />
+                    )}
+                  </button>
+                )}
               </div>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
                 <span>{liveDateString}</span>
@@ -833,496 +847,524 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* 2. EXECUTIVE HERO BANNER: MONTHLY FINANCIAL PULSE                    */}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+      {canViewFinancialCards && (
+        <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
+          <div className="absolute top-0 right-1/4 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-10 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
 
-          {/* Main Financial Statement */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
-              <Banknote className="w-4 h-4" />
-              <span>{copy.monthlyFinancialPulse}</span>
+            {/* Main Financial Statement */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
+                <Banknote className="w-4 h-4" />
+                <span>{copy.monthlyFinancialPulse}</span>
+              </div>
+
+              <div>
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
+                  <span>{formatAmount(monthlyStats.totalPayroll, currency, numberFormat)}</span>
+                  <span className="text-sm sm:text-base font-bold text-sky-400">
+                    {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                  {copy.totalGrossPayrollDesc}
+                </p>
+              </div>
+
+              {/* Progress Gauge */}
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between items-center text-xs font-semibold flex-wrap gap-2">
+                  <span className="text-emerald-400 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    {copy.settledLabel} {formatAmount(monthlyStats.settledPayroll, currency, numberFormat)}{' '}
+                    {getCurrencySymbol(currency, language)}
+                  </span>
+                  <span className="text-amber-400 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {copy.pendingLabel} {formatAmount(monthlyStats.unsettledPayroll, currency, numberFormat)}{' '}
+                    {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden p-0.5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-400 transition-all duration-700 shadow-md"
+                    style={{ width: `${settlementPercentage}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-400 flex-wrap gap-2">
+                  <span>
+                    {convertDigits(`${settlementPercentage}%`, numberFormat)} {copy.clearedSuffix}
+                  </span>
+                  <span>
+                    {copy.totalAccumulatedDebtLabel}{' '}
+                    {formatAmount(financialSummary.totalWorkshopOutstanding, currency, numberFormat)}{' '}
+                    {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2">
-                <span>{formatAmount(monthlyStats.totalPayroll, currency, numberFormat)}</span>
-                <span className="text-sm sm:text-base font-bold text-sky-400">
-                  {getCurrencySymbol(currency, language)}
+            {/* Quick Metrics & Action Dock */}
+            <div className="lg:col-span-5 grid grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+
+              {/* Metric: Working Days */}
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-[11px] text-slate-400 block">{copy.totalWorkDaysLabel}</span>
+                <span className="text-xl font-black text-white mt-0.5 block">
+                  {convertDigits(monthlyStats.totalDaysCount, numberFormat)}{' '}
+                  <span className="text-xs font-normal text-slate-400">{copy.daysUnit}</span>
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  {convertDigits(monthlyStats.totalOvertimeHours, numberFormat)} {copy.overtimeHoursSuffix}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                {copy.totalGrossPayrollDesc}
-              </p>
-            </div>
 
-            {/* Progress Gauge */}
-            <div className="space-y-2 pt-2">
-              <div className="flex justify-between items-center text-xs font-semibold flex-wrap gap-2">
-                <span className="text-emerald-400 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  {copy.settledLabel} {formatAmount(monthlyStats.settledPayroll, currency, numberFormat)}{' '}
-                  {getCurrencySymbol(currency, language)}
+              {/* Metric: Active Force */}
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-[11px] text-slate-400 block">{copy.activeForceLabel}</span>
+                <span className="text-xl font-black text-white mt-0.5 block">
+                  {convertDigits(monthlyStats.activeCount, numberFormat)}{' '}
+                  <span className="text-xs font-normal text-slate-400">{copy.workersUnit}</span>
                 </span>
-                <span className="text-amber-400 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  {copy.pendingLabel} {formatAmount(monthlyStats.unsettledPayroll, currency, numberFormat)}{' '}
-                  {getCurrencySymbol(currency, language)}
+                <span className="text-[10px] text-emerald-400 mt-1 block">
+                  {convertDigits(financialSummary.settledCount, numberFormat)} {copy.fullySettledSuffix}
                 </span>
               </div>
-              <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden p-0.5">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-400 transition-all duration-700 shadow-md"
-                  style={{ width: `${settlementPercentage}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[11px] text-slate-400 flex-wrap gap-2">
-                <span>
-                  {convertDigits(`${settlementPercentage}%`, numberFormat)} {copy.clearedSuffix}
-                </span>
-                <span>
-                  {copy.totalAccumulatedDebtLabel}{' '}
-                  {formatAmount(financialSummary.totalWorkshopOutstanding, currency, numberFormat)}{' '}
-                  {getCurrencySymbol(currency, language)}
-                </span>
-              </div>
-            </div>
-          </div>
 
-          {/* Quick Metrics & Action Dock */}
-          <div className="lg:col-span-5 grid grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
-
-            {/* Metric: Working Days */}
-            <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-              <span className="text-[11px] text-slate-400 block">{copy.totalWorkDaysLabel}</span>
-              <span className="text-xl font-black text-white mt-0.5 block">
-                {convertDigits(monthlyStats.totalDaysCount, numberFormat)}{' '}
-                <span className="text-xs font-normal text-slate-400">{copy.daysUnit}</span>
-              </span>
-              <span className="text-[10px] text-slate-400 mt-1 block">
-                {convertDigits(monthlyStats.totalOvertimeHours, numberFormat)} {copy.overtimeHoursSuffix}
-              </span>
-            </div>
-
-            {/* Metric: Active Force */}
-            <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-              <span className="text-[11px] text-slate-400 block">{copy.activeForceLabel}</span>
-              <span className="text-xl font-black text-white mt-0.5 block">
-                {convertDigits(monthlyStats.activeCount, numberFormat)}{' '}
-                <span className="text-xs font-normal text-slate-400">{copy.workersUnit}</span>
-              </span>
-              <span className="text-[10px] text-emerald-400 mt-1 block">
-                {convertDigits(financialSummary.settledCount, numberFormat)} {copy.fullySettledSuffix}
-              </span>
-            </div>
-
-            {/* Quick Action 1: Add Log */}
-            <button
-              onClick={onOpenLoggingModal}
-              className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
-            >
-              <CalendarCheck className="w-4 h-4" />
-              <span>{copy.logShiftBtn}</span>
-            </button>
-
-            {/* Quick Action 2: Manage Tasks */}
-            <button
-              onClick={() => setIsTasksModalOpen(true)}
-              className="col-span-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
-            >
-              <ListTodo className="w-4 h-4 text-sky-400" />
-              <span>{copy.tasksBtn}</span>
-              {activeTasksCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-500 text-white font-black">
-                  {convertDigits(activeTasksCount, numberFormat)}
-                </span>
+              {/* Quick Action 1: Add Log */}
+              {canLogAttendance && (
+                <button
+                  onClick={onOpenLoggingModal}
+                  className={`${canManageTasks ? 'col-span-1' : 'col-span-2'} flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95`}
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                  <span>{copy.logShiftBtn}</span>
+                </button>
               )}
-            </button>
-          </div>
 
+              {/* Quick Action 2: Manage Tasks */}
+              {canManageTasks && (
+                <button
+                  onClick={() => setIsTasksModalOpen(true)}
+                  className={`${canLogAttendance ? 'col-span-1' : 'col-span-2'} flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95`}
+                >
+                  <ListTodo className="w-4 h-4 text-sky-400" />
+                  <span>{copy.tasksBtn}</span>
+                  {activeTasksCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-500 text-white font-black">
+                      {convertDigits(activeTasksCount, numberFormat)}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* 3. TWIN COMMAND TILES: TODAY ATTENDANCE + EXPENSES BREAKDOWN        */}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {(canReadAttendance || canViewCostBreakdown) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* Tile A: Today's Shift & Live Attendance */}
-        <div className="rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
-                  <UserCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                    {copy.todayAttendanceTitle}
-                  </h3>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {convertDigits(`${todayAttendance.ratePercent}%`, numberFormat)} {copy.shiftRecordedToday}
-                  </span>
-                </div>
-              </div>
-
-              <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50">
-                {convertDigits(todayAttendance.presentCount, numberFormat)} /{' '}
-                {convertDigits(todayAttendance.totalActive, numberFormat)}
-              </span>
-            </div>
-
-            {/* Attendance Progress */}
-            <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 mb-5">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500"
-                style={{ width: `${todayAttendance.ratePercent}%` }}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs mb-4">
-              <div className="p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/15">
-                <span className="text-slate-500 dark:text-slate-400 block">
-                  {copy.recordedPresentLabel}
-                </span>
-                <span className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 block">
-                  {convertDigits(todayAttendance.presentCount, numberFormat)} {copy.workersUnit}
-                </span>
-              </div>
-              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/15">
-                <span className="text-slate-500 dark:text-slate-400 block">
-                  {todayAttendance.isShiftLogged ? copy.absentTodayLabel : copy.pendingLogLabel}
-                </span>
-                <span className="text-base font-black text-amber-600 dark:text-amber-400 mt-1 block">
-                  {convertDigits(todayAttendance.unloggedCount, numberFormat)} {copy.workersUnit}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={onOpenLoggingModal}
-            data-tour="quick-log-btn"
-            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-200/60 dark:border-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{copy.quickLogTodayBtn}</span>
-          </button>
-        </div>
-
-        {/* Tile B: Financial Distribution (Payroll vs Expenses) */}
-        <div className="rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
-                  <PieChart className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                    {copy.costBreakdownTitle}
-                  </h3>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {copy.costBreakdownSubtitle}
-                  </span>
-                </div>
-              </div>
-
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
-                {formatAmount(totalCombinedMonthlyCost, currency, numberFormat)}{' '}
-                {getCurrencySymbol(currency, language)}
-              </span>
-            </div>
-
-            {/* Split Distribution Bar */}
-            <div className="space-y-3 mb-5">
-              <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
-                <div
-                  className="bg-sky-500 transition-all duration-500"
-                  style={{ width: `${payrollCostRatio}%` }}
-                  title={`${copy.payrollLabel}: ${convertDigits(`${payrollCostRatio}%`, numberFormat)}`}
-                />
-                <div
-                  className="bg-purple-500 transition-all duration-500"
-                  style={{ width: `${expenseCostRatio}%` }}
-                  title={`${copy.expensesLabel}: ${convertDigits(`${expenseCostRatio}%`, numberFormat)}`}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-2xl bg-sky-500/5 border border-sky-500/15">
-                  <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-semibold mb-1">
-                    <span className="w-2 h-2 rounded-full bg-sky-500" />
-                    <span>
-                      {copy.payrollLabel} ({convertDigits(`${payrollCostRatio}%`, numberFormat)})
-                    </span>
-                  </div>
-                  <span className="text-sm font-black text-slate-700 dark:text-slate-200 block">
-                    {formatAmount(monthlyStats.totalPayroll, currency, numberFormat)}{' '}
-                    {getCurrencySymbol(currency, language)}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/15">
-                  <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-semibold mb-1">
-                    <span className="w-2 h-2 rounded-full bg-purple-500" />
-                    <span>
-                      {copy.expensesLabel} ({convertDigits(`${expenseCostRatio}%`, numberFormat)})
-                    </span>
-                  </div>
-                  <span className="text-sm font-black text-slate-700 dark:text-slate-200 block">
-                    {formatAmount(monthlyExpensesTotal, currency, numberFormat)}{' '}
-                    {getCurrencySymbol(currency, language)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveTab('accounting')}
-            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 border border-purple-200/60 dark:border-purple-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span>{copy.viewFinancialLedgerBtn}</span>
-            <ArrowRight className="w-4 h-4 rtl:rotate-180" />
-          </button>
-        </div>
-
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 4. WORKSHOP SECTIONS & HIGH-PRIORITY TASKS                         */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        {/* Sections Command Center (Col-span 7) */}
-        <div className="lg:col-span-7 rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <Layers className="w-5 h-5" />
-              </div>
+          {/* Tile A: Today's Shift & Live Attendance */}
+          {canReadAttendance && (
+            <div className={`${!canViewCostBreakdown ? 'md:col-span-2' : ''} rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex flex-col justify-between`}>
               <div>
-                <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                  {copy.activeSectionsTitle}
-                </h3>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {copy.activeSectionsSubtitle}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => openGlobalSettings('projects')}
-              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-            >
-              {copy.manageSectionsBtn}
-            </button>
-          </div>
-
-          {sectionBreakdown.length === 0 ? (
-            <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-xs">
-              {copy.noSectionLogsThisMonth}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sectionBreakdown.slice(0, 4).map((sec) => {
-                const percentOfTotal =
-                  monthlyStats.totalPayroll > 0
-                    ? Math.round((sec.totalCost / monthlyStats.totalPayroll) * 100)
-                    : 0;
-                return (
-                  <div
-                    key={sec.id}
-                    className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 hover:border-blue-500/30 transition-all"
-                  >
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {localizeSectionName(sec.name)}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
+                      <UserCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                        {copy.todayAttendanceTitle}
+                      </h3>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {convertDigits(`${todayAttendance.ratePercent}%`, numberFormat)} {copy.shiftRecordedToday}
                       </span>
-                      <span className="text-xs font-black text-slate-700 dark:text-slate-300">
-                        {formatAmount(sec.totalCost, currency, numberFormat)}{' '}
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50">
+                    {convertDigits(todayAttendance.presentCount, numberFormat)} /{' '}
+                    {convertDigits(todayAttendance.totalActive, numberFormat)}
+                  </span>
+                </div>
+
+                {/* Attendance Progress */}
+                <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 mb-5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500"
+                    style={{ width: `${todayAttendance.ratePercent}%` }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs mb-4">
+                  <div className="p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/15">
+                    <span className="text-slate-500 dark:text-slate-400 block">
+                      {copy.recordedPresentLabel}
+                    </span>
+                    <span className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 block">
+                      {convertDigits(todayAttendance.presentCount, numberFormat)} {copy.workersUnit}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/15">
+                    <span className="text-slate-500 dark:text-slate-400 block">
+                      {todayAttendance.isShiftLogged ? copy.absentTodayLabel : copy.pendingLogLabel}
+                    </span>
+                    <span className="text-base font-black text-amber-600 dark:text-amber-400 mt-1 block">
+                      {convertDigits(todayAttendance.unloggedCount, numberFormat)} {copy.workersUnit}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {canLogAttendance && (
+                <button
+                  onClick={onOpenLoggingModal}
+                  data-tour="quick-log-btn"
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-200/60 dark:border-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{copy.quickLogTodayBtn}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Tile B: Financial Distribution (Payroll vs Expenses) */}
+          {canViewCostBreakdown && (
+            <div className={`${!canReadAttendance ? 'md:col-span-2' : ''} rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex flex-col justify-between`}>
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+                      <PieChart className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                        {copy.costBreakdownTitle}
+                      </h3>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {copy.costBreakdownSubtitle}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                    {formatAmount(totalCombinedMonthlyCost, currency, numberFormat)}{' '}
+                    {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+
+                {/* Split Distribution Bar */}
+                <div className="space-y-3 mb-5">
+                  <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+                    <div
+                      className="bg-sky-500 transition-all duration-500"
+                      style={{ width: `${payrollCostRatio}%` }}
+                      title={`${copy.payrollLabel}: ${convertDigits(`${payrollCostRatio}%`, numberFormat)}`}
+                    />
+                    <div
+                      className="bg-purple-500 transition-all duration-500"
+                      style={{ width: `${expenseCostRatio}%` }}
+                      title={`${copy.expensesLabel}: ${convertDigits(`${expenseCostRatio}%`, numberFormat)}`}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-2xl bg-sky-500/5 border border-sky-500/15">
+                      <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-semibold mb-1">
+                        <span className="w-2 h-2 rounded-full bg-sky-500" />
+                        <span>
+                          {copy.payrollLabel} ({convertDigits(`${payrollCostRatio}%`, numberFormat)})
+                        </span>
+                      </div>
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-200 block">
+                        {formatAmount(monthlyStats.totalPayroll, currency, numberFormat)}{' '}
                         {getCurrencySymbol(currency, language)}
                       </span>
                     </div>
 
-                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
-                      <div
-                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                        style={{ width: `${percentOfTotal}%` }}
-                      />
-                    </div>
-
-                    <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
-                      <span>
-                        {convertDigits(sec.days, numberFormat)} {copy.workDaysSuffix} •{' '}
-                        {convertDigits(sec.otHours, numberFormat)} {copy.overtimeHoursSuffix}
-                      </span>
-                      <span className="font-semibold">
-                        {convertDigits(`${percentOfTotal}%`, numberFormat)} {copy.shareOfPayrollSuffix}
+                    <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/15">
+                      <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-semibold mb-1">
+                        <span className="w-2 h-2 rounded-full bg-purple-500" />
+                        <span>
+                          {copy.expensesLabel} ({convertDigits(`${expenseCostRatio}%`, numberFormat)})
+                        </span>
+                      </div>
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-200 block">
+                        {formatAmount(monthlyExpensesTotal, currency, numberFormat)}{' '}
+                        {getCurrencySymbol(currency, language)}
                       </span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              </div>
+
+              {(canManageExpenses || canViewFinancialCards) && (
+                <button
+                  onClick={() => setActiveTab(canViewFinancialCards ? 'accounting' : 'expenses')}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 border border-purple-200/60 dark:border-purple-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>{copy.viewFinancialLedgerBtn}</span>
+                  <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+                </button>
+              )}
             </div>
           )}
-        </div>
 
-        {/* High Priority Tasks & Action Items (Col-span 5) */}
-        <div className="lg:col-span-5 rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                  <ListTodo className="w-5 h-5" />
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* 4. WORKSHOP SECTIONS & HIGH-PRIORITY TASKS                         */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {(canViewFinancialCards || canManageTasks) && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          {/* Sections Command Center (Col-span 7) */}
+          {canViewFinancialCards && (
+            <div className={`${canManageTasks ? 'lg:col-span-7' : 'lg:col-span-12'} rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20`}>
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                      {copy.activeSectionsTitle}
+                    </h3>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {copy.activeSectionsSubtitle}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                    {copy.priorityTasksTitle}
-                  </h3>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {convertDigits(activeTasksCount, numberFormat)} {copy.openTasksSuffix}
-                  </span>
+
+                {canManageUsers && (
+                  <button
+                    onClick={() => openGlobalSettings('projects')}
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  >
+                    {copy.manageSectionsBtn}
+                  </button>
+                )}
+              </div>
+
+              {sectionBreakdown.length === 0 ? (
+                <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-xs">
+                  {copy.noSectionLogsThisMonth}
                 </div>
+              ) : (
+                <div className="space-y-3">
+                  {sectionBreakdown.slice(0, 4).map((sec) => {
+                    const percentOfTotal =
+                      monthlyStats.totalPayroll > 0
+                        ? Math.round((sec.totalCost / monthlyStats.totalPayroll) * 100)
+                        : 0;
+                    return (
+                      <div
+                        key={sec.id}
+                        className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 hover:border-blue-500/30 transition-all"
+                      >
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                            {localizeSectionName(sec.name)}
+                          </span>
+                          <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+                            {formatAmount(sec.totalCost, currency, numberFormat)}{' '}
+                            {getCurrencySymbol(currency, language)}
+                          </span>
+                        </div>
+
+                        <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
+                          <div
+                            className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                            style={{ width: `${percentOfTotal}%` }}
+                          />
+                        </div>
+
+                        <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
+                          <span>
+                            {convertDigits(sec.days, numberFormat)} {copy.workDaysSuffix} •{' '}
+                            {convertDigits(sec.otHours, numberFormat)} {copy.overtimeHoursSuffix}
+                          </span>
+                          <span className="font-semibold">
+                            {convertDigits(`${percentOfTotal}%`, numberFormat)} {copy.shareOfPayrollSuffix}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* High Priority Tasks & Action Items (Col-span 5) */}
+          {canManageTasks && (
+            <div className={`${canViewFinancialCards ? 'lg:col-span-5' : 'lg:col-span-12'} rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20 flex flex-col justify-between`}>
+              <div>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <ListTodo className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                        {copy.priorityTasksTitle}
+                      </h3>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {convertDigits(activeTasksCount, numberFormat)} {copy.openTasksSuffix}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setIsTasksModalOpen(true)}
+                    className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                  >
+                    {copy.viewAllTasksBtn}
+                  </button>
+                </div>
+
+                {activeTasksList.length === 0 ? (
+                  <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-xs">
+                    {copy.noPendingTasksMsg}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {activeTasksList.map((task) => {
+                      const isHigh = task.priority === 'high';
+                      return (
+                        <div
+                          key={task.id}
+                          className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-2.5 hover:border-sky-500/30 transition-all"
+                        >
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            <button
+                              onClick={async () => {
+                                if (task.id) await updateTask(task.id, { status: 'completed' });
+                              }}
+                              className="w-5 h-5 rounded-lg border border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex items-center justify-center flex-shrink-0 group/check cursor-pointer"
+                              title={copy.completeTaskTitle}
+                              aria-label={copy.completeTaskTitle}
+                            >
+                              <Check className="w-3.5 h-3.5 text-transparent group-hover/check:text-emerald-500" />
+                            </button>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
+                              {task.title}
+                            </span>
+                          </div>
+
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                              isHigh
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                : 'bg-slate-200/50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400'
+                            }`}
+                          >
+                            {isHigh ? copy.priorityHighBadge : copy.priorityNormalBadge}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <button
-                onClick={() => setIsTasksModalOpen(true)}
-                className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                onClick={() => setIsNewTaskModalOpen(true)}
+                className="w-full mt-4 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                {copy.viewAllTasksBtn}
+                <Plus className="w-4 h-4" />
+                <span>{copy.createNewTaskBtn}</span>
               </button>
             </div>
+          )}
 
-            {activeTasksList.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-xs">
-                {copy.noPendingTasksMsg}
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {activeTasksList.map((task) => {
-                  const isHigh = task.priority === 'high';
-                  return (
-                    <div
-                      key={task.id}
-                      className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-2.5 hover:border-sky-500/30 transition-all"
-                    >
-                      <div className="flex items-center gap-2.5 overflow-hidden">
-                        <button
-                          onClick={async () => {
-                            if (task.id) await updateTask(task.id, { status: 'completed' });
-                          }}
-                          className="w-5 h-5 rounded-lg border border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex items-center justify-center flex-shrink-0 group/check cursor-pointer"
-                          title={copy.completeTaskTitle}
-                          aria-label={copy.completeTaskTitle}
-                        >
-                          <Check className="w-3.5 h-3.5 text-transparent group-hover/check:text-emerald-500" />
-                        </button>
-                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
-                          {task.title}
-                        </span>
-                      </div>
-
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                          isHigh
-                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                            : 'bg-slate-200/50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400'
-                        }`}
-                      >
-                        {isHigh ? copy.priorityHighBadge : copy.priorityNormalBadge}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setIsNewTaskModalOpen(true)}
-            className="w-full mt-4 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{copy.createNewTaskBtn}</span>
-          </button>
         </div>
-
-      </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* 5. TOP SETTLEMENT PRIORITIES CAPSULE                               */}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      <div className="rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-              <Coins className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                {copy.topSettlementPrioritiesTitle}
-              </h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {copy.topSettlementPrioritiesSubtitle}
-              </span>
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              try {
-                localStorage.setItem('karsync_financials_active_section', 'workers');
-              } catch (_) {}
-              setActiveTab('accounting');
-            }}
-            className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline self-start sm:self-auto flex items-center gap-1 cursor-pointer"
-          >
-            <span>{copy.openSettlementDeskBtn}</span>
-            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
-          </button>
-        </div>
-
-        {financialSummary.topCreditors.length === 0 ? (
-          <div className="py-8 text-center text-emerald-600 dark:text-emerald-400 text-xs font-semibold bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-            {copy.allAccountsSettledMsg}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {financialSummary.topCreditors.map(({ worker, netDebt }) => (
-              <div
-                key={worker.id}
-                onClick={() => openWorkerProfile(worker.id)}
-                className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 hover:border-sky-500/40 cursor-pointer transition-all duration-300 group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-sky-500 transition-colors">
-                    {worker.name}
-                  </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                    {localizeWorkerRole(worker.role)}
-                  </span>
-                </div>
-
-                <div className="text-base font-black text-rose-600 dark:text-rose-400 mt-2">
-                  {formatAmount(netDebt, currency, numberFormat)} {getCurrencySymbol(currency, language)}
-                </div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                  {copy.pendingSettlementLabel}
+      {canViewFinancialCards && (
+        <div className="rounded-3xl p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-lg shadow-slate-200/40 dark:shadow-black/20">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                  {copy.topSettlementPrioritiesTitle}
+                </h3>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {copy.topSettlementPrioritiesSubtitle}
                 </span>
               </div>
-            ))}
+            </div>
+
+            {canManageSettlement && (
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.setItem('karsync_financials_active_section', 'workers');
+                  } catch (_) {}
+                  setActiveTab('accounting');
+                }}
+                className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline self-start sm:self-auto flex items-center gap-1 cursor-pointer"
+              >
+                <span>{copy.openSettlementDeskBtn}</span>
+                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+              </button>
+            )}
           </div>
-        )}
-      </div>
+
+          {financialSummary.topCreditors.length === 0 ? (
+            <div className="py-8 text-center text-emerald-600 dark:text-emerald-400 text-xs font-semibold bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+              {copy.allAccountsSettledMsg}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {financialSummary.topCreditors.map(({ worker, netDebt }) => (
+                <div
+                  key={worker.id}
+                  onClick={() => openWorkerProfile(worker.id)}
+                  className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 hover:border-sky-500/40 cursor-pointer transition-all duration-300 group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-sky-500 transition-colors">
+                      {worker.name}
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      {localizeWorkerRole(worker.role)}
+                    </span>
+                  </div>
+
+                  <div className="text-base font-black text-rose-600 dark:text-rose-400 mt-2">
+                    {formatAmount(netDebt, currency, numberFormat)} {getCurrencySymbol(currency, language)}
+                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                    {copy.pendingSettlementLabel}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* MODALS                                                              */}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      {isTasksModalOpen && (
+      {isTasksModalOpen && canManageTasks && (
         <TasksModal
           isOpen={isTasksModalOpen}
           onClose={() => setIsTasksModalOpen(false)}
@@ -1336,7 +1378,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         />
       )}
 
-      {isNewTaskModalOpen && (
+      {isNewTaskModalOpen && canManageTasks && (
         <TaskFormModal
           isOpen={isNewTaskModalOpen}
           onClose={() => setIsNewTaskModalOpen(false)}

@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
+import { usePermissions } from '../context/AuthContext';
 import { EditRecordModal } from './EditRecordModal';
 import AttendanceRecycleBinModal from './AttendanceRecycleBinModal';
 import { WorkersModal } from './WorkersModal';
@@ -73,6 +74,9 @@ const CALENDAR_VIEW_MODE_KEY = 'karsync_calendar_view_mode';
 
 export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsumed }) {
   const { t, language, direction, numberFormat } = useLanguage();
+  const { hasPermission } = usePermissions();
+  const canWriteAttendance = hasPermission('attendance.write');
+  const canManageWorkers = hasPermission('workers.manage');
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
 
   // Comprehensive Trilingual Dictionary for Attendance & Reports (Zero Cross-Language Leakage)
@@ -1371,18 +1375,22 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             {/* Export & Utility Actions Dock */}
             <div className="h-[52px] sm:h-[56px] flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner flex-shrink-0 backdrop-blur-md">
               {/* Personnel / Workers Management Button */}
-              <button
-                type="button"
-                onClick={() => setIsWorkersModalOpen(true)}
-                className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
-                title={copy.personnelTooltip}
-                aria-label={copy.personnelButton}
-              >
-                <Users className="w-4.5 h-4.5 flex-shrink-0" />
-                <span className="hidden sm:inline">{copy.personnelButton}</span>
-              </button>
+              {canManageWorkers && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsWorkersModalOpen(true)}
+                    className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
+                    title={copy.personnelTooltip}
+                    aria-label={copy.personnelButton}
+                  >
+                    <Users className="w-4.5 h-4.5 flex-shrink-0" />
+                    <span className="hidden sm:inline">{copy.personnelButton}</span>
+                  </button>
 
-              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+                  <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+                </>
+              )}
 
               {/* Quick Export to Excel */}
               <button
@@ -1406,18 +1414,22 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 <Printer className="w-4.5 h-4.5 flex-shrink-0" />
               </button>
 
-              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+              {canWriteAttendance && (
+                <>
+                  <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
 
-              {/* Recycle Bin Action Button */}
-              <button
-                type="button"
-                onClick={() => setIsRecycleBinOpen(true)}
-                aria-label={copy.recycleBinLabel}
-                title={copy.recycleBinLabel}
-                className="h-full aspect-square rounded-xl text-slate-400 hover:text-amber-500 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer"
-              >
-                <Trash2 className="w-4.5 h-4.5 flex-shrink-0" />
-              </button>
+                  {/* Recycle Bin Action Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsRecycleBinOpen(true)}
+                    aria-label={copy.recycleBinLabel}
+                    title={copy.recycleBinLabel}
+                    className="h-full aspect-square rounded-xl text-slate-400 hover:text-amber-500 hover:bg-white/80 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:bg-slate-700/60 transition-all active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer"
+                  >
+                    <Trash2 className="w-4.5 h-4.5 flex-shrink-0" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1436,7 +1448,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
             <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
               {/* Main Monthly Metrics */}
-              <div className="lg:col-span-7 space-y-4">
+              <div className={`${(canWriteAttendance || canManageWorkers) ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-4`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-semibold text-sky-400 uppercase tracking-wider">
                     <CalendarCheck className="w-4 h-4" />
@@ -1505,34 +1517,42 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               </div>
 
               {/* Quick Action Dock */}
-              <div className="lg:col-span-5 grid grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
-                <button
-                  type="button"
-                  onClick={() => onOpenLoggingModal && onOpenLoggingModal(getTodayDateString())}
-                  className="col-span-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
-                >
-                  <CalendarPlus className="w-4 h-4" />
-                  <span>{copy.logDailyAttendance}</span>
-                </button>
+              {(canWriteAttendance || canManageWorkers) && (
+                <div className="lg:col-span-5 grid grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                  {canWriteAttendance && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenLoggingModal && onOpenLoggingModal(getTodayDateString())}
+                      className="col-span-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 transition-all duration-300 cursor-pointer active:scale-95"
+                    >
+                      <CalendarPlus className="w-4 h-4" />
+                      <span>{copy.logDailyAttendance}</span>
+                    </button>
+                  )}
 
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'))}
-                  className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
-                >
-                  <Users className="w-4 h-4 text-sky-400" />
-                  <span>{copy.personnelButton}</span>
-                </button>
+                  {canManageWorkers && (
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-workers-modal'))}
+                      className={`${canWriteAttendance ? 'col-span-1' : 'col-span-2'} flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95`}
+                    >
+                      <Users className="w-4 h-4 text-sky-400" />
+                      <span>{copy.personnelButton}</span>
+                    </button>
+                  )}
 
-                <button
-                  type="button"
-                  onClick={() => setIsRecycleBinOpen(true)}
-                  className="col-span-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95"
-                >
-                  <Trash2 className="w-4 h-4 text-amber-400" />
-                  <span>{copy.recycleBinShort}</span>
-                </button>
-              </div>
+                  {canWriteAttendance && (
+                    <button
+                      type="button"
+                      onClick={() => setIsRecycleBinOpen(true)}
+                      className={`${canManageWorkers ? 'col-span-1' : 'col-span-2'} flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 transition-all duration-300 cursor-pointer active:scale-95`}
+                    >
+                      <Trash2 className="w-4 h-4 text-amber-400" />
+                      <span>{copy.recycleBinShort}</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Filter & Search Sub-Dock */}
@@ -1618,13 +1638,15 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-12 text-center text-slate-400">
               <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-30 text-sky-500" />
               <p className="text-sm font-semibold">{t('noLogsForMonth')}</p>
-              <button
-                onClick={() => onOpenLoggingModal && onOpenLoggingModal(`${calendarMonth}-01`)}
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>{t('logDailyAttendance')}</span>
-              </button>
+              {canWriteAttendance && (
+                <button
+                  onClick={() => onOpenLoggingModal && onOpenLoggingModal(`${calendarMonth}-01`)}
+                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>{t('logDailyAttendance')}</span>
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -1769,18 +1791,20 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         )}
 
                         {/* Quick Add Log Button [APP_THEME_BUTTON] */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onOpenLoggingModal) onOpenLoggingModal(dayItem.dateStr);
-                          }}
-                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white shadow-md shadow-sky-500/25 transition-all cursor-pointer active:scale-95 border border-sky-400/30"
-                          title={copy.quickAddLogTooltip}
-                        >
-                          <PlusCircle className="w-4 h-4" />
-                          <span className="hidden sm:inline">{copy.quickAddLog}</span>
-                        </button>
+                        {canWriteAttendance && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onOpenLoggingModal) onOpenLoggingModal(dayItem.dateStr);
+                            }}
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white shadow-md shadow-sky-500/25 transition-all cursor-pointer active:scale-95 border border-sky-400/30"
+                            title={copy.quickAddLogTooltip}
+                          >
+                            <PlusCircle className="w-4 h-4" />
+                            <span className="hidden sm:inline">{copy.quickAddLog}</span>
+                          </button>
+                        )}
 
                         {/* Collapse/Expand Chevron */}
                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-300 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ${
@@ -1855,7 +1879,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                         <span className="p-1 text-emerald-500 bg-emerald-500/10 rounded-lg text-[10px] font-bold flex items-center gap-0.5" title={copy.settledLockedTitle}>
                                           <Lock className="w-3 h-3" />
                                         </span>
-                                      ) : (
+                                      ) : canWriteAttendance ? (
                                         <div className="flex items-center gap-1">
                                           <button
                                             type="button"
@@ -1874,7 +1898,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                             <Trash2 className="w-3.5 h-3.5" />
                                           </button>
                                         </div>
-                                      )}
+                                      ) : null}
                                     </div>
                                   </div>
                                 );
@@ -1965,15 +1989,17 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 <div className="text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50">
                   <span>{allLogs.filter(l => l.date.startsWith(calendarMonth)).length} {t('totalEntries')}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenLoggingModal && onOpenLoggingModal(getTodayDateString())}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer active:scale-95"
-                >
-                  <CalendarPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">{t('logDailyAttendance')}</span>
-                  <span className="xs:hidden">{copy.quickAddLog}</span>
-                </button>
+                {canWriteAttendance && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenLoggingModal && onOpenLoggingModal(getTodayDateString())}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer active:scale-95"
+                  >
+                    <CalendarPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden xs:inline">{t('logDailyAttendance')}</span>
+                    <span className="xs:hidden">{copy.quickAddLog}</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2115,13 +2141,15 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => onOpenLoggingModal && onOpenLoggingModal(inspectedDateStr)}
-                    className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>{copy.quickAddLogThisDate}</span>
-                  </button>
+                  {canWriteAttendance && (
+                    <button
+                      onClick={() => onOpenLoggingModal && onOpenLoggingModal(inspectedDateStr)}
+                      className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>{copy.quickAddLogThisDate}</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setInspectedDateStr(null)}
                     className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
@@ -2168,12 +2196,14 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         <span className="font-mono font-bold text-slate-700 dark:text-slate-200 text-[11px]">
                           {formatAmount(log.totalDayPay, currency)}
                         </span>
-                        <button
-                          onClick={() => setEditingLog(log)}
-                          className="p-1 text-slate-400 hover:text-sky-600 transition-colors cursor-pointer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canWriteAttendance && (
+                          <button
+                            onClick={() => setEditingLog(log)}
+                            className="p-1 text-slate-400 hover:text-sky-600 transition-colors cursor-pointer"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -2971,14 +3001,14 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                               <div className="flex items-center justify-center gap-1.5">
                                 {logSettled ? (
                                   <button
-                                    onClick={() => setEditingLog(log)}
+                                    onClick={() => canWriteAttendance && setEditingLog(log)}
                                     className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold"
                                     title={copy.settledLockedTitle}
                                   >
                                     <Lock className="w-3.5 h-3.5" />
                                     <span className="text-[10px]">{copy.locked}</span>
                                   </button>
-                                ) : (
+                                ) : canWriteAttendance ? (
                                   <>
                                     <button
                                       onClick={() => setEditingLog(log)}
@@ -2995,6 +3025,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                                       <Trash2 className="w-4 h-4" />
                                     </button>
                                   </>
+                                ) : (
+                                  <span className="text-xs text-slate-400">-</span>
                                 )}
                               </div>
                             </td>
@@ -3280,14 +3312,14 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         </span>
                         {isLogSettled(log) ? (
                           <button
-                            onClick={() => setEditingLog(log)}
+                            onClick={() => canWriteAttendance && setEditingLog(log)}
                             className="p-1.5 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors flex items-center gap-1 text-xs font-semibold"
                             title={copy.settledLockedTitle}
                           >
                             <Lock className="w-4 h-4" />
                             <span className="text-[10px]">{copy.locked}</span>
                           </button>
-                        ) : (
+                        ) : canWriteAttendance ? (
                           <>
                             <button
                               onClick={() => setEditingLog(log)}
@@ -3304,7 +3336,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -3314,19 +3346,23 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
             {/* Modal Footer */}
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const targetDate = inspectedDateStr;
-                  setInspectedDateStr(null);
-                  if (onOpenLoggingModal) {
-                    onOpenLoggingModal(targetDate);
-                  }
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>{t('quickAddLogThisDate')}</span>
-              </button>
+              {canWriteAttendance ? (
+                <button
+                  onClick={() => {
+                    const targetDate = inspectedDateStr;
+                    setInspectedDateStr(null);
+                    if (onOpenLoggingModal) {
+                      onOpenLoggingModal(targetDate);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>{t('quickAddLogThisDate')}</span>
+                </button>
+              ) : (
+                <div />
+              )}
 
               <button
                 onClick={() => setInspectedDateStr(null)}
@@ -3340,24 +3376,30 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       )}
 
       {/* Dedicated Edit Record Modal */}
-      <EditRecordModal
-        log={editingLog}
-        isOpen={!!editingLog}
-        onClose={() => setEditingLog(null)}
-      />
+      {canWriteAttendance && (
+        <EditRecordModal
+          log={editingLog}
+          isOpen={!!editingLog}
+          onClose={() => setEditingLog(null)}
+        />
+      )}
 
       {/* Attendance Recycle Bin Modal */}
-      <AttendanceRecycleBinModal
-        isOpen={isRecycleBinOpen}
-        onClose={() => setIsRecycleBinOpen(false)}
-        workers={workers}
-      />
+      {canWriteAttendance && (
+        <AttendanceRecycleBinModal
+          isOpen={isRecycleBinOpen}
+          onClose={() => setIsRecycleBinOpen(false)}
+          workers={workers}
+        />
+      )}
 
       {/* Full Personnel & Workers Management Modal */}
-      <WorkersModal
-        isOpen={isWorkersModalOpen}
-        onClose={() => setIsWorkersModalOpen(false)}
-      />
+      {canManageWorkers && (
+        <WorkersModal
+          isOpen={isWorkersModalOpen}
+          onClose={() => setIsWorkersModalOpen(false)}
+        />
+      )}
 
     </div>
   );
