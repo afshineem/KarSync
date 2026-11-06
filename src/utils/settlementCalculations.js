@@ -38,7 +38,7 @@ export function getReceiptPeriodEnd(receipt) {
   return receipt.date || receipt.createdAt?.slice(0, 10) || null;
 }
 
-export function calculateWorkerFinancials(worker, allLogs = [], allPayments = [], currency = 'IQD') {
+export function calculateWorkerFinancials(worker, allLogs = [], allPayments = [], currency = 'IQD', allLoans = []) {
   if (!worker) return null;
 
   const wId = String(worker.id);
@@ -344,6 +344,24 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     currency
   );
 
+  // Active loans for this worker
+  const activeLoans = (allLoans || []).filter((l) => 
+    String(l.workerId) === wId && 
+    !l.deletedAt && 
+    l.status === 'active' && 
+    (Number(l.remainingBalance) > 0)
+  );
+
+  const totalLoanRemaining = roundCurrency(
+    activeLoans.reduce((sum, l) => sum + (Number(l.remainingBalance) || 0), 0),
+    currency
+  );
+
+  const suggestedLoanDeduction = roundCurrency(
+    activeLoans.reduce((sum, l) => sum + Math.min(Number(l.monthlyInstallment) || 0, Number(l.remainingBalance) || 0), 0),
+    currency
+  );
+
   // Net balance due for the current open period
   const netBalanceDue = roundCurrency(unsettledGross - unsettledAdvances, currency);
 
@@ -369,6 +387,10 @@ export function calculateWorkerFinancials(worker, allLogs = [], allPayments = []
     unsettledGross: roundCurrency(unsettledGross, currency),
     unsettledAdvances,
     netBalanceDue,
+    // Staff Loans
+    activeLoans,
+    totalLoanRemaining,
+    suggestedLoanDeduction,
     status,
     isSettled: status === 'settled',
     // Monthly wage details

@@ -85,6 +85,10 @@ db.version(15).stores({
   backupSnapshots: 'id, createdAt, triggerType, version'
 });
 
+db.version(16).stores({
+  loans: 'id, projectId, workerId, status, startMonth, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -118,6 +122,11 @@ export function generateGroupId() {
 // Helper to generate Payment / Settlement IDs
 export function generatePaymentId() {
   return 'pay_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+}
+
+// Helper to generate Loan IDs
+export function generateLoanId() {
+  return 'loan_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Expense IDs

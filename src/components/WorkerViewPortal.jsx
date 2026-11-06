@@ -43,7 +43,8 @@ import {
   Bell,
   BellRing,
   Check,
-  Smartphone
+  Smartphone,
+  CreditCard
 } from 'lucide-react';
 
 // Format decimal hours into H:MM clock format (e.g., 1.333 -> 1:20, 1.5 -> 1:30)
@@ -238,7 +239,21 @@ const PORTAL_COPY = {
     typeSettlement: 'تسویه حساب',
     typeAdvance: 'مساعده',
     sigWorkerOrSupervisor: 'امضای پرسنل / سرپرست',
-    sigWorkshopManager: 'امضای مدیریت کارگاه'
+    sigWorkshopManager: 'امضای مدیریت کارگاه',
+
+    // Staff Loans
+    loanSectionTitle: 'وام و تسهیلات درون‌سازمانی',
+    loanPrincipalLabel: 'اصل مبلغ وام:',
+    loanTotalRepayable: 'کل بازپرداخت:',
+    loanRepaidLabel: 'پرداخت‌شده تا کنون:',
+    loanRemainingLabel: 'مانده بدهی وام:',
+    loanMonthlyInstallmentLabel: 'قسط ماهانه:',
+    loanRemainingMonthsLabel: 'اقساط باقی‌مانده:',
+    loanMonthsSuffix: 'ماه',
+    loanDeductedFromPayrollTip: 'اقساط این وام ماهانه در زمان تسویه‌حساب از دریافتی شما کسر می‌گردد.',
+    loanStatusActive: 'در حال پرداخت',
+    loanStatusSettled: 'تسویه‌شده',
+    loanProgressLabel: 'پیشرفت بازپرداخت:'
   },
 
   ku: {
@@ -395,7 +410,21 @@ const PORTAL_COPY = {
     typeSettlement: 'تەسویەی حیساب',
     typeAdvance: 'پێشەکی (مساعدە)',
     sigWorkerOrSupervisor: 'واژۆی کارمەند / سەرپەرشتیار',
-    sigWorkshopManager: 'واژۆی بەڕێوەبەری کارگە'
+    sigWorkshopManager: 'واژۆی بەڕێوەبەری کارگە',
+
+    // Staff Loans
+    loanSectionTitle: 'قەرز و ئاسانکاری ناوخۆیی',
+    loanPrincipalLabel: 'بڕی بنەڕەتی قەرز:',
+    loanTotalRepayable: 'کۆی گشتی گەڕاندنەوە:',
+    loanRepaidLabel: 'دراو تا ئێستا:',
+    loanRemainingLabel: 'ماوەی قەرز:',
+    loanMonthlyInstallmentLabel: 'قیستی مانگانە:',
+    loanRemainingMonthsLabel: 'قیستە ماوەکان:',
+    loanMonthsSuffix: 'مانگ',
+    loanDeductedFromPayrollTip: 'قیستی ئەم قەرزە مانگانە لە کاتی پاکتاوی مووچە لە پارەکەت دادەشکێنرێت.',
+    loanStatusActive: 'لە حاڵی دانەوە',
+    loanStatusSettled: 'پاکتاوکراو',
+    loanProgressLabel: 'بەرەوپێشچوونی گەڕاندنەوە:'
   },
 
   en: {
@@ -552,7 +581,21 @@ const PORTAL_COPY = {
     typeSettlement: 'Settlement',
     typeAdvance: 'Advance',
     sigWorkerOrSupervisor: 'Worker / Supervisor Signature',
-    sigWorkshopManager: 'Workshop Management Signature'
+    sigWorkshopManager: 'Workshop Management Signature',
+
+    // Staff Loans
+    loanSectionTitle: 'Internal Staff Loan & Facilities',
+    loanPrincipalLabel: 'Principal Amount:',
+    loanTotalRepayable: 'Total Repayable:',
+    loanRepaidLabel: 'Total Paid to Date:',
+    loanRemainingLabel: 'Remaining Balance:',
+    loanMonthlyInstallmentLabel: 'Monthly Installment:',
+    loanRemainingMonthsLabel: 'Remaining Months:',
+    loanMonthsSuffix: 'months',
+    loanDeductedFromPayrollTip: 'Installments are deducted from your monthly salary settlement.',
+    loanStatusActive: 'Active Repayment',
+    loanStatusSettled: 'Settled',
+    loanProgressLabel: 'Repayment Progress:'
   }
 };
 
@@ -1207,22 +1250,65 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       });
   }, [allWorkers, worker?.groupId]);
 
+  // Staff Loans Live Query
+  const allLoans = useLiveQuery(async () => {
+    if (!db.loans) return [];
+    return await db.loans.toArray();
+  }, []) || [];
+
+  const workerLoans = useMemo(() => {
+    if (!worker?.id || !allLoans) return [];
+    return allLoans.filter((l) => !l.deletedAt && String(l.workerId) === String(worker.id));
+  }, [worker?.id, allLoans]);
+
+  const activeWorkerLoans = useMemo(() => {
+    return workerLoans.filter((l) => l.status === 'active' && (Number(l.remainingBalance) || 0) > 0);
+  }, [workerLoans]);
+
+  const personalLoanTotals = useMemo(() => {
+    let principal = 0;
+    let repayable = 0;
+    let paid = 0;
+    let remaining = 0;
+    let monthlyInstallment = 0;
+    let remainingMonths = 0;
+
+    activeWorkerLoans.forEach((l) => {
+      principal += Number(l.principalAmount) || 0;
+      repayable += Number(l.totalRepayable) || 0;
+      paid += Number(l.totalPaid) || 0;
+      remaining += Number(l.remainingBalance) || 0;
+      monthlyInstallment += Number(l.monthlyInstallment) || 0;
+      remainingMonths = Math.max(remainingMonths, Number(l.remainingMonths) || 0);
+    });
+
+    return {
+      count: activeWorkerLoans.length,
+      principal,
+      repayable,
+      paid,
+      remaining,
+      monthlyInstallment,
+      remainingMonths
+    };
+  }, [activeWorkerLoans]);
+
   // 3. Robust Financial Calculations
   const personalFinancials = useMemo(() => {
     if (!worker) return null;
-    return calculateWorkerFinancials(worker, allLogs, allPayments, currency);
-  }, [worker, allLogs, allPayments, currency]);
+    return calculateWorkerFinancials(worker, allLogs, allPayments, currency, allLoans);
+  }, [worker, allLogs, allPayments, currency, allLoans]);
 
   const groupMembersFinancials = useMemo(() => {
     if (!isSupervisor || groupMembers.length === 0) return [];
     return groupMembers.map((m) => {
-      const fin = calculateWorkerFinancials(m, allLogs, allPayments, currency);
+      const fin = calculateWorkerFinancials(m, allLogs, allPayments, currency, allLoans);
       return {
         member: m,
         ...fin
       };
     });
-  }, [isSupervisor, groupMembers, allLogs, allPayments, currency]);
+  }, [isSupervisor, groupMembers, allLogs, allPayments, currency, allLoans]);
 
   // Aggregated group totals across all dimensions
   const groupAggregates = useMemo(() => {
@@ -2470,6 +2556,95 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
             </div>
           </div>
         </div>
+
+        {/* ================================================================= */}
+        {/* 3.5. STAFF LOAN FACILITIES TRANSPARENCY CARD                      */}
+        {/* ================================================================= */}
+        {portalMode === 'personal' && personalLoanTotals.count > 0 && (
+          <div className="rounded-3xl backdrop-blur-2xl bg-gradient-to-br from-blue-900/40 via-indigo-900/30 to-slate-900/60 border border-blue-500/20 shadow-xl overflow-hidden p-6 sm:p-7 text-white space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 shrink-0">
+                  <CreditCard className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+                    <span>{pc.loanSectionTitle}</span>
+                  </h3>
+                  <p className="text-xs text-blue-200/80 mt-0.5">
+                    {pc.loanDeductedFromPayrollTip}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 font-mono">
+                  {personalLoanTotals.count} {pc.loanStatusActive}
+                </span>
+              </div>
+            </div>
+
+            {/* Grid of Key Loan Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5">
+                <span className="text-[11px] text-slate-400 block font-medium">{pc.loanTotalRepayable}</span>
+                <span className="text-base sm:text-lg font-black text-white font-mono block mt-1">
+                  {formatAmount(personalLoanTotals.repayable, currency)}
+                </span>
+                <span className="text-[10px] text-blue-400 font-bold mt-0.5 block">{currencySymbol}</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                <span className="text-[11px] text-emerald-300/80 block font-medium">{pc.loanRepaidLabel}</span>
+                <span className="text-base sm:text-lg font-black text-emerald-400 font-mono block mt-1">
+                  {formatAmount(personalLoanTotals.paid, currency)}
+                </span>
+                <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">{currencySymbol}</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <span className="text-[11px] text-amber-300/80 block font-medium">{pc.loanRemainingLabel}</span>
+                <span className="text-base sm:text-lg font-black text-amber-400 font-mono block mt-1">
+                  {formatAmount(personalLoanTotals.remaining, currency)}
+                </span>
+                <span className="text-[10px] text-amber-400 font-bold mt-0.5 block">{currencySymbol}</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
+                <span className="text-[11px] text-indigo-300/80 block font-medium">{pc.loanMonthlyInstallmentLabel}</span>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-base sm:text-lg font-black text-indigo-300 font-mono">
+                    {formatAmount(personalLoanTotals.monthlyInstallment, currency)}
+                  </span>
+                  <span className="text-[10px] text-indigo-300 font-bold">{currencySymbol}</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  {pc.loanRemainingMonthsLabel} {personalLoanTotals.remainingMonths} {pc.loanMonthsSuffix}
+                </span>
+              </div>
+            </div>
+
+            {/* Repayment Progress Bar */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                <span>{pc.loanProgressLabel}</span>
+                <span className="font-mono text-blue-300">
+                  {personalLoanTotals.repayable > 0 
+                    ? Math.min(100, Math.round((personalLoanTotals.paid / personalLoanTotals.repayable) * 100))
+                    : 0}%
+                </span>
+              </div>
+              <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 rounded-full transition-all duration-500 shadow-sm"
+                  style={{
+                    width: `${personalLoanTotals.repayable > 0 ? Math.min(100, Math.round((personalLoanTotals.paid / personalLoanTotals.repayable) * 100)) : 0}%`
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ================================================================= */}
         {/* 4. FULL-WIDTH ATTENDANCE REPORT ("گزارش کارکرد من")               */}

@@ -29,6 +29,7 @@ import { AccountSubsidiaryLedgerModal } from './accounting/AccountSubsidiaryLedg
 import { CounterpartiesView } from './CounterpartiesView';
 import { SpendAnalyticsSection } from './accounting/SpendAnalyticsSection';
 import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
+import { StaffLoansSection } from './accounting/StaffLoansSection';
 
 // Utilities & LiveSync
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
@@ -83,7 +84,8 @@ import {
   PieChart,
   Building2,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Calculator
 } from 'lucide-react';
 
 const SUMMARY_LAYOUT_KEY = 'karsync_financials_worker_layout';
@@ -123,6 +125,7 @@ const COPY = {
     settlementAction: 'تسویه حساب پرسنل',
     transferAction: 'انتقال بین حساب‌ها',
     workerBalancesTab: 'تراز و کارنامه پرسنل',
+    loansTab: 'وام و تسهیلات',
     accountsTab: 'صندوق‌ها و حساب‌های مالی',
     ledgerTab: 'دفتر روزنامه تراکنش‌ها',
     customDateRange: 'فیلتر بازه زمانی دلخواه',
@@ -232,6 +235,7 @@ const COPY = {
     settlementAction: 'تەواوکاری و پاکتاوی کرێکاران',
     transferAction: 'گواستنەوەی نێوان حیسابەکان',
     workerBalancesTab: 'تەرازووی کرێکاران',
+    loansTab: 'قەرز و ئاسانکاری',
     accountsTab: 'سندوق و کارتەکان',
     ledgerTab: 'دەفتەری گشتی',
     customDateRange: 'ماوەی بەرواری دڵخواز',
@@ -341,6 +345,7 @@ const COPY = {
     settlementAction: 'Final Settlement',
     transferAction: 'Account Transfer',
     workerBalancesTab: 'Worker Balances',
+    loansTab: 'Staff Loans',
     accountsTab: 'Accounts & Wallets',
     ledgerTab: 'Financial Ledger',
     customDateRange: 'Custom Date Range',
@@ -428,11 +433,11 @@ export function FinancialsView() {
   const currency = currentProject?.currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
-  // Active main section: 'analytics' | 'workers' | 'accounts' | 'ledger'
+  // Active main section: 'analytics' | 'workers' | 'loans' | 'accounts' | 'ledger'
   const [activeSection, setActiveSectionState] = useState(() => {
     try {
       const saved = localStorage.getItem(FINANCIAL_SECTION_KEY);
-      return saved && ['analytics', 'workers', 'accounts', 'ledger'].includes(saved) ? saved : 'analytics';
+      return saved && ['analytics', 'workers', 'loans', 'accounts', 'ledger'].includes(saved) ? saved : 'analytics';
     } catch {
       return 'analytics';
     }
@@ -571,9 +576,20 @@ export function FinancialsView() {
   const [settlementInitialGroupId, setSettlementInitialGroupId] = useState(null);
   const [advanceTargetWorker, setAdvanceTargetWorker] = useState(null);
   const [isGlobalAdvanceModalOpen, setIsGlobalAdvanceModalOpen] = useState(false);
+  const [isGlobalLoanModalOpen, setIsGlobalLoanModalOpen] = useState(false);
   const [historyTargetWorker, setHistoryTargetWorker] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
   const [isCounterpartiesModalOpen, setIsCounterpartiesModalOpen] = useState(false);
+
+  // Live query for active loans count (for tab badge)
+  const activeLoansList = useLiveQuery(
+    async () => {
+      if (!db.loans) return [];
+      const list = await db.loans.toArray();
+      return list.filter((l) => !l.deletedAt && l.status === 'active' && (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+    },
+    [targetProjectId]
+  ) || [];
 
   // Live Queries for Workers, Logs & Payments
   const workers = useLiveQuery(
@@ -1440,6 +1456,12 @@ export function FinancialsView() {
               icon: Users
             },
             {
+              id: 'loans',
+              label: c.loansTab,
+              icon: Calculator,
+              badge: activeLoansList.length > 0 ? activeLoansList.length : null
+            },
+            {
               id: 'accounts',
               label: c.accountsTab,
               icon: Landmark
@@ -1799,6 +1821,13 @@ export function FinancialsView() {
       )}
 
       {/* ======================================================== */}
+      {/* 4.5. SECTION 1.5: STAFF LOANS & FACILITIES (وام و تسهیلات) */}
+      {/* ======================================================== */}
+      {activeSection === 'loans' && (
+        <StaffLoansSection onOpenNewLoanModal={() => setIsGlobalLoanModalOpen(true)} />
+      )}
+
+      {/* ======================================================== */}
       {/* 5. SECTION 2: ACCOUNTS & TREASURY (صندوق‌ها و حساب‌ها)   */}
       {/* ======================================================== */}
       {activeSection === 'accounts' && (
@@ -2053,6 +2082,18 @@ export function FinancialsView() {
           workers={workers.filter((w) => w.isActive === 1)}
           targetWorkerId={null}
           targetMonth={selectedMonth}
+        />
+      )}
+
+      {/* Global Staff Loan Modal */}
+      {isGlobalLoanModalOpen && (
+        <AdvancePaymentModal
+          isOpen={isGlobalLoanModalOpen}
+          onClose={() => setIsGlobalLoanModalOpen(false)}
+          workers={workers.filter((w) => w.isActive === 1)}
+          targetWorkerId={null}
+          targetMonth={selectedMonth}
+          initialPaymentType="loan"
         />
       )}
 

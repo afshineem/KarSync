@@ -1065,6 +1065,8 @@ function subscribeToRealtime() {
         await pullAccountTransfersLive(true);
       } else if (syncType === 'counterparties') {
         await pullCounterpartiesLive(true);
+      } else if (syncType === 'loans') {
+        await pullLoansLive(true);
       } else if (syncType === 'settings') {
         await pullGlobalOverdraftPolicyLive();
       } else {
@@ -1078,6 +1080,7 @@ function subscribeToRealtime() {
         await pullFinancialAccountsLive(true);
         await pullTreasuryIncomesLive(true);
         await pullAccountTransfersLive(true);
+        await pullLoansLive(true);
         await pullCounterpartiesLive(true);
         await pullGlobalOverdraftPolicyLive();
       }
@@ -1199,6 +1202,8 @@ function subscribeToRealtime() {
         await pullProjectSectionsLive(true);
       } else if (key === getScopedSettingKey('app_groups')) {
         await pullGroupsLive(true);
+      } else if (key === getScopedSettingKey('app_loans')) {
+        await pullLoansLive(true);
       }
     })
     .subscribe((status) => {
@@ -4491,5 +4496,134 @@ export async function pushAllCounterpartiesToCloud() {
     console.warn('pushAllCounterpartiesToCloud warning:', err);
   }
 }
+
+// ----------------------------------------------------
+// Staff Loans Live Cloud Sync (وام‌های پرسنلی)
+// ----------------------------------------------------
+export async function pushLoansLive() {
+  if (!navigator.onLine || !db.loans) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
+  try {
+    const localLoans = await db.loans.toArray();
+    const activeLocal = localLoans.filter(l => !l.deletedAt && l.status !== 'deleted');
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_loans'))
+      .maybeSingle();
+
+    let mergedMap = new Map();
+    if (data?.setting_value) {
+      try {
+        const cloudLoans = JSON.parse(data.setting_value);
+        if (Array.isArray(cloudLoans)) {
+          for (const cl of cloudLoans) {
+            if (!cl.deletedAt && cl.status !== 'deleted') {
+              mergedMap.set(cl.id, cl);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    for (const ll of activeLocal) {
+      mergedMap.set(ll.id, ll);
+    }
+
+    const mergedList = Array.from(mergedMap.values()).map(l => ({
+      ...l,
+      principalAmount: roundCurrency(l.principalAmount, l.currency),
+      totalRepayable: roundCurrency(l.totalRepayable, l.currency),
+      totalPaid: roundCurrency(l.totalPaid, l.currency),
+      remainingBalance: roundCurrency(l.remainingBalance, l.currency),
+      monthlyInstallment: roundCurrency(l.monthlyInstallment, l.currency)
+    }));
+
+    await supabase.from('settings').upsert({
+      setting_key: getScopedSettingKey('app_loans'),
+      setting_value: JSON.stringify(mergedList),
+      updated_at: new Date().toISOString()
+    });
+
+    broadcastSyncEvent('loans');
+  } catch (err) {
+    console.warn('pushLoansLive warning:', err);
+  }
+}
+
+export async function pullLoansLive(triggerEvent = true) {
+  if (!navigator.onLine || !db.loans) return [];
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return [];
+
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_loans'))
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      const cloudLoans = JSON.parse(data.setting_value);
+      if (Array.isArray(cloudLoans)) {
+        await db.transaction('rw', db.loans, async () => {
+          for (const cl of cloudLoans) {
+            if (!cl.id) continue;
+            const existing = await db.loans.get(cl.id);
+            if (!existing || new Date(cl.updatedAt || cl.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
+              await db.loans.put(cl);
+            }
+          }
+        });
+
+        if (triggerEvent) {
+          window.dispatchEvent(new CustomEvent('workshop-loans-sync'));
+        }
+        return cloudLoans;
+      }
+    }
+  } catch (err) {
+    console.warn('pullLoansLive warning:', err);
+  }
+  return [];
+}
+
+export async function deleteLoanLive(loanId) {
+  if (!loanId || !db.loans) return;
+  try {
+    const existing = await db.loans.get(loanId);
+    if (existing) {
+      const updated = { ...existing, status: 'deleted', deletedAt: new Date().toISOString() };
+      await db.loans.put(updated);
+    }
+
+    if (!navigator.onLine) return;
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_loans'))
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        let cloudList = JSON.parse(data.setting_value) || [];
+        cloudList = cloudList.filter(l => l.id !== loanId);
+        await supabase.from('settings').upsert({
+          setting_key: getScopedSettingKey('app_loans'),
+          setting_value: JSON.stringify(cloudList),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    broadcastSyncEvent('loans');
+  } catch (err) {
+    console.warn('deleteLoanLive warning:', err);
+  }
+}
+
 
 

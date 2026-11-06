@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, generatePaymentId, DEFAULT_PROJECT_ID } from '../db/db';
+import { db, generatePaymentId, generateLoanId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
-import { pushPaymentsLive } from '../services/realtimeSync';
+import { pushPaymentsLive, pushLoansLive } from '../services/realtimeSync';
 import { 
   getTodayDateString, 
   getCurrentYearMonth, 
@@ -40,7 +40,10 @@ import {
   Receipt,
   Layers,
   Clock,
-  Briefcase
+  Briefcase,
+  Percent,
+  Calculator,
+  CalendarRange
 } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
 import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
@@ -50,6 +53,7 @@ const COPY = {
     paymentTypeLabel: 'نوع پرداخت:',
     paymentTypeAdvance: 'مساعده و پیش‌پرداخت',
     paymentTypeBonus: 'عیدی و پاداش تشویقی',
+    paymentTypeLoan: 'وام و تسهیلات پرسنلی',
     bonusCategoryLabel: 'مناسبت یا عنوان پاداش:',
     bonusPresetNowruz: 'عیدی مناسبتی (نوروز / اعیاد)',
     bonusPresetGoodJob: 'پاداش حسن انجام کار و انگیزه',
@@ -62,6 +66,28 @@ const COPY = {
     totalBonusesReceivedLabel: 'مجموع پاداش‌های دریافت‌شده:',
     bonusModalTitle: 'ثبت سند عیدی و پاداش تشویقی پرسنل',
     bonusModalSubtitle: 'پرداخت پاداش، عیدی‌های مناسبتی یا هدیه به پرسنل کارگاه با ثبت در دفاتر مالی',
+    loanModalTitle: 'ثبت سند پرداخت وام به پرسنل',
+    loanModalSubtitle: 'پرداخت وام درون‌سازمانی با برنامه‌ریزی اقساط و کسر از تسویه‌حساب ماهانه',
+    loanSuccessMsg: 'سند وام پرسنلی با موفقیت ثبت شد',
+    submitLoan: 'ثبت و اعطای وام',
+    loanTermsTitle: 'شرایط بازپرداخت و اقساط ماهانه',
+    loanDurationLabel: 'مدت بازپرداخت (تعداد اقساط / ماه):',
+    monthsCountSuffix: 'ماه',
+    interestTypeLabel: 'کارمزد یا سود توافقی:',
+    interestNone: 'قرض‌الحسنه (بدون کارمزد)',
+    interestPercent: 'درصدی (%)',
+    interestFixed: 'مبلغ مقطوع',
+    interestPercentPlaceholder: 'درصد کارمزد (مثال: ۴)',
+    interestFixedPlaceholder: 'مبلغ کل کارمزد توافقی...',
+    startMonthLabel: 'شروع کسر اولین قسط:',
+    startMonthCurrent: 'از تسویه ماه جاری',
+    startMonthNext: 'از تسویه ماه آینده',
+    loanSummaryTitle: 'خلاصه تسهیلات و جدول بازپرداخت:',
+    principalLabel: 'اصل مبلغ پرداختی وام:',
+    interestAmountLabel: 'مبلغ کارمزد / سود:',
+    totalRepayableLabel: 'مجموع کل بازپرداخت:',
+    monthlyInstallmentLabel: 'مبلغ هر قسط ماهانه:',
+    loanDeductionNotice: 'این مبلغ به عنوان وام به پرسنل پرداخت می‌شود و اقساط آن در زمان تسویه‌حساب‌های ماهانه کسر خواهد شد.',
     selectedAccountDefault: 'حساب انتخابی',
     cashAccountDefault: 'صندوق',
     workshopCashDesk: 'صندوق نقدی کارگاه',
@@ -120,6 +146,7 @@ const COPY = {
     paymentTypeLabel: 'جۆری پارەدان:',
     paymentTypeAdvance: 'پێشەکی و مووچەی پێشوەختە',
     paymentTypeBonus: 'جەژنانە و پاداشتی هاندەر',
+    paymentTypeLoan: 'قەرز و ئاسانکاری کرێکاران',
     bonusCategoryLabel: 'بۆنە یان ناونیشانی پاداشت:',
     bonusPresetNowruz: 'جەژنانەی بۆنەکان (نەورۆز / جەژنەکان)',
     bonusPresetGoodJob: 'پاداشتی شایستەیی و ئەنجامدانی چاکی کار',
@@ -132,6 +159,28 @@ const COPY = {
     totalBonusesReceivedLabel: 'کۆی پاداشتە وەرگیراوەکان:',
     bonusModalTitle: 'تۆمارکردنی بەڵگەنامەی جەژنانە و پاداشت',
     bonusModalSubtitle: 'پارەدانی پاداشت، جەژنانەی بۆنەکان یان دیاری بۆ کرێکاران لەگەڵ تۆماری دارایی',
+    loanModalTitle: 'تۆمارکردنی بەڵگەنامەی قەرز بە کرێکار',
+    loanModalSubtitle: 'پارەدانی قەرزی ناوخۆیی لەگەڵ خشتەی قیستەکان و داشکاندن لە پاکتاوی مانگانە',
+    loanSuccessMsg: 'بەڵگەنامەی قەرزی کرێکار بە سەرکەوتوویی تۆمارکرا',
+    submitLoan: 'تۆمارکردن و پێدانی قەرز',
+    loanTermsTitle: 'مەرجەکانی گەڕاندنەوە و قیستی مانگانە',
+    loanDurationLabel: 'ماوەی گەڕاندنەوە (ژمارەی قیستەکان / مانگ):',
+    monthsCountSuffix: 'مانگ',
+    interestTypeLabel: 'سوود یان کارمۆزدی ڕێککەوتوو:',
+    interestNone: 'قەرزی چاکە (بێ سوود)',
+    interestPercent: 'ڕێژەیی (٪)',
+    interestFixed: 'بڕی دیاریکراو',
+    interestPercentPlaceholder: 'ڕێژەی کارمۆزد (نموونە: ٤)',
+    interestFixedPlaceholder: 'کۆی بڕی کارمۆزدی ڕێککەوتوو...',
+    startMonthLabel: 'دەستپێکی داشکاندنی یەکەم قیست:',
+    startMonthCurrent: 'لە پاکتاوی ئەم مانگە',
+    startMonthNext: 'لە پاکتاوی مانگی داهاتوو',
+    loanSummaryTitle: 'پوختەی ئاسانکاری و خشتەی گەڕاندنەوە:',
+    principalLabel: 'ئەسڵی بڕی دراوی قەرز:',
+    interestAmountLabel: 'بڕی کارمۆزد / سوود:',
+    totalRepayableLabel: 'کۆی گشتیی گەڕاندنەوە:',
+    monthlyInstallmentLabel: 'بڕی هەر قیستێکی مانگانە:',
+    loanDeductionNotice: 'ئەم بڕە وەک قەرز دەدرێت و قیستەکانی لە وەسڵی پاکتاوی مانگانە دادەشکێنرێت.',
     selectedAccountDefault: 'حیسابی هەڵبژێردراو',
     cashAccountDefault: 'سندوق',
     workshopCashDesk: 'سندوقی نەختی کارگە',
@@ -190,6 +239,7 @@ const COPY = {
     paymentTypeLabel: 'Payment Type:',
     paymentTypeAdvance: 'Advance Payment',
     paymentTypeBonus: 'Bonus & Festive Gift',
+    paymentTypeLoan: 'Staff Loan & Facility',
     bonusCategoryLabel: 'Bonus Reason / Title:',
     bonusPresetNowruz: 'Festive Gift (Nowruz / Eid)',
     bonusPresetGoodJob: 'Performance & Merit Bonus',
@@ -202,6 +252,28 @@ const COPY = {
     totalBonusesReceivedLabel: 'Total Bonuses Received:',
     bonusModalTitle: 'Record Personnel Bonus & Festive Gift',
     bonusModalSubtitle: 'Grant performance bonus or festive gifts with complete ledger tracking',
+    loanModalTitle: 'Grant Staff Loan to Personnel',
+    loanModalSubtitle: 'Disburse company staff loan with installment schedule and monthly settlement deductions',
+    loanSuccessMsg: 'Staff loan recorded successfully',
+    submitLoan: 'Disburse & Record Loan',
+    loanTermsTitle: 'Repayment Terms & Monthly Installments',
+    loanDurationLabel: 'Repayment Duration (Installment Months):',
+    monthsCountSuffix: 'Months',
+    interestTypeLabel: 'Agreed Interest / Profit:',
+    interestNone: 'Zero Interest (0%)',
+    interestPercent: 'Percentage (%)',
+    interestFixed: 'Fixed Amount',
+    interestPercentPlaceholder: 'Profit margin % (e.g. 4)',
+    interestFixedPlaceholder: 'Total fixed profit amount...',
+    startMonthLabel: 'First Installment Deduction Month:',
+    startMonthCurrent: 'From Current Month Settlement',
+    startMonthNext: 'From Next Month Settlement',
+    loanSummaryTitle: 'Loan & Installment Summary:',
+    principalLabel: 'Principal Loan Amount:',
+    interestAmountLabel: 'Total Profit / Interest:',
+    totalRepayableLabel: 'Total Repayable Amount:',
+    monthlyInstallmentLabel: 'Monthly Installment:',
+    loanDeductionNotice: 'This loan is disbursed to personnel and installments will be deducted from future monthly settlements.',
     selectedAccountDefault: 'Selected Account',
     cashAccountDefault: 'Cash Drawer',
     workshopCashDesk: 'Workshop Cash Drawer',
@@ -290,6 +362,45 @@ export function AdvancePaymentModal({
   const { checkAccountOverdraft, accountBalances } = useAccounting();
   const [overdraftPromptData, setOverdraftPromptData] = useState(null);
 
+  // Loan-specific states
+  const [loanDurationMonths, setLoanDurationMonths] = useState(10);
+  const [loanInterestType, setLoanInterestType] = useState('none'); // 'none' | 'percent' | 'fixed'
+  const [loanInterestPercent, setLoanInterestPercent] = useState('');
+  const [loanInterestAmount, setLoanInterestAmount] = useState('');
+  const [loanStartOption, setLoanStartOption] = useState('current'); // 'current' | 'next'
+
+  // Loan calculations
+  const loanCalculations = useMemo(() => {
+    const principal = roundCurrency(Number(amount), currency) || 0;
+    let interest = 0;
+    if (loanInterestType === 'percent') {
+      const pct = Math.max(0, Number(loanInterestPercent) || 0);
+      interest = roundCurrency(principal * (pct / 100), currency);
+    } else if (loanInterestType === 'fixed') {
+      interest = Math.max(0, roundCurrency(Number(loanInterestAmount) || 0, currency));
+    }
+    const totalRepayable = roundCurrency(principal + interest, currency);
+    const months = Math.max(1, parseInt(loanDurationMonths, 10) || 1);
+    const monthlyInstallment = roundCurrency(totalRepayable / months, currency);
+
+    let startMonth = getCurrentYearMonth();
+    if (loanStartOption === 'next') {
+      const [y, m] = startMonth.split('-').map(Number);
+      const nextM = m === 12 ? 1 : m + 1;
+      const nextY = m === 12 ? y + 1 : y;
+      startMonth = `${nextY}-${String(nextM).padStart(2, '0')}`;
+    }
+
+    return {
+      principal,
+      interest,
+      totalRepayable,
+      months,
+      monthlyInstallment,
+      startMonth
+    };
+  }, [amount, currency, loanInterestType, loanInterestPercent, loanInterestAmount, loanDurationMonths, loanStartOption]);
+
   // Financial accounts live query
   const financialAccounts = useLiveQuery(
     async () => {
@@ -370,6 +481,11 @@ export function AdvancePaymentModal({
       setFeedback({ type: '', message: '' });
       setToastMessage(null);
       setPaymentType(initialPaymentType || 'advance');
+      setLoanDurationMonths(10);
+      setLoanInterestType('none');
+      setLoanInterestPercent('');
+      setLoanInterestAmount('');
+      setLoanStartOption('current');
     }
     wasOpenRef.current = isOpen;
   }, [isOpen, targetWorkerId, targetMonth, initialPaymentType, defaultAccount?.id, workers]);
@@ -468,16 +584,17 @@ export function AdvancePaymentModal({
         ? (customBonusTitle.trim() || (bonusPreset === "nowruz" ? c.bonusPresetNowruz : bonusPreset === "good_job" ? c.bonusPresetGoodJob : bonusPreset === "management" ? c.bonusPresetManagement : c.bonusPresetOther))
         : null;
 
+      const paymentId = generatePaymentId();
       const newPayment = {
-        id: generatePaymentId(),
+        id: paymentId,
         projectId: targetProjectId,
         userId: user?.id || null,
-        workerId,
+        workerId: String(workerId),
         workerName,
         month: derivedMonth,
         date,
         time: currentTime,
-        type: paymentType, // "advance" or "bonus"
+        type: paymentType === 'loan' ? 'loan_disbursement' : paymentType, // "advance" | "bonus" | "loan_disbursement"
         bonusTitle: derivedBonusTitle,
         amount: numAmount,
         currency,
@@ -488,16 +605,49 @@ export function AdvancePaymentModal({
         notes: notes.trim() || null,
         status: "draft",
         approval_status: "draft",
-        settlement_status: paymentType === "bonus" ? "not_applicable" : "partial",
+        settlement_status: paymentType === "bonus" || paymentType === "loan" ? "not_applicable" : "partial",
         created_by: user?.id || "admin",
         createdAt: now.toISOString(),
         updatedAt: now.toISOString()
       };
 
       await db.payments.add(newPayment);
+
+      if (paymentType === 'loan') {
+        const newLoan = {
+          id: generateLoanId(),
+          projectId: targetProjectId,
+          userId: user?.id || null,
+          workerId: String(workerId),
+          workerName,
+          principalAmount: loanCalculations.principal,
+          interestType: loanInterestType,
+          interestRate: loanInterestType === 'percent' ? Number(loanInterestPercent) || 0 : 0,
+          interestAmount: loanCalculations.interest,
+          totalRepayable: loanCalculations.totalRepayable,
+          totalPaid: 0,
+          remainingBalance: loanCalculations.totalRepayable,
+          installmentMonths: loanCalculations.months,
+          remainingMonths: loanCalculations.months,
+          monthlyInstallment: loanCalculations.monthlyInstallment,
+          startMonth: loanCalculations.startMonth,
+          status: 'active', // 'active' | 'settled' | 'paused'
+          sourceAccountId: chosenAccount?.id ? String(chosenAccount.id) : null,
+          sourceAccountName: chosenAccount?.name || '',
+          disbursementPaymentId: paymentId,
+          notes: notes.trim() || null,
+          referenceNumber: referenceNumber.trim() || null,
+          date,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString()
+        };
+        await db.loans.add(newLoan);
+        pushLoansLive().catch(() => {});
+      }
+
       pushPaymentsLive().catch(() => {});
 
-      const finalCheck = checkAccountOverdraft(selectedAccountId, numAmount);
+      const finalCheck = checkAccountOverdraft(effectiveAccountId, numAmount);
       if (numAmount > 0 && !finalCheck.hasSufficientFunds) {
         const resultingNeg = Math.abs(finalCheck.currentBalance - numAmount);
         setToastMessage({
@@ -508,7 +658,14 @@ export function AdvancePaymentModal({
           onClose();
         }, 2000);
       } else {
-        setFeedback({ type: 'success', message: paymentType === 'bonus' ? c.bonusSuccessMsg : c.advanceSuccessMsg });
+        setFeedback({ 
+          type: 'success', 
+          message: paymentType === 'loan' 
+            ? c.loanSuccessMsg 
+            : paymentType === 'bonus' 
+            ? c.bonusSuccessMsg 
+            : c.advanceSuccessMsg 
+        });
         setTimeout(() => {
           onClose();
         }, 800);
@@ -544,25 +701,35 @@ export function AdvancePaymentModal({
             <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-md shrink-0 transition-all duration-300 ${
               paymentType === "bonus"
                 ? "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-purple-500/25"
+                : paymentType === "loan"
+                ? "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/25"
                 : "bg-gradient-to-tr from-amber-500 to-amber-600 text-white shadow-amber-500/25"
             }`}>
-              {paymentType === "bonus" ? <Gift className="w-5 h-5 stroke-[2.2]" /> : <Banknote className="w-5 h-5 stroke-[2.2]" />}
+              {paymentType === "bonus" ? (
+                <Gift className="w-5 h-5 stroke-[2.2]" />
+              ) : paymentType === "loan" ? (
+                <Calculator className="w-5 h-5 stroke-[2.2]" />
+              ) : (
+                <Banknote className="w-5 h-5 stroke-[2.2]" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  {paymentType === "bonus" ? c.bonusModalTitle : c.advanceModalTitle}
+                  {paymentType === "bonus" ? c.bonusModalTitle : paymentType === "loan" ? c.loanModalTitle : c.advanceModalTitle}
                 </h2>
                 <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-2xs transition-colors duration-300 ${
                   paymentType === "bonus"
                     ? "bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-900/60"
+                    : paymentType === "loan"
+                    ? "bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-900/60"
                     : "bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-900/60"
                 }`}>
                   {currentProject?.name || c.workshopProject}
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {paymentType === "bonus" ? c.bonusModalSubtitle : c.advanceModalSubtitle}
+                {paymentType === "bonus" ? c.bonusModalSubtitle : paymentType === "loan" ? c.loanModalSubtitle : c.advanceModalSubtitle}
               </p>
             </div>
           </div>
@@ -594,16 +761,16 @@ export function AdvancePaymentModal({
               </div>
             )}
 
-            {/* [APP_THEME_BUTTON] Mode Switcher: Advance vs Bonus */}
+            {/* [APP_THEME_BUTTON] Mode Switcher: Advance vs Bonus vs Loan */}
             <div className="p-1 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-2 px-3">
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{c.paymentTypeLabel}</span>
               </div>
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800 overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setPaymentType("advance")}
-                  className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
+                  className={`flex items-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer whitespace-nowrap ${
                     paymentType === "advance"
                       ? "bg-amber-500 text-white shadow-md shadow-amber-500/25"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -616,7 +783,7 @@ export function AdvancePaymentModal({
                 <button
                   type="button"
                   onClick={() => setPaymentType("bonus")}
-                  className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer ${
+                  className={`flex items-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer whitespace-nowrap ${
                     paymentType === "bonus"
                       ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -624,6 +791,19 @@ export function AdvancePaymentModal({
                 >
                   <Gift className="w-4 h-4 shrink-0" />
                   <span>{c.paymentTypeBonus}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentType("loan")}
+                  className={`flex items-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer whitespace-nowrap ${
+                    paymentType === "loan"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/25"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <FileText className="w-4 h-4 shrink-0" />
+                  <span>{c.paymentTypeLoan}</span>
                 </button>
               </div>
             </div>
@@ -794,11 +974,17 @@ export function AdvancePaymentModal({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      {t('paymentAmount')} <span className="text-rose-500">*</span>
+                      {paymentType === "loan" ? c.principalLabel : t('paymentAmount')} <span className="text-rose-500">*</span>
                     </label>
 
                     {/* Big Amount Typography Input */}
-                    <div className="relative flex rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80 focus-within:ring-2 focus-within:ring-amber-500 overflow-hidden shadow-xs transition-all">
+                    <div className={`relative flex rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80 focus-within:ring-2 ${
+                      paymentType === "bonus"
+                        ? "focus-within:ring-purple-500"
+                        : paymentType === "loan"
+                        ? "focus-within:ring-blue-500"
+                        : "focus-within:ring-amber-500"
+                    } overflow-hidden shadow-xs transition-all`}>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -814,7 +1000,13 @@ export function AdvancePaymentModal({
                         }}
                         placeholder="0"
                         required
-                        className="w-full px-4 py-3.5 bg-transparent text-lg sm:text-xl font-black font-mono text-amber-600 dark:text-amber-400 focus:outline-none"
+                        className={`w-full px-4 py-3.5 bg-transparent text-lg sm:text-xl font-black font-mono ${
+                          paymentType === "bonus"
+                            ? "text-purple-600 dark:text-purple-400"
+                            : paymentType === "loan"
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-amber-600 dark:text-amber-400"
+                        } focus:outline-none`}
                       />
                       <div className="bg-slate-200/70 dark:bg-slate-700 px-4 py-3 text-xs font-black font-mono text-slate-700 dark:text-slate-200 border-s border-slate-200 dark:border-slate-700 flex items-center justify-center">
                         {getCurrencySymbol(currency, language)}
@@ -836,8 +1028,12 @@ export function AdvancePaymentModal({
                               onClick={() => setAmount(String(qAmount))}
                               className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all duration-200 active:scale-95 cursor-pointer border ${
                                 isSelected
-                                  ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/25 scale-105'
-                                  : 'bg-white/80 dark:bg-slate-800/80 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/80 shadow-2xs'
+                                  ? paymentType === "loan"
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/25 scale-105'
+                                    : paymentType === "bonus"
+                                    ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/25 scale-105'
+                                    : 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/25 scale-105'
+                                  : 'bg-white/80 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/80 shadow-2xs'
                               }`}
                             >
                               {formatAmount(qAmount, currency)}
@@ -848,13 +1044,213 @@ export function AdvancePaymentModal({
                     </div>
 
                     {Number(amount) > 0 && (
-                      <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 font-black font-mono flex items-center gap-1.5">
+                      <p className={`mt-3 text-xs ${
+                        paymentType === "bonus"
+                          ? "text-purple-600 dark:text-purple-400"
+                          : paymentType === "loan"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-amber-600 dark:text-amber-400"
+                      } font-black font-mono flex items-center gap-1.5`}>
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>{c.equivalentLabel} {formatAmount(Number(amount), currency)} {getCurrencySymbol(currency, language)}</span>
                       </p>
                     )}
                   </div>
                 </div>
+
+                {/* Card 2.5: Loan Repayment Terms & Installments (If Loan Mode) */}
+                {paymentType === "loan" && (
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-blue-200/60 dark:border-blue-900/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+                          <Calculator className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                          {c.loanTermsTitle}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 font-mono">
+                        {loanCalculations.months} {c.monthsCountSuffix}
+                      </span>
+                    </div>
+
+                    {/* 1. Duration in Months */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {c.loanDurationLabel}
+                      </label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {[3, 6, 10, 12, 18, 24].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setLoanDurationMonths(m)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                              Number(loanDurationMonths) === m
+                                ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/25"
+                                : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-300"
+                            }`}
+                          >
+                            {m} {c.monthsCountSuffix}
+                          </button>
+                        ))}
+                        <div className="w-24">
+                          <input
+                            type="number"
+                            min="1"
+                            max="60"
+                            value={loanDurationMonths}
+                            onChange={(e) => setLoanDurationMonths(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                            className="w-full px-2.5 py-1.5 text-xs font-bold text-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Profit / Interest Mode */}
+                    <div className="space-y-2 pt-1">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {c.interestTypeLabel}
+                      </label>
+                      <div className="h-9 inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 w-full">
+                        <button
+                          type="button"
+                          onClick={() => setLoanInterestType('none')}
+                          className={`flex-1 h-full flex items-center justify-center rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            loanInterestType === 'none'
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          }`}
+                        >
+                          <span>{c.interestNone}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLoanInterestType('percent')}
+                          className={`flex-1 h-full flex items-center justify-center rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            loanInterestType === 'percent'
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          }`}
+                        >
+                          <span>{c.interestPercent}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLoanInterestType('fixed')}
+                          className={`flex-1 h-full flex items-center justify-center rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            loanInterestType === 'fixed'
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          }`}
+                        >
+                          <span>{c.interestFixed}</span>
+                        </button>
+                      </div>
+
+                      {loanInterestType === 'percent' && (
+                        <div className="flex items-center gap-2 pt-1 animate-in fade-in duration-200">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            placeholder={c.interestPercentPlaceholder}
+                            value={loanInterestPercent}
+                            onChange={(e) => setLoanInterestPercent(e.target.value)}
+                            className="w-full px-3.5 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-slate-900 dark:text-white"
+                          />
+                          <div className="w-10 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500">
+                            %
+                          </div>
+                        </div>
+                      )}
+
+                      {loanInterestType === 'fixed' && (
+                        <div className="pt-1 animate-in fade-in duration-200">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder={c.interestFixedPlaceholder}
+                            value={loanInterestAmount ? Number(String(loanInterestAmount).replace(/,/g, '')).toLocaleString() : ''}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/,/g, '').replace(/[^0-9.]/g, '');
+                              setLoanInterestAmount(raw);
+                            }}
+                            className="w-full px-3.5 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. First installment start month */}
+                    <div className="space-y-1.5 pt-1">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {c.startMonthLabel}
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setLoanStartOption('current')}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                            loanStartOption === 'current'
+                              ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-700 dark:text-blue-300'
+                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          {c.startMonthCurrent} ({getCurrentYearMonth()})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLoanStartOption('next')}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                            loanStartOption === 'next'
+                              ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-700 dark:text-blue-300'
+                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          {c.startMonthNext} ({loanCalculations.startMonth})
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 4. Live Calculation Summary Card */}
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-cyan-500/10 border border-blue-200/60 dark:border-blue-900/50 space-y-2">
+                      <div className="text-[11px] font-bold text-blue-800 dark:text-blue-300 flex items-center justify-between">
+                        <span>{c.loanSummaryTitle}</span>
+                        <span className="font-mono text-xs font-black">{loanCalculations.months} {c.monthsCountSuffix}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-blue-200/40 dark:border-blue-900/40 text-xs">
+                        <div>
+                          <span className="block text-[10px] text-slate-500 dark:text-slate-400">{c.principalLabel}</span>
+                          <span className="font-black font-mono text-slate-800 dark:text-slate-200">
+                            {formatCurrency(loanCalculations.principal, currency, language)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-[10px] text-slate-500 dark:text-slate-400">{c.interestAmountLabel}</span>
+                          <span className="font-black font-mono text-blue-600 dark:text-blue-400">
+                            {formatCurrency(loanCalculations.interest, currency, language)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-[10px] text-slate-500 dark:text-slate-400">{c.totalRepayableLabel}</span>
+                          <span className="font-black font-mono text-indigo-700 dark:text-indigo-300">
+                            {formatCurrency(loanCalculations.totalRepayable, currency, language)}
+                          </span>
+                        </div>
+                        <div className="bg-white/80 dark:bg-slate-800/80 p-2 rounded-xl border border-blue-300 dark:border-blue-800">
+                          <span className="block text-[10px] font-bold text-blue-700 dark:text-blue-300">{c.monthlyInstallmentLabel}</span>
+                          <span className="font-black font-mono text-sm text-blue-600 dark:text-blue-400">
+                            {formatCurrency(loanCalculations.monthlyInstallment, currency, language)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
 
               </div>
 
@@ -1083,6 +1479,8 @@ export function AdvancePaymentModal({
                   ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/25'
                   : paymentType === 'bonus'
                   ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-600/25'
+                  : paymentType === 'loan'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/25'
                   : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25'
               }`}
             >
@@ -1098,8 +1496,14 @@ export function AdvancePaymentModal({
                 </>
               ) : (
                 <>
-                  {paymentType === 'bonus' ? <Gift className="w-4 h-4" /> : <Coins className="w-4 h-4" />}
-                  <span>{paymentType === 'bonus' ? c.submitBonus : c.submitAdvance}</span>
+                  {paymentType === 'bonus' ? (
+                    <Gift className="w-4 h-4" />
+                  ) : paymentType === 'loan' ? (
+                    <Calculator className="w-4 h-4" />
+                  ) : (
+                    <Coins className="w-4 h-4" />
+                  )}
+                  <span>{paymentType === 'bonus' ? c.submitBonus : paymentType === 'loan' ? c.submitLoan : c.submitAdvance}</span>
                 </>
               )}
             </button>

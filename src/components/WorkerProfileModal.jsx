@@ -97,6 +97,14 @@ const COPY = {
     attendanceTab: 'کارکردها',
     advancesTab: 'مساعده‌ها',
     settlementsTab: 'تسویه‌ها',
+    loansTab: 'وام‌ها',
+    activeLoanSummaryTitle: 'وام و تسهیلات پرسنل',
+    totalLoanAmount: 'مجموع کل بازپرداخت:',
+    totalRepaid: 'بازپرداخت‌شده:',
+    loanRemainingBalance: 'مانده وام:',
+    monthlyInstallmentLabel: 'قسط ماهانه:',
+    loanRepaymentProgress: 'پیشرفت بازپرداخت:',
+    loanEventTitle: (total, rem) => `تسهیلات وام پرسنلی (${total}) - ${rem} قسط باقی‌مانده`,
     allFilter: 'همه',
     currentFilter: 'جاری',
     archiveFilter: 'آرشیو',
@@ -182,6 +190,14 @@ const COPY = {
     attendanceTab: 'کارکردەکان',
     advancesTab: 'پێشەکییەکان',
     settlementsTab: 'پاکتاوەکان',
+    loansTab: 'قەرزەکان',
+    activeLoanSummaryTitle: 'قەرز و ئاسانکاری کرێکار',
+    totalLoanAmount: 'کۆی گشتی گەڕاندنەوە:',
+    totalRepaid: 'دانراوە:',
+    loanRemainingBalance: 'ماوەی قەرز:',
+    monthlyInstallmentLabel: 'قیستی مانگانە:',
+    loanRepaymentProgress: 'بەرەوپێشچوونی گەڕاندنەوە:',
+    loanEventTitle: (total, rem) => `ئاسانکاری قەرزی کرێکار (${total}) - ${rem} قیست ماوە`,
     allFilter: 'هەموو',
     currentFilter: 'بەردەوام',
     archiveFilter: 'ئەرشیڤ',
@@ -282,6 +298,14 @@ const COPY = {
     attendanceTab: 'Attendance',
     advancesTab: 'Advances',
     settlementsTab: 'Settlements',
+    loansTab: 'Loans',
+    activeLoanSummaryTitle: 'Staff Loan Facilities',
+    totalLoanAmount: 'Total Repayable:',
+    totalRepaid: 'Repaid Amount:',
+    loanRemainingBalance: 'Remaining Balance:',
+    monthlyInstallmentLabel: 'Monthly Installment:',
+    loanRepaymentProgress: 'Repayment Progress:',
+    loanEventTitle: (total, rem) => `Staff Loan Facility (${total}) - ${rem} installments remaining`,
     allFilter: 'All',
     currentFilter: 'Current',
     archiveFilter: 'Archived',
@@ -471,6 +495,41 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const allWorkers = useLiveQuery(() => db.workers.toArray()) || [];
   const allGroups = useLiveQuery(() => db.groups.toArray()) || [];
 
+  const allLoans = useLiveQuery(async () => {
+    if (!workerId || !db.loans) return [];
+    const list = await db.loans.where('workerId').equals(workerId).toArray();
+    return list.filter((l) => !l.deletedAt).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }, [workerId]) || [];
+
+  const activeWorkerLoans = useMemo(() => {
+    return allLoans.filter((l) => l.status === 'active' && (Number(l.remainingBalance) || 0) > 0);
+  }, [allLoans]);
+
+  const loanMetrics = useMemo(() => {
+    let totalPrincipal = 0;
+    let totalRepayable = 0;
+    let totalPaid = 0;
+    let totalRemaining = 0;
+    let totalMonthlyInstallment = 0;
+
+    activeWorkerLoans.forEach((l) => {
+      totalPrincipal += Number(l.principalAmount) || 0;
+      totalRepayable += Number(l.totalRepayable) || 0;
+      totalPaid += Number(l.totalPaid) || 0;
+      totalRemaining += Number(l.remainingBalance) || 0;
+      totalMonthlyInstallment += Number(l.monthlyInstallment) || 0;
+    });
+
+    return {
+      activeCount: activeWorkerLoans.length,
+      totalPrincipal,
+      totalRepayable,
+      totalPaid,
+      totalRemaining,
+      totalMonthlyInstallment
+    };
+  }, [activeWorkerLoans]);
+
   // Metrics computation using single source of truth
   const stats = useMemo(() => {
     if (!worker) {
@@ -493,7 +552,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       };
     }
 
-    const fin = calculateWorkerFinancials(worker, allLogs, allPayments, currency);
+    const fin = calculateWorkerFinancials(worker, allLogs, allPayments, currency, allLoans);
     if (!fin) {
       return {
         unsettledDaysCount: 0,
@@ -539,13 +598,13 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       fridayExtraPay: fin.fridayExtraPay,
       encashmentPay: fin.encashmentPay
     };
-  }, [worker, allLogs, allPayments, currency]);
+  }, [worker, allLogs, allPayments, currency, allLoans]);
 
   // Filtered attendance logs
   const fin = useMemo(() => {
     if (!worker) return null;
-    return calculateWorkerFinancials(worker, allLogs, allPayments);
-  }, [worker, allLogs, allPayments]);
+    return calculateWorkerFinancials(worker, allLogs, allPayments, currency, allLoans);
+  }, [worker, allLogs, allPayments, currency, allLoans]);
 
   const [isRepairingSettled, setIsRepairingSettled] = useState(false);
   const handleRepairSuspiciousLogs = async () => {
@@ -679,6 +738,22 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         });
       });
 
+    // Staff Loans
+    allLoans.forEach((ln) => {
+      events.push({
+        id: `loan_${ln.id}`,
+        kind: 'loan',
+        rawDate: ln.createdAt || ln.startDate || '',
+        date: (ln.createdAt || ln.startDate || '').slice(0, 10),
+        data: ln,
+        isSettled: ln.status === 'settled',
+        type: c.loansTab,
+        amount: Number(ln.principalAmount) || 0,
+        title: c.loanEventTitle(formatCurrency(ln.totalRepayable, currency, language), ln.remainingMonths),
+        notes: ln.notes || `${c.monthlyInstallmentLabel} ${formatCurrency(ln.monthlyInstallment, currency, language)}`
+      });
+    });
+
     // UI element
     events.sort((a, b) => (b.rawDate || '').localeCompare(a.rawDate || ''));
 
@@ -689,20 +764,22 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
       if (activityStatusFilter === 'settled' && !ev.isSettled) return false;
       return true;
     });
-  }, [worker, allLogs, allPayments, fin, activityTypeFilter, activityStatusFilter]);
+  }, [worker, allLogs, allPayments, allLoans, fin, activityTypeFilter, activityStatusFilter, currency, language]);
 
   // UI element
   const activityCounts = useMemo(() => {
     const totalLogs = allLogs.length;
     const totalAdvances = allPayments.filter((p) => (p.type || '').toLowerCase() !== 'settlement' && !p.deletedAt).length;
     const totalSettlements = allPayments.filter((p) => (p.type || '').toLowerCase() === 'settlement' && !p.deletedAt).length;
+    const totalLoans = allLoans.length;
     return {
-      all: totalLogs + totalAdvances + totalSettlements,
+      all: totalLogs + totalAdvances + totalSettlements + totalLoans,
       attendance: totalLogs,
       advances: totalAdvances,
-      settlements: totalSettlements
+      settlements: totalSettlements,
+      loans: totalLoans
     };
-  }, [allLogs, allPayments]);
+  }, [allLogs, allPayments, allLoans]);
 
   if (!isOpen || !workerId) return null;
 
@@ -1210,6 +1287,71 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 </div>
               )}
 
+              {/* Active Staff Loans Card (Apple Liquid Glass) */}
+              {loanMetrics.activeCount > 0 && (
+                <div className="p-5 rounded-3xl bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 backdrop-blur-md border border-blue-200/80 dark:border-blue-900/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-blue-200/60 dark:border-blue-900/40">
+                    <h4 className="text-xs font-black text-blue-900 dark:text-blue-200 flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span>{c.activeLoanSummaryTitle}</span>
+                    </h4>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold font-mono">
+                      {loanMetrics.activeCount} {language === 'fa' ? 'وام فعال' : language === 'ku' ? 'قەرزی چالاک' : 'Active'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between py-1 border-b border-blue-100 dark:border-blue-900/30">
+                      <span className="text-slate-600 dark:text-slate-400">{c.totalLoanAmount}</span>
+                      <span className="font-mono font-black text-slate-800 dark:text-slate-200">
+                        {formatCurrency(loanMetrics.totalRepayable, currency, language)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1 border-b border-blue-100 dark:border-blue-900/30">
+                      <span className="text-slate-600 dark:text-slate-400">{c.totalRepaid}</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(loanMetrics.totalPaid, currency, language)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1 border-b border-blue-100 dark:border-blue-900/30">
+                      <span className="text-slate-600 dark:text-slate-400">{c.loanRemainingBalance}</span>
+                      <span className="font-mono font-black text-blue-700 dark:text-blue-300">
+                        {formatCurrency(loanMetrics.totalRemaining, currency, language)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-slate-600 dark:text-slate-400">{c.monthlyInstallmentLabel}</span>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        {formatCurrency(loanMetrics.totalMonthlyInstallment, currency, language)}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                        <span>{c.loanRepaymentProgress}</span>
+                        <span className="font-mono">
+                          {loanMetrics.totalRepayable > 0 
+                            ? Math.min(100, Math.round((loanMetrics.totalPaid / loanMetrics.totalRepayable) * 100))
+                            : 0}%
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-200/70 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${loanMetrics.totalRepayable > 0 ? Math.min(100, Math.round((loanMetrics.totalPaid / loanMetrics.totalRepayable) * 100)) : 0}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* UI element */}
@@ -1223,7 +1365,8 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                     { id: 'all', label: c.allTab, count: activityCounts.all },
                     { id: 'attendance', label: c.attendanceTab, count: activityCounts.attendance },
                     { id: 'advance', label: c.advancesTab, count: activityCounts.advances },
-                    { id: 'settlement', label: c.settlementsTab, count: activityCounts.settlements }
+                    { id: 'settlement', label: c.settlementsTab, count: activityCounts.settlements },
+                    { id: 'loan', label: c.loansTab, count: activityCounts.loans }
                   ].map((chip) => (
                     <button
                       key={chip.id}

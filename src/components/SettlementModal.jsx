@@ -6,7 +6,7 @@ import { db, generatePaymentId, DEFAULT_PROJECT_ID } from '../db/db';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
-import { pushPaymentsLive, pushLogsLive } from '../services/realtimeSync';
+import { pushPaymentsLive, pushLogsLive, pushLoansLive } from '../services/realtimeSync';
 import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol, formatHoursAndMinutes, formatCurrency, normalizeDigits, convertDigits } from '../utils/formatters';
 import { 
   CheckCircle2, 
@@ -142,6 +142,15 @@ const COPY = {
     financialBalanceSelectedItems: (days) => `تراز مالی اقلام منتخب (${days} روز کاری):`,
     grossTotalLabel: 'جمع ناخالص:',
     advancesDeductedInSettlement: '(-) مساعده‌های کسرشده در این تسویه:',
+    loanDeductionInSettlement: '(-) قسط وام کسرشده در این تسویه:',
+    deductLoanLabel: (amount, symbol) => `کسر اقساط وام‌های فعال (${amount} ${symbol})`,
+    deductLoanActiveTip: 'قسط ماهانه وام از این تسویه‌حساب کسر می‌شود.',
+    deductLoanInactiveTip: 'با غیرفعال‌سازی، قسط وام در این تسویه کسر نخواهد شد.',
+    loanDeficitWarningTitle: 'توجه: کسری درآمد برای کسر کامل قسط وام',
+    loanDeficitWarningDesc: (net, inst) => `خالص درآمد این دوره (${net}) کمتر از مبلغ قسط ماهانه (${inst}) است. تصمیم‌گیری به عهده شماست:`,
+    deductCappedAtEarningsBtn: 'کسر تا سقف درآمد (دریافتی ۰)',
+    deferInstallmentBtn: 'تنفس و تعویق برای ماه بعد (کسر ۰)',
+    loanInstallmentsCardTitle: 'قسط وام ماهانه',
     netPayableCustomSettlement: 'مبلغ خالص قابل پرداخت این تسویه سفارشی:',
     amountAutoConfiguredNotice: 'این مبلغ به‌صورت خودکار در فیلد پرداخت زیر تنظیم شده است.',
     periodCutoffLabel: 'پایان دوره کارکرد جهت تسویه (تا تاریخ):',
@@ -317,6 +326,15 @@ const COPY = {
     financialBalanceSelectedItems: (days) => `باڵانسی دارایی بڕگە هەڵبژێردراوەکان (${days} ڕۆژی کار):`,
     grossTotalLabel: 'کۆی گشتی ناخاڵس:',
     advancesDeductedInSettlement: '(-) پێشەکییە داشکێنراوەکان لەم پاکتاوەدا:',
+    loanDeductionInSettlement: '(-) قیستی قەرزی داشکێنراو لەم پاکتاوەدا:',
+    deductLoanLabel: (amount, symbol) => `داشکاندنی قیستی قەرزە چالاکەکان (${amount} ${symbol})`,
+    deductLoanActiveTip: 'قیستی مانگانەی قەرز لەم پاکتاوە دادەشکێنرێت.',
+    deductLoanInactiveTip: 'بە ناچالاککردن، قیستی قەرز لەم پاکتاوەدا داشکاندنی بۆ ناکرێت.',
+    loanDeficitWarningTitle: 'ئاگاداری: کەمیی مووچە بۆ داشکاندنی تەواوی قیست',
+    loanDeficitWarningDesc: (net, inst) => `مووچەی پوختی ئەم خولە (${net}) کەمترە لە بڕی قیستی مانگانە (${inst}). بڕیاردان بەپێی ویستی ئێوەیە:`,
+    deductCappedAtEarningsBtn: 'داشکاندن تا سەقفی مووچە (وەرگیراو ٠)',
+    deferInstallmentBtn: 'دواخستنی قیست بۆ مانگی داهاتوو (٠)',
+    loanInstallmentsCardTitle: 'قیستی مانگانەی قەرز',
     netPayableCustomSettlement: 'بڕی خاڵسی شایستەی پارەدان بۆ ئەم پاکتاوە تایبەتە:',
     amountAutoConfiguredNotice: 'ئەم بڕە بە شێوەیەکی خۆکار لە خانەی پارەدانی خوارەوە ڕێکخراوە.',
     periodCutoffLabel: 'پایانی ماوەی کارکرد بۆ پاکتاو (تا بەرواری):',
@@ -492,6 +510,15 @@ const COPY = {
     financialBalanceSelectedItems: (days) => `Financial balance of selected items (${days} work days):`,
     grossTotalLabel: 'Gross Total:',
     advancesDeductedInSettlement: '(-) Advances deducted in this settlement:',
+    loanDeductionInSettlement: '(-) Loan installment deducted in this settlement:',
+    deductLoanLabel: (amount, symbol) => `Deduct active loan installments (${amount} ${symbol})`,
+    deductLoanActiveTip: 'Monthly loan installment will be deducted from this settlement.',
+    deductLoanInactiveTip: 'When disabled, loan installment will not be deducted in this settlement.',
+    loanDeficitWarningTitle: 'Notice: Salary Deficit for Full Loan Installment',
+    loanDeficitWarningDesc: (net, inst) => `Net earnings for this period (${net}) is less than the monthly loan installment (${inst}). Please choose an action:`,
+    deductCappedAtEarningsBtn: 'Deduct up to Net Earnings (Net 0)',
+    deferInstallmentBtn: 'Defer Installment to Next Month (0)',
+    loanInstallmentsCardTitle: 'Monthly Loan Installment',
     netPayableCustomSettlement: 'Net payable for this custom settlement:',
     amountAutoConfiguredNotice: 'This amount is automatically configured in the payment field below.',
     periodCutoffLabel: 'Work period end for settlement (Up to date):',
@@ -615,11 +642,13 @@ export function SettlementModal({
   const dbPayments = useLiveQuery(() => db.payments.toArray(), []);
   const dbWorkers = useLiveQuery(() => db.workers.toArray(), []);
   const dbGroups = useLiveQuery(() => db.groups.toArray(), []);
+  const dbLoans = useLiveQuery(async () => db.loans ? db.loans.toArray() : [], []) || [];
 
   const effectiveAllLogs = (allLogs && allLogs.length > 0) ? allLogs : (dbLogs || []);
   const effectiveAllPayments = (allPayments && allPayments.length > 0) ? allPayments : (dbPayments || []);
   const effectiveAllWorkers = (allWorkers && allWorkers.length > 0) ? allWorkers : (dbWorkers || []);
   const effectiveAllGroups = (allGroups && allGroups.length > 0) ? allGroups : (dbGroups || []);
+  const effectiveAllLoans = useMemo(() => dbLoans.filter(l => !l.deletedAt && l.status === 'active'), [dbLoans]);
 
   // Reset worker selection when modal opens or propWorker changes
   useEffect(() => {
@@ -683,11 +712,11 @@ export function SettlementModal({
   const workerFinancialsMap = useMemo(() => {
     const map = new Map();
     for (const w of activeWorkersList) {
-      const fin = calculateWorkerFinancials(w, effectiveAllLogs, effectiveAllPayments, currency);
+      const fin = calculateWorkerFinancials(w, effectiveAllLogs, effectiveAllPayments, currency, effectiveAllLoans);
       map.set(String(w.id), fin);
     }
     return map;
-  }, [activeWorkersList, effectiveAllLogs, effectiveAllPayments, currency]);
+  }, [activeWorkersList, effectiveAllLogs, effectiveAllPayments, currency, effectiveAllLoans]);
 
   const countWithArrears = useMemo(() => {
     return activeWorkersList.filter((w) => {
@@ -899,6 +928,44 @@ export function SettlementModal({
     return `${py}-${String(pm).padStart(2, '0')}-${String(pday).padStart(2, '0')}`;
   }, []);
 
+  // Active loans for the current worker
+  const workerActiveLoans = useMemo(() => {
+    if (!worker?.id || !effectiveAllLoans) return [];
+    return effectiveAllLoans.filter(
+      (l) => String(l.workerId) === String(worker.id) && l.status === 'active' && (Number(l.remainingBalance) || 0) > 0
+    );
+  }, [worker?.id, effectiveAllLoans]);
+
+  const defaultSuggestedLoanInstallment = useMemo(() => {
+    return workerActiveLoans.reduce((sum, l) => {
+      const inst = Number(l.monthlyInstallment) || 0;
+      const rem = Number(l.remainingBalance) || 0;
+      return sum + Math.min(inst, rem);
+    }, 0);
+  }, [workerActiveLoans]);
+
+  const [deductLoanInstallment, setDeductLoanInstallment] = useState(true);
+  const [customLoanDeductionAmount, setCustomLoanDeductionAmount] = useState('');
+
+  // Sync loan deduction state when worker or active loans change
+  useEffect(() => {
+    if (workerActiveLoans.length > 0) {
+      setDeductLoanInstallment(true);
+      setCustomLoanDeductionAmount(String(defaultSuggestedLoanInstallment));
+    } else {
+      setDeductLoanInstallment(false);
+      setCustomLoanDeductionAmount('0');
+    }
+  }, [worker?.id, workerActiveLoans.length, defaultSuggestedLoanInstallment]);
+
+  const effectiveLoanDeduction = useMemo(() => {
+    if (settlementMode === 'group') return 0;
+    if (!deductLoanInstallment || workerActiveLoans.length === 0) return 0;
+    if (customLoanDeductionAmount === '') return defaultSuggestedLoanInstallment;
+    const parsed = Number(normalizeDigits(customLoanDeductionAmount));
+    return isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }, [settlementMode, deductLoanInstallment, workerActiveLoans.length, customLoanDeductionAmount, defaultSuggestedLoanInstallment]);
+
   // Settlement Period Cutoff Date for Auto Mode
   const [autoCutoffDate, setAutoCutoffDate] = useState(() => {
     const today = new Date();
@@ -928,7 +995,11 @@ export function SettlementModal({
     );
 
     if (worker.wageType === 'monthly') {
-      const fin = calculateWorkerFinancials(worker, periodLogs, periodPayments, currency);
+      const fin = calculateWorkerFinancials(worker, periodLogs, periodPayments, currency, effectiveAllLoans);
+      const netEarningsBeforeLoan = roundCurrency(Math.max(0, fin.unsettledGross - fin.unsettledAdvances), currency);
+      const isLoanDeficit = workerActiveLoans.length > 0 && deductLoanInstallment && defaultSuggestedLoanInstallment > 0 && netEarningsBeforeLoan < defaultSuggestedLoanInstallment;
+      const totalCumulativeDebt = roundCurrency(Math.max(0, netEarningsBeforeLoan - effectiveLoanDeduction), currency);
+
       return {
         ...individualCalculations,
         ...fin,
@@ -936,7 +1007,11 @@ export function SettlementModal({
         unsettledPayments: periodPayments,
         grossEarnings: fin.unsettledGross,
         advancesDeducted: fin.unsettledAdvances,
-        totalCumulativeDebt: fin.netBalanceDue
+        loanDeduction: effectiveLoanDeduction,
+        netEarningsBeforeLoan,
+        isLoanDeficit,
+        totalCumulativeDebt,
+        netBalanceDue: totalCumulativeDebt
       };
     }
 
@@ -972,7 +1047,9 @@ export function SettlementModal({
       currency
     );
 
-    const totalCumulativeDebt = roundCurrency(Math.max(0, grossEarnings - advancesDeducted), currency);
+    const netEarningsBeforeLoan = roundCurrency(Math.max(0, grossEarnings - advancesDeducted), currency);
+    const isLoanDeficit = workerActiveLoans.length > 0 && deductLoanInstallment && defaultSuggestedLoanInstallment > 0 && netEarningsBeforeLoan < defaultSuggestedLoanInstallment;
+    const totalCumulativeDebt = roundCurrency(Math.max(0, netEarningsBeforeLoan - effectiveLoanDeduction), currency);
     const effectiveDays = fullDays + halfDays * 0.5;
 
     return {
@@ -990,10 +1067,13 @@ export function SettlementModal({
       unsettledGross: roundCurrency(grossEarnings, currency),
       advancesDeducted,
       unsettledAdvances: advancesDeducted,
+      loanDeduction: effectiveLoanDeduction,
+      netEarningsBeforeLoan,
+      isLoanDeficit,
       totalCumulativeDebt,
       netBalanceDue: totalCumulativeDebt
     };
-  }, [worker, individualCalculations, autoCutoffDate, currency]);
+  }, [worker, individualCalculations, autoCutoffDate, currency, effectiveAllLoans, workerActiveLoans, deductLoanInstallment, defaultSuggestedLoanInstallment, effectiveLoanDeduction]);
 
   const autoPeriodGroupCalculations = useMemo(() => {
     if (!selectedGroupId || groupMembers.length === 0) return groupCalculations;
@@ -1190,10 +1270,18 @@ export function SettlementModal({
     return roundCurrency(Math.min(maxAdvances, customSelectedGross), currency);
   }, [deductAdvances, individualCalculations.advancesDeducted, customSelectedGross, currency]);
 
-  // Net payable for custom settlement
-  const customNetPayable = useMemo(() => {
+  const customNetBeforeLoan = useMemo(() => {
     return roundCurrency(Math.max(0, customSelectedGross - customAdvancesToDeduct), currency);
   }, [customSelectedGross, customAdvancesToDeduct, currency]);
+
+  // Net payable for custom settlement
+  const customNetPayable = useMemo(() => {
+    return roundCurrency(Math.max(0, customNetBeforeLoan - effectiveLoanDeduction), currency);
+  }, [customNetBeforeLoan, effectiveLoanDeduction, currency]);
+
+  const isCustomLoanDeficit = useMemo(() => {
+    return workerActiveLoans.length > 0 && deductLoanInstallment && defaultSuggestedLoanInstallment > 0 && customNetBeforeLoan < defaultSuggestedLoanInstallment;
+  }, [workerActiveLoans.length, deductLoanInstallment, defaultSuggestedLoanInstallment, customNetBeforeLoan]);
 
   // Effective target payable for current tab
   const activeTabTargetPayable = settlementTypeTab === 'custom' 
@@ -1482,6 +1570,8 @@ export function SettlementModal({
           grossEarningsCalculated: customSelectedGross,
           priorBalanceDeducted: 0,
           advancesDeducted: customAdvancesToDeduct,
+          loanDeductions: effectiveLoanDeduction,
+          loanDeduction: effectiveLoanDeduction,
           isGroupSettlement: false,
           groupMemberCount: 1,
           filterCriteria: {
@@ -1590,6 +1680,8 @@ export function SettlementModal({
           grossEarningsCalculated: settlementMode === 'group' ? autoPeriodGroupCalculations.totalGroupGross : autoPeriodIndividualCalculations.grossEarnings,
           priorBalanceDeducted: 0,
           advancesDeducted: settlementMode === 'group' ? autoPeriodGroupCalculations.totalGroupAdvances : autoPeriodIndividualCalculations.advancesDeducted,
+          loanDeductions: effectiveLoanDeduction,
+          loanDeduction: effectiveLoanDeduction,
           isGroupSettlement: settlementMode === 'group',
           groupMemberCount: settlementMode === 'group' ? groupMembers.length : 1,
           createdAt: now.toISOString(),
@@ -1737,6 +1829,34 @@ export function SettlementModal({
               }
             }
           }
+        }
+      }
+
+      // If loan installment was deducted, update worker loans
+      if (effectiveLoanDeduction > 0 && workerActiveLoans.length > 0 && markAsSettled) {
+        let loanDeductionBudget = effectiveLoanDeduction;
+        const updatedLoans = [];
+        for (const l of workerActiveLoans) {
+          if (loanDeductionBudget <= 0) break;
+          const loanRem = Number(l.remainingBalance) || 0;
+          const toPay = Math.min(loanDeductionBudget, loanRem);
+          const newRem = Math.max(0, loanRem - toPay);
+          const newPaid = (Number(l.totalPaid) || 0) + toPay;
+          const newRemMonths = Math.max(0, (Number(l.remainingMonths) || 1) - 1);
+          const updatedLoan = {
+            ...l,
+            remainingBalance: newRem,
+            totalPaid: newPaid,
+            remainingMonths: newRemMonths,
+            status: newRem <= 0.001 ? 'settled' : l.status,
+            updatedAt: now.toISOString()
+          };
+          updatedLoans.push(updatedLoan);
+          loanDeductionBudget -= toPay;
+        }
+        if (updatedLoans.length > 0) {
+          await db.loans.bulkPut(updatedLoans);
+          pushLoansLive(updatedLoans).catch(console.warn);
         }
       }
 
@@ -2166,6 +2286,52 @@ export function SettlementModal({
               </div>
             )}
 
+            {/* Loan Deficit Warning Banner for Custom Tab */}
+            {isCustomLoanDeficit && settlementMode !== 'group' && (
+              <div className="p-4 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 backdrop-blur-md space-y-3 animate-in fade-in duration-300">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-xs font-black text-amber-900 dark:text-amber-200">
+                      {c.loanDeficitWarningTitle}
+                    </h4>
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
+                      {c.loanDeficitWarningDesc(
+                        formatAmount(customNetBeforeLoan, currency, numberFormat) + ' ' + getCurrencySymbol(currency, language),
+                        formatAmount(defaultSuggestedLoanInstallment, currency, numberFormat) + ' ' + getCurrencySymbol(currency, language)
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeductLoanInstallment(true);
+                      setCustomLoanDeductionAmount(String(Math.max(0, customNetBeforeLoan)));
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{c.deductCappedAtEarningsBtn}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomLoanDeductionAmount('0');
+                      setDeductLoanInstallment(false);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{c.deferInstallmentBtn}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* 1. Filter Control Card */}
             <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
               
@@ -2334,6 +2500,30 @@ export function SettlementModal({
                 </label>
               </div>
 
+              {/* Deduct Loans Checkbox (if active loans exist) */}
+              {workerActiveLoans.length > 0 && settlementMode !== 'group' && (
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={deductLoanInstallment}
+                      onChange={(e) => setDeductLoanInstallment(e.target.checked)}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                    />
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {c.deductLoanLabel(formatAmount(defaultSuggestedLoanInstallment, currency, numberFormat), getCurrencySymbol(currency, language))}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">
+                        {deductLoanInstallment
+                          ? c.deductLoanActiveTip
+                          : c.deductLoanInactiveTip}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
+
             </div>
 
             {/* 2. Selectable Items List / Table */}
@@ -2470,6 +2660,15 @@ export function SettlementModal({
                   <span>{c.advancesDeductedInSettlement}</span>
                   <span className="font-mono">
                     {formatAmount(customAdvancesToDeduct, currency, numberFormat)} {getCurrencySymbol(currency, language)}
+                  </span>
+                </div>
+              )}
+
+              {effectiveLoanDeduction > 0 && (
+                <div className="flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-300 font-semibold">
+                  <span>{c.loanDeductionInSettlement}</span>
+                  <span className="font-mono">
+                    {formatAmount(effectiveLoanDeduction, currency, numberFormat)} {getCurrencySymbol(currency, language)}
                   </span>
                 </div>
               )}
@@ -2771,8 +2970,54 @@ export function SettlementModal({
                   </div>
                 )}
 
+                {/* Loan Deficit Warning Banner for Auto Tab */}
+                {autoPeriodIndividualCalculations.isLoanDeficit && settlementMode !== 'group' && (
+                  <div className="p-4 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 backdrop-blur-md space-y-3 animate-in fade-in duration-300">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertCircle className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-xs font-black text-amber-900 dark:text-amber-200">
+                          {c.loanDeficitWarningTitle}
+                        </h4>
+                        <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
+                          {c.loanDeficitWarningDesc(
+                            formatAmount(autoPeriodIndividualCalculations.netEarningsBeforeLoan, currency, numberFormat) + ' ' + getCurrencySymbol(currency, language),
+                            formatAmount(defaultSuggestedLoanInstallment, currency, numberFormat) + ' ' + getCurrencySymbol(currency, language)
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeductLoanInstallment(true);
+                          setCustomLoanDeductionAmount(String(Math.max(0, autoPeriodIndividualCalculations.netEarningsBeforeLoan)));
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{c.deductCappedAtEarningsBtn}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomLoanDeductionAmount('0');
+                          setDeductLoanInstallment(false);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{c.deferInstallmentBtn}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* 1. Transparent Financial Balance KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={`grid grid-cols-1 ${workerActiveLoans.length > 0 && settlementMode !== 'group' ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'} gap-3`}>
                   {/* Gross Earnings Card */}
                   <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-sky-300 dark:hover:border-sky-700 transition-all">
                     <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
@@ -2815,6 +3060,37 @@ export function SettlementModal({
                       </span>
                     </div>
                   </div>
+
+                  {/* Deducted Loan Installment Card (if active loans exist) */}
+                  {workerActiveLoans.length > 0 && settlementMode !== 'group' && (
+                    <div className="p-4 rounded-3xl bg-indigo-50/60 dark:bg-indigo-950/30 backdrop-blur-xl border border-indigo-200/80 dark:border-indigo-800/50 shadow-sm flex flex-col justify-between hover:border-indigo-400 transition-all">
+                      <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300">
+                        <span className="text-xs font-bold">{c.loanInstallmentsCardTitle}</span>
+                        <div className="w-8 h-8 rounded-xl bg-indigo-100/80 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                          <CreditCard className="w-4 h-4" />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-lg sm:text-xl font-black text-indigo-700 dark:text-indigo-300 block font-mono">
+                            {formatAmount(effectiveLoanDeduction, currency, numberFormat)}
+                          </span>
+                          <span className="text-xs font-bold text-indigo-600/70 dark:text-indigo-400/70">{getCurrencySymbol(currency, language)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-indigo-900 dark:text-indigo-200">
+                            <input
+                              type="checkbox"
+                              checked={deductLoanInstallment}
+                              onChange={(e) => setDeductLoanInstallment(e.target.checked)}
+                              className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                            />
+                            <span>{deductLoanInstallment ? c.deductLoanActiveTip : c.deductLoanInactiveTip}</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Net Due Final Cumulative Balance Card */}
                   <div className="p-4 rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-500/20 flex flex-col justify-between sm:col-span-1">
