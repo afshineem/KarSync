@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import * as XLSX from 'xlsx';
 import { db, DEFAULT_PROJECT_ID } from '../../db/db';
 import { useProject } from '../../context/ProjectContext';
-import { formatCurrency, formatAmount } from '../../utils/formatters';
+import { formatCurrency, formatAmount, getCurrencySymbol } from '../../utils/formatters';
 import { useAccounting } from '../../hooks/useAccounting';
 import { 
   CreditCard, 
@@ -32,20 +32,15 @@ import {
   LayoutGrid,
   Table as TableIcon,
   Scale,
-  Hash
+  FileText
 } from 'lucide-react';
-import { VoucherBadge } from './VoucherBadge';
 
 /**
  * AccountSubsidiaryLedgerModal
  * مودال لوکس تمام‌صفحه Apple Liquid Glass برای مشاهده صورت گردش معین حساب‌ها و پرسنل
- * - بلور واقعی اپل در هدر و فوتر چسبان با نفوذ محتوا از زیر آنها
- * - موتور سورت دوطرفه تقویمی (جدیدترین به قدیمی‌ترین / قدیمی‌ترین به جدیدترین)
- * - رفع کامل باگ اسکرول لمسی عمودی در موبایل
- * - کنترل دوگانه نمایش در موبایل: فید کارت‌های شیشه‌ای (کامل) یا جدول فشرده ماتریسی [APP_THEME_BUTTON]
- * - حذف کامل کلمه تکراری «دینار» از سلول‌ها و جایگزینی با نشان متمرکز واحد پولی و ارقام مونو
- * - ردیف افتتاحیه لوکس و سطر جمع ستونی هوشمند (Column Totals)
- * - پشتیبانی ۱۰۰٪ سه‌زبانه (فارسی، کوردی، انگلیسی) بدون نشت واژگان
+ * چیدمان ستونی دقیق طبق دستورالعمل:
+ * ردیف / تاریخ و ساعت / سند / بابت / طرف حساب / شرح سند / + / - / مانده
+ * بدون کپسول‌های اضافه و اشباع رنگ، با تایپوگرافی تمیز و هاور تعاملی برای سند و طرف‌حساب.
  */
 const COPY = {
   fa: {
@@ -89,23 +84,22 @@ const COPY = {
     printFinalBalance: 'مانده نهایی:',
     thIndex: '#',
     thDateTime: 'تاریخ و ساعت',
-    thCategory: 'بابت / سند مالی',
-    thDescription: 'شرح و پیگیری سند',
-    thCounterparty: 'طرف‌حساب',
-    thInflowWorker: 'طلب / بستانکار (+)',
-    thInflowAccount: 'وارده (ورودی +)',
-    thOutflowWorker: 'پرداختی / بدهکار (-)',
-    thOutflowAccount: 'صادره (خروجی -)',
-    thRunningBalance: 'مانده لحظه‌ای',
-    thSource: 'منبع',
+    thVoucher: 'سند',
+    thCategory: 'بابت',
+    thCounterparty: 'طرف حساب',
+    thDescription: 'شرح سند',
+    thInflow: '+',
+    thOutflow: '-',
+    thRunningBalance: 'مانده',
+    thInflowTitle: 'وارده (ورودی +)',
+    thOutflowTitle: 'صادره (خروجی -)',
+    thBalanceTitle: 'مانده لحظه‌ای',
     openingRow: 'افتتاحیه',
     openingBadge: 'سند افتتاحیه دوره',
     openingDesc: 'ثبت مانده اولیه در ابتدای دوره مالی',
     openingSupervisor: 'سرپرست سیستم',
-    openingBaseSource: 'پایه مالی',
     emptyMsg: 'هیچ گردش مالی یا تراکنشی منطبق با فیلتر انتخابی یافت نشد.',
-    refPrefix: 'شماره ارجاع:',
-    docFallback: 'سند مالی',
+    refPrefix: 'رهگیری:',
     finalBalanceLabel: 'مانده نهایی حساب:',
     totalDocsLabel: 'تعداد کل اسناد:',
     excelBtn: 'خروجی اکسل',
@@ -121,13 +115,13 @@ const COPY = {
     wageDaily: 'کارکرد روزانه',
     wageDesc: (hrs, ot) => `ثبت کارکرد: ${hrs || 8} ساعت${ot ? ` + ${ot} ساعت اضافه` : ''}`,
     wageSource: 'حضور و غیاب',
-    payAdvanceCat: 'پرداخت مساعده',
-    paySettlementCat: 'تسویه حساب دستمزد',
+    payAdvanceCat: 'مساعده پرسنل',
+    paySettlementCat: 'تسویه دستمزد پرسنل',
     payAdvanceDesc: 'پرداخت مساعده نقدی/بانکی',
     paySettlementDesc: 'پرداخت تسویه حساب کارکرد',
-    payBonusCat: 'عیدی و پاداش',
+    payBonusCat: 'عیدی و پاداش پرسنل',
     payBonusDesc: 'پرداخت پاداش / عیدی پرسنل',
-    paySource: 'پرداخت مالی',
+    payLoanCat: 'وام و تسهیلات پرسنلی',
     defaultBadge: ' (پیش‌فرض)',
     inactiveBadge: ' (غیرفعال)',
     defaultTag: 'پیش‌فرض',
@@ -135,30 +129,26 @@ const COPY = {
     lblRole: '• سمت:',
     lblBank: '• بانک:',
     lblCard: '• کارت:',
-    swipeHint: 'برای پیمایش ستون‌ها به طرفین بکشید',
+    swipeHint: 'برای مشاهده تمام ستون‌ها به طرفین بکشید',
     sortLabel: 'ترتیب:',
     sortNewest: 'جدید به قدیم',
     sortOldest: 'قدیم به جدید',
     viewCards: 'کارت‌ها',
     viewTable: 'جدول',
-    currencyBadge: (c) => `واحد مبالغ: ${c}`,
+    currencyBadge: (c) => `واحد: ${c}`,
     summaryTotals: 'جمع ستون‌ها',
-    sumInflow: 'مجموع وارده (+)',
-    sumOutflow: 'مجموع صادره (-)',
-    periodNet: 'تراز فیلتر',
-    balanceAfterTx: 'مانده لحظه‌ای:',
-    inflowPill: 'وارده (+)',
-    outflowPill: 'صادره (-)',
+    balanceAfterTx: 'مانده:',
     excelHeaders: {
       row: 'ردیف',
       date: 'تاریخ',
       time: 'ساعت',
-      category: 'بابت / سرفصل',
-      desc: 'شرح تراکنش',
+      voucher: 'شماره سند',
+      category: 'بابت',
       counterparty: 'طرف حساب',
-      inflow: 'وارده (ورودی +)',
-      outflow: 'صادره (خروجی -)',
-      balance: 'مانده لحظه‌ای',
+      desc: 'شرح تراکنش',
+      inflow: 'وارده (+)',
+      outflow: 'صادره (-)',
+      balance: 'مانده',
       currency: 'واحد پول'
     }
   },
@@ -202,24 +192,23 @@ const COPY = {
     printReportDate: 'بەرواری ڕاپۆرت:',
     printFinalBalance: 'باڵانسی کۆتایی:',
     thIndex: '#',
-    thDateTime: 'بەروار و کاتژمێر',
-    thCategory: 'بابەت / بەڵگەنامەی دارایی',
-    thDescription: 'ڕوونکردنەوە و بەدواداچوون',
+    thDateTime: 'بەروار و کات',
+    thVoucher: 'بەڵگەنامە',
+    thCategory: 'بابەت',
     thCounterparty: 'لایەنی پەیوەندیدار',
-    thInflowWorker: 'شایستە / بستانکار (+)',
-    thInflowAccount: 'هاتوو (ورودی +)',
-    thOutflowWorker: 'دراو / بدهکار (-)',
-    thOutflowAccount: 'دەرچوو (خروجی -)',
-    thRunningBalance: 'باڵانسی ساتەوەخت',
-    thSource: 'سەرچاوە',
+    thDescription: 'ڕوونکردنەوەی بەڵگەنامە',
+    thInflow: '+',
+    thOutflow: '-',
+    thRunningBalance: 'باڵانس',
+    thInflowTitle: 'هاتوو (ورودی +)',
+    thOutflowTitle: 'دەرچوو (خروجی -)',
+    thBalanceTitle: 'باڵانسی ساتەوەخت',
     openingRow: 'دەستپێک',
     openingBadge: 'بەڵگەنامەی سەرەتایی خول',
     openingDesc: 'تۆمارکردنی باڵانسی سەرەتایی لە دەستپێکی خولی دارایی',
     openingSupervisor: 'سەرپەرشتیاری سیستەم',
-    openingBaseSource: 'بنەڕەتی دارایی',
     emptyMsg: 'هیچ مامەڵەیەکی دارایی نەدۆزرایەوە.',
-    refPrefix: 'ژمارەی بەدواداچوون:',
-    docFallback: 'بەڵگەنامە',
+    refPrefix: 'بەدواداچوون:',
     finalBalanceLabel: 'باڵانسی کۆتایی حیساب:',
     totalDocsLabel: 'ژمارەی هەموو بەڵگەنامەکان:',
     excelBtn: 'دەرهێنانی ئەکسڵ',
@@ -241,7 +230,7 @@ const COPY = {
     paySettlementDesc: 'تەسویەی پارەی کارکردن',
     payBonusCat: 'جەژنانە و پاداشت',
     payBonusDesc: 'پێدانی پاداشت / جەژنانە بە کارمەند',
-    paySource: 'پارەدان',
+    payLoanCat: 'قەرز و پێشینەی کارمەندان',
     defaultBadge: ' (بنەڕەتی)',
     inactiveBadge: ' (ناچالاک)',
     defaultTag: 'بنەڕەتی',
@@ -255,24 +244,20 @@ const COPY = {
     sortOldest: 'کۆن بۆ نوێ',
     viewCards: 'کارتەکان',
     viewTable: 'خشتە',
-    currencyBadge: (c) => `یەکەی دارایی: ${c}`,
+    currencyBadge: (c) => `یەکە: ${c}`,
     summaryTotals: 'کۆی گشتی ستوونەکان',
-    sumInflow: 'سەرجەم هاتوو (+)',
-    sumOutflow: 'سەرجەم دەرچوو (-)',
-    periodNet: 'باڵانسی فلتەر',
-    balanceAfterTx: 'باڵانسی ساتەوەخت:',
-    inflowPill: 'هاتوو (+)',
-    outflowPill: 'دەرچوو (-)',
+    balanceAfterTx: 'باڵانس:',
     excelHeaders: {
       row: 'ڕیزبەندی',
       date: 'بەروار',
       time: 'کاتژمێر',
-      category: 'بابەت / سەرپەڕ',
-      desc: 'ڕوونکردنەوەی مامەڵە',
+      voucher: 'ژمارەی بەڵگەنامە',
+      category: 'بابەت',
       counterparty: 'لایەنی پەیوەندیدار',
+      desc: 'ڕوونکردنەوەی مامەڵە',
       inflow: 'هاتوو (+)',
       outflow: 'دەرچوو (-)',
-      balance: 'باڵانسی ساتەوەخت',
+      balance: 'باڵانس',
       currency: 'دراو'
     }
   },
@@ -317,23 +302,22 @@ const COPY = {
     printFinalBalance: 'Final Balance:',
     thIndex: '#',
     thDateTime: 'Date & Time',
-    thCategory: 'Category / Voucher',
-    thDescription: 'Description & Tracking',
+    thVoucher: 'Voucher',
+    thCategory: 'Category',
     thCounterparty: 'Counterparty',
-    thInflowWorker: 'Credit / Due (+)',
-    thInflowAccount: 'Inflow (+)',
-    thOutflowWorker: 'Debit / Paid (-)',
-    thOutflowAccount: 'Outflow (-)',
-    thRunningBalance: 'Running Balance',
-    thSource: 'Source',
+    thDescription: 'Description',
+    thInflow: '+',
+    thOutflow: '-',
+    thRunningBalance: 'Balance',
+    thInflowTitle: 'Inflow (+)',
+    thOutflowTitle: 'Outflow (-)',
+    thBalanceTitle: 'Running Balance',
     openingRow: 'Opening',
     openingBadge: 'Opening Balance Voucher',
     openingDesc: 'Initial balance recorded at beginning of period',
     openingSupervisor: 'System Admin',
-    openingBaseSource: 'Base Ledger',
     emptyMsg: 'No financial transactions match the selected filter.',
-    refPrefix: 'Ref No:',
-    docFallback: 'Voucher',
+    refPrefix: 'Ref:',
     finalBalanceLabel: 'Final Account Balance:',
     totalDocsLabel: 'Total Documents:',
     excelBtn: 'Export Excel',
@@ -349,13 +333,13 @@ const COPY = {
     wageDaily: 'Daily Attendance',
     wageDesc: (hrs, ot) => `Work logged: ${hrs || 8} hrs${ot ? ` + ${ot} hrs overtime` : ''}`,
     wageSource: 'Attendance',
-    payAdvanceCat: 'Advance Payment',
+    payAdvanceCat: 'Staff Advance',
     paySettlementCat: 'Wage Settlement',
     payAdvanceDesc: 'Cash/Bank Advance Payment',
     paySettlementDesc: 'Wage Settlement Payment',
-    payBonusCat: 'Bonus & Gift',
+    payBonusCat: 'Staff Bonus & Gift',
     payBonusDesc: 'Staff Bonus / Gift Payment',
-    paySource: 'Payment',
+    payLoanCat: 'Staff Loan Facility',
     defaultBadge: ' (Default)',
     inactiveBadge: ' (Inactive)',
     defaultTag: 'Default',
@@ -369,24 +353,20 @@ const COPY = {
     sortOldest: 'Oldest First',
     viewCards: 'Cards',
     viewTable: 'Table',
-    currencyBadge: (c) => `Currency: ${c}`,
+    currencyBadge: (c) => `Unit: ${c}`,
     summaryTotals: 'Column Totals',
-    sumInflow: 'Total Inflow (+)',
-    sumOutflow: 'Total Outflow (-)',
-    periodNet: 'Filter Net',
     balanceAfterTx: 'Balance:',
-    inflowPill: 'Inflow (+)',
-    outflowPill: 'Outflow (-)',
     excelHeaders: {
       row: 'Row',
       date: 'Date',
       time: 'Time',
+      voucher: 'Voucher No',
       category: 'Category',
-      desc: 'Description',
       counterparty: 'Counterparty',
+      desc: 'Description',
       inflow: 'Inflow (+)',
       outflow: 'Outflow (-)',
-      balance: 'Running Balance',
+      balance: 'Balance',
       currency: 'Currency'
     }
   }
@@ -407,7 +387,7 @@ export function AccountSubsidiaryLedgerModal({
   const { currentProject } = useProject();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
-  // هوک مالی حسابداری برای تأمین مستقل داده‌های حساب‌ها در صورت فراخوانی از تب‌های غیرحسابداری
+  // هوک مالی حسابداری
   const accounting = useAccounting();
   const effectiveCurrency = currency || accounting?.currency || 'IQD';
   const effectiveAccounts = (allAccounts && allAccounts.length > 0) ? allAccounts : (accounting?.financialAccounts || []);
@@ -420,16 +400,16 @@ export function AccountSubsidiaryLedgerModal({
   const effectiveAccountData = accountData || (entityType === 'account' && entityData?.id ? accounting?.accountBalances?.get(String(entityData.id)) : null);
 
   // استیت‌های فیلتر، سورت و حالت نمایش
-  const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'this_month' | 'last_month' | 'custom'
+  const [dateFilter, setDateFilter] = useState('all');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  // استیت سورت زمانی دوطرفه: پیش‌فرض جدیدترین در بالا (طبق درخواست کاربر)
-  const [sortDirection, setSortDirection] = useState('desc'); // 'desc' | 'asc'
+  // استیت سورت زمانی دوطرفه: پیش‌فرض جدیدترین در بالا
+  const [sortDirection, setSortDirection] = useState('desc');
 
-  // استیت حالت نمایش در موبایل با ذخیره علاقه‌مندی کاربر در localStorage
+  // استیت حالت نمایش در موبایل
   const [mobileViewMode, setMobileViewMode] = useState(() => {
     try {
       if (typeof localStorage !== 'undefined') {
@@ -448,7 +428,7 @@ export function AccountSubsidiaryLedgerModal({
     } catch (_) {}
   };
 
-  // کنترل نمایش ترانزیشنی فوتر شناور با جهت اسکرول (Apple Liquid Glass Floating Dock)
+  // کنترل نمایش ترانزیشنی فوتر شناور با جهت اسکرول
   const [isFooterVisible, setIsFooterVisible] = useState(true);
   const lastScrollTopRef = useRef(0);
   const scrollContainerRef = useRef(null);
@@ -457,20 +437,14 @@ export function AccountSubsidiaryLedgerModal({
     const currentScrollTop = e.currentTarget.scrollTop;
     const delta = currentScrollTop - lastScrollTopRef.current;
 
-    // در نمای اول و بالای صفحه (Initial View) فوتر همیشه نمایان است
     if (currentScrollTop < 40) {
       setIsFooterVisible(true);
-    } 
-    // اسکرول به سمت پایین (Scroll Down) -> مخفی شدن فوتر با ترانزیشن به سمت پایین
-    else if (delta > 10) {
+    } else if (delta > 10) {
       setIsFooterVisible(false);
-    } 
-    // اسکرول به سمت بالا (Scroll Up) -> بازگشت فوری فوتر به جای اولیه با ترانزیشن
-    else if (delta < -10) {
+    } else if (delta < -10) {
       setIsFooterVisible(true);
     }
 
-    // اگر کاربر به انتهای لیست رسید، فوتر مجدداً نمایش داده شود تا دکمه‌ها و جمع کل در دسترس باشند
     const isAtBottom = e.currentTarget.scrollHeight - currentScrollTop - e.currentTarget.clientHeight < 50;
     if (isAtBottom) {
       setIsFooterVisible(true);
@@ -482,19 +456,17 @@ export function AccountSubsidiaryLedgerModal({
   // بستن مودال با کلید Escape
   useEffect(() => {
     if (!isOpen) return;
-
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // ۱. بارگذاری اطلاعات تکمیلی پرسنل در صورت انتخاب پرسنل
+  // ۱. بارگذاری اطلاعات پرسنل، گروه‌ها و طرف‌حساب‌ها جهت حل ریشه‌ای خالی بودن نام طرف‌حساب
   const workerId = entityType === 'worker' ? String(entityData?.id) : null;
 
   const workerLogs = useLiveQuery(
@@ -535,13 +507,37 @@ export function AccountSubsidiaryLedgerModal({
     []
   ) || [];
 
+  const counterparties = useLiveQuery(
+    async () => {
+      try {
+        const list = await db.counterparties.toArray();
+        return list.filter((c) => !c.deletedAt);
+      } catch (_) {
+        return [];
+      }
+    },
+    []
+  ) || [];
+
   const groupMap = useMemo(() => {
     const map = new Map();
     groups.forEach((g) => map.set(String(g.id), g.name));
     return map;
   }, [groups]);
 
-  // محاسبه تراکنش‌های معین برای پرسنل (طلب کارکرد = ورودی، مساعده و تسویه = خروجی)
+  const workerMap = useMemo(() => {
+    const map = new Map();
+    effectiveWorkers.forEach((w) => map.set(String(w.id), w.name));
+    return map;
+  }, [effectiveWorkers]);
+
+  const counterpartyMap = useMemo(() => {
+    const map = new Map();
+    counterparties.forEach((cp) => map.set(String(cp.id), cp.name));
+    return map;
+  }, [counterparties]);
+
+  // محاسبه تراکنش‌های معین پرسنل
   const workerTransactionsData = useMemo(() => {
     if (entityType !== 'worker' || !entityData) {
       return { rawTransactions: [], initialBalance: 0, totalInflow: 0, totalOutflow: 0, currentBalance: 0 };
@@ -559,10 +555,9 @@ export function AccountSubsidiaryLedgerModal({
       return wDaily + (otH * wOtRate);
     };
 
-    // ترکیب رویدادها
     const combinedEvents = [];
 
-    // الف) کارکردها و دستمزدها (طلب کارگر - ورودی به حساب کارگر)
+    // الف) کارکردها (طلب کارگر - ورودی)
     workerLogs.forEach((l) => {
       const pay = getLogPay(l);
       const catLabel = l.type === 'half' ? txt.wageHalf : l.type === 'hourly' ? txt.wageHourly : txt.wageDaily;
@@ -584,12 +579,13 @@ export function AccountSubsidiaryLedgerModal({
       });
     });
 
-    // ب) پرداخت‌ها: مساعده‌ها، پاداش‌ها و تسویه‌حساب‌ها (پرداختی به کارگر)
+    // ب) پرداخت‌ها (مساعده، تسویه، پاداش - خروجی)
     workerPayments.forEach((p) => {
       const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
       const isBonus = p.type === 'bonus' || p.type === 'eid';
-      const cat = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : 'worker_settlement';
-      const catLabel = isBonus ? (p.bonusTitle || txt.payBonusCat) : isAdvance ? txt.payAdvanceCat : txt.paySettlementCat;
+      const isLoan = p.type === 'loan' || p.type === 'loan_disbursement';
+      const cat = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : isLoan ? 'staff_loan' : 'worker_settlement';
+      const catLabel = isBonus ? (p.bonusTitle || txt.payBonusCat) : isAdvance ? txt.payAdvanceCat : isLoan ? txt.payLoanCat : txt.paySettlementCat;
       const desc = p.notes || p.note || p.description || (isBonus ? txt.payBonusDesc : isAdvance ? txt.payAdvanceDesc : txt.paySettlementDesc);
 
       combinedEvents.push({
@@ -603,7 +599,7 @@ export function AccountSubsidiaryLedgerModal({
         counterparty: entityData.name,
         type: isBonus ? 'bonus_gift' : 'outflow',
         amount: Number(p.amount) || 0,
-        sourceLabel: isBonus ? (txt.payBonusCat || 'عیدی و پاداش') : txt.paySource,
+        sourceLabel: isBonus ? txt.payBonusCat : txt.paySource,
         voucherNumber: p.voucherNumber || (p.createdAt ? `T-${(p.createdAt || '').slice(2,4)}${(p.createdAt || '').slice(5,7)}${String(p.id || 1).padStart(3, '0')}` : `T-2611${String(p.id || 1).padStart(3, '0')}`),
         originalItem: p,
         createdAt: p.createdAt || p.date || ''
@@ -654,8 +650,77 @@ export function AccountSubsidiaryLedgerModal({
 
   const statusBadgeText = isWorker ? (isPositive ? txt.creditor : txt.debtor) : (isPositive ? txt.positiveBalance : txt.negativeBalance);
 
-  // واکشی تراکنش‌های خام (در توالی زمانی تقویمی)
+  // واکشی تراکنش‌های خام
   const rawTransactions = isWorker ? workerTransactionsData.rawTransactions : (effectiveAccountData?.transactions || []);
+
+  // تابع بازیابی نام دقیق و قطعی طرف‌حساب برای تمامی اسناد
+  const getTransactionCounterparty = useCallback((tx) => {
+    if (isWorker) {
+      return tx.counterparty || entityData?.name || '';
+    }
+    // اولویت ۱: نام صریح موجود در آبجکت
+    if (tx.counterparty && tx.counterparty !== '-') return tx.counterparty;
+    if (tx.personName && tx.personName !== '-') return tx.personName;
+    if (tx.rawItem?.workerName) return tx.rawItem.workerName;
+    if (tx.rawItem?.personName) return tx.rawItem.personName;
+    if (tx.rawItem?.counterpartyName) return tx.rawItem.counterpartyName;
+    if (tx.rawItem?.counterparty) return tx.rawItem.counterparty;
+    if (tx.rawItem?.payer) return tx.rawItem.payer;
+    if (tx.rawItem?.toAccountName) return tx.rawItem.toAccountName;
+    if (tx.rawItem?.fromAccountName) return tx.rawItem.fromAccountName;
+
+    // اولویت ۲: مپینگ شناسه پرسنل
+    const wId = tx.rawItem?.workerId || tx.workerId;
+    if (wId && workerMap.has(String(wId))) {
+      return workerMap.get(String(wId));
+    }
+
+    // اولویت ۳: مپینگ شناسه طرف‌حساب
+    const cpId = tx.rawItem?.counterpartyId || tx.counterpartyId;
+    if (cpId && counterpartyMap.has(String(cpId))) {
+      return counterpartyMap.get(String(cpId));
+    }
+
+    return '';
+  }, [isWorker, entityData, workerMap, counterpartyMap]);
+
+  // هندلر باز کردن سند مالی در مودال جزئیات سند
+  const handleVoucherClick = useCallback((voucherNumber, rawItem) => {
+    if (!voucherNumber) return;
+    window.dispatchEvent(
+      new CustomEvent('karsync-open-voucher', {
+        detail: { voucherNumber, item: rawItem }
+      })
+    );
+  }, []);
+
+  // هندلر کلیک روی طرف‌حساب جهت ناوبری هوشمند به معین آن شخص یا حساب
+  const handleCounterpartyClick = useCallback((tx) => {
+    const cpName = getTransactionCounterparty(tx);
+    if (!cpName) return;
+
+    // ۱. بررسی تطابق با پرسنل
+    const wId = tx.rawItem?.workerId || tx.workerId;
+    if (wId) {
+      const targetWorker = effectiveWorkers.find((w) => String(w.id) === String(wId));
+      if (targetWorker && onSelectEntity) {
+        onSelectEntity({ type: 'worker', data: targetWorker });
+        return;
+      }
+    }
+    const matchedWorker = effectiveWorkers.find((w) => w.name?.trim() === cpName.trim());
+    if (matchedWorker && onSelectEntity) {
+      onSelectEntity({ type: 'worker', data: matchedWorker });
+      return;
+    }
+
+    // ۲. بررسی تطابق با حساب بانکی / صندوق دیگر
+    const matchedAccount = effectiveAccounts.find((a) => a.name?.trim() === cpName.trim());
+    if (matchedAccount && onSelectEntity) {
+      onSelectEntity({ type: 'account', data: matchedAccount });
+      return;
+    }
+  }, [getTransactionCounterparty, effectiveWorkers, effectiveAccounts, onSelectEntity]);
 
   // اعمال فیلترهای زمانی، دسته‌بندی و متن جستجو
   const filteredTransactions = useMemo(() => {
@@ -689,9 +754,10 @@ export function AccountSubsidiaryLedgerModal({
 
       // فیلتر متنی
       if (q) {
+        const cpName = getTransactionCounterparty(tx);
         const descMatch = (tx.description || '').toLowerCase().includes(q);
-        const partyMatch = (tx.counterparty || '').toLowerCase().includes(q);
-        const refMatch = (tx.reference || '').toLowerCase().includes(q);
+        const partyMatch = cpName.toLowerCase().includes(q);
+        const refMatch = (tx.reference || tx.rawItem?.referenceNumber || '').toLowerCase().includes(q);
         const catMatch = (tx.categoryLabel || '').toLowerCase().includes(q);
         const voucherMatch = (tx.voucherNumber || '').toLowerCase().includes(q);
         if (!descMatch && !partyMatch && !refMatch && !catMatch && !voucherMatch) return false;
@@ -699,9 +765,9 @@ export function AccountSubsidiaryLedgerModal({
 
       return true;
     });
-  }, [rawTransactions, dateFilter, customStart, customEnd, categoryFilter, searchQuery]);
+  }, [rawTransactions, dateFilter, customStart, customEnd, categoryFilter, searchQuery, getTransactionCounterparty]);
 
-  // محاسبه سرجمع‌های ستونی (Column Totals) برای ردیف‌های فیلتر شده
+  // محاسبه سرجمع‌های ستونی (Column Totals)
   const columnTotals = useMemo(() => {
     let sumIn = 0;
     let sumOut = 0;
@@ -724,7 +790,7 @@ export function AccountSubsidiaryLedgerModal({
     return filteredTransactions;
   }, [filteredTransactions, sortDirection]);
 
-  // خروجی اکسل هماهنگ با ترتیب سورت انتخابی کاربر
+  // خروجی اکسل هماهنگ با چیدمان و سورت انتخابی
   const handleExportExcel = useCallback(() => {
     const h = txt.excelHeaders;
     const rows = [
@@ -732,9 +798,10 @@ export function AccountSubsidiaryLedgerModal({
         [h.row]: txt.openingRow,
         [h.date]: '-',
         [h.time]: '-',
+        [h.voucher]: '-',
         [h.category]: txt.openingBadge,
-        [h.desc]: txt.openingDesc,
         [h.counterparty]: entityData?.keeperName || entityData?.holderName || txt.openingSupervisor,
+        [h.desc]: txt.openingDesc,
         [h.inflow]: initialBalance,
         [h.outflow]: 0,
         [h.balance]: initialBalance,
@@ -744,9 +811,10 @@ export function AccountSubsidiaryLedgerModal({
         [h.row]: idx + 1,
         [h.date]: tx.rawDate || tx.date,
         [h.time]: tx.time || '-',
+        [h.voucher]: tx.voucherNumber || '-',
         [h.category]: tx.categoryLabel || tx.category,
+        [h.counterparty]: getTransactionCounterparty(tx) || '-',
         [h.desc]: tx.description || '-',
-        [h.counterparty]: tx.counterparty || '-',
         [h.inflow]: tx.type === 'inflow' ? tx.amount : 0,
         [h.outflow]: tx.type === 'outflow' ? tx.amount : 0,
         [h.balance]: tx.runningBalance,
@@ -756,9 +824,10 @@ export function AccountSubsidiaryLedgerModal({
         [h.row]: txt.openingRow,
         [h.date]: '-',
         [h.time]: '-',
+        [h.voucher]: '-',
         [h.category]: txt.openingBadge,
-        [h.desc]: txt.openingDesc,
         [h.counterparty]: entityData?.keeperName || entityData?.holderName || txt.openingSupervisor,
+        [h.desc]: txt.openingDesc,
         [h.inflow]: initialBalance,
         [h.outflow]: 0,
         [h.balance]: initialBalance,
@@ -772,7 +841,7 @@ export function AccountSubsidiaryLedgerModal({
     const safeName = (entityData?.name || 'Ledger').replace(/\s+/g, '_');
     const fileName = `KarSync_Ledger_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, fileName);
-  }, [displayedTransactions, initialBalance, entityData, effectiveCurrency, isWorker, sortDirection, txt]);
+  }, [displayedTransactions, initialBalance, entityData, effectiveCurrency, isWorker, sortDirection, txt, getTransactionCounterparty]);
 
   // پرینت اختصاصی جدول معین
   const handlePrint = useCallback(() => {
@@ -795,47 +864,46 @@ export function AccountSubsidiaryLedgerModal({
 
   const groupName = isWorker && entityData.groupId ? groupMap.get(String(entityData.groupId)) : null;
 
-  // ساختار کامپوننت سطر افتتاحیه برای استفاده در جدول
+  // ساختار سطر افتتاحیه برای چیدمان جدید
   const renderOpeningRow = () => {
     if (isWorker || initialBalance <= 0) return null;
     return (
-      <tr className="opening-balance-row bg-amber-500/10 dark:bg-amber-500/15 border-y border-amber-200/80 dark:border-amber-800/60 font-semibold text-slate-800 dark:text-amber-100 transition-colors">
-        <td className="py-3.5 px-3 text-center text-amber-600 dark:text-amber-400 font-bold">
-          <Star className="w-4 h-4 mx-auto fill-amber-500 text-amber-500" />
+      <tr className="opening-balance-row bg-slate-50/70 dark:bg-slate-900/40 border-y border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-200 transition-colors">
+        {/* ۱. ردیف */}
+        <td className="py-3 px-3 text-center text-amber-500 font-bold">
+          ★
         </td>
-        <td className="py-3.5 px-3 whitespace-nowrap font-mono text-[11px] text-amber-700 dark:text-amber-300">
-          {txt.openingRow}
-        </td>
-        <td className="py-3.5 px-3 whitespace-nowrap">
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-200/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
-            {txt.openingBadge}
-          </span>
-        </td>
-        <td className="py-3.5 px-3 text-slate-800 dark:text-slate-100 font-medium">
-          {txt.openingDesc}
-        </td>
-        <td className="py-3.5 px-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
-          {entityData?.keeperName || entityData?.holderName || txt.openingSupervisor}
-        </td>
-        {/* وارده (+) */}
-        <td className="py-3.5 px-3 text-left font-mono font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap" dir="ltr">
-          +{formatAmount(initialBalance, effectiveCurrency)}
-        </td>
-        {/* صادره (-) */}
-        <td className="py-3.5 px-3 text-left font-mono text-slate-400 dark:text-slate-500 whitespace-nowrap" dir="ltr">
+        {/* ۲. تاریخ و ساعت */}
+        <td className="py-3 px-3 whitespace-nowrap font-mono text-slate-400 dark:text-slate-500 text-[11px]">
           -
         </td>
-        {/* مانده لحظه‌ای */}
-        <td className="py-3.5 px-3 text-left font-mono font-black text-slate-900 dark:text-white whitespace-nowrap" dir="ltr">
-          <span className="inline-block px-2.5 py-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 shadow-2xs">
-            {formatAmount(initialBalance, effectiveCurrency)}
-          </span>
+        {/* ۳. سند */}
+        <td className="py-3 px-3 whitespace-nowrap font-mono text-slate-400 dark:text-slate-500 text-xs">
+          -
         </td>
-        {/* منبع */}
-        <td className="py-3.5 px-3 text-center whitespace-nowrap">
-          <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-[10px] font-bold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-            {txt.openingBaseSource}
-          </span>
+        {/* ۴. بابت */}
+        <td className="py-3 px-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200 text-xs">
+          {txt.openingBadge}
+        </td>
+        {/* ۵. طرف حساب */}
+        <td className="py-3 px-3 whitespace-nowrap text-slate-600 dark:text-slate-400 text-xs">
+          {entityData?.keeperName || entityData?.holderName || txt.openingSupervisor}
+        </td>
+        {/* ۶. شرح سند */}
+        <td className="py-3 px-3 text-slate-600 dark:text-slate-400 text-xs">
+          {txt.openingDesc}
+        </td>
+        {/* ۷. + (وارده) */}
+        <td className="py-3 px-3 text-left font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap text-xs" dir="ltr">
+          +{formatAmount(initialBalance, effectiveCurrency)}
+        </td>
+        {/* ۸. - (صادره) */}
+        <td className="py-3 px-3 text-left font-mono text-slate-400 dark:text-slate-600 whitespace-nowrap text-xs" dir="ltr">
+          -
+        </td>
+        {/* ۹. مانده */}
+        <td className="py-3 px-3 text-left font-mono font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap text-xs" dir="ltr">
+          {formatAmount(initialBalance, effectiveCurrency)}
         </td>
       </tr>
     );
@@ -848,13 +916,13 @@ export function AccountSubsidiaryLedgerModal({
       role="dialog"
       aria-modal="true"
     >
-      {/* کانتینر اسکرول اصلی کل صفحه: محتوا به صورت طبیعی به زیر هدر نفوذ می‌کند و بلور شیشه‌ای فعال می‌شود */}
+      {/* کانتینر اسکرول اصلی کل صفحه */}
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
         className="subsidiary-ledger-scroll-container flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar overscroll-contain relative touch-auto"
       >
-        {/* هدر ناوبار شیشه‌ای شناور اپل (Sticky Top Inside Scroll Container) */}
+        {/* هدر ناوبار شیشه‌ای شناور اپل */}
         <header className="no-print sticky top-0 z-30 px-3.5 py-2.5 sm:px-6 bg-white/75 dark:bg-slate-900/80 backdrop-blur-2xl backdrop-saturate-180 border-b border-white/60 dark:border-white/10 shadow-[0_4px_24px_rgb(0,0,0,0.04)] flex items-center justify-between gap-2.5 shrink-0 transition-all">
           {/* سمت راست: هویت مودال و نام حساب/طرف‌حساب */}
           <div className="flex items-center gap-2.5 min-w-0">
@@ -912,7 +980,7 @@ export function AccountSubsidiaryLedgerModal({
               </select>
             )}
 
-            {/* دکمه خروج مینیمال اپل */}
+            {/* دکمه خروج */}
             <button
               type="button"
               onClick={onClose}
@@ -925,17 +993,16 @@ export function AccountSubsidiaryLedgerModal({
           </div>
         </header>
 
-        {/* محتوای درونی اسکرول: بنر هیرو، نوار فیلتر و ابزار، و ماتریس جدول/کارت‌ها */}
+        {/* محتوای درونی اسکرول: بنر هیرو، نوار فیلتر و جدول */}
         <div className="pb-36 sm:pb-28">
-          {/* ۱. بنر هیروی اجرایی لوکس معین (Executive Hero Banner) */}
+          {/* ۱. بنر هیروی اجرایی لوکس معین */}
           <div className="no-print px-3.5 py-3 sm:px-6 pt-3.5 sm:pt-4 max-w-7xl mx-auto w-full">
             <div className="relative overflow-hidden rounded-3xl p-4 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-slate-950 text-white border border-white/10 shadow-2xl">
-              {/* حباب‌های بلورین درخشان در پس‌زمینه */}
               <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
               <div className="absolute -bottom-10 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-                {/* سمت راست: هویت حساب + نمایش مانده زنده و وضعیت */}
+                {/* هویت حساب + نمایش مانده زنده و واحد پول با فونت متصل و بی‌نقص */}
                 <div className="lg:col-span-7 space-y-3.5">
                   <div className="flex items-center gap-3">
                     <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
@@ -988,22 +1055,24 @@ export function AccountSubsidiaryLedgerModal({
                     </div>
                   </div>
 
-                  {/* مانده لحظه‌ای و نهایی */}
+                  {/* مانده لحظه‌ای و نهایی با حروف متصل و ارقام مونو */}
                   <div className="pt-1">
                     <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                       {isWorker ? txt.liveBalanceWorker : txt.liveBalanceAccount}
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className={`text-2xl sm:text-3xl md:text-4xl font-black font-mono tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`} dir="ltr">
-                        {formatCurrency(currentBalance, effectiveCurrency, language)}
+                        {formatAmount(currentBalance, effectiveCurrency)}
+                      </span>
+                      <span className="text-base sm:text-lg font-bold text-slate-300 font-sans">
+                        {getCurrencySymbol(effectiveCurrency, language)}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* سمت چپ: کارت شیشه‌ای شاخص‌های سه‌گانه با ارقام خالص و خوانا */}
+                {/* سمت چپ: شاخص‌های سه‌گانه */}
                 <div className="lg:col-span-5 grid grid-cols-3 gap-2.5 bg-white/5 p-3.5 rounded-2xl border border-white/10 backdrop-blur-md">
-                  {/* ۱. افتتاحیه / مبنا */}
                   <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
                     <span className="text-[10px] text-slate-400 block truncate">
                       {isWorker ? txt.card1Worker : txt.card1Account}
@@ -1013,7 +1082,6 @@ export function AccountSubsidiaryLedgerModal({
                     </span>
                   </div>
 
-                  {/* ۲. کل وارده (ورودی +) */}
                   <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-between">
                     <span className="text-[10px] text-emerald-300 block truncate">
                       {isWorker ? txt.card2Worker : txt.card2Account}
@@ -1023,7 +1091,6 @@ export function AccountSubsidiaryLedgerModal({
                     </span>
                   </div>
 
-                  {/* ۳. کل صادره (خروجی -) */}
                   <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col justify-between">
                     <span className="text-[10px] text-rose-300 block truncate">
                       {isWorker ? txt.card3Worker : txt.card3Account}
@@ -1037,10 +1104,9 @@ export function AccountSubsidiaryLedgerModal({
             </div>
           </div>
 
-          {/* ۲. نوار فیلتر و کنترل‌های سورت و حالت نمایش (Glass Control Toolbar) */}
+          {/* ۲. نوار فیلتر و سورت */}
           <div className="no-print px-3.5 py-1.5 sm:px-6 max-w-7xl mx-auto w-full">
             <div className="p-2.5 sm:p-3 sm:px-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-3">
-              {/* بخش راست: تعداد اسناد فیلترشده + کنترل سورت زمانی [APP_THEME_BUTTON] */}
               <div className="flex flex-wrap items-center gap-2.5">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
@@ -1051,7 +1117,7 @@ export function AccountSubsidiaryLedgerModal({
                   </span>
                 </div>
 
-                {/* کنترل سورت دوطرفه تقویمی با تم برنامه [APP_THEME_BUTTON] */}
+                {/* سورت دوطرفه تقویمی */}
                 <div className="inline-flex items-center p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
                   <button
                     type="button"
@@ -1082,9 +1148,8 @@ export function AccountSubsidiaryLedgerModal({
                 </div>
               </div>
 
-              {/* بخش چپ: فیلترهای تاریخ، سرفصل، جستجو و ضامن حالت نمایش در موبایل */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* ضامن حالت نمایش در موبایل (کارت‌ها vs جدول) با استایل [APP_THEME_BUTTON] */}
+                {/* ضامن موبایل: کارت‌ها vs جدول */}
                 <div className="md:hidden inline-flex items-center p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
                   <button
                     type="button"
@@ -1190,7 +1255,7 @@ export function AccountSubsidiaryLedgerModal({
             </div>
           )}
 
-          {/* سربرگ مشخصات معین مخصوص پرینت فیزیکی */}
+          {/* سربرگ مشخصات معین مخصوص پرینت */}
           <div className="print-only px-6 mb-4 pb-3 border-b-2 border-slate-900 text-slate-900">
             <div className="flex items-center justify-between">
               <div>
@@ -1214,9 +1279,9 @@ export function AccountSubsidiaryLedgerModal({
             </div>
           </div>
 
-          {/* ۳. بخش اصلی نمایش: فید کارت‌های شیشه‌ای موبایل یا جدول لوکس دسکتاپ */}
+          {/* ۳. بخش اصلی جدول و فید کارت‌ها */}
           <div className="px-3.5 sm:px-6 py-2 max-w-7xl mx-auto w-full">
-            {/* حالت الف: فید کارت‌های شیشه‌ای موبایل (Mobile Glass Cards Feed) */}
+            {/* حالت الف: فید کارت‌های موبایل */}
             <div className={`md:hidden ${mobileViewMode === 'cards' ? 'block' : 'hidden'}`}>
               {displayedTransactions.length === 0 ? (
                 <div className="py-12 px-4 rounded-3xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-slate-800 text-center text-slate-400 dark:text-slate-500 text-xs">
@@ -1224,145 +1289,131 @@ export function AccountSubsidiaryLedgerModal({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {/* ردیف افتتاحیه در صورت سورت صعودی (قدیم به جدید) */}
+                  {/* افتتاحیه در سورت صعودی */}
                   {!isWorker && initialBalance > 0 && sortDirection === 'asc' && (
-                    <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-200/80 dark:border-amber-800/60 shadow-xs space-y-2">
+                    <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="inline-flex items-center gap-1 font-bold text-amber-800 dark:text-amber-200">
-                          <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                          <span>{txt.openingBadge}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          ★ {txt.openingBadge}
                         </span>
-                        <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                        <span className="font-mono text-[11px] text-slate-400">
                           {txt.openingRow}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
                         {txt.openingDesc}
                       </p>
-                      <div className="flex items-center justify-between pt-1 border-t border-amber-200/50 dark:border-amber-800/40 font-mono text-xs">
-                        <span className="text-[11px] text-slate-500">{txt.balanceAfterTx}</span>
-                        <span className="font-black text-slate-900 dark:text-white" dir="ltr">
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-xs font-mono">
+                        <span className="text-[11px] text-slate-500 font-sans">{txt.balanceAfterTx}</span>
+                        <span className="font-bold text-slate-900 dark:text-white" dir="ltr">
                           +{formatAmount(initialBalance, effectiveCurrency)}
                         </span>
                       </div>
                     </div>
                   )}
 
-                  {/* کارت‌های تراکنش‌ها */}
-                  {displayedTransactions.map((tx, idx) => (
-                    <div
-                      key={tx.id + '_card_' + idx}
-                      className="p-3.5 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-white/70 dark:border-slate-800/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-md transition-all space-y-2.5"
-                    >
-                      {/* هدر کارت: تاریخ و ساعت + بج سرفصل و سند مالی */}
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{tx.rawDate}</span>
-                          {tx.time && (
-                            <span className="flex items-center gap-0.5 text-[10px] text-slate-400">
-                              <Clock className="w-3 h-3 ms-1" />
-                              <span>{tx.time}</span>
-                            </span>
-                          )}
-                        </div>
+                  {/* کارت‌های تراکنش */}
+                  {displayedTransactions.map((tx, idx) => {
+                    const cpName = getTransactionCounterparty(tx);
+                    return (
+                      <div
+                        key={tx.id + '_mcard_' + idx}
+                        className="p-3.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-2.5"
+                      >
+                        {/* هدر کارت: تاریخ و ساعت + شماره سند (کلیک‌پذیر) */}
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-1.5 font-mono text-slate-500 dark:text-slate-400 text-[11px]">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{tx.rawDate}</span>
+                            {tx.time && <span className="text-slate-400 ms-1">{tx.time}</span>}
+                          </div>
 
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                            tx.category === 'attendance_wage'
-                              ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
-                              : tx.category === 'petty_cash'
-                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                              : tx.category === 'worker_settlement'
-                              ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
-                              : tx.category === 'advance_payment'
-                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                              : tx.category === 'account_transfer'
-                              ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
-                              : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                          }`}>
-                            {tx.categoryLabel}
-                          </span>
+                          {/* شماره سند */}
                           {tx.voucherNumber && (
-                            <VoucherBadge
-                              voucherNumber={tx.voucherNumber}
-                              item={tx.originalItem || tx}
-                              size="xs"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => handleVoucherClick(tx.voucherNumber, tx.originalItem || tx.rawItem || tx)}
+                              className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 underline underline-offset-2 cursor-pointer transition-colors"
+                            >
+                              {tx.voucherNumber}
+                            </button>
                           )}
                         </div>
-                      </div>
 
-                      {/* بدنه کارت: شرح تراکنش و طرف‌حساب/مرجع */}
-                      <div>
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-snug">
-                          {tx.description}
+                        {/* بابت + طرف‌حساب */}
+                        <div className="flex items-baseline justify-between gap-2 text-xs">
+                          <span className="font-bold text-slate-800 dark:text-slate-100">
+                            {tx.categoryLabel || tx.category}
+                          </span>
+                          {cpName && (
+                            <button
+                              type="button"
+                              onClick={() => handleCounterpartyClick(tx)}
+                              className="text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 text-[11px] font-medium transition-colors"
+                            >
+                              {cpName}
+                            </button>
+                          )}
                         </div>
-                        {(tx.counterparty || tx.reference) && (
-                          <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                            {tx.counterparty && (
-                              <span className="flex items-center gap-1 font-medium">
-                                <User className="w-3 h-3 text-slate-400" />
-                                <span>{tx.counterparty}</span>
-                              </span>
-                            )}
+
+                        {/* شرح سند */}
+                        {tx.description && (
+                          <div className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
+                            {tx.description}
                             {tx.reference && (
-                              <span className="font-mono text-[10px] text-slate-400">
+                              <span className="block font-mono text-[10px] text-slate-400 mt-0.5">
                                 {txt.refPrefix} {tx.reference}
                               </span>
                             )}
                           </div>
                         )}
-                      </div>
 
-                      {/* فوتر داخلی کارت: تفکیک مبلغ تراکنش و مانده لحظه‌ای */}
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                        {/* مبلغ تراکنش */}
-                        <div>
-                          {tx.type === 'inflow' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono font-black text-xs border border-emerald-500/20" dir="ltr">
-                              +{formatAmount(tx.amount, effectiveCurrency)}
-                            </span>
-                          ) : tx.type === 'outflow' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-700 dark:text-rose-300 font-mono font-black text-xs border border-rose-500/20" dir="ltr">
-                              -{formatAmount(tx.amount, effectiveCurrency)}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono font-black text-xs border border-amber-500/20" dir="ltr">
-                              ★ {formatAmount(tx.amount, effectiveCurrency)}
-                            </span>
-                          )}
-                        </div>
+                        {/* مبالغ: ورودی/خروجی و مانده */}
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                          <div>
+                            {tx.type === 'inflow' ? (
+                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm" dir="ltr">
+                                +{formatAmount(tx.amount, effectiveCurrency)}
+                              </span>
+                            ) : tx.type === 'outflow' ? (
+                              <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-sm" dir="ltr">
+                                -{formatAmount(tx.amount, effectiveCurrency)}
+                              </span>
+                            ) : (
+                              <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-sm" dir="ltr">
+                                {formatAmount(tx.amount, effectiveCurrency)}
+                              </span>
+                            )}
+                          </div>
 
-                        {/* مانده لحظه‌ای پس از تراکنش */}
-                        <div className="flex items-center gap-1.5 text-xs font-mono">
-                          <span className="text-[10px] text-slate-400 font-sans">{txt.balanceAfterTx}</span>
-                          <span className={`font-black ${tx.runningBalance >= 0 ? 'text-slate-900 dark:text-slate-100' : 'text-rose-600 dark:text-rose-400'}`} dir="ltr">
-                            {formatAmount(tx.runningBalance, effectiveCurrency)}
-                          </span>
+                          <div className="flex items-center gap-1.5 font-mono">
+                            <span className="text-[10px] text-slate-400 font-sans">{txt.balanceAfterTx}</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-200" dir="ltr">
+                              {formatAmount(tx.runningBalance, effectiveCurrency)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
-                  {/* ردیف افتتاحیه در صورت سورت نزولی (جدید به قدیم) در انتهای لیست */}
+                  {/* افتتاحیه در سورت نزولی */}
                   {!isWorker && initialBalance > 0 && sortDirection === 'desc' && (
-                    <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-200/80 dark:border-amber-800/60 shadow-xs space-y-2">
+                    <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="inline-flex items-center gap-1 font-bold text-amber-800 dark:text-amber-200">
-                          <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                          <span>{txt.openingBadge}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          ★ {txt.openingBadge}
                         </span>
-                        <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                        <span className="font-mono text-[11px] text-slate-400">
                           {txt.openingRow}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
                         {txt.openingDesc}
                       </p>
-                      <div className="flex items-center justify-between pt-1 border-t border-amber-200/50 dark:border-amber-800/40 font-mono text-xs">
-                        <span className="text-[11px] text-slate-500">{txt.balanceAfterTx}</span>
-                        <span className="font-black text-slate-900 dark:text-white" dir="ltr">
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-xs font-mono">
+                        <span className="text-[11px] text-slate-500 font-sans">{txt.balanceAfterTx}</span>
+                        <span className="font-bold text-slate-900 dark:text-white" dir="ltr">
                           +{formatAmount(initialBalance, effectiveCurrency)}
                         </span>
                       </div>
@@ -1372,9 +1423,8 @@ export function AccountSubsidiaryLedgerModal({
               )}
             </div>
 
-            {/* حالت ب: جدول لوکس شیشه‌ای (در دسکتاپ همیشه فعال، در موبایل وابسته به ضامن) */}
+            {/* حالت ب: جدول اصلی و استاندارد معین */}
             <div className={`${mobileViewMode === 'table' ? 'block' : 'hidden md:block'}`}>
-              {/* راهنمای اسکرول افقی روی موبایل وقتی در حالت جدول است */}
               <div className="md:hidden mb-2 px-3.5 py-1.5 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-2xs flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                 <span className="flex items-center gap-1.5 font-medium">
                   <span>👉</span>
@@ -1386,60 +1436,37 @@ export function AccountSubsidiaryLedgerModal({
                 </span>
               </div>
 
-              {/* کادر گلس جدول معین با کانتینر اسکرول بدون هیچ قفل لمسی */}
+              {/* کادر گلس جدول معین با چیدمان ستونی دقیق */}
               <div className="rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar touch-auto">
-                  <table className="w-full text-right text-xs min-w-[760px] border-collapse">
-                    {/* هدر شیشه‌ای جدول با نشان‌های تفکیک‌شده */}
-                    <thead className="sticky top-0 z-10 bg-slate-100/80 dark:bg-slate-800/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-700/80">
-                      <tr className="text-slate-600 dark:text-slate-300 font-bold">
+                  <table className="w-full text-right text-xs min-w-[780px] border-collapse">
+                    {/* هدر جدول: ردیف / تاریخ و ساعت / سند / بابت / طرف حساب / شرح سند / + / - / مانده */}
+                    <thead className="sticky top-0 z-10 bg-slate-100/85 dark:bg-slate-800/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-700/80">
+                      <tr className="text-slate-700 dark:text-slate-300 font-bold text-xs">
+                        {/* ۱. ردیف */}
                         <th className="py-3.5 px-3 text-center w-12">{txt.thIndex}</th>
-                        <th className="py-3.5 px-3 whitespace-nowrap">
-                          <span className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{txt.thDateTime}</span>
-                          </span>
+                        {/* ۲. تاریخ و ساعت */}
+                        <th className="py-3.5 px-3 whitespace-nowrap w-28">{txt.thDateTime}</th>
+                        {/* ۳. سند */}
+                        <th className="py-3.5 px-3 whitespace-nowrap w-24">{txt.thVoucher}</th>
+                        {/* ۴. بابت */}
+                        <th className="py-3.5 px-3 whitespace-nowrap w-36">{txt.thCategory}</th>
+                        {/* ۵. طرف حساب */}
+                        <th className="py-3.5 px-3 whitespace-nowrap w-36">{txt.thCounterparty}</th>
+                        {/* ۶. شرح سند */}
+                        <th className="py-3.5 px-3 min-w-[200px]">{txt.thDescription}</th>
+                        {/* ۷. + (وارده) */}
+                        <th className="py-3.5 px-3 text-left w-28 whitespace-nowrap text-emerald-600 dark:text-emerald-400 font-black font-mono text-sm" title={txt.thInflowTitle}>
+                          {txt.thInflow}
                         </th>
-                        <th className="py-3.5 px-3 whitespace-nowrap">
-                          <span className="flex items-center gap-1.5">
-                            <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{txt.thCategory}</span>
-                          </span>
+                        {/* ۸. - (صادره) */}
+                        <th className="py-3.5 px-3 text-left w-28 whitespace-nowrap text-rose-600 dark:text-rose-400 font-black font-mono text-sm" title={txt.thOutflowTitle}>
+                          {txt.thOutflow}
                         </th>
-                        <th className="py-3.5 px-3 min-w-[200px]">
-                          <span className="flex items-center gap-1.5">
-                            <Layers className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{txt.thDescription}</span>
-                          </span>
+                        {/* ۹. مانده */}
+                        <th className="py-3.5 px-3 text-left w-32 whitespace-nowrap" title={txt.thBalanceTitle}>
+                          {txt.thRunningBalance}
                         </th>
-                        <th className="py-3.5 px-3 whitespace-nowrap">
-                          <span className="flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{txt.thCounterparty}</span>
-                          </span>
-                        </th>
-                        <th className="py-3.5 px-3 whitespace-nowrap text-left text-emerald-600 dark:text-emerald-400">
-                          <span className="inline-flex items-center gap-1">
-                            <ArrowDownLeft className="w-3.5 h-3.5" />
-                            <span>{isWorker ? txt.thInflowWorker : txt.thInflowAccount}</span>
-                            <span className="text-[10px] font-mono text-emerald-500/80">[{effectiveCurrency}]</span>
-                          </span>
-                        </th>
-                        <th className="py-3.5 px-3 whitespace-nowrap text-left text-rose-600 dark:text-rose-400">
-                          <span className="inline-flex items-center gap-1">
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                            <span>{isWorker ? txt.thOutflowWorker : txt.thOutflowAccount}</span>
-                            <span className="text-[10px] font-mono text-rose-500/80">[{effectiveCurrency}]</span>
-                          </span>
-                        </th>
-                        <th className="py-3.5 px-3 whitespace-nowrap text-left">
-                          <span className="inline-flex items-center gap-1">
-                            <Scale className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{txt.thRunningBalance}</span>
-                            <span className="text-[10px] font-mono text-slate-400">[{effectiveCurrency}]</span>
-                          </span>
-                        </th>
-                        <th className="py-3.5 px-3 text-center whitespace-nowrap">{txt.thSource}</th>
                       </tr>
                     </thead>
 
@@ -1455,104 +1482,100 @@ export function AccountSubsidiaryLedgerModal({
                           </td>
                         </tr>
                       ) : (
-                        displayedTransactions.map((tx, idx) => (
-                          <tr 
-                            key={tx.id + '_row_' + idx}
-                            className="hover:bg-slate-50/80 dark:hover:bg-slate-900/60 transition-colors"
-                          >
-                            {/* ردیف */}
-                            <td className="py-3 px-3 text-center text-slate-400 dark:text-slate-500 font-mono text-[11px]">
-                              {idx + 1}
-                            </td>
+                        displayedTransactions.map((tx, idx) => {
+                          const cpName = getTransactionCounterparty(tx);
+                          return (
+                            <tr 
+                              key={tx.id + '_row_' + idx}
+                              className="hover:bg-slate-50/80 dark:hover:bg-slate-900/60 transition-colors"
+                            >
+                              {/* ۱. ردیف */}
+                              <td className="py-3 px-3 text-center text-slate-400 dark:text-slate-500 font-mono text-[11px]">
+                                {idx + 1}
+                              </td>
 
-                            {/* تاریخ و ساعت */}
-                            <td className="py-3 px-3 whitespace-nowrap font-mono text-slate-700 dark:text-slate-300 text-[11px]">
-                              <div>{tx.rawDate}</div>
-                              {tx.time && <div className="text-[10px] text-slate-400 dark:text-slate-500">{tx.time}</div>}
-                            </td>
+                              {/* ۲. تاریخ و ساعت */}
+                              <td className="py-3 px-3 whitespace-nowrap font-mono text-slate-700 dark:text-slate-300 text-[11px]">
+                                <div>{tx.rawDate}</div>
+                                {tx.time && <div className="text-[10px] text-slate-400 dark:text-slate-500">{tx.time}</div>}
+                              </td>
 
-                            {/* سرفصل + بج سند حسابداری */}
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                                  tx.category === 'attendance_wage'
-                                    ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
-                                    : tx.category === 'petty_cash'
-                                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                                    : tx.category === 'worker_settlement'
-                                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
-                                    : tx.category === 'advance_payment'
-                                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                                    : tx.category === 'account_transfer'
-                                    ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
-                                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                                }`}>
-                                  {tx.categoryLabel}
-                                </span>
-                                {tx.voucherNumber && (
-                                  <VoucherBadge
-                                    voucherNumber={tx.voucherNumber}
-                                    item={tx.originalItem || tx}
-                                    size="xs"
-                                  />
+                              {/* ۳. سند (شماره سند تعاملی با هاور شیک و باز کردن مودال سند) */}
+                              <td className="py-3 px-3 whitespace-nowrap font-mono text-xs">
+                                {tx.voucherNumber ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleVoucherClick(tx.voucherNumber, tx.originalItem || tx.rawItem || tx)}
+                                    className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 hover:underline underline-offset-2 cursor-pointer transition-colors inline-flex items-center gap-1 group"
+                                    title={`مشاهده سند: ${tx.voucherNumber}`}
+                                  >
+                                    <span>{tx.voucherNumber}</span>
+                                    <FileText className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-sky-500 shrink-0" />
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-400 dark:text-slate-600">-</span>
                                 )}
-                              </div>
-                            </td>
+                              </td>
 
-                            {/* شرح و پیگیری */}
-                            <td className="py-3 px-3 text-slate-800 dark:text-slate-200 font-medium">
-                              <div>{tx.description}</div>
-                              {tx.reference && (
-                                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
-                                  {txt.refPrefix} {tx.reference}
-                                </div>
-                              )}
-                            </td>
+                              {/* ۴. بابت (متن ساده مشکی بدون کپسول و بدون اشباع رنگ) */}
+                              <td className="py-3 px-3 whitespace-nowrap text-slate-800 dark:text-slate-200 font-medium text-xs">
+                                {tx.categoryLabel || tx.category}
+                              </td>
 
-                            {/* طرف‌حساب */}
-                            <td className="py-3 px-3 whitespace-nowrap text-slate-700 dark:text-slate-300 font-medium">
-                              {tx.counterparty || '-'}
-                            </td>
+                              {/* ۵. طرف حساب (لینک تعاملی با هاور شیک برای ناوبری به معین شخص) */}
+                              <td className="py-3 px-3 whitespace-nowrap text-xs">
+                                {cpName ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCounterpartyClick(tx)}
+                                    className="text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 font-medium cursor-pointer transition-colors inline-flex items-center gap-1 group text-right"
+                                    title={`مشاهده گردش معین: ${cpName}`}
+                                  >
+                                    <span className="group-hover:underline underline-offset-2">{cpName}</span>
+                                    <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-sky-500 shrink-0" />
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-400 dark:text-slate-600">-</span>
+                                )}
+                              </td>
 
-                            {/* وارده / طلب (+) - مبالغ بدون کلمه تکراری دینار */}
-                            <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-emerald-600 dark:text-emerald-400 text-left" dir="ltr">
-                              {tx.type === 'inflow' ? `+${formatAmount(tx.amount, effectiveCurrency)}` : '-'}
-                            </td>
+                              {/* ۶. شرح سند */}
+                              <td className="py-3 px-3 text-slate-700 dark:text-slate-300 text-xs">
+                                <div>{tx.description}</div>
+                                {tx.reference && (
+                                  <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
+                                    {txt.refPrefix} {tx.reference}
+                                  </div>
+                                )}
+                              </td>
 
-                            {/* صادره / پرداختی (-) - مبالغ بدون کلمه تکراری دینار */}
-                            <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-rose-600 dark:text-rose-400 text-left" dir="ltr">
-                              {tx.type === 'outflow' ? `-${formatAmount(tx.amount, effectiveCurrency)}` : '-'}
-                            </td>
+                              {/* ۷. + (وارده با رنگ سبز مونو) */}
+                              <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-emerald-600 dark:text-emerald-400 text-left text-xs" dir="ltr">
+                                {tx.type === 'inflow' ? `+${formatAmount(tx.amount, effectiveCurrency)}` : <span className="text-slate-300 dark:text-slate-600 font-normal">-</span>}
+                              </td>
 
-                            {/* مانده لحظه‌ای - مبالغ بدون کلمه تکراری دینار */}
-                            <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-left" dir="ltr">
-                              <span className={`inline-block px-2.5 py-0.5 rounded-xl border shadow-2xs ${
-                                tx.runningBalance >= 0 
-                                  ? 'bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 border-slate-200/80 dark:border-slate-700/80' 
-                                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 border-rose-200/80 dark:border-rose-800/80'
-                              }`}>
+                              {/* ۸. - (صادره با رنگ قرمز مونو) */}
+                              <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-rose-600 dark:text-rose-400 text-left text-xs" dir="ltr">
+                                {tx.type === 'outflow' ? `-${formatAmount(tx.amount, effectiveCurrency)}` : <span className="text-slate-300 dark:text-slate-600 font-normal">-</span>}
+                              </td>
+
+                              {/* ۹. مانده (عدد خالص مشکی بدون کپسول و کادر اضافه) */}
+                              <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-slate-800 dark:text-slate-200 text-left text-xs" dir="ltr">
                                 {formatAmount(tx.runningBalance, effectiveCurrency)}
-                              </span>
-                            </td>
-
-                            {/* منبع سند */}
-                            <td className="py-3 px-3 text-center">
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60">
-                                {tx.sourceLabel || txt.docFallback}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
 
                       {/* ردیف افتتاحیه در صورت سورت نزولی (جدید به قدیم) */}
                       {sortDirection === 'desc' && renderOpeningRow()}
                     </tbody>
 
-                    {/* سطر جمع ستونی هوشمند (Column Totals Sticky/End Footer) */}
+                    {/* سطر جمع ستونی تراز شده انتهای جدول */}
                     <tfoot className="bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md border-t-2 border-slate-300 dark:border-slate-700 font-bold text-xs">
                       <tr>
-                        <td colSpan={5} className="py-3.5 px-3.5 text-slate-700 dark:text-slate-200">
+                        <td colSpan={6} className="py-3.5 px-3.5 text-slate-700 dark:text-slate-300">
                           <div className="flex items-center gap-2">
                             <span className="font-black">{txt.summaryTotals}</span>
                             <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
@@ -1561,29 +1584,19 @@ export function AccountSubsidiaryLedgerModal({
                           </div>
                         </td>
 
-                        {/* جمع کل وارده‌ها */}
-                        <td className="py-3.5 px-3 text-left font-mono font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap bg-emerald-500/5" dir="ltr">
+                        {/* جمع کل وارده‌ها (+) */}
+                        <td className="py-3.5 px-3 text-left font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap text-xs" dir="ltr">
                           +{formatAmount(columnTotals.sumInflow, effectiveCurrency)}
                         </td>
 
-                        {/* جمع کل صادره‌ها */}
-                        <td className="py-3.5 px-3 text-left font-mono font-black text-rose-600 dark:text-rose-400 whitespace-nowrap bg-rose-500/5" dir="ltr">
+                        {/* جمع کل صادره‌ها (-) */}
+                        <td className="py-3.5 px-3 text-left font-mono font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap text-xs" dir="ltr">
                           -{formatAmount(columnTotals.sumOutflow, effectiveCurrency)}
                         </td>
 
-                        {/* مانده تراز فیلتر */}
-                        <td className="py-3.5 px-3 text-left font-mono font-black whitespace-nowrap" dir="ltr">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-xl border shadow-2xs ${
-                            columnTotals.net >= 0
-                              ? 'bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                              : 'bg-rose-100/80 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border-rose-300 dark:border-rose-800'
-                          }`}>
-                            {formatAmount(columnTotals.net, effectiveCurrency)}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-3 text-center text-slate-400 font-mono text-[10px]">
-                          Σ
+                        {/* مانده کل دوره */}
+                        <td className="py-3.5 px-3 text-left font-mono font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap text-xs" dir="ltr">
+                          {formatAmount(columnTotals.net, effectiveCurrency)}
                         </td>
                       </tr>
                     </tfoot>
@@ -1595,7 +1608,7 @@ export function AccountSubsidiaryLedgerModal({
         </div>
       </div>
 
-      {/* فوتر شناور شیشه‌ای اپل با ترانزیشن هوشمند اسکرول (Apple Liquid Glass Floating Dock) */}
+      {/* فوتر شناور شیشه‌ای اپل با ترانزیشن هوشمند اسکرول */}
       <footer 
         className={`no-print fixed bottom-3 start-3 end-3 sm:start-6 sm:end-6 z-40 p-2.5 sm:px-5 rounded-3xl bg-white/75 dark:bg-slate-900/80 backdrop-blur-2xl backdrop-saturate-180 border border-white/60 dark:border-white/10 shadow-[0_12px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_12px_40px_rgb(0,0,0,0.4)] flex items-center justify-between gap-3 transform transition-all duration-300 ease-out ${
           isFooterVisible 
@@ -1603,20 +1616,24 @@ export function AccountSubsidiaryLedgerModal({
             : 'translate-y-28 opacity-0 pointer-events-none'
         }`}
       >
-        {/* خلاصه زنده مانده و وضعیت */}
+        {/* خلاصه زنده مانده و وضعیت با خط فارسی متصل */}
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">
               {txt.finalBalanceLabel}
             </span>
-            <span 
-              className={`text-sm sm:text-base md:text-lg font-black font-mono tracking-tight truncate ${
-                isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-              }`} 
-              dir="ltr"
-            >
-              {formatCurrency(currentBalance, effectiveCurrency, language)}
-            </span>
+            <div className="flex items-baseline gap-1.5" dir="ltr">
+              <span 
+                className={`text-sm sm:text-base md:text-lg font-black font-mono tracking-tight truncate ${
+                  isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                }`}
+              >
+                {formatAmount(currentBalance, effectiveCurrency)}
+              </span>
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 font-sans">
+                {getCurrencySymbol(effectiveCurrency, language)}
+              </span>
+            </div>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
               isPositive
                 ? 'bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
