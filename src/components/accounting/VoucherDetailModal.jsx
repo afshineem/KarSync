@@ -1112,13 +1112,13 @@ export function VoucherDetailModal({
       <div 
         ref={printRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-5xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl backdrop-saturate-150 border border-white/70 dark:border-white/10 shadow-[0_30px_70px_rgba(0,0,0,0.25)] rounded-3xl sm:rounded-4xl overflow-hidden flex flex-col max-h-[94vh] transition-all duration-300"
+        className="w-full max-w-5xl bg-[#f3f6f4] dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] rounded-3xl sm:rounded-4xl overflow-hidden flex flex-col max-h-[92vh] relative select-none transition-all duration-300"
       >
         
         {/* ======================================================== */}
         {/* 1. APPLE LIQUID GLASS HEADER WITH VOUCHER STEPPER       */}
         {/* ======================================================== */}
-        <div className="no-print p-4 sm:p-5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl border-b border-white/60 dark:border-white/10 flex items-center justify-between gap-3 sticky top-0 z-20">
+        <div className="no-print p-4 sm:p-5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shrink-0 z-20 shadow-xs flex items-center justify-between gap-3">
           
           {/* Identity & Status */}
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -1213,7 +1213,7 @@ export function VoucherDetailModal({
         {/* ======================================================== */}
         {/* 2. BODY CONTENT (Liquid Glass Scrollable View)          */}
         {/* ======================================================== */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-5 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-5 bg-[#f3f6f4] dark:bg-slate-950 custom-scrollbar">
           {loading ? (
             <div className="py-24 flex flex-col items-center justify-center text-slate-400 gap-3">
               <Clock className="w-8 h-8 animate-spin text-sky-500" />
@@ -1276,7 +1276,7 @@ export function VoucherDetailModal({
                 <div className="lg:col-span-8 space-y-4 sm:space-y-5">
                   
                   {/* 1. Big Hero Financial Amount Card (Apple Glass) */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-2 flex-wrap gap-2">
                       <span className="flex items-center gap-1.5">
                         <Coins className="w-4 h-4 text-emerald-500" />
@@ -1310,7 +1310,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* 2. Double-Entry Breakdown (Apple Glass) */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                         <ArrowLeftRight className="w-4 h-4 text-indigo-500" />
@@ -1365,7 +1365,7 @@ export function VoucherDetailModal({
 
                   {/* 3. Deep Architectural Breakdown: GROUP SETTLEMENT (ریز تسهیم اعضای گروه) */}
                   {enrichedBreakdown.groupSettlement && (
-                    <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                    <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
@@ -1473,7 +1473,7 @@ export function VoucherDetailModal({
 
                   {/* 4. Deep Architectural Breakdown: LOAN FACILITY (مشخصات پرونده تسهیلات وام) */}
                   {enrichedBreakdown.loanFacility && (
-                    <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
+                    <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
                       <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-black text-xs sm:text-sm">
                         <Coins className="w-4 h-4" />
                         <span>{c.loanFacilityCardTitle}</span>
@@ -1512,7 +1512,7 @@ export function VoucherDetailModal({
                   )}
 
                   {/* 5. Title, Public Description & Internal Auditor Note */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400">
                       <span>{c.txDetailsTitle}</span>
                       <span className="font-mono text-slate-500">{itemData.date} {itemData.time && `• ${itemData.time}`}</span>
@@ -1547,7 +1547,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* 6. Multi-Attachment Gallery & Lightbox Trigger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400">
                       <span className="flex items-center gap-1.5">
                         <Receipt className="w-4 h-4 text-sky-500" />
@@ -1597,7 +1597,7 @@ export function VoucherDetailModal({
                 <div className="lg:col-span-4 space-y-4 sm:space-y-5">
                   
                   {/* Counterparty / Person Card with Deep Link to Subsidiary Ledger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-sky-500" />
@@ -1627,7 +1627,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* Source Financial Account Card with Deep Link to Subsidiary Ledger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <Landmark className="w-3.5 h-3.5 text-indigo-500" />
@@ -1659,7 +1659,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* Cost Center / Phase Card */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-1.5">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-1.5">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5 text-amber-500" />
                       <span>{c.costCenterTitle}</span>
@@ -1670,7 +1670,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* Enterprise Audit Trail & Lifecycle Timeline */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <History className="w-3.5 h-3.5 text-emerald-500" />
                       <span>{c.approvalAuditTitle}</span>
@@ -1790,7 +1790,7 @@ export function VoucherDetailModal({
         {/* ======================================================== */}
         {/* 3. STICKY GLASS BOTTOM DOCK                             */}
         {/* ======================================================== */}
-        <div className="no-print p-3.5 sm:p-4 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl border-t border-white/60 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 z-20">
+        <div className="no-print p-3.5 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shrink-0 z-20 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex flex-col sm:flex-row items-center justify-between gap-3">
           
           {/* Live Balance / Amount Indicator (No redundant voucher number repetition) */}
           <div className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2 self-start sm:self-center">
