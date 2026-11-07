@@ -1019,14 +1019,14 @@ export function VoucherDetailModal({
   const nextVoucher = siblingIndex < allProjectVouchers.length - 1 ? allProjectVouchers[siblingIndex + 1] : null;
 
   return createPortal(
-    /* Outer Backdrop with Light Subtle Blur (Background kept crisp) & Backdrop-Click-To-Close */
+    /* Outer Backdrop with Subtle Soft Blur (Underlying page clearly visible) & Backdrop-Click-To-Close */
     <div 
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
-      className="fixed inset-0 z-[120] overflow-y-auto bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-2.5 sm:p-5 md:p-8 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[120] overflow-y-auto bg-slate-950/40 backdrop-blur-[4px] flex items-center justify-center p-2.5 sm:p-5 md:p-8 animate-in fade-in duration-200"
     >
       
       {/* Lightbox Modal (For attached photos) */}
@@ -1112,13 +1112,13 @@ export function VoucherDetailModal({
       <div 
         ref={printRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-5xl bg-[#f3f6f4] dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] rounded-3xl sm:rounded-4xl overflow-hidden flex flex-col max-h-[92vh] relative select-none transition-all duration-300"
+        className="w-full max-w-5xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl backdrop-saturate-150 border border-white/60 dark:border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.25)] rounded-3xl sm:rounded-4xl overflow-hidden flex flex-col max-h-[92vh] relative select-none transition-all duration-300"
       >
         
         {/* ======================================================== */}
         {/* 1. APPLE LIQUID GLASS HEADER WITH VOUCHER STEPPER       */}
         {/* ======================================================== */}
-        <div className="no-print p-4 sm:p-5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shrink-0 z-20 shadow-xs flex items-center justify-between gap-3">
+        <div className="no-print p-4 sm:p-5 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-b border-white/50 dark:border-white/10 shrink-0 z-20 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.7)] flex items-center justify-between gap-3">
           
           {/* Identity & Status */}
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -1159,38 +1159,38 @@ export function VoucherDetailModal({
               <button
                 type="button"
                 onClick={handleCopyVoucher}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-800/90 dark:hover:bg-slate-700 rounded-xl border border-slate-200/80 dark:border-slate-700/80 font-mono text-xs font-black transition-all cursor-pointer group shadow-2xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 dark:bg-sky-500/20 rounded-xl border border-sky-300/40 dark:border-sky-600/40 backdrop-blur-md font-mono text-xs font-black transition-all cursor-pointer group shadow-2xs"
                 title={copied ? c.copiedMsg : c.shareBtn}
               >
                 {copied ? (
                   <Check className="w-3.5 h-3.5 text-emerald-500" />
                 ) : (
-                  <Copy className="w-3.5 h-3.5 text-slate-400 group-hover:text-sky-500 transition-colors" />
+                  <Copy className="w-3.5 h-3.5 text-sky-500 group-hover:scale-110 transition-transform" />
                 )}
-                <span className="text-sky-600 dark:text-sky-400 dir-ltr font-black text-sm">{itemData.voucherNumber}</span>
+                <span className="text-sky-600 dark:text-sky-300 dir-ltr font-black text-sm">{itemData.voucherNumber}</span>
               </button>
             )}
 
             {/* Stepper Navigation: Prev / Next */}
             {allProjectVouchers.length > 1 && (
-              <div className="inline-flex items-center p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+              <div className="inline-flex items-center p-1 rounded-2xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-white/10 shadow-2xs">
                 <button
                   type="button"
                   onClick={() => navigateToVoucher(prevVoucher)}
                   disabled={!prevVoucher}
-                  className="h-7 w-7 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                  className="h-7 w-7 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                   title={c.prevVoucher}
                 >
                   <ChevronRight className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
                 </button>
-                <span className="text-[10px] font-mono font-bold text-slate-500 px-1.5 hidden md:inline">
+                <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-400 px-1.5 hidden md:inline">
                   {c.voucherPosition(siblingIndex + 1, allProjectVouchers.length)}
                 </span>
                 <button
                   type="button"
                   onClick={() => navigateToVoucher(nextVoucher)}
                   disabled={!nextVoucher}
-                  className="h-7 w-7 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                  className="h-7 w-7 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                   title={c.nextVoucher}
                 >
                   <ChevronLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
@@ -1202,7 +1202,7 @@ export function VoucherDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100/90 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800/90 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60 transition-all cursor-pointer shadow-2xs active:scale-95"
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/50 hover:bg-rose-500/15 text-slate-500 hover:text-rose-600 dark:bg-slate-800/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 border border-white/60 dark:border-white/10 backdrop-blur-md transition-all cursor-pointer shadow-2xs active:scale-95"
               title={c.closeBtn}
             >
               <X className="w-4 h-4" />
@@ -1213,7 +1213,7 @@ export function VoucherDetailModal({
         {/* ======================================================== */}
         {/* 2. BODY CONTENT (Liquid Glass Scrollable View)          */}
         {/* ======================================================== */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-5 bg-[#f3f6f4] dark:bg-slate-950 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-5 bg-transparent custom-scrollbar">
           {loading ? (
             <div className="py-24 flex flex-col items-center justify-center text-slate-400 gap-3">
               <Clock className="w-8 h-8 animate-spin text-sky-500" />
@@ -1276,7 +1276,7 @@ export function VoucherDetailModal({
                 <div className="lg:col-span-8 space-y-4 sm:space-y-5">
                   
                   {/* 1. Big Hero Financial Amount Card (Apple Glass) */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-2 flex-wrap gap-2">
                       <span className="flex items-center gap-1.5">
                         <Coins className="w-4 h-4 text-emerald-500" />
@@ -1310,7 +1310,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* 2. Double-Entry Breakdown (Apple Glass) */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                         <ArrowLeftRight className="w-4 h-4 text-indigo-500" />
@@ -1365,7 +1365,7 @@ export function VoucherDetailModal({
 
                   {/* 3. Deep Architectural Breakdown: GROUP SETTLEMENT (ریز تسهیم اعضای گروه) */}
                   {enrichedBreakdown.groupSettlement && (
-                    <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                    <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
@@ -1473,7 +1473,7 @@ export function VoucherDetailModal({
 
                   {/* 4. Deep Architectural Breakdown: LOAN FACILITY (مشخصات پرونده تسهیلات وام) */}
                   {enrichedBreakdown.loanFacility && (
-                    <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
+                    <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
                       <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-black text-xs sm:text-sm">
                         <Coins className="w-4 h-4" />
                         <span>{c.loanFacilityCardTitle}</span>
@@ -1512,7 +1512,7 @@ export function VoucherDetailModal({
                   )}
 
                   {/* 5. Title, Public Description & Internal Auditor Note */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400">
                       <span>{c.txDetailsTitle}</span>
                       <span className="font-mono text-slate-500">{itemData.date} {itemData.time && `• ${itemData.time}`}</span>
@@ -1547,7 +1547,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* 6. Multi-Attachment Gallery & Lightbox Trigger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400">
                       <span className="flex items-center gap-1.5">
                         <Receipt className="w-4 h-4 text-sky-500" />
@@ -1597,7 +1597,7 @@ export function VoucherDetailModal({
                 <div className="lg:col-span-4 space-y-4 sm:space-y-5">
                   
                   {/* Counterparty / Person Card with Deep Link to Subsidiary Ledger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-sky-500" />
@@ -1627,7 +1627,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* Source Financial Account Card with Deep Link to Subsidiary Ledger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <Landmark className="w-3.5 h-3.5 text-indigo-500" />
@@ -1659,7 +1659,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* Cost Center / Phase Card */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-1.5">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-1.5">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5 text-amber-500" />
                       <span>{c.costCenterTitle}</span>
@@ -1670,7 +1670,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* Enterprise Audit Trail & Lifecycle Timeline */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <History className="w-3.5 h-3.5 text-emerald-500" />
                       <span>{c.approvalAuditTitle}</span>
@@ -1790,7 +1790,7 @@ export function VoucherDetailModal({
         {/* ======================================================== */}
         {/* 3. STICKY GLASS BOTTOM DOCK                             */}
         {/* ======================================================== */}
-        <div className="no-print p-3.5 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shrink-0 z-20 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="no-print p-3.5 sm:p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-t border-white/50 dark:border-white/10 shrink-0 z-20 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.7),0_-10px_30px_rgba(0,0,0,0.05)] flex flex-col sm:flex-row items-center justify-between gap-3">
           
           {/* Live Balance / Amount Indicator (No redundant voucher number repetition) */}
           <div className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2 self-start sm:self-center">
@@ -1814,7 +1814,7 @@ export function VoucherDetailModal({
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={deleting || approving}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-800 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-300/40 dark:border-rose-700/40 backdrop-blur-md transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-2xs"
                 title={c.deleteDraftBtn}
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -1828,7 +1828,7 @@ export function VoucherDetailModal({
                 type="button"
                 onClick={handleEditDraftVoucher}
                 disabled={deleting || approving}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-800/90 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/60 dark:border-slate-700/60 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl bg-white/50 hover:bg-white/80 dark:bg-slate-800/50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-bold text-xs border border-white/60 dark:border-white/10 backdrop-blur-md transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-2xs"
                 title={c.editDraftBtn}
               >
                 <FileEdit className="w-3.5 h-3.5 text-sky-500" />
@@ -1841,7 +1841,7 @@ export function VoucherDetailModal({
               type="button"
               onClick={handlePrint}
               disabled={!itemData}
-              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-800/90 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/60 dark:border-slate-700/60 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/50 hover:bg-white/80 dark:bg-slate-800/50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-bold text-xs border border-white/60 dark:border-white/10 backdrop-blur-md transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-2xs"
             >
               <Printer className="w-4 h-4 text-sky-500" />
               <span>{c.printBtn}</span>
@@ -1864,7 +1864,7 @@ export function VoucherDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-2xl bg-slate-200/80 dark:bg-slate-800/80 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+              className="px-4 py-2 rounded-2xl bg-white/50 hover:bg-white/80 dark:bg-slate-800/50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-bold text-xs border border-white/60 dark:border-white/10 backdrop-blur-md transition-all active:scale-95 cursor-pointer shadow-2xs"
             >
               {c.closeBtn}
             </button>
