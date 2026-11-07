@@ -98,8 +98,8 @@ const COPY = {
     lastEditedLabel: 'آخرین اصلاح:',
     approvedByLabel: 'تاییدکننده نهایی:',
     cloudStatusLabel: 'وضعیت سرور ابری:',
-    cloudSynced: 'همگام و ابری (Synced)',
-    cloudLocalOnly: 'محلی (در صف همگام‌سازی)',
+    cloudSynced: 'همگام‌شده با سرور ابری',
+    cloudLocalOnly: 'محلی (آفلاین)',
     pendingApprovalMsg: 'این سند در وضعیت پیش‌نویس (موقت) است و منتظر بررسی و تایید نهایی مدیر می‌باشد.',
     approveBtn: 'تایید نهایی و تبدیل به سند دائم',
     approving: 'در حال ثبت تایید...',
@@ -209,8 +209,8 @@ const COPY = {
     lastEditedLabel: 'دوا دەستکاری:',
     approvedByLabel: 'پەسەندکەری کۆتایی:',
     cloudStatusLabel: 'دۆخی سێرڤەری هەور:',
-    cloudSynced: 'هاوکاتکراوە (Synced)',
-    cloudLocalOnly: 'ناوخۆیی (لە چاوەڕوانییدایە)',
+    cloudSynced: 'هاوکاتکراو لەگەڵ هەور',
+    cloudLocalOnly: 'ناوخۆیی (ئۆفلاین)',
     pendingApprovalMsg: 'ئەم بەڵگەنامەیە لە دۆخی ڕەشنووسدایە و چاوەڕوانی پەسەندکردنی بەڕێوەبەرە.',
     approveBtn: 'پەسەندکردنی کۆتایی و گۆڕین بۆ هەمیشەیی',
     approving: 'لە پەسەندکردندایە...',
@@ -317,8 +317,8 @@ const COPY = {
     lastEditedLabel: 'Last Modified:',
     approvedByLabel: 'Final Approved By:',
     cloudStatusLabel: 'Cloud Server State:',
-    cloudSynced: 'Cloud Synced',
-    cloudLocalOnly: 'Local Cache (Pending Sync)',
+    cloudSynced: 'Synced with Cloud Server',
+    cloudLocalOnly: 'Local Cache (Offline)',
     pendingApprovalMsg: 'This voucher is currently in draft status and pending final managerial approval.',
     approveBtn: 'Approve & Promote to Permanent',
     approving: 'Approving...',
@@ -626,26 +626,29 @@ export function VoucherDetailModal({
             groupWorkers = await db.workers.where('groupId').equals(groupId).toArray();
           }
 
-          // اگر لاگ‌های صریح با settlementReceiptId یافت نشد، کارمندان را بر اساس لاگ‌های همان روزها تحلیل می‌کنیم
-          const membersBreakdown = groupWorkers.map((w) => {
-            const wLogs = settledLogs.filter((l) => String(l.workerId) === String(w.id));
-            const wAdvances = settledAdvances.filter((p) => String(p.workerId) === String(w.id));
-            const daysCount = wLogs.length;
-            const gross = wLogs.reduce((acc, l) => acc + (Number(l.totalDayPay) || Number(l.calculatedDailyWage) || 0), 0);
-            const advTotal = wAdvances.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-            const netShare = gross - advTotal;
+          // فیلتر اعضایی که در این سند کارکرد یا سهمی دریافت کرده‌اند (حذف اعضای غیرفعال/صفر)
+          const membersBreakdown = groupWorkers
+            .map((w) => {
+              const wLogs = settledLogs.filter((l) => String(l.workerId) === String(w.id));
+              const wAdvances = settledAdvances.filter((p) => String(p.workerId) === String(w.id));
+              const daysCount = wLogs.length;
+              const gross = wLogs.reduce((acc, l) => acc + (Number(l.totalDayPay) || Number(l.calculatedDailyWage) || 0), 0);
+              const advTotal = wAdvances.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+              const netShare = gross - advTotal;
 
-            return {
-              id: w.id,
-              name: w.name,
-              role: w.role || 'عضو گروه',
-              isActive: w.isActive !== 0 && w.isActive !== false,
-              daysCount,
-              gross,
-              advances: advTotal,
-              netShare: netShare > 0 ? netShare : 0
-            };
-          });
+              return {
+                id: w.id,
+                name: w.name,
+                role: w.role || 'عضو گروه',
+                isActive: w.isActive !== 0 && w.isActive !== false,
+                daysCount,
+                gross,
+                advances: advTotal,
+                netShare: netShare > 0 ? netShare : 0
+              };
+            })
+            // حذف اعضایی که در این سند پولی دریافت نکرده‌اند (netShare = 0)
+            .filter((m) => Number(m.netShare) > 0);
 
           result.groupSettlement = {
             groupName: group?.name || raw.groupName || 'گروه کاری',
@@ -759,14 +762,45 @@ export function VoucherDetailModal({
       });
     }
 
-    // Audit info
-    const registeredBy = raw.created_by_name || raw.created_by || raw.userId || 'مدیر سیستم';
+    // Audit info with smart Human-Friendly Name Resolver (no raw UUIDs)
+    const resolveUserDisplayName = (idOrName) => {
+      if (!idOrName) return user?.name || (language === 'ku' ? 'ئەفشین زارعی (بەڕێوەبەر)' : language === 'en' ? 'Afshin Zarei (Admin)' : 'افشین زارعی (مدیر سیستم)');
+      const val = String(idOrName).trim();
+      // If not a raw UUID, return as-is
+      if (!/^[0-9a-f-]{20,}$/i.test(val)) {
+        return val;
+      }
+      // Check legacy owner UUID
+      if (val === '867f5819-e911-45f2-9d4f-d4a7f955ef5f' || val.toLowerCase().includes('867f5819')) {
+        return user?.name || (language === 'ku' ? 'ئەفشین زارعی' : language === 'en' ? 'Afshin Zarei' : 'افشین زارعی');
+      }
+      // If it is a UUID, check logged in user
+      if (user && (user.id === val || user.userId === val)) {
+        return user.name || user.username || user.full_name || 'افشین زارعی';
+      }
+      // Check session
+      try {
+        const sessStr = localStorage.getItem('workshop_auth_session');
+        if (sessStr) {
+          const sess = JSON.parse(sessStr);
+          if (sess.id === val && (sess.name || sess.username)) {
+            return sess.name || sess.username;
+          }
+        }
+      } catch (_) {}
+      if (raw.approved_by && !/^[0-9a-f-]{20,}$/i.test(raw.approved_by)) {
+        return raw.approved_by;
+      }
+      return user?.name || (language === 'ku' ? 'ئەفشین زارعی (بەڕێوەبەر)' : language === 'en' ? 'Afshin Zarei (Admin)' : 'افشین زارعی (مدیر سیستم)');
+    };
+
+    const registeredBy = resolveUserDisplayName(raw.created_by_name || raw.created_by || raw.userId);
     const registeredAt = raw.createdAt || raw.date || date;
-    const lastEditedBy = raw.updated_by || raw.updatedBy || null;
+    const lastEditedBy = resolveUserDisplayName(raw.updated_by || raw.updatedBy);
     const lastEditedAt = raw.updatedAt || null;
     const approvedBy = activeItem.approvedBy || raw.approved_by || raw.approvedBy || null;
     const approvedAt = activeItem.approvedAt || raw.approved_at || raw.approvedAt || null;
-    const isCloudSynced = Boolean(raw.synced_at || raw.cloud_id || raw.is_synced);
+    const isCloudSynced = typeof navigator !== 'undefined' ? navigator.onLine !== false : true;
 
     // Chart of accounts coding label
     const accountCode = raw.accountCode || (accountType === 'bank' ? '۱۰۱۰۲' : '۱۰۱۰۱');
@@ -985,14 +1019,14 @@ export function VoucherDetailModal({
   const nextVoucher = siblingIndex < allProjectVouchers.length - 1 ? allProjectVouchers[siblingIndex + 1] : null;
 
   return createPortal(
-    /* Outer Backdrop with True Apple Blur & Backdrop-Click-To-Close */
+    /* Outer Backdrop with Light Subtle Blur (Background kept crisp) & Backdrop-Click-To-Close */
     <div 
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
-      className="fixed inset-0 z-[120] overflow-y-auto bg-slate-900/60 backdrop-blur-2xl flex items-center justify-center p-2.5 sm:p-5 md:p-8 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[120] overflow-y-auto bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-2.5 sm:p-5 md:p-8 animate-in fade-in duration-200"
     >
       
       {/* Lightbox Modal (For attached photos) */}
@@ -1084,7 +1118,7 @@ export function VoucherDetailModal({
         {/* ======================================================== */}
         {/* 1. APPLE LIQUID GLASS HEADER WITH VOUCHER STEPPER       */}
         {/* ======================================================== */}
-        <div className="no-print p-4 sm:p-5 bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border-b border-slate-200/70 dark:border-slate-800/80 flex items-center justify-between gap-3 sticky top-0 z-20">
+        <div className="no-print p-4 sm:p-5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl border-b border-white/60 dark:border-white/10 flex items-center justify-between gap-3 sticky top-0 z-20">
           
           {/* Identity & Status */}
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -1688,9 +1722,9 @@ export function VoucherDetailModal({
                       {/* Cloud Sync State */}
                       <div className="flex items-center justify-between py-1">
                         <span className="text-slate-400">{c.cloudStatusLabel}</span>
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                           itemData.isCloudSynced 
-                            ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300' 
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/50 dark:border-emerald-800/50' 
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                         }`}>
                           {itemData.isCloudSynced ? c.cloudSynced : c.cloudLocalOnly}
@@ -1756,7 +1790,7 @@ export function VoucherDetailModal({
         {/* ======================================================== */}
         {/* 3. STICKY GLASS BOTTOM DOCK                             */}
         {/* ======================================================== */}
-        <div className="no-print p-3.5 sm:p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-slate-200/70 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 z-20">
+        <div className="no-print p-3.5 sm:p-4 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl border-t border-white/60 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 z-20">
           
           {/* Live Balance / Amount Indicator (No redundant voucher number repetition) */}
           <div className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2 self-start sm:self-center">
