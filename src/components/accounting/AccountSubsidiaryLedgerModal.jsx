@@ -125,6 +125,12 @@ const COPY = {
     defaultBadge: ' (پیش‌فرض)',
     inactiveBadge: ' (غیرفعال)',
     defaultTag: 'پیش‌فرض',
+    card1Monthly: 'حقوق ثابت ماهانه',
+    loanFacilityBadge: 'تسهیلات وام فعال',
+    loanInstallmentLabel: 'قسط ماهانه:',
+    fixedSalaryPresence: 'حضور روزانه (حقوق ثابت ماهانه)',
+    loanFacilityDesc: 'اعطای تسهیلات وام پرسنلی (بازپرداخت اقساطی)',
+    loanFacilityPill: 'تسهیلات وام',
     lblGroup: '• گروه:',
     lblRole: '• سمت:',
     lblBank: '• بانک:',
@@ -234,6 +240,12 @@ const COPY = {
     defaultBadge: ' (بنەڕەتی)',
     inactiveBadge: ' (ناچالاک)',
     defaultTag: 'بنەڕەتی',
+    card1Monthly: 'مووچەی جێگیری مانگانە',
+    loanFacilityBadge: 'تەسهیلاتی قەرزی چالاک',
+    loanInstallmentLabel: 'قیستی مانگانە:',
+    fixedSalaryPresence: 'ئامادەبوونی ڕۆژانە (مووچەی جێگیر)',
+    loanFacilityDesc: 'پێدانی قەرزی کارمەند (تەسهیلاتی قیستدار)',
+    loanFacilityPill: 'تەسهیلاتی قەرز',
     lblGroup: '• گرووپ:',
     lblRole: '• پلە:',
     lblBank: '• بانک:',
@@ -343,6 +355,12 @@ const COPY = {
     defaultBadge: ' (Default)',
     inactiveBadge: ' (Inactive)',
     defaultTag: 'Default',
+    card1Monthly: 'Fixed Monthly Salary',
+    loanFacilityBadge: 'Active Staff Loan',
+    loanInstallmentLabel: 'Monthly Installment:',
+    fixedSalaryPresence: 'Daily Attendance (Fixed Salary)',
+    loanFacilityDesc: 'Staff Loan Facility Disbursement (Installments)',
+    loanFacilityPill: 'Staff Loan',
     lblGroup: '• Group:',
     lblRole: '• Role:',
     lblBank: '• Bank:',
@@ -495,6 +513,24 @@ export function AccountSubsidiaryLedgerModal({
     [workerId]
   ) || [];
 
+  // بارگذاری تسهیلات وام پرسنلی جهت تفکیک از دستمزد جاری
+  const workerLoans = useLiveQuery(
+    async () => {
+      if (!workerId || !db.loans) return [];
+      try {
+        const list = await db.loans.where('workerId').equals(String(entityData.id)).toArray();
+        return list.filter((l) => !l.deletedAt && l.status !== 'deleted');
+      } catch (_) {
+        return [];
+      }
+    },
+    [workerId]
+  ) || [];
+
+  const activeWorkerLoan = useMemo(() => {
+    return (workerLoans || []).find((l) => l.status === 'active' && Number(l.remainingBalance) > 0);
+  }, [workerLoans]);
+
   const groups = useLiveQuery(
     async () => {
       try {
@@ -537,19 +573,34 @@ export function AccountSubsidiaryLedgerModal({
     return map;
   }, [counterparties]);
 
-  // محاسبه تراکنش‌های معین پرسنل
+  // محاسبه تراکنش‌های معین پرسنل با تفکیک ریشه‌ای حقوق ماهانه، وام و اضافه‌کاری
   const workerTransactionsData = useMemo(() => {
     if (entityType !== 'worker' || !entityData) {
       return { rawTransactions: [], initialBalance: 0, totalInflow: 0, totalOutflow: 0, currentBalance: 0 };
     }
 
+    const isMonthly = entityData.wageType === 'monthly';
     const wDaily = Number(String(entityData.dailyRate || 0).replace(/,/g, '')) || 0;
     const wOtRate = Number(String(entityData.overtimeHourlyRate || 0).replace(/,/g, '')) || 0;
 
     const getLogPay = (l) => {
+      const otH = Math.max(0, Number(l.overtimeHours) || 0);
+      if (isMonthly) {
+        // برای پرسنل حقوق ثابت ماهانه: حضور عادی دستمزد روزانه تولید نمی‌کند
+        // فقط در صورت اضافه‌کاری یا جمعه‌کاری دستمزد مازاد محاسبه می‌شود
+        let extraPay = 0;
+        if (otH > 0) {
+          extraPay += otH * (wOtRate || (Number(entityData.monthlySalary || 0) / 240));
+        }
+        const totalPay = Number(l.totalDayPay) || 0;
+        if (totalPay > 0 && totalPay > extraPay) {
+          extraPay = totalPay;
+        }
+        return extraPay;
+      }
+
       let val = Number(l.totalDayPay);
       if (!isNaN(val) && val > 0) return val;
-      const otH = Math.max(0, Number(l.overtimeHours) || 0);
       if (l.type === 'half') return (wDaily * 0.5) + (otH * wOtRate);
       if (l.type === 'hourly') return otH * (wOtRate || (wDaily / 8));
       return wDaily + (otH * wOtRate);
@@ -557,36 +608,71 @@ export function AccountSubsidiaryLedgerModal({
 
     const combinedEvents = [];
 
-    // الف) کارکردها (طلب کارگر - ورودی)
+    // الف) کارکردها (حضور روزانه / اضافه‌کاری / دستمزد روزانه)
     workerLogs.forEach((l) => {
       const pay = getLogPay(l);
-      const catLabel = l.type === 'half' ? txt.wageHalf : l.type === 'hourly' ? txt.wageHourly : txt.wageDaily;
-      const desc = l.note || txt.wageDesc(l.hours, l.overtimeHours);
+      const otH = Math.max(0, Number(l.overtimeHours) || 0);
+
+      let catLabel = l.type === 'half' ? txt.wageHalf : l.type === 'hourly' ? txt.wageHourly : txt.wageDaily;
+      let desc = l.note || txt.wageDesc(l.hours, l.overtimeHours);
+      let evType = 'inflow';
+
+      if (isMonthly) {
+        if (pay > 0) {
+          evType = 'inflow';
+          catLabel = otH > 0 ? (txt.wageHourly || 'اضافه‌کاری') : txt.wageDaily;
+          desc = l.note || (language === 'ku' ? `سەعاتی زیادەکاری: ${otH} کاتژمێر` : language === 'en' ? `Overtime: ${otH} hrs` : `اضافه‌کاری: ${otH} ساعت`);
+        } else {
+          evType = 'neutral_log';
+          catLabel = txt.fixedSalaryPresence;
+          desc = l.note || txt.fixedSalaryPresence;
+        }
+      }
 
       combinedEvents.push({
         id: `log_${l.id}`,
         rawDate: l.date || '',
         date: l.date || '',
         time: '',
-        category: 'attendance_wage',
+        category: isMonthly ? (pay > 0 ? 'attendance_wage' : 'attendance_presence') : 'attendance_wage',
         categoryLabel: catLabel,
         description: desc,
         counterparty: entityData.name,
-        type: 'inflow',
+        type: evType,
         amount: pay,
         sourceLabel: txt.wageSource,
         createdAt: l.createdAt || l.date || ''
       });
     });
 
-    // ب) پرداخت‌ها (مساعده، تسویه، پاداش - خروجی)
+    // ب) پرداخت‌ها (مساعده، تسویه، پاداش، تسهیلات وام پرسنلی)
     workerPayments.forEach((p) => {
       const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
       const isBonus = p.type === 'bonus' || p.type === 'eid';
       const isLoan = p.type === 'loan' || p.type === 'loan_disbursement';
-      const cat = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : isLoan ? 'staff_loan' : 'worker_settlement';
-      const catLabel = isBonus ? (p.bonusTitle || txt.payBonusCat) : isAdvance ? txt.payAdvanceCat : isLoan ? txt.payLoanCat : txt.paySettlementCat;
-      const desc = p.notes || p.note || p.description || (isBonus ? txt.payBonusDesc : isAdvance ? txt.payAdvanceDesc : txt.paySettlementDesc);
+
+      let cat = 'worker_settlement';
+      let catLabel = txt.paySettlementCat;
+      let evType = 'outflow';
+      let desc = p.notes || p.note || p.description || txt.paySettlementDesc;
+
+      if (isBonus) {
+        cat = 'worker_bonus';
+        catLabel = p.bonusTitle || txt.payBonusCat;
+        evType = 'bonus_gift';
+        desc = p.notes || p.note || p.description || txt.payBonusDesc;
+      } else if (isAdvance) {
+        cat = 'advance_payment';
+        catLabel = txt.payAdvanceCat;
+        evType = 'outflow';
+        desc = p.notes || p.note || p.description || txt.payAdvanceDesc;
+      } else if (isLoan) {
+        // وام پرسنلی تسهیلات اقساطی است و نباید مانده دستمزد جاری را کسر کند
+        cat = 'staff_loan';
+        catLabel = txt.loanFacilityPill;
+        evType = 'loan_facility';
+        desc = p.notes || p.note || p.description || txt.loanFacilityDesc;
+      }
 
       combinedEvents.push({
         id: `pay_${p.id}`,
@@ -597,9 +683,9 @@ export function AccountSubsidiaryLedgerModal({
         categoryLabel: catLabel,
         description: desc,
         counterparty: entityData.name,
-        type: isBonus ? 'bonus_gift' : 'outflow',
+        type: evType,
         amount: Number(p.amount) || 0,
-        sourceLabel: isBonus ? txt.payBonusCat : txt.paySource,
+        sourceLabel: isBonus ? txt.payBonusCat : isLoan ? txt.loanFacilityPill : txt.paySource,
         voucherNumber: p.voucherNumber || (p.createdAt ? `T-${(p.createdAt || '').slice(2,4)}${(p.createdAt || '').slice(5,7)}${String(p.id || 1).padStart(3, '0')}` : `T-2611${String(p.id || 1).padStart(3, '0')}`),
         originalItem: p,
         createdAt: p.createdAt || p.date || ''
@@ -620,11 +706,15 @@ export function AccountSubsidiaryLedgerModal({
       if (ev.type === 'inflow') {
         running += ev.amount;
         totalIn += ev.amount;
-      } else if (ev.type === 'bonus_gift') {
-        ev.isBonus = true;
-      } else {
+      } else if (ev.type === 'outflow') {
         running -= ev.amount;
         totalOut += ev.amount;
+      } else if (ev.type === 'bonus_gift') {
+        ev.isBonus = true;
+      } else if (ev.type === 'loan_facility') {
+        ev.isLoanFacility = true;
+      } else if (ev.type === 'neutral_log') {
+        ev.isNeutral = true;
       }
       ev.runningBalance = running;
     });
@@ -636,7 +726,7 @@ export function AccountSubsidiaryLedgerModal({
       totalOutflow: totalOut,
       currentBalance: running
     };
-  }, [entityType, entityData, workerLogs, workerPayments, txt]);
+  }, [entityType, entityData, workerLogs, workerPayments, txt, language]);
 
   // تشخیص مقادیر حساب یا پرسنل
   const isBank = entityType === 'account' && entityData?.type === 'bank';
@@ -1060,6 +1150,17 @@ export function AccountSubsidiaryLedgerModal({
                             <span>{txt.defaultTag}</span>
                           </span>
                         )}
+                        {activeWorkerLoan && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            <span>★ {txt.loanFacilityBadge}:</span>
+                            <span className="font-mono" dir="ltr">{formatAmount(activeWorkerLoan.remainingBalance, effectiveCurrency)}</span>
+                            {Number(activeWorkerLoan.installmentAmount) > 0 && (
+                              <span className="text-amber-200/80 ms-1 font-mono">
+                                ({txt.loanInstallmentLabel} {formatAmount(activeWorkerLoan.installmentAmount, effectiveCurrency)})
+                              </span>
+                            )}
+                          </span>
+                        )}
                         <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-slate-300 border border-white/10">
                           {txt.currencyBadge(effectiveCurrency)}
                         </span>
@@ -1094,10 +1195,14 @@ export function AccountSubsidiaryLedgerModal({
                 <div className="lg:col-span-5 grid grid-cols-3 gap-2.5 bg-white/5 p-3.5 rounded-2xl border border-white/10 backdrop-blur-md">
                   <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
                     <span className="text-[10px] text-slate-400 block truncate">
-                      {isWorker ? txt.card1Worker : txt.card1Account}
+                      {isWorker ? (entityData?.wageType === 'monthly' ? txt.card1Monthly : txt.card1Worker) : txt.card1Account}
                     </span>
                     <span className="text-xs sm:text-sm font-black font-mono text-slate-200 mt-1 block truncate" dir="ltr">
-                      {isWorker ? `${rawTransactions.length} ${txt.rowsUnit}` : formatAmount(initialBalance, effectiveCurrency)}
+                      {isWorker 
+                        ? (entityData?.wageType === 'monthly'
+                            ? formatAmount(entityData.monthlySalary || entityData.salary || 0, effectiveCurrency)
+                            : `${rawTransactions.length} ${txt.rowsUnit}`)
+                        : formatAmount(initialBalance, effectiveCurrency)}
                     </span>
                   </div>
 
@@ -1398,9 +1503,13 @@ export function AccountSubsidiaryLedgerModal({
                               <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-sm" dir="ltr">
                                 -{formatAmount(tx.amount, effectiveCurrency)}
                               </span>
+                            ) : tx.type === 'loan_facility' ? (
+                              <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-sm" dir="ltr" title={txt.loanFacilityDesc}>
+                                ★ {formatAmount(tx.amount, effectiveCurrency)} ({txt.loanFacilityPill})
+                              </span>
                             ) : (
-                              <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-sm" dir="ltr">
-                                {formatAmount(tx.amount, effectiveCurrency)}
+                              <span className="font-mono text-slate-400 text-xs">
+                                -
                               </span>
                             )}
                           </div>
@@ -1573,9 +1682,17 @@ export function AccountSubsidiaryLedgerModal({
                                 {tx.type === 'inflow' ? `+${formatAmount(tx.amount, effectiveCurrency)}` : <span className="text-slate-300 dark:text-slate-600 font-normal">-</span>}
                               </td>
 
-                              {/* ۸. - (صادره با رنگ قرمز مونو) */}
-                              <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-rose-600 dark:text-rose-400 text-left text-xs" dir="ltr">
-                                {tx.type === 'outflow' ? `-${formatAmount(tx.amount, effectiveCurrency)}` : <span className="text-slate-300 dark:text-slate-600 font-normal">-</span>}
+                              {/* ۸. - (صادره با رنگ قرمز مونو یا تسهیلات وام پرسنلی) */}
+                              <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-left text-xs" dir="ltr">
+                                {tx.type === 'outflow' ? (
+                                  <span className="text-rose-600 dark:text-rose-400">-{formatAmount(tx.amount, effectiveCurrency)}</span>
+                                ) : tx.type === 'loan_facility' ? (
+                                  <span className="text-amber-600 dark:text-amber-400" title={txt.loanFacilityDesc}>
+                                    ★ {formatAmount(tx.amount, effectiveCurrency)}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 dark:text-slate-600 font-normal">-</span>
+                                )}
                               </td>
 
                               {/* ۹. مانده (عدد خالص مشکی بدون کپسول و کادر اضافه) */}

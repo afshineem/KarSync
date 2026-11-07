@@ -236,6 +236,36 @@ export async function runEmergencyCleanup() {
       }
     }
 
+    // 5. Emergency cleanup 09: Fix phantom daily wages for monthly fixed salary workers (e.g. Afshin)
+    const hasRun09 = localStorage.getItem('emergency_cleanup_09_monthly_attendance');
+    if (!hasRun09) {
+      const allWorkers = await db.workers.toArray();
+      const monthlyWorkers = allWorkers.filter(w => w.wageType === 'monthly');
+      let monthlyLogsToFix = [];
+      for (const mw of monthlyWorkers) {
+        const mwLogs = await db.attendanceLogs.where('workerId').equals(String(mw.id)).toArray();
+        for (const l of mwLogs) {
+          const otH = Math.max(0, Number(l.overtimeHours) || 0);
+          if (otH === 0 && (Number(l.calculatedDailyWage) > 0 || Number(l.totalDayPay) > 0)) {
+            monthlyLogsToFix.push({
+              ...l,
+              calculatedDailyWage: 0,
+              calculatedOvertimeWage: 0,
+              totalDayPay: 0,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        }
+      }
+      if (monthlyLogsToFix.length > 0) {
+        await db.attendanceLogs.bulkPut(monthlyLogsToFix);
+        const { pushLogsLive } = await import('../services/realtimeSync.js');
+        await pushLogsLive(monthlyLogsToFix).catch(() => {});
+        console.log('Emergency cleanup 09: Fixed phantom daily wages for monthly workers:', monthlyLogsToFix.length);
+      }
+      localStorage.setItem('emergency_cleanup_09_monthly_attendance', 'done');
+    }
+
     console.log('Emergency cleanup finished, deleted:', deletedCount);
   } catch (err) {
     console.error('Cleanup failed', err);
