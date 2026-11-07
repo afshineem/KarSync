@@ -9,7 +9,6 @@ export default defineConfig({
     host: true,
     headers: {
       'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'SAMEORIGIN',
       'Referrer-Policy': 'strict-origin-when-cross-origin'
     }
   },
@@ -18,7 +17,6 @@ export default defineConfig({
     host: true,
     headers: {
       'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'SAMEORIGIN',
       'Referrer-Policy': 'strict-origin-when-cross-origin'
     }
   },

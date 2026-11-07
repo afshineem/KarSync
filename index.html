@@ -39,9 +39,20 @@
     <script>
       // Self-heal & error feedback mechanism
       window.addEventListener('error', function(e) {
-        var msg = (e.message || '') + (e.filename ? ' (' + e.filename + ':' + e.lineno + ')' : '');
-        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
-          msg = 'بارگذاری ناموفق فایل: ' + (e.target.src || e.target.href);
+        var target = e.target;
+        var fileUrl = null;
+        if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
+          fileUrl = target.src || target.href || (target.getAttribute && (target.getAttribute('src') || target.getAttribute('href')));
+        }
+
+        var msg = '';
+        if (fileUrl) {
+          // Ignore external font or preconnect failures if app works with bundled fonts
+          if (fileUrl.indexOf('fonts.googleapis.com') !== -1 || fileUrl.indexOf('fonts.gstatic.com') !== -1) {
+            console.warn('External font request skipped:', fileUrl);
+            return;
+          }
+          msg = 'بارگذاری ناموفق فایل: ' + fileUrl;
           console.warn(msg);
           if ('serviceWorker' in navigator && !sessionStorage.getItem('karsync_reloaded_on_err')) {
             sessionStorage.setItem('karsync_reloaded_on_err', '1');
@@ -58,12 +69,17 @@
               }
             });
           }
+        } else if (e.message) {
+          msg = e.message + (e.filename ? ' (' + e.filename + ':' + e.lineno + ')' : '');
+        } else {
+          return;
         }
+
         if (msg && !document.getElementById('karsync-mobile-err') && document.body) {
           var box = document.createElement('div');
           box.id = 'karsync-mobile-err';
           box.style = 'position:fixed;bottom:12px;left:12px;right:12px;background:#e11d48;color:#fff;padding:12px;border-radius:14px;font-size:11px;z-index:999999;box-shadow:0 10px 25px rgba(0,0,0,0.5);line-height:1.5;direction:rtl;';
-          box.innerHTML = '<div>⚠️ <b>خطا در لود برنامه:</b> ' + msg + '</div>';
+          box.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;"><span>⚠️ <b>خطا در لود برنامه:</b> ' + msg + '</span><button onclick="this.parentElement.parentElement.remove()" style="background:rgba(255,255,255,0.25);border:none;color:#fff;padding:2px 8px;border-radius:6px;cursor:pointer;margin-right:8px;font-weight:bold;">✕</button></div>';
           document.body.appendChild(box);
         }
       }, true);
@@ -80,22 +96,31 @@
     <script>
       // Register service worker for offline local-first PWA with proactive updates
       if ('serviceWorker' in navigator) {
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!refreshing) {
-            refreshing = true;
-            window.location.reload();
-          }
-        });
-
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then((reg) => {
-            console.log('PWA ServiceWorker registered with scope:', reg.scope);
-            reg.update().catch(() => {});
-          }).catch((err) => {
-            console.warn('PWA ServiceWorker registration failed:', err);
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          // Disable SW on localhost to prevent caching collisions during dev and preview
+          navigator.serviceWorker.getRegistrations().then((regs) => {
+            for (let reg of regs) {
+              reg.unregister();
+            }
           });
-        });
+        } else {
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload();
+            }
+          });
+
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').then((reg) => {
+              console.log('PWA ServiceWorker registered with scope:', reg.scope);
+              reg.update().catch(() => {});
+            }).catch((err) => {
+              console.warn('PWA ServiceWorker registration failed:', err);
+            });
+          });
+        }
       }
     </script>
   </body>

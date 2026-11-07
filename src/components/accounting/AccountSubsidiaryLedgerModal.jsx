@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import * as XLSX from 'xlsx';
@@ -124,6 +124,7 @@ const COPY = {
     lblRole: '• سمت:',
     lblBank: '• بانک:',
     lblCard: '• کارت:',
+    swipeHint: 'برای مشاهده تمام ستون‌ها به چپ/راست بکشید',
     excelHeaders: {
       row: 'ردیف',
       date: 'تاریخ',
@@ -221,6 +222,7 @@ const COPY = {
     lblRole: '• پلە:',
     lblBank: '• بانک:',
     lblCard: '• کارت:',
+    swipeHint: 'بۆ بینینی هەموو ستوونەکان پەنجە ڕابکێشە بۆ لای چەپ/ڕاست',
     excelHeaders: {
       row: 'ڕیزبەندی',
       date: 'بەروار',
@@ -318,6 +320,7 @@ const COPY = {
     lblRole: '• Role:',
     lblBank: '• Bank:',
     lblCard: '• Card:',
+    swipeHint: 'Swipe left/right to view all columns',
     excelHeaders: {
       row: 'Row',
       date: 'Date',
@@ -365,6 +368,37 @@ export function AccountSubsidiaryLedgerModal({
   const [customEnd, setCustomEnd] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+
+  // کنترل نمایش ترانزیشنی فوتر شناور با جهت اسکرول (Apple Liquid Glass Floating Dock)
+  const [isFooterVisible, setIsFooterVisible] = useState(true);
+  const lastScrollTopRef = useRef(0);
+  const scrollContainerRef = useRef(null);
+
+  const handleScroll = useCallback((e) => {
+    const currentScrollTop = e.currentTarget.scrollTop;
+    const delta = currentScrollTop - lastScrollTopRef.current;
+
+    // در نمای اول و بالای صفحه (Initial View) فوتر همیشه نمایان است
+    if (currentScrollTop < 40) {
+      setIsFooterVisible(true);
+    } 
+    // اسکرول به سمت پایین (Scroll Down) -> مخفی شدن فوتر با ترانزیشن به سمت پایین
+    else if (delta > 8) {
+      setIsFooterVisible(false);
+    } 
+    // اسکرول به سمت بالا (Scroll Up) -> بازگشت فوری فوتر به جای اولیه با ترانزیشن
+    else if (delta < -8) {
+      setIsFooterVisible(true);
+    }
+
+    // اگر کاربر به انتهای لیست رسید، فوتر مجدداً نمایش داده شود تا دکمه‌ها و جمع کل در دسترس باشند
+    const isAtBottom = e.currentTarget.scrollHeight - currentScrollTop - e.currentTarget.clientHeight < 40;
+    if (isAtBottom) {
+      setIsFooterVisible(true);
+    }
+
+    lastScrollTopRef.current = currentScrollTop;
+  }, []);
 
   // بستن مودال با کلید Escape
   useEffect(() => {
@@ -657,15 +691,27 @@ export function AccountSubsidiaryLedgerModal({
       role="dialog"
       aria-modal="true"
     >
-      {/* نوار بالایی ابزار و خروج (Compact Glass Utility Bar) */}
-      <div className="no-print px-4 py-2.5 sm:px-6 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-3 shrink-0 z-20">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          <FileSpreadsheet className="w-4 h-4 text-sky-500" />
-          <span>{txt.title}</span>
+      {/* هدر ناوبار شیشه‌ای اپل (Apple Liquid Glass Sticky Navbar) */}
+      <header className="no-print sticky top-0 z-30 px-3.5 py-2.5 sm:px-6 bg-white/80 dark:bg-slate-900/85 backdrop-blur-2xl border-b border-white/60 dark:border-white/10 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center justify-between gap-2.5 shrink-0 transition-all">
+        {/* سمت راست: هویت مودال و نام حساب/طرف‌حساب */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500/15 to-indigo-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 border border-sky-500/20 shadow-2xs">
+            <FileSpreadsheet className="w-4 h-4 stroke-[2.2]" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate tracking-tight">
+              {txt.title}
+            </h2>
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate font-medium">
+              <span>{isWorker ? txt.partyWorker : (isBank ? txt.partyBank : txt.partyCash)}:</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{entityData?.name}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* سوییچ سریع حساب / پرسنل */}
+        {/* سمت چپ: ابزارها، سوییچر سریع و دکمه خروج */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* سوییچ سریع حساب */}
           {entityType === 'account' && effectiveAccounts.length > 1 && (
             <select
               value={entityData?.id || ''}
@@ -673,7 +719,7 @@ export function AccountSubsidiaryLedgerModal({
                 const target = effectiveAccounts.find((a) => a.id === e.target.value);
                 if (target && onSelectEntity) onSelectEntity({ type: 'account', data: target });
               }}
-              className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200"
+              className="h-8 max-w-[125px] sm:max-w-[210px] px-2.5 bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200/90 dark:hover:bg-slate-700/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200 truncate cursor-pointer transition-colors shadow-2xs"
             >
               {effectiveAccounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
@@ -685,6 +731,7 @@ export function AccountSubsidiaryLedgerModal({
             </select>
           )}
 
+          {/* سوییچ سریع پرسنل */}
           {entityType === 'worker' && effectiveWorkers.length > 1 && (
             <select
               value={entityData?.id || ''}
@@ -692,7 +739,7 @@ export function AccountSubsidiaryLedgerModal({
                 const target = effectiveWorkers.find((w) => String(w.id) === e.target.value);
                 if (target && onSelectEntity) onSelectEntity({ type: 'worker', data: target });
               }}
-              className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[150px] truncate"
+              className="h-8 max-w-[125px] sm:max-w-[210px] px-2.5 bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200/90 dark:hover:bg-slate-700/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200 truncate cursor-pointer transition-colors shadow-2xs"
             >
               {effectiveWorkers.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -702,23 +749,29 @@ export function AccountSubsidiaryLedgerModal({
             </select>
           )}
 
-          {/* دکمه خروج مینیمال */}
+          {/* دکمه خروج مینیمال اپل */}
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-500 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60 transition-all shrink-0 cursor-pointer shadow-2xs active:scale-95"
             aria-label={txt.close}
             title={txt.close}
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 stroke-[2.2]" />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* بنر هیروی اجرایی لوکس معین (Executive Hero Banner) */}
-      <div className="no-print px-4 py-3 sm:px-6 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
-        <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-slate-950 text-white border border-white/10 shadow-2xl">
-          {/* حباب‌های بلورین درخشان در پس‌زمینه */}
+      {/* ناحیه اسکرول اصلی مودال شامل هیرو، فیلترها و جدول (تمامی این بخش‌ها با اسکرول کردن به بالا حرکت می‌کنند) */}
+      <div 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="subsidiary-ledger-scroll-container flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar overscroll-contain pb-32 sm:pb-28"
+      >
+        {/* بنر هیروی اجرایی لوکس معین (Executive Hero Banner) */}
+        <div className="no-print px-3.5 py-3 sm:px-6 pt-3.5 sm:pt-4 max-w-7xl mx-auto w-full">
+          <div className="relative overflow-hidden rounded-3xl p-4 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-slate-900/95 via-slate-900 to-slate-950 text-white border border-white/10 shadow-2xl">
+            {/* حباب‌های بلورین درخشان در پس‌زمینه */}
           <div className="absolute top-0 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -822,123 +875,136 @@ export function AccountSubsidiaryLedgerModal({
         </div>
       </div>
 
-      {/* نوار فیلتر و جستجو (Glass Filter Bar) */}
-      <div className="no-print px-4 py-2.5 sm:px-6 bg-[#f3f6f4] dark:bg-slate-950 shrink-0">
-        <div className="p-3 sm:px-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-              <FileSpreadsheet className="w-4 h-4" />
+        {/* ۲. نوار فیلتر و جستجو (Glass Filter Bar) */}
+        <div className="no-print px-3.5 py-1.5 sm:px-6 max-w-7xl mx-auto w-full">
+          <div className="p-2.5 sm:p-3 sm:px-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </div>
+              <span className="text-xs font-black text-slate-800 dark:text-slate-200 font-mono">
+                {txt.filteredDocsCount(filteredTransactions.length)}
+              </span>
             </div>
-            <span className="text-xs font-black text-slate-800 dark:text-slate-200 font-mono">
-              {txt.filteredDocsCount(filteredTransactions.length)}
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* فیلتر تاریخ */}
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="h-8 sm:h-9 px-2.5 sm:px-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+              >
+                <option value="all">{txt.dateAll}</option>
+                <option value="this_month">{txt.dateThisMonth}</option>
+                <option value="last_month">{txt.dateLastMonth}</option>
+                <option value="custom">{txt.dateCustom}</option>
+              </select>
+
+              {/* فیلتر دسته */}
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="h-8 sm:h-9 px-2.5 sm:px-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+              >
+                <option value="all">{txt.catAll}</option>
+                {isWorker ? (
+                  <>
+                    <option value="attendance_wage">{txt.catAttendanceWage}</option>
+                    <option value="advance_payment">{txt.catAdvance}</option>
+                    <option value="worker_settlement">{txt.catSettlement}</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="petty_cash">{txt.catPettyCash}</option>
+                    <option value="worker_settlement">{txt.catSettlement}</option>
+                    <option value="advance_payment">{txt.catStaffAdvance}</option>
+                    <option value="workshop_expense">{txt.catWorkshopExpense}</option>
+                  </>
+                )}
+              </select>
+
+              {/* جستجو */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={txt.searchPh}
+                  className="w-36 sm:w-56 h-8 sm:h-9 ps-7 pe-2.5 sm:ps-8 sm:pe-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] sm:text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs transition-all"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute start-2 sm:start-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* فیلتر تاریخ سفارشی */}
+        {dateFilter === 'custom' && (
+          <div className="no-print mx-3.5 sm:mx-6 mb-2 p-3 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-xs flex flex-wrap items-center gap-3 text-xs shrink-0 text-slate-700 dark:text-slate-300 max-w-7xl">
+            <span className="font-bold text-slate-700 dark:text-slate-300">{txt.customRangeLabel}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 text-[11px]">{txt.fromLabel}</span>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 text-[11px]">{txt.toLabel}</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ۳. بدنه محتوا و جدول معین با قابلیت اسکرول افقی روان */}
+        <div className="px-3.5 sm:px-6 py-2 max-w-7xl mx-auto w-full">
+          {/* سربرگ مشخصات معین مخصوص پرینت (در صفحه عادی مخفی، در پرینت آشکار) */}
+          <div className="print-only mb-4 pb-3 border-b-2 border-slate-900 text-slate-900">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-base font-black text-slate-900">
+                  {txt.printHeaderTitle(entityData?.name || '')}
+                </h1>
+                <div className="text-xs text-slate-700 mt-1 flex items-center gap-4">
+                  <span>{isWorker ? txt.partyWorker : (isBank ? txt.partyBank : txt.partyCash)}</span>
+                  {groupName && <span>{txt.printGroup} {groupName}</span>}
+                  {entityData?.role && <span>{txt.printRole} {entityData.role}</span>}
+                  {entityData?.bankName && <span>{txt.printBank} {entityData.bankName}</span>}
+                  {entityData?.cardNumber && <span dir="ltr">{txt.printCard} {entityData.cardNumber}</span>}
+                </div>
+              </div>
+              <div className="text-left text-xs font-mono text-slate-800">
+                <div>{txt.printReportDate} {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'fa-IR')}</div>
+                <div className="font-bold text-slate-900 mt-1" dir="ltr">
+                  {txt.printFinalBalance} {formatCurrency(currentBalance, currency, language)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* راهنمای اسکرول افقی روی دستگاه‌های لمسی و موبایل */}
+          <div className="md:hidden mb-2 px-3.5 py-1.5 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-2xs flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span>👉</span>
+              <span>{txt.swipeHint}</span>
+              <span>👈</span>
+            </span>
+            <span className="font-mono text-[10px] font-bold text-slate-600 dark:text-slate-300">
+              {filteredTransactions.length} {txt.rowsUnit}
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* فیلتر تاریخ */}
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="h-9 px-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
-            >
-              <option value="all">{txt.dateAll}</option>
-              <option value="this_month">{txt.dateThisMonth}</option>
-              <option value="last_month">{txt.dateLastMonth}</option>
-              <option value="custom">{txt.dateCustom}</option>
-            </select>
-
-            {/* فیلتر دسته */}
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="h-9 px-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
-            >
-              <option value="all">{txt.catAll}</option>
-              {isWorker ? (
-                <>
-                  <option value="attendance_wage">{txt.catAttendanceWage}</option>
-                  <option value="advance_payment">{txt.catAdvance}</option>
-                  <option value="worker_settlement">{txt.catSettlement}</option>
-                </>
-              ) : (
-                <>
-                  <option value="petty_cash">{txt.catPettyCash}</option>
-                  <option value="worker_settlement">{txt.catSettlement}</option>
-                  <option value="advance_payment">{txt.catStaffAdvance}</option>
-                  <option value="workshop_expense">{txt.catWorkshopExpense}</option>
-                </>
-              )}
-            </select>
-
-            {/* جستجو */}
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={txt.searchPh}
-                className="w-44 sm:w-60 h-9 ps-8 pe-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs transition-all"
-              />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* فیلتر تاریخ سفارشی */}
-      {dateFilter === 'custom' && (
-        <div className="no-print mx-4 sm:mx-6 mb-3 p-3 rounded-2xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-xs flex flex-wrap items-center gap-3 text-xs shrink-0 text-slate-700 dark:text-slate-300">
-          <span className="font-bold text-slate-700 dark:text-slate-300">{txt.customRangeLabel}</span>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-[11px]">{txt.fromLabel}</span>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-[11px]">{txt.toLabel}</span>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="h-8 px-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* بدنه اسکرول‌پذیر محتوا و جدول معین */}
-      <div className="subsidiary-ledger-table-container flex-1 overflow-auto custom-scrollbar px-4 sm:px-6 pb-28">
-        {/* سربرگ مشخصات معین مخصوص پرینت (در صفحه عادی مخفی، در پرینت آشکار) */}
-        <div className="print-only mb-4 pb-3 border-b-2 border-slate-900 text-slate-900">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-base font-black text-slate-900">
-                {txt.printHeaderTitle(entityData?.name || '')}
-              </h1>
-              <div className="text-xs text-slate-700 mt-1 flex items-center gap-4">
-                <span>{isWorker ? txt.partyWorker : (isBank ? txt.partyBank : txt.partyCash)}</span>
-                {groupName && <span>{txt.printGroup} {groupName}</span>}
-                {entityData?.role && <span>{txt.printRole} {entityData.role}</span>}
-                {entityData?.bankName && <span>{txt.printBank} {entityData.bankName}</span>}
-                {entityData?.cardNumber && <span dir="ltr">{txt.printCard} {entityData.cardNumber}</span>}
-              </div>
-            </div>
-            <div className="text-left text-xs font-mono text-slate-800">
-              <div>{txt.printReportDate} {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'fa-IR')}</div>
-              <div className="font-bold text-slate-900 mt-1" dir="ltr">
-                {txt.printFinalBalance} {formatCurrency(currentBalance, currency, language)}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* کادر گلس جدول معین */}
-        <div className="rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-          <table className="w-full text-right text-xs">
+          {/* کادر گلس جدول معین با کانتینر اسکرول افقی تا ستون‌ها هرگز برش نخورند */}
+          <div className="rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+            <div className="overflow-x-auto custom-scrollbar touch-pan-x">
+              <table className="w-full text-right text-xs min-w-[760px] border-collapse">
             <thead className="sticky top-0 z-10 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-700/80">
               <tr className="text-slate-600 dark:text-slate-300 font-bold">
                 <th className="py-3.5 px-3.5 text-center w-12">#</th>
@@ -1084,45 +1150,62 @@ export function AccountSubsidiaryLedgerModal({
             )}
           </tbody>
         </table>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* داک چسبان شیشه‌ای پایین (Sticky Apple Liquid Glass Bottom Dock) */}
-      <div className="no-print fixed bottom-0 start-0 end-0 z-30 p-3 sm:px-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] flex items-center justify-between">
-        {/* خلاصه زنده مانده و تراکنش‌ها */}
-        <div className="flex items-center gap-3 sm:gap-6">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">{txt.finalBalanceLabel}</span>
-            <span className={`text-base sm:text-lg font-black font-mono tracking-tight ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`} dir="ltr">
+      {/* فوتر شناور شیشه‌ای اپل با ترانزیشن هوشمند اسکرول (Apple Liquid Glass Floating Dock) */}
+      <footer 
+        className={`no-print fixed bottom-3 start-3 end-3 sm:start-6 sm:end-6 z-40 p-2.5 sm:px-5 rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-white/60 dark:border-white/10 shadow-[0_12px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_12px_40px_rgb(0,0,0,0.4)] flex items-center justify-between gap-3 transform transition-all duration-300 ease-out ${
+          isFooterVisible 
+            ? 'translate-y-0 opacity-100 pointer-events-auto' 
+            : 'translate-y-28 opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* خلاصه زنده مانده و وضعیت */}
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">
+              {txt.finalBalanceLabel}
+            </span>
+            <span 
+              className={`text-sm sm:text-base md:text-lg font-black font-mono tracking-tight truncate ${
+                isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+              }`} 
+              dir="ltr"
+            >
               {formatCurrency(currentBalance, currency, language)}
             </span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
               isPositive
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                ? 'bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
+                : 'bg-rose-100/80 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60'
             }`}>
               {statusBadgeText}
             </span>
           </div>
 
-          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
 
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <span>{txt.totalDocsLabel}</span>
-            <span className="font-bold font-mono text-slate-800 dark:text-slate-200">{filteredTransactions.length} {txt.rowsUnit}</span>
+            <span className="font-bold font-mono text-slate-800 dark:text-slate-200">
+              {filteredTransactions.length} {txt.rowsUnit}
+            </span>
           </div>
         </div>
 
-        {/* دکمه‌های عملیاتی */}
-        <div className="flex items-center gap-2">
+        {/* دکمه‌های عملیاتی گلس */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* دکمه اکسل */}
           <button
             type="button"
             onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3 sm:px-4 h-10 rounded-2xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all active:scale-95"
+            className="flex items-center justify-center gap-1.5 w-9 sm:w-auto h-9 sm:px-3.5 rounded-2xl bg-white/70 dark:bg-slate-800/70 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs border border-white/60 dark:border-white/10 shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
             title={txt.excelTitle}
           >
-            <Download className="w-4 h-4 text-emerald-600" />
+            <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span className="hidden sm:inline">{txt.excelBtn}</span>
           </button>
 
@@ -1130,10 +1213,10 @@ export function AccountSubsidiaryLedgerModal({
           <button
             type="button"
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 sm:px-4 h-10 rounded-2xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all active:scale-95"
+            className="flex items-center justify-center gap-1.5 w-9 sm:w-auto h-9 sm:px-3.5 rounded-2xl bg-white/70 dark:bg-slate-800/70 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs border border-white/60 dark:border-white/10 shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
             title={txt.printTitle}
           >
-            <Printer className="w-4 h-4 text-blue-600" />
+            <Printer className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             <span className="hidden sm:inline">{txt.printBtn}</span>
           </button>
 
@@ -1141,15 +1224,15 @@ export function AccountSubsidiaryLedgerModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1.5 px-4 sm:px-5 h-10 rounded-2xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-bold text-xs shadow-md transition-all active:scale-95"
+            className="flex items-center justify-center gap-1.5 h-9 px-3.5 sm:px-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 dark:from-white dark:to-slate-100 dark:hover:from-white dark:hover:to-slate-200 text-white dark:text-slate-900 font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
           >
             <span>{txt.close}</span>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-slate-700 dark:bg-slate-200 text-slate-200 dark:text-slate-700 rounded-md font-mono">
+            <kbd className="hidden sm:inline-block px-1.5 py-0.2 text-[9px] bg-white/20 dark:bg-slate-800 text-white dark:text-slate-200 rounded font-mono">
               ESC
             </kbd>
           </button>
         </div>
-      </div>
+      </footer>
     </div>
   );
 
