@@ -55,7 +55,12 @@ import {
   Sparkles,
   AlertTriangle,
   History,
-  Info
+  Info,
+  Users,
+  CreditCard,
+  UserCheck,
+  UserX,
+  FileSpreadsheet
 } from 'lucide-react';
 
 const COPY = {
@@ -65,7 +70,7 @@ const COPY = {
     voucherNoLabel: 'شماره سند:',
     draftBadge: 'سند موقت (پیش‌نویس)',
     approvedBadge: 'سند دائم و قطعی',
-    dateLabel: 'تاریخ ثبت سند:',
+    dateLabel: 'تاریخ ثبت:',
     timeLabel: 'ساعت:',
     amountCardTitle: 'مبلغ کل سند مالی',
     amountInWordsLabel: 'مبلغ به حروف:',
@@ -73,22 +78,21 @@ const COPY = {
     creditTitle: 'طرف بستانکار (منبع پرداخت / خزانه‌داری)',
     doubleEntryBalanced: 'تراز دوبل متوازن (بدهکار = بستانکار)',
     txDetailsTitle: 'مشخصات و شرح سند',
-    txTitleLabel: 'عنوان سند:',
     descriptionLabel: 'شرح و بابت عمومی:',
     auditorNoteTitle: 'یادداشت محرمانه حسابرسی داخلی',
     auditorNoteHint: 'این یادداشت صرفاً جهت ممیزی داخلی سیستم است و در برگه چاپی رسمی ظاهر نخواهد شد.',
-    sourceAccountTitle: 'منبع مالی / حساب بانکی و صندوق',
+    sourceAccountTitle: 'منبع مالی و خزانه‌داری',
     accountNameLabel: 'نام حساب / کارت:',
     accountTypeLabel: 'نوع حساب:',
     cashType: 'صندوق نقدی کارگاه',
     bankType: 'کارت / حساب بانکی',
-    counterpartyTitle: 'طرف‌حساب / پرسنل',
+    counterpartyTitle: 'طرف‌حساب / ذینفع سند',
     partyNameLabel: 'نام شخص یا شرکت:',
     partyRoleLabel: 'سمت یا ارتباط:',
     costCenterTitle: 'مرکز هزینه / فاز عملیاتی:',
     costCenterDefault: 'کارگاه مرکزی / پروژه جاری',
-    accountCodingTitle: 'سرفصل کل و معین حسابداری:',
-    viewSubsidiaryHint: 'کلیک جهت مشاهده معین اختصاصی',
+    accountCodingTitle: 'کدینگ حسابداری:',
+    viewSubsidiaryHint: 'مشاهده معین اختصاصی',
     approvalAuditTitle: 'ره‌گیری و چرخه حیات سند (Audit Trail)',
     registeredByLabel: 'ثبت‌کننده اولیه:',
     lastEditedLabel: 'آخرین اصلاح:',
@@ -131,14 +135,45 @@ const COPY = {
     zoomOut: 'کوچک‌نمایی',
     rotate: 'چرخش',
     downloadPhoto: 'دانلود فایل پیوست',
-    compoundTableTitle: 'ریز اقلام و ردیف‌های ترکیبی سند',
-    thRow: 'ردیف',
-    thItemTitle: 'عنوان / ردیف حساب',
-    thDebit: 'بدهکار (+)',
-    thCredit: 'بستانکار (-)',
-    thLineNote: 'شرح تکمیلی',
-    totalDebits: 'جمع بدهکار:',
-    totalCredits: 'جمع بستانکار:'
+    // تفکیک جامع تسویه گروهی
+    groupSettlementSectionTitle: 'ریز تسهیم و تسویه حساب گروهی',
+    groupMembersCount: (cnt) => `شامل ${cnt} نفر عضو گروه کاری`,
+    thWorkerName: 'نام پرسنل',
+    thWorkerRole: 'سمت',
+    thWorkerStatus: 'وضعیت عضویت',
+    statusActive: 'فعال در کارگاه',
+    statusInactive: 'غیرفعال / مرخص',
+    thDaysWorked: 'کارکرد دوره',
+    daysUnit: 'روز',
+    thGrossWages: 'ناخالص کارکرد',
+    thDeductions: 'کسر مساعده',
+    thNetShare: 'خالص سهم پرداختی',
+    thSettlementState: 'وضعیت تسویه',
+    settledInSlip: 'پرداخت شده در این سند',
+    groupSummaryCard: 'خلاصه تراز تسویه گروهی',
+    lblTotalGross: 'مجموع ناخالص کارکرد گروه:',
+    lblTotalAdvances: 'مجموع مساعده‌های مستهلک شده:',
+    lblTotalLoanDeductions: 'مجموع کسر اقساط وام:',
+    lblNetSettlementPaid: 'خالص کل چک / وجه پرداختی:',
+    // تفکیک وام
+    loanFacilityCardTitle: 'مشخصات کامل پرونده وام پرسنلی',
+    lblPrincipal: 'مبلغ اصل وام:',
+    lblInstallment: 'مبلغ هر قسط ماهانه:',
+    lblInstallmentsCount: 'تعداد کل اقساط:',
+    lblRemainingLoan: 'مانده تسویه‌نشده وام:',
+    lblLoanStatus: 'وضعیت بازپرداخت:',
+    loanStatusActive: 'فعال (در حال کسر از دستمزد در تسویه‌های ماهانه)',
+    loanStatusPaid: 'تسویه کامل شده',
+    loanInstallmentsUnit: 'قسط',
+    // تفکیک مساعده و هزینه
+    advanceCardTitle: 'مشخصات مساعده پرداختی',
+    lblPaymentMethod: 'روش پرداخت وجه:',
+    lblRefNumber: 'کد پیگیری / شماره ارجاع:',
+    methodCash: 'نقدی از صندوق کارگاه',
+    methodBank: 'کارت به کارت / حواله بانکی',
+    expenseCardTitle: 'مشخصات هزینه و فاکتور خرید',
+    lblVendor: 'فروشنده / پیمانکار:',
+    lblCategory: 'سرفصل هزینه:'
   },
   ku: {
     modalTitle: 'فۆڕمی فەرمی بەڵگەنامەی دارایی',
@@ -154,22 +189,21 @@ const COPY = {
     creditTitle: 'لایەنی خاوەن قەرز (سەرچاوەی پارە)',
     doubleEntryBalanced: 'تەرازووی هاوسەنگ (قەرزدار = خاوەن قەرز)',
     txDetailsTitle: 'وردەکاری و ڕوونکردنەوەی بەڵگەنامە',
-    txTitleLabel: 'بابەتی بەڵگەنامە:',
     descriptionLabel: 'تێبینی و هۆکاری گشتی:',
     auditorNoteTitle: 'تێبینی تایبەتی ووردبینی ناوخۆیی',
     auditorNoteHint: 'ئەم تێبینییە تەنیا بۆ بەڕێوەبەرایەتییە و لە فۆڕمی چاپکراودا پیشان نادرێت.',
-    sourceAccountTitle: 'سەرچاوەی دارایی / سندوق و کارت',
+    sourceAccountTitle: 'سەرچاوەی دارایی و خەزێنە',
     accountNameLabel: 'ناوی حیساب / کارت:',
     accountTypeLabel: 'جۆری حیساب:',
     cashType: 'سندوقی نەختینەی کارگە',
     bankType: 'کارتی بانکی / حیساب',
-    counterpartyTitle: 'لایەنی بەرامبەر / کارمەند',
+    counterpartyTitle: 'لایەنی بەرامبەر / سوودمەند',
     partyNameLabel: 'ناوی کەس یان کۆمپانیا:',
     partyRoleLabel: 'پێگە:',
     costCenterTitle: 'ناوەندی خەرجی / بەشی کار:',
     costCenterDefault: 'کارگەی ناوەندی / پڕۆژەی ئێستا',
-    accountCodingTitle: 'کۆدی گشتی و تایبەتی حیسابداری:',
-    viewSubsidiaryHint: 'کلیک بکە بۆ بینینی معینی تایبەت',
+    accountCodingTitle: 'کۆدینگی حیسابداری:',
+    viewSubsidiaryHint: 'بینینی معینی تایبەت',
     approvalAuditTitle: 'مێژووی ووردبینی و دۆخی بەڵگەنامە (Audit Trail)',
     registeredByLabel: 'تۆمارکەر:',
     lastEditedLabel: 'دوا دەستکاری:',
@@ -212,14 +246,42 @@ const COPY = {
     zoomOut: 'بچووککردن',
     rotate: 'سوڕاندنەوە',
     downloadPhoto: 'دابەزاندنی فایل',
-    compoundTableTitle: 'وردەکاری بڕگە جۆراوجۆرەکانی بەڵگەنامە',
-    thRow: 'ڕیز',
-    thItemTitle: 'بابەت / ناوی حیساب',
-    thDebit: 'قەرزدار (+)',
-    thCredit: 'خاوەن قەرز (-)',
-    thLineNote: 'ڕوونکردنەوە',
-    totalDebits: 'کۆی قەرزدار:',
-    totalCredits: 'کۆی خاوەن قەرز:'
+    groupSettlementSectionTitle: 'وردەکاری دابەشکاری و پاکتاوی دەستەجەمعی',
+    groupMembersCount: (cnt) => `پێکهاتوو لە ${cnt} ئەندامی گرووپ`,
+    thWorkerName: 'ناوی کرێکار',
+    thWorkerRole: 'پیشە',
+    thWorkerStatus: 'دۆخی ئەندامێتی',
+    statusActive: 'چالاک لە کارگە',
+    statusInactive: 'ناچالاک / مۆڵەت',
+    thDaysWorked: 'ڕۆژانی کارکردن',
+    daysUnit: 'ڕۆژ',
+    thGrossWages: 'کۆی گشتی شایستە',
+    thDeductions: 'بڕینی موساعەدە',
+    thNetShare: 'بەشی کۆتایی وەرگیراو',
+    thSettlementState: 'دۆخی پاکتاو',
+    settledInSlip: 'دراوە لەم بەڵگەنامەدا',
+    groupSummaryCard: 'پوختەی تەرازووی دەستەجەمعی',
+    lblTotalGross: 'کۆی گشتی شایستەی گرووپ:',
+    lblTotalAdvances: 'کۆی موساعەدەی کەمکراوە:',
+    lblTotalLoanDeductions: 'کۆی قیستی قەرزی بڕاو:',
+    lblNetSettlementPaid: 'کۆی تەواوی دراو بە نەختینە:',
+    loanFacilityCardTitle: 'تایبەتمەندییەکانی قەرزی کارمەند',
+    lblPrincipal: 'بڕی سەرەکی قەرز:',
+    lblInstallment: 'قیستی مانگانە:',
+    lblInstallmentsCount: 'ژمارەی قیستەکان:',
+    lblRemainingLoan: 'ماوەی قەرز:',
+    lblLoanStatus: 'دۆخی دانەوە:',
+    loanStatusActive: 'چالاک (لە کەمکردنەوەدایە لە مووچە)',
+    loanStatusPaid: 'تەواو پاکتاوکراوە',
+    loanInstallmentsUnit: 'قیست',
+    advanceCardTitle: 'وردەکاری موساعەدەی دراو',
+    lblPaymentMethod: 'شێوازی پارەدان:',
+    lblRefNumber: 'ژمارەی بەدواداچوون:',
+    methodCash: 'نەختینە لە سندوقی کارگە',
+    methodBank: 'کارت بە کارت / حەواڵە',
+    expenseCardTitle: 'وردەکاری خەرجی کارگە',
+    lblVendor: 'فرۆشیار / بەڵێندەر:',
+    lblCategory: 'سەردێڕی خەرجی:'
   },
   en: {
     modalTitle: 'Official Financial Voucher Slip',
@@ -235,11 +297,10 @@ const COPY = {
     creditTitle: 'Credit Account (Source / Treasury)',
     doubleEntryBalanced: 'Double-Entry Balanced (Debit = Credit)',
     txDetailsTitle: 'Voucher Specifications & Notes',
-    txTitleLabel: 'Title / Subject:',
     descriptionLabel: 'General Description & Notes:',
     auditorNoteTitle: 'Confidential Internal Audit Notes',
     auditorNoteHint: 'Internal management note only; omitted from printed official vouchers.',
-    sourceAccountTitle: 'Source Account / Cashbox & Bank Card',
+    sourceAccountTitle: 'Treasury & Source Account',
     accountNameLabel: 'Account Name:',
     accountTypeLabel: 'Account Type:',
     cashType: 'Workshop Cashbox',
@@ -249,8 +310,8 @@ const COPY = {
     partyRoleLabel: 'Role / Designation:',
     costCenterTitle: 'Cost Center / Phase:',
     costCenterDefault: 'Central Workshop / Active Project',
-    accountCodingTitle: 'Account Coding & Classification:',
-    viewSubsidiaryHint: 'Click to open dedicated subsidiary ledger',
+    accountCodingTitle: 'Account Coding:',
+    viewSubsidiaryHint: 'Open dedicated ledger',
     approvalAuditTitle: 'Audit Trail & Document Lifecycle',
     registeredByLabel: 'Registered By:',
     lastEditedLabel: 'Last Modified:',
@@ -293,14 +354,42 @@ const COPY = {
     zoomOut: 'Zoom Out',
     rotate: 'Rotate',
     downloadPhoto: 'Download Attachment',
-    compoundTableTitle: 'Multi-Line Compound Breakdown',
-    thRow: '#',
-    thItemTitle: 'Account / Description',
-    thDebit: 'Debit (+)',
-    thCredit: 'Credit (-)',
-    thLineNote: 'Notes',
-    totalDebits: 'Total Debits:',
-    totalCredits: 'Total Credits:'
+    groupSettlementSectionTitle: 'Group Settlement & Apportionment Breakdown',
+    groupMembersCount: (cnt) => `Including ${cnt} Group Members`,
+    thWorkerName: 'Staff Name',
+    thWorkerRole: 'Role',
+    thWorkerStatus: 'Status',
+    statusActive: 'Active',
+    statusInactive: 'Inactive / On Leave',
+    thDaysWorked: 'Days Worked',
+    daysUnit: 'days',
+    thGrossWages: 'Gross Wage',
+    thDeductions: 'Advances Deducted',
+    thNetShare: 'Net Payable Share',
+    thSettlementState: 'Settlement State',
+    settledInSlip: 'Paid in this voucher',
+    groupSummaryCard: 'Group Settlement Balance Summary',
+    lblTotalGross: 'Total Group Gross Wages:',
+    lblTotalAdvances: 'Total Advances Offset:',
+    lblTotalLoanDeductions: 'Total Loan Deductions:',
+    lblNetSettlementPaid: 'Net Total Cash/Transfer Paid:',
+    loanFacilityCardTitle: 'Staff Loan Facility Specifications',
+    lblPrincipal: 'Loan Principal:',
+    lblInstallment: 'Monthly Installment:',
+    lblInstallmentsCount: 'Installments Count:',
+    lblRemainingLoan: 'Remaining Balance:',
+    lblLoanStatus: 'Repayment Status:',
+    loanStatusActive: 'Active (Deducting from payroll)',
+    loanStatusPaid: 'Fully Repaid',
+    loanInstallmentsUnit: 'installments',
+    advanceCardTitle: 'Advance Payment Specifications',
+    lblPaymentMethod: 'Payment Method:',
+    lblRefNumber: 'Reference Number:',
+    methodCash: 'Cash from Workshop Drawer',
+    methodBank: 'Card Transfer / Bank Slip',
+    expenseCardTitle: 'Workshop Expense Specifications',
+    lblVendor: 'Vendor / Contractor:',
+    lblCategory: 'Expense Category:'
   }
 };
 
@@ -329,6 +418,14 @@ export function VoucherDetailModal({
   const [allProjectVouchers, setAllProjectVouchers] = useState([]);
   const [siblingIndex, setSiblingIndex] = useState(-1);
 
+  // Deep Enriched Breakdown State (Group settlements, Loans, Advances)
+  const [enrichedBreakdown, setEnrichedBreakdown] = useState({
+    groupSettlement: null,
+    loanFacility: null,
+    advanceInfo: null,
+    expenseInfo: null
+  });
+
   // Lightbox State
   const [activePhotoUrl, setActivePhotoUrl] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -353,13 +450,11 @@ export function VoucherDetailModal({
         return;
       }
       
-      // Do not navigate siblings if typing in input or if modifier keys held
       const target = e.target;
       const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
       if (isInput || e.ctrlKey || e.metaKey || e.altKey) return;
 
       if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && allProjectVouchers.length > 1) {
-        // RTL inversion: ArrowRight moves backward in time, ArrowLeft moves forward (or vice versa)
         const isNext = direction === 'rtl' ? e.key === 'ArrowLeft' : e.key === 'ArrowRight';
         const isPrev = direction === 'rtl' ? e.key === 'ArrowRight' : e.key === 'ArrowLeft';
 
@@ -446,7 +541,6 @@ export function VoucherDetailModal({
   useEffect(() => {
     if (!activeVoucherNumber || !isOpen) return;
 
-    // Calculate current sibling index
     const idx = allProjectVouchers.findIndex((v) => v.voucherNumber === activeVoucherNumber);
     setSiblingIndex(idx);
 
@@ -487,6 +581,142 @@ export function VoucherDetailModal({
     setActiveItem(targetVoucher.item || null);
     setShowDeleteConfirm(false);
   }, []);
+
+  // Deep Audit Resolution: Queries Group Settlements, Loans, Advances & Expenses
+  useEffect(() => {
+    if (!activeItem || !isOpen) return;
+    const raw = activeItem.rawItem || activeItem;
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const result = {
+          groupSettlement: null,
+          loanFacility: null,
+          advanceInfo: null,
+          expenseInfo: null
+        };
+
+        const isGroupSettlement = raw.isGroupSettlement || Boolean(raw.groupId) || (raw.type === 'settlement' && Number(raw.groupMemberCount || 0) > 1);
+
+        // ۱. تحلیل عمیق تسویه حساب گروهی
+        if (isGroupSettlement) {
+          const groupId = raw.groupId;
+          let group = null;
+          if (groupId && db.groups) {
+            group = await db.groups.get(groupId);
+          }
+
+          // یافتن لاگ‌های کارکرد تسویه شده در این سند
+          const receiptId = String(raw.id || activeItem.id || '').replace(/_(in|out)$/, '');
+          let settledLogs = [];
+          if (db.attendanceLogs) {
+            settledLogs = await db.attendanceLogs.where('settlementReceiptId').equals(receiptId).toArray();
+          }
+
+          // یافتن مساعده‌های تسویه شده در این سند
+          let settledAdvances = [];
+          if (db.payments) {
+            settledAdvances = await db.payments.where('settlementReceiptId').equals(receiptId).toArray();
+          }
+
+          // یافتن پرسنل عضو گروه
+          let groupWorkers = [];
+          if (groupId && db.workers) {
+            groupWorkers = await db.workers.where('groupId').equals(groupId).toArray();
+          }
+
+          // اگر لاگ‌های صریح با settlementReceiptId یافت نشد، کارمندان را بر اساس لاگ‌های همان روزها تحلیل می‌کنیم
+          const membersBreakdown = groupWorkers.map((w) => {
+            const wLogs = settledLogs.filter((l) => String(l.workerId) === String(w.id));
+            const wAdvances = settledAdvances.filter((p) => String(p.workerId) === String(w.id));
+            const daysCount = wLogs.length;
+            const gross = wLogs.reduce((acc, l) => acc + (Number(l.totalDayPay) || Number(l.calculatedDailyWage) || 0), 0);
+            const advTotal = wAdvances.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+            const netShare = gross - advTotal;
+
+            return {
+              id: w.id,
+              name: w.name,
+              role: w.role || 'عضو گروه',
+              isActive: w.isActive !== 0 && w.isActive !== false,
+              daysCount,
+              gross,
+              advances: advTotal,
+              netShare: netShare > 0 ? netShare : 0
+            };
+          });
+
+          result.groupSettlement = {
+            groupName: group?.name || raw.groupName || 'گروه کاری',
+            supervisorName: group?.supervisorName || raw.workerName || raw.personName || 'سرپرست گروه',
+            memberCount: membersBreakdown.length || raw.groupMemberCount || 1,
+            members: membersBreakdown,
+            totalGross: raw.grossEarningsCalculated || membersBreakdown.reduce((s, m) => s + m.gross, 0),
+            totalAdvances: raw.advancesDeducted || membersBreakdown.reduce((s, m) => s + m.advances, 0),
+            totalLoanDeductions: raw.loanDeductions || raw.loanDeduction || 0,
+            netPaid: Number(raw.amount) || 0
+          };
+        }
+
+        // ۲. تحلیل عمیق پرونده وام پرسنلی
+        const isLoan = raw.type === 'loan' || raw.type === 'loan_disbursement' || activeItem.tableName === 'loans';
+        if (isLoan && db.loans) {
+          let loan = null;
+          if (raw.loanId) {
+            loan = await db.loans.get(raw.loanId);
+          }
+          if (!loan && raw.voucherNumber) {
+            loan = await db.loans.where('voucherNumber').equals(raw.voucherNumber).first();
+          }
+          if (!loan && raw.workerId) {
+            loan = await db.loans.where('workerId').equals(String(raw.workerId)).first();
+          }
+
+          if (loan || isLoan) {
+            const principal = Number(loan?.principalAmount || raw.principalAmount || raw.amount || 0);
+            const installment = Number(loan?.installmentAmount || raw.installmentAmount || 0);
+            const remaining = Number(loan?.remainingBalance ?? raw.remainingBalance ?? principal);
+            const totalInst = loan?.totalInstallments || (installment > 0 ? Math.round(principal / installment) : 0);
+
+            result.loanFacility = {
+              principal,
+              installment,
+              remaining,
+              totalInstallments: totalInst,
+              status: loan?.status || 'active',
+              notes: loan?.notes || raw.notes || ''
+            };
+          }
+        }
+
+        // ۳. تحلیل مساعده پرداختی
+        const isAdvance = raw.type === 'advance' || raw.type === 'Advance_Payment';
+        if (isAdvance) {
+          result.advanceInfo = {
+            method: raw.paymentMethod || 'cash',
+            referenceNumber: raw.referenceNumber || raw.refNumber || null
+          };
+        }
+
+        // ۴. تحلیل هزینه کارگاهی
+        if (activeItem.tableName === 'expenses' || raw.type === 'expense') {
+          result.expenseInfo = {
+            vendor: raw.counterpartyName || raw.vendorName || raw.personName || 'فروشنده / پیمانکار',
+            category: raw.categoryName || raw.category || 'هزینه کارگاه'
+          };
+        }
+
+        if (isMounted) {
+          setEnrichedBreakdown(result);
+        }
+      } catch (err) {
+        console.warn('[VoucherDetailModal] Error enriching voucher breakdown:', err);
+      }
+    })();
+
+    return () => { isMounted = false; };
+  }, [activeItem, isOpen]);
 
   // Normalized Voucher Attributes & Enterprise Calculations
   const itemData = useMemo(() => {
@@ -538,40 +768,6 @@ export function VoucherDetailModal({
     const approvedAt = activeItem.approvedAt || raw.approved_at || raw.approvedAt || null;
     const isCloudSynced = Boolean(raw.synced_at || raw.cloud_id || raw.is_synced);
 
-    // Multi-line compound items (e.g. group settlements, transfers)
-    const isTransfer = activeItem.tableName === 'accountTransfers' || raw.type === 'transfer' || activeItem.type === 'transfer';
-    const isSettlement = raw.type === 'settlement' || activeItem.category === 'worker_settlement';
-    const multiLines = [];
-
-    if (isTransfer) {
-      const fromAcc = raw.fromAccountName || accountName;
-      const toAcc = raw.toAccountName || raw.targetAccountName || 'حساب مقصد';
-      const fee = Number(raw.fee) || 0;
-      multiLines.push({
-        id: 'tr_to',
-        title: `${c.debitTitle} (${toAcc})`,
-        debit: amount,
-        credit: 0,
-        note: `واریز به حساب مقصد: ${toAcc}`
-      });
-      if (fee > 0) {
-        multiLines.push({
-          id: 'tr_fee',
-          title: 'کارمزد انتقال بانکی',
-          debit: fee,
-          credit: 0,
-          note: 'هزینه کارمزد تراکنش'
-        });
-      }
-      multiLines.push({
-        id: 'tr_from',
-        title: `${c.creditTitle} (${fromAcc})`,
-        debit: 0,
-        credit: amount + fee,
-        note: `برداشت از حساب مبدأ: ${fromAcc}`
-      });
-    }
-
     // Chart of accounts coding label
     const accountCode = raw.accountCode || (accountType === 'bank' ? '۱۰۱۰۲' : '۱۰۱۰۱');
     const categoryCode = raw.categoryCode || (type === 'inflow' ? '۴۰۱۰۱' : '۵۰۱۰۱');
@@ -600,9 +796,6 @@ export function VoucherDetailModal({
       approvedBy,
       approvedAt,
       isCloudSynced,
-      isTransfer,
-      isSettlement,
-      multiLines,
       accountCode,
       categoryCode
     };
@@ -765,7 +958,6 @@ export function VoucherDetailModal({
       return;
     }
 
-    // Fallback: match by name
     window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'));
     onClose();
   }, [itemData, activeItem, onClose]);
@@ -793,13 +985,26 @@ export function VoucherDetailModal({
   const nextVoucher = siblingIndex < allProjectVouchers.length - 1 ? allProjectVouchers[siblingIndex + 1] : null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] overflow-y-auto bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-5 md:p-8 animate-in fade-in duration-200">
+    /* Outer Backdrop with True Apple Blur & Backdrop-Click-To-Close */
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[120] overflow-y-auto bg-slate-900/60 backdrop-blur-2xl flex items-center justify-center p-2.5 sm:p-5 md:p-8 animate-in fade-in duration-200"
+    >
       
       {/* Lightbox Modal (For attached photos) */}
       {activePhotoUrl && (
-        <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 select-none">
-          {/* Lightbox Toolbar */}
-          <div className="w-full max-w-4xl flex items-center justify-between text-white pb-3 border-b border-white/10 mb-4">
+        <div 
+          onClick={() => setActivePhotoUrl(null)}
+          className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-4 select-none animate-in fade-in duration-150"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl flex items-center justify-between text-white pb-3 border-b border-white/10 mb-4"
+          >
             <span className="text-xs font-bold text-slate-300 flex items-center gap-2">
               <Receipt className="w-4 h-4 text-sky-400" />
               <span>{c.lightboxTitle}</span>
@@ -852,8 +1057,10 @@ export function VoucherDetailModal({
             </div>
           </div>
 
-          {/* Lightbox Image Stage */}
-          <div className="flex-1 flex items-center justify-center overflow-hidden max-h-[80vh] w-full">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 flex items-center justify-center overflow-hidden max-h-[80vh] w-full"
+          >
             <img
               src={activePhotoUrl}
               alt="Receipt Preview"
@@ -867,16 +1074,17 @@ export function VoucherDetailModal({
         </div>
       )}
 
-      {/* Main Printable Wrapper Card */}
+      {/* Main Apple Liquid Glass Modal Container */}
       <div 
         ref={printRef}
-        className="w-full max-w-5xl bg-[#f3f6f4] dark:bg-slate-950 rounded-3xl sm:rounded-4xl shadow-2xl border border-white/60 dark:border-slate-800/80 overflow-hidden flex flex-col max-h-[94vh] transition-all duration-300"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-5xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl backdrop-saturate-150 border border-white/70 dark:border-white/10 shadow-[0_30px_70px_rgba(0,0,0,0.25)] rounded-3xl sm:rounded-4xl overflow-hidden flex flex-col max-h-[94vh] transition-all duration-300"
       >
         
         {/* ======================================================== */}
         {/* 1. APPLE LIQUID GLASS HEADER WITH VOUCHER STEPPER       */}
         {/* ======================================================== */}
-        <div className="no-print p-4 sm:p-5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 sticky top-0 z-20">
+        <div className="no-print p-4 sm:p-5 bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border-b border-slate-200/70 dark:border-slate-800/80 flex items-center justify-between gap-3 sticky top-0 z-20">
           
           {/* Identity & Status */}
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -890,7 +1098,7 @@ export function VoucherDetailModal({
             
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
                   {c.modalTitle}
                 </h3>
                 {itemData && (
@@ -909,15 +1117,15 @@ export function VoucherDetailModal({
             </div>
           </div>
 
-          {/* Stepper (Previous / Next) & Quick Actions */}
+          {/* Stepper (Previous / Next) & Single Authority Voucher Pill */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
-            {/* Voucher Number Chip with 1-Click Copy */}
+            {/* Voucher Number Chip with 1-Click Copy (Single prominent authority place) */}
             {itemData && (
               <button
                 type="button"
                 onClick={handleCopyVoucher}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 font-mono text-xs font-black transition-all cursor-pointer group"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-800/90 dark:hover:bg-slate-700 rounded-xl border border-slate-200/80 dark:border-slate-700/80 font-mono text-xs font-black transition-all cursor-pointer group shadow-2xs"
                 title={copied ? c.copiedMsg : c.shareBtn}
               >
                 {copied ? (
@@ -925,7 +1133,7 @@ export function VoucherDetailModal({
                 ) : (
                   <Copy className="w-3.5 h-3.5 text-slate-400 group-hover:text-sky-500 transition-colors" />
                 )}
-                <span className="text-sky-600 dark:text-sky-400 dir-ltr font-black">{itemData.voucherNumber}</span>
+                <span className="text-sky-600 dark:text-sky-400 dir-ltr font-black text-sm">{itemData.voucherNumber}</span>
               </button>
             )}
 
@@ -960,7 +1168,7 @@ export function VoucherDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-500 dark:text-slate-400 transition-all cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100/90 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800/90 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60 transition-all cursor-pointer shadow-2xs active:scale-95"
               title={c.closeBtn}
             >
               <X className="w-4 h-4" />
@@ -969,9 +1177,9 @@ export function VoucherDetailModal({
         </div>
 
         {/* ======================================================== */}
-        {/* 2. BODY CONTENT (12-Column Responsive Grid)             */}
+        {/* 2. BODY CONTENT (Liquid Glass Scrollable View)          */}
         {/* ======================================================== */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-5">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-5 custom-scrollbar">
           {loading ? (
             <div className="py-24 flex flex-col items-center justify-center text-slate-400 gap-3">
               <Clock className="w-8 h-8 animate-spin text-sky-500" />
@@ -984,21 +1192,19 @@ export function VoucherDetailModal({
             </div>
           ) : (
             <>
-              {/* Draft Status Banner with quick actions */}
+              {/* Draft Status Banner */}
               {itemData.isDraft && (
-                <div className="no-print p-3 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-300/80 dark:border-amber-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <p className="text-xs sm:text-sm text-amber-900 dark:text-amber-200 font-medium">
-                      {c.pendingApprovalMsg}
-                    </p>
-                  </div>
+                <div className="no-print p-3.5 sm:p-4 rounded-3xl bg-amber-500/10 border border-amber-300/70 dark:border-amber-700/60 flex items-center gap-3 backdrop-blur-md shadow-2xs">
+                  <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <p className="text-xs sm:text-sm text-amber-900 dark:text-amber-200 font-medium">
+                    {c.pendingApprovalMsg}
+                  </p>
                 </div>
               )}
 
               {/* Delete Draft Confirmation Card */}
               {showDeleteConfirm && (
-                <div className="no-print p-4 sm:p-5 rounded-3xl bg-rose-500/10 border-2 border-rose-500/40 text-slate-900 dark:text-white space-y-3 animate-in zoom-in-95 duration-150">
+                <div className="no-print p-4 sm:p-5 rounded-3xl bg-rose-500/10 backdrop-blur-xl border border-rose-500/30 text-slate-900 dark:text-white space-y-3 animate-in zoom-in-95 duration-150 shadow-md">
                   <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-400 font-black text-sm">
                     <AlertTriangle className="w-5 h-5 shrink-0" />
                     <span>{c.confirmDeleteTitle}</span>
@@ -1011,7 +1217,7 @@ export function VoucherDetailModal({
                       type="button"
                       onClick={() => setShowDeleteConfirm(false)}
                       disabled={deleting}
-                      className="px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-300 transition-all cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-xl bg-slate-200/80 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-300 transition-all cursor-pointer"
                     >
                       {c.cancelDelete}
                     </button>
@@ -1031,28 +1237,28 @@ export function VoucherDetailModal({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
                 
                 {/* ======================================================== */}
-                {/* LEFT / PRIMARY COLUMN (7-8 COLUMNS)                     */}
+                {/* PRIMARY COLUMN (8 COLUMNS)                              */}
                 {/* ======================================================== */}
                 <div className="lg:col-span-8 space-y-4 sm:space-y-5">
                   
-                  {/* 1. Big Hero Financial Amount Card */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                  {/* 1. Big Hero Financial Amount Card (Apple Glass) */}
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-2 flex-wrap gap-2">
                       <span className="flex items-center gap-1.5">
                         <Coins className="w-4 h-4 text-emerald-500" />
                         <span>{c.amountCardTitle}</span>
                       </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[11px] px-2.5 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] px-2.5 py-0.5 rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">
                           {c.accountCodingTitle} {itemData.categoryCode}
                         </span>
-                        <span className="font-mono text-[11px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        <span className="text-[11px] px-2.5 py-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                           {itemData.categoryLabel}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex items-baseline gap-2 pt-1">
                       <span className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white font-mono" dir="ltr">
                         {formatAmount(itemData.amount, currency)}
                       </span>
@@ -1061,7 +1267,7 @@ export function VoucherDetailModal({
                       </span>
                     </div>
 
-                    <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-start gap-2">
+                    <div className="mt-3.5 pt-3 border-t border-slate-200/50 dark:border-slate-800/80 flex items-start gap-2">
                       <span className="text-xs text-slate-400 font-bold shrink-0">{c.amountInWordsLabel}</span>
                       <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">
                         {numberToWords(itemData.amount, currency, language)}
@@ -1069,93 +1275,210 @@ export function VoucherDetailModal({
                     </div>
                   </div>
 
-                  {/* 2. Double-Entry Breakdown & Multi-Line Matrix */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3.5">
+                  {/* 2. Double-Entry Breakdown (Apple Glass) */}
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                         <ArrowLeftRight className="w-4 h-4 text-indigo-500" />
-                        <span>تراز دوبل حسابداری (Double-Entry Balance)</span>
+                        <span>تراز دوبل حسابداری (طرفین سند)</span>
                       </h4>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                         <CheckCircle2 className="w-3 h-3" />
                         <span>{c.doubleEntryBalanced}</span>
                       </span>
                     </div>
 
-                    {/* Standard 2-Card Double Entry Display */}
-                    {itemData.multiLines.length === 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        {/* Debit (بدهکار) */}
-                        <div className="p-3.5 rounded-2xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-200/60 dark:border-rose-800/40 space-y-1">
-                          <div className="flex items-center justify-between text-xs font-bold text-rose-600 dark:text-rose-400 mb-1">
-                            <span className="flex items-center gap-1">
-                              <ArrowUpRight className="w-3.5 h-3.5" />
-                              <span>{c.debitTitle}</span>
-                            </span>
-                            <span className="font-mono text-[11px] font-black" dir="ltr">
-                              +{formatAmount(itemData.amount, currency)}
-                            </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* Debit (بدهکار) */}
+                      <div className="p-3.5 rounded-2xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-200/60 dark:border-rose-800/40 space-y-1">
+                        <div className="flex items-center justify-between text-xs font-bold text-rose-600 dark:text-rose-400 mb-1">
+                          <span className="flex items-center gap-1">
+                            <ArrowUpRight className="w-3.5 h-3.5" />
+                            <span>{c.debitTitle}</span>
+                          </span>
+                          <span className="font-mono text-[11px] font-black" dir="ltr">
+                            +{formatAmount(itemData.amount, currency)}
+                          </span>
+                        </div>
+                        <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">
+                          {itemData.type === 'inflow' ? itemData.accountName : itemData.counterpartyName}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {itemData.title}
+                        </p>
+                      </div>
+
+                      {/* Credit (بستانکار) */}
+                      <div className="p-3.5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-800/40 space-y-1">
+                        <div className="flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                          <span className="flex items-center gap-1">
+                            <ArrowDownLeft className="w-3.5 h-3.5" />
+                            <span>{c.creditTitle}</span>
+                          </span>
+                          <span className="font-mono text-[11px] font-black" dir="ltr">
+                            -{formatAmount(itemData.amount, currency)}
+                          </span>
+                        </div>
+                        <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">
+                          {itemData.type === 'inflow' ? itemData.counterpartyName : itemData.accountName}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {itemData.accountType === 'bank' ? c.bankType : c.cashType} ({itemData.accountCode})
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Deep Architectural Breakdown: GROUP SETTLEMENT (ریز تسهیم اعضای گروه) */}
+                  {enrichedBreakdown.groupSettlement && (
+                    <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                            <Users className="w-4 h-4" />
                           </div>
-                          <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">
-                            {itemData.type === 'inflow' ? itemData.accountName : itemData.counterpartyName}
-                          </p>
-                          <p className="text-[11px] text-slate-400 truncate">
-                            {itemData.title}
-                          </p>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200">
+                              {c.groupSettlementSectionTitle}: {enrichedBreakdown.groupSettlement.groupName}
+                            </h4>
+                            <p className="text-[11px] text-slate-500">
+                              سرپرست دریافت‌کننده: <strong>{enrichedBreakdown.groupSettlement.supervisorName}</strong> • {c.groupMembersCount(enrichedBreakdown.groupSettlement.memberCount)}
+                            </p>
+                          </div>
                         </div>
 
-                        {/* Credit (بستانکار) */}
-                        <div className="p-3.5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-800/40 space-y-1">
-                          <div className="flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1">
-                            <span className="flex items-center gap-1">
-                              <ArrowDownLeft className="w-3.5 h-3.5" />
-                              <span>{c.creditTitle}</span>
-                            </span>
-                            <span className="font-mono text-[11px] font-black" dir="ltr">
-                              -{formatAmount(itemData.amount, currency)}
-                            </span>
-                          </div>
-                          <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">
-                            {itemData.type === 'inflow' ? itemData.counterpartyName : itemData.accountName}
-                          </p>
-                          <p className="text-[11px] text-slate-400 truncate">
-                            {itemData.accountType === 'bank' ? c.bankType : c.cashType} ({itemData.accountCode})
-                          </p>
-                        </div>
+                        <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                          {c.groupMembersCount(enrichedBreakdown.groupSettlement.memberCount)}
+                        </span>
                       </div>
-                    ) : (
-                      /* Compound Multi-Line Breakdown Matrix */
-                      <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+
+                      {/* جدول شفاف سهم هر عضو */}
+                      <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
                         <table className="w-full text-right text-xs">
-                          <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">
+                          <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-bold">
                             <tr>
-                              <th className="py-2.5 px-3">{c.thItemTitle}</th>
-                              <th className="py-2.5 px-3 text-left">{c.thDebit}</th>
-                              <th className="py-2.5 px-3 text-left">{c.thCredit}</th>
-                              <th className="py-2.5 px-3">{c.thLineNote}</th>
+                              <th className="py-2.5 px-3">#</th>
+                              <th className="py-2.5 px-3">{c.thWorkerName}</th>
+                              <th className="py-2.5 px-3">{c.thWorkerRole}</th>
+                              <th className="py-2.5 px-3 text-center">{c.thWorkerStatus}</th>
+                              <th className="py-2.5 px-3 text-center">{c.thDaysWorked}</th>
+                              <th className="py-2.5 px-3 text-left">{c.thGrossWages}</th>
+                              <th className="py-2.5 px-3 text-left">{c.thDeductions}</th>
+                              <th className="py-2.5 px-3 text-left">{c.thNetShare}</th>
+                              <th className="py-2.5 px-3 text-center">{c.thSettlementState}</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {itemData.multiLines.map((line, idx) => (
-                              <tr key={line.id + idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
-                                <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">{line.title}</td>
-                                <td className="py-2 px-3 font-mono font-bold text-rose-600 dark:text-rose-400 text-left" dir="ltr">
-                                  {line.debit > 0 ? `+${formatAmount(line.debit, currency)}` : '-'}
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-normal">
+                            {enrichedBreakdown.groupSettlement.members.map((m, idx) => (
+                              <tr key={m.id || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                                <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+                                <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200">{m.name}</td>
+                                <td className="py-2.5 px-3 text-slate-500 text-[11px]">{m.role}</td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    m.isActive 
+                                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' 
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                  }`}>
+                                    {m.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
+                                    <span>{m.isActive ? c.statusActive : c.statusInactive}</span>
+                                  </span>
                                 </td>
-                                <td className="py-2 px-3 font-mono font-bold text-emerald-600 dark:text-emerald-400 text-left" dir="ltr">
-                                  {line.credit > 0 ? `-${formatAmount(line.credit, currency)}` : '-'}
+                                <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300">
+                                  {m.daysCount} {c.daysUnit}
                                 </td>
-                                <td className="py-2 px-3 text-slate-500 text-[11px]">{line.note}</td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-slate-800 dark:text-slate-200 text-left" dir="ltr">
+                                  +{formatAmount(m.gross, currency)}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-rose-600 dark:text-rose-400 text-left" dir="ltr">
+                                  {m.advances > 0 ? `-${formatAmount(m.advances, currency)}` : '-'}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono font-black text-emerald-600 dark:text-emerald-400 text-left" dir="ltr">
+                                  {formatAmount(m.netShare, currency)}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                    {c.settledInSlip}
+                                  </span>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       </div>
-                    )}
-                  </div>
 
-                  {/* 3. Title, Specifications & Notes */}
-                  <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3">
+                      {/* خلاصه محاسباتی تسویه گروهی */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">{c.lblTotalGross}</span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
+                            +{formatAmount(enrichedBreakdown.groupSettlement.totalGross, currency)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">{c.lblTotalAdvances}</span>
+                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400" dir="ltr">
+                            -{formatAmount(enrichedBreakdown.groupSettlement.totalAdvances, currency)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">{c.lblTotalLoanDeductions}</span>
+                          <span className="font-mono font-bold text-amber-600 dark:text-amber-400" dir="ltr">
+                            -{formatAmount(enrichedBreakdown.groupSettlement.totalLoanDeductions, currency)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block">{c.lblNetSettlementPaid}</span>
+                          <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm" dir="ltr">
+                            {formatAmount(enrichedBreakdown.groupSettlement.netPaid, currency)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4. Deep Architectural Breakdown: LOAN FACILITY (مشخصات پرونده تسهیلات وام) */}
+                  {enrichedBreakdown.loanFacility && (
+                    <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3.5">
+                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-black text-xs sm:text-sm">
+                        <Coins className="w-4 h-4" />
+                        <span>{c.loanFacilityCardTitle}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-200/60 dark:border-amber-800/40">
+                          <span className="text-[10px] text-slate-400 block">{c.lblPrincipal}</span>
+                          <span className="font-mono font-black text-slate-900 dark:text-white text-sm" dir="ltr">
+                            {formatAmount(enrichedBreakdown.loanFacility.principal, currency)}
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-200/60 dark:border-amber-800/40">
+                          <span className="text-[10px] text-slate-400 block">{c.lblInstallment}</span>
+                          <span className="font-mono font-black text-amber-600 dark:text-amber-400 text-sm" dir="ltr">
+                            {formatAmount(enrichedBreakdown.loanFacility.installment, currency)}
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-200/60 dark:border-amber-800/40">
+                          <span className="text-[10px] text-slate-400 block">{c.lblRemainingLoan}</span>
+                          <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-sm" dir="ltr">
+                            {formatAmount(enrichedBreakdown.loanFacility.remaining, currency)}
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-200/60 dark:border-amber-800/40">
+                          <span className="text-[10px] text-slate-400 block">{c.lblLoanStatus}</span>
+                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                            {enrichedBreakdown.loanFacility.remaining > 0 ? c.loanStatusActive : c.loanStatusPaid}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 5. Title, Public Description & Internal Auditor Note */}
+                  <div className="p-5 sm:p-6 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400">
                       <span>{c.txDetailsTitle}</span>
                       <span className="font-mono text-slate-500">{itemData.date} {itemData.time && `• ${itemData.time}`}</span>
@@ -1166,15 +1489,15 @@ export function VoucherDetailModal({
                         {itemData.title}
                       </h5>
                       {itemData.description && (
-                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed bg-slate-50/80 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800">
                           {itemData.description}
                         </p>
                       )}
                     </div>
 
-                    {/* Internal Auditor Note (Visible in UI, hidden in print) */}
+                    {/* Internal Auditor Note (Visible in UI, strictly hidden in print) */}
                     {itemData.internalNote && (
-                      <div className="mt-3 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/50 text-xs space-y-1">
+                      <div className="mt-3 p-3.5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/50 text-xs space-y-1">
                         <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 font-bold">
                           <Lock className="w-3.5 h-3.5" />
                           <span>{c.auditorNoteTitle}</span>
@@ -1189,8 +1512,8 @@ export function VoucherDetailModal({
                     )}
                   </div>
 
-                  {/* 4. Multi-Attachment Gallery & Lightbox Trigger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3">
+                  {/* 6. Multi-Attachment Gallery & Lightbox Trigger */}
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400">
                       <span className="flex items-center gap-1.5">
                         <Receipt className="w-4 h-4 text-sky-500" />
@@ -1202,7 +1525,7 @@ export function VoucherDetailModal({
                     </div>
 
                     {itemData.attachments.length === 0 ? (
-                      <div className="py-6 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center text-slate-400 text-xs">
+                      <div className="py-6 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center text-slate-400 text-xs">
                         {c.noAttachments}
                       </div>
                     ) : (
@@ -1215,7 +1538,7 @@ export function VoucherDetailModal({
                               setZoomLevel(1);
                               setRotation(0);
                             }}
-                            className="relative group h-32 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-pointer shadow-2xs hover:shadow-md transition-all"
+                            className="relative group h-32 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-pointer shadow-2xs hover:shadow-md transition-all"
                           >
                             <img
                               src={photoUrl}
@@ -1235,43 +1558,12 @@ export function VoucherDetailModal({
                 </div>
 
                 {/* ======================================================== */}
-                {/* RIGHT / SIDEBAR COLUMN (4-5 COLUMNS)                    */}
+                {/* SIDEBAR COLUMN (4 COLUMNS - CLEAN & DE-CLUTTERED)       */}
                 {/* ======================================================== */}
                 <div className="lg:col-span-4 space-y-4 sm:space-y-5">
                   
-                  {/* Voucher Card Header Info */}
-                  <div className="p-5 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-lg space-y-3 relative overflow-hidden">
-                    <div className="absolute top-0 end-0 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                        {c.voucherNoLabel}
-                      </span>
-                      <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-white/10 border border-white/10">
-                        {itemData.isDraft ? 'DRAFT' : 'PERMANENT'}
-                      </span>
-                    </div>
-                    
-                    <div className="text-2xl sm:text-3xl font-black font-mono tracking-wider dir-ltr text-left text-sky-300">
-                      {itemData.voucherNumber}
-                    </div>
-
-                    <div className="pt-2.5 border-t border-white/10 flex items-center justify-between text-xs text-slate-300">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{itemData.date}</span>
-                      </span>
-                      {itemData.time && (
-                        <span className="flex items-center gap-1 font-mono text-slate-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{itemData.time}</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
                   {/* Counterparty / Person Card with Deep Link to Subsidiary Ledger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-2">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-sky-500" />
@@ -1280,7 +1572,7 @@ export function VoucherDetailModal({
                       <button
                         type="button"
                         onClick={handleOpenCounterpartyLedger}
-                        className="text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
                         title={c.viewSubsidiaryHint}
                       >
                         <span className="text-[10px]">معین</span>
@@ -1290,18 +1582,18 @@ export function VoucherDetailModal({
 
                     <p 
                       onClick={handleOpenCounterpartyLedger}
-                      className="text-sm font-black text-slate-800 dark:text-slate-100 hover:text-sky-600 dark:hover:text-sky-400 cursor-pointer transition-colors truncate"
+                      className="text-base font-black text-slate-800 dark:text-slate-100 hover:text-sky-600 dark:hover:text-sky-400 cursor-pointer transition-colors truncate"
                       title={itemData.counterpartyName}
                     >
                       {itemData.counterpartyName}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                       {itemData.categoryLabel}
                     </p>
                   </div>
 
                   {/* Source Financial Account Card with Deep Link to Subsidiary Ledger */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-2">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <Landmark className="w-3.5 h-3.5 text-indigo-500" />
@@ -1310,7 +1602,7 @@ export function VoucherDetailModal({
                       <button
                         type="button"
                         onClick={handleOpenAccountLedger}
-                        className="text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
                         title={c.viewSubsidiaryHint}
                       >
                         <span className="text-[10px]">معین</span>
@@ -1320,7 +1612,7 @@ export function VoucherDetailModal({
 
                     <p 
                       onClick={handleOpenAccountLedger}
-                      className="text-sm font-black text-slate-800 dark:text-slate-100 hover:text-sky-600 dark:hover:text-sky-400 cursor-pointer transition-colors truncate"
+                      className="text-base font-black text-slate-800 dark:text-slate-100 hover:text-sky-600 dark:hover:text-sky-400 cursor-pointer transition-colors truncate"
                     >
                       {itemData.accountName}
                     </p>
@@ -1333,7 +1625,7 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* Cost Center / Phase Card */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-1.5">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-1.5">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5 text-amber-500" />
                       <span>{c.costCenterTitle}</span>
@@ -1344,14 +1636,14 @@ export function VoucherDetailModal({
                   </div>
 
                   {/* Enterprise Audit Trail & Lifecycle Timeline */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <History className="w-3.5 h-3.5 text-emerald-500" />
                       <span>{c.approvalAuditTitle}</span>
                     </span>
 
                     <div className="space-y-2.5 text-xs">
-                      {/* 1. Created */}
+                      {/* Created */}
                       <div className="flex items-start justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
                         <span className="text-slate-400">{c.registeredByLabel}</span>
                         <div className="text-left font-bold text-slate-700 dark:text-slate-300">
@@ -1360,7 +1652,7 @@ export function VoucherDetailModal({
                         </div>
                       </div>
 
-                      {/* 2. Last Edited (if applicable) */}
+                      {/* Last Edited */}
                       {itemData.lastEditedBy && (
                         <div className="flex items-start justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
                           <span className="text-slate-400">{c.lastEditedLabel}</span>
@@ -1371,7 +1663,7 @@ export function VoucherDetailModal({
                         </div>
                       )}
 
-                      {/* 3. Approved / Draft status */}
+                      {/* Approved */}
                       <div className="flex items-start justify-between py-1 border-b border-slate-100 dark:border-slate-800/80">
                         <span className="text-slate-400">{c.approvedByLabel}</span>
                         <div className="text-left font-bold">
@@ -1393,7 +1685,7 @@ export function VoucherDetailModal({
                         </div>
                       </div>
 
-                      {/* 4. Cloud Server State */}
+                      {/* Cloud Sync State */}
                       <div className="flex items-center justify-between py-1">
                         <span className="text-slate-400">{c.cloudStatusLabel}</span>
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
@@ -1462,18 +1754,17 @@ export function VoucherDetailModal({
         </div>
 
         {/* ======================================================== */}
-        {/* 3. STICKY GLASS BOTTOM DOCK WITH ENTERPRISE CONTROLS     */}
+        {/* 3. STICKY GLASS BOTTOM DOCK                             */}
         {/* ======================================================== */}
-        <div className="no-print p-3.5 sm:p-5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 z-20">
+        <div className="no-print p-3.5 sm:p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-slate-200/70 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 z-20">
           
-          {/* Live Summary */}
+          {/* Live Balance / Amount Indicator (No redundant voucher number repetition) */}
           <div className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2 self-start sm:self-center">
             {itemData && (
               <>
-                <span className={`w-2 h-2 rounded-full ${itemData.isDraft ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`} />
-                <span className="font-mono text-slate-800 dark:text-slate-200">{itemData.voucherNumber}</span>
-                <span>•</span>
-                <span className="text-slate-800 dark:text-slate-100 font-mono font-bold" dir="ltr">
+                <span className={`w-2.5 h-2.5 rounded-full ${itemData.isDraft ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`} />
+                <span className="text-slate-500">{c.amountCardTitle}:</span>
+                <span className="text-slate-900 dark:text-white font-mono font-black text-sm" dir="ltr">
                   {formatAmount(itemData.amount, currency)} {getCurrencySymbol(currency, language)}
                 </span>
               </>
@@ -1503,7 +1794,7 @@ export function VoucherDetailModal({
                 type="button"
                 onClick={handleEditDraftVoucher}
                 disabled={deleting || approving}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-800/90 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/60 dark:border-slate-700/60 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
                 title={c.editDraftBtn}
               >
                 <FileEdit className="w-3.5 h-3.5 text-sky-500" />
@@ -1516,7 +1807,7 @@ export function VoucherDetailModal({
               type="button"
               onClick={handlePrint}
               disabled={!itemData}
-              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-800/90 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200/60 dark:border-slate-700/60 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
             >
               <Printer className="w-4 h-4 text-sky-500" />
               <span>{c.printBtn}</span>
@@ -1539,7 +1830,7 @@ export function VoucherDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 rounded-2xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+              className="px-4 py-2 rounded-2xl bg-slate-200/80 dark:bg-slate-800/80 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all active:scale-95 cursor-pointer"
             >
               {c.closeBtn}
             </button>
