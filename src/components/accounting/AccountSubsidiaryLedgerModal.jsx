@@ -26,6 +26,7 @@ import {
   Calendar,
   Layers
 } from 'lucide-react';
+import { VoucherBadge } from './VoucherBadge';
 
 /**
  * AccountSubsidiaryLedgerModal
@@ -493,7 +494,9 @@ export function AccountSubsidiaryLedgerModal({
         counterparty: entityData.name,
         type: isBonus ? 'bonus_gift' : 'outflow',
         amount: Number(p.amount) || 0,
-        sourceLabel: isBonus ? (txt.payBonusCat || 'عیدی و پاداش') : txt.paySource
+        sourceLabel: isBonus ? (txt.payBonusCat || 'عیدی و پاداش') : txt.paySource,
+        voucherNumber: p.voucherNumber || (p.createdAt ? `T-${(p.createdAt || '').slice(2,4)}${(p.createdAt || '').slice(5,7)}${String(p.id || 1).padStart(3, '0')}` : `T-2611${String(p.id || 1).padStart(3, '0')}`),
+        originalItem: p
       });
     });
 
@@ -580,7 +583,8 @@ export function AccountSubsidiaryLedgerModal({
         const partyMatch = (tx.counterparty || '').toLowerCase().includes(q);
         const refMatch = (tx.reference || '').toLowerCase().includes(q);
         const catMatch = (tx.categoryLabel || '').toLowerCase().includes(q);
-        if (!descMatch && !partyMatch && !refMatch && !catMatch) return false;
+        const voucherMatch = (tx.voucherNumber || '').toLowerCase().includes(q);
+        if (!descMatch && !partyMatch && !refMatch && !catMatch && !voucherMatch) return false;
       }
 
       return true;
@@ -1014,19 +1018,28 @@ export function AccountSubsidiaryLedgerModal({
                     </td>
 
                     <td className="py-3 px-3.5 whitespace-nowrap">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        tx.category === 'attendance_wage'
-                          ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
-                          : tx.category === 'petty_cash'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                          : tx.category === 'worker_settlement'
-                          ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
-                          : tx.category === 'advance_payment'
-                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                          : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                      }`}>
-                        {tx.categoryLabel}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          tx.category === 'attendance_wage'
+                            ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
+                            : tx.category === 'petty_cash'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            : tx.category === 'worker_settlement'
+                            ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                            : tx.category === 'advance_payment'
+                            ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                            : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                        }`}>
+                          {tx.categoryLabel}
+                        </span>
+                        {tx.voucherNumber && (
+                          <VoucherBadge
+                            voucherNumber={tx.voucherNumber}
+                            item={tx.originalItem || tx}
+                            size="xs"
+                          />
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-3 px-3.5 text-slate-800 dark:text-slate-200">

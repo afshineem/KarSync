@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { VerificationBadge } from '../common/VerificationBadge';
 import { useTwoStageApproval } from '../../hooks/useTwoStageApproval';
+import { VoucherBadge } from './VoucherBadge';
 
 /**
  * GeneralLedgerTable
@@ -987,12 +988,21 @@ export function GeneralLedgerTable({
           {tx.rawDate}
         </td>
 
-        {/* ۳. طرف‌حساب + تگ دسته‌بندی + حساب + توضیح کوتاه */}
+        {/* ۳. طرف‌حساب + تگ دسته‌بندی + شماره سند + حساب + توضیح کوتاه */}
         <td className="py-2 px-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="font-bold text-slate-900 dark:text-white text-xs">
               {primaryDisplayTitle}
             </span>
+
+            {tx.voucherNumber && (
+              <VoucherBadge
+                voucherNumber={tx.voucherNumber}
+                isDraft={isDraft}
+                item={tx}
+                size="xs"
+              />
+            )}
 
             <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${categoryBadgeClass}`}>
               {shortCatLabel}

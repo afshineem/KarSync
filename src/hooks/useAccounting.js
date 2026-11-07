@@ -33,6 +33,7 @@ import {
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { getCurrentYearMonth, getTodayDateString, roundCurrency } from '../utils/formatters';
+import { getDeterministicVoucher, generateNextVoucherNumber } from '../services/voucherNumberService';
 
 /**
  * useAccounting
@@ -153,11 +154,12 @@ export function useAccounting(options = {}) {
           if (p.deletedAt) return false;
           const matchesProject = !p.projectId || p.projectId === projectId || projectId === DEFAULT_PROJECT_ID || projectWorkerIds.has(String(p.workerId));
           if (!matchesProject) return false;
-          // مساعده‌ها، پاداش‌ها/عیدی‌ها و تسویه‌ها خروجی واقعی پول هستند
+          // مساعده‌ها، پاداش‌ها/عیدی‌ها، وام‌ها و تسویه‌ها خروجی واقعی پول هستند
           const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
           const isBonus = p.type === 'bonus' || p.type === 'eid';
+          const isLoan = p.type === 'loan' || p.type === 'loan_disbursement';
           const isSettlement = p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled' || p.settlement_status === 'settled' || Boolean(p.isSettled);
-          return isAdvance || isBonus || isSettlement;
+          return isAdvance || isBonus || isSettlement || isLoan;
         })
         .sort((a, b) => (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || ''));
     },
@@ -322,13 +324,14 @@ export function useAccounting(options = {}) {
           inflowAmount: amt,
           outflowAmount: 0,
           amount: amt,
+          voucherNumber: inc.voucherNumber || getDeterministicVoucher(inc),
           isSystem: false,
           rawItem: inc
         });
       }
     });
 
-    // ۲. پرداختی‌های پرسنل (مساعده و تسویه دستمزد)
+    // ۲. پرداختی‌های پرسنل (مساعده، تسویه دستمزد، وام)
     payments.forEach((p) => {
       const amt = Number(p.amount) || 0;
       let targetId = p.accountId ? String(p.accountId) : (p.paymentMethod === 'bank' || p.accountType === 'bank' ? defaultBankId : defaultCashId);
@@ -336,12 +339,13 @@ export function useAccounting(options = {}) {
         const entry = map.get(targetId);
         entry.totalOutflow += amt;
         entry.outflowsCount += 1;
-        const isAdvance = p.type === 'advance';
+        const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
         const isBonus = p.type === 'bonus' || p.type === 'eid';
+        const isLoan = p.type === 'loan' || p.type === 'loan_disbursement';
         const workerName = p.workerName || workerMap.get(String(p.workerId)) || 'پرسنل';
-        const category = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : 'worker_settlement';
-        const categoryLabel = isBonus ? (p.bonusTitle || 'عیدی و پاداش پرسنل') : isAdvance ? 'مساعده پرسنل' : 'تسویه دستمزد پرسنل';
-        const title = isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : `تسویه حساب نهایی ${workerName}`;
+        const category = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : isLoan ? 'staff_loan' : 'worker_settlement';
+        const categoryLabel = isBonus ? (p.bonusTitle || 'عیدی و پاداش پرسنل') : isAdvance ? 'مساعده پرسنل' : isLoan ? 'وام و تسهیلات پرسنلی' : 'تسویه دستمزد پرسنل';
+        const title = isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : isLoan ? `اعطای وام پرسنلی به ${workerName}` : `تسویه حساب نهایی ${workerName}`;
         entry.transactions.push({
           id: p.id,
           rawDate: (p.date || p.createdAt || '').slice(0, 10),
@@ -356,6 +360,7 @@ export function useAccounting(options = {}) {
           inflowAmount: 0,
           outflowAmount: amt,
           amount: amt,
+          voucherNumber: p.voucherNumber || getDeterministicVoucher(p),
           isSystem: true,
           rawItem: p
         });
@@ -384,6 +389,7 @@ export function useAccounting(options = {}) {
           inflowAmount: 0,
           outflowAmount: amt,
           amount: amt,
+          voucherNumber: e.voucherNumber || getDeterministicVoucher(e),
           isSystem: true,
           rawItem: e
         });
@@ -396,6 +402,7 @@ export function useAccounting(options = {}) {
       const rawDate = (trf.date || trf.createdAt || '').slice(0, 10);
       const time = trf.time || (trf.createdAt ? trf.createdAt.slice(11, 16) : '');
       const createdAt = trf.createdAt || (trf.date ? `${trf.date}T00:00:00Z` : '');
+      const vNo = trf.voucherNumber || getDeterministicVoucher(trf);
 
       // خروجی از حساب مبدأ
       if (trf.fromAccountId && map.has(String(trf.fromAccountId))) {
@@ -417,6 +424,7 @@ export function useAccounting(options = {}) {
           inflowAmount: 0,
           outflowAmount: amt,
           amount: amt,
+          voucherNumber: vNo,
           isSystem: false,
           isTransfer: true,
           rawItem: trf
@@ -443,6 +451,7 @@ export function useAccounting(options = {}) {
           inflowAmount: amt,
           outflowAmount: 0,
           amount: amt,
+          voucherNumber: vNo,
           isSystem: false,
           isTransfer: true,
           rawItem: trf
@@ -601,6 +610,7 @@ export function useAccounting(options = {}) {
         title: inc.title || 'واریز تنخواه کارگاه',
         description: finalDesc,
         tableName: 'treasuryIncomes',
+        voucherNumber: inc.voucherNumber || getDeterministicVoucher(inc),
         status: (inc.status === 'approved' || inc.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: inc.approvedBy || inc.approved_by_name || null,
         approvedAt: inc.approvedAt || inc.approved_at || null,
@@ -615,16 +625,17 @@ export function useAccounting(options = {}) {
       });
     });
 
-    // ۲. تراکنش‌های پرداختی پرسنل (مساعده و تسویه دستمزد)
+    // ۲. تراکنش‌های پرداختی پرسنل (مساعده، تسویه دستمزد، وام)
     payments.forEach((p) => {
       const dateStr = (p.date || p.createdAt || '').slice(0, 10);
       const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
       const isBonus = p.type === 'bonus' || p.type === 'eid';
+      const isLoan = p.type === 'loan' || p.type === 'loan_disbursement';
       const workerName = p.workerName || workerMap.get(String(p.workerId)) || 'پرسنل';
       const acc = p.accountId ? accountMap.get(String(p.accountId)) : null;
-      const category = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : 'worker_settlement';
-      const categoryLabel = isBonus ? (p.bonusTitle || 'عیدی و پاداش پرسنل') : isAdvance ? 'مساعده پرسنل' : 'تسویه دستمزد پرسنل';
-      const title = isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : `تسویه حساب نهایی ${workerName}`;
+      const category = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : isLoan ? 'staff_loan' : 'worker_settlement';
+      const categoryLabel = isBonus ? (p.bonusTitle || 'عیدی و پاداش پرسنل') : isAdvance ? 'مساعده پرسنل' : isLoan ? 'وام و تسهیلات پرسنلی' : 'تسویه دستمزد پرسنل';
+      const title = isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : isLoan ? `اعطای وام پرسنلی به ${workerName}` : `تسویه حساب نهایی ${workerName}`;
 
       rawTransactions.push({
         id: p.id,
@@ -641,6 +652,7 @@ export function useAccounting(options = {}) {
         description: p.notes || (p.referenceNumber ? `کد رهگیری: ${p.referenceNumber}` : ''),
         personName: workerName,
         tableName: 'payments',
+        voucherNumber: p.voucherNumber || getDeterministicVoucher(p),
         status: (p.status === 'approved' || p.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: p.approvedBy || p.approved_by_name || null,
         approvedAt: p.approvedAt || p.approved_at || null,
@@ -676,6 +688,7 @@ export function useAccounting(options = {}) {
         description: e.personName ? `طرف‌حساب: ${e.personName}` : (e.description || ''),
         personName: e.personName || '',
         tableName: 'expenses',
+        voucherNumber: e.voucherNumber || getDeterministicVoucher(e),
         status: (e.status === 'approved' || e.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: e.approvedBy || e.approved_by_name || null,
         approvedAt: e.approvedAt || e.approved_at || null,
@@ -715,6 +728,7 @@ export function useAccounting(options = {}) {
         description: trf.description || (trf.reference ? `شماره ارجاع: ${trf.reference}` : ''),
         personName: trf.toAccountName || '',
         tableName: 'accountTransfers',
+        voucherNumber: trf.voucherNumber || getDeterministicVoucher(trf),
         status: normalizedStatus,
         approvedBy: trf.approvedBy || trf.approved_by_name || null,
         approvedAt: trf.approvedAt || trf.approved_at || null,
@@ -747,6 +761,7 @@ export function useAccounting(options = {}) {
         description: trf.description || (trf.reference ? `شماره ارجاع: ${trf.reference}` : ''),
         personName: trf.fromAccountName || '',
         tableName: 'accountTransfers',
+        voucherNumber: trf.voucherNumber || getDeterministicVoucher(trf),
         status: normalizedStatus,
         approvedBy: trf.approvedBy || trf.approved_by_name || null,
         approvedAt: trf.approvedAt || trf.approved_at || null,
@@ -804,14 +819,15 @@ export function useAccounting(options = {}) {
         }
       }
 
-      // فیلتر جستجو متنی
+      // فیلتر جستجو متنی (شامل جستجوی شماره سند، عنوان، طرف‌حساب و شرح)
       if (searchLower) {
+        const matchesVoucher = (tx.voucherNumber || '').toLowerCase().includes(searchLower);
         const matchesTitle = (tx.title || '').toLowerCase().includes(searchLower);
         const matchesDesc = (tx.description || '').toLowerCase().includes(searchLower);
         const matchesPerson = (tx.personName || '').toLowerCase().includes(searchLower);
         const matchesAccount = (tx.accountName || '').toLowerCase().includes(searchLower);
         const matchesAmount = String(tx.amount).includes(searchLower);
-        if (!matchesTitle && !matchesDesc && !matchesPerson && !matchesAccount && !matchesAmount) return false;
+        if (!matchesVoucher && !matchesTitle && !matchesDesc && !matchesPerson && !matchesAccount && !matchesAmount) return false;
       }
 
       return true;
@@ -957,13 +973,17 @@ export function useAccounting(options = {}) {
     const fallbackTitle = (title && title.trim()) ? title.trim() : `افزایش موجودی ${accountName || (accountType === 'bank' ? 'کارت بانکی' : 'صندوق')}`;
 
     const now = new Date();
+    const effectiveDate = date || getTodayDateString();
+    const voucherNumber = await generateNextVoucherNumber({ date: effectiveDate, isDraft: true });
+
     const newRecord = {
       id: generateTreasuryIncomeId(),
       projectId,
       counterpartyId: counterpartyId || null,
       userId: user?.id || user?.userId || 'default_user',
       amount: numAmount,
-      date: date || getTodayDateString(),
+      date: effectiveDate,
+      voucherNumber,
       title: fallbackTitle,
       accountId: accountId || null,
       accountName: accountName || '',
@@ -1232,6 +1252,9 @@ export function useAccounting(options = {}) {
     }
 
     const now = new Date();
+    const effectiveDate = date || getTodayDateString();
+    const voucherNumber = await generateNextVoucherNumber({ date: effectiveDate, isDraft: true });
+
     const newTransfer = {
       id: generateTransferId(),
       projectId,
@@ -1243,7 +1266,8 @@ export function useAccounting(options = {}) {
       toAccountName: toAcc.name,
       toAccountType: toAcc.type,
       amount: numAmount,
-      date: date || getTodayDateString(),
+      date: effectiveDate,
+      voucherNumber,
       time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
       reference: reference ? reference.trim() : '',
       description: description ? description.trim() : '',

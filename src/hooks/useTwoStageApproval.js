@@ -19,6 +19,7 @@ import {
   pushTreasuryIncomeLive,
   pushAllTreasuryIncomesToCloud
 } from '../services/realtimeSync';
+import { promoteVoucherToPermanent } from '../services/voucherNumberService';
 
 /**
  * useTwoStageApproval
@@ -63,7 +64,24 @@ export function useTwoStageApproval() {
       ? String(recordId).replace(/_(in|out)$/, '')
       : recordId;
 
+    const table = db.table(tableName);
+    let permVoucher = null;
+    if (table) {
+      try {
+        const existing = await table.get(cleanRecordId);
+        if (existing?.voucherNumber && (existing.voucherNumber.startsWith('T-') || existing.voucherNumber.startsWith('t-'))) {
+          permVoucher = await promoteVoucherToPermanent(existing.voucherNumber, existing.date || existing.expenseDate);
+          await table.update(cleanRecordId, { voucherNumber: permVoucher });
+        }
+      } catch (vErr) {
+        console.warn('Voucher promotion notice:', vErr);
+      }
+    }
+
     const updated = await dbApproveRecord(tableName, cleanRecordId, user);
+    if (permVoucher) {
+      updated.voucherNumber = permVoucher;
+    }
 
     try {
       if (tableName === 'expenses') {
@@ -100,6 +118,19 @@ export function useTwoStageApproval() {
       err.statusCode = 403;
       err.code = 'ROLE_UNAUTHORIZED';
       throw err;
+    }
+
+    // ارتقای اسناد موقت به اسناد دائم پیش از تایید
+    for (const item of items) {
+      try {
+        const t = db.table(item.tableName);
+        const recId = item.tableName === 'accountTransfers' ? String(item.recordId).replace(/_(in|out)$/, '') : item.recordId;
+        const rec = await t?.get(recId);
+        if (rec?.voucherNumber && (rec.voucherNumber.startsWith('T-') || rec.voucherNumber.startsWith('t-'))) {
+          const permV = await promoteVoucherToPermanent(rec.voucherNumber, rec.date || rec.expenseDate);
+          await t.update(recId, { voucherNumber: permV });
+        }
+      } catch (_) {}
     }
 
     const results = await dbBatchApproveRecords(items, user);

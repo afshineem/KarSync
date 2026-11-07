@@ -24,6 +24,7 @@ import {
   Layers,
   Sparkles
 } from 'lucide-react';
+import { VoucherBadge } from './VoucherBadge';
 
 const COPY = {
   fa: {
@@ -411,12 +412,19 @@ export function StaffLoansSection({ onOpenNewLoanModal }) {
                       <h4 className="text-sm font-black text-slate-900 dark:text-white">
                         {loan.workerName || '—'}
                       </h4>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5 flex-wrap">
                         <span>{loan.date || loan.createdAt?.slice(0, 10)}</span>
                         {loan.startMonth && (
                           <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
                             {c.startMonth} {loan.startMonth}
                           </span>
+                        )}
+                        {loan.voucherNumber && (
+                          <VoucherBadge
+                            voucherNumber={loan.voucherNumber}
+                            item={loan}
+                            size="xs"
+                          />
                         )}
                       </div>
                     </div>

@@ -40,6 +40,8 @@ import { ProductTour } from './components/ProductTour';
 import { FloatingSetupChecklist } from './components/FloatingSetupChecklist';
 import { SubsidiarySearchModal } from './components/accounting/SubsidiarySearchModal';
 import { AccountSubsidiaryLedgerModal } from './components/accounting/AccountSubsidiaryLedgerModal';
+import { VoucherDetailModal } from './components/accounting/VoucherDetailModal';
+import { autoBackfillAllVouchers } from './services/voucherNumberService';
 import { NotificationProvider } from './context/NotificationContext';
 import { ToastContainer } from './components/ToastContainer';
 
@@ -127,6 +129,9 @@ function AppContent() {
   const [loggingModalDate, setLoggingModalDate] = useState(null);
   const [isSubsidiarySearchOpen, setIsSubsidiarySearchOpen] = useState(false);
   const [selectedLedgerEntity, setSelectedLedgerEntity] = useState(null);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+  const [selectedVoucherForModal, setSelectedVoucherForModal] = useState(null);
+  const [selectedVoucherNumberForModal, setSelectedVoucherNumberForModal] = useState(null);
 
   // Global listeners for Workers, Counterparties & Daily Logging modals
   useEffect(() => {
@@ -166,11 +171,18 @@ function AppContent() {
         setSelectedLedgerEntity(e.detail);
       }
     };
+    const handleOpenVoucher = (e) => {
+      setSelectedVoucherForModal(e.detail?.item || e.detail?.voucher || null);
+      setSelectedVoucherNumberForModal(e.detail?.voucherNumber || null);
+      setIsVoucherModalOpen(true);
+    };
     window.addEventListener('karsync-open-subsidiary-search', handleOpenSearch);
     window.addEventListener('karsync-open-subsidiary-ledger', handleOpenLedger);
+    window.addEventListener('karsync-open-voucher', handleOpenVoucher);
     return () => {
       window.removeEventListener('karsync-open-subsidiary-search', handleOpenSearch);
       window.removeEventListener('karsync-open-subsidiary-ledger', handleOpenLedger);
+      window.removeEventListener('karsync-open-voucher', handleOpenVoucher);
     };
   }, [canViewAccounting]);
 
@@ -265,6 +277,9 @@ function AppContent() {
       if (res?.totalAdvancesUpdated?.length && navigator.onLine) {
         pushPaymentsLive().catch(() => {});
       }
+
+      // Auto-backfill any legacy financial transactions with standard vouchers
+      await autoBackfillAllVouchers();
     });
     // Start automatic Real-Time Supabase Sync
     runEmergencyCleanup();
@@ -648,6 +663,18 @@ function AppContent() {
       <CounterpartiesModal
         isOpen={isCounterpartiesModalOpen}
         onClose={() => setIsCounterpartiesModalOpen(false)}
+      />
+
+      {/* Official Financial Voucher Detail & Slip Modal */}
+      <VoucherDetailModal
+        isOpen={isVoucherModalOpen}
+        onClose={() => {
+          setIsVoucherModalOpen(false);
+          setSelectedVoucherForModal(null);
+          setSelectedVoucherNumberForModal(null);
+        }}
+        voucher={selectedVoucherForModal}
+        voucherNumber={selectedVoucherNumberForModal}
       />
 
       {/* Floating Setup Checklist Widget */}

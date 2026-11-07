@@ -8,6 +8,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { pushExpenseLive, uploadExpenseReceipt } from '../services/realtimeSync';
 import { formatCurrency } from '../utils/formatters';
+import { generateNextVoucherNumber } from '../services/voucherNumberService';
 import { 
   PlusCircle, 
   X, 
@@ -598,6 +599,12 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
 
       // 3. Fallback category id if level 3 wasn't chosen (use sub or main)
       const finalCategoryId = formData.categoryId || formData.subCategoryId || formData.mainCategoryId || null;
+      const expenseDate = formData.expenseDate || new Date().toISOString().slice(0, 10);
+
+      let voucherNumber = expenseToEdit?.voucherNumber || null;
+      if (!voucherNumber) {
+        voucherNumber = await generateNextVoucherNumber({ date: expenseDate, isDraft: true });
+      }
 
       const expenseRecord = {
         id: expenseToEdit?.id || generateExpenseId(),
@@ -616,7 +623,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         accountName: formData.accountName || '',
         receiptUrl: finalReceiptUrl || null,
         description: formData.description?.trim() || '',
-        expenseDate: formData.expenseDate || new Date().toISOString().slice(0, 10),
+        expenseDate,
+        voucherNumber,
         status: expenseToEdit?.status || 'draft',
         created_by: expenseToEdit?.created_by || user?.id || user?.userId || 'admin',
         createdBy: expenseToEdit?.createdBy || user?.name || user?.title || user?.email || '',

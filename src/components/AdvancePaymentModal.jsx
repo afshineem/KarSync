@@ -6,6 +6,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { pushPaymentsLive, pushLoansLive } from '../services/realtimeSync';
+import { generateNextVoucherNumber } from '../services/voucherNumberService';
 import { 
   getTodayDateString, 
   getCurrentYearMonth, 
@@ -650,6 +651,8 @@ export function AdvancePaymentModal({
         : null;
 
       const paymentId = generatePaymentId();
+      const voucherNumber = await generateNextVoucherNumber({ date, isDraft: true });
+
       const newPayment = {
         id: paymentId,
         projectId: targetProjectId,
@@ -658,6 +661,7 @@ export function AdvancePaymentModal({
         workerName,
         month: derivedMonth,
         date,
+        voucherNumber,
         time: currentTime,
         type: paymentType === 'loan' ? 'loan_disbursement' : paymentType, // "advance" | "bonus" | "loan_disbursement"
         bonusTitle: derivedBonusTitle,
@@ -700,6 +704,7 @@ export function AdvancePaymentModal({
           sourceAccountId: finalAccountId,
           sourceAccountName: chosenAccount?.name || '',
           disbursementPaymentId: paymentId,
+          voucherNumber,
           notes: notes.trim() || null,
           referenceNumber: referenceNumber.trim() || null,
           date,

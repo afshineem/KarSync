@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { VerificationBadge } from './common/VerificationBadge';
 import { useTwoStageApproval } from '../hooks/useTwoStageApproval';
+import { VoucherBadge } from './accounting/VoucherBadge';
 
 export { AddExpenseModal, ExpenseRecycleBinModal, ExpenseAnalyticsModal };
 
@@ -664,8 +665,9 @@ export function ExpensesView() {
         const personMatch = (exp.personName || workerMap.get(exp.personId) || '').toLowerCase().includes(query);
         const catInfo = getCategoryHierarchy(exp.categoryId);
         const catMatch = (catInfo.main + ' ' + catInfo.sub + ' ' + catInfo.item).toLowerCase().includes(query);
+        const voucherMatch = (exp.voucherNumber || '').toLowerCase().includes(query);
 
-        if (!titleMatch && !descMatch && !personMatch && !catMatch) return false;
+        if (!titleMatch && !descMatch && !personMatch && !catMatch && !voucherMatch) return false;
       }
 
       // 2. Date Range
@@ -1447,9 +1449,18 @@ export function ExpensesView() {
 
                         {/* Title & Notes */}
                         <td className="py-3.5 px-4">
-                          <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                            {exp.title}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                              {exp.title}
+                            </p>
+                            {exp.voucherNumber && (
+                              <VoucherBadge
+                                voucherNumber={exp.voucherNumber}
+                                item={exp}
+                                size="xs"
+                              />
+                            )}
+                          </div>
                           {exp.description && (
                             <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-xs mt-0.5">
                               {exp.description}
@@ -1664,12 +1675,19 @@ export function ExpensesView() {
                         <h4 className="font-bold text-sm text-slate-900 dark:text-white leading-tight">
                           {exp.title}
                         </h4>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1 flex-wrap">
                           <span>{exp.expenseDate}</span>
                           <span>•</span>
                           <span className="font-semibold text-slate-600 dark:text-slate-300">
                             {catInfo.item || catInfo.sub || catInfo.main}
                           </span>
+                          {exp.voucherNumber && (
+                            <VoucherBadge
+                              voucherNumber={exp.voucherNumber}
+                              item={exp}
+                              size="xs"
+                            />
+                          )}
                         </div>
                       </div>
                     </div>

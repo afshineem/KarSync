@@ -7,6 +7,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { pushPaymentsLive, pushLogsLive, pushLoansLive } from '../services/realtimeSync';
+import { generateNextVoucherNumber } from '../services/voucherNumberService';
 import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol, formatHoursAndMinutes, formatCurrency, normalizeDigits, convertDigits } from '../utils/formatters';
 import { 
   CheckCircle2, 
@@ -1522,6 +1523,7 @@ export function SettlementModal({
       const now = new Date();
       const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       const settlementRecordId = generatePaymentId();
+      const voucherNumber = await generateNextVoucherNumber({ date: settlementDate, isDraft: true });
       const targetWorkerObj = settlementMode === 'group' ? supervisorWorker : worker;
 
       if (!targetWorkerObj) {
@@ -1551,6 +1553,7 @@ export function SettlementModal({
           periodStartDate: customPeriodStart,
           periodEndDate: customPeriodEnd,
           date: settlementDate,
+          voucherNumber,
           time: currentTime,
           amount: payAmount,
           currency: currency,
@@ -1661,6 +1664,7 @@ export function SettlementModal({
           periodStartDate: periodStart,
           periodEndDate: periodEnd,
           date: settlementDate,
+          voucherNumber,
           time: currentTime,
           amount: payAmount,
           currency: currency,

@@ -51,6 +51,7 @@ import { EditRecordModal } from './EditRecordModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
 import { SettlementModal } from './SettlementModal';
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
+import { VoucherBadge } from './accounting/VoucherBadge';
 
 const COPY = {
   fa: {
@@ -712,6 +713,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
           rawDate: p.date || p.createdAt || '',
           date: p.date || p.createdAt || '',
           data: p,
+          voucherNumber: p.voucherNumber || (p.createdAt ? `T-${(p.createdAt || '').slice(2,4)}${(p.createdAt || '').slice(5,7)}${String(p.id || 1).padStart(3, '0')}` : `T-2611${String(p.id || 1).padStart(3, '0')}`),
           isSettled,
           type: isBonus ? (c.bonusBadge || 'عیدی و پاداش') : (p.type || c.advance),
           amount: Number(p.amount) || 0,
@@ -730,6 +732,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
           rawDate: st.date || st.createdAt || '',
           date: st.date || st.createdAt || '',
           data: st,
+          voucherNumber: st.voucherNumber || (st.createdAt ? `T-${(st.createdAt || '').slice(2,4)}${(st.createdAt || '').slice(5,7)}${String(st.id || 1).padStart(3, '0')}` : `T-2611${String(st.id || 1).padStart(3, '0')}`),
           isSettled: true,
           type: c.finalSettlement,
           amount: Number(st.amount) || 0,
@@ -746,6 +749,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
         rawDate: ln.createdAt || ln.startDate || '',
         date: (ln.createdAt || ln.startDate || '').slice(0, 10),
         data: ln,
+        voucherNumber: ln.voucherNumber || (ln.createdAt ? `T-${(ln.createdAt || '').slice(2,4)}${(ln.createdAt || '').slice(5,7)}${String(ln.id || 1).padStart(3, '0')}` : `T-2611${String(ln.id || 1).padStart(3, '0')}`),
         isSettled: ln.status === 'settled',
         type: c.loansTab,
         amount: Number(ln.principalAmount) || 0,
@@ -1498,6 +1502,14 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                                 <span className="px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-200/60">
                                   {c.unsettledCurrent}
                                 </span>
+                              )}
+
+                              {ev.voucherNumber && (
+                                <VoucherBadge 
+                                  voucherNumber={ev.voucherNumber} 
+                                  item={ev.data} 
+                                  size="xs" 
+                                />
                               )}
                             </div>
 

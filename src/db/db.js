@@ -89,6 +89,14 @@ db.version(16).stores({
   loans: 'id, projectId, workerId, status, startMonth, createdAt'
 });
 
+db.version(17).stores({
+  payments: 'id, projectId, userId, workerId, groupId, date, month, type, status, isSettled, settlementReceiptId, approval_status, voucherNumber, created_by, approved_by, createdAt',
+  expenses: 'id, projectId, sectionId, categoryId, personId, paymentStatus, paymentMethod, currency, expenseDate, status, voucherNumber, created_by, approved_by, createdAt',
+  treasuryIncomes: 'id, projectId, counterpartyId, date, accountType, status, voucherNumber, created_by, approved_by, createdAt',
+  accountTransfers: 'id, projectId, fromAccountId, toAccountId, date, status, voucherNumber, created_by, approved_by, createdAt',
+  loans: 'id, projectId, workerId, status, startMonth, voucherNumber, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
