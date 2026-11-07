@@ -384,7 +384,7 @@ export function AccountSubsidiaryLedgerModal({
   onClose
 }) {
   const txt = COPY[language] || COPY.fa;
-  const { currentProject } = useProject();
+  const { currentProject, openWorkerProfile } = useProject();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
   // هوک مالی حسابداری
@@ -694,33 +694,52 @@ export function AccountSubsidiaryLedgerModal({
     );
   }, []);
 
-  // هندلر کلیک روی طرف‌حساب جهت ناوبری هوشمند به معین آن شخص یا حساب
+  // هندلر کلیک روی طرف‌حساب جهت ناوبری مستقیم به مودال پروفایل شخص
   const handleCounterpartyClick = useCallback((tx) => {
-    const cpName = getTransactionCounterparty(tx);
-    if (!cpName) return;
+    // ۱. اگر در معین پرسنل هستیم و روی نام پرسنل کلیک شده
+    if (isWorker && entityData?.id) {
+      if (openWorkerProfile) {
+        openWorkerProfile(String(entityData.id));
+      }
+      return;
+    }
 
-    // ۱. بررسی تطابق با پرسنل
+    const cpName = getTransactionCounterparty(tx);
+
+    // ۲. بررسی تطابق با پرسنل (بر اساس workerId در خود تراکنش)
     const wId = tx.rawItem?.workerId || tx.workerId;
     if (wId) {
-      const targetWorker = effectiveWorkers.find((w) => String(w.id) === String(wId));
-      if (targetWorker && onSelectEntity) {
-        onSelectEntity({ type: 'worker', data: targetWorker });
+      if (openWorkerProfile) {
+        openWorkerProfile(String(wId));
         return;
       }
     }
-    const matchedWorker = effectiveWorkers.find((w) => w.name?.trim() === cpName.trim());
-    if (matchedWorker && onSelectEntity) {
-      onSelectEntity({ type: 'worker', data: matchedWorker });
-      return;
-    }
 
-    // ۲. بررسی تطابق با حساب بانکی / صندوق دیگر
-    const matchedAccount = effectiveAccounts.find((a) => a.name?.trim() === cpName.trim());
-    if (matchedAccount && onSelectEntity) {
-      onSelectEntity({ type: 'account', data: matchedAccount });
-      return;
+    // ۳. بررسی تطابق با پرسنل (بر اساس نام)
+    if (cpName) {
+      const matchedWorker = effectiveWorkers.find((w) => w.name?.trim() === cpName.trim());
+      if (matchedWorker) {
+        if (openWorkerProfile) {
+          openWorkerProfile(String(matchedWorker.id));
+          return;
+        }
+      }
+
+      // ۴. بررسی تطابق با حساب بانکی / صندوق دیگر
+      const matchedAccount = effectiveAccounts.find((a) => a.name?.trim() === cpName.trim());
+      if (matchedAccount && onSelectEntity) {
+        onSelectEntity({ type: 'account', data: matchedAccount });
+        return;
+      }
+
+      // ۵. اگر طرف‌حساب تجاری است
+      const matchedCp = counterparties.find((c) => c.name?.trim() === cpName.trim() || String(c.id) === String(tx.rawItem?.counterpartyId));
+      if (matchedCp) {
+        window.dispatchEvent(new CustomEvent('karsync-open-counterparties-modal'));
+        return;
+      }
     }
-  }, [getTransactionCounterparty, effectiveWorkers, effectiveAccounts, onSelectEntity]);
+  }, [isWorker, entityData, getTransactionCounterparty, effectiveWorkers, effectiveAccounts, counterparties, onSelectEntity, openWorkerProfile]);
 
   // اعمال فیلترهای زمانی، دسته‌بندی و متن جستجو
   const filteredTransactions = useMemo(() => {
@@ -1529,7 +1548,7 @@ export function AccountSubsidiaryLedgerModal({
                                     type="button"
                                     onClick={() => handleCounterpartyClick(tx)}
                                     className="text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 font-medium cursor-pointer transition-colors inline-flex items-center gap-1 group text-right"
-                                    title={`مشاهده گردش معین: ${cpName}`}
+                                    title={language === 'ku' ? `بینینی پڕۆفایلی: ${cpName}` : language === 'en' ? `View Profile: ${cpName}` : `مشاهده پروفایل: ${cpName}`}
                                   >
                                     <span className="group-hover:underline underline-offset-2">{cpName}</span>
                                     <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-sky-500 shrink-0" />

@@ -790,7 +790,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const modalContent = (
     <div 
       dir={direction}
-      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[100] bg-[#f3f6f4] dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none"
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !mt-0 z-[120] bg-[#f3f6f4] dark:bg-slate-950 flex flex-col w-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none"
     >
       {/* Modal Header */}
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shrink-0 z-20 shadow-xs">
