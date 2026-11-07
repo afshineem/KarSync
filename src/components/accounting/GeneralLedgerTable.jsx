@@ -155,6 +155,7 @@ const COPY = {
     warningDeleteDraft: 'این سند هنوز تایید نهایی نشده است. با حذف آن، رکورد به صورت کامل حذف شده و اثر مالی آن از موجودی حساب کسر یا برگشت داده می‌شود.',
     deleting: 'در حال حذف...',
     btnConfirmDeleteSingle: 'حذف قطعی سند',
+    btnEditDraft: 'ویرایش سند موقت',
     // Batch Delete Modal
     batchDeleteTitle: 'حذف گروهی اسناد موقت',
     batchDeleteSubtitle: (cnt) => `تعداد ${cnt} سند پیش‌نویس جهت حذف انتخاب شده است`,
@@ -325,6 +326,7 @@ const COPY = {
     warningDeleteDraft: 'ئەم بەڵگەنامەیە هێشتا پەسەند نەکراوە. بە سڕینەوەی، بڕەکەی لە باڵانس دەگەڕێتەوە.',
     deleting: 'سڕینەوە...',
     btnConfirmDeleteSingle: 'سڕینەوەی تەواو',
+    btnEditDraft: 'دەستکاریکردنی بەڵگەنامەی کاتی',
     batchDeleteTitle: 'سڕینەوەی کۆمەڵی بەڵگەنامەکان',
     batchDeleteSubtitle: (cnt) => `${cnt} بەڵگەنامەی کاتی دیاریکراوە بۆ سڕینەوە`,
     batchDeleteQuestion: (cnt) => `ئایا دڵنیایت لە سڕینەوەی ئەم ${cnt} بەڵگەنامەیە؟`,
@@ -494,6 +496,7 @@ const COPY = {
     warningDeleteDraft: 'This draft is not approved yet. Deleting it will permanently discard the record and revert its balance impact.',
     deleting: 'Deleting...',
     btnConfirmDeleteSingle: 'Delete Permanently',
+    btnEditDraft: 'Edit Draft Voucher',
     batchDeleteTitle: 'Batch Delete Draft Documents',
     batchDeleteSubtitle: (cnt) => `${cnt} draft documents selected for deletion`,
     batchDeleteQuestion: (cnt) => `Are you sure you want to permanently delete ${cnt} selected draft documents?`,
@@ -1091,6 +1094,28 @@ export function GeneralLedgerTable({
                     <ShieldCheck className="w-3.5 h-3.5" />
                   )}
                   <span>{txt.btnFinalApprove}</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isCurrentlyApproving || isDeleting}
+                  onClick={() => {
+                    const tbl = tx.tableName || (tx.type === 'inflow' ? 'treasuryIncomes' : 'payments');
+                    const raw = tx.rawItem || tx;
+                    if (tbl === 'expenses') {
+                      window.dispatchEvent(new CustomEvent('karsync-open-expense-modal', { detail: { expense: raw } }));
+                    } else if (tbl === 'payments') {
+                      window.dispatchEvent(new CustomEvent('karsync-open-payment-modal', { detail: { payment: raw } }));
+                    } else if (tbl === 'accountTransfers') {
+                      window.dispatchEvent(new CustomEvent('karsync-open-transfer-modal', { detail: { transfer: raw } }));
+                    } else if (tbl === 'treasuryIncomes') {
+                      window.dispatchEvent(new CustomEvent('karsync-open-income-modal', { detail: { income: raw } }));
+                    }
+                  }}
+                  className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  title={txt.btnEditDraft}
+                >
+                  <FileEdit className="w-3.5 h-3.5 text-sky-500" />
                 </button>
 
                 {onDeleteDraftItem && (

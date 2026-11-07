@@ -119,6 +119,7 @@ function AppContent() {
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementWorker, setSettlementWorker] = useState(null);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [expenseToEdit, setExpenseToEdit] = useState(null);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
@@ -176,13 +177,19 @@ function AppContent() {
       setSelectedVoucherNumberForModal(e.detail?.voucherNumber || null);
       setIsVoucherModalOpen(true);
     };
+    const handleOpenExpenseModal = (e) => {
+      setExpenseToEdit(e.detail?.expense || null);
+      setIsExpenseModalOpen(true);
+    };
     window.addEventListener('karsync-open-subsidiary-search', handleOpenSearch);
     window.addEventListener('karsync-open-subsidiary-ledger', handleOpenLedger);
     window.addEventListener('karsync-open-voucher', handleOpenVoucher);
+    window.addEventListener('karsync-open-expense-modal', handleOpenExpenseModal);
     return () => {
       window.removeEventListener('karsync-open-subsidiary-search', handleOpenSearch);
       window.removeEventListener('karsync-open-subsidiary-ledger', handleOpenLedger);
       window.removeEventListener('karsync-open-voucher', handleOpenVoucher);
+      window.removeEventListener('karsync-open-expense-modal', handleOpenExpenseModal);
     };
   }, [canViewAccounting]);
 
@@ -547,10 +554,14 @@ function AppContent() {
         />
       )}
 
-      {/* Quick Add Expense Modal */}
+      {/* Quick Add / Edit Expense Modal */}
       {isExpenseModalOpen && hasPermission('expenses.manage') && (
         <AddExpenseModal
-          onClose={() => setIsExpenseModalOpen(false)}
+          expenseToEdit={expenseToEdit}
+          onClose={() => {
+            setIsExpenseModalOpen(false);
+            setExpenseToEdit(null);
+          }}
         />
       )}
 

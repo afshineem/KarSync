@@ -561,8 +561,17 @@ export function FinancialsView() {
         setLedgerDateFilterMode?.('all');
       }
     };
+    const handleOpenPaymentEdit = (e) => {
+      if (e.detail?.payment) {
+        setEditingPayment(e.detail.payment);
+      }
+    };
     window.addEventListener('karsync-open-financial-ledger', handleOpenLedgerEvent);
-    return () => window.removeEventListener('karsync-open-financial-ledger', handleOpenLedgerEvent);
+    window.addEventListener('karsync-open-payment-modal', handleOpenPaymentEdit);
+    return () => {
+      window.removeEventListener('karsync-open-financial-ledger', handleOpenLedgerEvent);
+      window.removeEventListener('karsync-open-payment-modal', handleOpenPaymentEdit);
+    };
   }, [setApprovalStatusFilter, setLedgerDateFilterMode]);
 
   const handleSaveIncome = async (data) => {
