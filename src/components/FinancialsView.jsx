@@ -109,6 +109,8 @@ const COPY = {
     excelColNotes: 'توضیحات',
     counterpartiesBtn: 'طرف‌حساب‌ها و کارفرمایان',
     counterpartiesLabel: 'طرف‌حساب‌ها',
+    subsidiarySearchBtn: 'جستجوی معین افراد و حساب‌ها (Shift+M)',
+    subsidiarySearchLabel: 'سرچ معین',
     exportExcelBtn: 'خروجی اکسل دفتر مالی',
     printPdfBtn: 'چاپ گزارش مالی',
     treasuryPulse: 'نبض زنده مالی و خزانه‌داری پروژه',
@@ -224,6 +226,8 @@ const COPY = {
     excelColNotes: 'تێبینی',
     counterpartiesBtn: 'لایەنەکان و خاوەنکارەکان',
     counterpartiesLabel: 'لایەنەکان',
+    subsidiarySearchBtn: 'گەڕانی دەفتەری حیسابی کەسەکان و حیسابەکان (Shift+M)',
+    subsidiarySearchLabel: 'گەڕانی معین',
     exportExcelBtn: 'هەناردەی Excel بۆ دەفتەری دارایی',
     printPdfBtn: 'چاپکردنی ڕاپۆرتی دارایی',
     treasuryPulse: 'لێدانی ڕاستەوخۆی دارایی و خەزێنەی پڕۆژە',
@@ -339,6 +343,8 @@ const COPY = {
     excelColNotes: 'Notes',
     counterpartiesBtn: 'Counterparties & Employers',
     counterpartiesLabel: 'Counterparties',
+    subsidiarySearchBtn: 'Search Subsidiary Ledger (Shift+M)',
+    subsidiarySearchLabel: 'Search Ledger',
     exportExcelBtn: 'Export Ledger to Excel',
     printPdfBtn: 'Print Financial Report',
     treasuryPulse: 'Project Financial & Treasury Pulse',
@@ -1168,20 +1174,30 @@ export function FinancialsView() {
           <div className="h-[52px] sm:h-[56px] flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner shrink-0 backdrop-blur-md self-end sm:self-auto">
             {/* دکمه طرف‌حساب‌ها */}
             {canManageAccounting && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsCounterpartiesModalOpen(true)}
-                  className="h-full px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
-                  title={c.counterpartiesBtn}
-                >
-                  <Briefcase className="w-4.5 h-4.5 shrink-0" />
-                  <span className="hidden sm:inline">{c.counterpartiesLabel}</span>
-                </button>
-
-                <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
-              </>
+              <button
+                type="button"
+                onClick={() => setIsCounterpartiesModalOpen(true)}
+                className="h-full px-2.5 sm:px-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-white hover:bg-sky-500 dark:hover:bg-sky-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-sky-500/10 dark:bg-sky-500/10 border border-sky-500/20"
+                title={c.counterpartiesBtn}
+              >
+                <Briefcase className="w-4.5 h-4.5 shrink-0" />
+                <span className="hidden sm:inline">{c.counterpartiesLabel}</span>
+              </button>
             )}
+
+            {/* دکمه سرچ معین (Shift+M) */}
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-subsidiary-search'))}
+              className="h-full px-2.5 sm:px-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-white hover:bg-emerald-500 dark:hover:bg-emerald-500 rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20"
+              title={c.subsidiarySearchBtn}
+              aria-label={c.subsidiarySearchLabel}
+            >
+              <Search className="w-4.5 h-4.5 shrink-0" />
+              <span className="hidden sm:inline">{c.subsidiarySearchLabel}</span>
+            </button>
+
+            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
 
             {/* خروجی اکسل */}
             <button
