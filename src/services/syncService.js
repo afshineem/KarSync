@@ -1,5 +1,6 @@
 import { db } from '../db/db';
 import { isLegacyWorkspaceCode } from '../utils/workspaceCode';
+import { supabase, getActiveWorkspaceContext } from './realtimeSync';
 
 const SYNC_CONFIG_KEY = 'workshop_sync_config';
 const LAST_SYNC_KEY = 'workshop_last_sync_time';
@@ -103,11 +104,28 @@ export async function pullAllFromSupabase() {
     'Accept': 'application/json'
   };
 
+  const ctx = getActiveWorkspaceContext();
+  const workerFilter = ctx.isLegacyOwner
+    ? 'or=(user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null)'
+    : (ctx.userId ? `user_id=eq.${ctx.userId}` : 'user_id=eq.unauthenticated_empty_state');
+
+  const logFilter = ctx.isLegacyOwner
+    ? 'or=(user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null)'
+    : (ctx.userId ? `user_id=eq.${ctx.userId}` : 'user_id=eq.unauthenticated_empty_state');
+
+  const wsFilter = ctx.workspaceId
+    ? `id=eq.${ctx.workspaceId}`
+    : (ctx.userId ? `owner_id=eq.${ctx.userId}` : 'id=eq.unauthenticated_empty_state');
+
+  const usersFilter = ctx.workspaceId
+    ? `workspace_id=eq.${ctx.workspaceId}`
+    : 'workspace_id=eq.unauthenticated_empty_state';
+
   const [wRes, lRes, uRes, wsRes, sRes] = await Promise.all([
-    fetch(`${cleanUrl}/rest/v1/workers?select=*`, { headers }),
-    fetch(`${cleanUrl}/rest/v1/attendance_logs?select=*`, { headers }),
-    fetch(`${cleanUrl}/rest/v1/app_users?select=*`, { headers }),
-    fetch(`${cleanUrl}/rest/v1/workspaces?select=*`, { headers }),
+    fetch(`${cleanUrl}/rest/v1/workers?select=*&${workerFilter}`, { headers }),
+    fetch(`${cleanUrl}/rest/v1/attendance_logs?select=*&${logFilter}`, { headers }),
+    fetch(`${cleanUrl}/rest/v1/app_users?select=*&${usersFilter}`, { headers }),
+    fetch(`${cleanUrl}/rest/v1/workspaces?select=*&${wsFilter}`, { headers }),
     fetch(`${cleanUrl}/rest/v1/settings?select=setting_key,setting_value&setting_key=eq.app_workspaces_registry`, { headers })
   ]);
 

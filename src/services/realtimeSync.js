@@ -549,11 +549,17 @@ export async function autoInitialSync() {
 
   // Case A: Cloud is empty (fresh account or newly created workspace)
   if (cloudWorkers.length === 0 && localWorkers.length > 0) {
-    console.log('📤 Cloud is newly initialized. Pushing local data to Supabase...');
-    await Promise.all([
-      pushWorkersLive(localWorkers),
-      pushLogsLive(localLogs)
-    ]);
+    if (ctx.isLegacyOwner) {
+      console.log('📤 Cloud is newly initialized for legacy owner. Pushing local data to Supabase...');
+      await Promise.all([
+        pushWorkersLive(localWorkers),
+        pushLogsLive(localLogs)
+      ]);
+    } else {
+      console.log('🧹 Fresh workspace in cloud: purging any orphaned or unowned local workers.');
+      await db.workers.clear();
+      await db.attendanceLogs.clear();
+    }
     return;
   }
 
@@ -627,6 +633,23 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
   } catch (_) {}
 
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
+    if (!ctx.isLegacyOwner) {
+      const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
+      const localWorkers = await db.workers.toArray();
+      for (const lw of localWorkers) {
+        if (!cloudWorkerIds.has(lw.id) && lw.userId !== ctx.userId) {
+          await db.workers.delete(lw.id);
+        }
+      }
+      const cloudLogIds = new Set(tenantLogs.map(l => l.id));
+      const localLogs = await db.attendanceLogs.toArray();
+      for (const ll of localLogs) {
+        if (!cloudLogIds.has(ll.id) && ll.userId !== ctx.userId) {
+          await db.attendanceLogs.delete(ll.id);
+        }
+      }
+    }
+
     // 1. Reconcile Workers
     for (const w of tenantWorkers) {
       if (w.deleted_at) {
@@ -1295,7 +1318,7 @@ export async function pullProjectsLive(force = false) {
         for (const lp of localProjects) {
           if (!validCloudProjectIds.has(lp.id)) {
             if (lp.id === DEFAULT_PROJECT_ID) {
-              if (!ctx.isLegacyOwner && lp.name === 'باخی سه‌رته‌ک') {
+              if (!ctx.isLegacyOwner) {
                 await db.projects.delete(lp.id);
               }
             } else {
@@ -1310,7 +1333,7 @@ export async function pullProjectsLive(force = false) {
       if (!ctx.isLegacyOwner && ctx.userId) {
         const localProjects = await db.projects.toArray();
         for (const lp of localProjects) {
-          if (lp.userId && lp.userId !== ctx.userId) {
+          if (!lp.userId || lp.userId !== ctx.userId || lp.id === DEFAULT_PROJECT_ID) {
             await db.projects.delete(lp.id);
           }
         }
@@ -1834,6 +1857,9 @@ export async function pullGroupsLive(force = false) {
           await db.groups.delete(lg.id).catch(() => {});
         } else if (!isRecent && cloudGroups.length > 0) {
           // Deleted remotely on another device: remove from local Dexie!
+          await db.groups.delete(lg.id).catch(() => {});
+        } else if (!isRecent && !ctx.isLegacyOwner) {
+          // Alien group from another tenant: wipe locally!
           await db.groups.delete(lg.id).catch(() => {});
         } else if (isRecent) {
           // Newly created locally: push to cloud
@@ -2754,6 +2780,16 @@ export async function pullPaymentsLive(force = false) {
           await rollbackPaymentSettlement(id).catch(console.warn);
         }
       }
+    } else {
+      const ctx = getActiveWorkspaceContext();
+      if (!ctx.isLegacyOwner && ctx.userId) {
+        const localPaymentsSnapshot = await db.payments.toArray();
+        for (const lp of localPaymentsSnapshot) {
+          if (!lp.userId || lp.userId !== ctx.userId) {
+            await db.payments.delete(lp.id).catch(() => {});
+          }
+        }
+      }
     }
   } catch (err) {
     console.warn('Could not pull payments from Supabase:', err);
@@ -2941,9 +2977,16 @@ export async function pullExpensesLive(force = false) {
 
     // Layer B: Also check 'expenses' table if schema exists
     try {
-      const { data: tblData, error: tblErr } = await supabase
-        .from('expenses')
-        .select('*');
+      const ctx = getActiveWorkspaceContext();
+      let query = supabase.from('expenses').select('*');
+      if (ctx.isLegacyOwner) {
+        query = query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
+      } else if (ctx.userId) {
+        query = query.eq('user_id', ctx.userId);
+      } else {
+        query = query.eq('user_id', 'unauthenticated_empty_state');
+      }
+      const { data: tblData, error: tblErr } = await query;
 
       if (!tblErr && Array.isArray(tblData) && tblData.length > 0) {
         const cloudMap = new Map();
@@ -3022,12 +3065,13 @@ export async function pullExpensesLive(force = false) {
         }
 
         // Reconcile deleted expenses
-        if (validCloudExpenses.length > 0 || (sData?.setting_value && cloudExpenses.length === 0)) {
+        const ctx = getActiveWorkspaceContext();
+        if (validCloudExpenses.length > 0 || (sData?.setting_value && cloudExpenses.length === 0) || !ctx.isLegacyOwner) {
           const localList = await db.expenses.toArray();
           for (const le of localList) {
             if (!validCloudIds.has(le.id) && !pendingDeleted.has(le.id)) {
               const isRecent = le.createdAt && (Date.now() - new Date(le.createdAt).getTime() < 10000);
-              if (!isRecent) {
+              if (!isRecent || (!ctx.isLegacyOwner && le.userId !== ctx.userId)) {
                 await db.expenses.delete(le.id);
               }
             }
@@ -3449,6 +3493,7 @@ export async function pullExpenseCategoriesLive() {
       .eq('setting_key', getScopedSettingKey('app_expense_categories'))
       .maybeSingle();
 
+    const ctx = getActiveWorkspaceContext();
     if (sData?.setting_value) {
       try {
         const categories = JSON.parse(sData.setting_value) || [];
@@ -3467,10 +3512,26 @@ export async function pullExpenseCategoriesLive() {
           }
         }
       } catch (_) {}
+    } else if (!ctx.isLegacyOwner) {
+      // Clean slate for non-legacy owner
+      const localCats = await db.expenseCategories.toArray();
+      for (const lc of localCats) {
+        if (!lc.userId || lc.userId !== ctx.userId) {
+          await db.expenseCategories.delete(lc.id).catch(() => {});
+        }
+      }
     }
 
     try {
-      const { data: tblData } = await supabase.from('expense_categories').select('*');
+      let query = supabase.from('expense_categories').select('*');
+      if (ctx.isLegacyOwner) {
+        query = query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
+      } else if (ctx.userId) {
+        query = query.eq('user_id', ctx.userId);
+      } else {
+        query = query.eq('user_id', 'unauthenticated_empty_state');
+      }
+      const { data: tblData } = await query;
       if (Array.isArray(tblData) && tblData.length > 0) {
         for (const c of tblData) {
           await db.expenseCategories.put({
@@ -3587,6 +3648,11 @@ export async function pullFinancialAccountsLive(force = false) {
       const ctx = getActiveWorkspaceContext();
       if (ctx.isLegacyOwner && localAccounts.length > 0) {
         await pushAllFinancialAccountsToCloud();
+      } else if (!ctx.isLegacyOwner) {
+        await db.financialAccounts.clear();
+        const { seedDefaultFinancialAccounts } = await import('../db/db');
+        await seedDefaultFinancialAccounts(ctx.workspaceId || DEFAULT_PROJECT_ID, ctx.userId);
+        await pushAllFinancialAccountsToCloud();
       }
       return;
     }
@@ -3640,9 +3706,15 @@ export async function pullFinancialAccountsLive(force = false) {
       if (pendingDeleted.has(la.id) || cloudDeletedIds.has(la.id) || la.deletedAt || la.status === 'deleted') {
         await db.financialAccounts.delete(la.id).catch(() => {});
       } else if (!cloudMap.has(la.id)) {
-        // Local account is active and not marked deleted. Add to cloudMap and sync to cloud!
-        cloudMap.set(la.id, la);
-        needPushLocal = true;
+        const ctx = getActiveWorkspaceContext();
+        if (ctx.isLegacyOwner) {
+          // Local account is active and not marked deleted. Add to cloudMap and sync to cloud!
+          cloudMap.set(la.id, la);
+          needPushLocal = true;
+        } else {
+          // Alien local account from another tenant: remove!
+          await db.financialAccounts.delete(la.id).catch(() => {});
+        }
       }
     }
 

@@ -496,7 +496,6 @@ export function AuthProvider({ children }) {
         await db.workspaces.put(userWs).catch(() => {});
       }
 
-      const adminCreds = getAdminCredentials();
       const planTier = (userWs?.plan_tier === 'premium') ? 'premium' : 'basic';
       const isWorkspaceActive = userWs ? userWs.is_active !== false : true;
 
@@ -510,9 +509,9 @@ export function AuthProvider({ children }) {
         plan_tier: planTier,
         is_active: isWorkspaceActive,
         is_suspended: !isWorkspaceActive,
-        name: profile?.full_name || supabaseUser.user_metadata?.full_name || adminCreds.name || supabaseUser.email.split('@')[0],
-        avatar: profile?.avatar || adminCreds.avatar || supabaseUser.user_metadata?.avatar_url || '',
-        title: profile?.title || adminCreds.title || 'مدیر ارشد کارگاه',
+        name: profile?.full_name || supabaseUser.user_metadata?.full_name || supabaseUser.email.split('@')[0],
+        avatar: profile?.avatar || supabaseUser.user_metadata?.avatar_url || '',
+        title: profile?.title || 'مدیر ارشد کارگاه',
         companyName: profile?.company_name || 'کارگاه من',
         defaultCurrency: profile?.default_currency || 'IQD',
         onboardingCompleted: profile?.onboarding_completed ?? false,
@@ -1745,8 +1744,19 @@ export function AuthProvider({ children }) {
   // Tenant data isolation & local-first migration
   async function enforceDataIsolation(newUserId, newWorkspaceId) {
     try {
-      if (newUserId) {
-        // Adopt any local offline records created under default_user
+      const lastUserId = localStorage.getItem('last_active_user_id');
+      const lastWorkspaceId = localStorage.getItem('last_active_workspace_id');
+
+      const isUserSwitch = Boolean(lastUserId && newUserId && lastUserId !== newUserId);
+      const isWorkspaceSwitch = Boolean(lastWorkspaceId && newWorkspaceId && lastWorkspaceId !== newWorkspaceId);
+
+      if (isUserSwitch || isWorkspaceSwitch) {
+        console.warn(`[Isolation] Account/Workspace switch detected (${lastUserId} -> ${newUserId}, ws: ${lastWorkspaceId} -> ${newWorkspaceId}). Wiping local data.`);
+        await wipeAllLocalData();
+        localStorage.removeItem(ADMIN_AUTH_KEY);
+        localStorage.removeItem(WORKER_CREDS_KEY);
+      } else if (newUserId) {
+        // Adopt any local offline records created under default_user ONLY if no other user was active
         try {
           if (db.projects) {
             await db.projects.where('userId').equals('default_user').modify({ userId: newUserId });
@@ -1772,10 +1782,12 @@ export function AuthProvider({ children }) {
     setUser(null);
     setIsScreenLocked(false);
     
-    // Clear legacy credentials
+    // Clear legacy credentials and active tenant tracking
     localStorage.removeItem(AUTH_SESSION_KEY);
     localStorage.removeItem(ADMIN_AUTH_KEY);
     localStorage.removeItem(WORKER_CREDS_KEY);
+    localStorage.removeItem('last_active_user_id');
+    localStorage.removeItem('last_active_workspace_id');
     clearStoredWorkerAccessToken();
 
     // Deep wipe Dexie local database and local storage to guarantee 100% zero-leakage between accounts
