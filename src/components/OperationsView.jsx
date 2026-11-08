@@ -88,121 +88,169 @@ export default function OperationsView() {
   const todayStr = getTodayDateString();
 
   return (
-    <div className="space-y-6 pb-24 max-w-7xl mx-auto px-3 sm:px-6" dir={direction}>
+    <div className="space-y-6 pb-24 max-w-7xl mx-auto px-3 sm:px-6 animate-in fade-in duration-200" dir={direction}>
       
-{/* 1. EXECUTIVE HERO BANNER: OPERATIONS COMMAND CENTER */}
+      {/* 1. TOP HEADER CARD: LIQUID GLASS CAPSULE WITH MAIN ACTIONS DOCK */}
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-white/75 dark:bg-slate-900/75 border border-white/60 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/30 transition-all duration-300">
+        <div className="absolute -top-24 -right-24 w-60 h-60 bg-amber-500/10 dark:bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-indigo-500/10 dark:bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          {/* Right side: Icon + Title + Subtitle */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-500/25 flex-shrink-0">
+              <HardHat className="w-6 h-6 stroke-[2.2]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
+                  {language === "ku" ? "کاروباری جێبەجێکردن" : language === "en" ? "Field Operations" : "امور اجرایی و پیمانکاری"}
+                </h1>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  {contractStats.totalCount || 0} {language === "ku" ? "گرێبەست" : language === "en" ? "contracts" : "قرارداد"}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {currentProject?.name} • {language === "ku" ? "بەڕێوەبردنی عەقدی وەستاکاران، پێوانی مەترە، کۆنترۆڵی مۆڵەت و ژمێریاری کۆتایی" : language === "en" ? "Contractor agreements, quantity takeoff, delay penalties and final vouchers" : "مدیریت قراردادهای استادکاران، متره و برآورد احجام کار، کنترل تاخیر و جریمه دیرکرد"}
+              </p>
+            </div>
+          </div>
+
+          {/* Left side: The 3 Action Buttons in One Shared Box without text & with large icons */}
+          <div className="h-[52px] sm:h-[56px] flex items-center gap-1.5 p-1.5 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner self-start sm:self-center">
+            {/* 1. Counterparties View Toggle */}
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === "counterparties" ? "all" : "counterparties")}
+              className={`relative h-full aspect-square rounded-xl transition-all active:scale-95 flex items-center justify-center cursor-pointer ${
+                activeTab === "counterparties"
+                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/30"
+                  : "text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-white dark:hover:bg-slate-700/80"
+              }`}
+              title={language === "ku" ? "لایەنەکانی حیساب" : language === "en" ? "Counterparties" : "طرف‌حساب‌ها"}
+              aria-label="Counterparties"
+            >
+              <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+              {counterparties.length > 0 && (
+                <span className="absolute -top-1 -end-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-mono bg-sky-500 text-white font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900 leading-none shadow-xs">
+                  {counterparties.length}
+                </span>
+              )}
+            </button>
+
+            {/* 2. New Counterparty Modal Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsAddCounterpartyModalOpen(true)}
+              className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+              title={language === "ku" ? "پێناسەکردنی لایەنی نوێ" : language === "en" ? "New Counterparty" : "تعریف طرف‌حساب جدید"}
+              aria-label="New Counterparty"
+            >
+              <UserPlus className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+
+            {/* 3. New Contract Modal Trigger */}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingContract(null);
+                setIsAddContractModalOpen(true);
+              }}
+              className="h-full aspect-square rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-md shadow-amber-500/25 transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+              title={language === "ku" ? "عەقد و گرێبەستی نوێ" : language === "en" ? "Sign New Contract" : "عقد قرارداد جدید"}
+              aria-label="New Contract"
+            >
+              <FileSignature className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. EXECUTIVE HERO BANNER: OPERATIONS COMMAND CENTER (Matching Dashboard / Expenses Identity) */}
       <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
-        {/* Glow ambient effects */}
-        <div className="absolute top-0 end-1/4 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 end-0 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          
-          {/* Main Metric & Title */}
+          {/* Main Total Contracts Metric */}
           <div className="lg:col-span-7 space-y-4">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-2xs">
-                <HardHat className="w-3.5 h-3.5" />
-                <span>{language === "ku" ? "ئۆپەراسیۆن و مەیدانی کارگە" : language === "en" ? "Field Operations & Execution" : "عملیات اجرایی و کارگاهی"}</span>
-              </span>
-              <span className="text-xs font-mono font-bold text-slate-400 bg-white/5 px-2.5 py-0.5 rounded-lg border border-white/10">
-                {currentProject?.name || "پروژه جاری"}
-              </span>
+            <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+              <HardHat className="w-4 h-4" />
+              <span>{language === "ku" ? "نبزی گرێبەستەکان و کارگە" : language === "en" ? "Contracts & Field Operations Pulse" : "نبض قراردادها و عملیات کارگاه"}</span>
             </div>
 
             <div>
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                {language === "ku" ? "کۆی بەهای گرێبەستەکان" : language === "en" ? "Total Contracts Value" : "مجموع ارزش کل قراردادهای پروژه"}
-              </span>
               <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2 font-mono" dir="ltr">
                 <span>{formatAmount(contractStats.totalEstimatedValue || 0, currency)}</span>
                 <span className="text-sm sm:text-base font-sans font-bold text-amber-400">{currency}</span>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 mt-1">
                 {language === "ku"
-                  ? "بەڕێوەبردنی گرێبەستی وەستاکاران، پێوانی مەترە، کۆنترۆڵی مۆڵەت و سزای دواکەوتن"
+                  ? "کۆی بەهای خەمڵێنراوی تەواوی گرێبەستەکان لەم پڕۆژەیەدا"
                   : language === "en"
-                  ? "Craftsman contracts, work takeoff, completion deadlines, delay penalties & vouchers"
-                  : "مدیریت قراردادهای استادکاران، متره و برآورد احجام کار، کنترل تاخیر و جریمه دیرکرد"}
+                  ? "Total gross estimated value of all contracted works in this project"
+                  : "مجموع ارزش ناخالص قراردادها و احجام پیمانکاری ثبت‌شده در این پروژه"}
               </p>
             </div>
 
-            {/* Quick Metrics Bar Inside Hero */}
-            <div className="grid grid-cols-3 gap-2.5 pt-1 max-w-lg">
-              <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-0.5">
-                <span className="text-[10px] text-blue-300 font-bold block">{language === "ku" ? "لە جێبەجێکردن" : language === "en" ? "In Progress" : "در حال اجرا"}</span>
-                <span className="text-sm sm:text-base font-black font-mono text-white block">{contractStats.activeCount || 0}</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-0.5">
-                <span className="text-[10px] text-rose-300 font-bold block">{language === "ku" ? "دواکەوتوو" : language === "en" ? "Overdue" : "دارای تاخیر"}</span>
-                <span className="text-sm sm:text-base font-black font-mono text-rose-400 block">{contractStats.overdueCount || 0}</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/20 space-y-0.5">
-                <span className="text-[10px] text-teal-300 font-bold block">{language === "ku" ? "تەواوبوو" : language === "en" ? "Completed" : "تسویه‌شده"}</span>
-                <span className="text-sm sm:text-base font-black font-mono text-teal-400 block">{contractStats.completedCount || 0}</span>
-              </div>
+            {/* Quick Status Dots */}
+            <div className="flex items-center gap-4 flex-wrap text-xs pt-1">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-xs" />
+                <span>{contractStats.activeCount || 0} {language === "ku" ? "لە جێبەجێکردن" : language === "en" ? "Active" : "در حال اجرا"}</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-xs" />
+                <span>{contractStats.overdueCount || 0} {language === "ku" ? "دواکەوتوو" : language === "en" ? "Overdue" : "دارای تاخیر"}</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shadow-xs" />
+                <span>{contractStats.completedCount || 0} {language === "ku" ? "تەواوبوو" : language === "en" ? "Completed" : "تسویه‌شده"}</span>
+              </span>
             </div>
           </div>
 
-          {/* Right Controls: Unified Box with 3 Large-Icon Buttons */}
-          <div className="lg:col-span-5 flex flex-col items-start lg:items-end justify-center gap-3">
-            
-            {/* The Unified Box for the 3 Buttons (Without text, large icons) */}
-            <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-xl shadow-2xl">
-              {/* 1. Counterparties Link */}
-              <button
-                type="button"
-                onClick={() => setActiveTab(activeTab === "counterparties" ? "all" : "counterparties")}
-                className={`w-13 h-13 sm:w-15 sm:h-15 rounded-2xl transition-all duration-300 flex items-center justify-center cursor-pointer group relative ${
-                  activeTab === "counterparties"
-                    ? "bg-sky-500 text-white shadow-lg shadow-sky-500/40 scale-105"
-                    : "text-slate-300 hover:text-white hover:bg-white/15 active:scale-95"
-                }`}
-                title={language === "ku" ? "لایەنەکانی حیساب" : language === "en" ? "Counterparties" : "طرف‌حساب‌ها"}
-                aria-label="Counterparties"
-              >
-                <Users className="w-7 h-7 stroke-[2.2] group-hover:scale-110 transition-transform" />
-                {counterparties.length > 0 && (
-                  <span className="absolute -top-1 -end-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black bg-sky-400 text-slate-950 shadow-xs">
-                    {counterparties.length}
-                  </span>
-                )}
-              </button>
+          {/* Action Dock Inside Hero */}
+          <div className="lg:col-span-5 flex flex-col gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => {
+                setEditingContract(null);
+                setIsAddContractModalOpen(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-3 px-4 rounded-xl text-xs transition-all shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>{language === "ku" ? "عەقد و گرێبەستی نوێ" : language === "en" ? "Sign New Contract" : "عقد قرارداد جدید"}</span>
+            </button>
 
-              {/* 2. New Counterparty Modal Trigger */}
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setIsAddCounterpartyModalOpen(true)}
-                className="w-13 h-13 sm:w-15 sm:h-15 rounded-2xl text-slate-300 hover:text-white hover:bg-white/15 transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-95 group"
-                title={language === "ku" ? "پێناسەکردنی لایەنی نوێ" : language === "en" ? "New Counterparty" : "تعریف طرف‌حساب جدید"}
-                aria-label="New Counterparty"
+                className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold transition-all border border-white/10 active:scale-95 cursor-pointer"
               >
-                <UserPlus className="w-7 h-7 stroke-[2.2] group-hover:scale-110 transition-transform" />
+                <UserPlus className="w-4 h-4 text-blue-400" />
+                <span>{language === "ku" ? "لایەنی نوێ" : language === "en" ? "New Party" : "طرف‌حساب جدید"}</span>
               </button>
 
-              {/* 3. New Contract Modal Trigger */}
               <button
                 type="button"
-                onClick={() => {
-                  setEditingContract(null);
-                  setIsAddContractModalOpen(true);
-                }}
-                className="w-13 h-13 sm:w-15 sm:h-15 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-lg shadow-amber-500/30 transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-95 group"
-                title={language === "ku" ? "عەقد و گرێبەستی نوێ" : language === "en" ? "Sign New Contract" : "عقد قرارداد جدید"}
-                aria-label="New Contract"
+                onClick={() => setActiveTab(activeTab === "counterparties" ? "all" : "counterparties")}
+                className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl text-xs font-bold transition-all border active:scale-95 cursor-pointer ${
+                  activeTab === "counterparties"
+                    ? "bg-sky-500 text-white border-sky-400 shadow-md shadow-sky-500/30"
+                    : "bg-white/10 hover:bg-white/15 text-slate-200 border-white/10"
+                }`}
               >
-                <FileSignature className="w-7 h-7 stroke-[2.2] group-hover:scale-110 transition-transform" />
+                <Users className="w-4 h-4 text-sky-400" />
+                <span>{language === "ku" ? "لایەنەکان" : language === "en" ? "Parties" : "طرف‌حساب‌ها"}</span>
               </button>
             </div>
-
-            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium px-1">
-              <span>{language === "ku" ? "لایەنەکان • لایەنی نوێ • عەقدی نوێ" : language === "en" ? "Counterparties • Add • Contract" : "طرف‌حساب‌ها • طرف‌حساب جدید • قرارداد جدید"}</span>
-            </div>
-
           </div>
         </div>
       </div>
-
+      
       {/* 3. TOOLBAR & SEGMENTED CONTROLS [APP_THEME_BUTTON] */}
       <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-slate-800 shadow-sm space-y-4">
         
