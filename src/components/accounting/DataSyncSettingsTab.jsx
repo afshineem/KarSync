@@ -36,10 +36,13 @@ import {
   FolderOpen,
   CloudUpload,
   KeyRound,
-  ExternalLink
+  ExternalLink,
+  Flame
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAutoBackup } from '../../hooks/useAutoBackup';
+import { useAuth } from '../../context/AuthContext';
+import WorkspaceResetModal from './WorkspaceResetModal';
 
 export default function DataSyncSettingsTab({
   language: propLanguage,
@@ -62,6 +65,8 @@ export default function DataSyncSettingsTab({
   const isRtl = direction === 'rtl';
   const fileInputRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const { user, isAdmin } = useAuth();
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   // Time Machine & Auto-Backup hook
   const {
@@ -1119,6 +1124,47 @@ export default function DataSyncSettingsTab({
           )}
         </div>
       </div>
+
+      {/* 7. DANGER ZONE: FACTORY RESET WORKSPACE DATA (منطقه بحرانی: صفر کردن و پاکسازی کامل داده‌های کارگاه) */}
+      {isAdmin && (
+        <div className="p-5 sm:p-6 rounded-3xl border border-rose-200/90 dark:border-rose-900/50 bg-rose-50/40 dark:bg-rose-950/20 backdrop-blur-md shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0 border border-rose-500/25 shadow-xs">
+                <Flame className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                    {t('dangerZoneTitle')}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
+                    {lang === 'fa' ? 'غیرقابل بازگشت' : lang === 'ku' ? 'ناگەڕێتەوە' : 'Irreversible'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  {t('dangerZoneSubtitle')}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsResetModalOpen(true)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-2xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md shadow-rose-600/25 active:scale-95 flex items-center justify-center gap-2 flex-shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{t('factoryResetBtn')}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* WORKSPACE FACTORY RESET MODAL */}
+      <WorkspaceResetModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+      />
 
       {/* CONFIRMATION RESTORE MODAL (Apple Liquid Glass) */}
       {confirmModalSnap && (
