@@ -235,6 +235,63 @@ export function useAccounting(options = {}) {
     [projectId, syncTick]
   ) || [];
 
+  // ز) چک‌ها و اسناد تجاری (چک‌های دریافتی و پرداختی صیادی)
+  const cheques = useLiveQuery(
+    async () => {
+      if (!db.cheques) return [];
+      const list = await db.cheques.toArray();
+      return list
+        .filter((chk) => !chk.deletedAt && (!chk.projectId || chk.projectId === projectId || projectId === DEFAULT_PROJECT_ID))
+        .sort((a, b) => (b.dueDate || b.issueDate || b.createdAt || '').localeCompare(a.dueDate || a.issueDate || a.createdAt || ''));
+    },
+    [projectId, syncTick]
+  ) || [];
+
+  // ح) دسته‌چک‌های بانکی کارگاه
+  const chequebooks = useLiveQuery(
+    async () => {
+      if (!db.chequebooks) return [];
+      const list = await db.chequebooks.toArray();
+      return list
+        .filter((cb) => !cb.deletedAt && (!cb.projectId || cb.projectId === projectId || projectId === DEFAULT_PROJECT_ID))
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    },
+    [projectId, syncTick]
+  ) || [];
+
+  // ط) محاسبات آماری اسناد تجاری
+  const chequeStats = useMemo(() => {
+    let inwardTotal = 0;
+    let outwardTotal = 0;
+    let inHandTotal = 0;
+    let overdueTotal = 0;
+    const today = new Date().toISOString().slice(0, 10);
+
+    cheques.forEach((chk) => {
+      const amt = Number(chk.amount) || 0;
+      if (chk.type === 'inward') {
+        inwardTotal += amt;
+        if (chk.status === 'in_hand') {
+          inHandTotal += amt;
+        }
+      } else {
+        outwardTotal += amt;
+      }
+
+      if ((chk.status === 'in_hand' || chk.status === 'issued') && chk.dueDate && chk.dueDate < today) {
+        overdueTotal += amt;
+      }
+    });
+
+    return {
+      inwardTotal,
+      outwardTotal,
+      inHandTotal,
+      overdueTotal,
+      totalCount: cheques.length,
+    };
+  }, [cheques]);
+
   // سیاست سراسری اضافه برداشت (Overdraft Policy)
   const globalOverdraftSetting = useLiveQuery(
     async () => {
