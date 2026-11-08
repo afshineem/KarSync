@@ -942,8 +942,12 @@ function subscribeToRealtime() {
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
         const idToDelete = payload.new?.id || payload.old?.id;
         if (idToDelete) {
-          await db.workers.delete(idToDelete);
-          await db.attendanceLogs.where('workerId').equals(idToDelete).delete();
+          const ctx = getActiveWorkspaceContext();
+          const pending = new Set(getPendingDeletedWorkers());
+          // Only delete locally if requested locally or if not legacy owner
+          if (pending.has(idToDelete) || !ctx.isLegacyOwner) {
+            await db.workers.delete(idToDelete);
+          }
         }
       } else if (payload.new) {
         const w = payload.new;
@@ -952,8 +956,10 @@ function subscribeToRealtime() {
           return; // Ignore worker change from other tenants
         }
         if (w.deleted_at) {
-          await db.workers.delete(w.id);
-          await db.attendanceLogs.where('workerId').equals(w.id).delete();
+          const pending = new Set(getPendingDeletedWorkers());
+          if (pending.has(w.id) || !ctx.isLegacyOwner) {
+            await db.workers.delete(w.id);
+          }
         } else {
           const pending = new Set(getPendingDeletedWorkers());
           if (pending.has(w.id)) {
