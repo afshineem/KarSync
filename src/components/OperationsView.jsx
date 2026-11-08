@@ -92,6 +92,11 @@ export default function OperationsView() {
 
   const todayStr = getTodayDateString();
 
+  const totalEstimated = contractStats.totalEstimatedValue || 0;
+  const totalFinal = contractStats.totalFinalValue || 0;
+  const settlementRate = totalEstimated > 0 ? Math.min(100, Math.round((totalFinal / totalEstimated) * 100)) : 0;
+  const remainingLiability = Math.max(0, totalEstimated - totalFinal);
+
   return (
     <div className="space-y-6 pb-24 max-w-7xl mx-auto px-3 sm:px-6 animate-in fade-in duration-200" dir={direction}>
       
@@ -171,22 +176,30 @@ export default function OperationsView() {
         </div>
       </div>
 
-      {/* 2. EXECUTIVE HERO BANNER: OPERATIONS COMMAND CENTER (Matching Dashboard / Expenses Identity) */}
+      {/* 2. EXECUTIVE HERO BANNER: OPERATIONS COMMAND CENTER (Apple Liquid Glass) */}
       <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          {/* Main Total Contracts Metric */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-              <HardHat className="w-4 h-4" />
-              <span>{language === "ku" ? "نبزی گرێبەستەکان و کارگە" : language === "en" ? "Contracts & Field Operations Pulse" : "نبض قراردادها و عملیات کارگاه"}</span>
-            </div>
+        {/* Hero Top Bar: Glowing Capsule Tag & Project Name */}
+        <div className="relative z-10 flex items-center justify-between pb-5 mb-5 border-b border-white/10 flex-wrap gap-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold shadow-xs">
+            <HardHat className="w-4 h-4 text-amber-400" />
+            <span>{language === "ku" ? "نبزی گرێبەستەکان و ئۆپەراسیۆن" : language === "en" ? "Contracts & Field Operations Pulse" : "نبض قراردادها و عملیات اجرایی کارگاه"}</span>
+          </div>
 
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs font-medium backdrop-blur-md">
+            <Building2 className="w-3.5 h-3.5 text-amber-400/80" />
+            <span>{currentProject?.name}</span>
+          </div>
+        </div>
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          {/* Main Total Contracts Metric & Settlement Progress */}
+          <div className="lg:col-span-7 space-y-4">
             <div>
               <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2 font-mono" dir="ltr">
-                <span>{formatAmount(contractStats.totalEstimatedValue || 0, currency)}</span>
+                <span>{formatAmount(totalEstimated, currency)}</span>
                 <span className="text-sm sm:text-base font-sans font-bold text-amber-400">{currency}</span>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -194,24 +207,44 @@ export default function OperationsView() {
                   ? "کۆی بەهای خەمڵێنراوی تەواوی گرێبەستەکان لەم پڕۆژەیەدا"
                   : language === "en"
                   ? "Total gross estimated value of all contracted works in this project"
-                  : "مجموع ارزش ناخالص قراردادها و احجام پیمانکاری ثبت‌شده در این پروژه"}
+                  : "مجموع ارزش ناخالص تعهدات و احجام پیمانکاری ثبت‌شده در این پروژه"}
               </p>
             </div>
 
-            {/* Quick Status Dots */}
-            <div className="flex items-center gap-4 flex-wrap text-xs pt-1">
-              <span className="flex items-center gap-1.5 text-slate-300">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-xs" />
-                <span>{contractStats.activeCount || 0} {language === "ku" ? "لە جێبەجێکردن" : language === "en" ? "Active" : "در حال اجرا"}</span>
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-300">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-xs" />
-                <span>{contractStats.overdueCount || 0} {language === "ku" ? "دواکەوتوو" : language === "en" ? "Overdue" : "دارای تاخیر"}</span>
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-300">
-                <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shadow-xs" />
-                <span>{contractStats.completedCount || 0} {language === "ku" ? "تەواوبوو" : language === "en" ? "Completed" : "تسویه‌شده"}</span>
-              </span>
+            {/* Financial Settlement Progress Panel */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
+                  <TrendingUp className="w-3.5 h-3.5 text-teal-400" />
+                  <span>{language === "ku" ? "ڕێژەی تسویەی دارایی پڕۆژە" : language === "en" ? "Financial Settlement Progress" : "پیشرفت تسویه‌حساب مالی پیمان‌ها"}</span>
+                </div>
+                <div className="flex items-center gap-1 font-mono font-bold text-teal-400 text-xs" dir="ltr">
+                  <span>{settlementRate}%</span>
+                </div>
+              </div>
+
+              {/* Progress Track */}
+              <div className="w-full h-2 rounded-full bg-slate-800/80 overflow-hidden p-0.5 border border-white/5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-300 transition-all duration-500 shadow-sm shadow-teal-500/50"
+                  style={{ width: `${settlementRate}%` }}
+                />
+              </div>
+
+              {/* Metric Breakdown */}
+              <div className="flex items-center justify-between text-[11px] sm:text-xs pt-1 flex-wrap gap-2 text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-teal-400 shadow-xs" />
+                  <span>{language === "ku" ? "تسویەکراو:" : language === "en" ? "Settled:" : "تسویه‌شده:"}</span>
+                  <span className="font-mono font-bold text-white" dir="ltr">{formatAmount(totalFinal, currency)}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400/80 shadow-xs" />
+                  <span>{language === "ku" ? "مانەوەی پابەندبوون:" : language === "en" ? "Remaining Liability:" : "مانده تعهدات جاری:"}</span>
+                  <span className="font-mono font-bold text-slate-200" dir="ltr">{formatAmount(remainingLiability, currency)}</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -221,7 +254,7 @@ export default function OperationsView() {
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'in_progress' ? 'all' : 'in_progress')}
-              className={`p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden ${
+              className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden flex flex-col justify-between min-h-[96px] ${
                 activeTab === 'in_progress'
                   ? 'bg-blue-500/25 border-blue-400/60 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/50'
                   : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-blue-400/40'
@@ -231,13 +264,13 @@ export default function OperationsView() {
                 <span className="text-[11px] sm:text-xs font-bold text-blue-300/90 group-hover:text-blue-200 transition-colors">
                   {language === 'ku' ? 'لە جێبەجێکردن' : language === 'en' ? 'In Progress' : 'در حال اجرا'}
                 </span>
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                  <Clock className="w-3.5 h-3.5" />
+                <div className="w-7 h-7 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                  <Clock className="w-4 h-4" />
                 </div>
               </div>
               <div className="flex items-baseline gap-1.5 font-mono" dir="ltr">
-                <span className="text-xl sm:text-2xl font-black text-white">{contractStats.inProgressCount || 0}</span>
-                <span className="text-[10px] text-slate-400 font-sans">{language === 'ku' ? 'گرێبەست' : language === 'en' ? 'contracts' : 'قرارداد'}</span>
+                <span className="text-2xl sm:text-3xl font-black text-white">{contractStats.inProgressCount || 0}</span>
+                <span className="text-[10px] text-slate-400 font-sans">{language === 'ku' ? 'گرێبەست' : language === 'en' ? 'contracts' : 'قرارداد فعال'}</span>
               </div>
             </button>
 
@@ -245,7 +278,7 @@ export default function OperationsView() {
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'not_started' ? 'all' : 'not_started')}
-              className={`p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden ${
+              className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden flex flex-col justify-between min-h-[96px] ${
                 activeTab === 'not_started'
                   ? 'bg-amber-500/25 border-amber-400/60 shadow-lg shadow-amber-500/20 ring-1 ring-amber-400/50'
                   : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-amber-400/40'
@@ -255,13 +288,13 @@ export default function OperationsView() {
                 <span className="text-[11px] sm:text-xs font-bold text-amber-300/90 group-hover:text-amber-200 transition-colors">
                   {language === 'ku' ? 'دەست‌پێنەکراو' : language === 'en' ? 'Not Started' : 'شروع‌نشده'}
                 </span>
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
-                  <Layers className="w-3.5 h-3.5" />
+                <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                  <Layers className="w-4 h-4" />
                 </div>
               </div>
               <div className="flex items-baseline gap-1.5 font-mono" dir="ltr">
-                <span className="text-xl sm:text-2xl font-black text-white">{contractStats.notStartedCount || 0}</span>
-                <span className="text-[10px] text-slate-400 font-sans">{language === 'ku' ? 'گرێبەست' : language === 'en' ? 'contracts' : 'قرارداد'}</span>
+                <span className="text-2xl sm:text-3xl font-black text-white">{contractStats.notStartedCount || 0}</span>
+                <span className="text-[10px] text-slate-400 font-sans">{language === 'ku' ? 'داهاتوو' : language === 'en' ? 'upcoming' : 'پیش‌نویس / آتی'}</span>
               </div>
             </button>
 
@@ -269,7 +302,7 @@ export default function OperationsView() {
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'completed' ? 'all' : 'completed')}
-              className={`p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden ${
+              className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden flex flex-col justify-between min-h-[96px] ${
                 activeTab === 'completed'
                   ? 'bg-emerald-500/25 border-emerald-400/60 shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-400/50'
                   : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-emerald-400/40'
@@ -279,12 +312,12 @@ export default function OperationsView() {
                 <span className="text-[11px] sm:text-xs font-bold text-emerald-300/90 group-hover:text-emerald-200 transition-colors">
                   {language === 'ku' ? 'خاتمەیافـتە' : language === 'en' ? 'Completed' : 'خاتمه‌یافته'}
                 </span>
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                <div className="w-7 h-7 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
               <div className="flex items-baseline gap-1.5 font-mono" dir="ltr">
-                <span className="text-xl sm:text-2xl font-black text-white">{contractStats.completedCount || 0}</span>
+                <span className="text-2xl sm:text-3xl font-black text-white">{contractStats.completedCount || 0}</span>
                 <span className="text-[10px] text-slate-400 font-sans">{language === 'ku' ? 'تسویەکراو' : language === 'en' ? 'settled' : 'تسویه‌شده'}</span>
               </div>
             </button>
@@ -293,7 +326,7 @@ export default function OperationsView() {
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'overdue' ? 'all' : 'overdue')}
-              className={`p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden ${
+              className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden flex flex-col justify-between min-h-[96px] ${
                 activeTab === 'overdue'
                   ? 'bg-rose-500/25 border-rose-400/60 shadow-lg shadow-rose-500/20 ring-1 ring-rose-400/50'
                   : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-rose-400/40'
@@ -303,16 +336,16 @@ export default function OperationsView() {
                 <span className="text-[11px] sm:text-xs font-bold text-rose-300/90 group-hover:text-rose-200 transition-colors">
                   {language === 'ku' ? 'دواکەوتوو' : language === 'en' ? 'Overdue' : 'دارای تاخیر'}
                 </span>
-                <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
+                <div className={`w-7 h-7 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
                   contractStats.overdueCount > 0
                     ? 'bg-rose-500/30 border border-rose-400/50 text-rose-300 animate-pulse'
                     : 'bg-rose-500/20 border border-rose-400/30 text-rose-400'
                 }`}>
-                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <AlertTriangle className="w-4 h-4" />
                 </div>
               </div>
               <div className="flex items-baseline gap-1.5 font-mono" dir="ltr">
-                <span className={`text-xl sm:text-2xl font-black ${contractStats.overdueCount > 0 ? 'text-rose-400' : 'text-white'}`}>
+                <span className={`text-2xl sm:text-3xl font-black ${contractStats.overdueCount > 0 ? 'text-rose-400' : 'text-white'}`}>
                   {contractStats.overdueCount || 0}
                 </span>
                 <span className="text-[10px] text-slate-400 font-sans">
