@@ -554,9 +554,9 @@ export function AuthProvider({ children }) {
         if (savedUser && isMounted) {
           let wsToUse = null;
 
-          if (db.workspaces) {
+          if (db.workspaces && savedUser.workspace_id) {
             const localWsList = await db.workspaces.toArray().catch(() => []);
-            wsToUse = localWsList.find(w => w.id === savedUser.workspace_id) || localWsList[0] || null;
+            wsToUse = localWsList.find(w => w.id === savedUser.workspace_id) || null;
           }
 
           let regList = [];
@@ -571,9 +571,9 @@ export function AuthProvider({ children }) {
               }
             } catch (_) {}
 
-            if (!wsToUse) {
+            if (savedUser.workspace_id && !wsToUse) {
               try {
-                const { data: rWs } = await supabase.from('workspaces').select('*').limit(1).maybeSingle();
+                const { data: rWs } = await supabase.from('workspaces').select('*').eq('id', savedUser.workspace_id).maybeSingle();
                 if (rWs) wsToUse = rWs;
               } catch (_) {}
             }
@@ -583,8 +583,6 @@ export function AuthProvider({ children }) {
               if (regMatch && !isLegacyWorkspaceCode(regMatch.workspace_code)) {
                 wsToUse = { ...wsToUse, workspace_code: regMatch.workspace_code };
               }
-            } else if (regList.length > 0) {
-              wsToUse = regList[0];
             }
           }
 
@@ -1750,13 +1748,28 @@ export function AuthProvider({ children }) {
       const isUserSwitch = Boolean(lastUserId && newUserId && lastUserId !== newUserId);
       const isWorkspaceSwitch = Boolean(lastWorkspaceId && newWorkspaceId && lastWorkspaceId !== newWorkspaceId);
 
-      if (isUserSwitch || isWorkspaceSwitch) {
-        console.warn(`[Isolation] Account/Workspace switch detected (${lastUserId} -> ${newUserId}, ws: ${lastWorkspaceId} -> ${newWorkspaceId}). Wiping local data.`);
-        await wipeAllLocalData();
-        localStorage.removeItem(ADMIN_AUTH_KEY);
-        localStorage.removeItem(WORKER_CREDS_KEY);
-      } else if (newUserId) {
-        // Adopt any local offline records created under default_user ONLY if no other user was active
+      const isLegacyUser = newUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f';
+
+      if (isUserSwitch || isWorkspaceSwitch || (!isLegacyUser && newUserId)) {
+        // Any non-legacy user logging in MUST start with a 100% clean, isolated database!
+        if (!isLegacyUser) {
+          console.log('[Isolation] Non-legacy user login. Performing strict deep wipe of local IndexedDB with immutability bypass.');
+          await withImmutabilityBypass(async () => {
+            for (const table of db.tables) {
+              if (table.name !== 'backupSnapshots') {
+                await table.clear().catch(() => {});
+              }
+            }
+          });
+          localStorage.removeItem(ADMIN_AUTH_KEY);
+          localStorage.removeItem(WORKER_CREDS_KEY);
+        } else if (isUserSwitch || isWorkspaceSwitch) {
+          await wipeAllLocalData();
+          localStorage.removeItem(ADMIN_AUTH_KEY);
+          localStorage.removeItem(WORKER_CREDS_KEY);
+        }
+      } else if (newUserId && isLegacyUser) {
+        // Adopt any local offline records created under default_user ONLY for legacy user
         try {
           if (db.projects) {
             await db.projects.where('userId').equals('default_user').modify({ userId: newUserId });

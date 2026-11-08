@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID, deduplicateExpenseCategories, wipeAllLocalData } from '../db/db';
+import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID, deduplicateExpenseCategories, wipeAllLocalData, withImmutabilityBypass } from '../db/db';
 import { getSyncConfig, saveSyncConfig, setLastSyncTime, getLastSyncTime } from './syncService';
 import { roundCurrency } from '../utils/formatters';
 
@@ -2756,28 +2756,30 @@ export async function pullPaymentsLive(force = false) {
           }
         }
 
-        await db.transaction('rw', db.payments, async () => {
-          for (const p of validCloudPayments) {
-            const localP = await db.payments.get(p.id);
-            if (localP && localP.updatedAt && (p.updatedAt || p.updated_at)) {
-              const localTime = new Date(localP.updatedAt).getTime();
-              const cloudTime = new Date(p.updatedAt || p.updated_at).getTime();
-              if (localTime > cloudTime) {
-                continue;
+        await withImmutabilityBypass(async () => {
+          await db.transaction('rw', db.payments, async () => {
+            for (const p of validCloudPayments) {
+              const localP = await db.payments.get(p.id);
+              if (localP && localP.updatedAt && (p.updatedAt || p.updated_at)) {
+                const localTime = new Date(localP.updatedAt).getTime();
+                const cloudTime = new Date(p.updatedAt || p.updated_at).getTime();
+                if (localTime > cloudTime) {
+                  continue;
+                }
               }
+              await db.payments.put({
+                ...(localP || {}),
+                ...p,
+                projectId: p.projectId || p.project_id || DEFAULT_PROJECT_ID,
+                userId: p.userId || p.user_id || 'default_user',
+                amount: roundCurrency(p.amount, p.currency)
+              });
             }
-            await db.payments.put({
-              ...(localP || {}),
-              ...p,
-              projectId: p.projectId || p.project_id || DEFAULT_PROJECT_ID,
-              userId: p.userId || p.user_id || 'default_user',
-              amount: roundCurrency(p.amount, p.currency)
-            });
-          }
-          // Delete stale local payments inside the transaction (safe — only payments store)
-          for (const id of idsToRollbackAndDelete) {
-            await db.payments.delete(id);
-          }
+            // Delete stale local payments inside the transaction (safe — only payments store)
+            for (const id of idsToRollbackAndDelete) {
+              await db.payments.delete(id);
+            }
+          });
         });
 
         // Run settlement rollbacks AFTER the transaction commits — this accesses
@@ -2790,10 +2792,13 @@ export async function pullPaymentsLive(force = false) {
       const ctx = getActiveWorkspaceContext();
       if (!ctx.isLegacyOwner && ctx.userId) {
         const localPaymentsSnapshot = await db.payments.toArray();
-        for (const lp of localPaymentsSnapshot) {
-          if (!lp.userId || lp.userId !== ctx.userId) {
-            await db.payments.delete(lp.id).catch(() => {});
-          }
+        const toDelete = localPaymentsSnapshot.filter(lp => !lp.userId || lp.userId !== ctx.userId);
+        if (toDelete.length > 0) {
+          await withImmutabilityBypass(async () => {
+            for (const lp of toDelete) {
+              await db.payments.delete(lp.id).catch(() => {});
+            }
+          });
         }
       }
     }
