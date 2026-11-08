@@ -97,6 +97,16 @@ db.version(17).stores({
   loans: 'id, projectId, workerId, status, startMonth, voucherNumber, createdAt'
 });
 
+db.version(18).stores({
+  payments: 'id, projectId, userId, workerId, groupId, date, month, type, status, isSettled, settlementReceiptId, approval_status, voucherNumber, bankTrackingCode, bankDocumentNumber, created_by, approved_by, createdAt',
+  expenses: 'id, projectId, sectionId, categoryId, personId, paymentStatus, paymentMethod, currency, expenseDate, status, voucherNumber, bankTrackingCode, bankDocumentNumber, chequeId, created_by, approved_by, createdAt',
+  treasuryIncomes: 'id, projectId, counterpartyId, date, accountType, status, voucherNumber, bankTrackingCode, bankDocumentNumber, chequeId, created_by, approved_by, createdAt',
+  accountTransfers: 'id, projectId, fromAccountId, toAccountId, date, status, voucherNumber, bankTrackingCode, bankDocumentNumber, created_by, approved_by, createdAt',
+  loans: 'id, projectId, workerId, status, startMonth, voucherNumber, createdAt',
+  cheques: 'id, projectId, type, bankAccountId, counterpartyId, chequeNumber, sayadNumber, nationalId, dueDate, issueDate, status, amount, voucherNumber, bankTrackingCode, bankDocumentNumber, created_by, approved_by, createdAt',
+  chequebooks: 'id, projectId, bankAccountId, bankName, startSerial, endSerial, totalLeaves, usedLeaves, status, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -135,6 +145,16 @@ export function generatePaymentId() {
 // Helper to generate Loan IDs
 export function generateLoanId() {
   return 'loan_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+}
+
+// Helper to generate Cheque IDs
+export function generateChequeId() {
+  return 'chk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+}
+
+// Helper to generate Chequebook IDs
+export function generateChequebookId() {
+  return 'chb_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Expense IDs

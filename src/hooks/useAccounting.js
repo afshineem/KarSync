@@ -23,6 +23,8 @@ import {
   pullFinancialAccountsLive, 
   pullTreasuryIncomesLive, 
   pullAccountTransfersLive,
+  pullChequesLive,
+  pullChequebooksLive,
   pullGlobalOverdraftPolicyLive,
   syncFinancialDataLive,
   softDeleteExpenseLive,
@@ -75,6 +77,8 @@ export function useAccounting(options = {}) {
     window.addEventListener('workshop-transfers-sync', handleSync);
     window.addEventListener('workshop-payments-sync', handleSync);
     window.addEventListener('workshop-expenses-sync', handleSync);
+    window.addEventListener('workshop-cheques-sync', handleSync);
+    window.addEventListener('workshop-chequebooks-sync', handleSync);
     window.addEventListener('karsync:accounting-sync', handleSync);
 
     pullFinancialAccountsLive().catch(console.warn);
@@ -82,6 +86,8 @@ export function useAccounting(options = {}) {
     pullAccountTransfersLive().catch(console.warn);
     pullGlobalOverdraftPolicyLive().catch(console.warn);
     purgeBankToBankTransfers().catch(console.warn);
+    pullChequesLive().catch(console.warn);
+    pullChequebooksLive().catch(console.warn);
 
     return () => {
       window.removeEventListener('workshop-accounts-sync', handleSync);
@@ -89,6 +95,8 @@ export function useAccounting(options = {}) {
       window.removeEventListener('workshop-transfers-sync', handleSync);
       window.removeEventListener('workshop-payments-sync', handleSync);
       window.removeEventListener('workshop-expenses-sync', handleSync);
+    window.removeEventListener('workshop-cheques-sync', handleSync);
+    window.removeEventListener('workshop-chequebooks-sync', handleSync);
       window.removeEventListener('karsync:accounting-sync', handleSync);
     };
   }, []);
@@ -611,6 +619,10 @@ export function useAccounting(options = {}) {
         description: finalDesc,
         tableName: 'treasuryIncomes',
         voucherNumber: inc.voucherNumber || getDeterministicVoucher(inc),
+        bankTrackingCode: inc.bankTrackingCode || inc.trackingCode || '',
+        bankDocumentNumber: inc.bankDocumentNumber || inc.documentNumber || '',
+        chequeNumber: inc.chequeNumber || '',
+        chequeId: inc.chequeId || null,
         status: (inc.status === 'approved' || inc.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: inc.approvedBy || inc.approved_by_name || null,
         approvedAt: inc.approvedAt || inc.approved_at || null,
@@ -653,6 +665,10 @@ export function useAccounting(options = {}) {
         personName: workerName,
         tableName: 'payments',
         voucherNumber: p.voucherNumber || getDeterministicVoucher(p),
+        bankTrackingCode: p.bankTrackingCode || p.trackingCode || p.referenceNumber || '',
+        bankDocumentNumber: p.bankDocumentNumber || p.documentNumber || '',
+        chequeNumber: p.chequeNumber || '',
+        chequeId: p.chequeId || null,
         status: (p.status === 'approved' || p.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: p.approvedBy || p.approved_by_name || null,
         approvedAt: p.approvedAt || p.approved_at || null,
@@ -689,6 +705,10 @@ export function useAccounting(options = {}) {
         personName: e.personName || '',
         tableName: 'expenses',
         voucherNumber: e.voucherNumber || getDeterministicVoucher(e),
+        bankTrackingCode: e.bankTrackingCode || '',
+        bankDocumentNumber: e.bankDocumentNumber || '',
+        chequeNumber: e.chequeNumber || '',
+        chequeId: e.chequeId || null,
         status: (e.status === 'approved' || e.approval_status === 'approved') ? 'approved' : 'draft',
         approvedBy: e.approvedBy || e.approved_by_name || null,
         approvedAt: e.approvedAt || e.approved_at || null,
@@ -729,6 +749,8 @@ export function useAccounting(options = {}) {
         personName: trf.toAccountName || '',
         tableName: 'accountTransfers',
         voucherNumber: trf.voucherNumber || getDeterministicVoucher(trf),
+        bankTrackingCode: trf.bankTrackingCode || trf.trackingCode || trf.reference || '',
+        bankDocumentNumber: trf.bankDocumentNumber || trf.documentNumber || '',
         status: normalizedStatus,
         approvedBy: trf.approvedBy || trf.approved_by_name || null,
         approvedAt: trf.approvedAt || trf.approved_at || null,
@@ -1412,6 +1434,10 @@ export function useAccounting(options = {}) {
     addIncome,
     updateIncome,
     deleteIncome,
+    // چک‌ها و اسناد تجاری
+    cheques,
+    chequebooks,
+    chequeStats,
     // متدهای انتقال بین حساب‌ها (حساب به حساب)
     accountTransfers,
     transferBetweenAccounts,

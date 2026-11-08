@@ -165,6 +165,8 @@ export function AddEditIncomeModal({
   const [payer, setPayer] = useState('');
   const [selectedCounterpartyId, setSelectedCounterpartyId] = useState('');
   const [description, setDescription] = useState('');
+  const [bankTrackingCode, setBankTrackingCode] = useState('');
+  const [bankDocumentNumber, setBankDocumentNumber] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
@@ -206,6 +208,8 @@ export function AddEditIncomeModal({
         setPayer(initialData.payer || '');
         setSelectedCounterpartyId(initialData.counterpartyId || '');
         setDescription(initialData.description || '');
+        setBankTrackingCode(initialData.bankTrackingCode || initialData.trackingCode || '');
+        setBankDocumentNumber(initialData.bankDocumentNumber || initialData.documentNumber || '');
       } else {
         setAmount('');
         setDate(getTodayDateString());
@@ -216,6 +220,8 @@ export function AddEditIncomeModal({
         setPayer('');
         setSelectedCounterpartyId('');
         setDescription('');
+        setBankTrackingCode('');
+        setBankDocumentNumber('');
       }
       setErrorMsg('');
     }
@@ -272,6 +278,8 @@ export function AddEditIncomeModal({
         payer: payer.trim(),
         counterpartyId: (selectedCounterpartyId && selectedCounterpartyId !== 'other') ? selectedCounterpartyId : null,
         description: description.trim(),
+        bankTrackingCode: bankTrackingCode.trim(),
+        bankDocumentNumber: bankDocumentNumber.trim(),
         ...(initialData ? {} : { status: 'draft', created_by: user?.id || 'admin' })
       });
       onClose();
@@ -430,6 +438,44 @@ export function AddEditIncomeModal({
               </div>
             )}
           </div>
+
+          {/* کد رهگیری و شماره سند بانکی برای مغایرت‌گیری */}
+          {accountType === 'bank' && (
+            <div className="p-3.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/80 dark:border-sky-800/60 space-y-2.5 animate-in fade-in">
+              <span className="text-xs font-bold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-sky-600" />
+                <span>{langKey === 'fa' ? 'اطلاعات رهگیری و سند بانکی (مغایرت‌گیری):' : langKey === 'ku' ? 'زانیاری بەدواداچوونی بانک:' : 'Bank Reconciliation & Slip Reference:'}</span>
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    {langKey === 'fa' ? 'کد رهگیری بانکی (RRN):' : langKey === 'ku' ? 'کۆدی بەدواداچوون:' : 'Tracking Code:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={bankTrackingCode}
+                    onChange={(e) => setBankTrackingCode(e.target.value)}
+                    placeholder="اختیاری (مثال: ۵۸۴۹۲۱)"
+                    className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    {langKey === 'fa' ? 'شماره سند / فیش صورت‌حساب:' : langKey === 'ku' ? 'ژمارەی پسووڵە:' : 'Bank Document / Slip No:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={bankDocumentNumber}
+                    onChange={(e) => setBankDocumentNumber(e.target.value)}
+                    placeholder="اختیاری (مثال: DOC-1029)"
+                    className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* فیلد عنوان با پیشنهادات سریع */}
           <div>

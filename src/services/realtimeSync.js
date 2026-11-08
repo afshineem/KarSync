@@ -1233,6 +1233,10 @@ function subscribeToRealtime() {
         await pullGroupsLive(true);
       } else if (key === getScopedSettingKey('app_loans')) {
         await pullLoansLive(true);
+      } else if (key === getScopedSettingKey('app_cheques')) {
+        await pullChequesLive(true);
+      } else if (key === getScopedSettingKey('app_chequebooks')) {
+        await pullChequebooksLive(true);
       }
     })
     .subscribe((status) => {
@@ -4376,6 +4380,9 @@ export async function syncFinancialDataLive() {
     await pullTreasuryIncomesLive(true);
     await pullAccountTransfersLive(true);
     await pullCounterpartiesLive(true);
+    await pullLoansLive(true);
+    await pullChequesLive(true);
+    await pullChequebooksLive(true);
     await pullGlobalOverdraftPolicyLive();
     const ctx = getActiveWorkspaceContext();
     if (ctx.isLegacyOwner) {
@@ -4707,6 +4714,237 @@ export async function deleteLoanLive(loanId) {
     console.warn('deleteLoanLive warning:', err);
   }
 }
+
+// ----------------------------------------------------
+// CHEQUES & COMMERCIAL NOTES CLOUD SYNC
+// ----------------------------------------------------
+
+export async function pushChequeLive(chequeRecord) {
+  if (!chequeRecord || !chequeRecord.id || !db.cheques) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
+  try {
+    const localCheques = await db.cheques.toArray();
+    const activeLocal = localCheques.filter(c => !c.deletedAt && c.status !== 'deleted');
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_cheques'))
+      .maybeSingle();
+
+    let mergedList = [...activeLocal];
+    if (data?.setting_value) {
+      try {
+        const cloudList = JSON.parse(data.setting_value) || [];
+        const localMap = new Map(activeLocal.map(c => [c.id, c]));
+        for (const cl of cloudList) {
+          if (!localMap.has(cl.id)) {
+            mergedList.push(cl);
+          }
+        }
+      } catch (_) {}
+    }
+
+    await supabase.from('settings').upsert({
+      setting_key: getScopedSettingKey('app_cheques'),
+      setting_value: JSON.stringify(mergedList),
+      updated_at: new Date().toISOString()
+    });
+
+    broadcastSyncEvent('cheques');
+  } catch (err) {
+    console.warn('pushChequeLive warning:', err);
+  }
+}
+
+export async function pullChequesLive(triggerEvent = true) {
+  if (!navigator.onLine || !db.cheques) return [];
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return [];
+
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_cheques'))
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      const cloudCheques = JSON.parse(data.setting_value);
+      if (Array.isArray(cloudCheques)) {
+        await db.transaction('rw', db.cheques, async () => {
+          for (const chk of cloudCheques) {
+            if (!chk.id) continue;
+            const existing = await db.cheques.get(chk.id);
+            if (!existing || new Date(chk.updatedAt || chk.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
+              await db.cheques.put(chk);
+            }
+          }
+        });
+
+        if (triggerEvent && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('workshop-cheques-sync'));
+        }
+        return cloudCheques;
+      }
+    }
+  } catch (err) {
+    console.warn('pullChequesLive warning:', err);
+  }
+  return [];
+}
+
+export async function deleteChequeLive(chequeId) {
+  if (!chequeId || !db.cheques) return;
+  try {
+    const existing = await db.cheques.get(chequeId);
+    if (existing) {
+      const updated = { ...existing, status: 'deleted', deletedAt: new Date().toISOString() };
+      await db.cheques.put(updated);
+    }
+
+    if (!navigator.onLine) return;
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_cheques'))
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        let cloudList = JSON.parse(data.setting_value) || [];
+        cloudList = cloudList.filter(c => c.id !== chequeId);
+        await supabase.from('settings').upsert({
+          setting_key: getScopedSettingKey('app_cheques'),
+          setting_value: JSON.stringify(cloudList),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    broadcastSyncEvent('cheques');
+  } catch (err) {
+    console.warn('deleteChequeLive warning:', err);
+  }
+}
+
+// ----------------------------------------------------
+// CHEQUEBOOKS CLOUD SYNC
+// ----------------------------------------------------
+
+export async function pushChequebookLive(bookRecord) {
+  if (!bookRecord || !bookRecord.id || !db.chequebooks) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
+  try {
+    const localBooks = await db.chequebooks.toArray();
+    const activeLocal = localBooks.filter(b => !b.deletedAt && b.status !== 'deleted');
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_chequebooks'))
+      .maybeSingle();
+
+    let mergedList = [...activeLocal];
+    if (data?.setting_value) {
+      try {
+        const cloudList = JSON.parse(data.setting_value) || [];
+        const localMap = new Map(activeLocal.map(b => [b.id, b]));
+        for (const cl of cloudList) {
+          if (!localMap.has(cl.id)) {
+            mergedList.push(cl);
+          }
+        }
+      } catch (_) {}
+    }
+
+    await supabase.from('settings').upsert({
+      setting_key: getScopedSettingKey('app_chequebooks'),
+      setting_value: JSON.stringify(mergedList),
+      updated_at: new Date().toISOString()
+    });
+
+    broadcastSyncEvent('chequebooks');
+  } catch (err) {
+    console.warn('pushChequebookLive warning:', err);
+  }
+}
+
+export async function pullChequebooksLive(triggerEvent = true) {
+  if (!navigator.onLine || !db.chequebooks) return [];
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return [];
+
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_chequebooks'))
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      const cloudBooks = JSON.parse(data.setting_value);
+      if (Array.isArray(cloudBooks)) {
+        await db.transaction('rw', db.chequebooks, async () => {
+          for (const cb of cloudBooks) {
+            if (!cb.id) continue;
+            const existing = await db.chequebooks.get(cb.id);
+            if (!existing || new Date(cb.updatedAt || cb.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
+              await db.chequebooks.put(cb);
+            }
+          }
+        });
+
+        if (triggerEvent && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('workshop-chequebooks-sync'));
+        }
+        return cloudBooks;
+      }
+    }
+  } catch (err) {
+    console.warn('pullChequebooksLive warning:', err);
+  }
+  return [];
+}
+
+export async function deleteChequebookLive(bookId) {
+  if (!bookId || !db.chequebooks) return;
+  try {
+    const existing = await db.chequebooks.get(bookId);
+    if (existing) {
+      const updated = { ...existing, status: 'deleted', deletedAt: new Date().toISOString() };
+      await db.chequebooks.put(updated);
+    }
+
+    if (!navigator.onLine) return;
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_chequebooks'))
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        let cloudList = JSON.parse(data.setting_value) || [];
+        cloudList = cloudList.filter(b => b.id !== bookId);
+        await supabase.from('settings').upsert({
+          setting_key: getScopedSettingKey('app_chequebooks'),
+          setting_value: JSON.stringify(cloudList),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    broadcastSyncEvent('chequebooks');
+  } catch (err) {
+    console.warn('deleteChequebookLive warning:', err);
+  }
+}
+
 
 
 

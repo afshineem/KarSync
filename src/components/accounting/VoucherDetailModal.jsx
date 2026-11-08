@@ -806,6 +806,10 @@ export function VoucherDetailModal({
     const accountCode = raw.accountCode || (accountType === 'bank' ? '۱۰۱۰۲' : '۱۰۱۰۱');
     const categoryCode = raw.categoryCode || (type === 'inflow' ? '۴۰۱۰۱' : '۵۰۱۰۱');
 
+    const bankTrackingCode = activeItem.bankTrackingCode || raw.bankTrackingCode || raw.trackingCode || raw.referenceNumber || '';
+    const bankDocumentNumber = activeItem.bankDocumentNumber || raw.bankDocumentNumber || raw.documentNumber || '';
+    const chequeNumber = activeItem.chequeNumber || raw.chequeNumber || '';
+
     return {
       raw,
       voucherNumber: vNo,
@@ -831,7 +835,10 @@ export function VoucherDetailModal({
       approvedAt,
       isCloudSynced,
       accountCode,
-      categoryCode
+      categoryCode,
+      bankTrackingCode,
+      bankDocumentNumber,
+      chequeNumber
     };
   }, [activeItem, c]);
 
@@ -1657,6 +1664,43 @@ export function VoucherDetailModal({
                       </span>
                     </div>
                   </div>
+
+                  {/* Banking Reconciliation Details (کد رهگیری و شماره سند بانکی) */}
+                  {(itemData.bankTrackingCode || itemData.bankDocumentNumber || itemData.chequeNumber) && (
+                    <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-sky-200/60 dark:border-sky-800/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-2.5">
+                      <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{language === 'fa' ? 'مشخصات سند و رهگیری بانکی' : language === 'ku' ? 'وردەکاری بەدواداچوونی بانکی' : 'Bank Tracking & Voucher Details'}</span>
+                      </span>
+
+                      {itemData.bankTrackingCode && (
+                        <div className="flex items-center justify-between text-xs pt-1">
+                          <span className="text-slate-400">{language === 'fa' ? 'کد رهگیری بانکی:' : language === 'ku' ? 'کۆدی بەدواداچوون:' : 'Tracking Code:'}</span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/40">
+                            {itemData.bankTrackingCode}
+                          </span>
+                        </div>
+                      )}
+
+                      {itemData.bankDocumentNumber && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400">{language === 'fa' ? 'شماره سند / فیش:' : language === 'ku' ? 'ژمارەی پسووڵەی بانک:' : 'Bank Slip No:'}</span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-lg border border-indigo-200/60 dark:border-indigo-800/40">
+                            {itemData.bankDocumentNumber}
+                          </span>
+                        </div>
+                      )}
+
+                      {itemData.chequeNumber && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400">{language === 'fa' ? 'شماره چک صیادی:' : language === 'ku' ? 'ژمارەی چەک:' : 'Cheque Number:'}</span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-800/40">
+                            {itemData.chequeNumber}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Cost Center / Phase Card */}
                   <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-1.5">

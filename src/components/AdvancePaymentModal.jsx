@@ -356,6 +356,7 @@ export function AdvancePaymentModal({
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [paymentMethodTab, setPaymentMethodTab] = useState('all'); // 'all' | 'cash' | 'bank'
   const [referenceNumber, setReferenceNumber] = useState('');
+  const [bankDocumentNumber, setBankDocumentNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
@@ -671,6 +672,8 @@ export function AdvancePaymentModal({
         accountName: chosenAccount?.name || "",
         accountType: chosenAccount?.type || "cash",
         referenceNumber: referenceNumber.trim() || null,
+        bankTrackingCode: referenceNumber.trim() || null,
+        bankDocumentNumber: bankDocumentNumber.trim() || null,
         notes: notes.trim() || null,
         status: "draft",
         approval_status: "draft",
@@ -1523,6 +1526,20 @@ export function AdvancePaymentModal({
                         onChange={(e) => setReferenceNumber(e.target.value)}
                         placeholder={c.refPlaceholder}
                         className="w-full px-3.5 py-2.5 text-xs font-medium bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white shadow-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{language === 'fa' ? 'شماره سند بانکی / شماره فیش:' : language === 'ku' ? 'ژمارەی پسووڵەی بانک:' : 'Bank Document / Slip No:'}</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={bankDocumentNumber}
+                        onChange={(e) => setBankDocumentNumber(e.target.value)}
+                        placeholder="اختیاری (مثال: ADV-4091)"
+                        className="w-full px-3.5 py-2.5 text-xs font-mono font-medium bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white shadow-xs"
                       />
                     </div>
 

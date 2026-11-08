@@ -165,7 +165,9 @@ export async function performWorkspaceFactoryReset({ user }) {
           'app_attendance_rules',
           'app_user_roles',
           'app_audit_logs',
-          'app_vouchers'
+          'app_vouchers',
+          'app_cheques',
+          'app_chequebooks'
         ];
         await supabase.from('settings').delete().in('setting_key', legacyBaseKeys);
       } else {
@@ -192,7 +194,9 @@ export async function performWorkspaceFactoryReset({ user }) {
             'app_attendance_rules',
             'app_user_roles',
             'app_audit_logs',
-            'app_vouchers'
+            'app_vouchers',
+            'app_cheques',
+            'app_chequebooks'
           ];
           const scopedKeys = baseKeys.map((k) => `${k}_ws_${scopeId}`);
           await supabase.from('settings').delete().in('setting_key', scopedKeys);

@@ -30,6 +30,7 @@ import { CounterpartiesView } from './CounterpartiesView';
 import { SpendAnalyticsSection } from './accounting/SpendAnalyticsSection';
 import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
 import { StaffLoansSection } from './accounting/StaffLoansSection';
+import ChequesManagementSection from './accounting/ChequesManagementSection';
 
 // Utilities & LiveSync
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
@@ -535,7 +536,8 @@ export function FinancialsView() {
     searchQuery: ledgerSearchQuery,
     setSearchQuery: setLedgerSearchQuery,
     deleteDraftLedgerItem,
-    batchDeleteDraftLedgerItems
+    batchDeleteDraftLedgerItems,
+    chequeStats = {}
   } = useAccounting();
 
   const { hasPermission } = usePermissions();
@@ -1540,6 +1542,13 @@ export function FinancialsView() {
               badge: activeLoansList.length > 0 ? activeLoansList.length : null
             },
             {
+              id: 'cheques',
+              label: c.chequesTab || (language === 'ku' ? 'چەک و بەڵگەنامە' : language === 'en' ? 'Cheques' : 'مدیریت چک‌ها'),
+              shortLabel: c.chequesTabShort || (language === 'ku' ? 'چەک' : language === 'en' ? 'Cheques' : 'چک‌ها'),
+              icon: FileCheck2,
+              badge: chequeStats?.dueSoonCount > 0 ? chequeStats.dueSoonCount : null
+            },
+            {
               id: 'accounts',
               label: c.accountsTab,
               shortLabel: c.accountsTabShort,
@@ -1919,6 +1928,13 @@ export function FinancialsView() {
       {/* ======================================================== */}
       {activeSection === 'loans' && (
         <StaffLoansSection onOpenNewLoanModal={() => setIsGlobalLoanModalOpen(true)} />
+      )}
+
+      {/* ======================================================== */}
+      {/* 4.8. SECTION: CHEQUES & COMMERCIAL NOTES (مدیریت چک و اسناد تجاری) */}
+      {/* ======================================================== */}
+      {activeSection === 'cheques' && (
+        <ChequesManagementSection language={language} />
       )}
 
       {/* ======================================================== */}

@@ -152,6 +152,7 @@ export function AccountTransferModal({
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(() => getTodayDateString());
   const [reference, setReference] = useState('');
+  const [bankDocumentNumber, setBankDocumentNumber] = useState('');
   const [description, setDescription] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -285,6 +286,8 @@ export function AccountTransferModal({
         amount: numericAmount,
         date,
         reference: reference.trim(),
+        bankTrackingCode: reference.trim(),
+        bankDocumentNumber: bankDocumentNumber.trim(),
         description: description.trim()
       });
 
@@ -573,7 +576,7 @@ export function AccountTransferModal({
           )}
 
           {/* تاریخ و شماره پیگیری ارجاع */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
                 <Calendar className="w-3 h-3 inline ml-1 text-slate-400" />

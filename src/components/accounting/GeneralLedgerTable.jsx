@@ -34,7 +34,9 @@ import {
   Receipt,
   List,
   FolderKanban,
-  RotateCcw
+  RotateCcw,
+  Hash,
+  FileCheck2
 } from 'lucide-react';
 import { VerificationBadge } from '../common/VerificationBadge';
 import { useTwoStageApproval } from '../../hooks/useTwoStageApproval';
@@ -1019,6 +1021,27 @@ export function GeneralLedgerTable({
                   <Coins className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                 )}
                 <span className="truncate max-w-[100px]">{tx.accountName}</span>
+              </span>
+            )}
+
+            {tx.bankTrackingCode && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800/70" title={`کد رهگیری بانکی: ${tx.bankTrackingCode}`}>
+                <Hash className="w-2.5 h-2.5 text-sky-500 shrink-0" />
+                <span>{tx.bankTrackingCode}</span>
+              </span>
+            )}
+
+            {tx.bankDocumentNumber && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/70 dark:border-indigo-800/70" title={`شماره سند بانکی: ${tx.bankDocumentNumber}`}>
+                <FileCheck2 className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                <span>{tx.bankDocumentNumber}</span>
+              </span>
+            )}
+
+            {tx.chequeNumber && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/70" title={`چک صیادی: ${tx.chequeNumber}`}>
+                <Receipt className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                <span>{tx.chequeNumber}</span>
               </span>
             )}
 

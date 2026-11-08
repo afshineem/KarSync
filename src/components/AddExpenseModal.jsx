@@ -349,7 +349,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     receiptUrl: '',
     receiptFile: null,
     expenseDate: new Date().toISOString().slice(0, 10),
-    description: ''
+    description: '',
+    bankTrackingCode: '',
+    bankDocumentNumber: ''
   });
 
   const [receiptPreview, setReceiptPreview] = useState('');
@@ -442,7 +444,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         receiptUrl: expenseToEdit.receiptUrl || '',
         receiptFile: null,
         expenseDate: expenseToEdit.expenseDate || new Date().toISOString().slice(0, 10),
-        description: expenseToEdit.description || ''
+        description: expenseToEdit.description || '',
+        bankTrackingCode: expenseToEdit.bankTrackingCode || '',
+        bankDocumentNumber: expenseToEdit.bankDocumentNumber || ''
       });
 
       if (expenseToEdit.receiptUrl) {
@@ -623,6 +627,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         accountName: formData.accountName || '',
         receiptUrl: finalReceiptUrl || null,
         description: formData.description?.trim() || '',
+        bankTrackingCode: formData.bankTrackingCode?.trim() || '',
+        bankDocumentNumber: formData.bankDocumentNumber?.trim() || '',
         expenseDate,
         voucherNumber,
         status: expenseToEdit?.status || 'draft',
@@ -1158,6 +1164,44 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                     </div>
                   )}
                 </div>
+
+                  {/* Bank Tracking Code & Slip Document No for Bank Reconciliation */}
+                  {(formData.paymentMethod === 'bank' || financialAccounts.find(a => a.id === formData.accountId)?.type === 'bank') && (
+                    <div className="mt-3 p-3.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/80 dark:border-sky-800/60 space-y-2.5 animate-in fade-in">
+                      <span className="text-xs font-bold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5 text-sky-600" />
+                        <span>{language === 'fa' ? 'اطلاعات رهگیری و سند بانکی (مغایرت‌گیری):' : language === 'ku' ? 'زانیاری بەدواداچوونی بانکی:' : 'Bank Reconciliation & Slip Reference:'}</span>
+                      </span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                            {language === 'fa' ? 'کد رهگیری بانکی (RRN):' : language === 'ku' ? 'کۆدی بەدواداچوون:' : 'Tracking Code:'}
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.bankTrackingCode || ''}
+                            onChange={(e) => setFormData({ ...formData, bankTrackingCode: e.target.value })}
+                            placeholder="اختیاری (مثال: ۶۵۴۹۸۱)"
+                            className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                            {language === 'fa' ? 'شماره سند / فیش صورت‌حساب:' : language === 'ku' ? 'ژمارەی پسووڵە:' : 'Bank Document / Slip No:'}
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.bankDocumentNumber || ''}
+                            onChange={(e) => setFormData({ ...formData, bankDocumentNumber: e.target.value })}
+                            placeholder="اختیاری (مثال: DOC-8821)"
+                            className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                 {/* Date & Reference */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

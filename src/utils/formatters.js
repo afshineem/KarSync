@@ -541,3 +541,6 @@ export function formatDate(date = new Date(), options = {}) {
 
   return convertDigits(formatted, numFmt);
 }
+
+export { numberToWords } from './numberToWords';
+
