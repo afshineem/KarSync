@@ -86,7 +86,8 @@ import {
   Building2,
   TrendingUp,
   TrendingDown,
-  Calculator
+  Calculator,
+  FileCheck2
 } from 'lucide-react';
 
 const SUMMARY_LAYOUT_KEY = 'karsync_financials_worker_layout';
