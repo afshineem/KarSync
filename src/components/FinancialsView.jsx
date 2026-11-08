@@ -746,6 +746,9 @@ export function FinancialsView() {
   const isInSelectedPeriod = (dateStr) => {
     if (!dateStr) return false;
     const cleanDate = String(dateStr).slice(0, 10);
+    if (filterMode === 'all') {
+      return true;
+    }
     if (filterMode === 'monthly') {
       return cleanDate.startsWith(selectedMonth);
     }
@@ -859,28 +862,60 @@ export function FinancialsView() {
 
     const totalOutflow = totalWorkerOutflows + totalWorkshopExpenses;
 
+    // Check if there are any transactions across all-time in the project
+    const hasAnyRecordsAllTime = (allPayments.length + allExpenses.length + allIncomes.length) > 0;
+
     // Convert category aggregates to sorted array with percentages
     const categoriesList = Object.values(categoryAggregates)
-      .map((cat) => ({
-        ...cat,
-        percentage: totalOutflow > 0 ? (cat.amount / totalOutflow) * 100 : 0
-      }))
+      .map((cat) => {
+        const amt = Number(cat.amount) || 0;
+        const pct = totalOutflow > 0 ? (amt / totalOutflow) * 100 : 0;
+        return {
+          ...cat,
+          amount: amt,
+          percentage: pct,
+          percent: Math.round(pct)
+        };
+      })
       .sort((a, b) => b.amount - a.amount);
 
     const counterpartiesList = Object.values(counterpartyAggregates)
+      .map((cp) => {
+        const amt = Number(cp.amount) || 0;
+        const pct = totalOutflow > 0 ? (amt / totalOutflow) * 100 : 0;
+        return {
+          ...cp,
+          amount: amt,
+          totalAmount: amt,
+          percentage: pct,
+          percent: Math.round(pct)
+        };
+      })
       .sort((a, b) => b.amount - a.amount);
 
     return {
+      // Both naming conventions for total outflow
       totalOutflow,
+      totalOutflows: totalOutflow,
+      // Both naming conventions for total inflow
       totalInflow,
+      totalInflows: totalInflow,
+      // Net flow
       netFlow: totalInflow - totalOutflow,
+      // Subtotals
       totalWorkerOutflows,
+      totalPersonnelOutflow: totalWorkerOutflows,
       workerAdvanceTotal,
       workerSettlementTotal,
       totalWorkshopExpenses,
+      totalExpensesOutflow: totalWorkshopExpenses,
       totalTransfers,
+      // Lists and breakdowns (supporting both property names)
       categoriesList,
-      counterpartiesList
+      categoriesBreakdown: categoriesList,
+      counterpartiesList,
+      topCounterparties: counterpartiesList,
+      hasAnyRecordsAllTime
     };
   }, [allPayments, allExpenses, allIncomes, allTransfers, categoryMap, counterpartiesMap, workers, filterMode, selectedMonth, fromDate, toDate, c]);
 
@@ -1619,13 +1654,26 @@ export function FinancialsView() {
               setLedgerSearchQuery?.('');
             } else {
               setLedgerCatFilter?.('workshop_expense');
-              const catObj = spendData.categoriesList.find((c) => c.id === catId);
+              const catObj = (spendData.categoriesList || spendData.categoriesBreakdown || []).find(
+                (c) => c.id === catId || c.name === catId
+              );
               setLedgerSearchQuery?.(catObj?.name || '');
             }
             setActiveSection('ledger');
           }}
           onPrintReport={() => window.print()}
           onOpenCounterparties={() => setIsCounterpartiesModalOpen(true)}
+          onChangeFilterMode={(mode) => setFilterMode(mode)}
+          onShiftMonth={handleShiftMonth}
+          onSelectMonth={(m) => {
+            setSelectedMonth(m);
+            setFilterMode('monthly');
+          }}
+          onOpenDateRange={() => {
+            setTempFromDate(fromDate);
+            setTempToDate(toDate);
+            setIsDateRangeModalOpen(true);
+          }}
         />
       )}
 
