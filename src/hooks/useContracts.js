@@ -72,19 +72,31 @@ export function useContracts() {
     let totalEstimatedValue = 0;
     let totalFinalValue = 0;
     let activeCount = 0;
+    let inProgressCount = 0;
+    let notStartedCount = 0;
     let completedCount = 0;
     let overdueCount = 0;
+    let totalDelayPenalties = 0;
     const today = new Date().toISOString().slice(0, 10);
 
     contracts.forEach((c) => {
-      totalEstimatedValue += Number(c.totalEstimatedAmount) || 0;
+      const estAmt = Number(c.totalEstimatedAmount) || 0;
+      totalEstimatedValue += estAmt;
+
       if (c.status === 'completed') {
         completedCount++;
-        totalFinalValue += Number(c.finalPayableAmount !== null ? c.finalPayableAmount : c.totalEstimatedAmount) || 0;
+        totalFinalValue += Number(c.finalPayableAmount !== null ? c.finalPayableAmount : estAmt) || 0;
+      } else if (c.status === 'draft' || (c.status === 'active' && c.startDate && c.startDate > today)) {
+        notStartedCount++;
       } else if (c.status === 'active') {
         activeCount++;
         if (c.estimatedEndDate && c.estimatedEndDate < today) {
           overdueCount++;
+          // Calculate penalty
+          const dDiff = Math.ceil((new Date(today) - new Date(c.estimatedEndDate)) / (1000 * 60 * 60 * 24));
+          totalDelayPenalties += Math.max(0, dDiff) * (Number(c.delayPenaltyPerDay) || 0);
+        } else {
+          inProgressCount++;
         }
       }
     });
@@ -92,9 +104,12 @@ export function useContracts() {
     return {
       totalEstimatedValue,
       totalFinalValue,
-      activeCount,
+      activeCount: activeCount + notStartedCount,
+      inProgressCount,
+      notStartedCount,
       completedCount,
       overdueCount,
+      totalDelayPenalties,
       totalCount: contracts.length
     };
   }, [contracts]);

@@ -59,10 +59,15 @@ export default function OperationsView() {
   // Filtered contracts
   const filteredContracts = useMemo(() => {
     let list = [...contracts];
+    const today = getTodayDateString();
 
     // Status tab filter
-    if (activeTab === 'active') {
-      list = list.filter(c => c.status === 'active');
+    if (activeTab === 'in_progress' || activeTab === 'active') {
+      list = list.filter(c => c.status === 'active' && (!c.estimatedEndDate || c.estimatedEndDate >= today) && (!c.startDate || c.startDate <= today));
+    } else if (activeTab === 'not_started') {
+      list = list.filter(c => c.status === 'draft' || (c.status === 'active' && c.startDate && c.startDate > today));
+    } else if (activeTab === 'overdue') {
+      list = list.filter(c => c.status === 'active' && c.estimatedEndDate && c.estimatedEndDate < today);
     } else if (activeTab === 'completed') {
       list = list.filter(c => c.status === 'completed');
     }
@@ -210,43 +215,113 @@ export default function OperationsView() {
             </div>
           </div>
 
-          {/* Action Dock Inside Hero */}
-          <div className="lg:col-span-5 flex flex-col gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+          {/* Live Contracts Status Cards Grid (Inside Dark Hero) */}
+          <div className="lg:col-span-5 grid grid-cols-2 gap-2.5 sm:gap-3">
+            {/* 1. In Progress Card */}
             <button
               type="button"
-              onClick={() => {
-                setEditingContract(null);
-                setIsAddContractModalOpen(true);
-              }}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-3 px-4 rounded-xl text-xs transition-all shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer"
+              onClick={() => setActiveTab(activeTab === 'in_progress' ? 'all' : 'in_progress')}
+              className={`p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden ${
+                activeTab === 'in_progress'
+                  ? 'bg-blue-500/25 border-blue-400/60 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/50'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-blue-400/40'
+              }`}
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>{language === "ku" ? "عەقد و گرێبەستی نوێ" : language === "en" ? "Sign New Contract" : "عقد قرارداد جدید"}</span>
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <span className="text-[11px] sm:text-xs font-bold text-blue-300/90 group-hover:text-blue-200 transition-colors">
+                  {language === 'ku' ? 'لە جێبەجێکردن' : language === 'en' ? 'In Progress' : 'در حال اجرا'}
+                </span>
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                  <Clock className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 font-mono" dir="ltr">
+                <span className="text-xl sm:text-2xl font-black text-white">{contractStats.inProgressCount || 0}</span>
+                <span className="text-[10px] text-slate-400 font-sans">{language === 'ku' ? 'گرێبەست' : language === 'en' ? 'contracts' : 'قرارداد'}</span>
+              </div>
             </button>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setIsAddCounterpartyModalOpen(true)}
-                className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold transition-all border border-white/10 active:scale-95 cursor-pointer"
-              >
-                <UserPlus className="w-4 h-4 text-blue-400" />
-                <span>{language === "ku" ? "لایەنی نوێ" : language === "en" ? "New Party" : "طرف‌حساب جدید"}</span>
-              </button>
+            {/* 2. Not Started / Draft Card */}
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'not_started' ? 'all' : 'not_started')}
+              className={`p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden ${
+                activeTab === 'not_started'
+                  ? 'bg-amber-500/25 border-amber-400/60 shadow-lg shadow-amber-500/20 ring-1 ring-amber-400/50'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-amber-400/40'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <span className="text-[11px] sm:text-xs font-bold text-amber-300/90 group-hover:text-amber-200 transition-colors">
+                  {language === 'ku' ? 'دەست‌پێنەکراو' : language === 'en' ? 'Not Started' : 'شروع‌نشده'}
+                </span>
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                  <Layers className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 font-mono" dir="ltr">
+                <span className="text-xl sm:text-2xl font-black text-white">{contractStats.notStartedCount || 0}</span>
+                <span className="text-[10px] text-slate-400 font-sans">{language === 'ku' ? 'گرێبەست' : language === 'en' ? 'contracts' : 'قرارداد'}</span>
+              </div>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab(activeTab === "counterparties" ? "all" : "counterparties")}
-                className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl text-xs font-bold transition-all border active:scale-95 cursor-pointer ${
-                  activeTab === "counterparties"
-                    ? "bg-sky-500 text-white border-sky-400 shadow-md shadow-sky-500/30"
-                    : "bg-white/10 hover:bg-white/15 text-slate-200 border-white/10"
-                }`}
-              >
-                <Users className="w-4 h-4 text-sky-400" />
-                <span>{language === "ku" ? "لایەنەکان" : language === "en" ? "Parties" : "طرف‌حساب‌ها"}</span>
-              </button>
-            </div>
+            {/* 3. Completed / Settled Card */}
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'completed' ? 'all' : 'completed')}
+              className={`p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden ${
+                activeTab === 'completed'
+                  ? 'bg-emerald-500/25 border-emerald-400/60 shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-400/50'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-emerald-400/40'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <span className="text-[11px] sm:text-xs font-bold text-emerald-300/90 group-hover:text-emerald-200 transition-colors">
+                  {language === 'ku' ? 'خاتمەیافـتە' : language === 'en' ? 'Completed' : 'خاتمه‌یافته'}
+                </span>
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 font-mono" dir="ltr">
+                <span className="text-xl sm:text-2xl font-black text-white">{contractStats.completedCount || 0}</span>
+                <span className="text-[10px] text-slate-400 font-sans">{language === 'ku' ? 'تسویەکراو' : language === 'en' ? 'settled' : 'تسویه‌شده'}</span>
+              </div>
+            </button>
+
+            {/* 4. Overdue / Penalties Card */}
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'overdue' ? 'all' : 'overdue')}
+              className={`p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 text-start group cursor-pointer backdrop-blur-md relative overflow-hidden ${
+                activeTab === 'overdue'
+                  ? 'bg-rose-500/25 border-rose-400/60 shadow-lg shadow-rose-500/20 ring-1 ring-rose-400/50'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-rose-400/40'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <span className="text-[11px] sm:text-xs font-bold text-rose-300/90 group-hover:text-rose-200 transition-colors">
+                  {language === 'ku' ? 'دواکەوتوو' : language === 'en' ? 'Overdue' : 'دارای تاخیر'}
+                </span>
+                <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
+                  contractStats.overdueCount > 0
+                    ? 'bg-rose-500/30 border border-rose-400/50 text-rose-300 animate-pulse'
+                    : 'bg-rose-500/20 border border-rose-400/30 text-rose-400'
+                }`}>
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 font-mono" dir="ltr">
+                <span className={`text-xl sm:text-2xl font-black ${contractStats.overdueCount > 0 ? 'text-rose-400' : 'text-white'}`}>
+                  {contractStats.overdueCount || 0}
+                </span>
+                <span className="text-[10px] text-slate-400 font-sans">
+                  {contractStats.totalDelayPenalties > 0
+                    ? `${formatAmount(contractStats.totalDelayPenalties, currency)} ${currency}`
+                    : language === 'ku' ? 'گرێبەست' : language === 'en' ? 'contracts' : 'قرارداد'}
+                </span>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -259,7 +334,9 @@ export default function OperationsView() {
           <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 self-start shadow-inner">
             {[
               { id: 'all', label: language === 'ku' ? 'هەموو گرێبەستەکان' : language === 'en' ? 'All Contracts' : 'همه قراردادها', icon: FileSignature },
-              { id: 'active', label: language === 'ku' ? 'لە جێبەجێکردندایە' : language === 'en' ? 'In Progress' : 'در حال اجرا', icon: Clock },
+              { id: 'in_progress', label: language === 'ku' ? 'لە جێبەجێکردندایە' : language === 'en' ? 'In Progress' : 'در حال اجرا', icon: Clock },
+              { id: 'not_started', label: language === 'ku' ? 'دەست‌پێنەکراو' : language === 'en' ? 'Not Started' : 'شروع‌نشده', icon: Layers },
+              { id: 'overdue', label: language === 'ku' ? 'دواکەوتوو' : language === 'en' ? 'Overdue' : 'دارای تاخیر', icon: AlertTriangle },
               { id: 'completed', label: language === 'ku' ? 'تەواوبوو' : language === 'en' ? 'Completed' : 'پایان‌یافته و تسویه', icon: CheckCircle2 },
               { id: 'counterparties', label: language === 'ku' ? 'لایەنەکانی حیساب' : language === 'en' ? 'Counterparties' : 'طرف‌حساب‌ها و استادکاران', icon: Users }
             ].map((tab) => {
