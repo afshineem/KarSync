@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Users,
+  UserPlus,
   ChevronRight,
   Eye,
   Layers,
@@ -89,156 +90,115 @@ export default function OperationsView() {
   return (
     <div className="space-y-6 pb-24 max-w-7xl mx-auto px-3 sm:px-6" dir={direction}>
       
-      {/* 1. UNIFIED EXECUTIVE HERO BANNER WITH INTEGRATED STATS */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-white/95 via-white/90 to-slate-100/90 dark:from-slate-900/95 dark:via-slate-900 dark:to-slate-950 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-black/30 relative overflow-hidden space-y-6">
-        <div className="absolute top-0 end-0 w-96 h-96 bg-amber-500/10 dark:bg-amber-500/10 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <div className="absolute bottom-0 start-1/4 w-80 h-80 bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-        
-        {/* Top Row: Title, Subtitle, and Header Action Buttons */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
+{/* 1. EXECUTIVE HERO BANNER: OPERATIONS COMMAND CENTER */}
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/95 to-slate-950 text-white border border-white/10 shadow-2xl">
+        {/* Glow ambient effects */}
+        <div className="absolute top-0 end-1/4 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 end-0 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          
+          {/* Main Metric & Title */}
+          <div className="lg:col-span-7 space-y-4">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-2xs">
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-2xs">
                 <HardHat className="w-3.5 h-3.5" />
-                <span>{language === 'ku' ? 'ئۆپەراسیۆن و مەیدانی کارگە' : language === 'en' ? 'Field Operations & Execution' : 'عملیات اجرایی و کارگاهی'}</span>
+                <span>{language === "ku" ? "ئۆپەراسیۆن و مەیدانی کارگە" : language === "en" ? "Field Operations & Execution" : "عملیات اجرایی و کارگاهی"}</span>
               </span>
-              <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 px-2.5 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
-                {currentProject?.name || 'پروژه جاری'}
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              {language === 'ku' ? 'کاروباری جێبەجێکردن و گرێبەستەکان' : language === 'en' ? 'Field Execution & Contracts' : 'امور اجرایی، قراردادها و متره کارگاه'}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium max-w-2xl">
-              {language === 'ku'
-                ? 'بەڕێوەبردنی گرێبەستی وەستاکاران، پێوانی مەترە، بەدواداچوونی مۆڵەتی کار، سزای دواکەوتن و ژمێریاری کۆتایی'
-                : language === 'en'
-                ? 'Manage subcontractor contracts, scope of work takeoff, timeline delays, backcharges, and final vouchers'
-                : 'مدیریت قراردادهای استادکاران، متره و برآورد احجام کار، کنترل تاخیر و جریمه دیرکرد، و صدور صورت‌وضعیت قطعی'}
-            </p>
-          </div>
-
-          {/* Quick Action Buttons (Direct Counterparties Link & New Counterparty) */}
-          <div className="flex items-center gap-2 flex-wrap self-start md:self-center">
-            {/* Direct Link to Counterparties (طرف‌حساب‌ها) */}
-            <button
-              type="button"
-              onClick={() => setActiveTab(activeTab === 'counterparties' ? 'all' : 'counterparties')}
-              className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border shadow-2xs ${
-                activeTab === 'counterparties'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/25 font-black'
-                  : 'bg-white/90 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-200'
-              }`}
-              title={language === 'ku' ? 'بینینی لایەنەکان' : language === 'en' ? 'View Counterparties' : 'مشاهده لیست طرف‌حساب‌ها و کارفرمایان'}
-            >
-              <Users className="w-4 h-4 text-blue-500" />
-              <span>{language === 'ku' ? 'لایەنەکانی حیساب' : language === 'en' ? 'Counterparties' : 'طرف‌حساب‌ها'}</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-black bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                {counterparties.length}
-              </span>
-            </button>
-
-            {/* New Counterparty Modal Trigger (طرف‌حساب جدید) */}
-            <button
-              type="button"
-              onClick={() => setIsAddCounterpartyModalOpen(true)}
-              className="px-3.5 py-2.5 rounded-2xl text-xs font-bold bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-200 shadow-2xs transition-all flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5 text-blue-500" />
-              <span>{language === 'ku' ? 'پێناسەکردنی لایەن' : language === 'en' ? 'New Counterparty' : 'طرف‌حساب جدید'}</span>
-            </button>
-
-            {/* New Contract Modal Trigger (عقد قرارداد جدید) */}
-            <button
-              type="button"
-              onClick={() => {
-                setEditingContract(null);
-                setIsAddContractModalOpen(true);
-              }}
-              className="px-4 sm:px-5 py-2.5 rounded-2xl text-xs font-bold bg-primary hover:bg-primary-hover text-white shadow-lg shadow-primary/25 active:scale-95 transition-all flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{language === 'ku' ? 'عەقد و گرێبەستی نوێ' : language === 'en' ? 'Sign Contract' : 'عقد قرارداد جدید'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 4 STATS METRIC CARDS INTEGRATED INSIDE THE HERO */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-          {/* 1. Total Contracts Value */}
-          <div className="p-4 rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/80 dark:border-slate-700/70 shadow-xs space-y-1.5">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <DollarSign className="w-4 h-4 text-amber-500" />
-                <span>{language === 'ku' ? 'کۆی بەهای گرێبەستەکان' : language === 'en' ? 'Total Contracts Value' : 'مجموع ارزش قراردادها'}</span>
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                {contractStats.totalCount || 0}
+              <span className="text-xs font-mono font-bold text-slate-400 bg-white/5 px-2.5 py-0.5 rounded-lg border border-white/10">
+                {currentProject?.name || "پروژه جاری"}
               </span>
             </div>
-            <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-white" dir="ltr">
-              {formatAmount(contractStats.totalEstimatedValue || 0, currency)} <span className="text-xs font-sans font-bold">{currency}</span>
+
+            <div>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                {language === "ku" ? "کۆی بەهای گرێبەستەکان" : language === "en" ? "Total Contracts Value" : "مجموع ارزش کل قراردادهای پروژه"}
+              </span>
+              <div className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white flex items-baseline gap-2 font-mono" dir="ltr">
+                <span>{formatAmount(contractStats.totalEstimatedValue || 0, currency)}</span>
+                <span className="text-sm sm:text-base font-sans font-bold text-amber-400">{currency}</span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                {language === "ku"
+                  ? "بەڕێوەبردنی گرێبەستی وەستاکاران، پێوانی مەترە، کۆنترۆڵی مۆڵەت و سزای دواکەوتن"
+                  : language === "en"
+                  ? "Craftsman contracts, work takeoff, completion deadlines, delay penalties & vouchers"
+                  : "مدیریت قراردادهای استادکاران، متره و برآورد احجام کار، کنترل تاخیر و جریمه دیرکرد"}
+              </p>
             </div>
-            <div className="text-[11px] text-slate-400 truncate">
-              {language === 'ku' ? 'سەرجەم کارە پەیمانکارییەکان' : language === 'en' ? 'All contracted works' : 'برآورد اولیه کلیه پیمان‌ها'}
+
+            {/* Quick Metrics Bar Inside Hero */}
+            <div className="grid grid-cols-3 gap-2.5 pt-1 max-w-lg">
+              <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-0.5">
+                <span className="text-[10px] text-blue-300 font-bold block">{language === "ku" ? "لە جێبەجێکردن" : language === "en" ? "In Progress" : "در حال اجرا"}</span>
+                <span className="text-sm sm:text-base font-black font-mono text-white block">{contractStats.activeCount || 0}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-0.5">
+                <span className="text-[10px] text-rose-300 font-bold block">{language === "ku" ? "دواکەوتوو" : language === "en" ? "Overdue" : "دارای تاخیر"}</span>
+                <span className="text-sm sm:text-base font-black font-mono text-rose-400 block">{contractStats.overdueCount || 0}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/20 space-y-0.5">
+                <span className="text-[10px] text-teal-300 font-bold block">{language === "ku" ? "تەواوبوو" : language === "en" ? "Completed" : "تسویه‌شده"}</span>
+                <span className="text-sm sm:text-base font-black font-mono text-teal-400 block">{contractStats.completedCount || 0}</span>
+              </div>
             </div>
           </div>
 
-          {/* 2. Active Contracts */}
-          <div className="p-4 rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/80 dark:border-slate-700/70 shadow-xs space-y-1.5">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-blue-500" />
-                <span>{language === 'ku' ? 'گرێبەستە چالاکەکان' : language === 'en' ? 'Active Contracts' : 'قراردادهای در حال اجرا'}</span>
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                {contractStats.activeCount || 0}
-              </span>
-            </div>
-            <div className="text-xl sm:text-2xl font-black font-mono text-blue-600 dark:text-blue-400" dir="ltr">
-              {contractStats.activeCount || 0} <span className="text-xs font-sans font-bold">{language === 'ku' ? 'گرێبەست' : language === 'en' ? 'active' : 'پیمان'}</span>
-            </div>
-            <div className="text-[11px] text-slate-400 truncate">
-              {language === 'ku' ? 'تیمەکان لە کارگە خەریکی کارن' : language === 'en' ? 'Currently on site' : 'اکیپ‌ها مستقر در کارگاه'}
-            </div>
-          </div>
+          {/* Right Controls: Unified Box with 3 Large-Icon Buttons */}
+          <div className="lg:col-span-5 flex flex-col items-start lg:items-end justify-center gap-3">
+            
+            {/* The Unified Box for the 3 Buttons (Without text, large icons) */}
+            <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-xl shadow-2xl">
+              {/* 1. Counterparties Link */}
+              <button
+                type="button"
+                onClick={() => setActiveTab(activeTab === "counterparties" ? "all" : "counterparties")}
+                className={`w-13 h-13 sm:w-15 sm:h-15 rounded-2xl transition-all duration-300 flex items-center justify-center cursor-pointer group relative ${
+                  activeTab === "counterparties"
+                    ? "bg-sky-500 text-white shadow-lg shadow-sky-500/40 scale-105"
+                    : "text-slate-300 hover:text-white hover:bg-white/15 active:scale-95"
+                }`}
+                title={language === "ku" ? "لایەنەکانی حیساب" : language === "en" ? "Counterparties" : "طرف‌حساب‌ها"}
+                aria-label="Counterparties"
+              >
+                <Users className="w-7 h-7 stroke-[2.2] group-hover:scale-110 transition-transform" />
+                {counterparties.length > 0 && (
+                  <span className="absolute -top-1 -end-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black bg-sky-400 text-slate-950 shadow-xs">
+                    {counterparties.length}
+                  </span>
+                )}
+              </button>
 
-          {/* 3. Overdue Contracts */}
-          <div className="p-4 rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/80 dark:border-slate-700/70 shadow-xs space-y-1.5">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                <span>{language === 'ku' ? 'دواکەوتوو لە مۆڵەت' : language === 'en' ? 'Overdue Deadline' : 'دارای تاخیر در تحویل'}</span>
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                {contractStats.overdueCount || 0}
-              </span>
-            </div>
-            <div className="text-xl sm:text-2xl font-black font-mono text-rose-600 dark:text-rose-400" dir="ltr">
-              {contractStats.overdueCount || 0} <span className="text-xs font-sans font-bold">{language === 'ku' ? 'مەترسیدار' : language === 'en' ? 'overdue' : 'مورد'}</span>
-            </div>
-            <div className="text-[11px] text-slate-400 truncate">
-              {language === 'ku' ? 'مشمولی سزای دواکەوتن' : language === 'en' ? 'Subject to delay penalties' : 'مشمول جریمه دیرکرد روزانه'}
-            </div>
-          </div>
+              {/* 2. New Counterparty Modal Trigger */}
+              <button
+                type="button"
+                onClick={() => setIsAddCounterpartyModalOpen(true)}
+                className="w-13 h-13 sm:w-15 sm:h-15 rounded-2xl text-slate-300 hover:text-white hover:bg-white/15 transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-95 group"
+                title={language === "ku" ? "پێناسەکردنی لایەنی نوێ" : language === "en" ? "New Counterparty" : "تعریف طرف‌حساب جدید"}
+                aria-label="New Counterparty"
+              >
+                <UserPlus className="w-7 h-7 stroke-[2.2] group-hover:scale-110 transition-transform" />
+              </button>
 
-          {/* 4. Completed & Settled Contracts */}
-          <div className="p-4 rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/80 dark:border-slate-700/70 shadow-xs space-y-1.5">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-teal-500" />
-                <span>{language === 'ku' ? 'تەواوبوو و تەسفیەکراو' : language === 'en' ? 'Completed & Settled' : 'پایان‌یافته و تسویه‌شده'}</span>
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
-                {contractStats.completedCount || 0}
-              </span>
+              {/* 3. New Contract Modal Trigger */}
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingContract(null);
+                  setIsAddContractModalOpen(true);
+                }}
+                className="w-13 h-13 sm:w-15 sm:h-15 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-lg shadow-amber-500/30 transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-95 group"
+                title={language === "ku" ? "عەقد و گرێبەستی نوێ" : language === "en" ? "Sign New Contract" : "عقد قرارداد جدید"}
+                aria-label="New Contract"
+              >
+                <FileSignature className="w-7 h-7 stroke-[2.2] group-hover:scale-110 transition-transform" />
+              </button>
             </div>
-            <div className="text-xl sm:text-2xl font-black font-mono text-teal-600 dark:text-teal-400" dir="ltr">
-              {contractStats.completedCount || 0} <span className="text-xs font-sans font-bold">{language === 'ku' ? 'تەواو' : language === 'en' ? 'done' : 'پروژه'}</span>
+
+            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium px-1">
+              <span>{language === "ku" ? "لایەنەکان • لایەنی نوێ • عەقدی نوێ" : language === "en" ? "Counterparties • Add • Contract" : "طرف‌حساب‌ها • طرف‌حساب جدید • قرارداد جدید"}</span>
             </div>
-            <div className="text-[11px] text-slate-400 truncate">
-              {language === 'ku' ? 'مەترەکراو بە بەڵگەنامەی کاتی' : language === 'en' ? 'Voucher issued to accounts' : 'سند قطعی/موقت صادر شده'}
-            </div>
+
           </div>
         </div>
       </div>
