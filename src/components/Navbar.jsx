@@ -16,7 +16,8 @@ import {
   Receipt,
   Landmark,
   Briefcase,
-  Bell
+  Bell,
+  Crown
 } from 'lucide-react';
 
 const NAVBAR_COPY = {
@@ -86,6 +87,8 @@ export function Navbar({
   }, [openGlobalSettings]);
 
   const { hasPermission, currentUser } = usePermissions();
+  const planTier = currentUser?.plan_tier || user?.plan_tier || 'basic';
+  const isPremium = planTier === 'premium';
 
   const canViewDashboard = hasPermission('dashboard.view');
   const canViewAttendance = hasPermission('attendance.read') || hasPermission('attendance.write') || hasPermission('workers.manage');
@@ -189,6 +192,14 @@ export function Navbar({
                         {isActive && (
                           <span className="text-xs font-bold px-1 animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
                             {item.label}
+                          </span>
+                        )}
+
+                        {/* Pro badge for restricted tabs on basic plan */}
+                        {!isPremium && (item.id === 'expenses' || item.id === 'accounting') && (
+                          <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 uppercase tracking-wider shadow-xs flex items-center gap-0.5">
+                            <Crown className="w-2.5 h-2.5" />
+                            PRO
                           </span>
                         )}
 
@@ -324,6 +335,11 @@ export function Navbar({
                 }`}
               >
                 <Icon className="w-6 h-6 sm:w-6.5 sm:h-6.5 flex-shrink-0" />
+                {!isPremium && (item.id === 'expenses' || item.id === 'accounting') && (
+                  <span className="absolute -top-1 -end-1 px-1 py-0.5 rounded text-[8px] font-black bg-amber-400 text-slate-950 uppercase">
+                    PRO
+                  </span>
+                )}
                 {isActive && (
                   <span className="absolute -bottom-1 w-1.5 h-1.5 bg-white rounded-full shadow-xs" />
                 )}

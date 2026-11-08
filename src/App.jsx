@@ -44,11 +44,17 @@ import { VoucherDetailModal } from './components/accounting/VoucherDetailModal';
 import { autoBackfillAllVouchers } from './services/voucherNumberService';
 import { NotificationProvider } from './context/NotificationContext';
 import { ToastContainer } from './components/ToastContainer';
+import { isSuperAdminRoute } from './services/superAdminService';
+import { SuperAdminPortal } from './components/admin/SuperAdminPortal';
+import { PremiumUpgradeLockScreen } from './components/common/PremiumUpgradeLockScreen';
+import { ShieldAlert, ExternalLink } from 'lucide-react';
 
 function AppContent() {
-  const { user, isAdmin, isWorker, onboardingCompleted, linkLogin, retryLinkLogin, dismissLinkLogin } = useAuth();
+  const { user, isAdmin, isWorker, onboardingCompleted, linkLogin, retryLinkLogin, dismissLinkLogin, logout } = useAuth();
   const { hasPermission } = usePermissions();
   const { language, numberFormat } = useLanguage();
+  const planTier = user?.plan_tier || 'basic';
+  const isPremium = planTier === 'premium';
   const { 
     profileWorkerId, 
     closeWorkerProfile,
@@ -513,11 +519,19 @@ function AppContent() {
         )}
 
         {activeTab === 'expenses' && canViewExpenses && (
-          <ExpensesView />
+          isPremium ? (
+            <ExpensesView />
+          ) : (
+            <PremiumUpgradeLockScreen tab="expenses" onBack={() => setActiveTab('dashboard')} />
+          )
         )}
 
         {(activeTab === 'accounting' || activeTab === 'financials' || activeTab === 'settlements') && canViewAccounting && (
-          <FinanceAndAccountingView initialSubTab="payroll" />
+          isPremium ? (
+            <FinanceAndAccountingView initialSubTab="payroll" />
+          ) : (
+            <PremiumUpgradeLockScreen tab="accounting" onBack={() => setActiveTab('dashboard')} />
+          )
         )}
       </main>
 
@@ -693,11 +707,69 @@ function AppContent() {
         <FloatingSetupChecklist />
       )}
 
+      {/* Workshop Suspended Lock Screen */}
+      {user?.is_suspended && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-4 select-none">
+          <div className="max-w-md w-full bg-white/95 dark:bg-slate-900/95 border border-rose-300/60 dark:border-rose-900/60 rounded-3xl p-8 text-center shadow-2xl space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-500/15 text-rose-500 flex items-center justify-center">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">حساب کارگاه غیرفعال شده است</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              این کارگاه توسط مدیریت کل سیستم کارسینک تعلیق شده است. جهت بررسی وضعیت و فعال‌سازی مجدد، با پشتیبانی یا مدیریت تماس بگیرید.
+            </p>
+            <div className="pt-2 flex flex-col gap-2">
+              <a
+                href="https://t.me/afshineem"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 rounded-xl bg-primary text-white text-xs font-bold shadow-md hover:bg-primary/90 flex items-center justify-center gap-2"
+              >
+                <span>تماس با پشتیبانی کارسینک</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={logout}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-200"
+              >
+                خروج از حساب
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
 export default function App() {
+  const [isAdminMode, setIsAdminMode] = useState(() => isSuperAdminRoute());
+
+  useEffect(() => {
+    const handleNav = (e) => {
+      setIsAdminMode(e.detail?.isAdmin ?? isSuperAdminRoute());
+    };
+    window.addEventListener('adminPortalNavigation', handleNav);
+    const handlePop = () => setIsAdminMode(isSuperAdminRoute());
+    window.addEventListener('popstate', handlePop);
+    return () => {
+      window.removeEventListener('adminPortalNavigation', handleNav);
+      window.removeEventListener('popstate', handlePop);
+    };
+  }, []);
+
+  if (isAdminMode) {
+    return (
+      <ErrorBoundary>
+        <LanguageProvider>
+          <SuperAdminPortal />
+        </LanguageProvider>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <LanguageProvider>

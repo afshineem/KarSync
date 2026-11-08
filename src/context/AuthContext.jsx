@@ -435,8 +435,13 @@ export function AuthProvider({ children }) {
       const regWs = regList.find(w => w.owner_id === supabaseUser.id || (userWs && w.id === userWs.id)) || null;
       if (!userWs && regWs) {
         userWs = regWs;
-      } else if (userWs && regWs && !isLegacyWorkspaceCode(regWs.workspace_code)) {
-        userWs = { ...userWs, workspace_code: regWs.workspace_code };
+      } else if (userWs && regWs) {
+        userWs = { 
+          ...userWs, 
+          workspace_code: !isLegacyWorkspaceCode(regWs.workspace_code) ? regWs.workspace_code : userWs.workspace_code,
+          is_active: regWs.is_active !== undefined ? regWs.is_active : (userWs.is_active !== undefined ? userWs.is_active : true),
+          plan_tier: regWs.plan_tier || userWs.plan_tier || 'basic'
+        };
       }
 
       // If workspace does not exist yet OR still has a legacy KAR* code, upgrade/provision a 6-char random workspace code
@@ -492,6 +497,9 @@ export function AuthProvider({ children }) {
       }
 
       const adminCreds = getAdminCredentials();
+      const planTier = (userWs?.plan_tier === 'premium') ? 'premium' : 'basic';
+      const isWorkspaceActive = userWs ? userWs.is_active !== false : true;
+
       const sessionUser = {
         role: 'admin',
         id: supabaseUser.id,
@@ -499,6 +507,9 @@ export function AuthProvider({ children }) {
         email: supabaseUser.email,
         workspace_id: userWs?.id || null,
         workspaceCode: userWs?.workspace_code || null,
+        plan_tier: planTier,
+        is_active: isWorkspaceActive,
+        is_suspended: !isWorkspaceActive,
         name: profile?.full_name || supabaseUser.user_metadata?.full_name || adminCreds.name || supabaseUser.email.split('@')[0],
         avatar: profile?.avatar || adminCreds.avatar || supabaseUser.user_metadata?.avatar_url || '',
         title: profile?.title || adminCreds.title || 'مدیر ارشد کارگاه',
@@ -1135,6 +1146,11 @@ export function AuthProvider({ children }) {
         return { success: false, error: 'invalidWorkspaceCode' };
       }
 
+      if (workspace.is_active === false) {
+        recordFailedLogin();
+        return { success: false, error: 'workspaceSuspended' };
+      }
+
       // 2. Check user in app_users (System users: operator, viewer, etc.)
       let appUser = null;
       if (db.app_users) {
@@ -1337,7 +1353,7 @@ export function AuthProvider({ children }) {
       }
 
       if (!appUser.is_active) {
-        return { success: false, error: 'accountBlocked' };
+        return { success: false, error: 'userDeactivated' };
       }
 
       // Login Success!
@@ -1372,6 +1388,7 @@ export function AuthProvider({ children }) {
         username: hydratedAppUser.username,
         workspace_id: workspace.id,
         workspaceCode: workspace.workspace_code,
+        plan_tier: workspace.plan_tier === 'premium' ? 'premium' : 'basic',
         permissions: hydratedAppUser.permissions || [],
         can_edit_past_records: Boolean(hydratedAppUser.can_edit_past_records),
         has_all_projects_access: Boolean(hydratedAppUser.has_all_projects_access),

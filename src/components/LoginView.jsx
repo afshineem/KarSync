@@ -144,6 +144,8 @@ export function LoginView({ theme, toggleTheme }) {
       errInvalidCredentials: 'کد کارگاه، نام کاربری یا رمز عبور اشتباه است.',
       errInvalidWorkspaceCode: 'کد کارگاه وارد شده یافت نشد. لطفاً کد کارگاه را بررسی کنید.',
       errAccountBlocked: 'این حساب کاربری غیرفعال شده است. لطفاً با مدیر کارگاه تماس بگیرید.',
+      errWorkspaceSuspended: 'این کارگاه توسط مدیریت سیستم کارسینک غیرفعال شده است. لطفاً جهت فعال‌سازی مجدد با پشتیبانی تماس بگیرید.',
+      errUserDeactivated: 'دسترسی حساب شما در این کارگاه توسط مدیر غیرفعال شده است.',
       errNetwork: 'خطا در برقراری ارتباط با سرور. لطفاً اتصال اینترنت خود را بررسی کنید.',
       errOfflineAuth: 'دستگاه شما آفلاین است. لطفاً از رمز عبور محلی مدیر استفاده کنید یا به اینترنت متصل شوید.',
       errUserAlreadyExists: 'این ایمیل قبلاً ثبت شده است. لطفاً از بخش ورود به حساب استفاده کنید.',
@@ -230,6 +232,8 @@ export function LoginView({ theme, toggleTheme }) {
       errInvalidCredentials: 'کۆدی کارگە، ناوی بەکارهێنەر یان تێپەڕەوشە هەڵەیە.',
       errInvalidWorkspaceCode: 'کۆدی کارگە نەدۆزرایەوە. تکایە کۆدی کارگەکە بپشکنە.',
       errAccountBlocked: 'ئەم هەژمارە ناچالاک کراوە. تکایە پەیوەندی بە بەڕێوەبەری کارگەوە بکە.',
+      errWorkspaceSuspended: 'ئەم کارگەیە لەلایەن بەڕێوەبەرایەتی KarSync ڕاگیراوە. تکایە پەیوەندی بە پشتگیرییەوە بکە.',
+      errUserDeactivated: 'دەسەڵاتی ئەم هەژمارە لەم کارگەیەدا ناچالاک کراوە.',
       errNetwork: 'هەڵە لە پەیوەستبوون بە سێرڤەر. تکایە هێڵی ئینتەرنێتەکەت بپشکنە.',
       errOfflineAuth: 'ئامێرەکەت ئۆفلاینە. تکایە بە تێپەڕەوشەی ناوخۆیی بەڕێوەبەر بچۆ ژوورەوە یان پەیوەست بە بە ئینتەرنێتەوە.',
       errUserAlreadyExists: 'ئەم ئیمەیڵە پێشتر تۆمار کراوە. تکایە لە بەشی چوونەژوورەوە هەوڵ بدە.',
@@ -316,6 +320,8 @@ export function LoginView({ theme, toggleTheme }) {
       errInvalidCredentials: 'Invalid workspace code, username, or password.',
       errInvalidWorkspaceCode: 'Workspace code not found. Please check your workshop code.',
       errAccountBlocked: 'This account has been deactivated. Please contact your workshop administrator.',
+      errWorkspaceSuspended: 'This workshop has been suspended by system administration. Please contact support.',
+      errUserDeactivated: 'Your account access in this workshop has been deactivated by administrator.',
       errNetwork: 'Could not connect to server. Please check your internet connection.',
       errOfflineAuth: 'Device is offline. Please sign in with local admin password or connect to the internet.',
       errUserAlreadyExists: 'An account with this email already exists. Please sign in instead.',
@@ -348,6 +354,12 @@ export function LoginView({ theme, toggleTheme }) {
     }
     if (errStr === 'accountBlocked') {
       return copy.errAccountBlocked;
+    }
+    if (errStr === 'workspaceSuspended') {
+      return copy.errWorkspaceSuspended;
+    }
+    if (errStr === 'userDeactivated') {
+      return copy.errUserDeactivated;
     }
     if (errStr === 'offlineAuthNotAvailable') {
       return copy.errOfflineAuth;

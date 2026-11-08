@@ -27,8 +27,10 @@ import {
   CheckCircle2,
   Building2,
   Copy,
-  Check
+  Check,
+  Crown
 } from 'lucide-react';
+import { navigateToAdminPortal } from '../services/superAdminService';
 
 const SETTINGS_DROPDOWN_COPY = {
   fa: {
@@ -503,6 +505,26 @@ export function SettingsDropdown({
             <span>{c.installPwa}</span>
           </div>
         </button>
+
+        {/* Super Admin Control Plane Shortcut */}
+        {(user?.email === 'afshineem@gmail.com' || user?.role === 'admin' || user?.username === 'afshineem') && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              navigateToAdminPortal();
+            }}
+            className="w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-bold hover:bg-amber-500/10 dark:hover:bg-amber-500/15 transition-colors text-amber-700 dark:text-amber-400 group cursor-pointer border border-amber-500/20"
+          >
+            <div className="flex items-center gap-2.5">
+              <Crown className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+              <span>{langKey === 'fa' ? 'پنل سوپر ادمین (مدیریت کل)' : langKey === 'ku' ? 'بەڕێوەبەرایەتی گشتی (Super Admin)' : 'Super-Admin Portal'}</span>
+            </div>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300">
+              ROOT
+            </span>
+          </button>
+        )}
 
         {/* Logout Action (Keeps distinct danger rose styling) */}
         <button
