@@ -960,6 +960,29 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Supabase OAuth Sign In / Sign Up (Google, Azure/Outlook)
+  const signInWithOAuthProvider = async (provider) => {
+    try {
+      if (!navigator.onLine) {
+        return { success: false, error: 'offlineAuthNotAvailable' };
+      }
+      const targetProvider = provider === 'outlook' || provider === 'microsoft' ? 'azure' : provider;
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: targetProvider,
+        options: {
+          redirectTo
+        }
+      });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
+
   // Unified Login Handler with Role-Segregated Architecture
   // Admin Login: email + password (workspaceCode is optional / auto-detected)
   // Personnel Login: workspaceCode + username/id + password
@@ -1898,6 +1921,7 @@ export function AuthProvider({ children }) {
         enableTwoFactor,
         disableTwoFactor,
         signUp,
+        signInWithOAuthProvider,
         logout,
         resetPassword,
         completeOnboarding,
