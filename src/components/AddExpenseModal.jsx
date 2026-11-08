@@ -351,7 +351,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     expenseDate: new Date().toISOString().slice(0, 10),
     description: '',
     bankTrackingCode: '',
-    bankDocumentNumber: ''
+    bankDocumentNumber: '',
+    isContractorBackcharge: false,
+    contractId: ''
   });
 
   const [receiptPreview, setReceiptPreview] = useState('');
@@ -376,6 +378,15 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   const defaultAccount = useMemo(() => {
     return financialAccounts.find((a) => a.isDefault) || financialAccounts[0] || null;
   }, [financialAccounts]);
+
+  const activeContracts = useLiveQuery(
+    async () => {
+      if (!db.contracts) return [];
+      const list = await db.contracts.toArray();
+      return list.filter((c) => !c.deletedAt && c.status === "active");
+    },
+    []
+  ) || [];
 
   const currentOverdraft = useMemo(() => {
     if (formData.paymentStatus !== 'paid' || !formData.accountId) return null;
@@ -629,6 +640,8 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
         description: formData.description?.trim() || '',
         bankTrackingCode: formData.bankTrackingCode?.trim() || '',
         bankDocumentNumber: formData.bankDocumentNumber?.trim() || '',
+        contractId: formData.contractId || null,
+        isContractorBackcharge: Boolean(formData.isContractorBackcharge),
         expenseDate,
         voucherNumber,
         status: expenseToEdit?.status || 'draft',
@@ -1228,6 +1241,44 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                       placeholder={c.descriptionPlaceholder}
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
                     />
+                  </div>
+
+                  {/* Contractor Backcharge Option */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formData.isContractorBackcharge)}
+                        onChange={(e) => setFormData({ ...formData, isContractorBackcharge: e.target.checked })}
+                        className="rounded text-rose-500 focus:ring-rose-500"
+                      />
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {language === "ku"
+                          ? "خەرجییەکی لاوەکییە لەسەر ئەستۆی پەیمانکار (بڕین لە شایستەی کۆتایی)"
+                          : language === "en"
+                          ? "Backcharge borne by contractor (deducted in final settlement)"
+                          : "هزینه جانبی به عهده پیمانکار (کسر خودکار در تسویه پایان کار)"}
+                      </span>
+                    </label>
+
+                    {formData.isContractorBackcharge && (
+                      <div className="space-y-1 animate-in fade-in">
+                        <select
+                          value={formData.contractId || ""}
+                          onChange={(e) => setFormData({ ...formData, contractId: e.target.value })}
+                          className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
+                        >
+                          <option value="">
+                            {language === "ku" ? "-- هەڵبژاردنی گرێبەستی پەیوەندیدار --" : language === "en" ? "-- Select Contract --" : "-- انتخاب قرارداد مرتبط پیمانکار --"}
+                          </option>
+                          {activeContracts.map((ctr) => (
+                            <option key={ctr.id} value={ctr.id}>
+                              {ctr.contractNumber} - {ctr.title} ({ctr.counterpartyName || "پیمانکار"})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

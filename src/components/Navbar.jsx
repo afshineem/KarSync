@@ -17,13 +17,15 @@ import {
   Landmark,
   Briefcase,
   Bell,
-  Crown
+  Crown,
+  HardHat
 } from 'lucide-react';
 
 const NAVBAR_COPY = {
   fa: {
     dashboard: 'داشبورد',
     workers: 'گزارش کارکرد',
+    operations: 'امور اجرایی',
     expenses: 'هزینه‌ها',
     accounting: 'حسابداری و مالی',
     appSubtitle: 'سامانه جامع مدیریت کارگاه و پرسنل',
@@ -34,6 +36,7 @@ const NAVBAR_COPY = {
   ku: {
     dashboard: 'دەشبۆرد',
     workers: 'ڕاپۆرتی کارکردن',
+    operations: 'کاروباری جێبەجێکردن',
     expenses: 'خەرجییەکان',
     accounting: 'حیسابداری و دارایی',
     appSubtitle: 'سیستەمی گشتگیری بەڕێوەبردنی کارگە و کارمەندان',
@@ -44,6 +47,7 @@ const NAVBAR_COPY = {
   en: {
     dashboard: 'Dashboard',
     workers: 'Reports & Attendance',
+    operations: 'Operations',
     expenses: 'Expenses',
     accounting: 'Finance & Accounting',
     appSubtitle: 'Comprehensive Workshop & Workforce Management',
@@ -95,9 +99,11 @@ export function Navbar({
   const canViewExpenses = hasPermission('expenses.manage');
   const canViewAccounting = hasPermission('settlement.manage') || hasPermission('accounting.manage') || hasPermission('reports.view');
 
+  const canViewOperations = canViewExpenses || canViewAccounting;
   const rawNavItems = [
     { id: 'dashboard', label: c.dashboard, icon: LayoutDashboard, hidden: !canViewDashboard },
     { id: 'workers', label: c.workers, icon: CalendarDays, hidden: !canViewAttendance },
+    { id: 'operations', label: c.operations, icon: HardHat, hidden: !canViewOperations },
     { id: 'expenses', label: c.expenses, icon: Receipt, hidden: !canViewExpenses },
     { id: 'accounting', label: c.accounting, icon: Landmark, hidden: !canViewAccounting },
   ].filter(item => !item.hidden);

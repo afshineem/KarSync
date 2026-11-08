@@ -167,7 +167,8 @@ export async function performWorkspaceFactoryReset({ user }) {
           'app_audit_logs',
           'app_vouchers',
           'app_cheques',
-          'app_chequebooks'
+          'app_chequebooks',
+          'app_contracts'
         ];
         await supabase.from('settings').delete().in('setting_key', legacyBaseKeys);
       } else {
@@ -196,7 +197,8 @@ export async function performWorkspaceFactoryReset({ user }) {
             'app_audit_logs',
             'app_vouchers',
             'app_cheques',
-            'app_chequebooks'
+            'app_chequebooks',
+            'app_contracts'
           ];
           const scopedKeys = baseKeys.map((k) => `${k}_ws_${scopeId}`);
           await supabase.from('settings').delete().in('setting_key', scopedKeys);

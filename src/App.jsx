@@ -38,6 +38,7 @@ import { LockScreenModal } from './components/LockScreenModal';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { ProductTour } from './components/ProductTour';
 import { FloatingSetupChecklist } from './components/FloatingSetupChecklist';
+import OperationsView from './components/OperationsView';
 import { SubsidiarySearchModal } from './components/accounting/SubsidiarySearchModal';
 import { AccountSubsidiaryLedgerModal } from './components/accounting/AccountSubsidiaryLedgerModal';
 import { VoucherDetailModal } from './components/accounting/VoucherDetailModal';
@@ -75,6 +76,7 @@ function AppContent() {
     if (tabId === 'expenses') return canViewExpenses;
     if (tabId === 'accounting' || tabId === 'financials' || tabId === 'settlements') return canViewAccounting;
     if (tabId === 'counterparties') return hasPermission('accounting.manage') || hasPermission('settlement.manage');
+    if (tabId === 'operations') return canViewExpenses || canViewAccounting;
     return true;
   };
 
@@ -512,6 +514,10 @@ function AppContent() {
             navTarget={personnelNav}
             onNavConsumed={() => setPersonnelNav(null)}
           />
+        )}
+
+        {activeTab === 'operations' && (canViewExpenses || canViewAccounting) && (
+          <OperationsView />
         )}
 
         {activeTab === 'counterparties' && canViewAccounting && (

@@ -1237,6 +1237,8 @@ function subscribeToRealtime() {
         await pullChequesLive(true);
       } else if (key === getScopedSettingKey('app_chequebooks')) {
         await pullChequebooksLive(true);
+      } else if (key === getScopedSettingKey('app_contracts')) {
+        await pullContractsLive(true);
       }
     })
     .subscribe((status) => {
@@ -4383,6 +4385,7 @@ export async function syncFinancialDataLive() {
     await pullLoansLive(true);
     await pullChequesLive(true);
     await pullChequebooksLive(true);
+    await pullContractsLive(true);
     await pullGlobalOverdraftPolicyLive();
     const ctx = getActiveWorkspaceContext();
     if (ctx.isLegacyOwner) {
@@ -4948,3 +4951,118 @@ export async function deleteChequebookLive(bookId) {
 
 
 
+
+// ----------------------------------------------------
+// CONTRACTS & OPERATIONS CLOUD SYNC
+// ----------------------------------------------------
+
+export async function pushContractLive(contractRecord) {
+  if (!contractRecord || !contractRecord.id || !db.contracts) return;
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return;
+
+  try {
+    const localContracts = await db.contracts.toArray();
+    const activeLocal = localContracts.filter(c => !c.deletedAt && c.status !== 'deleted');
+
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_contracts'))
+      .maybeSingle();
+
+    let mergedList = [...activeLocal];
+    if (data?.setting_value) {
+      try {
+        const cloudList = JSON.parse(data.setting_value) || [];
+        const localMap = new Map(activeLocal.map(c => [c.id, c]));
+        for (const cl of cloudList) {
+          if (!localMap.has(cl.id)) {
+            mergedList.push(cl);
+          }
+        }
+      } catch (_) {}
+    }
+
+    await supabase.from('settings').upsert({
+      setting_key: getScopedSettingKey('app_contracts'),
+      setting_value: JSON.stringify(mergedList),
+      updated_at: new Date().toISOString()
+    });
+
+    broadcastSyncEvent('contracts');
+  } catch (err) {
+    console.warn('pushContractLive warning:', err);
+  }
+}
+
+export async function pullContractsLive(triggerEvent = true) {
+  if (!navigator.onLine || !db.contracts) return [];
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.userId && !ctx.isLegacyOwner) return [];
+
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_contracts'))
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      const cloudContracts = JSON.parse(data.setting_value);
+      if (Array.isArray(cloudContracts)) {
+        await db.transaction('rw', db.contracts, async () => {
+          for (const ctr of cloudContracts) {
+            if (!ctr.id) continue;
+            const existing = await db.contracts.get(ctr.id);
+            if (!existing || new Date(ctr.updatedAt || ctr.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
+              await db.contracts.put(ctr);
+            }
+          }
+        });
+
+        if (triggerEvent && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('workshop-contracts-sync'));
+        }
+        return cloudContracts;
+      }
+    }
+  } catch (err) {
+    console.warn('pullContractsLive warning:', err);
+  }
+  return [];
+}
+
+export async function deleteContractLive(contractId) {
+  if (!contractId || !db.contracts) return;
+  try {
+    const existing = await db.contracts.get(contractId);
+    if (existing) {
+      const updated = { ...existing, status: 'deleted', deletedAt: new Date().toISOString() };
+      await db.contracts.put(updated);
+    }
+
+    if (!navigator.onLine) return;
+    const { data } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', getScopedSettingKey('app_contracts'))
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      try {
+        let cloudList = JSON.parse(data.setting_value) || [];
+        cloudList = cloudList.filter(c => c.id !== contractId);
+        await supabase.from('settings').upsert({
+          setting_key: getScopedSettingKey('app_contracts'),
+          setting_value: JSON.stringify(cloudList),
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    broadcastSyncEvent('contracts');
+  } catch (err) {
+    console.warn('deleteContractLive warning:', err);
+  }
+}

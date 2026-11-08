@@ -107,6 +107,11 @@ db.version(18).stores({
   chequebooks: 'id, projectId, bankAccountId, bankName, startSerial, endSerial, totalLeaves, usedLeaves, status, createdAt'
 });
 
+db.version(19).stores({
+  contracts: 'id, projectId, counterpartyId, contractNumber, title, status, startDate, estimatedEndDate, actualEndDate, delayPenaltyPerDay, totalEstimatedAmount, finalPayableAmount, voucherId, created_by, approved_by, createdAt, updatedAt',
+  expenses: 'id, projectId, sectionId, categoryId, personId, paymentStatus, paymentMethod, currency, expenseDate, status, voucherNumber, bankTrackingCode, bankDocumentNumber, chequeId, contractId, isContractorBackcharge, created_by, approved_by, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -155,6 +160,11 @@ export function generateChequeId() {
 // Helper to generate Chequebook IDs
 export function generateChequebookId() {
   return 'chb_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+}
+
+// Helper to generate Contract IDs
+export function generateContractId() {
+  return 'ctr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Expense IDs
@@ -297,6 +307,19 @@ db.counterparties.hook('updating', function (modifications, primKey, obj) {
   if ('projectId' in modifications && !modifications.projectId) {
     modifications.projectId = DEFAULT_PROJECT_ID;
   }
+});
+
+db.contracts.hook('creating', function (primKey, obj) {
+  if (obj.id !== undefined) obj.id = String(obj.id);
+  if (!obj.projectId) obj.projectId = DEFAULT_PROJECT_ID;
+  if (!obj.createdAt) obj.createdAt = new Date().toISOString();
+  if (!obj.status) obj.status = 'active';
+});
+db.contracts.hook('updating', function (modifications, primKey, obj) {
+  if ('projectId' in modifications && !modifications.projectId) {
+    modifications.projectId = DEFAULT_PROJECT_ID;
+  }
+  modifications.updatedAt = new Date().toISOString();
 });
 
 db.projectSections.hook('creating', function (primKey, obj) {
