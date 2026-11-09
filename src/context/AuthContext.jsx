@@ -571,17 +571,24 @@ export function AuthProvider({ children }) {
               }
             } catch (_) {}
 
-            if (savedUser.workspace_id && !wsToUse) {
+            if (savedUser.workspace_id) {
               try {
                 const { data: rWs } = await supabase.from('workspaces').select('*').eq('id', savedUser.workspace_id).maybeSingle();
-                if (rWs) wsToUse = rWs;
+                if (rWs) {
+                  wsToUse = { ...(wsToUse || {}), ...rWs };
+                }
               } catch (_) {}
             }
 
             if (wsToUse) {
               const regMatch = regList.find(w => w.id === wsToUse.id);
-              if (regMatch && !isLegacyWorkspaceCode(regMatch.workspace_code)) {
-                wsToUse = { ...wsToUse, workspace_code: regMatch.workspace_code };
+              if (regMatch) {
+                wsToUse = {
+                  ...wsToUse,
+                  workspace_code: !isLegacyWorkspaceCode(regMatch.workspace_code) ? regMatch.workspace_code : wsToUse.workspace_code,
+                  plan_tier: regMatch.plan_tier || wsToUse.plan_tier || 'basic',
+                  is_active: regMatch.is_active !== undefined ? regMatch.is_active : (wsToUse.is_active !== undefined ? wsToUse.is_active : true)
+                };
               }
             }
           }
@@ -658,6 +665,9 @@ export function AuthProvider({ children }) {
             }
             updatedSession.workspace_id = wsToUse.id;
             updatedSession.workspaceCode = wsToUse.workspace_code;
+            updatedSession.plan_tier = (wsToUse.plan_tier === 'premium') ? 'premium' : (wsToUse.plan_tier || 'basic');
+            updatedSession.is_active = wsToUse.is_active !== false;
+            updatedSession.is_suspended = wsToUse.is_active === false;
           }
 
           if (latestStaffRecord) {
@@ -714,6 +724,24 @@ export function AuthProvider({ children }) {
       isMounted = false;
       subscription?.unsubscribe();
     };
+  }, []);
+
+  // Listen for instant workspace plan tier or status updates from sync/realtime
+  useEffect(() => {
+    const handlePlanUpdate = (e) => {
+      const newPlan = e.detail?.plan_tier;
+      if (newPlan) {
+        setUser(prev => {
+          if (!prev) return prev;
+          if (prev.plan_tier === newPlan) return prev;
+          const updated = { ...prev, plan_tier: newPlan };
+          localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updated));
+          return updated;
+        });
+      }
+    };
+    window.addEventListener('karsync_workspace_plan_updated', handlePlanUpdate);
+    return () => window.removeEventListener('karsync_workspace_plan_updated', handlePlanUpdate);
   }, []);
 
   // Sync settings (credentials, 2FA) from cloud
@@ -2001,7 +2029,8 @@ export function RBACProvider({ children }) {
             merged = hydrateUserFromRecord({
               ...legacyUser,
               ...hydratedDoc,
-              name: hydratedDoc.full_name || legacyUser.name
+              name: hydratedDoc.full_name || legacyUser.name,
+              plan_tier: (legacyUser?.plan_tier === 'premium' || hydratedDoc?.plan_tier === 'premium') ? 'premium' : (legacyUser?.plan_tier || hydratedDoc?.plan_tier || 'basic')
             });
           }
         }
@@ -2021,10 +2050,27 @@ export function RBACProvider({ children }) {
   }, [
     legacyUser?.id,
     legacyUser?.role,
+    legacyUser?.plan_tier,
     JSON.stringify(legacyUser?.permissions),
     legacyUser?.has_all_projects_access,
     JSON.stringify(legacyUser?.allowed_project_ids)
   ]);
+
+  // Listen for instant workspace plan update event
+  useEffect(() => {
+    const handlePlanUpdate = (e) => {
+      const newPlan = e.detail?.plan_tier;
+      if (newPlan) {
+        setCurrentUser(prev => {
+          if (!prev) return prev;
+          if (prev.plan_tier === newPlan) return prev;
+          return { ...prev, plan_tier: newPlan };
+        });
+      }
+    };
+    window.addEventListener('karsync_workspace_plan_updated', handlePlanUpdate);
+    return () => window.removeEventListener('karsync_workspace_plan_updated', handlePlanUpdate);
+  }, []);
 
   // 2. Setup Realtime Listener & Supabase Sync
   useEffect(() => {

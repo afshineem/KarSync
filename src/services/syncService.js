@@ -195,6 +195,21 @@ export async function pullAllFromSupabase() {
       await db.workspaces.put(ws);
     }
 
+    try {
+      const savedStr = localStorage.getItem('workshop_auth_session');
+      if (savedStr) {
+        const saved = JSON.parse(savedStr);
+        const matchingWs = workspaces.find(w => w.id === saved.workspace_id);
+        if (matchingWs && matchingWs.plan_tier && matchingWs.plan_tier !== saved.plan_tier) {
+          saved.plan_tier = matchingWs.plan_tier;
+          localStorage.setItem('workshop_auth_session', JSON.stringify(saved));
+          window.dispatchEvent(new CustomEvent('karsync_workspace_plan_updated', {
+            detail: { plan_tier: matchingWs.plan_tier, workspace_id: matchingWs.id }
+          }));
+        }
+      }
+    } catch (_) {}
+
     for (const w of workers) {
       if (!w.deleted_at) {
         await db.workers.put({
@@ -355,6 +370,21 @@ export async function pullAllFromServer() {
     for (const ws of workspaces) {
       await db.workspaces.put(ws);
     }
+
+    try {
+      const savedStr = localStorage.getItem('workshop_auth_session');
+      if (savedStr) {
+        const saved = JSON.parse(savedStr);
+        const matchingWs = workspaces.find(w => w.id === saved.workspace_id);
+        if (matchingWs && matchingWs.plan_tier && matchingWs.plan_tier !== saved.plan_tier) {
+          saved.plan_tier = matchingWs.plan_tier;
+          localStorage.setItem('workshop_auth_session', JSON.stringify(saved));
+          window.dispatchEvent(new CustomEvent('karsync_workspace_plan_updated', {
+            detail: { plan_tier: matchingWs.plan_tier, workspace_id: matchingWs.id }
+          }));
+        }
+      }
+    } catch (_) {}
     if (workers) await db.workers.bulkAdd(workers);
     if (logs) await db.attendanceLogs.bulkAdd(logs);
   });

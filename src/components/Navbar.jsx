@@ -91,7 +91,9 @@ export function Navbar({
   }, [openGlobalSettings]);
 
   const { hasPermission, currentUser } = usePermissions();
-  const planTier = currentUser?.plan_tier || user?.plan_tier || 'basic';
+  const planTier = (currentUser?.plan_tier === 'premium' || user?.plan_tier === 'premium') 
+    ? 'premium' 
+    : (currentUser?.plan_tier || user?.plan_tier || 'basic');
   const isPremium = planTier === 'premium';
 
   const canViewDashboard = hasPermission('dashboard.view');

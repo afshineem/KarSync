@@ -1239,6 +1239,52 @@ function subscribeToRealtime() {
         await pullChequebooksLive(true);
       } else if (key === getScopedSettingKey('app_contracts')) {
         await pullContractsLive(true);
+      } else if (key === 'app_workspaces_registry') {
+        try {
+          const rawVal = payload.new?.setting_value;
+          if (rawVal) {
+            const list = JSON.parse(rawVal);
+            if (Array.isArray(list)) {
+              const savedStr = localStorage.getItem('workshop_auth_session');
+              if (savedStr) {
+                const saved = JSON.parse(savedStr);
+                const matchingWs = list.find(w => w.id === saved.workspace_id);
+                if (matchingWs) {
+                  if (db.workspaces) await db.workspaces.put(matchingWs).catch(() => {});
+                  const nextPlan = matchingWs.plan_tier || 'basic';
+                  if (saved.plan_tier !== nextPlan) {
+                    saved.plan_tier = nextPlan;
+                    localStorage.setItem('workshop_auth_session', JSON.stringify(saved));
+                    window.dispatchEvent(new CustomEvent('karsync_workspace_plan_updated', {
+                      detail: { plan_tier: nextPlan, workspace_id: matchingWs.id }
+                    }));
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'workspaces' }, async (payload) => {
+      const updatedWs = payload.new;
+      if (updatedWs && updatedWs.id) {
+        if (db.workspaces) {
+          await db.workspaces.put(updatedWs).catch(() => {});
+        }
+        try {
+          const savedStr = localStorage.getItem('workshop_auth_session');
+          if (savedStr) {
+            const saved = JSON.parse(savedStr);
+            if (saved.workspace_id === updatedWs.id && updatedWs.plan_tier && updatedWs.plan_tier !== saved.plan_tier) {
+              saved.plan_tier = updatedWs.plan_tier;
+              localStorage.setItem('workshop_auth_session', JSON.stringify(saved));
+              window.dispatchEvent(new CustomEvent('karsync_workspace_plan_updated', {
+                detail: { plan_tier: updatedWs.plan_tier, workspace_id: updatedWs.id }
+              }));
+            }
+          }
+        } catch (_) {}
       }
     })
     .subscribe((status) => {

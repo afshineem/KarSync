@@ -52,9 +52,11 @@ import { ShieldAlert, ExternalLink } from 'lucide-react';
 
 function AppContent() {
   const { user, isAdmin, isWorker, onboardingCompleted, linkLogin, retryLinkLogin, dismissLinkLogin, logout } = useAuth();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, currentUser } = usePermissions();
   const { language, numberFormat } = useLanguage();
-  const planTier = user?.plan_tier || 'basic';
+  const planTier = (currentUser?.plan_tier === 'premium' || user?.plan_tier === 'premium') 
+    ? 'premium' 
+    : (currentUser?.plan_tier || user?.plan_tier || 'basic');
   const isPremium = planTier === 'premium';
   const { 
     profileWorkerId, 
