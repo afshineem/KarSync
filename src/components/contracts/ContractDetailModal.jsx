@@ -51,6 +51,16 @@ export default function ContractDetailModal({
     [contract?.id, contract?.counterpartyId, contract?.linkedGroupId, contract?.startDate]
   );
 
+    // Close on Escape key
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !contract) return null;
 
   const isCompleted = contract.status === 'completed';
@@ -73,11 +83,29 @@ export default function ContractDetailModal({
     }
   };
 
+    const formatItemUnit = (unit) => {
+    if (unit === 'man_day') {
+      return language === 'ku' ? 'ڕۆژ-کرێکار' : language === 'en' ? 'Man-Day' : 'نفر-روز';
+    }
+    if (unit === 'm2') return language === 'ku' ? 'م²' : language === 'en' ? 'm²' : 'متر مربع';
+    if (unit === 'm1') return language === 'ku' ? 'م.درێژی' : language === 'en' ? 'Linear m' : 'متر طول';
+    if (unit === 'm3') return language === 'ku' ? 'م³' : language === 'en' ? 'm³' : 'متر مکعب';
+    if (unit === 'item') return language === 'ku' ? 'دانە' : language === 'en' ? 'Item' : 'عدد';
+    if (unit === 'lump_sum') return language === 'ku' ? 'سەرجەم' : language === 'en' ? 'Lump sum' : 'مقطوع';
+    return unit;
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-900/60 animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
-        className="w-full max-w-4xl rounded-3xl bg-[#f3f6f4] dark:bg-slate-950 border border-white/60 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col my-auto max-h-[92vh]"
+        className="w-full max-w-4xl rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-slate-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.18)] overflow-hidden flex flex-col my-auto max-h-[92vh]"
         dir={direction}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-20 no-print">
@@ -190,7 +218,9 @@ export default function ContractDetailModal({
                     <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'یەکە' : language === 'en' ? 'Unit' : 'واحد'}</th>
                     <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'کەرەستە' : language === 'en' ? 'Materials' : 'وضعیت مصالح'}</th>
                     <th className="py-2.5 px-3 text-center">
-                      {isCompleted ? (language === 'ku' ? 'قەبارەی کرداری' : language === 'en' ? 'Final Qty' : 'مقدار قطعی') : (language === 'ku' ? 'قەبارەی خەمڵێنراو' : language === 'en' ? 'Est. Qty' : 'مقدار برآوردی')}
+                      {isCompleted
+                        ? (language === 'ku' ? 'قەبارەی کرداری' : language === 'en' ? 'Final Qty' : 'مقدار قطعی')
+                        : (language === 'ku' ? 'کارکرد / قەبارە' : language === 'en' ? 'Quantity / Days' : 'مقدار / کارکرد')}
                     </th>
                     <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'نرخی یەکە' : language === 'en' ? 'Unit Price' : 'نرخ واحد'}</th>
                     <th className="py-2.5 px-3 text-end">{language === 'ku' ? 'کۆی گشتی' : language === 'en' ? 'Total' : 'مبلغ کل'}</th>
@@ -199,9 +229,8 @@ export default function ContractDetailModal({
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {(contract.items || []).map((it, idx) => {
                     const isManDay = it.unit === 'man_day';
-                    const qty = Number(isCompleted && it.finalQuantity !== undefined ? it.finalQuantity : it.estimatedQuantity) || 0;
+                    const estimatedQty = Number(it.estimatedQuantity) || 0;
                     const rate = Number(it.unitPrice) || 0;
-                    const total = qty * rate;
 
                     // Role-specific day mapping:
                     const itemRole = it.targetRole || (
@@ -209,14 +238,22 @@ export default function ContractDetailModal({
                       it.title?.includes('کارگر') || it.title?.includes('کرێکار') ? 'worker' : 'all'
                     );
 
-                    let liveDays = null;
+                    let liveDays = 0;
                     if (isManDay && crewAttendance) {
-                      if (itemRole === 'master') liveDays = crewAttendance.masterDays;
-                      else if (itemRole === 'worker') liveDays = crewAttendance.workerDays;
-                      else liveDays = crewAttendance.totalDays;
+                      if (itemRole === 'master') liveDays = crewAttendance.masterDays || 0;
+                      else if (itemRole === 'worker') liveDays = crewAttendance.workerDays || 0;
+                      else liveDays = crewAttendance.totalDays || 0;
                     }
 
-                    const liveEarned = isManDay && liveDays !== null ? (liveDays * rate) : null;
+                    // Display quantity: for man_day, replace estimated with live days directly as requested
+                    const displayQty = isCompleted
+                      ? (Number(it.finalQuantity !== undefined ? it.finalQuantity : estimatedQty) || 0)
+                      : (isManDay ? liveDays : estimatedQty);
+
+                    // Financial total: for man_day live, display live earned (liveDays * rate)
+                    const displayTotal = isManDay && !isCompleted
+                      ? (liveDays * rate)
+                      : (displayQty * rate);
 
                     return (
                       <tr key={it.id || idx} className={`transition-colors ${isManDay ? 'bg-amber-500/5 dark:bg-amber-500/10' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'}`}>
@@ -225,43 +262,43 @@ export default function ContractDetailModal({
                           <div className="flex items-center gap-1.5">
                             {isManDay && <Users className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
                             <span>{it.title}</span>
+                            {isManDay && (
+                              <span className="ms-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                                {itemRole === 'master' ? (language === 'ku' ? 'وەستاکار' : language === 'en' ? 'Master' : 'استادکار') :
+                                 itemRole === 'worker' ? (language === 'ku' ? 'کرێکار' : language === 'en' ? 'Worker' : 'کارگر') :
+                                 (language === 'ku' ? 'گشتی' : language === 'en' ? 'Crew' : 'اکیپ')}
+                              </span>
+                            )}
                           </div>
-                          {isManDay && (
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              <span className="inline-block text-[10px] text-amber-600 dark:text-amber-400 font-normal">
-                                {language === 'ku' ? 'بەستراوەتەوە بە ئامادەبوونی ڕۆژانەی تیم' : language === 'en' ? 'Synced with crew daily attendance' : 'متصل به کارکرد تقویم روزانه اکیپ'}
-                              </span>
-                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-                                {itemRole === 'master' ? (language === 'ku' ? 'تایبەت بە وەستاکار' : language === 'en' ? 'Master Craftsman Role' : 'مختص ردیف استادکار') :
-                                 itemRole === 'worker' ? (language === 'ku' ? 'تایبەت بە کرێکاری ئاسایی' : language === 'en' ? 'General Worker Role' : 'مختص ردیف کارگر') :
-                                 (language === 'ku' ? 'سەرجەم اکیپ' : language === 'en' ? 'Combined Crew' : 'کل اکیپ')}
-                              </span>
-                            </div>
-                          )}
                         </td>
-                        <td className="py-3 px-3 text-center text-slate-500 font-bold">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] ${isManDay ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                            {it.unit}
+                        <td className="py-3 px-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${isManDay ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                            {formatItemUnit(it.unit)}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-center text-[11px] text-slate-500">
+                        <td className="py-3 px-3 text-center text-[11px] text-slate-500 dark:text-slate-400">
                           {it.materialProvision === 'contractor' ? (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'با مصالح پیمانکار') : (language === 'ku' ? 'کارگە' : language === 'en' ? 'Workshop' : 'با مصالح کارگاه')}
                         </td>
                         <td className="py-3 px-3 text-center font-mono">
-                          <div className="font-bold text-slate-700 dark:text-slate-300">{qty}</div>
-                          {isManDay && (
-                            <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                              <span>{liveDays} {language === 'ku' ? 'ڕۆژی لایڤ' : language === 'en' ? 'live days' : 'نفر-روز لایو'}</span>
+                          <div className="text-sm font-black text-slate-900 dark:text-white">
+                            {displayQty}
+                          </div>
+                          {isManDay && estimatedQty > 0 && (
+                            <div className="text-[10px] text-slate-400 font-normal">
+                              {language === 'ku' ? 'خەمڵێندراو:' : language === 'en' ? 'Est.:' : 'برآورد:'} {estimatedQty}
                             </div>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-center font-mono text-slate-600 dark:text-slate-400">{formatAmount(rate, currency)}</td>
+                        <td className="py-3 px-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300">
+                          {formatAmount(rate, currency)}
+                        </td>
                         <td className="py-3 px-3 text-end font-mono" dir="ltr">
-                          <div className="font-black text-slate-900 dark:text-white">{formatAmount(total, currency)}</div>
-                          {isManDay && liveDays > 0 && (
-                            <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
-                              لایو: {formatAmount(liveEarned, currency)}
+                          <div className="text-sm font-black text-slate-900 dark:text-white">
+                            {formatAmount(displayTotal, currency)}
+                          </div>
+                          {isManDay && !isCompleted && estimatedQty > 0 && (
+                            <div className="text-[10px] text-slate-400 font-normal">
+                              {language === 'ku' ? 'خەمڵێندراو:' : language === 'en' ? 'Est.:' : 'سقف برآورد:'} {formatAmount(estimatedQty * rate, currency)}
                             </div>
                           )}
                         </td>

@@ -236,6 +236,16 @@ export default function ContractSettlementModal({
     });
   }, [contract, completedItems, actualEndDate, previousPayments, selectedAdvanceIds, backchargeExpenses, selectedBackchargeIds, customBackcharges, crewAttendance, crewAttendanceMode]);
 
+    // Close on Escape key
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !contract) return null;
 
   const handleSubmit = async (e) => {
@@ -267,9 +277,15 @@ export default function ContractSettlementModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-900/60 animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
-        className="w-full max-w-5xl rounded-3xl bg-[#f3f6f4] dark:bg-slate-950 border border-white/60 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col my-auto max-h-[92vh]"
+        className="w-full max-w-4xl rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-slate-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.18)] overflow-hidden flex flex-col my-auto max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
         dir={direction}
       >
         {/* Header */}
