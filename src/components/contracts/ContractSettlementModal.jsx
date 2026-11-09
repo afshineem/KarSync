@@ -129,25 +129,32 @@ export default function ContractSettlementModal({
     }
   }, [contract, isOpen, previousPayments.length, backchargeExpenses.length]);
 
-  // When crewAttendance changes, auto-populate man_day item if applicable
+  // When crewAttendance changes, auto-populate man_day items according to their targetRole
   useEffect(() => {
-    if (crewAttendance && crewAttendance.totalDays > 0) {
+    if (crewAttendance && (crewAttendance.totalDays > 0 || crewAttendance.crewWorkers?.length > 0)) {
       if (crewAttendance.matchingManDayIndex !== -1) {
         setCrewAttendanceMode('man_day_item');
         setCompletedItems(prev => {
-          if (!prev[crewAttendance.matchingManDayIndex]) return prev;
-          const updated = [...prev];
-          updated[crewAttendance.matchingManDayIndex] = {
-            ...updated[crewAttendance.matchingManDayIndex],
-            finalQuantity: String(crewAttendance.totalDays)
-          };
-          return updated;
+          return prev.map(it => {
+            if (it.unit !== 'man_day') return it;
+            const role = it.targetRole || (
+              it.title?.includes('استادکار') || it.title?.includes('وەستا') ? 'master' :
+              it.title?.includes('کارگر') || it.title?.includes('کرێکار') ? 'worker' : 'all'
+            );
+            let targetDays = crewAttendance.totalDays;
+            if (role === 'master') targetDays = crewAttendance.masterDays;
+            else if (role === 'worker') targetDays = crewAttendance.workerDays;
+            return {
+              ...it,
+              finalQuantity: String(targetDays)
+            };
+          });
         });
       } else if (crewAttendance.totalGrossWage > 0) {
         setCrewAttendanceMode('extra_gross_wage');
       }
     }
-  }, [crewAttendance?.totalDays, crewAttendance?.matchingManDayIndex]);
+  }, [crewAttendance?.totalDays, crewAttendance?.masterDays, crewAttendance?.workerDays, crewAttendance?.matchingManDayIndex]);
 
   // Handle item quantity change
   const handleItemQtyChange = (index, value) => {
@@ -452,29 +459,37 @@ export default function ContractSettlementModal({
 
                 {crewAttendance && (crewAttendance.totalDays > 0 || crewAttendance.crewWorkers?.length > 0) ? (
                   <div className="space-y-3 pt-1">
-                    {/* 3 Metric Pills */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center">
+                    {/* Metric Pills with Master and Worker Separation */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="p-2 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
                         <span className="block text-[10px] text-slate-400 font-medium">
-                          {language === 'ku' ? 'کۆی ڕۆژ-کرێکار' : language === 'en' ? 'Total Days' : 'مجموع نفر-روز'}
+                          {language === 'ku' ? 'کۆی گشتی' : language === 'en' ? 'Total Days' : 'کل نفر-روز'}
                         </span>
-                        <span className="text-sm font-black text-slate-900 dark:text-white font-mono">
+                        <span className="text-sm font-black text-amber-600 dark:text-amber-400 font-mono">
                           {crewAttendance.totalDays}
                         </span>
                       </div>
-                      <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center">
-                        <span className="block text-[10px] text-slate-400 font-medium">
-                          {language === 'ku' ? 'نەفەراتی اکیپ' : language === 'en' ? 'Crew Members' : 'کارگران اکیپ'}
+                      <div className="p-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center">
+                        <span className="block text-[10px] text-indigo-500 font-bold">
+                          {language === 'ku' ? 'وەستاکار' : language === 'en' ? 'Master' : 'استادکار'}
                         </span>
-                        <span className="text-sm font-black text-slate-900 dark:text-white font-mono">
-                          {crewAttendance.crewWorkers?.length || 0}
+                        <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                          {crewAttendance.masterDays}
                         </span>
                       </div>
-                      <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center">
-                        <span className="block text-[10px] text-slate-400 font-medium">
-                          {language === 'ku' ? 'نرخی ڕۆژانە' : language === 'en' ? 'Gross Wages' : 'ارزش دستمزد'}
+                      <div className="p-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                        <span className="block text-[10px] text-emerald-500 font-bold">
+                          {language === 'ku' ? 'کرێکار' : language === 'en' ? 'Worker' : 'کارگر'}
                         </span>
-                        <span className="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400 font-mono" dir="ltr">
+                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                          {crewAttendance.workerDays}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center">
+                        <span className="block text-[10px] text-slate-400 font-medium">
+                          {language === 'ku' ? 'ارزشی دەستحەق' : language === 'en' ? 'Gross Wages' : 'ارزش دستمزد'}
+                        </span>
+                        <span className="text-xs font-black text-slate-900 dark:text-white font-mono" dir="ltr">
                           {formatAmount(crewAttendance.totalGrossWage, currency)}
                         </span>
                       </div>
@@ -490,16 +505,22 @@ export default function ContractSettlementModal({
                           type="button"
                           onClick={() => {
                             setCrewAttendanceMode('man_day_item');
-                            if (crewAttendance.matchingManDayIndex !== -1) {
-                              setCompletedItems(prev => {
-                                const updated = [...prev];
-                                updated[crewAttendance.matchingManDayIndex] = {
-                                  ...updated[crewAttendance.matchingManDayIndex],
-                                  finalQuantity: String(crewAttendance.totalDays)
+                            setCompletedItems(prev => {
+                              return prev.map(it => {
+                                if (it.unit !== 'man_day') return it;
+                                const role = it.targetRole || (
+                                  it.title?.includes('استادکار') || it.title?.includes('وەستا') ? 'master' :
+                                  it.title?.includes('کارگر') || it.title?.includes('کرێکار') ? 'worker' : 'all'
+                                );
+                                let targetDays = crewAttendance.totalDays;
+                                if (role === 'master') targetDays = crewAttendance.masterDays;
+                                else if (role === 'worker') targetDays = crewAttendance.workerDays;
+                                return {
+                                  ...it,
+                                  finalQuantity: String(targetDays)
                                 };
-                                return updated;
                               });
-                            }
+                            });
                           }}
                           className={'py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center ' + (
                             crewAttendanceMode === 'man_day_item'

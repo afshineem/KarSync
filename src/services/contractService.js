@@ -13,7 +13,7 @@ export const WORK_ITEM_UNITS = [
   { id: 'm1', fa: 'متر طول (m)', ku: 'مەتری درێژی (m)', en: 'Linear Meter (m)' },
   { id: 'm3', fa: 'متر مکعب (m³)', ku: 'مەتری سێجا (m³)', en: 'Cubic Meter (m³)' },
   { id: 'item', fa: 'عدد / شعله / سقف', ku: 'دانە / سەقف', en: 'Item / Piece' },
-  { id: 'man_day', fa: 'نفر-روز کارگری', ku: 'ڕۆژ-کرێکار', en: 'Man-Day' },
+  { id: 'man_day', fa: 'نفر-روز کارگری (روزمزد)', ku: 'ڕۆژ-کرێکار (دەستحەق)', en: 'Man-Day (Day Labor)' },
   { id: 'lump_sum', fa: 'مقطوع / کلی', ku: 'سەرجەم / قەتعی', en: 'Lump Sum' }
 ];
 
@@ -287,9 +287,15 @@ export async function getContractCrewAttendanceSummary({
   if (!contract || !db.attendanceLogs) {
     return {
       totalDays: 0,
+      masterDays: 0,
+      workerDays: 0,
       totalOvertimeHours: 0,
+      masterGrossWage: 0,
+      workerGrossWage: 0,
       totalGrossWage: 0,
       crewWorkers: [],
+      masterWorkers: [],
+      generalWorkers: [],
       workerBreakdown: [],
       logs: [],
       matchingManDayIndex: -1,
@@ -299,7 +305,9 @@ export async function getContractCrewAttendanceSummary({
   }
 
   const projectId = contract.projectId || DEFAULT_PROJECT_ID;
-  const start = startDate || null;
+  
+  // 3.1: Calculate strictly from contract.startDate onwards (never pull old history prior to contract start)
+  const start = startDate || contract.startDate || null;
   const end = endDate || (contract.status === 'completed' ? contract.actualEndDate : null);
 
   // 1. Resolve linked counterparty and group with resilient fallbacks
@@ -357,7 +365,7 @@ export async function getContractCrewAttendanceSummary({
     }
   }
 
-  // 2. Find all crew workers
+  // 3.3: Find only active workers in this project belonging to this crew
   const crewWorkers = allWorkers.filter(w => {
     if (w.deletedAt || w.isActive === 0) return false;
     // Worker matches linked group
@@ -374,9 +382,15 @@ export async function getContractCrewAttendanceSummary({
   if (crewWorkers.length === 0) {
     return {
       totalDays: 0,
+      masterDays: 0,
+      workerDays: 0,
       totalOvertimeHours: 0,
+      masterGrossWage: 0,
+      workerGrossWage: 0,
       totalGrossWage: 0,
       crewWorkers: [],
+      masterWorkers: [],
+      generalWorkers: [],
       workerBreakdown: [],
       logs: [],
       matchingManDayIndex,
@@ -388,7 +402,9 @@ export async function getContractCrewAttendanceSummary({
   const crewWorkerIds = new Set(crewWorkers.map(w => String(w.id)));
   const crewWorkerMap = new Map(crewWorkers.map(w => [String(w.id), w]));
 
-  // 3. Query attendance logs
+  // 3. Query attendance logs with strict zero-leakage conditions:
+  // 3.1: date >= start (strictly from contract start date onwards)
+  // 3.2: ONLY UNSETTLED LOGS (!l.isSettled and !l.settlementReceiptId)
   const allLogs = db.attendanceLogs ? await db.attendanceLogs.toArray() : [];
   const relevantLogs = allLogs.filter(l => {
     if (l.deletedAt) return false;
@@ -396,19 +412,28 @@ export async function getContractCrewAttendanceSummary({
     if (l.projectId && contract.projectId && l.projectId !== contract.projectId && contract.projectId !== DEFAULT_PROJECT_ID) {
       return false;
     }
+    // 3.1: Strictly from contract start date
     if (start && l.date && l.date < start) return false;
+    // Upper bound if set
     if (end && l.date && l.date > end) return false;
+    // 3.2: Filter out settled logs
+    if (l.isSettled || l.settlementReceiptId) return false;
     return true;
   });
 
   let totalDays = 0;
+  let masterDays = 0;
+  let workerDays = 0;
   let totalOvertimeHours = 0;
+  let masterGrossWage = 0;
+  let workerGrossWage = 0;
   let totalGrossWage = 0;
 
   const workerBreakdown = new Map();
   crewWorkers.forEach(w => {
     workerBreakdown.set(String(w.id), {
       worker: w,
+      isMaster: w.teamRole === 'Master' || w.role?.includes('استادکار') || w.role?.includes('وەستا'),
       daysCount: 0,
       overtimeHours: 0,
       grossWage: 0,
@@ -441,7 +466,17 @@ export async function getContractCrewAttendanceSummary({
       else logPay = wDaily + (otHours * wOtRate);
     }
 
+    const isMaster = w.teamRole === 'Master' || w.role?.includes('استادکار') || w.role?.includes('وەستا');
+
     totalDays += dayWeight;
+    if (isMaster) {
+      masterDays += dayWeight;
+      masterGrossWage += logPay;
+    } else {
+      workerDays += dayWeight;
+      workerGrossWage += logPay;
+    }
+
     totalOvertimeHours += otHours;
     totalGrossWage += logPay;
 
@@ -454,11 +489,20 @@ export async function getContractCrewAttendanceSummary({
     }
   });
 
+  const masterWorkers = crewWorkers.filter(w => w.teamRole === 'Master' || w.role?.includes('استادکار') || w.role?.includes('وەستا'));
+  const generalWorkers = crewWorkers.filter(w => !masterWorkers.some(mw => mw.id === w.id));
+
   return {
     totalDays: Math.round(totalDays * 10) / 10,
+    masterDays: Math.round(masterDays * 10) / 10,
+    workerDays: Math.round(workerDays * 10) / 10,
     totalOvertimeHours,
+    masterGrossWage,
+    workerGrossWage,
     totalGrossWage,
     crewWorkers,
+    masterWorkers,
+    generalWorkers,
     workerBreakdown: Array.from(workerBreakdown.values()),
     logs: relevantLogs,
     matchingManDayIndex,

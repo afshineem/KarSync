@@ -110,6 +110,7 @@ export default function AddEditContractModal({
             id: 'item_1',
             title: '',
             unit: 'm2',
+            targetRole: 'worker', // 'master' | 'worker' | 'all'
             materialProvision: 'contractor',
             estimatedQuantity: '',
             unitPrice: ''
@@ -147,6 +148,7 @@ export default function AddEditContractModal({
           id: `item_${Date.now()}`,
           title: '',
           unit: 'm2',
+          targetRole: 'worker',
           materialProvision: 'contractor',
           estimatedQuantity: '',
           unitPrice: ''
@@ -194,6 +196,7 @@ export default function AddEditContractModal({
         ...it,
         title: String(it.title || '').trim(),
         unit: it.unit || 'm2',
+        targetRole: it.targetRole || (it.unit === 'man_day' ? (it.title?.includes('استادکار') || it.title?.includes('وەستا') ? 'master' : 'worker') : 'worker'),
         materialProvision: it.materialProvision || 'contractor',
         estimatedQuantity: Number(String(it.estimatedQuantity).replace(/,/g, '')) || 0,
         unitPrice: Number(String(it.unitPrice).replace(/,/g, '')) || 0
@@ -469,8 +472,14 @@ export default function AddEditContractModal({
                           <div className="sm:col-span-3 space-y-1">
                             <select
                               value={item.unit}
-                              onChange={(e) => handleUpdateItem(index, 'unit', e.target.value)}
-                              className="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                              onChange={(e) => {
+                                const newUnit = e.target.value;
+                                handleUpdateItem(index, 'unit', newUnit);
+                                if (newUnit === 'man_day' && !item.targetRole) {
+                                  handleUpdateItem(index, 'targetRole', 'worker');
+                                }
+                              }}
+                              className="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary"
                             >
                               {WORK_ITEM_UNITS.map(u => (
                                 <option key={u.id} value={u.id}>
@@ -478,6 +487,21 @@ export default function AddEditContractModal({
                                 </option>
                               ))}
                             </select>
+
+                            {/* Role selector specifically for man_day */}
+                            {item.unit === 'man_day' && (
+                              <div className="pt-1">
+                                <select
+                                  value={item.targetRole || 'worker'}
+                                  onChange={(e) => handleUpdateItem(index, 'targetRole', e.target.value)}
+                                  className="w-full px-2 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] font-bold text-amber-700 dark:text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                >
+                                  <option value="worker">{language === 'ku' ? 'کرێکار (سادە)' : language === 'en' ? 'General Worker' : 'کارگر ساده / عادی'}</option>
+                                  <option value="master">{language === 'ku' ? 'وەستاکار (سەرپەرشتیار)' : language === 'en' ? 'Master Craftsman' : 'استادکار / سرپرست'}</option>
+                                  <option value="all">{language === 'ku' ? 'سەرجەم اکیپ (گشتی)' : language === 'en' ? 'All Crew (Combined)' : 'کل اکیپ (تجمیعی)'}</option>
+                                </select>
+                              </div>
+                            )}
                           </div>
 
                           {/* Material Provision */}
