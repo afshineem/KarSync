@@ -97,115 +97,113 @@ export default function ContractDetailModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-900/60 animate-in fade-in duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      dir={direction}
+      className="fixed inset-0 !top-0 !left-0 !right-0 !bottom-0 !m-0 !p-0 z-[100] w-screen h-[100dvh] max-h-[100dvh] bg-[#f3f6f4] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden select-none animate-in fade-in duration-150"
+      role="dialog"
+      aria-modal="true"
     >
-      {/* Root Modal Container: Pure Apple Liquid Glass (Exact Replica of Navbar & ProjectSwitcher) */}
-      <div
-        className="w-full max-w-4xl rounded-3xl bg-white/45 dark:bg-slate-950/50 backdrop-blur-3xl backdrop-saturate-200 border border-white/70 dark:border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.18),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.1)] overflow-hidden flex flex-col my-auto max-h-[92vh]"
-        dir={direction}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Liquid Glass Header */}
-        <div className="px-5 py-4 border-b border-white/60 dark:border-white/10 flex items-center justify-between bg-white/40 dark:bg-white/[0.04] backdrop-blur-2xl backdrop-saturate-200 sticky top-0 z-20 no-print">
-          <div className="flex items-center gap-3">
-            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-xs border ${
-              isCompleted
-                ? 'bg-teal-500/15 border-teal-500/30 text-teal-600 dark:text-teal-400'
-                : 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'
-            }`}>
-              <FileSignature className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  {contract.title}
-                </h3>
-                <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-white/60 dark:bg-white/[0.08] text-slate-700 dark:text-slate-300 border border-white/80 dark:border-white/10 shadow-2xs">
-                  {contract.contractNumber}
-                </span>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  isCompleted
-                    ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30'
-                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
-                }`}>
-                  {isCompleted
-                    ? (language === 'ku' ? 'تەواوبوو / پەسەندکراو' : language === 'en' ? 'Completed' : 'پایان‌یافته و تسویه‌شده')
-                    : (language === 'ku' ? 'لە جێبەجێکردندایە' : language === 'en' ? 'In Progress' : 'در حال اجرا')}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                {contract.counterpartyName || (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'پیمانکار')} {contract.counterpartyPhone ? `• ${contract.counterpartyPhone}` : ''}
-              </p>
-            </div>
+      {/* Top Header Bar */}
+      <header className="px-4 sm:px-6 py-3.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 shrink-0 z-20 shadow-xs no-print">
+        <div className="flex items-center gap-3">
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-xs border ${
+            isCompleted
+              ? 'bg-teal-500/15 border-teal-500/30 text-teal-600 dark:text-teal-400'
+              : 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'
+          }`}>
+            <FileSignature className="w-5 h-5" />
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="p-2.5 rounded-xl bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border border-white/60 dark:border-white/10 text-slate-600 dark:text-slate-300 transition-all shadow-2xs cursor-pointer"
-              title={language === 'ku' ? 'چاپکردن' : language === 'en' ? 'Print' : 'چاپ قرارداد'}
-            >
-              <Printer className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2.5 rounded-xl bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border border-white/60 dark:border-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all shadow-2xs cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+                {contract.title}
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                {contract.contractNumber}
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                isCompleted
+                  ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30'
+                  : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
+              }`}>
+                {isCompleted
+                  ? (language === 'ku' ? 'تەواوبوو / پەسەندکراو' : language === 'en' ? 'Completed' : 'پایان‌یافته و تسویه‌شده')
+                  : (language === 'ku' ? 'لە جێبەجێکردندایە' : language === 'en' ? 'In Progress' : 'در حال اجرا')}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+              {contract.counterpartyName || (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'پیمانکار')} {contract.counterpartyPhone ? `• ${contract.counterpartyPhone}` : ''}
+            </p>
           </div>
         </div>
 
-        {/* Scrollable Content */}
-        <div ref={printRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
+            title={language === 'ku' ? 'چاپکردن' : language === 'en' ? 'Print' : 'چاپ قرارداد'}
+            aria-label={language === 'ku' ? 'چاپکردن' : language === 'en' ? 'Print' : 'چاپ قرارداد'}
+          >
+            <Printer className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all cursor-pointer"
+            title={language === 'ku' ? 'داخستن (Esc)' : language === 'en' ? 'Close (Esc)' : 'بستن (Esc)'}
+            aria-label={language === 'ku' ? 'داخستن (Esc)' : language === 'en' ? 'Close (Esc)' : 'بستن (Esc)'}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Scrollable Content Body */}
+      <main ref={printRef} className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-6xl mx-auto w-full space-y-5 sm:space-y-6">
           
-          {/* Key Specs Row (Nested Glass with slightly higher matte opacity) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-4 rounded-3xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          {/* Key Specs Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
                 {language === 'ku' ? 'بەرواری دەستپێکردن' : language === 'en' ? 'Start Date' : 'تاریخ شروع'}
               </span>
-              <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+              <div className="text-xs sm:text-sm font-mono font-bold text-slate-800 dark:text-slate-200">
                 {contract.startDate || '---'}
               </div>
             </div>
 
-            <div className="p-4 rounded-3xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
                 {language === 'ku' ? 'مۆڵەت / کۆتایی' : language === 'en' ? 'Agreed Deadline' : 'مهلت تحویل'}
               </span>
-              <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+              <div className="text-xs sm:text-sm font-mono font-bold text-slate-800 dark:text-slate-200">
                 {contract.estimatedEndDate || '---'}
               </div>
             </div>
 
-            <div className="p-4 rounded-3xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
                 {language === 'ku' ? 'سزای دواکەوتن (ڕۆژانە)' : language === 'en' ? 'Daily Delay Penalty' : 'جریمه دیرکرد روزانه'}
               </span>
-              <div className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400" dir="ltr">
+              <div className="text-xs sm:text-sm font-mono font-bold text-rose-600 dark:text-rose-400" dir="ltr">
                 {formatAmount(contract.delayPenaltyPerDay || 0, currency)}
               </div>
             </div>
 
-            <div className="p-4 rounded-3xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
                 {language === 'ku' ? 'کۆی گشتی برآورد' : language === 'en' ? 'Total Est. Value' : 'مبلغ کل برآوردی'}
               </span>
-              <div className="text-xs font-mono font-black text-primary" dir="ltr">
+              <div className="text-xs sm:text-sm font-mono font-black text-primary" dir="ltr">
                 {formatAmount(contract.totalEstimatedAmount, currency)} {currency}
               </div>
             </div>
           </div>
 
-          {/* Scope of Work & Measurement Table Card (Nested Matte Glass) */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm space-y-3.5">
-            <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200/60 dark:border-slate-800 text-xs font-black text-slate-900 dark:text-white">
+          {/* Scope of Work & Measurement Table Card */}
+          <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-200/80 dark:border-slate-800 text-xs sm:text-sm font-black text-slate-900 dark:text-white">
               <Layers className="w-4 h-4 text-sky-500" />
               <span>{language === 'ku' ? 'خشتەی بڕگەکانی کار و ئەندازەگیری' : language === 'en' ? 'Scope of Work & Unit Rates' : 'جدول اقلام کاری و احجام متره‌کشی شده'}</span>
             </div>
@@ -213,7 +211,7 @@ export default function ContractDetailModal({
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-start">
                 <thead>
-                  <tr className="border-b border-slate-200/80 dark:border-slate-700 text-slate-400 font-bold">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold">
                     <th className="py-2.5 px-3 text-start">#</th>
                     <th className="py-2.5 px-3 text-start">{language === 'ku' ? 'شرحی کار' : language === 'en' ? 'Item' : 'شرح ردیف'}</th>
                     <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'یەکە' : language === 'en' ? 'Unit' : 'واحد'}</th>
@@ -257,7 +255,7 @@ export default function ContractDetailModal({
                       : (displayQty * rate);
 
                     return (
-                      <tr key={it.id || idx} className={`transition-colors ${isManDay ? 'bg-amber-500/5 dark:bg-amber-500/10' : 'hover:bg-white/40 dark:hover:bg-slate-800/40'}`}>
+                      <tr key={it.id || idx} className={`transition-colors ${isManDay ? 'bg-amber-500/5 dark:bg-amber-500/10' : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'}`}>
                         <td className="py-3 px-3 text-slate-400 font-mono">{idx + 1}</td>
                         <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -273,7 +271,7 @@ export default function ContractDetailModal({
                           </div>
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${isManDay ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20' : 'bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                          <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${isManDay ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
                             {formatItemUnit(it.unit)}
                           </span>
                         </td>
@@ -311,10 +309,10 @@ export default function ContractDetailModal({
             </div>
           </div>
 
-          {/* Live Crew Day-Labor Attendance Card (Nested Glass with slightly higher opacity) */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm space-y-3.5">
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
+          {/* Live Crew Day-Labor Attendance Card */}
+          <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-black text-slate-900 dark:text-white">
                 <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
                   <Users className="w-4 h-4" />
                 </div>
@@ -330,7 +328,7 @@ export default function ContractDetailModal({
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               {language === 'ku'
                 ? 'کارکردی ڕۆژانە و شیفتە تۆمارکراوەکانی تیمی ئەم وەستاکارە لە ڕۆژژمێری ئامادەبووندا؛ ئەم زانیارییانە ڕاستەوخۆ لە ژمێریاری کۆتایی گرێبەستدا دێنە ئەژمار.'
                 : language === 'en'
@@ -339,35 +337,35 @@ export default function ContractDetailModal({
             </p>
 
             {crewAttendance && (crewAttendance.totalDays > 0 || crewAttendance.crewWorkers?.length > 0) ? (
-              <div className="space-y-3 pt-1">
+              <div className="space-y-4 pt-1">
                 {/* 4 Metric Pills: Total, Master Days, Worker Days, and Gross Value */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-0.5">
-                    <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                  <div className="p-3 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-0.5">
+                    <span className="block text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
                       {language === 'ku' ? 'کۆی ڕۆژ-کرێکار (گشتی)' : language === 'en' ? 'Total Man-Days' : 'مجموع نفر-روز (تسویه‌نشده)'}
                     </span>
                     <span className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 font-mono">
                       {crewAttendance.totalDays}
                     </span>
                   </div>
-                  <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center space-y-0.5">
-                    <span className="block text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                  <div className="p-3 sm:p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center space-y-0.5">
+                    <span className="block text-[10px] sm:text-xs text-indigo-600 dark:text-indigo-400 font-bold">
                       {language === 'ku' ? 'ڕۆژەکانی وەستاکاران' : language === 'en' ? 'Master Days' : 'کارکرد استادکاران'}
                     </span>
                     <span className="text-base sm:text-lg font-black text-indigo-600 dark:text-indigo-400 font-mono">
                       {crewAttendance.masterDays} {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}
                     </span>
                   </div>
-                  <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-0.5">
-                    <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                  <div className="p-3 sm:p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-0.5">
+                    <span className="block text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-bold">
                       {language === 'ku' ? 'ڕۆژەکانی کرێکاران' : language === 'en' ? 'Worker Days' : 'کارکرد کارگران'}
                     </span>
                     <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
                       {crewAttendance.workerDays} {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}
                     </span>
                   </div>
-                  <div className="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 text-center space-y-0.5">
-                    <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  <div className="p-3 sm:p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-center space-y-0.5">
+                    <span className="block text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
                       {language === 'ku' ? 'ارزشی دەستحەق' : language === 'en' ? 'Gross Wages Value' : 'ارزش دستمزد پرسنل'}
                     </span>
                     <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white font-mono" dir="ltr">
@@ -377,18 +375,18 @@ export default function ContractDetailModal({
                 </div>
 
                 {/* Detailed Crew Workers List */}
-                <div className="space-y-1.5 pt-1">
-                  <span className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                <div className="space-y-2 pt-1">
+                  <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                     {language === 'ku' ? 'وردەکاری کارکردی ئەندامانی اکیپ:' : language === 'en' ? 'Crew Members Attendance Details:' : 'ریز کارکرد اعضای اکیپ در تقویم:'}
                   </span>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                     {crewAttendance.workerBreakdown?.map((b) => (
                       <div
                         key={b.worker.id}
-                        className="p-2.5 rounded-2xl bg-white/60 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs"
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-xs"
                       >
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-[11px]">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs">
                             {b.worker.teamRole === 'Master' ? '👑' : '👷'}
                           </div>
                           <div>
@@ -416,7 +414,7 @@ export default function ContractDetailModal({
                 </div>
               </div>
             ) : (
-              <div className="p-3.5 rounded-2xl bg-white/40 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-400 italic">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-400 italic">
                 {language === 'ku'
                   ? 'هیچ کارکردێکی ڕۆژانە لە ڕۆژژمێردا بۆ کارمەندانی ئەم اکیپە نەدۆزرایەوە.'
                   : language === 'en'
@@ -426,31 +424,31 @@ export default function ContractDetailModal({
             )}
           </div>
 
-          {/* Backcharges Commitments & Terms (Nested Glass) */}
+          {/* Backcharges Commitments & Terms */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 rounded-3xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm space-y-2.5">
-              <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+              <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                 <Utensils className="w-4 h-4 text-emerald-500" />
                 <span>{language === 'ku' ? 'بەرپرسیاریەتی خەرجییەکانی لاوەکی' : language === 'en' ? 'Site Expenses Responsibility' : 'تعهدات هزینه‌های جانبی کارگاه'}</span>
               </span>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 py-1 border-b border-slate-200/60 dark:border-slate-800">
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 py-1.5 border-b border-slate-100 dark:border-slate-800">
                   <span>{language === 'ku' ? 'خواردنی تیم:' : language === 'en' ? 'Food & Catering:' : 'غذا و پذیرایی اکیپ:'}</span>
                   <span className="font-bold">{contract.backchargeCommitments?.food === 'contractor' ? (language === 'ku' ? 'پای پەیمانکار' : language === 'en' ? 'Contractor' : 'پای پیمانکار') : (language === 'ku' ? 'پای کارگە' : language === 'en' ? 'Workshop' : 'پای کارگاه')}</span>
                 </div>
-                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 py-1 border-b border-slate-200/60 dark:border-slate-800">
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 py-1.5 border-b border-slate-100 dark:border-slate-800">
                   <span>{language === 'ku' ? 'شوێنی مانەوە:' : language === 'en' ? 'Lodging & Housing:' : 'اسکان و خوابگاه پرسنل:'}</span>
                   <span className="font-bold">{contract.backchargeCommitments?.lodging === 'contractor' ? (language === 'ku' ? 'پای پەیمانکار' : language === 'en' ? 'Contractor' : 'پای پیمانکار') : (language === 'ku' ? 'پای کارگە' : language === 'en' ? 'Workshop' : 'پای کارگاه')}</span>
                 </div>
-                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 py-1">
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 py-1.5">
                   <span>{language === 'ku' ? 'هاتوچۆ و ترابەری:' : language === 'en' ? 'Transportation:' : 'ایاب و ذهاب و ترابری:'}</span>
                   <span className="font-bold">{contract.backchargeCommitments?.transport === 'contractor' ? (language === 'ku' ? 'پای پەیمانکار' : language === 'en' ? 'Contractor' : 'پای پیمانکار') : (language === 'ku' ? 'پای کارگە' : language === 'en' ? 'Workshop' : 'پای کارگاه')}</span>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-3xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm space-y-2">
-              <span className="text-xs font-black text-slate-900 dark:text-white">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-2.5">
+              <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
                 {language === 'ku' ? 'مەرج و تێبینییەکان' : language === 'en' ? 'Terms & Notes' : 'شرایط و توضیحات تکمیلی'}
               </span>
               <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
@@ -461,9 +459,9 @@ export default function ContractDetailModal({
 
           {/* Settlement Result if Completed */}
           {isCompleted && contract.settlementDetails && (
-            <div className="p-4 sm:p-5 rounded-3xl bg-teal-500/10 border border-teal-500/25 space-y-2.5">
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-teal-500/10 border border-teal-500/25 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-teal-700 dark:text-teal-300 flex items-center gap-1.5">
+                <span className="text-xs sm:text-sm font-black text-teal-700 dark:text-teal-300 flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{language === 'ku' ? 'ئەنجامی ژمێریاری کۆتایی' : language === 'en' ? 'Final Settlement Statement' : 'نتیجه تسویه و صورت‌وضعیت قطعی'}</span>
                 </span>
@@ -471,10 +469,10 @@ export default function ContractDetailModal({
                   {contract.actualEndDate}
                 </span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-xs">
                 <div>
                   <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'کۆی کارکرد:' : language === 'en' ? 'Gross:' : 'کارکرد ناخالص:'}</span>
-                  <div className="font-mono font-bold">{formatAmount(contract.settlementDetails.grossWorkAmount, currency)}</div>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{formatAmount(contract.settlementDetails.grossWorkAmount, currency)}</div>
                 </div>
                 <div>
                   <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'سزای تاخیر:' : language === 'en' ? 'Delay:' : 'جریمه تاخیر:'}</span>
@@ -493,9 +491,11 @@ export default function ContractDetailModal({
           )}
 
         </div>
+      </main>
 
-        {/* Liquid Glass Sticky Footer Actions Dock */}
-        <div className="px-5 py-4 border-t border-white/60 dark:border-white/10 flex items-center justify-between bg-white/40 dark:bg-white/[0.04] backdrop-blur-2xl backdrop-saturate-200 sticky bottom-0 z-20 no-print">
+      {/* Sticky Bottom Footer Actions Dock */}
+      <footer className="px-4 sm:px-6 py-3.5 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-20 shadow-xs no-print">
+        <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -512,7 +512,7 @@ export default function ContractDetailModal({
                   onClose();
                   onEdit(contract);
                 }}
-                className="px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white/50 hover:bg-white/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border border-white/60 dark:border-white/10 transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Edit2 className="w-4 h-4" />
                 <span>{language === 'ku' ? 'دەستکاری' : language === 'en' ? 'Edit' : 'ویرایش'}</span>
@@ -528,7 +528,7 @@ export default function ContractDetailModal({
                   onClose();
                   onOpenSettlement(contract);
                 }}
-                className="px-5 py-2.5 rounded-2xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/25 transition-all flex items-center gap-2 cursor-pointer"
+                className="px-5 py-2.5 rounded-2xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>{language === 'ku' ? 'تەواوکردن و ژمێریاری کۆتایی' : language === 'en' ? 'Final Settlement' : 'پایان کار و صورت‌وضعیت قطعی'}</span>
@@ -536,7 +536,7 @@ export default function ContractDetailModal({
             )}
           </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
