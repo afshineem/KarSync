@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   Filter,
+  BrickWall,
   HardHat,
   Calendar,
   Clock,
@@ -109,7 +110,7 @@ export default function OperationsView() {
           {/* Right side: Icon + Title + Subtitle */}
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-500/25 flex-shrink-0">
-              <HardHat className="w-6 h-6 stroke-[2.2]" />
+              <BrickWall className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -184,7 +185,7 @@ export default function OperationsView() {
         {/* Hero Top Bar: Glowing Capsule Tag & Project Name */}
         <div className="relative z-10 flex items-center justify-between pb-5 mb-5 border-b border-white/10 flex-wrap gap-3">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold shadow-xs">
-            <HardHat className="w-4 h-4 text-amber-400" />
+            <BrickWall className="w-4 h-4 text-amber-400" />
             <span>{language === "ku" ? "نبزی گرێبەستەکان و ئۆپەراسیۆن" : language === "en" ? "Contracts & Field Operations Pulse" : "نبض قراردادها و عملیات اجرایی کارگاه"}</span>
           </div>
 
