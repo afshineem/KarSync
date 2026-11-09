@@ -15,7 +15,9 @@ import {
   TrendingUp,
   FileSpreadsheet,
   Plus,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Globe,
+  Lock
 } from 'lucide-react';
 
 /**
@@ -46,7 +48,12 @@ const COPY = {
     outflows: 'برداشت‌ها (-):',
     subsidiaryLedger: 'دفتر معین',
     transferFrom: (name) => `انتقال وجه از ${name}`,
-    depositTo: (name) => `افزایش موجودی ${name}`
+    depositTo: (name) => `افزایش موجودی ${name}`,
+    scopeGlobalBadge: 'مشترک شرکت',
+    scopeProjectBadge: 'اختصاصی کارگاه',
+    maskedBalanceTitle: 'تراز نقدی این پروژه:',
+    companyBalanceBadge: 'حساب مشترک ستاد شرکت',
+    maskedNotice: 'موجودی کل بانک محرمانه است'
   },
   ku: {
     title: 'باڵانسی کارتی بانکی و سندوقەکان',
@@ -60,11 +67,16 @@ const COPY = {
     negativeStatus: 'کەمی',
     currentBalance: 'باڵانسی ئێستا:',
     initialBalance: 'باڵانسی سەرەتایی:',
-    inflows: 'هاتوو:',
-    outflows: 'دەرچوو:',
+    inflows: 'هاتوو (+):',
+    outflows: 'دەرچوو (-):',
     subsidiaryLedger: 'دەفتەری معین',
     transferFrom: (name) => `گواستنەوەی پارە لە ${name}`,
-    depositTo: (name) => `زیادکردنی باڵانسی ${name}`
+    depositTo: (name) => `زیادکردنی باڵانسی ${name}`,
+    scopeGlobalBadge: 'هاوبەشی کۆمپانیا',
+    scopeProjectBadge: 'تایبەتی پڕۆژە',
+    maskedBalanceTitle: 'باڵانسی ئەم پڕۆژەیە:',
+    companyBalanceBadge: 'حیسابی هاوبەشی کۆمپانیا',
+    maskedNotice: 'باڵانسی گشتی بانک پارێزراوە'
   },
   en: {
     title: 'Bank Cards & Cash Drawers Balances',
@@ -78,11 +90,16 @@ const COPY = {
     negativeStatus: 'Deficit',
     currentBalance: 'Current Balance:',
     initialBalance: 'Opening Balance:',
-    inflows: 'Inflows:',
-    outflows: 'Outflows:',
+    inflows: 'Inflows (+):',
+    outflows: 'Outflows (-):',
     subsidiaryLedger: 'Subsidiary Ledger',
     transferFrom: (name) => `Transfer funds from ${name}`,
-    depositTo: (name) => `Recharge ${name}`
+    depositTo: (name) => `Recharge ${name}`,
+    scopeGlobalBadge: 'Corporate Shared',
+    scopeProjectBadge: 'Project Dedicated',
+    maskedBalanceTitle: 'Project Net Balance:',
+    companyBalanceBadge: 'Corporate Shared Account',
+    maskedNotice: 'Total bank balance is confidential'
   }
 };
 
@@ -165,7 +182,7 @@ export function AccountBalanceTiles({
                     </div>
 
                     <div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[130px]">
                           {account.name}
                         </h4>
@@ -174,6 +191,12 @@ export function AccountBalanceTiles({
                             <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
                           </span>
                         )}
+                        {account.isGlobal ? (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/20" title={txt.companyBalanceBadge}>
+                            <Globe className="w-2.5 h-2.5" />
+                            <span>{txt.scopeGlobalBadge}</span>
+                          </span>
+                        ) : null}
                       </div>
                       <span className="text-[10px] text-slate-400 block truncate">
                         {isBank ? (account.bankName || txt.cardFallback) : (account.keeperName ? `${txt.keeperPrefix} ${account.keeperName}` : txt.cashFallback)}
@@ -192,9 +215,21 @@ export function AccountBalanceTiles({
                 </div>
 
                 {/* اعلام موجودی زنده و فعلی */}
-                <div className="my-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                    {txt.currentBalance}
+                <div className={`my-2 p-2.5 rounded-2xl border ${
+                  balanceData.isMasked
+                    ? 'bg-amber-500/10 border-amber-500/25'
+                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between text-[10px] font-medium">
+                    <span className={balanceData.isMasked ? 'text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1' : 'text-slate-500 dark:text-slate-400'}>
+                      {balanceData.isMasked && <Lock className="w-2.5 h-2.5" />}
+                      <span>{balanceData.isMasked ? txt.maskedBalanceTitle : txt.currentBalance}</span>
+                    </span>
+                    {balanceData.isMasked && (
+                      <span className="text-[8px] text-amber-600/80 dark:text-amber-400/80 truncate max-w-[120px]">
+                        {txt.maskedNotice}
+                      </span>
+                    )}
                   </div>
                   <div className={`text-base sm:text-lg font-black font-mono mt-0.5 ${
                     isPositive ? 'text-slate-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'
@@ -205,17 +240,19 @@ export function AccountBalanceTiles({
 
                 {/* ریز گردش: اولیه + ورودی - خروجی */}
                 <div className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px]">موجودی اولیه:</span>
-                    <span className="font-mono text-slate-700 dark:text-slate-300">
-                      {formatAmount(balanceData.initialBalance, currency)}
-                    </span>
-                  </div>
+                  {!balanceData.isMasked && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px]">{txt.initialBalance}</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                        {formatAmount(balanceData.initialBalance, currency)}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
                     <span className="text-[10px] flex items-center gap-0.5">
                       <ArrowDownLeft className="w-3 h-3" />
-                      <span>ورودی‌ها:</span>
+                      <span>{txt.inflows}</span>
                     </span>
                     <span className="font-mono font-bold">
                       +{formatAmount(balanceData.totalInflow, currency)}
@@ -225,7 +262,7 @@ export function AccountBalanceTiles({
                   <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
                     <span className="text-[10px] flex items-center gap-0.5">
                       <ArrowUpRight className="w-3 h-3" />
-                      <span>خروجی‌ها:</span>
+                      <span>{txt.outflows}</span>
                     </span>
                     <span className="font-mono font-bold">
                       -{formatAmount(balanceData.totalOutflow, currency)}

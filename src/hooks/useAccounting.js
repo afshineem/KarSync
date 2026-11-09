@@ -206,10 +206,56 @@ export function useAccounting(options = {}) {
         await seedDefaultFinancialAccounts(projectId, user?.id);
         list = await db.financialAccounts.toArray();
       }
-      list = list.filter((acc) => !acc.deletedAt && acc.status !== 'deleted' && (!acc.projectId || acc.projectId === projectId || acc.projectId === DEFAULT_PROJECT_ID || projectId === DEFAULT_PROJECT_ID));
+      list = list.filter((acc) => !acc.deletedAt && acc.status !== 'deleted' && (acc.isGlobal || !acc.projectId || acc.projectId === projectId || acc.projectId === DEFAULT_PROJECT_ID || projectId === DEFAULT_PROJECT_ID));
       return list.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
     },
     [projectId, user, syncTick]
+  ) || [];
+
+  const hasAllProjectsAccess = Boolean(user?.has_all_projects_access || String(user?.role || '').toLowerCase() === 'admin');
+
+  // Company-wide queries for real global bank accounts & multi-project reconciliation
+  const allCompanyIncomes = useLiveQuery(
+    async () => {
+      if (!db.treasuryIncomes) return [];
+      const list = await db.treasuryIncomes.toArray();
+      return list.filter((inc) => !inc.deletedAt);
+    },
+    [syncTick]
+  ) || [];
+
+  const allCompanyPayments = useLiveQuery(
+    async () => {
+      if (!db.payments) return [];
+      const list = await db.payments.toArray();
+      return list.filter((p) => {
+        if (p.deletedAt) return false;
+        const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
+        const isBonus = p.type === 'bonus' || p.type === 'eid';
+        const isLoan = p.type === 'loan' || p.type === 'loan_disbursement';
+        const isSettlement = p.type === 'settlement' || p.type === 'Settlement' || p.status === 'settled' || p.settlement_status === 'settled' || Boolean(p.isSettled);
+        return isAdvance || isBonus || isSettlement || isLoan;
+      });
+    },
+    [syncTick]
+  ) || [];
+
+  const allCompanyExpenses = useLiveQuery(
+    async () => {
+      if (!db.expenses) return [];
+      const list = await db.expenses.toArray();
+      return list.filter((e) => !e.deletedAt && (e.paymentStatus === 'paid' || !e.paymentStatus));
+    },
+    [syncTick]
+  ) || [];
+
+  const allCompanyTransfers = useLiveQuery(
+    async () => {
+      if (!db.accountTransfers) return [];
+      const list = await db.accountTransfers.toArray();
+      return list.filter((trf) => !trf.deletedAt);
+    },
+    [syncTick]
   ) || [];
 
   const defaultAccount = useMemo(() => {
@@ -350,26 +396,43 @@ export function useAccounting(options = {}) {
     const map = new Map();
 
     financialAccounts.forEach((acc) => {
+      const isGlobalAcc = Boolean(acc.isGlobal);
+      const isMaskedForUser = isGlobalAcc && !hasAllProjectsAccess;
+
       map.set(String(acc.id), {
         account: acc,
         initialBalance: Number(acc.initialBalance) || 0,
         totalInflow: 0,
         totalOutflow: 0,
         currentBalance: Number(acc.initialBalance) || 0,
+        projectInflow: 0,
+        projectOutflow: 0,
         inflowsCount: 0,
         outflowsCount: 0,
+        isGlobal: isGlobalAcc,
+        isMasked: isMaskedForUser,
         transactions: []
       });
     });
 
     // ۱. ورودی‌های تنخواه و واریزی‌ها
-    treasuryIncomes.forEach((inc) => {
+    const incomeList = hasAllProjectsAccess ? allCompanyIncomes : treasuryIncomes;
+    incomeList.forEach((inc) => {
       const amt = Number(inc.amount) || 0;
       let targetId = inc.accountId ? String(inc.accountId) : (inc.accountType === 'bank' ? defaultBankId : defaultCashId);
       if (targetId && map.has(targetId)) {
         const entry = map.get(targetId);
+        const isThisProject = !inc.projectId || inc.projectId === projectId || projectId === DEFAULT_PROJECT_ID;
+
+        // If local account and not this project, skip
+        if (!entry.isGlobal && !isThisProject) return;
+
+        // If global account but user is restricted to a single project, skip other projects' data
+        if (entry.isGlobal && !hasAllProjectsAccess && !isThisProject) return;
+
         entry.totalInflow += amt;
         entry.inflowsCount += 1;
+        if (isThisProject) entry.projectInflow += amt;
         
         const cp = inc.counterpartyId ? counterpartyMap.get(String(inc.counterpartyId)) : null;
         const payerName = cp ? cp.name : (inc.payer || '');
@@ -378,6 +441,7 @@ export function useAccounting(options = {}) {
 
         entry.transactions.push({
           id: inc.id,
+          projectId: inc.projectId || projectId,
           rawDate: (inc.date || inc.createdAt || '').slice(0, 10),
           time: inc.time || (inc.createdAt ? inc.createdAt.slice(11, 16) : ''),
           createdAt: inc.createdAt || (inc.date ? `${inc.date}T00:00:00Z` : ''),
@@ -398,13 +462,21 @@ export function useAccounting(options = {}) {
     });
 
     // ۲. پرداختی‌های پرسنل (مساعده، تسویه دستمزد، وام)
-    payments.forEach((p) => {
+    const paymentList = hasAllProjectsAccess ? allCompanyPayments : payments;
+    paymentList.forEach((p) => {
       const amt = Number(p.amount) || 0;
       let targetId = p.accountId ? String(p.accountId) : (p.paymentMethod === 'bank' || p.accountType === 'bank' ? defaultBankId : defaultCashId);
       if (targetId && map.has(targetId)) {
         const entry = map.get(targetId);
+        const isThisProject = !p.projectId || p.projectId === projectId || projectId === DEFAULT_PROJECT_ID;
+
+        if (!entry.isGlobal && !isThisProject) return;
+        if (entry.isGlobal && !hasAllProjectsAccess && !isThisProject) return;
+
         entry.totalOutflow += amt;
         entry.outflowsCount += 1;
+        if (isThisProject) entry.projectOutflow += amt;
+
         const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
         const isBonus = p.type === 'bonus' || p.type === 'eid';
         const isLoan = p.type === 'loan' || p.type === 'loan_disbursement';
@@ -414,6 +486,7 @@ export function useAccounting(options = {}) {
         const title = isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : isLoan ? `اعطای وام پرسنلی به ${workerName}` : `تسویه حساب نهایی ${workerName}`;
         entry.transactions.push({
           id: p.id,
+          projectId: p.projectId || projectId,
           rawDate: (p.date || p.createdAt || '').slice(0, 10),
           time: p.time || (p.createdAt ? p.createdAt.slice(11, 16) : ''),
           createdAt: p.createdAt || (p.date ? `${p.date}T00:00:00Z` : ''),
@@ -434,15 +507,24 @@ export function useAccounting(options = {}) {
     });
 
     // ۳. هزینه‌ها و فاکتورهای کارگاه
-    expenses.forEach((e) => {
+    const expenseList = hasAllProjectsAccess ? allCompanyExpenses : expenses;
+    expenseList.forEach((e) => {
       const amt = Number(e.amount) || 0;
       let targetId = e.accountId ? String(e.accountId) : (e.paymentMethod === 'bank' || e.accountType === 'bank' ? defaultBankId : defaultCashId);
       if (targetId && map.has(targetId)) {
         const entry = map.get(targetId);
+        const isThisProject = !e.projectId || e.projectId === projectId || projectId === DEFAULT_PROJECT_ID;
+
+        if (!entry.isGlobal && !isThisProject) return;
+        if (entry.isGlobal && !hasAllProjectsAccess && !isThisProject) return;
+
         entry.totalOutflow += amt;
         entry.outflowsCount += 1;
+        if (isThisProject) entry.projectOutflow += amt;
+
         entry.transactions.push({
           id: e.id,
+          projectId: e.projectId || projectId,
           rawDate: (e.expenseDate || e.createdAt || '').slice(0, 10),
           time: e.time || (e.createdAt ? e.createdAt.slice(11, 16) : ''),
           createdAt: e.createdAt || (e.expenseDate ? `${e.expenseDate}T00:00:00Z` : ''),
@@ -463,78 +545,102 @@ export function useAccounting(options = {}) {
     });
 
     // ۴. تراکنش‌های انتقال وجه بین حساب‌ها (کارت به کارت / صندوق به بانک)
-    accountTransfers.forEach((trf) => {
+    const transferList = hasAllProjectsAccess ? allCompanyTransfers : accountTransfers;
+    transferList.forEach((trf) => {
       const amt = Number(trf.amount) || 0;
       const rawDate = (trf.date || trf.createdAt || '').slice(0, 10);
       const time = trf.time || (trf.createdAt ? trf.createdAt.slice(11, 16) : '');
       const createdAt = trf.createdAt || (trf.date ? `${trf.date}T00:00:00Z` : '');
       const vNo = trf.voucherNumber || getDeterministicVoucher(trf);
+      const isThisProject = !trf.projectId || trf.projectId === projectId || projectId === DEFAULT_PROJECT_ID;
 
       // خروجی از حساب مبدأ
       if (trf.fromAccountId && map.has(String(trf.fromAccountId))) {
         const fromEntry = map.get(String(trf.fromAccountId));
-        fromEntry.totalOutflow += amt;
-        fromEntry.outflowsCount += 1;
-        fromEntry.transactions.push({
-          id: `${trf.id}_out`,
-          transferId: trf.id,
-          rawDate,
-          time,
-          createdAt,
-          type: 'outflow',
-          category: 'account_transfer',
-          categoryLabel: 'انتقال وجه بین حساب‌ها',
-          title: `انتقال به ${trf.toAccountName || 'حساب مقصد'}`,
-          description: trf.description || (trf.reference ? `پیگیری: ${trf.reference}` : ''),
-          personName: trf.toAccountName || '',
-          inflowAmount: 0,
-          outflowAmount: amt,
-          amount: amt,
-          voucherNumber: vNo,
-          isSystem: false,
-          isTransfer: true,
-          rawItem: trf
-        });
+        if (fromEntry.isGlobal || isThisProject) {
+          if (!fromEntry.isGlobal || hasAllProjectsAccess || isThisProject) {
+            fromEntry.totalOutflow += amt;
+            fromEntry.outflowsCount += 1;
+            if (isThisProject) fromEntry.projectOutflow += amt;
+
+            fromEntry.transactions.push({
+              id: `${trf.id}_out`,
+              projectId: trf.projectId || projectId,
+              transferId: trf.id,
+              rawDate,
+              time,
+              createdAt,
+              type: 'outflow',
+              category: 'account_transfer',
+              categoryLabel: 'انتقال وجه بین حساب‌ها',
+              title: `انتقال به ${trf.toAccountName || 'حساب مقصد'}`,
+              description: trf.description || (trf.reference ? `پیگیری: ${trf.reference}` : ''),
+              personName: trf.toAccountName || '',
+              inflowAmount: 0,
+              outflowAmount: amt,
+              amount: amt,
+              voucherNumber: vNo,
+              isSystem: false,
+              isTransfer: true,
+              rawItem: trf
+            });
+          }
+        }
       }
 
       // ورودی به حساب مقصد
       if (trf.toAccountId && map.has(String(trf.toAccountId))) {
         const toEntry = map.get(String(trf.toAccountId));
-        toEntry.totalInflow += amt;
-        toEntry.inflowsCount += 1;
-        toEntry.transactions.push({
-          id: `${trf.id}_in`,
-          transferId: trf.id,
-          rawDate,
-          time,
-          createdAt,
-          type: 'inflow',
-          category: 'account_transfer',
-          categoryLabel: 'انتقال وجه بین حساب‌ها',
-          title: `دریافت از ${trf.fromAccountName || 'حساب مبدأ'}`,
-          description: trf.description || (trf.reference ? `پیگیری: ${trf.reference}` : ''),
-          personName: trf.fromAccountName || '',
-          inflowAmount: amt,
-          outflowAmount: 0,
-          amount: amt,
-          voucherNumber: vNo,
-          isSystem: false,
-          isTransfer: true,
-          rawItem: trf
-        });
+        if (toEntry.isGlobal || isThisProject) {
+          if (!toEntry.isGlobal || hasAllProjectsAccess || isThisProject) {
+            toEntry.totalInflow += amt;
+            toEntry.inflowsCount += 1;
+            if (isThisProject) toEntry.projectInflow += amt;
+
+            toEntry.transactions.push({
+              id: `${trf.id}_in`,
+              projectId: trf.projectId || projectId,
+              transferId: trf.id,
+              rawDate,
+              time,
+              createdAt,
+              type: 'inflow',
+              category: 'account_transfer',
+              categoryLabel: 'انتقال وجه بین حساب‌ها',
+              title: `دریافت از ${trf.fromAccountName || 'حساب مبدأ'}`,
+              description: trf.description || (trf.reference ? `پیگیری: ${trf.reference}` : ''),
+              personName: trf.fromAccountName || '',
+              inflowAmount: amt,
+              outflowAmount: 0,
+              amount: amt,
+              voucherNumber: vNo,
+              isSystem: false,
+              isTransfer: true,
+              rawItem: trf
+            });
+          }
+        }
       }
     });
 
     // محاسبه موجودی زنده و مانده تجمعی (Running Balance) برای هر حساب
     map.forEach((entry) => {
-      entry.currentBalance = entry.initialBalance + entry.totalInflow - entry.totalOutflow;
+      if (entry.isMasked) {
+        // برای مدیر کارگاهی با دسترسی محدود، موجودی کل شرکت ماسک می‌شود و فقط تراز پروژه نشان داده می‌شود
+        entry.currentBalance = entry.totalInflow - entry.totalOutflow;
+        entry.realBalance = null;
+      } else {
+        // برای مدیر ارشد یا حساب محلی، موجودی واقعی با احتساب مانده اولیه محاسبه می‌گردد
+        entry.currentBalance = entry.initialBalance + entry.totalInflow - entry.totalOutflow;
+        entry.realBalance = entry.currentBalance;
+      }
 
       entry.transactions.sort((a, b) => {
         if (a.rawDate !== b.rawDate) return a.rawDate.localeCompare(b.rawDate);
         return (a.createdAt || '').localeCompare(b.createdAt || '');
       });
 
-      let running = entry.initialBalance;
+      let running = entry.isMasked ? 0 : entry.initialBalance;
       entry.transactions = entry.transactions.map((tx, idx) => {
         if (tx.type === 'inflow') {
           running += tx.amount;
@@ -550,7 +656,21 @@ export function useAccounting(options = {}) {
     });
 
     return map;
-  }, [financialAccounts, treasuryIncomes, payments, expenses, accountTransfers, workerMap]);
+  }, [
+    financialAccounts,
+    hasAllProjectsAccess,
+    allCompanyIncomes,
+    treasuryIncomes,
+    allCompanyPayments,
+    payments,
+    allCompanyExpenses,
+    expenses,
+    allCompanyTransfers,
+    accountTransfers,
+    counterpartyMap,
+    workerMap,
+    projectId
+  ]);
 
   const accountBalancesList = useMemo(() => {
     return Array.from(accountBalances.values());
@@ -1124,12 +1244,19 @@ export function useAccounting(options = {}) {
     const newId = generateAccountId();
     const isFirst = financialAccounts.length === 0;
 
+    const isGlobal = accountData.isGlobal !== undefined
+      ? Boolean(accountData.isGlobal)
+      : (accountData.type === 'bank');
+    const scope = accountData.scope || (isGlobal ? 'global' : 'project');
+
     const record = {
       id: newId,
-      projectId,
+      projectId: isGlobal ? (DEFAULT_PROJECT_ID || projectId) : projectId,
       userId: user?.id || 'default_user',
       name: accountData.name?.trim() || (accountData.type === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
       type: accountData.type || 'bank', // 'bank' | 'cash'
+      isGlobal,
+      scope,
       bankName: accountData.bankName?.trim() || '',
       cardNumber: accountData.cardNumber?.trim() || '',
       accountNumber: accountData.accountNumber?.trim() || '',
@@ -1146,10 +1273,10 @@ export function useAccounting(options = {}) {
     };
 
     if (record.isDefault) {
-      // غیرفعال کردن پیش‌فرض از سایر حساب‌های این پروژه
+      // غیرفعال کردن پیش‌فرض از سایر حساب‌های این پروژه یا حساب‌های مشترک
       const allAccs = await db.financialAccounts.toArray();
       const updates = allAccs
-        .filter((a) => a.projectId === projectId && a.isDefault)
+        .filter((a) => (a.isGlobal || a.projectId === projectId) && a.isDefault)
         .map((a) => db.financialAccounts.update(a.id, { isDefault: false }));
       await Promise.all(updates);
     }
@@ -1163,6 +1290,10 @@ export function useAccounting(options = {}) {
     if (!id) return;
     const now = new Date().toISOString();
     const cleanMods = { ...modifications, updatedAt: now };
+
+    if (cleanMods.isGlobal !== undefined) {
+      cleanMods.scope = cleanMods.isGlobal ? 'global' : 'project';
+    }
 
     if (cleanMods.isDefault) {
       const allAccs = await db.financialAccounts.toArray();

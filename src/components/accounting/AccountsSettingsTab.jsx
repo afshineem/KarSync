@@ -24,7 +24,9 @@ import {
   Ban,
   ArrowDownRight,
   ArrowUpRight,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Globe,
+  Lock
 } from 'lucide-react';
 import { migrateClosedTransactionsToCashBox } from '../../db/db';
 import { pushPaymentsLive, pushAllExpensesToCloud } from '../../services/realtimeSync';
@@ -96,6 +98,9 @@ const COPY = {
     lblHolder: (name) => `دارنده: ${name}`,
     lblActiveAccount: 'حساب فعال کارگاه',
     badgeActiveDefault: 'پیش‌فرض فعال',
+    badgeGlobalScope: 'مشترک شرکت',
+    badgeProjectScope: 'اختصاصی کارگاه',
+    lblMaskedProjectNet: 'تراز کارگاه (محدود):',
     blockedTxStandardsMsg: 'طبق استانداردهای مالی و برای حفظ تعادل دفاتر کل، حسابی که سند خورده است و در تسویه‌ها مورد استفاده قرار گرفته، غیرقابل حذف می‌باشد. در صورت نیاز می‌توانید اطلاعات آن را ویرایش نمایید.',
   },
   ku: {
@@ -157,6 +162,9 @@ const COPY = {
     lblHolder: (name) => `خاوەن: ${name}`,
     lblActiveAccount: 'حیسابی چالاکی کارگە',
     badgeActiveDefault: 'سەرەکی چالاک',
+    badgeGlobalScope: 'هاوبەشی کۆمپانیا',
+    badgeProjectScope: 'تایبەتی کارگە',
+    lblMaskedProjectNet: 'باڵانسی ئەم پڕۆژەیە:',
     blockedTxStandardsMsg: 'بۆ پاراستنی هاوسەنگی دەفتەری دارایی ناتوانرێت بسڕدرێتەوە. لە کاتی پێویست دەتوانیت دەستکاری بکەیت.',
   },
   en: {
@@ -218,6 +226,9 @@ const COPY = {
     lblHolder: (name) => `Holder: ${name}`,
     lblActiveAccount: 'Active Workshop Account',
     badgeActiveDefault: 'Active Default',
+    badgeGlobalScope: 'Corporate Shared',
+    badgeProjectScope: 'Workshop Dedicated',
+    lblMaskedProjectNet: 'Project Net (Masked):',
     blockedTxStandardsMsg: 'According to financial standards and to maintain ledger balance, an account with recorded transactions used in settlements cannot be deleted. You can edit its details if needed.',
   }
 };
@@ -562,19 +573,30 @@ export function AccountsSettingsTab({
 
                   {/* ردیف بالا: نوع حساب و نشان پیش‌فرض */}
                   <div className="flex items-center justify-between gap-2 relative z-10">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-white/10 backdrop-blur-md border border-white/10">
-                      {isBank ? (
-                        <>
-                          <CreditCard className="w-3 h-3 text-sky-400" />
-                          <span>{account.bankName || txt.fallbackBank}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Coins className="w-3 h-3 text-amber-400" />
-                          <span>{txt.fallbackCash}</span>
-                        </>
-                      )}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-white/10 backdrop-blur-md border border-white/10">
+                        {isBank ? (
+                          <>
+                            <CreditCard className="w-3 h-3 text-sky-400" />
+                            <span>{account.bankName || txt.fallbackBank}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Coins className="w-3 h-3 text-amber-400" />
+                            <span>{txt.fallbackCash}</span>
+                          </>
+                        )}
+                      </span>
+
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-bold ${
+                        account.isGlobal
+                          ? 'bg-sky-500/20 text-sky-200 border border-sky-400/30'
+                          : 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30'
+                      }`}>
+                        {account.isGlobal ? <Globe className="w-2.5 h-2.5" /> : null}
+                        <span>{account.isGlobal ? txt.badgeGlobalScope : txt.badgeProjectScope}</span>
+                      </span>
+                    </div>
 
                     {isDefault ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-400 text-amber-950 shadow-sm cursor-default">
@@ -612,8 +634,9 @@ export function AccountsSettingsTab({
 
                   {/* موجودی شاخص در کارت */}
                   <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between relative z-10">
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      {txt.lblLiveBalance}
+                    <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                      {bal?.isMasked ? <Lock className="w-2.5 h-2.5 text-amber-400" /> : null}
+                      <span>{bal?.isMasked ? txt.lblMaskedProjectNet : txt.lblLiveBalance}</span>
                     </span>
                     <span className={`font-mono text-sm font-black ${
                       isNegative ? 'text-rose-400' : 'text-emerald-400'

@@ -15,7 +15,8 @@ import {
   FileText,
   Landmark,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Globe
 } from 'lucide-react';
 
 /**
@@ -64,6 +65,11 @@ const COPY = {
     descOverdraftPolicy: 'تعیین می‌کند اگر مبلغ پرداختی بیشتر از موجودی این حساب باشد، چه رفتاری انجام شود.',
     labelNotes: 'یادداشت یا توضیحات تکمیلی (اختیاری)',
     phNotes: 'توضیحات تکمیلی در مورد نحوه استفاده از این حساب یا محل قرارگیری...',
+    labelScope: 'دامنه حساب و سطح دسترسی',
+    scopeGlobalTitle: 'حساب مشترک ستاد شرکت (سراسری)',
+    scopeGlobalDesc: 'موجودی و پرداخت‌های این حساب در تمامی پروژه‌ها و کارگاه‌های شرکت هماهنگ است.',
+    scopeProjectTitle: 'حساب / تنخواه اختصاصی این کارگاه',
+    scopeProjectDesc: 'مختص پرداخت‌ها و تنخواه‌گردان همین پروژه است و در سایر پروژه‌ها نمایش داده نمی‌شود.',
     cancel: 'انصراف',
     saveChanges: 'ثبت تغییرات',
     saveAccount: 'ذخیره حساب',
@@ -109,6 +115,11 @@ const COPY = {
     descOverdraftPolicy: 'دیاریدەکات ئەگەر بڕی پارەی دراو لە باڵانسی ئەم حیسابە زیاتر بوو، سیستەم چۆن هەڵسوکەوت بکات.',
     labelNotes: 'تێبینی یان زانیاری زیاتر (ئارەزوومەندانە)',
     phNotes: 'زانیاری زیاتر دەربارەی چۆنیەتی بەکارهێنانی ئەم حیسابە...',
+    labelScope: 'سنوور و ئاستی حیساب',
+    scopeGlobalTitle: 'حیسابی هاوبەشی کۆمپانیا (سەرتاسەری)',
+    scopeGlobalDesc: 'باڵانس و پارەدانەکانی ئەم حیسابە لە نێوان هەموو پڕۆژەکاندا هاوبەش و یەکخراوە.',
+    scopeProjectTitle: 'حیساب / تەنخوای تایبەت بەم کارگەیە',
+    scopeProjectDesc: 'تایبەتە بە خەرجی و تەنخوای ئەم پڕۆژەیە و لە پڕۆژەکانی تردا پیشان نادرێت.',
     cancel: 'پاشگەزبوونەوە',
     saveChanges: 'پاشەکەوتکردنی گۆڕانکارییەکان',
     saveAccount: 'تۆمارکردنی حیساب',
@@ -154,6 +165,11 @@ const COPY = {
     descOverdraftPolicy: 'Specifies system behavior when a payment amount exceeds the available account balance.',
     labelNotes: 'Notes & Extra Details (Optional)',
     phNotes: 'Additional notes regarding usage, branch, or custody...',
+    labelScope: 'Account Scope & Availability',
+    scopeGlobalTitle: 'Shared Corporate Account (Global)',
+    scopeGlobalDesc: 'Balance and disbursements are shared and synchronized across all company projects.',
+    scopeProjectTitle: 'Project-Dedicated Account / Petty Cash',
+    scopeProjectDesc: 'Exclusive to this project; will not be available in other projects.',
     cancel: 'Cancel',
     saveChanges: 'Save Changes',
     saveAccount: 'Save Account',
@@ -176,6 +192,7 @@ export function AddEditAccountModal({
   const txt = COPY[lang] || COPY.fa;
 
   const [type, setType] = useState('bank'); // 'bank' | 'cash'
+  const [isGlobal, setIsGlobal] = useState(true);
   const [name, setName] = useState('');
   const [bankName, setBankName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -196,6 +213,7 @@ export function AddEditAccountModal({
   useEffect(() => {
     if (initialData) {
       setType(initialData.type || 'bank');
+      setIsGlobal(initialData.isGlobal !== undefined ? Boolean(initialData.isGlobal) : (initialData.type === 'bank'));
       setName(initialData.name || '');
       setBankName(initialData.bankName || '');
       setCardNumber(initialData.cardNumber || '');
@@ -209,6 +227,7 @@ export function AddEditAccountModal({
       setNotes(initialData.notes || '');
     } else {
       setType('bank');
+      setIsGlobal(true);
       setName('');
       setBankName('');
       setCardNumber('');
@@ -251,6 +270,8 @@ export function AddEditAccountModal({
       setIsSubmitting(true);
       await onSave({
         type,
+        isGlobal,
+        scope: isGlobal ? 'global' : 'project',
         name: name.trim(),
         bankName: bankName.trim(),
         cardNumber: cardNumber.trim(),
@@ -326,13 +347,71 @@ export function AddEditAccountModal({
               onChange={(e) => {
                 const nextType = e.target.value;
                 setType(nextType);
-                if (!initialData) setColor(nextType === 'bank' ? 'sky' : 'amber');
+                if (!initialData) {
+                  setColor(nextType === 'bank' ? 'sky' : 'amber');
+                  setIsGlobal(nextType === 'bank');
+                }
               }}
               className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 transition-all cursor-pointer"
             >
               <option value="bank">💳 {txt.optBank}</option>
               <option value="cash">🪙 {txt.optCash}</option>
             </select>
+          </div>
+
+          {/* دامنه حساب و سطح دسترسی: حساب مشترک ستاد شرکت یا اختصاصی پروژه */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-sky-500" />
+                <span>{txt.labelScope}</span>
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                isGlobal 
+                  ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/20' 
+                  : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+              }`}>
+                {isGlobal ? txt.scopeGlobalTitle : txt.scopeProjectTitle}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsGlobal(true)}
+                className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
+                  isGlobal
+                    ? 'bg-white dark:bg-slate-900 border-sky-500 text-sky-700 dark:text-sky-300 shadow-xs ring-1 ring-sky-500/20'
+                    : 'bg-transparent border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-white/40'
+                }`}
+              >
+                <div className="text-xs font-bold flex items-center gap-1.5">
+                  <span>🌐</span>
+                  <span>{txt.scopeGlobalTitle}</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                  {txt.scopeGlobalDesc}
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsGlobal(false)}
+                className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
+                  !isGlobal
+                    ? 'bg-white dark:bg-slate-900 border-amber-500 text-amber-700 dark:text-amber-300 shadow-xs ring-1 ring-amber-500/20'
+                    : 'bg-transparent border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-white/40'
+                }`}
+              >
+                <div className="text-xs font-bold flex items-center gap-1.5">
+                  <span>💼</span>
+                  <span>{txt.scopeProjectTitle}</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                  {txt.scopeProjectDesc}
+                </p>
+              </button>
+            </div>
           </div>
 
           {/* عنوان حساب */}

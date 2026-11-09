@@ -116,6 +116,17 @@ db.version(20).stores({
   workers: 'id, projectId, isGlobal, defaultSectionId, groupId, userId, name, role, teamRole, isActive, createdAt'
 });
 
+db.version(21).stores({
+  financialAccounts: 'id, projectId, isGlobal, scope, type, isDefault, isActive, createdAt'
+}).upgrade(async tx => {
+  const accounts = await tx.table('financialAccounts').toArray();
+  for (const acc of accounts) {
+    const isGlobal = acc.isGlobal !== undefined ? Boolean(acc.isGlobal) : (acc.type === 'bank');
+    const scope = acc.scope || (isGlobal ? 'global' : 'project');
+    await tx.table('financialAccounts').update(acc.id, { isGlobal, scope });
+  }
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -770,6 +781,8 @@ export async function seedDefaultFinancialAccounts(projectId = DEFAULT_PROJECT_I
         userId: userId || 'default_user',
         name: 'صندوق نقدی کارگاه',
         type: 'cash',
+        isGlobal: false,
+        scope: 'project',
         keeperName: 'سرپرست کارگاه',
         initialBalance: existingCash?.initialBalance || 0,
         isDefault: true,
@@ -794,6 +807,8 @@ export async function seedDefaultFinancialAccounts(projectId = DEFAULT_PROJECT_I
         userId: userId || 'default_user',
         name: 'کارت بانکی تنخواه کارگاه',
         type: 'bank',
+        isGlobal: true,
+        scope: 'global',
         bankName: 'بانک ملت',
         holderName: 'کارفرما',
         cardNumber: '',
@@ -802,7 +817,7 @@ export async function seedDefaultFinancialAccounts(projectId = DEFAULT_PROJECT_I
         isDefault: activeCash ? false : true,
         isActive: true,
         color: 'sky',
-        notes: 'کارت بانکی تنخواه جهت واریزی‌های کارفرما و پرداخت‌های آنلاین',
+        notes: 'کارت بانکی مشترک جهت واریزی‌های کارفرما و پرداخت‌های آنلاین پروژه‌ها',
         deletedAt: null,
         status: 'active',
         createdAt: existingBank?.createdAt || now,

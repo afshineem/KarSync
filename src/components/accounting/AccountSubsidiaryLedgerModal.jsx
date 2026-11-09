@@ -6,6 +6,7 @@ import { db, DEFAULT_PROJECT_ID } from '../../db/db';
 import { useProject } from '../../context/ProjectContext';
 import { formatCurrency, formatAmount, getCurrencySymbol } from '../../utils/formatters';
 import { useAccounting } from '../../hooks/useAccounting';
+import { useAuth } from '../../context/AuthContext';
 import { 
   CreditCard, 
   Coins, 
@@ -32,7 +33,9 @@ import {
   LayoutGrid,
   Table as TableIcon,
   Scale,
-  FileText
+  FileText,
+  Globe,
+  Lock
 } from 'lucide-react';
 
 /**
@@ -144,6 +147,10 @@ const COPY = {
     currencyBadge: (c) => `واحد: ${c}`,
     summaryTotals: 'جمع ستون‌ها',
     balanceAfterTx: 'مانده:',
+    scopeAllProjects: 'همه پروژه‌های شرکت',
+    scopeThisProject: 'فقط این کارگاه',
+    corporateSharedNotice: 'گردش حساب مشترک ستاد شرکت (محدود به اسناد این پروژه)',
+    corporateSharedBadge: 'مشترک شرکت',
     excelHeaders: {
       row: 'ردیف',
       date: 'تاریخ',
@@ -259,6 +266,10 @@ const COPY = {
     currencyBadge: (c) => `یەکە: ${c}`,
     summaryTotals: 'کۆی گشتی ستوونەکان',
     balanceAfterTx: 'باڵانس:',
+    scopeAllProjects: 'هەموو پڕۆژەکان',
+    scopeThisProject: 'تەنها ئەم پڕۆژەیە',
+    corporateSharedNotice: 'بەڵگەنامەکانی حیسابی هاوبەشی کۆمپانیا (تەنها ئەم کارگەیە)',
+    corporateSharedBadge: 'هاوبەشی کۆمپانیا',
     excelHeaders: {
       row: 'ڕیزبەندی',
       date: 'بەروار',
@@ -374,6 +385,10 @@ const COPY = {
     currencyBadge: (c) => `Unit: ${c}`,
     summaryTotals: 'Column Totals',
     balanceAfterTx: 'Balance:',
+    scopeAllProjects: 'All Company Projects',
+    scopeThisProject: 'This Project Only',
+    corporateSharedNotice: 'Corporate Shared Account (Scoped to this workshop project)',
+    corporateSharedBadge: 'Corporate Shared',
     excelHeaders: {
       row: 'Row',
       date: 'Date',
@@ -405,6 +420,10 @@ export function AccountSubsidiaryLedgerModal({
   const { currentProject, openWorkerProfile } = useProject();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
+  // هوک دسترسی کاربری
+  const { user } = useAuth();
+  const hasAllProjectsAccess = Boolean(user?.has_all_projects_access || user?.role === 'admin');
+
   // هوک مالی حسابداری
   const accounting = useAccounting();
   const effectiveCurrency = currency || accounting?.currency || 'IQD';
@@ -423,6 +442,7 @@ export function AccountSubsidiaryLedgerModal({
   const [customEnd, setCustomEnd] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [projectScopeFilter, setProjectScopeFilter] = useState('all'); // 'all' | 'current'
 
   // استیت سورت زمانی دوطرفه: پیش‌فرض جدیدترین در بالا
   const [sortDirection, setSortDirection] = useState('desc');
@@ -846,6 +866,12 @@ export function AccountSubsidiaryLedgerModal({
     const q = searchQuery.trim().toLowerCase();
 
     return rawTransactions.filter((tx) => {
+      // فیلتر تفکیک پروژه برای حساب‌های مشترک شرکت در سطح دسترسی مدیر ارشد
+      if (entityType === 'account' && entityData?.isGlobal && hasAllProjectsAccess && projectScopeFilter === 'current') {
+        const isCurProject = !tx.projectId || tx.projectId === targetProjectId || targetProjectId === DEFAULT_PROJECT_ID;
+        if (!isCurProject) return false;
+      }
+
       // فیلتر تاریخ
       if (dateFilter === 'this_month') {
         if (!tx.rawDate?.startsWith(thisMonthPrefix)) return false;
@@ -874,7 +900,7 @@ export function AccountSubsidiaryLedgerModal({
 
       return true;
     });
-  }, [rawTransactions, dateFilter, customStart, customEnd, categoryFilter, searchQuery, getTransactionCounterparty]);
+  }, [rawTransactions, dateFilter, customStart, customEnd, categoryFilter, searchQuery, getTransactionCounterparty, entityType, entityData, hasAllProjectsAccess, projectScopeFilter, targetProjectId]);
 
   // محاسبه سرجمع‌های ستونی (Column Totals)
   const columnTotals = useMemo(() => {
@@ -1045,6 +1071,12 @@ export function AccountSubsidiaryLedgerModal({
               <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate font-medium">
                 <span>{isWorker ? txt.partyWorker : (isBank ? txt.partyBank : txt.partyCash)}:</span>
                 <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{entityData?.name}</span>
+                {entityType === 'account' && entityData?.isGlobal && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30">
+                    <Globe className="w-2.5 h-2.5" />
+                    <span>{txt.corporateSharedBadge}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1339,6 +1371,35 @@ export function AccountSubsidiaryLedgerModal({
                   )}
                 </select>
 
+                {/* تفکیک پروژه‌ها برای حساب مشترک شرکت در پنل مدیر ارشد */}
+                {entityType === 'account' && entityData?.isGlobal && hasAllProjectsAccess && (
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setProjectScopeFilter('all')}
+                      className={`h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        projectScopeFilter === 'all'
+                          ? 'bg-sky-500 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Globe className="w-3 h-3" />
+                      <span>{txt.scopeAllProjects}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProjectScopeFilter('current')}
+                      className={`h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
+                        projectScopeFilter === 'current'
+                          ? 'bg-sky-500 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <span>{txt.scopeThisProject}</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* جستجو */}
                 <div className="relative">
                   <input
@@ -1353,6 +1414,14 @@ export function AccountSubsidiaryLedgerModal({
               </div>
             </div>
           </div>
+
+          {/* پیام محافظت و تفکیک برای حساب مشترک در سطح دسترسی کارگاه */}
+          {entityType === 'account' && entityData?.isGlobal && !hasAllProjectsAccess && (
+            <div className="no-print mx-3.5 sm:mx-6 mb-2 p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 max-w-7xl">
+              <Lock className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span className="font-bold">{txt.corporateSharedNotice}</span>
+            </div>
+          )}
 
           {/* فیلتر تاریخ سفارشی */}
           {dateFilter === 'custom' && (
