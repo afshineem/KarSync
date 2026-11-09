@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generatePaymentId, DEFAULT_PROJECT_ID } from '../db/db';
+import { isWorkerInProject } from '../utils/workerScope';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
@@ -647,7 +648,9 @@ export function SettlementModal({
 
   const effectiveAllLogs = (allLogs && allLogs.length > 0) ? allLogs : (dbLogs || []);
   const effectiveAllPayments = (allPayments && allPayments.length > 0) ? allPayments : (dbPayments || []);
-  const effectiveAllWorkers = (allWorkers && allWorkers.length > 0) ? allWorkers : (dbWorkers || []);
+  const activeProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
+  const effectiveAllWorkers = ((allWorkers && allWorkers.length > 0) ? allWorkers : (dbWorkers || []))
+    .filter(w => isWorkerInProject(w, activeProjectId));
   const effectiveAllGroups = (allGroups && allGroups.length > 0) ? allGroups : (dbGroups || []);
   const effectiveAllLoans = useMemo(() => dbLoans.filter(l => !l.deletedAt && l.status === 'active'), [dbLoans]);
 

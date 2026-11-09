@@ -112,6 +112,10 @@ db.version(19).stores({
   expenses: 'id, projectId, sectionId, categoryId, personId, paymentStatus, paymentMethod, currency, expenseDate, status, voucherNumber, bankTrackingCode, bankDocumentNumber, chequeId, contractId, isContractorBackcharge, created_by, approved_by, createdAt'
 });
 
+db.version(20).stores({
+  workers: 'id, projectId, isGlobal, defaultSectionId, groupId, userId, name, role, teamRole, isActive, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);

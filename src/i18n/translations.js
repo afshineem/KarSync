@@ -58,6 +58,11 @@ export const translations = {
     noDataForMonth: 'هیچ تۆمارێک بۆ ئەم مانگە بەردەست نییە.',
 
     // Workers Management
+        globalCompanyStaff: "کارمەندی هەمیشەیی کۆمپانیا (گشتی)",
+    projectSpecificStaff: "کارمەندی تایبەت بە پڕۆژە (ناوخۆیی)",
+    filterAllStaff: "هەموو کارمەندان (هەمیشەیی و پڕۆژەیی)",
+    onlyGlobalStaff: "تەنها پرسنلی هەمیشەیی کۆمپانیا",
+    onlyProjectStaff: "تەنها پرسنلی تایبەت بە پڕۆژە",
     addNewWorker: 'زیادکردنی کرێکاری نوێ',
     editWorker: 'دەستکاریکردنی زانیاری کرێکار',
     workerList: 'لیستی کرێکاران',
@@ -854,6 +859,16 @@ export const translations = {
     noDataForMonth: 'هیچ رکوردی برای این ماه ثبت نشده است.',
 
     // Workers Management
+    globalCompanyStaff: "پرسنل ثابت شرکت (سراسری)",
+    projectSpecificStaff: "پرسنل مختص پروژه (محلی)",
+    filterAllStaff: "همه پرسنل (ثابت و پروژه‌ای)",
+    onlyGlobalStaff: "فقط پرسنل ثابت شرکت",
+    onlyProjectStaff: "فقط پرسنل مختص این پروژه",
+    globalCompanyStaff: "Permanent Company Staff (Global)",
+    projectSpecificStaff: "Project-Specific Staff (Local)",
+    filterAllStaff: "All Staff (Global & Local)",
+    onlyGlobalStaff: "Permanent Company Staff Only",
+    onlyProjectStaff: "Project-Specific Staff Only",
     addNewWorker: 'افزودن پرسنل جدید',
     editWorker: 'ویرایش اطلاعات پرسنل',
     workerList: 'فهرست پرسنل',

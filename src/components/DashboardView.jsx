@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
+import { isWorkerInProject } from '../utils/workerScope';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { TasksModal } from './TasksModal';
@@ -355,7 +356,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     useLiveQuery(
       async () => {
         const list = await db.workers.toArray();
-        return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+        return list.filter((w) => isWorkerInProject(w, targetProjectId));
       },
       [targetProjectId]
     ) || [];
@@ -366,7 +367,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         const [list, wList] = await Promise.all([db.payments.toArray(), db.workers.toArray()]);
         const projectWorkerIds = new Set(
           wList
-            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+            .filter((w) => isWorkerInProject(w, targetProjectId))
             .map((w) => String(w.id))
         );
         return list.filter(
@@ -384,7 +385,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         const [list, wList] = await Promise.all([db.attendanceLogs.toArray(), db.workers.toArray()]);
         const projectWorkerIds = new Set(
           wList
-            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+            .filter((w) => isWorkerInProject(w, targetProjectId))
             .map((w) => String(w.id))
         );
         return list.filter(
@@ -402,7 +403,7 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
         const [list, wList] = await Promise.all([db.attendanceLogs.toArray(), db.workers.toArray()]);
         const projectWorkerIds = new Set(
           wList
-            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId)
+            .filter((w) => isWorkerInProject(w, targetProjectId))
             .map((w) => String(w.id))
         );
         const projLogs = list.filter(

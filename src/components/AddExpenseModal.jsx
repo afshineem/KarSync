@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateExpenseId, generateCategoryId, DEFAULT_PROJECT_ID } from '../db/db';
+import { isWorkerInProject } from '../utils/workerScope';
 import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
@@ -322,7 +323,10 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   ) || [];
 
   const workers = useLiveQuery(
-    () => db.workers.where('projectId').equals(activeProjectId).toArray(),
+    async () => {
+      const list = await db.workers.toArray();
+      return list.filter((w) => isWorkerInProject(w, activeProjectId));
+    },
     [activeProjectId]
   ) || [];
 

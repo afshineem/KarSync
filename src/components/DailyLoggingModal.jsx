@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getAttendanceLogId, DEFAULT_PROJECT_ID } from '../db/db';
+import { isWorkerInProject, getWorkerRatesForProject } from '../utils/workerScope';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
@@ -123,7 +124,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
         ]);
         const projectWorkerGroupIds = new Set(
           allDbWorkers
-            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && w.groupId)
+            .filter((w) => isWorkerInProject(w, targetProjectId) && w.groupId)
             .map((w) => String(w.groupId))
         );
         let list = allDbGroups.filter((g) => 
@@ -163,7 +164,7 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
     async () => {
       const list = await db.workers.toArray();
       return list.filter((w) => 
-        (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && 
+        isWorkerInProject(w, targetProjectId) && 
         w.isActive === 1 && 
         !w.deletedAt && 
         !w.isArchived && 

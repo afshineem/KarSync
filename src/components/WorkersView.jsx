@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import { formatCurrency } from '../utils/formatters';
 import { calculateWorkerFinancials } from '../utils/settlementCalculations';
+import { isWorkerInProject } from '../utils/workerScope';
 import { QuickMonthAttendanceModal } from './QuickMonthAttendanceModal';
 import { EditRecordModal } from './EditRecordModal';
 import { WorkerFinancialProfileModal } from './WorkerFinancialProfileModal';
@@ -51,7 +52,8 @@ import {
   DollarSign,
   TrendingUp,
   ShieldCheck,
-  Check
+  Check,
+  Globe
 } from 'lucide-react';
 
 // Scoped dictionary for WorkersView
@@ -321,6 +323,7 @@ export function WorkersView() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSection, setFilterSection] = useState('all'); // 'all' | 'unassigned' | secId
   const [filterGroup, setFilterGroup] = useState('all'); // 'all' | 'unassigned' | groupId
+  const [filterScope, setFilterScope] = useState('all'); // 'all' | 'global' | 'project'
   const [statusTab, setStatusTab] = useState('active'); // 'active' | 'inactive' | 'archived' | 'recycle'
   
   const [layoutMode, setLayoutMode] = useState(() => {
@@ -435,7 +438,7 @@ export function WorkersView() {
   const workers = useLiveQuery(
     async () => {
       const list = await db.workers.toArray();
-      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      return list.filter((w) => isWorkerInProject(w, targetProjectId));
     },
     [targetProjectId]
   ) || [];
@@ -577,9 +580,16 @@ export function WorkersView() {
         }
       }
 
+      // ۵. فیلتر دامنه پرسنل (ثابت شرکت / مختص پروژه)
+      if (filterScope === 'global') {
+        if (!w.isGlobal) return false;
+      } else if (filterScope === 'project') {
+        if (w.isGlobal) return false;
+      }
+
       return true;
     });
-  }, [workers, statusTab, searchTerm, filterSection, filterGroup]);
+  }, [workers, statusTab, searchTerm, filterSection, filterGroup, filterScope]);
 
   // گروه‌بندی و مرتب‌سازی پرسنل
   const groupedWorkers = useMemo(() => {
@@ -835,6 +845,16 @@ export function WorkersView() {
                       {txt.badgeMonthly}
                     </span>
                   )}
+                  {worker.isGlobal ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 font-bold flex items-center gap-1">
+                      <Globe className="w-2.5 h-2.5" />
+                      <span>{language === 'ku' ? 'هەمیشەیی' : language === 'en' ? 'Global' : 'ثابت شرکت'}</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-medium">
+                      <span>{language === 'ku' ? 'پڕۆژەیی' : language === 'en' ? 'Project' : 'مختص پروژه'}</span>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1053,7 +1073,7 @@ export function WorkersView() {
             {worker.name ? worker.name.charAt(0) : <Users className="w-4 h-4" />}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <h4 
                 onClick={() => openWorkerProfile(worker.id)}
                 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate cursor-pointer hover:text-sky-600 transition-colors"
@@ -1062,6 +1082,12 @@ export function WorkersView() {
                 {worker.name}
               </h4>
               <span className={`w-2 h-2 rounded-full shrink-0 ${worker.isActive !== 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+              {worker.isGlobal && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 font-bold flex items-center gap-0.5">
+                  <Globe className="w-2.5 h-2.5" />
+                  <span>{language === 'ku' ? 'هەمیشەیی' : language === 'en' ? 'Global' : 'ثابت'}</span>
+                </span>
+              )}
             </div>
             <span className="text-[11px] text-slate-400 block truncate mt-0.5">
               {worker.role || txt.roleFallbackShort} {worker.phone ? `• ${worker.phone}` : ''}
@@ -1305,6 +1331,19 @@ export function WorkersView() {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
               <option value="unassigned">{txt.optUnassignedSection}</option>
+            </select>
+          )}
+
+          {/* فیلتر دامنه پرسنل (ثابت شرکت / مختص پروژه) */}
+          {statusTab !== 'recycle' && (
+            <select
+              value={filterScope}
+              onChange={(e) => setFilterScope(e.target.value)}
+              className="px-3 py-2 bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-sky-500/30 focus:outline-none cursor-pointer"
+            >
+              <option value="all">{language === 'ku' ? 'هەموو پرسنل (گشتی و پڕۆژەیی)' : language === 'en' ? 'All Staff (Global & Local)' : 'همه پرسنل (ثابت و پروژه‌ای)'}</option>
+              <option value="global">{language === 'ku' ? 'تەنها پرسنلی هەمیشەیی کۆمپانیا' : language === 'en' ? 'Permanent Company Staff Only' : 'فقط پرسنل ثابت شرکت'}</option>
+              <option value="project">{language === 'ku' ? 'تەنها پرسنلی تایبەت بە پڕۆژە' : language === 'en' ? 'Project-Specific Staff Only' : 'فقط پرسنل مختص این پروژه'}</option>
             </select>
           )}
 

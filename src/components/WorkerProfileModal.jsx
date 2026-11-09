@@ -45,7 +45,9 @@ import {
   PhoneCall,
   MessageSquare,
   FileSpreadsheet,
-  MoreHorizontal
+  MoreHorizontal,
+  Globe,
+  Building2
 } from 'lucide-react';
 import { EditRecordModal } from './EditRecordModal';
 import { AdvancePaymentModal } from './AdvancePaymentModal';
@@ -824,6 +826,17 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                     <span className="hidden xs:inline-flex px-2 py-0.5 rounded-lg sm:rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-xs font-semibold items-center gap-1">
                       <Layers className="w-3 h-3 text-sky-500" />
                       <span>{group.name}</span>
+                    </span>
+                  )}
+                  {worker?.isGlobal ? (
+                    <span className="inline-flex px-2 py-0.5 rounded-lg sm:rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 text-[10px] sm:text-xs font-bold items-center gap-1">
+                      <Globe className="w-3 h-3 text-amber-500" />
+                      <span>{language === 'ku' ? 'هەمیشەیی' : language === 'en' ? 'Global Staff' : 'پرسنل ثابت شرکت'}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex px-2 py-0.5 rounded-lg sm:rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-xs font-semibold items-center gap-1">
+                      <Building2 className="w-3 h-3 text-slate-400" />
+                      <span>{language === 'ku' ? 'تایبەت بە پڕۆژە' : language === 'en' ? 'Project Staff' : 'مختص پروژه'}</span>
                     </span>
                   )}
                 </div>

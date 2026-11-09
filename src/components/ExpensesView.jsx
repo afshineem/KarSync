@@ -2,6 +2,7 @@ import { logAuditAction } from "../services/auditLogger";
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
+import { isWorkerInProject } from '../utils/workerScope';
 import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { 
@@ -527,7 +528,10 @@ export function ExpensesView() {
   ) || [];
 
   const workers = useLiveQuery(
-    () => db.workers.where('projectId').equals(projectId).toArray(),
+    async () => {
+      const list = await db.workers.toArray();
+      return list.filter(w => isWorkerInProject(w, projectId));
+    },
     [projectId]
   ) || [];
 

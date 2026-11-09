@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { calculateWorkerFinancials } from "../utils/settlementCalculations";
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
+import { isWorkerInProject } from '../utils/workerScope';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { usePermissions } from '../context/AuthContext';
@@ -731,7 +732,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   const workers = useLiveQuery(
     async () => {
       const list = await db.workers.toArray();
-      return list.filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId);
+      return list.filter((w) => isWorkerInProject(w, targetProjectId));
     },
     [targetProjectId]
   ) || [];
@@ -793,7 +794,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
         ]);
         const projectWorkerGroupIds = new Set(
           allDbWorkers
-            .filter((w) => (w.projectId || DEFAULT_PROJECT_ID) === targetProjectId && w.groupId)
+            .filter((w) => isWorkerInProject(w, targetProjectId) && w.groupId)
             .map((w) => String(w.groupId))
         );
         let list = allDbGroups.filter((g) => 

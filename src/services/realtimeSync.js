@@ -707,6 +707,12 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           status: (localIsNewer && localW?.status)
             ? localW.status
             : (meta.status || localW?.status || (meta.isArchived ? 'archived' : 'active')),
+          isGlobal: (localIsNewer && localW?.isGlobal !== undefined)
+            ? Boolean(localW.isGlobal)
+            : (meta.isGlobal !== undefined ? Boolean(meta.isGlobal) : Boolean(localW?.isGlobal)),
+          projectRates: (localIsNewer && localW?.projectRates)
+            ? localW.projectRates
+            : (meta.projectRates || localW?.projectRates || {}),
           username: meta.username || localW?.username || '',
           password: meta.password || localW?.password || '',
           projectId: resolvedProjectId,
@@ -2183,6 +2189,8 @@ export async function pullWorkerMetadataLive(force = false) {
               bonusLeaveDays: Number(w.bonusLeaveDays) || 0,
               fridayRateMultiplier: Number(w.fridayRateMultiplier) || 2.0,
               defaultSectionId: w.defaultSectionId || null,
+              isGlobal: Boolean(w.isGlobal),
+              projectRates: w.projectRates || {},
               isArchived: !!(w.isArchived || w.status === 'archived'),
               status: w.status || (w.isArchived ? 'archived' : 'active'),
               username: w.username || meta.username || '',
@@ -2234,6 +2242,14 @@ export async function pullWorkerMetadataLive(force = false) {
           }
           if (meta.isArchived !== undefined && w.isArchived !== meta.isArchived) {
             updates.isArchived = meta.isArchived;
+            needsUpdate = true;
+          }
+          if (meta.isGlobal !== undefined && Boolean(w.isGlobal) !== Boolean(meta.isGlobal)) {
+            updates.isGlobal = Boolean(meta.isGlobal);
+            needsUpdate = true;
+          }
+          if (meta.projectRates && JSON.stringify(w.projectRates || {}) !== JSON.stringify(meta.projectRates)) {
+            updates.projectRates = meta.projectRates;
             needsUpdate = true;
           }
           if (meta.status && w.status !== meta.status) {
@@ -2377,6 +2393,8 @@ export async function syncAllWorkerMetadataToCloud() {
           bonusLeaveDays: Number(w.bonusLeaveDays) || 0,
           fridayRateMultiplier: Number(w.fridayRateMultiplier) || 2.0,
           defaultSectionId: w.defaultSectionId || null,
+          isGlobal: Boolean(w.isGlobal),
+          projectRates: w.projectRates || {},
           isArchived: !!(w.isArchived || w.status === 'archived'),
           status: w.status || (w.isArchived ? 'archived' : 'active'),
           username: w.username || existingMeta.username || '',

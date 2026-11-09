@@ -27,7 +27,8 @@ import {
   Eye,
   EyeOff,
   Building2,
-  CalendarCheck
+  CalendarCheck,
+  Globe
 } from 'lucide-react';
 
 
@@ -65,6 +66,11 @@ const COPY = {
     statusDesc: 'پرسنل غیرفعال از لیست ثبت کارکرد روزانه پنهان می‌شوند.',
     statusActiveLabel: 'فعال (شاغل)',
     statusInactiveLabel: 'غیرفعال (مرخص شده)',
+    secProjectScope: 'دامنه فعالیت در پروژه‌ها',
+    lblIsGlobal: 'پرسنل ثابت شرکت (حضور خودکار در تمام پروژه‌ها)',
+    descIsGlobal: 'با فعال‌سازی این گزینه، این پرسنل به عنوان نیروی ثابت شرکت در تمام پروژه‌های جاری و پروژه‌های جدید آینده حضور خواهد داشت و نیازی به تعریف مجدد نیست.',
+    badgeGlobal: 'ثابت در تمام پروژه‌ها (سراسری)',
+    badgeProjectOnly: 'مختص همین پروژه (محلی)',
     secWages: 'سیستم دستمزد و نرخ کارکرد',
     wageDaily: 'دستمزد روزانه',
     wageMonthly: 'حقوق ثابت ماهانه',
@@ -174,6 +180,11 @@ const COPY = {
     statusDesc: 'کرێکارانی ناچالاک لە لیستی ڕۆژانەدا شاراوە دەبن.',
     statusActiveLabel: 'چالاک',
     statusInactiveLabel: 'ناچالاک (مۆڵەتپێدراو)',
+    secProjectScope: 'سنووری چالاکی لە پڕۆژەکاندا',
+    lblIsGlobal: 'کارمەندی هەمیشەیی کۆمپانیا (ئامادەبوون لە هەموو پڕۆژەکاندا)',
+    descIsGlobal: 'بە چالاککردنی ئەم هەڵبژاردەیە، کارمەند وەک هێزی هەمیشەیی کۆمپانیا لە تەواوی پڕۆژە بەردەستەکان و پڕۆژە نوێیەکاندا ئامادە دەبێت و پێویست بە پێناسەکردنەوە ناکات.',
+    badgeGlobal: 'هەمیشەیی لە هەموو پڕۆژەکاندا (گشتی)',
+    badgeProjectOnly: 'تایبەت بەم پڕۆژەیە (ناوخۆیی)',
     secWages: 'جۆری کرێ و پارە',
     wageDaily: 'حەقدەستی ڕۆژانە',
     wageMonthly: 'مووچەی جێگیری مانگانە',
@@ -283,6 +294,11 @@ const COPY = {
     statusDesc: 'Inactive workers are hidden from the daily attendance logging list.',
     statusActiveLabel: 'Active',
     statusInactiveLabel: 'Inactive (Dismissed)',
+    secProjectScope: 'Project Scope & Deployment',
+    lblIsGlobal: 'Permanent Company Staff (Auto-deploy to all projects)',
+    descIsGlobal: 'When enabled, this personnel is designated as permanent company staff and will automatically appear across all current and future projects.',
+    badgeGlobal: 'Company-Wide (Global)',
+    badgeProjectOnly: 'Project-Specific (Local)',
     secWages: 'Wage System & Working Rates',
     wageDaily: 'Daily Wage',
     wageMonthly: 'Fixed Monthly Salary',
@@ -435,6 +451,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           overtimeHourlyRate: String(workerToEdit.overtimeHourlyRate ?? '5000'),
           defaultSectionId: workerToEdit.defaultSectionId || '',
           isActive: workerToEdit.isActive ?? 1,
+          isGlobal: Boolean(workerToEdit.isGlobal),
           username: creds.username || workerToEdit.username || '',
           password: creds.password || workerToEdit.password || ''
         });
@@ -455,6 +472,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           overtimeHourlyRate: '5000',
           defaultSectionId: '',
           isActive: 1,
+          isGlobal: false,
           username: '',
           password: ''
         });
@@ -561,6 +579,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           overtimeHourlyRate: overtimeRate,
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
           isActive: Number(formData.isActive),
+          isGlobal: Boolean(formData.isGlobal),
           username: (formData.username || '').trim(),
           password: (formData.password || '').trim(),
           updatedAt: new Date().toISOString()
@@ -588,6 +607,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           overtimeHourlyRate: overtimeRate,
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
           isActive: 1,
+          isGlobal: Boolean(formData.isGlobal),
           username: (formData.username || '').trim(),
           password: (formData.password || '').trim(),
           createdAt: new Date().toISOString(),
@@ -788,6 +808,56 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       </button>
                     </div>
                   )}
+                </div>
+
+                {/* کارت دامنه فعالیت در پروژه‌ها (پرسنل ثابت شرکت در برابر مختص پروژه) */}
+                <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4.5 h-4.5 text-amber-500" />
+                      <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                        {txt.secProjectScope}
+                      </span>
+                    </div>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      formData.isGlobal
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                    }`}>
+                      {formData.isGlobal ? txt.badgeGlobal : txt.badgeProjectOnly}
+                    </span>
+                  </div>
+
+                  {/* کنترلگر سوئیچ و توضیحات */}
+                  <div
+                    onClick={() => setFormData(prev => ({ ...prev, isGlobal: !prev.isGlobal }))}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start justify-between gap-4 select-none ${
+                      formData.isGlobal
+                        ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30 ring-1 ring-amber-500/20'
+                        : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-100/70 dark:hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Building2 className={`w-4 h-4 ${formData.isGlobal ? 'text-amber-500' : 'text-slate-400'}`} />
+                        <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100">
+                          {txt.lblIsGlobal}
+                        </span>
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {txt.descIsGlobal}
+                      </p>
+                    </div>
+
+                    {/* Toggle Switch */}
+                    <div className={`w-12 h-6.5 rounded-full p-1 transition-colors duration-200 ease-in-out shrink-0 flex items-center ${
+                      formData.isGlobal ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}>
+                      <div className={`w-4.5 h-4.5 rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out ${
+                        formData.isGlobal ? (direction === 'rtl' ? '-translate-x-5.5' : 'translate-x-5.5') : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </div>
                 </div>
 
                 {/* کارت ۲: شرایط مالی و سیستم دستمزد */}
@@ -1271,6 +1341,14 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                             {selectedGroup.name}
                           </span>
                         )}
+                        <span className={`text-[10px] px-2 py-0.5 rounded-lg border flex items-center gap-1 font-bold ${
+                          formData.isGlobal
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            : 'bg-white/10 text-slate-300 border-white/10'
+                        }`}>
+                          {formData.isGlobal ? <Globe className="w-2.5 h-2.5 text-amber-400" /> : null}
+                          <span>{formData.isGlobal ? txt.badgeGlobal : txt.badgeProjectOnly}</span>
+                        </span>
                       </div>
                     </div>
                   </div>
