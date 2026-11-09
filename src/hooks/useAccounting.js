@@ -30,7 +30,8 @@ import {
   softDeleteExpenseLive,
   recordPendingPaymentDeletion,
   pushPaymentsLive,
-  rollbackPaymentSettlement
+  rollbackPaymentSettlement,
+  pushAllFinancialAccountsToCloud
 } from '../services/realtimeSync';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
@@ -1172,6 +1173,10 @@ export function useAccounting(options = {}) {
     }
 
     await db.financialAccounts.update(id, cleanMods);
+    const updatedAccount = await db.financialAccounts.get(id);
+    if (updatedAccount) {
+      pushFinancialAccountLive(updatedAccount).catch(console.warn);
+    }
     await pushAllFinancialAccountsToCloud();
     window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
   }, []);
