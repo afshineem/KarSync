@@ -8,6 +8,7 @@ import {
   calculateDelayDays,
   calculateContractSettlement,
   finalizeAndSubmitContractSettlement,
+  getContractCrewAttendanceSummary,
   BACKCHARGE_CATEGORIES
 } from '../../services/contractService';
 import { formatAmount, numberToWords, getTodayDateString } from '../../utils/formatters';
@@ -30,7 +31,10 @@ import {
   DollarSign,
   ChevronDown,
   Layers,
-  Sparkles
+  Sparkles,
+  Users,
+  ChevronUp,
+  CalendarDays
 } from 'lucide-react';
 
 export default function ContractSettlementModal({
@@ -51,6 +55,23 @@ export default function ContractSettlementModal({
   const [customBackcharges, setCustomBackcharges] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Mode for applying crew day-labor: 'man_day_item' | 'extra_gross_wage' | 'none'
+  const [crewAttendanceMode, setCrewAttendanceMode] = useState('man_day_item');
+  const [showCrewBreakdown, setShowCrewBreakdown] = useState(false);
+
+  // Live query for crew daily attendance logs for this contract/counterparty
+  const crewAttendance = useLiveQuery(
+    async () => {
+      if (!contract) return null;
+      return await getContractCrewAttendanceSummary({
+        contract,
+        startDate: contract.startDate,
+        endDate: actualEndDate || getTodayDateString()
+      });
+    },
+    [contract?.id, contract?.counterpartyId, contract?.linkedGroupId, contract?.startDate, actualEndDate]
+  );
 
   // 1. Fetch historical advances/payments for this counterparty
   const previousPayments = useLiveQuery(
@@ -107,6 +128,26 @@ export default function ContractSettlementModal({
       setCustomBackcharges([]);
     }
   }, [contract, isOpen, previousPayments.length, backchargeExpenses.length]);
+
+  // When crewAttendance changes, auto-populate man_day item if applicable
+  useEffect(() => {
+    if (crewAttendance && crewAttendance.totalDays > 0) {
+      if (crewAttendance.matchingManDayIndex !== -1) {
+        setCrewAttendanceMode('man_day_item');
+        setCompletedItems(prev => {
+          if (!prev[crewAttendance.matchingManDayIndex]) return prev;
+          const updated = [...prev];
+          updated[crewAttendance.matchingManDayIndex] = {
+            ...updated[crewAttendance.matchingManDayIndex],
+            finalQuantity: String(crewAttendance.totalDays)
+          };
+          return updated;
+        });
+      } else if (crewAttendance.totalGrossWage > 0) {
+        setCrewAttendanceMode('extra_gross_wage');
+      }
+    }
+  }, [crewAttendance?.totalDays, crewAttendance?.matchingManDayIndex]);
 
   // Handle item quantity change
   const handleItemQtyChange = (index, value) => {
@@ -182,9 +223,11 @@ export default function ContractSettlementModal({
       actualEndDate,
       selectedAdvances: selectedAdvancesList,
       selectedBackcharges: selectedBackchargesList,
-      extraDeductions: extraDeductionsList
+      extraDeductions: extraDeductionsList,
+      crewAttendanceSummary: crewAttendance,
+      crewAttendanceMode
     });
-  }, [contract, completedItems, actualEndDate, previousPayments, selectedAdvanceIds, backchargeExpenses, selectedBackchargeIds, customBackcharges]);
+  }, [contract, completedItems, actualEndDate, previousPayments, selectedAdvanceIds, backchargeExpenses, selectedBackchargeIds, customBackcharges, crewAttendance, crewAttendanceMode]);
 
   if (!isOpen || !contract) return null;
 
@@ -385,6 +428,166 @@ export default function ContractSettlementModal({
                 </div>
               </div>
 
+              {/* Crew Daily Attendance Integration Card (Apple Liquid Glass) */}
+              <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3.5">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
+                    <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center">
+                      <Users className="w-3.5 h-3.5" />
+                    </div>
+                    <span>{language === 'ku' ? 'پشکنین و کارکردی ڕۆژانەی تیمی وەستاکار' : language === 'en' ? 'Crew Daily Attendance (Calendar)' : 'کارکرد روزمزدی اکیپ در تقویم کارگاه'}</span>
+                  </div>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
+                    {crewAttendance?.totalDays || 0} {language === 'ku' ? 'ڕۆژ-کرێکار' : language === 'en' ? 'man-days' : 'نفر-روز'}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {language === 'ku'
+                    ? 'کۆی شیفت و کارکردی تۆمارکراو لە ڕۆژژمێری ئامادەبوون بۆ کارمەندانی ئەم اکیپە لە ماوەی ئەم گرێبەستەدا.'
+                    : language === 'en'
+                    ? 'Total shifts and daily attendance logged in the workshop calendar for this crew during the contract period.'
+                    : 'مجموع شیفت‌ها و ساعات ثبت‌شده در تقویم حضور و غیاب برای اکیپ این استادکار در طول مدت این قرارداد.'}
+                </p>
+
+                {crewAttendance && (crewAttendance.totalDays > 0 || crewAttendance.crewWorkers?.length > 0) ? (
+                  <div className="space-y-3 pt-1">
+                    {/* 3 Metric Pills */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center">
+                        <span className="block text-[10px] text-slate-400 font-medium">
+                          {language === 'ku' ? 'کۆی ڕۆژ-کرێکار' : language === 'en' ? 'Total Days' : 'مجموع نفر-روز'}
+                        </span>
+                        <span className="text-sm font-black text-slate-900 dark:text-white font-mono">
+                          {crewAttendance.totalDays}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center">
+                        <span className="block text-[10px] text-slate-400 font-medium">
+                          {language === 'ku' ? 'نەفەراتی اکیپ' : language === 'en' ? 'Crew Members' : 'کارگران اکیپ'}
+                        </span>
+                        <span className="text-sm font-black text-slate-900 dark:text-white font-mono">
+                          {crewAttendance.crewWorkers?.length || 0}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center">
+                        <span className="block text-[10px] text-slate-400 font-medium">
+                          {language === 'ku' ? 'نرخی ڕۆژانە' : language === 'en' ? 'Gross Wages' : 'ارزش دستمزد'}
+                        </span>
+                        <span className="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400 font-mono" dir="ltr">
+                          {formatAmount(crewAttendance.totalGrossWage, currency)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Application Mode Segmented Control */}
+                    <div className="space-y-1.5 pt-1">
+                      <span className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                        {language === 'ku' ? 'شێوازی دانانی کارکرد لەم فاکتوورەدا:' : language === 'en' ? 'Method of Applying to Settlement:' : 'نحوه اعمال در این صورت‌وضعیت:'}
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCrewAttendanceMode('man_day_item');
+                            if (crewAttendance.matchingManDayIndex !== -1) {
+                              setCompletedItems(prev => {
+                                const updated = [...prev];
+                                updated[crewAttendance.matchingManDayIndex] = {
+                                  ...updated[crewAttendance.matchingManDayIndex],
+                                  finalQuantity: String(crewAttendance.totalDays)
+                                };
+                                return updated;
+                              });
+                            }
+                          }}
+                          className={'py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center ' + (
+                            crewAttendanceMode === 'man_day_item'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          )}
+                        >
+                          {language === 'ku' ? 'دانان لە ڕیزی ڕۆژ-کرێکار' : language === 'en' ? 'In Man-Day Item' : 'ردیف نفر-روز قرارداد'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCrewAttendanceMode('extra_gross_wage')}
+                          className={'py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center ' + (
+                            crewAttendanceMode === 'extra_gross_wage'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          )}
+                        >
+                          {language === 'ku' ? 'زیادکردنی دەستحەق' : language === 'en' ? 'Add as Gross Wage' : 'افزودن دستمزد ناخالص'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCrewAttendanceMode('none')}
+                          className={'py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center ' + (
+                            crewAttendanceMode === 'none'
+                              ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-white shadow-xs'
+                              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900'
+                          )}
+                        >
+                          {language === 'ku' ? 'جێبەجێ نەکرێت' : language === 'en' ? 'Do not apply' : 'عدم اعمال'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Toggle Accordion for Worker Breakdown */}
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowCrewBreakdown(prev => !prev)}
+                        className="w-full flex items-center justify-between py-1.5 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <CalendarDays className="w-3.5 h-3.5 text-amber-500" />
+                          <span>
+                            {language === 'ku'
+                              ? `وردەکاری کارکردی کارمەندان (${crewAttendance.workerBreakdown?.length || 0} کەس)`
+                              : language === 'en'
+                              ? `View Crew Breakdown (${crewAttendance.workerBreakdown?.length || 0} workers)`
+                              : `مشاهده ریز کارکرد کارگران اکیپ (${crewAttendance.workerBreakdown?.length || 0} نفر)`}
+                          </span>
+                        </span>
+                        <ChevronDown className={'w-3.5 h-3.5 transition-transform duration-200 ' + (showCrewBreakdown ? 'rotate-180' : '')} />
+                      </button>
+
+                      {showCrewBreakdown && (
+                        <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto pr-1 animate-in fade-in duration-150">
+                          {crewAttendance.workerBreakdown?.map(b => (
+                            <div
+                              key={b.worker.id}
+                              className="p-2 rounded-xl bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[11px]"
+                            >
+                              <div>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">{b.worker.name}</span>
+                                <span className="text-[10px] text-slate-400 ms-1.5">({b.worker.role || (language === 'ku' ? 'کرێکار' : language === 'en' ? 'Worker' : 'کارگر')})</span>
+                              </div>
+                              <div className="flex items-center gap-2 font-mono">
+                                <span className="text-slate-600 dark:text-slate-300">{b.daysCount} {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}</span>
+                                <span className="text-amber-600 dark:text-amber-400 font-bold" dir="ltr">
+                                  {formatAmount(b.grossWage, currency)} {currency}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-400 italic">
+                    {language === 'ku'
+                      ? 'هیچ کارکردێکی ڕۆژانە لە ڕۆژژمێردا بۆ کارمەندانی ئەم اکیپە تۆمار نەکراوە.'
+                      : language === 'en'
+                      ? 'No crew daily attendance records found in calendar for this contractor period.'
+                      : 'هیچ کارکرد روزمزدی در تقویم برای اعضای این اکیپ در این بازه تاریخی یافت نشد.'}
+                  </div>
+                )}
+              </div>
+
               {/* Advances & Prepayments Deductions Card */}
               <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 text-xs font-black text-slate-900 dark:text-white">
@@ -564,6 +767,16 @@ export default function ContractSettlementModal({
                         + {formatAmount(settlement.grossWorkAmount, currency)}
                       </span>
                     </div>
+
+                    {/* Crew Daily Wage Addition (Mode B) */}
+                    {settlement.crewGrossWageAddition > 0 && (
+                      <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                        <span>{language === 'ku' ? 'کارکردی ڕۆژانەی تیمی اکیپ:' : language === 'en' ? 'Crew Daily Wages Added:' : 'کارکرد روزمزد اکیپ (تقویم):'}</span>
+                        <span className="font-mono font-bold" dir="ltr">
+                          + {formatAmount(settlement.crewGrossWageAddition, currency)}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Delay Penalty */}
                     {settlement.totalDelayPenalty > 0 && (

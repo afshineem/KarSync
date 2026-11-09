@@ -116,6 +116,8 @@ const COPY = {
     lblDefaultSection: 'بخش کاری پیش‌فرض',
     lblOptional: 'اختیاری',
     optNoSection: 'بدون بخش مشخص (عمومی کارگاه)',
+    lblIsTemporary: 'کارگر موقت اکیپ پیمانکاری (روزمزد موقت)',
+    descIsTemporary: 'این نیرو جهت همکاری موقت با اکیپ استادکار ثبت می‌شود و کارکرد روزانه او در صورت‌وضعیت نهایی قرارداد تجمیع می‌گردد.',
     secPortal: 'دسترسی اختصاصی پورتال پرسنل',
     portalSub: 'ورود مستقیم به پنل کارکرد',
     lblUsername: 'نام کاربری',
@@ -405,6 +407,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
     overtimeHourlyRate: '5000',
     defaultSectionId: '',
     isActive: 1,
+    isTemporary: false,
     username: '',
     password: ''
   });
@@ -473,6 +476,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           defaultSectionId: '',
           isActive: 1,
           isGlobal: false,
+          isTemporary: false,
           username: '',
           password: ''
         });
@@ -580,6 +584,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
           isActive: Number(formData.isActive),
           isGlobal: Boolean(formData.isGlobal),
+          isTemporary: Boolean(formData.isTemporary),
           username: (formData.username || '').trim(),
           password: (formData.password || '').trim(),
           updatedAt: new Date().toISOString()
@@ -608,6 +613,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           defaultSectionId: formData.defaultSectionId ? String(formData.defaultSectionId) : null,
           isActive: 1,
           isGlobal: Boolean(formData.isGlobal),
+          isTemporary: Boolean(formData.isTemporary),
           username: (formData.username || '').trim(),
           password: (formData.password || '').trim(),
           createdAt: new Date().toISOString(),
@@ -1190,6 +1196,26 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                           <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                       </select>
+                    </div>
+
+                    {/* کارگر موقت اکیپ */}
+                    <div className="sm:col-span-2 pt-1 pb-1">
+                      <label className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-all">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(formData.isTemporary)}
+                          onChange={(e) => setFormData(prev => ({ ...prev, isTemporary: e.target.checked }))}
+                          className="mt-0.5 w-4 h-4 rounded text-amber-500 focus:ring-amber-400 border-slate-300 dark:border-slate-600"
+                        />
+                        <div className="space-y-0.5">
+                          <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                            {txt.lblIsTemporary}
+                          </span>
+                          <span className="block text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            {txt.descIsTemporary}
+                          </span>
+                        </div>
+                      </label>
                     </div>
 
                     {/* نقش در گروه */}

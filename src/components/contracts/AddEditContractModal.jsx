@@ -207,9 +207,12 @@ export default function AddEditContractModal({
 
     setIsSubmitting(true);
     try {
+      const selectedCp = counterparties.find(c => String(c.id) === String(formData.counterpartyId));
       const payload = {
         title: formData.title.trim(),
         counterpartyId: formData.counterpartyId,
+        counterpartyName: selectedCp?.name || '',
+        linkedGroupId: selectedCp?.linkedGroupId || editingContract?.linkedGroupId || null,
         type: formData.type,
         startDate: formData.startDate,
         estimatedEndDate: formData.estimatedEndDate,
@@ -320,10 +323,26 @@ export default function AddEditContractModal({
                       <option value="">{language === 'ku' ? '-- هەڵبژاردنی کەس --' : language === 'en' ? '-- Select Party --' : '-- انتخاب طرف‌حساب --'}</option>
                       {counterparties.map(cp => (
                         <option key={cp.id} value={cp.id}>
-                          {cp.name} {cp.company ? `(${cp.company})` : ''}
+                          {cp.name} {cp.company ? `(${cp.company})` : ''} {cp.linkedGroupId ? (language === 'ku' ? ' • [تیمی ڕۆژانە]' : language === 'en' ? ' • [Crew Active]' : ' • [اکیپ روزمزد]') : ''}
                         </option>
                       ))}
                     </select>
+                    {(() => {
+                      const curCp = counterparties.find(c => String(c.id) === String(formData.counterpartyId));
+                      if (!curCp?.linkedGroupId) return null;
+                      return (
+                        <div className="mt-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          <span>
+                            {language === 'ku'
+                              ? 'ئەم لایەنە تیمی ڕۆژانەی هەیە؛ کارکردی ڕۆژانەی تیمەکەی لە فاکتووری کۆتاییدا دێتە ئەژمار.'
+                              : language === 'en'
+                              ? 'This party has an active crew group; their attendance will be consolidated into the contract settlement.'
+                              : 'این طرف‌حساب دارای اکیپ روزمزد است؛ کارکرد روزانه اکیپ در صورت‌وضعیت نهایی قابل تجمیع خواهد بود.'}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Party Type */}

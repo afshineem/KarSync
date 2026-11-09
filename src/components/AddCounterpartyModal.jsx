@@ -17,6 +17,9 @@ import {
   Sparkles
 } from 'lucide-react';
 import { pushCounterpartyLive } from '../services/realtimeSync';
+import { syncCounterpartyCrewWorker } from '../services/contractService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Users } from 'lucide-react';
 import { formatAmount, getCurrencySymbol } from '../utils/formatters';
 
 const MODAL_COPY = {
@@ -61,7 +64,15 @@ const MODAL_COPY = {
     cancelBtn: 'انصراف',
     savingBtn: 'در حال ذخیره...',
     saveEditBtn: 'ثبت ویرایش طرف‌حساب',
-    saveAddBtn: 'ذخیره طرف‌حساب جدید'
+    saveAddBtn: 'ذخیره طرف‌حساب جدید',
+    crewSectionTitle: 'اتصال به پرسنل و تشکیل اکیپ روزمزد',
+    crewSectionDesc: 'تعریف همزمان به عنوان استادکار برای ثبت کارکرد روزانه اکیپ در تقویم',
+    crewToggleLabel: 'فعال‌سازی تشکیل اکیپ پرسنل برای این طرف‌حساب',
+    crewModeCreateNew: 'ساخت استادکار و اکیپ جدید',
+    crewModeLinkExisting: 'اتصال به یکی از پرسنل موجود',
+    crewSelectExistingWorker: 'انتخاب پرسنل متناظر از لیست کارگاه:',
+    crewDailyRateLabel: 'دستمزد روزمزد پیش‌فرض استادکار (اختیاری):',
+    crewHelperNote: 'با فعال‌سازی این بخش، یک اکیپ اختصاصی در پرسنل کارگاه تشکیل می‌شود و کارگران موقت این استادکار می‌توانند به آن متصل شده و کارکردشان در قرارداد تجمیع گردد.'
   },
   ku: {
     editTitle: 'دەستکاریکردنی لایەنی حیساب',
@@ -104,7 +115,15 @@ const MODAL_COPY = {
     cancelBtn: 'پاشگەزبوونەوە',
     savingBtn: 'پاشەکەوت دەکرێت...',
     saveEditBtn: 'تۆمارکردنی دەستکاری',
-    saveAddBtn: 'پاشەکەوتکردنی لایەنی نوێ'
+    saveAddBtn: 'پاشەکەوتکردنی لایەنی نوێ',
+    crewSectionTitle: 'بەستنەوە بە کارمەندان و پێکهێنانی تیمی ڕۆژانە',
+    crewSectionDesc: 'تۆمارکردنی هاوکات وەک وەستاکار بۆ تۆمارکردنی کارکردی ڕۆژانەی تیم لە ڕۆژژمێردا',
+    crewToggleLabel: 'چالاککردنی پێکهێنانی تیمی کارمەندان بۆ ئەم لایەنە',
+    crewModeCreateNew: 'دروستکردنی وەستاکار و تیمی نوێ',
+    crewModeLinkExisting: 'بەستنەوە بە یەکێک لە کارمەندانی ئێستا',
+    crewSelectExistingWorker: 'هەڵبژاردنی کارمەندی هاوتا لە لیستی کارگە:',
+    crewDailyRateLabel: 'کرێی ڕۆژانەی بنەڕەتی وەستاکار (ئارەزوومەندانە):',
+    crewHelperNote: 'بە چالاککردنی ئەم بەشە، تیمێکی تایبەت لە کارمەندانی پڕۆژەدا دروست دەبێت و کرێکارانی کاتی دەتوانن پێوەی ببەسترێنەوە و کارکردیان لە گرێبەستدا کۆبکرێتەوە.'
   },
   en: {
     editTitle: 'Edit Counterparty Details',
@@ -147,7 +166,15 @@ const MODAL_COPY = {
     cancelBtn: 'Cancel',
     savingBtn: 'Saving...',
     saveEditBtn: 'Save Counterparty Changes',
-    saveAddBtn: 'Save New Counterparty'
+    saveAddBtn: 'Save New Counterparty',
+    crewSectionTitle: 'Link to Personnel & Create Crew Group',
+    crewSectionDesc: 'Register as Master Craftsman to enable daily attendance tracking for their crew in calendar',
+    crewToggleLabel: 'Enable Crew Group & Worker Sync for this Party',
+    crewModeCreateNew: 'Create New Master & Crew Group',
+    crewModeLinkExisting: 'Link to Existing Worker Profile',
+    crewSelectExistingWorker: 'Select Corresponding Worker from Project:',
+    crewDailyRateLabel: 'Default Daily Wage Rate (Optional):',
+    crewHelperNote: 'When enabled, a dedicated crew group is provisioned in personnel and temporary workers can be assigned under it to aggregate their work days in contract settlements.'
   }
 };
 
@@ -170,6 +197,19 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
   });
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [syncWithPersonnel, setSyncWithPersonnel] = useState(false);
+  const [crewLinkMode, setCrewLinkMode] = useState('create_new');
+  const [selectedExistingWorkerId, setSelectedExistingWorkerId] = useState('');
+  const [workerDailyRate, setWorkerDailyRate] = useState('');
+
+  const projectWorkers = useLiveQuery(
+    async () => {
+      if (!db.workers) return [];
+      const list = await db.workers.toArray();
+      return list.filter(w => !w.deletedAt && (!w.projectId || w.projectId === targetProjectId || targetProjectId === DEFAULT_PROJECT_ID));
+    },
+    [targetProjectId]
+  ) || [];
   
   useEffect(() => {
     if (editingCounterparty) {
@@ -181,8 +221,17 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
         contractValue: editingCounterparty.contractValue ? Number(editingCounterparty.contractValue).toLocaleString('en-US') : '',
         status: editingCounterparty.status || 'active'
       });
+      setSyncWithPersonnel(Boolean(editingCounterparty.linkedWorkerId || editingCounterparty.linkedGroupId));
+      if (editingCounterparty.linkedWorkerId) {
+        setSelectedExistingWorkerId(editingCounterparty.linkedWorkerId);
+        setCrewLinkMode('link_existing');
+      }
     } else {
-      setFormData({ name: '', type: 'employer', phone: '', company: '', contractValue: '', status: 'active' });
+      setFormData({ name: '', type: 'subcontractor', phone: '', company: '', contractValue: '', status: 'active' });
+      setSyncWithPersonnel(true);
+      setCrewLinkMode('create_new');
+      setSelectedExistingWorkerId('');
+      setWorkerDailyRate('');
     }
     setFormError('');
   }, [editingCounterparty, isOpen]);
@@ -212,6 +261,29 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
     const parsedContractValue = Number(String(formData.contractValue).replace(/,/g, '')) || 0;
 
     try {
+      const targetId = editingCounterparty ? editingCounterparty.id : generateCounterpartyId();
+      let linkedWorkerId = editingCounterparty?.linkedWorkerId || null;
+      let linkedGroupId = editingCounterparty?.linkedGroupId || null;
+
+      if (syncWithPersonnel) {
+        if (crewLinkMode === 'link_existing' && selectedExistingWorkerId) {
+          linkedWorkerId = selectedExistingWorkerId;
+          const chosen = projectWorkers.find(w => String(w.id) === String(selectedExistingWorkerId));
+          linkedGroupId = chosen?.groupId || null;
+        } else {
+          const syncRes = await syncCounterpartyCrewWorker({
+            counterpartyId: targetId,
+            name: formData.name.trim(),
+            phone: formData.phone.trim(),
+            projectId: targetProjectId,
+            existingLinkedWorkerId: linkedWorkerId,
+            existingLinkedGroupId: linkedGroupId,
+            dailyRate: Number(String(workerDailyRate).replace(/,/g, '')) || 0
+          });
+          linkedWorkerId = syncRes.linkedWorkerId;
+          linkedGroupId = syncRes.linkedGroupId;
+        }
+      }
       if (editingCounterparty) {
         const updated = {
           ...editingCounterparty,
@@ -222,13 +294,15 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
           company: formData.company.trim(),
           contractValue: parsedContractValue,
           status: formData.status,
+          linkedWorkerId,
+          linkedGroupId,
           updatedAt: new Date().toISOString()
         };
         await db.counterparties.update(editingCounterparty.id, updated);
         pushCounterpartyLive(updated).catch(console.warn);
       } else {
         const record = {
-          id: generateCounterpartyId(),
+          id: targetId,
           projectId: targetProjectId,
           name: formData.name.trim(),
           type: formData.type,
@@ -236,6 +310,8 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
           company: formData.company.trim(),
           contractValue: parsedContractValue,
           status: formData.status,
+          linkedWorkerId,
+          linkedGroupId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -406,6 +482,100 @@ export function AddCounterpartyModal({ isOpen, onClose, editingCounterparty = nu
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* کارت ۳: یکپارچگی با پرسنل و اکیپ روزمزد */}
+                <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-slate-200">
+                      <Users className="w-4 h-4 text-amber-500" />
+                      <span>{c.crewSectionTitle}</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={syncWithPersonnel}
+                        onChange={(e) => setSyncWithPersonnel(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {c.crewSectionDesc}
+                  </p>
+
+                  {syncWithPersonnel && (
+                    <div className="pt-2 space-y-3.5 animate-in fade-in duration-200">
+                      <div className="grid grid-cols-2 gap-2 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                        <button
+                          type="button"
+                          onClick={() => setCrewLinkMode('create_new')}
+                          className={'py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ' + (
+                            crewLinkMode === 'create_new'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          )}
+                        >
+                          {c.crewModeCreateNew}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCrewLinkMode('link_existing')}
+                          className={'py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ' + (
+                            crewLinkMode === 'link_existing'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          )}
+                        >
+                          {c.crewModeLinkExisting}
+                        </button>
+                      </div>
+
+                      {crewLinkMode === 'create_new' ? (
+                        <div className="space-y-2 bg-amber-500/5 dark:bg-amber-500/10 p-3.5 rounded-2xl border border-amber-500/20">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                              {c.crewDailyRateLabel}
+                            </label>
+                            <input
+                              type="text"
+                              value={workerDailyRate}
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/[^0-9]/g, '');
+                                setWorkerDailyRate(v ? Number(v).toLocaleString('en-US') : '');
+                              }}
+                              className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-left"
+                              placeholder="0"
+                              dir="ltr"
+                            />
+                          </div>
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-normal">
+                            {c.crewHelperNote}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {c.crewSelectExistingWorker}
+                          </label>
+                          <select
+                            value={selectedExistingWorkerId}
+                            onChange={(e) => setSelectedExistingWorkerId(e.target.value)}
+                            className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                          >
+                            <option value="">-- {c.crewModeLinkExisting} --</option>
+                            {projectWorkers.map(w => (
+                              <option key={w.id} value={w.id}>
+                                {w.name} {w.role ? '(' + w.role + ')' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
               </div>

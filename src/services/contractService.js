@@ -1,5 +1,5 @@
-import { db, generateContractId, generateExpenseId, DEFAULT_PROJECT_ID } from '../db/db';
-import { pushContractLive, deleteContractLive, pushPaymentsLive } from './realtimeSync';
+import { db, generateContractId, generateExpenseId, generateGroupId, generateId, DEFAULT_PROJECT_ID } from '../db/db';
+import { pushContractLive, deleteContractLive, pushPaymentsLive, pushGroupLive, pushWorkerLive } from './realtimeSync';
 import { generateNextVoucherNumber } from './voucherNumberService';
 
 /**
@@ -170,6 +170,262 @@ export function calculateDelayDays(estimatedEndDate, actualEndDate) {
 /**
  * Transparent calculation of final settlement
  */
+
+/**
+ * Automatically provision or synchronize a Counterparty with a Worker profile and Crew Group.
+ * Ensures the craftsman exists both as a Counterparty and as a Team Master in Workers,
+ * allowing their temporary crew to be registered under their Group.
+ */
+export async function syncCounterpartyCrewWorker({
+  counterpartyId,
+  name,
+  phone = "",
+  projectId = DEFAULT_PROJECT_ID,
+  existingLinkedWorkerId = null,
+  existingLinkedGroupId = null,
+  dailyRate = 0
+}) {
+  if (!db.counterparties || !db.workers || !db.groups) {
+    throw new Error("Database stores not available");
+  }
+
+  let groupId = existingLinkedGroupId;
+  let workerId = existingLinkedWorkerId;
+
+  // 1. Group resolution
+  if (groupId) {
+    const existingGroup = await db.groups.get(groupId);
+    if (existingGroup) {
+      const updatedGroup = {
+        ...existingGroup,
+        name: `اکیپ ${name}`.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      await pushGroupLive(updatedGroup);
+    } else {
+      groupId = null;
+    }
+  }
+
+  if (!groupId) {
+    groupId = generateGroupId();
+    const newGroup = {
+      id: groupId,
+      projectId: projectId || DEFAULT_PROJECT_ID,
+      name: `اکیپ ${name}`.trim(),
+      deductFoodExpense: false,
+      isArchived: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await pushGroupLive(newGroup);
+  }
+
+  // 2. Worker resolution (Master / Leader of this crew)
+  if (workerId) {
+    const existingWorker = await db.workers.get(workerId);
+    if (existingWorker) {
+      const updatedWorker = {
+        ...existingWorker,
+        name: name.trim(),
+        phone: (phone || existingWorker.phone || "").trim(),
+        groupId,
+        counterpartyId,
+        teamRole: "Master",
+        role: existingWorker.role || "استادکار / سرگروه",
+        dailyRate: Number(dailyRate) || existingWorker.dailyRate || 0,
+        updatedAt: new Date().toISOString()
+      };
+      await pushWorkerLive(updatedWorker);
+    } else {
+      workerId = null;
+    }
+  }
+
+  if (!workerId) {
+    workerId = generateId();
+    const newWorker = {
+      id: workerId,
+      projectId: projectId || DEFAULT_PROJECT_ID,
+      userId: "local_user",
+      name: name.trim(),
+      phone: (phone || "").trim(),
+      role: "استادکار / سرگروه",
+      teamRole: "Master",
+      groupId,
+      counterpartyId,
+      wageType: "standard",
+      dailyRate: Number(dailyRate) || 0,
+      monthlySalary: 0,
+      monthlyLeaveDays: 0,
+      leavePolicy: "standard",
+      bonusLeaveDays: 0,
+      fridayRateMultiplier: 1,
+      overtimeHourlyRate: 0,
+      defaultSectionId: null,
+      isActive: 1,
+      isGlobal: false,
+      isTemporary: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await pushWorkerLive(newWorker);
+  }
+
+  return { linkedWorkerId: workerId, linkedGroupId: groupId };
+}
+
+/**
+ * Aggregates all daily attendance records (attendanceLogs) for the contractor crew/group
+ * across the specified contract period. Returns total man-days, overtime hours, and total wage.
+ */
+export async function getContractCrewAttendanceSummary({
+  contract,
+  startDate = null,
+  endDate = null
+}) {
+  if (!contract || !db.attendanceLogs) {
+    return {
+      totalDays: 0,
+      totalOvertimeHours: 0,
+      totalGrossWage: 0,
+      crewWorkers: [],
+      workerBreakdown: [],
+      logs: [],
+      matchingManDayIndex: -1,
+      linkedGroupId: null,
+      linkedWorkerId: null
+    };
+  }
+
+  const projectId = contract.projectId || DEFAULT_PROJECT_ID;
+  const start = startDate || contract.startDate || null;
+  const end = endDate || contract.actualEndDate || contract.estimatedEndDate || null;
+
+  // 1. Resolve linked counterparty and group
+  let linkedGroupId = contract.linkedGroupId || null;
+  let linkedWorkerId = null;
+  let counterparty = null;
+
+  if (contract.counterpartyId && db.counterparties) {
+    counterparty = await db.counterparties.get(contract.counterpartyId);
+    if (counterparty) {
+      linkedGroupId = linkedGroupId || counterparty.linkedGroupId || null;
+      linkedWorkerId = counterparty.linkedWorkerId || null;
+    }
+  }
+
+  // 2. Find all crew workers
+  const allWorkers = db.workers ? await db.workers.toArray() : [];
+  const crewWorkers = allWorkers.filter(w => {
+    if (w.deletedAt || w.isActive === 0) return false;
+    // Worker matches linked group
+    if (linkedGroupId && String(w.groupId) === String(linkedGroupId)) return true;
+    // Worker matches counterparty ID
+    if (contract.counterpartyId && String(w.counterpartyId) === String(contract.counterpartyId)) return true;
+    // Worker matches master worker ID
+    if (linkedWorkerId && String(w.id) === String(linkedWorkerId)) return true;
+    return false;
+  });
+
+  const matchingManDayIndex = (contract.items || []).findIndex(it => it.unit === "man_day");
+
+  if (crewWorkers.length === 0) {
+    return {
+      totalDays: 0,
+      totalOvertimeHours: 0,
+      totalGrossWage: 0,
+      crewWorkers: [],
+      workerBreakdown: [],
+      logs: [],
+      matchingManDayIndex,
+      linkedGroupId,
+      linkedWorkerId
+    };
+  }
+
+  const crewWorkerIds = new Set(crewWorkers.map(w => String(w.id)));
+  const crewWorkerMap = new Map(crewWorkers.map(w => [String(w.id), w]));
+
+  // 3. Query attendance logs
+  const allLogs = db.attendanceLogs ? await db.attendanceLogs.toArray() : [];
+  const relevantLogs = allLogs.filter(l => {
+    if (l.deletedAt) return false;
+    if (!crewWorkerIds.has(String(l.workerId))) return false;
+    if (l.projectId && contract.projectId && l.projectId !== contract.projectId && contract.projectId !== DEFAULT_PROJECT_ID) {
+      return false;
+    }
+    if (start && l.date && l.date < start) return false;
+    if (end && l.date && l.date > end) return false;
+    return true;
+  });
+
+  let totalDays = 0;
+  let totalOvertimeHours = 0;
+  let totalGrossWage = 0;
+
+  const workerBreakdown = new Map();
+  crewWorkers.forEach(w => {
+    workerBreakdown.set(String(w.id), {
+      worker: w,
+      daysCount: 0,
+      overtimeHours: 0,
+      grossWage: 0,
+      logsCount: 0
+    });
+  });
+
+  relevantLogs.forEach(l => {
+    const w = crewWorkerMap.get(String(l.workerId));
+    if (!w) return;
+
+    let dayWeight = 1.0;
+    if (l.type === "half") dayWeight = 0.5;
+    else if (l.type === "hourly") {
+      const h = Number(l.overtimeHours) || Number(l.hours) || 0;
+      dayWeight = Math.round((h / 8) * 100) / 100;
+    } else if (l.type === "absent") {
+      dayWeight = 0;
+    }
+
+    const otHours = Math.max(0, Number(l.overtimeHours) || 0);
+    const wDaily = Number(String(w.dailyRate).replace(/,/g, "")) || 0;
+    const wOtRate = Number(String(w.overtimeHourlyRate).replace(/,/g, "")) || 0;
+
+    let logPay = Number(l.totalDayPay);
+    if (isNaN(logPay) || logPay <= 0) {
+      if (l.type === "half") logPay = (wDaily * 0.5) + (otHours * wOtRate);
+      else if (l.type === "hourly") logPay = otHours * (wOtRate || (wDaily / 8));
+      else if (l.type === "absent") logPay = 0;
+      else logPay = wDaily + (otHours * wOtRate);
+    }
+
+    totalDays += dayWeight;
+    totalOvertimeHours += otHours;
+    totalGrossWage += logPay;
+
+    const b = workerBreakdown.get(String(w.id));
+    if (b) {
+      b.daysCount += dayWeight;
+      b.overtimeHours += otHours;
+      b.grossWage += logPay;
+      b.logsCount += 1;
+    }
+  });
+
+  return {
+    totalDays: Math.round(totalDays * 10) / 10,
+    totalOvertimeHours,
+    totalGrossWage,
+    crewWorkers,
+    workerBreakdown: Array.from(workerBreakdown.values()),
+    logs: relevantLogs,
+    matchingManDayIndex,
+    linkedGroupId,
+    linkedWorkerId
+  };
+}
+
 export function calculateContractSettlement({
   contract,
   completedItems = [],
@@ -180,7 +436,22 @@ export function calculateContractSettlement({
 }) {
   // 1. Gross Work Amount
   let grossWorkAmount = 0;
-  const finalizedItems = (completedItems.length > 0 ? completedItems : contract.items || []).map((it) => {
+  let itemsToProcess = (completedItems.length > 0 ? completedItems : contract.items || []);
+
+  // If crewAttendanceMode is man_day_item, ensure man_day item uses crew totalDays
+  if (crewAttendanceMode === man_day_item && crewAttendanceSummary?.totalDays !== undefined) {
+    const manDayIdx = itemsToProcess.findIndex(it => it.unit === man_day);
+    if (manDayIdx !== -1) {
+      itemsToProcess = itemsToProcess.map((it, idx) => {
+        if (idx === manDayIdx) {
+          return { ...it, finalQuantity: crewAttendanceSummary.totalDays };
+        }
+        return it;
+      });
+    }
+  }
+
+  const finalizedItems = itemsToProcess.map((it) => {
     const qty = Number(it.finalQuantity !== undefined ? it.finalQuantity : it.estimatedQuantity) || 0;
     const rate = Number(it.unitPrice) || 0;
     const itemTotal = qty * rate;
@@ -191,6 +462,13 @@ export function calculateContractSettlement({
       finalAmount: itemTotal
     };
   });
+
+  // If crewAttendanceMode is extra_gross_wage, add crew wages directly to gross work
+  let crewGrossWageAddition = 0;
+  if (crewAttendanceMode === extra_gross_wage && crewAttendanceSummary?.totalGrossWage) {
+    crewGrossWageAddition = Number(crewAttendanceSummary.totalGrossWage) || 0;
+    grossWorkAmount += crewGrossWageAddition;
+  }
 
   // 2. Delay Days & Penalty
   const delayDays = calculateDelayDays(contract.estimatedEndDate, actualEndDate || new Date().toISOString().slice(0, 10));
@@ -212,6 +490,9 @@ export function calculateContractSettlement({
 
   return {
     grossWorkAmount,
+    crewGrossWageAddition,
+    crewAttendanceSummary,
+    crewAttendanceMode,
     delayDays,
     dailyPenalty,
     totalDelayPenalty,
