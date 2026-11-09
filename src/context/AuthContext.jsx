@@ -1938,6 +1938,14 @@ export function AuthProvider({ children }) {
       } catch (err) {
         console.warn('Admin creds cloud save warning:', err);
       }
+
+      if (user?.supabaseUser) {
+        try {
+          await supabase.auth.updateUser({ password: newPassword });
+        } catch (err) {
+          console.warn('Supabase auth password update error:', err);
+        }
+      }
     }
 
     return { success: true };
