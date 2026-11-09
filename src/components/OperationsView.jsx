@@ -3,7 +3,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useContracts } from '../hooks/useContracts';
 import { formatAmount, getTodayDateString } from '../utils/formatters';
-import { calculateDelayDays } from '../services/contractService';
+import { calculateDelayDays, getContractTimelineProgress } from '../services/contractService';
 import AddEditContractModal from './contracts/AddEditContractModal';
 import ContractDetailModal from './contracts/ContractDetailModal';
 import ContractSettlementModal from './contracts/ContractSettlementModal';
@@ -473,8 +473,9 @@ export default function OperationsView() {
               {filteredContracts.map((contract) => {
                 const isCompleted = contract.status === 'completed';
                 const isActive = contract.status === 'active';
-                const delayDays = isActive && contract.estimatedEndDate ? calculateDelayDays(contract.estimatedEndDate, todayStr) : 0;
-                const isOverdue = delayDays > 0;
+                const timeline = getContractTimelineProgress(contract, todayStr, language);
+                const delayDays = timeline?.delayDays || 0;
+                const isOverdue = Boolean(timeline?.isOverdue);
 
                 return (
                   <div
@@ -482,7 +483,7 @@ export default function OperationsView() {
                     className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-slate-800 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between group hover:border-amber-500/40"
                   >
                     {/* Top Row: Contract Number & Status Badge */}
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="px-2.5 py-1 rounded-xl font-mono text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           {contract.contractNumber}
@@ -521,7 +522,7 @@ export default function OperationsView() {
                         </h4>
                         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
                           <HardHat className="w-3.5 h-3.5 text-amber-500" />
-                          <span>{contract.counterpartyName || 'پیمانکار'}</span>
+                          <span>{contract.counterpartyName || (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'پیمانکار')}</span>
                         </p>
                       </div>
 
@@ -536,19 +537,50 @@ export default function OperationsView() {
                         </div>
                       </div>
 
-                      {/* Timeline */}
-                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                        <div>
-                          <span className="text-slate-400">{language === 'ku' ? 'دەستپێک:' : language === 'en' ? 'Start:' : 'شروع:'}</span>{' '}
-                          <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{contract.startDate || '---'}</span>
+                      {/* Timeline Duration & Progress Bar */}
+                      {timeline && (
+                        <div className="p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 space-y-2">
+                          {/* Duration Left & Percent Header */}
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Clock className={`w-3.5 h-3.5 shrink-0 ${isOverdue ? 'text-rose-500 animate-pulse' : isCompleted ? 'text-teal-500' : 'text-primary'}`} />
+                              <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                                {timeline.label}
+                              </span>
+                              {timeline.sublabel && (
+                                <span className="text-[10px] text-slate-400 font-mono truncate hidden sm:inline">
+                                  {timeline.sublabel}
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded-lg shrink-0 ${timeline.badgeClass}`}>
+                              {timeline.percent}%
+                            </span>
+                          </div>
+
+                          {/* Progress Bar Track */}
+                          <div className="w-full h-2 rounded-full bg-slate-200/80 dark:bg-slate-700/80 overflow-hidden shadow-inner">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${timeline.colorClass}`}
+                              style={{ width: `${timeline.percent}%` }}
+                            />
+                          </div>
+
+                          {/* Date Range: Start and Deadline */}
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5 font-mono">
+                            <div className="flex items-center gap-1">
+                              <span className="font-sans">{language === 'ku' ? 'دەستپێک:' : language === 'en' ? 'Start:' : 'شروع:'}</span>
+                              <span className="font-bold text-slate-600 dark:text-slate-300">{contract.startDate || '---'}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="font-sans">{language === 'ku' ? 'مه‌ودا:' : language === 'en' ? 'Deadline:' : 'مهلت:'}</span>
+                              <span className={`font-bold ${isOverdue ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-600 dark:text-slate-300'}`}>
+                                {contract.estimatedEndDate || '---'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-end">
-                          <span className="text-slate-400">{language === 'ku' ? 'کۆتایی:' : language === 'en' ? 'Deadline:' : 'مهلت:'}</span>{' '}
-                          <span className={`font-mono font-bold ${isOverdue ? 'text-rose-500 font-black' : 'text-slate-700 dark:text-slate-300'}`}>
-                            {contract.estimatedEndDate || '---'}
-                          </span>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Bottom Row: Amount & Actions */}

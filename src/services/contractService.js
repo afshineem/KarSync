@@ -168,6 +168,131 @@ export function calculateDelayDays(estimatedEndDate, actualEndDate) {
 }
 
 /**
+ * Calculate timeline progress, duration metrics, and status for a contract
+ */
+export function getContractTimelineProgress(contract, todayStr, language = 'fa') {
+  if (!contract) return null;
+  const isCompleted = contract.status === 'completed';
+
+  if (isCompleted) {
+    return {
+      percent: 100,
+      totalDays: 0,
+      elapsedDays: 0,
+      remainingDays: 0,
+      status: 'completed',
+      isOverdue: false,
+      delayDays: 0,
+      label: language === 'ku' ? 'تەواوکراو' : language === 'en' ? 'Completed' : 'تکمیل‌شده',
+      sublabel: contract.actualEndDate || '',
+      colorClass: 'bg-teal-500',
+      badgeClass: 'text-teal-600 dark:text-teal-400 bg-teal-500/10 border border-teal-500/20'
+    };
+  }
+
+  const { startDate, estimatedEndDate } = contract;
+  if (!estimatedEndDate) {
+    return {
+      percent: 0,
+      totalDays: 0,
+      elapsedDays: 0,
+      remainingDays: 0,
+      status: 'no_deadline',
+      isOverdue: false,
+      delayDays: 0,
+      label: language === 'ku' ? 'بێ وادەی دیاریکراو' : language === 'en' ? 'No deadline' : 'بدون مهلت مشخص',
+      sublabel: '',
+      colorClass: 'bg-slate-300 dark:bg-slate-700',
+      badgeClass: 'text-slate-500 bg-slate-100 dark:bg-slate-800'
+    };
+  }
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const end = new Date(estimatedEndDate + 'T00:00:00');
+  const today = new Date(todayStr + 'T00:00:00');
+  const start = startDate ? new Date(startDate + 'T00:00:00') : null;
+
+  // Overdue check
+  if (today > end) {
+    const delayDays = Math.ceil((today.getTime() - end.getTime()) / msPerDay);
+    return {
+      percent: 100,
+      totalDays: start ? Math.max(1, Math.round((end.getTime() - start.getTime()) / msPerDay)) : 0,
+      elapsedDays: start ? Math.max(1, Math.round((today.getTime() - start.getTime()) / msPerDay)) : delayDays,
+      remainingDays: 0,
+      status: 'overdue',
+      isOverdue: true,
+      delayDays,
+      label: language === 'ku' ? `${delayDays} ڕۆژ دواکەوتن` : language === 'en' ? `${delayDays} days overdue` : `${delayDays} روز تاخیر`,
+      sublabel: language === 'ku' ? 'وادە بەسەرچووە' : language === 'en' ? 'Deadline passed' : 'مهلت پایان یافته',
+      colorClass: 'bg-rose-500',
+      badgeClass: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20'
+    };
+  }
+
+  // Upcoming check
+  if (start && today < start) {
+    const daysUntilStart = Math.ceil((start.getTime() - today.getTime()) / msPerDay);
+    return {
+      percent: 0,
+      totalDays: Math.max(1, Math.round((end.getTime() - start.getTime()) / msPerDay)),
+      elapsedDays: 0,
+      remainingDays: Math.max(1, Math.round((end.getTime() - today.getTime()) / msPerDay)),
+      status: 'upcoming',
+      isOverdue: false,
+      delayDays: 0,
+      label: language === 'ku' ? `${daysUntilStart} ڕۆژ تا دەستپێک` : language === 'en' ? `Starts in ${daysUntilStart} days` : `${daysUntilStart} روز تا شروع`,
+      sublabel: startDate,
+      colorClass: 'bg-sky-400',
+      badgeClass: 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border border-sky-500/20'
+    };
+  }
+
+  // Active in progress:
+  const effectiveStart = (start && start <= end) ? start : new Date(today.getTime() - 1 * msPerDay);
+  const totalDays = Math.max(1, Math.round((end.getTime() - effectiveStart.getTime()) / msPerDay));
+  const elapsedDays = Math.max(0, Math.round((today.getTime() - effectiveStart.getTime()) / msPerDay));
+  const remainingDays = Math.max(0, Math.round((end.getTime() - today.getTime()) / msPerDay));
+
+  const rawPercent = Math.round((elapsedDays / totalDays) * 100);
+  const percent = Math.min(100, Math.max(1, rawPercent));
+
+  let colorClass = 'bg-primary';
+  let badgeClass = 'text-primary bg-primary/10 border border-primary/20';
+
+  if (remainingDays <= 2 || percent >= 85) {
+    colorClass = 'bg-amber-500';
+    badgeClass = 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20';
+  }
+
+  const label = language === 'ku'
+    ? `${remainingDays} ڕۆژ ماوە`
+    : language === 'en'
+    ? `${remainingDays} ${remainingDays === 1 ? 'day' : 'days'} left`
+    : `${remainingDays} روز مانده`;
+
+  const sublabel = language === 'ku'
+    ? `(${elapsedDays} لە ${totalDays} ڕۆژ)`
+    : language === 'en'
+    ? `(${elapsedDays} of ${totalDays} days)`
+    : `(${elapsedDays} از ${totalDays} روز)`;
+
+  return {
+    percent,
+    totalDays,
+    elapsedDays,
+    remainingDays,
+    status: 'active',
+    isOverdue: false,
+    delayDays: 0,
+    label,
+    sublabel,
+    colorClass,
+    badgeClass
+  };
+}
+
+/**
  * Transparent calculation of final settlement
  */
 
