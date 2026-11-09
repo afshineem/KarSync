@@ -2,7 +2,8 @@ import React, { useRef } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useProject } from '../../context/ProjectContext';
 import { formatAmount, numberToWords, formatCurrency } from '../../utils/formatters';
-import { deleteContract } from '../../services/contractService';
+import { deleteContract, getContractCrewAttendanceSummary } from '../../services/contractService';
+import { useLiveQuery } from 'dexie-react-hooks';
 import {
   X,
   FileSignature,
@@ -20,7 +21,10 @@ import {
   HardHat,
   Layers,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Users,
+  CalendarDays,
+  ChevronDown
 } from 'lucide-react';
 
 export default function ContractDetailModal({
@@ -34,6 +38,17 @@ export default function ContractDetailModal({
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const printRef = useRef(null);
+
+  // Live query for crew day-labor attendance
+  const crewAttendance = useLiveQuery(
+    async () => {
+      if (!contract?.id) return null;
+      return await getContractCrewAttendanceSummary({
+        contract
+      });
+    },
+    [contract?.id, contract?.counterpartyId, contract?.linkedGroupId, contract?.startDate]
+  );
 
   if (!isOpen || !contract) return null;
 
@@ -182,27 +197,166 @@ export default function ContractDetailModal({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {(contract.items || []).map((it, idx) => {
+                    const isManDay = it.unit === 'man_day';
                     const qty = Number(isCompleted && it.finalQuantity !== undefined ? it.finalQuantity : it.estimatedQuantity) || 0;
                     const rate = Number(it.unitPrice) || 0;
                     const total = qty * rate;
+                    const liveDays = isManDay ? (crewAttendance?.totalDays || 0) : null;
+                    const liveEarned = isManDay ? (liveDays * rate) : null;
 
                     return (
-                      <tr key={it.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                        <td className="py-2.5 px-3 text-slate-400 font-mono">{idx + 1}</td>
-                        <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200">{it.title}</td>
-                        <td className="py-2.5 px-3 text-center text-slate-500 font-bold">{it.unit}</td>
-                        <td className="py-2.5 px-3 text-center text-[11px] text-slate-500">
+                      <tr key={it.id || idx} className={`transition-colors ${isManDay ? 'bg-amber-500/5 dark:bg-amber-500/10' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'}`}>
+                        <td className="py-3 px-3 text-slate-400 font-mono">{idx + 1}</td>
+                        <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200">
+                          <div className="flex items-center gap-1.5">
+                            {isManDay && <Users className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                            <span>{it.title}</span>
+                          </div>
+                          {isManDay && (
+                            <span className="inline-block mt-0.5 text-[10px] text-amber-600 dark:text-amber-400 font-normal">
+                              {language === 'ku' ? 'بەستراوەتەوە بە ئامادەبوونی ڕۆژانەی تیم' : language === 'en' ? 'Synced with crew daily attendance' : 'متصل به کارکرد تقویم روزانه اکیپ'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center text-slate-500 font-bold">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] ${isManDay ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                            {it.unit}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center text-[11px] text-slate-500">
                           {it.materialProvision === 'contractor' ? (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'با مصالح پیمانکار') : (language === 'ku' ? 'کارگە' : language === 'en' ? 'Workshop' : 'با مصالح کارگاه')}
                         </td>
-                        <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300">{qty}</td>
-                        <td className="py-2.5 px-3 text-center font-mono text-slate-600 dark:text-slate-400">{formatAmount(rate, currency)}</td>
-                        <td className="py-2.5 px-3 text-end font-mono font-black text-slate-900 dark:text-white" dir="ltr">{formatAmount(total, currency)}</td>
+                        <td className="py-3 px-3 text-center font-mono">
+                          <div className="font-bold text-slate-700 dark:text-slate-300">{qty}</div>
+                          {isManDay && (
+                            <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span>{liveDays} {language === 'ku' ? 'ڕۆژی لایڤ' : language === 'en' ? 'live days' : 'نفر-روز لایو'}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono text-slate-600 dark:text-slate-400">{formatAmount(rate, currency)}</td>
+                        <td className="py-3 px-3 text-end font-mono" dir="ltr">
+                          <div className="font-black text-slate-900 dark:text-white">{formatAmount(total, currency)}</div>
+                          {isManDay && liveDays > 0 && (
+                            <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                              لایو: {formatAmount(liveEarned, currency)}
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Live Crew Day-Labor Attendance Card (Apple Liquid Glass) */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
+                <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+                <span>{language === 'ku' ? 'پوختەی کارکردی زیندوی تیمی ڕۆژموزد' : language === 'en' ? 'Live Crew Day-Labor Attendance (Calendar)' : 'کارکرد زنده اکیپ روزمزد در تقویم کارگاه'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
+                  {crewAttendance?.totalDays || 0} {language === 'ku' ? 'ڕۆژ-کرێکار' : language === 'en' ? 'man-days' : 'نفر-روز'}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  {language === 'ku' ? 'زیندوو' : language === 'en' ? 'Live' : 'زنده و برخط'}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {language === 'ku'
+                ? 'کارکردی ڕۆژانە و شیفتە تۆمارکراوەکانی تیمی ئەم وەستاکارە لە ڕۆژژمێری ئامادەبووندا؛ ئەم زانیارییانە ڕاستەوخۆ لە ژمێریاری کۆتایی گرێبەستدا دێنە ئەژمار.'
+                : language === 'en'
+                ? 'Daily attendance and shifts logged for this contractor crew in the project calendar; automatically feeds into the contract settlement.'
+                : 'کارکرد روزانه و شیفت‌های ثبت‌شده اعضای اکیپ این استادکار در تقویم کارگاه؛ این ارقام مستقیماً در صورت‌وضعیت نهایی اعمال می‌گردند.'}
+            </p>
+
+            {crewAttendance && (crewAttendance.totalDays > 0 || crewAttendance.crewWorkers?.length > 0) ? (
+              <div className="space-y-3 pt-1">
+                {/* 3 Metric Pills */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="p-3 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 text-center space-y-0.5">
+                    <span className="block text-[10px] text-slate-400 font-medium">
+                      {language === 'ku' ? 'کۆی ڕۆژ-کرێکار' : language === 'en' ? 'Total Man-Days' : 'مجموع نفر-روز'}
+                    </span>
+                    <span className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 font-mono">
+                      {crewAttendance.totalDays}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center space-y-0.5">
+                    <span className="block text-[10px] text-slate-400 font-medium">
+                      {language === 'ku' ? 'نەفەراتی اکیپ' : language === 'en' ? 'Crew Members' : 'اعضای فعال اکیپ'}
+                    </span>
+                    <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white font-mono">
+                      {crewAttendance.crewWorkers?.length || 0} {language === 'ku' ? 'کەس' : language === 'en' ? 'workers' : 'نفر'}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-center space-y-0.5">
+                    <span className="block text-[10px] text-slate-400 font-medium">
+                      {language === 'ku' ? 'ارزشی دەستحەق' : language === 'en' ? 'Gross Wages Value' : 'ارزش دستمزد پرسنل'}
+                    </span>
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white font-mono" dir="ltr">
+                      {formatAmount(crewAttendance.totalGrossWage, currency)} {currency}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Detailed Crew Workers List */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    {language === 'ku' ? 'وردەکاری کارکردی ئەندامانی اکیپ:' : language === 'en' ? 'Crew Members Attendance Details:' : 'ریز کارکرد اعضای اکیپ در تقویم:'}
+                  </span>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {crewAttendance.workerBreakdown?.map((b) => (
+                      <div
+                        key={b.worker.id}
+                        className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-[11px]">
+                            {b.worker.teamRole === 'Master' ? '👑' : '👷'}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{b.worker.name}</span>
+                            <div className="text-[10px] text-slate-400">
+                              {b.worker.role || (language === 'ku' ? 'کرێکاری اکیپ' : language === 'en' ? 'Crew Worker' : 'کارگر اکیپ')}
+                              {b.worker.isTemporary ? (language === 'ku' ? ' • کاتی' : language === 'en' ? ' • Temp' : ' • موقت') : ''}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 font-mono text-end">
+                          <div>
+                            <div className="font-bold text-slate-700 dark:text-slate-300">{b.daysCount} {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}</div>
+                            {b.overtimeHours > 0 && (
+                              <div className="text-[10px] text-slate-400">+{b.overtimeHours} {language === 'ku' ? 'کاتژمێر' : language === 'en' ? 'hrs OT' : 'ساعت اضافه‌کار'}</div>
+                            )}
+                          </div>
+                          <div className="font-black text-amber-600 dark:text-amber-400 min-w-20" dir="ltr">
+                            {formatAmount(b.grossWage, currency)} {currency}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-400 italic">
+                {language === 'ku'
+                  ? 'هیچ کارکردێکی ڕۆژانە لە ڕۆژژمێردا بۆ کارمەندانی ئەم اکیپە نەدۆزرایەوە.'
+                  : language === 'en'
+                  ? 'No attendance records logged for this crew in the calendar yet.'
+                  : 'هیچ کارکرد روزمزدی در تقویم برای اعضای این اکیپ در این بازه تاریخی یافت نشد.'}
+              </div>
+            )}
           </div>
 
           {/* Backcharges Commitments & Terms */}

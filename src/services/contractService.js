@@ -299,24 +299,65 @@ export async function getContractCrewAttendanceSummary({
   }
 
   const projectId = contract.projectId || DEFAULT_PROJECT_ID;
-  const start = startDate || contract.startDate || null;
-  const end = endDate || contract.actualEndDate || contract.estimatedEndDate || null;
+  const start = startDate || null;
+  const end = endDate || (contract.status === 'completed' ? contract.actualEndDate : null);
 
-  // 1. Resolve linked counterparty and group
+  // 1. Resolve linked counterparty and group with resilient fallbacks
   let linkedGroupId = contract.linkedGroupId || null;
   let linkedWorkerId = null;
   let counterparty = null;
 
   if (contract.counterpartyId && db.counterparties) {
-    counterparty = await db.counterparties.get(contract.counterpartyId);
+    const allCp = await db.counterparties.toArray();
+    counterparty = allCp.find(c => String(c.id) === String(contract.counterpartyId)) || null;
     if (counterparty) {
       linkedGroupId = linkedGroupId || counterparty.linkedGroupId || null;
       linkedWorkerId = counterparty.linkedWorkerId || null;
     }
   }
 
-  // 2. Find all crew workers
   const allWorkers = db.workers ? await db.workers.toArray() : [];
+
+  // If counterparty has linkedWorkerId, verify if that worker has groupId
+  if (linkedWorkerId && !linkedGroupId) {
+    const masterW = allWorkers.find(w => String(w.id) === String(linkedWorkerId));
+    if (masterW?.groupId) linkedGroupId = masterW.groupId;
+  }
+
+  // What if contract.counterpartyId directly matches a worker ID?
+  if (!linkedWorkerId) {
+    const directWorker = allWorkers.find(w => String(w.id) === String(contract.counterpartyId));
+    if (directWorker) {
+      linkedWorkerId = directWorker.id;
+      if (directWorker.groupId) linkedGroupId = linkedGroupId || directWorker.groupId;
+    }
+  }
+
+  // Fallback match: match group by name containing counterparty name (e.g. "اکیپ فریدون" or "وهستا فریدون")
+  if (!linkedGroupId && (counterparty?.name || contract.counterpartyName) && db.groups) {
+    const cpName = (counterparty?.name || contract.counterpartyName || '').trim().toLowerCase();
+    const allGroups = await db.groups.toArray();
+    const matchedGroup = allGroups.find(g => {
+      const gName = (g.name || '').trim().toLowerCase();
+      return gName.includes(cpName) || cpName.includes(gName.replace('اکیپ', '').trim());
+    });
+    if (matchedGroup) linkedGroupId = matchedGroup.id;
+  }
+
+  // Also check if any worker matches counterparty name
+  if (!linkedWorkerId && (counterparty?.name || contract.counterpartyName)) {
+    const cpName = (counterparty?.name || contract.counterpartyName || '').trim().toLowerCase();
+    const matchedW = allWorkers.find(w => {
+      const wName = (w.name || '').trim().toLowerCase();
+      return wName.includes(cpName) || cpName.includes(wName);
+    });
+    if (matchedW) {
+      linkedWorkerId = matchedW.id;
+      if (!linkedGroupId && matchedW.groupId) linkedGroupId = matchedW.groupId;
+    }
+  }
+
+  // 2. Find all crew workers
   const crewWorkers = allWorkers.filter(w => {
     if (w.deletedAt || w.isActive === 0) return false;
     // Worker matches linked group
