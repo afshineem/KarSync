@@ -18,7 +18,7 @@ import {
   Briefcase,
   Bell,
   Crown,
-  BrickWall
+  Hammer
 } from 'lucide-react';
 
 const NAVBAR_COPY = {
@@ -105,7 +105,7 @@ export function Navbar({
   const rawNavItems = [
     { id: 'dashboard', label: c.dashboard, icon: LayoutDashboard, hidden: !canViewDashboard },
     { id: 'workers', label: c.workers, icon: CalendarDays, hidden: !canViewAttendance },
-    { id: 'operations', label: c.operations, icon: BrickWall, hidden: !canViewOperations },
+    { id: 'operations', label: c.operations, icon: Hammer, hidden: !canViewOperations },
     { id: 'expenses', label: c.expenses, icon: Receipt, hidden: !canViewExpenses },
     { id: 'accounting', label: c.accounting, icon: Landmark, hidden: !canViewAccounting },
   ].filter(item => !item.hidden);
