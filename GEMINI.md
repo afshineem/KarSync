@@ -45,9 +45,13 @@ Whenever this trigger phrase or a request to update a modal/view to the new desi
 3. **Execution & Build Check:** Once approved, write the production-ready code, verify with Vite build (`0 errors`), and auto-commit locally.
 
 ### 2. Apple Liquid Glass UI Standards:
-* **Root Container & Background:**
-  - Base background must strictly be `#f3f6f4` in light mode (`bg-[#f3f6f4] dark:bg-slate-950`).
-  - Modal backdrops must use deep subtle blur (`bg-slate-900/60 backdrop-blur-md`).
+* **Liquid Glass Containers & Nested Depth System (MANDATORY):**
+  - **Main Root Container (Navbar & Project Switcher Paradigm):** The primary outer container or modal dialog MUST strictly replicate the liquid glass effect of the Navbar and Project Switcher:
+    `bg-white/45 dark:bg-slate-950/50 backdrop-blur-3xl backdrop-saturate-200 border border-white/70 dark:border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.18),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.1)]`
+  - **Nested Cards & Sub-Panels (Matte Gradient Depth):** Boxes and sub-cards inside the container MUST share the backdrop-blur glass effect but with **slightly higher opacity towards a matte appearance** (`bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm`) to ensure sharp hierarchy, crisp legibility, and zero visual muddiness.
+  - **Backdrop Overlays:** Modal overlays must use clean non-blurry backdrop (`bg-slate-900/60`) without blurring the underlying page unless specifically instructed, and MUST close on Escape key and click-outside.
+* **Root View Background:**
+  - Base background for standard full page views is `bg-[#f3f6f4] dark:bg-slate-950`.
 * **Desktop Multi-Column Layout:**
   - Avoid narrow, single-column forms on desktop. Always utilize a responsive 12-column grid (e.g., 7 columns for primary inputs/amount, 5 columns for account/status/meta cards).
 * **Card Anatomy (Apple Glass Cards):**
