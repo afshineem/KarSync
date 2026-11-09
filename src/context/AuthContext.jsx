@@ -744,6 +744,21 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('karsync_workspace_plan_updated', handlePlanUpdate);
   }, []);
 
+  // Listen for popup OAuth completion messages
+  useEffect(() => {
+    const handlePopupMsg = (e) => {
+      if (e.data?.type === 'karsync_oauth_complete') {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            fetchUserProfile(session.user);
+          }
+        });
+      }
+    };
+    window.addEventListener('message', handlePopupMsg);
+    return () => window.removeEventListener('message', handlePopupMsg);
+  }, []);
+
   // Sync settings (credentials, 2FA) from cloud
   useEffect(() => {
     async function syncAuthFromCloud() {
@@ -985,6 +1000,15 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const getCleanOAuthRedirectUrl = () => {
+    if (typeof window === 'undefined') return undefined;
+    let url = window.location.origin + window.location.pathname;
+    if (!url.endsWith('/') && !url.includes('.')) {
+      url += '/';
+    }
+    return url;
+  };
+
   // Supabase OAuth Sign In / Sign Up (Google, Azure/Outlook)
   const signInWithOAuthProvider = async (provider) => {
     try {
@@ -992,16 +1016,46 @@ export function AuthProvider({ children }) {
         return { success: false, error: 'offlineAuthNotAvailable' };
       }
       const targetProvider = provider === 'outlook' || provider === 'microsoft' ? 'azure' : provider;
-      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const redirectTo = getCleanOAuthRedirectUrl();
+
+      // Open a popup window immediately within the user gesture to avoid popup blockers
+      let popup = null;
+      if (typeof window !== 'undefined') {
+        const width = 500;
+        const height = 650;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        try {
+          popup = window.open(
+            'about:blank',
+            'karsync_oauth_popup',
+            `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+          );
+        } catch (_) {}
+      }
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: targetProvider,
         options: {
-          redirectTo
+          redirectTo,
+          skipBrowserRedirect: true
         }
       });
+
       if (error) {
+        if (popup && !popup.closed) popup.close();
         return { success: false, error: error.message };
       }
+
+      if (data?.url) {
+        if (popup && !popup.closed) {
+          popup.location.href = data.url;
+        } else {
+          // If popup was blocked or closed, fall back to direct window redirect
+          window.location.href = data.url;
+        }
+      }
+
       return { success: true, data };
     } catch (err) {
       return { success: false, error: err.message };

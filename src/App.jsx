@@ -756,6 +756,18 @@ export default function App() {
   const [isAdminMode, setIsAdminMode] = useState(() => isSuperAdminRoute());
 
   useEffect(() => {
+    // If running inside OAuth popup window, signal parent and close
+    if (typeof window !== 'undefined' && window.opener && window.name === 'karsync_oauth_popup') {
+      try {
+        window.opener.postMessage({ type: 'karsync_oauth_complete' }, '*');
+      } catch (_) {}
+      setTimeout(() => {
+        window.close();
+      }, 500);
+    }
+  }, []);
+
+  useEffect(() => {
     const handleNav = (e) => {
       setIsAdminMode(e.detail?.isAdmin ?? isSuperAdminRoute());
     };
