@@ -755,23 +755,71 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
     await deduplicateExpenseCategories(projectId);
     const existing = await db.expenseCategories.where('projectId').equals(projectId).toArray();
     
-    // If categories exist, check if they need codes or isSystem flag backfilled
+    // Check if existing categories need codes, isSystem, or userId adoption
     if (existing && existing.length > 0) {
       let needsUpdate = false;
+      const updates = [];
+
+      // Build quick lookup map by category name from DEFAULT_EXPENSE_CATEGORIES_TREE
+      const codeLookup = new Map();
+      DEFAULT_EXPENSE_CATEGORIES_TREE.forEach(mg => {
+        codeLookup.set(mg.name, { code: mg.code, level: 1 });
+        mg.subcategories.forEach(sg => {
+          codeLookup.set(sg.name, { code: sg.code, level: 2 });
+          sg.items.forEach((item, itemIdx) => {
+            const itemName = typeof item === 'object' ? item.name : item;
+            const itemCode = typeof item === 'object' ? item.code : `${sg.code}${itemIdx + 1}`;
+            codeLookup.set(itemName, { code: itemCode, level: 3 });
+          });
+        });
+      });
+
       for (const cat of existing) {
-        if (!cat.code || cat.isSystem === undefined) {
+        let changed = false;
+        const patch = { ...cat };
+
+        // Adopt userId if currently 'default_user' or missing and a real user ID is provided
+        if (userId && userId !== 'default_user' && (!patch.userId || patch.userId === 'default_user')) {
+          patch.userId = userId;
+          changed = true;
+        }
+
+        // Backfill code or isSystem
+        if (!patch.code || patch.isSystem === undefined) {
+          const match = codeLookup.get(patch.name);
+          if (match) {
+            patch.code = match.code;
+            patch.level = match.level;
+            patch.isSystem = true;
+            changed = true;
+          } else {
+            patch.isSystem = patch.isSystem ?? false;
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          updates.push(patch);
           needsUpdate = true;
-          break;
         }
       }
-      if (!needsUpdate) return;
+
+      if (updates.length > 0) {
+        await db.expenseCategories.bulkPut(updates);
+        console.log(`✅ Updated ${updates.length} existing expense categories with codes/userId for project:`, projectId);
+        return true;
+      }
+
+      if (!needsUpdate) return false;
     }
 
     const categoriesToAdd = [];
     const now = new Date().toISOString();
+    const pidClean = String(projectId || DEFAULT_PROJECT_ID).replace(/[^a-zA-Z0-9]/g, '');
+    const pidSlice = pidClean.length >= 6 ? pidClean.slice(-6) : pidClean.padEnd(6, '0');
 
     DEFAULT_EXPENSE_CATEGORIES_TREE.forEach((mainGroup, mainIdx) => {
-      const mainId = `cat_l1_${projectId.slice(-6)}_${mainIdx + 1}`;
+      const mainId = `cat_l1_${pidSlice}_${mainIdx + 1}`;
       categoriesToAdd.push({
         id: mainId,
         projectId,
@@ -785,7 +833,7 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
       });
 
       mainGroup.subcategories.forEach((subGroup, subIdx) => {
-        const subId = `cat_l2_${projectId.slice(-6)}_${mainIdx + 1}_${subIdx + 1}`;
+        const subId = `cat_l2_${pidSlice}_${mainIdx + 1}_${subIdx + 1}`;
         categoriesToAdd.push({
           id: subId,
           projectId,
@@ -799,7 +847,7 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
         });
 
         subGroup.items.forEach((item, itemIdx) => {
-          const itemId = `cat_l3_${projectId.slice(-6)}_${mainIdx + 1}_${subIdx + 1}_${itemIdx + 1}`;
+          const itemId = `cat_l3_${pidSlice}_${mainIdx + 1}_${subIdx + 1}_${itemIdx + 1}`;
           categoriesToAdd.push({
             id: itemId,
             projectId,
@@ -818,9 +866,12 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
     if (categoriesToAdd.length > 0) {
       await db.expenseCategories.bulkPut(categoriesToAdd);
       console.log(`✅ Seeded ${categoriesToAdd.length} 3-tier expense categories with codes for project:`, projectId);
+      return true;
     }
+    return false;
   } catch (err) {
     console.warn('seedDefaultExpenseCategories warning:', err);
+    return false;
   }
 }
 

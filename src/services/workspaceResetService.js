@@ -1,4 +1,4 @@
-import { supabase } from './realtimeSync';
+import { supabase, pushAllExpenseCategoriesToCloud } from './realtimeSync';
 import { db, withImmutabilityBypass, ensureDefaultProjectExists, seedDefaultExpenseCategories, DEFAULT_PROJECT_ID } from '../db/db';
 
 /**
@@ -251,6 +251,7 @@ export async function performWorkspaceFactoryReset({ user }) {
     try {
       await ensureDefaultProjectExists(userId || 'default_user');
       await seedDefaultExpenseCategories(DEFAULT_PROJECT_ID, userId || 'default_user');
+      await pushAllExpenseCategoriesToCloud().catch(() => {});
     } catch (reseedErr) {
       console.warn('[WorkspaceReset] Reseed default categories warning:', reseedErr);
     }

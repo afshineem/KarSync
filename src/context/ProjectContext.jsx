@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateProjectId, ensureDefaultProjectExists, seedDefaultExpenseCategories, DEFAULT_PROJECT_ID } from '../db/db';
-import { supabase, pullProjectsLive, pushProjectLive, deleteProjectLive } from '../services/realtimeSync';
+import { supabase, pullProjectsLive, pushProjectLive, deleteProjectLive, pushAllExpenseCategoriesToCloud } from '../services/realtimeSync';
 import { useAuth, usePermissions } from './AuthContext';
 
 const ACTIVE_PROJECT_KEY = 'karsync_active_project_id';
@@ -72,7 +72,10 @@ export function ProjectProvider({ children }) {
       try {
         await ensureDefaultProjectExists(userId);
         if (activeProjectId) {
-          await seedDefaultExpenseCategories(activeProjectId, userId);
+          const updated = await seedDefaultExpenseCategories(activeProjectId, userId);
+          if (updated) {
+            pushAllExpenseCategoriesToCloud().catch(() => {});
+          }
         }
       } catch (err) {
         console.warn('Init projects warning:', err);
@@ -182,11 +185,15 @@ export function ProjectProvider({ children }) {
     await db.projects.put(newProject);
     switchProject(newProject.id);
 
+    // Seed default expense categories for the new project
+    await seedDefaultExpenseCategories(newProject.id, userId);
+
     // Push to Supabase if online
     if (navigator.onLine) {
       pushProjectLive(newProject).catch((err) => {
         console.warn('Could not sync new project to Supabase:', err);
       });
+      pushAllExpenseCategoriesToCloud().catch(() => {});
     }
 
     return newProject;

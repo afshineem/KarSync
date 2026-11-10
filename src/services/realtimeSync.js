@@ -613,6 +613,7 @@ export async function autoInitialSync() {
     await pushAllGroupsToCloud();
     await syncAllWorkerMetadataToCloud();
     await pushAllExpensesToCloud();
+    await pushAllExpenseCategoriesToCloud();
     await pushAllFinancialAccountsToCloud();
     await pushAllTreasuryIncomesToCloud();
     await pushAllAccountTransfersToCloud();
@@ -1198,8 +1199,10 @@ function subscribeToRealtime() {
           projectId: c.project_id,
           userId: c.user_id,
           name: c.name,
+          code: c.code || null,
           parentId: c.parent_id,
           level: Number(c.level) || 1,
+          isSystem: !!c.is_system,
           createdAt: c.created_at,
           updatedAt: c.updated_at
         });
@@ -3584,43 +3587,67 @@ export async function pushAllExpensesToCloud() {
 }
 
 /**
- * Pull expense categories from Supabase
+ * Pull expense categories from Supabase with resilient fallback seeding
  */
 export async function pullExpenseCategoriesLive() {
   if (!navigator.onLine) return;
   try {
+    let cloudCategories = null;
     const { data: sData } = await supabase
       .from('settings')
       .select('setting_value')
       .eq('setting_key', getScopedSettingKey('app_expense_categories'))
       .maybeSingle();
 
-    const ctx = getActiveWorkspaceContext();
     if (sData?.setting_value) {
       try {
-        const categories = JSON.parse(sData.setting_value) || [];
-        if (Array.isArray(categories)) {
-          const cloudIds = new Set(categories.map(c => c.id));
-          for (const c of categories) {
-            await db.expenseCategories.put(c);
-          }
-          if (categories.length > 0) {
-            const localCats = await db.expenseCategories.toArray();
-            for (const lc of localCats) {
-              if (!cloudIds.has(lc.id)) {
-                await db.expenseCategories.delete(lc.id);
-              }
+        cloudCategories = JSON.parse(sData.setting_value);
+      } catch (_) {}
+    }
+
+    const ctx = getActiveWorkspaceContext();
+    const localCats = await db.expenseCategories.toArray();
+
+    // If cloud setting has never been seeded or is empty
+    if (cloudCategories === null || !Array.isArray(cloudCategories) || cloudCategories.length === 0) {
+      if (ctx.isLegacyOwner && localCats.length > 0) {
+        await pushAllExpenseCategoriesToCloud();
+      } else {
+        // Non-legacy tenant or fresh setup: adopt or cleanup local categories
+        if (!ctx.isLegacyOwner) {
+          for (const lc of localCats) {
+            if (!lc.userId || lc.userId === 'default_user') {
+              await db.expenseCategories.update(lc.id, { userId: ctx.userId }).catch(() => {});
+            } else if (lc.userId !== ctx.userId) {
+              await db.expenseCategories.delete(lc.id).catch(() => {});
             }
           }
         }
-      } catch (_) {}
-    } else if (!ctx.isLegacyOwner) {
-      // Clean slate for non-legacy owner
-      const localCats = await db.expenseCategories.toArray();
-      for (const lc of localCats) {
-        if (!lc.userId || lc.userId !== ctx.userId) {
-          await db.expenseCategories.delete(lc.id).catch(() => {});
+        const { seedDefaultExpenseCategories } = await import('../db/db');
+        await seedDefaultExpenseCategories(ctx.workspaceId || DEFAULT_PROJECT_ID, ctx.userId);
+        await pushAllExpenseCategoriesToCloud();
+      }
+      return;
+    }
+
+    // Cloud has categories: apply them into local IndexedDB
+    if (Array.isArray(cloudCategories) && cloudCategories.length > 0) {
+      const cloudIds = new Set(cloudCategories.map(c => c.id));
+      for (const c of cloudCategories) {
+        await db.expenseCategories.put(c);
+      }
+      const currentLocals = await db.expenseCategories.toArray();
+      for (const lc of currentLocals) {
+        if (!cloudIds.has(lc.id)) {
+          await db.expenseCategories.delete(lc.id);
         }
+      }
+
+      // Check if codes or userId adoption is needed
+      const { seedDefaultExpenseCategories } = await import('../db/db');
+      const updated = await seedDefaultExpenseCategories(ctx.workspaceId || DEFAULT_PROJECT_ID, ctx.userId);
+      if (updated) {
+        await pushAllExpenseCategoriesToCloud();
       }
     }
 
@@ -3641,8 +3668,10 @@ export async function pullExpenseCategoriesLive() {
             projectId: c.project_id,
             userId: c.user_id,
             name: c.name,
+            code: c.code || null,
             parentId: c.parent_id,
             level: Number(c.level) || 1,
+            isSystem: !!c.is_system,
             createdAt: c.created_at,
             updatedAt: c.updated_at
           });
@@ -3653,6 +3682,24 @@ export async function pullExpenseCategoriesLive() {
     await deduplicateExpenseCategories();
   } catch (err) {
     console.warn('pullExpenseCategoriesLive warning:', err);
+  }
+}
+
+/**
+ * Push all expense categories to Supabase settings
+ */
+export async function pushAllExpenseCategoriesToCloud() {
+  if (!navigator.onLine) return;
+  try {
+    const list = await db.expenseCategories.toArray();
+    if (!list || list.length === 0) return;
+    await supabase.from('settings').upsert({
+      setting_key: getScopedSettingKey('app_expense_categories'),
+      setting_value: JSON.stringify(list),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('pushAllExpenseCategoriesToCloud warning:', err);
   }
 }
 

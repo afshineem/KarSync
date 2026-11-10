@@ -1,10 +1,11 @@
 import { logAuditAction } from "../services/auditLogger";
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
+import { db, seedDefaultExpenseCategories, DEFAULT_PROJECT_ID } from '../db/db';
 import { isWorkerInProject } from '../utils/workerScope';
 import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { 
   softDeleteExpenseLive, 
   restoreExpenseLive, 
@@ -13,7 +14,8 @@ import {
   emptyExpensesTrashLive, 
   restoreAllExpensesLive, 
   deleteExpenseLive, 
-  pullExpensesLive 
+  pullExpensesLive,
+  pushAllExpenseCategoriesToCloud
 } from '../services/realtimeSync';
 import { AddExpenseModal } from './AddExpenseModal';
 import ExpenseRecycleBinModal from './ExpenseRecycleBinModal';
@@ -463,6 +465,7 @@ export function ExpensesView() {
     }
   }[langKey];
   const isRtl = direction === 'rtl';
+  const { user } = useAuth();
   const { canApprove, canModifyRecord, approveRecord } = useTwoStageApproval();
   const [approvingExpenseId, setApprovingExpenseId] = useState(null);
 
@@ -517,10 +520,21 @@ export function ExpensesView() {
   const categories = useLiveQuery(
     async () => {
       const list = await db.expenseCategories.toArray();
-      return list.filter(c => !c.projectId || c.projectId === projectId || (projectId === 'prj_default_main'));
+      const projectCats = list.filter(c => c.projectId === projectId);
+      if (projectCats.length > 0) return projectCats;
+      return list.filter(c => !c.projectId || c.projectId === DEFAULT_PROJECT_ID || c.projectId === projectId);
     },
     [projectId]
   ) || [];
+
+  // Self-healing: if categories are empty, seed immediately and sync to cloud
+  useEffect(() => {
+    if (categories.length === 0 && projectId) {
+      seedDefaultExpenseCategories(projectId, user?.id || user?.userId || 'default_user').then((updated) => {
+        if (updated) pushAllExpenseCategoriesToCloud().catch(() => {});
+      });
+    }
+  }, [categories.length, projectId, user]);
 
   const sections = useLiveQuery(
     () => db.projectSections.where('projectId').equals(projectId).toArray(),

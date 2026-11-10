@@ -2,12 +2,12 @@ import { logAuditAction, getSafeAuthContext } from "../services/auditLogger";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, generateExpenseId, generateCategoryId, DEFAULT_PROJECT_ID } from '../db/db';
+import { db, generateExpenseId, generateCategoryId, DEFAULT_PROJECT_ID, seedDefaultExpenseCategories } from '../db/db';
 import { isWorkerInProject } from '../utils/workerScope';
 import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
-import { pushExpenseLive, uploadExpenseReceipt } from '../services/realtimeSync';
+import { pushExpenseLive, uploadExpenseReceipt, pushAllExpenseCategoriesToCloud } from '../services/realtimeSync';
 import { formatCurrency } from '../utils/formatters';
 import { generateNextVoucherNumber } from '../services/voucherNumberService';
 import { 
@@ -352,9 +352,23 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
   ) || [];
 
   const allCategories = useLiveQuery(
-    () => db.expenseCategories.where('projectId').equals(activeProjectId).toArray(),
+    async () => {
+      const list = await db.expenseCategories.toArray();
+      const projectCats = list.filter(c => c.projectId === activeProjectId);
+      if (projectCats.length > 0) return projectCats;
+      return list.filter(c => !c.projectId || c.projectId === DEFAULT_PROJECT_ID || c.projectId === activeProjectId);
+    },
     [activeProjectId]
   ) || [];
+
+  // Self-healing: if category list is empty when opening modal, seed immediately
+  useEffect(() => {
+    if (isOpen && allCategories.length === 0 && activeProjectId) {
+      seedDefaultExpenseCategories(activeProjectId, user?.id || user?.userId || 'default_user').then((updated) => {
+        if (updated) pushAllExpenseCategoriesToCloud().catch(() => {});
+      });
+    }
+  }, [isOpen, allCategories.length, activeProjectId, user]);
 
   // Form State
   const [formData, setFormData] = useState({
