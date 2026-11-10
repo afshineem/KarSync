@@ -168,7 +168,8 @@ export async function performWorkspaceFactoryReset({ user }) {
           'app_vouchers',
           'app_cheques',
           'app_chequebooks',
-          'app_contracts'
+          'app_contracts',
+          'app_tasks'
         ];
         await supabase.from('settings').delete().in('setting_key', legacyBaseKeys);
       } else {
@@ -198,14 +199,29 @@ export async function performWorkspaceFactoryReset({ user }) {
             'app_vouchers',
             'app_cheques',
             'app_chequebooks',
-            'app_contracts'
+            'app_contracts',
+            'app_tasks'
           ];
           const scopedKeys = baseKeys.map((k) => `${k}_ws_${scopeId}`);
           await supabase.from('settings').delete().in('setting_key', scopedKeys);
         }
       }
 
-      // 1.8 Profile Table: Reset onboarding_completed to false so wizard opens on reboot
+      // 1.8 Tasks Table (Tenant-scoped wipe)
+      try {
+        if (isLegacyOwner) {
+          await supabase.from('tasks').delete().not('project_id', 'like', '%__ws_%');
+        } else {
+          const scopeId = workspaceId || userId;
+          if (scopeId) {
+            await supabase.from('tasks').delete().like('project_id', `%__ws_${scopeId}`);
+          }
+        }
+      } catch (taskErr) {
+        console.warn('[WorkspaceReset] Tasks table wipe warning:', taskErr);
+      }
+
+      // 1.9 Profile Table: Reset onboarding_completed to false so wizard opens on reboot
       if (userId) {
         await supabase.from('profiles').update({
           onboarding_completed: false,

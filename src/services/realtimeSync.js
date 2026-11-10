@@ -76,6 +76,27 @@ export function getScopedSettingKey(baseKey) {
   return `${baseKey}_ws_${scopeId}`;
 }
 
+export function getScopedTaskProjectId(rawProjectId) {
+  const ctx = getActiveWorkspaceContext();
+  const pid = rawProjectId || DEFAULT_PROJECT_ID;
+  if (ctx.isLegacyOwner) {
+    return pid;
+  }
+  const scopeId = ctx.workspaceId || ctx.userId;
+  if (!scopeId) {
+    return `${pid}_unauthenticated_sandbox`;
+  }
+  if (pid.includes('__ws_')) {
+    return pid;
+  }
+  return `${pid}__ws_${scopeId}`;
+}
+
+export function unscopeTaskProjectId(scopedProjectId) {
+  if (!scopedProjectId) return DEFAULT_PROJECT_ID;
+  return scopedProjectId.split('__ws_')[0];
+}
+
 export function getScopedWorkersQuery() {
   const ctx = getActiveWorkspaceContext();
   let query = supabase.from('workers').select('*');
