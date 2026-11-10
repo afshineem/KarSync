@@ -194,6 +194,10 @@ export default function ExpenseCategoriesTab({
   const [addingUnderL2Id, setAddingUnderL2Id] = useState(null);
   const [newL3Name, setNewL3Name] = useState('');
 
+  // Inline Edit states
+  const [editingId, setEditingId] = useState(null);
+  const [editingName, setEditingName] = useState('');
+
   // Reset modal state
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
