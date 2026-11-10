@@ -1396,7 +1396,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               {/* Quick Export to Excel */}
               <button
                 type="button"
-                onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language })}
+                onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language, currency })}
                 className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                 title={t('exportExcel')}
                 aria-label={t('exportExcel')}
@@ -2927,7 +2927,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         )}
                         <th className="px-3 py-3.5 text-center">{copy.settlementStatusColumn}</th>
                         <th className="px-4 py-3.5 text-start">{t('notesColumn')}</th>
-                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{currency === 'IQD' ? t('netPayIQD') : `${t('totalPayLabel')} (${getCurrencySymbol(currency, language)})`}</th>
+                        <th className="px-4 py-3.5 text-end font-bold text-sky-600 dark:text-sky-400">{`${t('netPayIQD')} (${getCurrencySymbol(currency, language)})`}</th>
                         <th className="px-4 py-3.5 text-center no-print">{t('actions')}</th>
                       </tr>
                     </thead>

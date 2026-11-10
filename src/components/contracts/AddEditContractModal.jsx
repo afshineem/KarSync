@@ -414,7 +414,7 @@ export default function AddEditContractModal({
                         const raw = e.target.value.replace(/,/g, '');
                         if (/^\d*$/.test(raw)) setFormData(prev => ({ ...prev, delayPenaltyPerDay: raw }));
                       }}
-                      placeholder={language === 'ku' ? 'بۆ نموونە: ٥٠،٠٠٠ دینار بۆ هەر ڕۆژ' : language === 'en' ? 'e.g. 50,000 per day' : 'مثال: ۵۰,۰۰۰ به ازای هر روز دیرکرد'}
+                      placeholder={language === 'ku' ? 'بۆ نموونە: ٥٠،٠٠٠ بۆ هەر ڕۆژ' : language === 'en' ? 'e.g. 50,000 per day' : 'مثال: ۵۰,۰۰۰ به ازای هر روز دیرکرد'}
                       className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30"
                     />
                   </div>

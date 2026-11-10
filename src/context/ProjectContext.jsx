@@ -278,6 +278,7 @@ export function ProjectProvider({ children }) {
         archivedProjects,
         trashProjects,
         currentProject,
+        currency: currentProject?.currency || currentProject?.base_currency || 'IQD',
         switchProject,
         createProject,
         updateProject,

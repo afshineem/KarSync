@@ -21,6 +21,7 @@ import { AddExpenseModal } from './AddExpenseModal';
 import ExpenseRecycleBinModal from './ExpenseRecycleBinModal';
 import ExpenseAnalyticsModal from './ExpenseAnalyticsModal';
 import * as XLSX from 'xlsx';
+import { formatCurrency as appFormatCurrency, getCurrencySymbol } from '../utils/formatters';
 import {
   Receipt,
   PlusCircle,
@@ -475,22 +476,7 @@ export function ExpensesView() {
   // Currency Formatter
   const formatCurrency = (amount, customCurr = null) => {
     const curr = customCurr || currency;
-    const num = Number(amount) || 0;
-    try {
-      const numLocale = language === 'fa' ? 'fa-IR' : language === 'ku' ? 'ckb-IQ' : 'en-US';
-      const formattedNum = new Intl.NumberFormat(numLocale, { maximumFractionDigits: 2 }).format(num);
-      if (curr === 'IRT') {
-        const symbol = language === 'fa' ? 'تومان' : language === 'ku' ? 'تۆمەن' : 'IRT';
-        return `${formattedNum} ${symbol}`;
-      }
-      if (curr === 'USD') {
-        return `${formattedNum}`;
-      }
-      const symbol = language === 'fa' ? 'دینار' : language === 'ku' ? 'دینار' : 'IQD';
-      return `${formattedNum} ${symbol}`;
-    } catch {
-      return `${num.toLocaleString()} ${curr}`;
-    }
+    return appFormatCurrency(amount, curr, language);
   };
 
   // Instant Realtime sync on mount, tab focus, or WebSocket broadcast event

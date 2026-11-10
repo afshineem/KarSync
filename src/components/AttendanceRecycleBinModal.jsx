@@ -128,7 +128,8 @@ export default function AttendanceRecycleBinModal({ isOpen, onClose, workers = [
   const { language, direction, formatNumber, convertDigits, numberFormat } = useLanguage();
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
   const copy = COPY[langKey];
-  const { currentProject, currency = 'IQD', openWorkerProfile } = useProject();
+  const { currentProject, currency: projectCurrency, openWorkerProfile } = useProject();
+  const currency = projectCurrency || currentProject?.currency || currentProject?.base_currency || 'IQD';
 
   const [deletedLogs, setDeletedLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);

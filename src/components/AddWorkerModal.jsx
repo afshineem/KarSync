@@ -6,7 +6,7 @@ import { useProject } from '../context/ProjectContext';
 import { db, generateId, DEFAULT_PROJECT_ID } from '../db/db';
 import { pushWorkerLive } from '../services/realtimeSync';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, getCurrencySymbol } from '../utils/formatters';
 import { 
   X, 
   UserPlus, 
@@ -384,32 +384,175 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
   const { t, language, direction, convertDigits } = useLanguage();
   const txt = COPY[language] || COPY.fa;
   const POPULAR_ROLES = txt.rolePresets;
-  const QUICK_DAILY_RATES = txt.quickRates;
   const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
   const { currentProject, currency = 'IQD' } = useProject();
+  const effectiveCurrency = currency || currentProject?.currency || currentProject?.base_currency || 'IQD';
+
+  const getDefaultRates = (curr) => {
+    if (curr === 'IRT') {
+      return { daily: '1000000', monthly: '25000000', overtime: '150000' };
+    }
+    if (curr === 'USD') {
+      return { daily: '100', monthly: '2500', overtime: '15' };
+    }
+    return { daily: '35000', monthly: '900000', overtime: '5000' };
+  };
+
+  const QUICK_DAILY_RATES = useMemo(() => {
+    if (effectiveCurrency === 'IRT') {
+      return language === 'ku'
+        ? [
+            { label: '٥٠٠ هەزار', val: 500000 },
+            { label: '٧٥٠ هەزار', val: 750000 },
+            { label: '١ ملیۆن', val: 1000000 },
+            { label: '١.٢ ملیۆن', val: 1200000 },
+            { label: '١.٥ ملیۆن', val: 1500000 },
+            { label: '٢ ملیۆن', val: 2000000 }
+          ]
+        : language === 'en'
+        ? [
+            { label: '500k', val: 500000 },
+            { label: '750k', val: 750000 },
+            { label: '1M', val: 1000000 },
+            { label: '1.2M', val: 1200000 },
+            { label: '1.5M', val: 1500000 },
+            { label: '2M', val: 2000000 }
+          ]
+        : [
+            { label: '۵۰۰ هزار', val: 500000 },
+            { label: '۷۵۰ هزار', val: 750000 },
+            { label: '۱ میلیون', val: 1000000 },
+            { label: '۱.۲ میلیون', val: 1200000 },
+            { label: '۱.۵ میلیون', val: 1500000 },
+            { label: '۲ میلیون', val: 2000000 }
+          ];
+    }
+    if (effectiveCurrency === 'USD') {
+      return language === 'ku'
+        ? [
+            { label: '٥٠ $', val: 50 },
+            { label: '٧٥ $', val: 75 },
+            { label: '١٠٠ $', val: 100 },
+            { label: '١٢٥ $', val: 125 },
+            { label: '١٥٠ $', val: 150 },
+            { label: '٢٠٠ $', val: 200 }
+          ]
+        : language === 'en'
+        ? [
+            { label: '$50', val: 50 },
+            { label: '$75', val: 75 },
+            { label: '$100', val: 100 },
+            { label: '$125', val: 125 },
+            { label: '$150', val: 150 },
+            { label: '$200', val: 200 }
+          ]
+        : [
+            { label: '۵۰ $', val: 50 },
+            { label: '۷۵ $', val: 75 },
+            { label: '۱۰۰ $', val: 100 },
+            { label: '۱۲۵ $', val: 125 },
+            { label: '۱۵۰ $', val: 150 },
+            { label: '۲۰۰ $', val: 200 }
+          ];
+    }
+    return txt.quickRates;
+  }, [effectiveCurrency, language, txt.quickRates]);
+
+  const QUICK_MONTHLY_RATES = useMemo(() => {
+    if (effectiveCurrency === 'IRT') {
+      return language === 'ku'
+        ? [
+            { label: '١٥ ملیۆن', val: 15000000 },
+            { label: '٢٠ ملیۆن', val: 20000000 },
+            { label: '٢٥ ملیۆن', val: 25000000 },
+            { label: '٣٠ ملیۆن', val: 30000000 },
+            { label: '٣٥ ملیۆن', val: 35000000 },
+            { label: '٤٠ ملیۆن', val: 40000000 }
+          ]
+        : language === 'en'
+        ? [
+            { label: '15M', val: 15000000 },
+            { label: '20M', val: 20000000 },
+            { label: '25M', val: 25000000 },
+            { label: '30M', val: 30000000 },
+            { label: '35M', val: 35000000 },
+            { label: '40M', val: 40000000 }
+          ]
+        : [
+            { label: '۱۵ میلیون', val: 15000000 },
+            { label: '۲۰ میلیون', val: 20000000 },
+            { label: '۲۵ میلیون', val: 25000000 },
+            { label: '۳۰ میلیون', val: 30000000 },
+            { label: '۳۵ میلیون', val: 35000000 },
+            { label: '۴۰ میلیون', val: 40000000 }
+          ];
+    }
+    if (effectiveCurrency === 'USD') {
+      return language === 'ku'
+        ? [
+            { label: '١،٠٠٠ $', val: 1000 },
+            { label: '١،٥٠٠ $', val: 1500 },
+            { label: '٢،٠٠٠ $', val: 2000 },
+            { label: '٢،٥٠٠ $', val: 2500 },
+            { label: '٣،٠٠٠ $', val: 3000 },
+            { label: '٤،٠٠٠ $', val: 4000 }
+          ]
+        : language === 'en'
+        ? [
+            { label: '$1,000', val: 1000 },
+            { label: '$1,500', val: 1500 },
+            { label: '$2,000', val: 2000 },
+            { label: '$2,500', val: 2500 },
+            { label: '$3,000', val: 3000 },
+            { label: '$4,000', val: 4000 }
+          ]
+        : [
+            { label: '۱۰۰۰ $', val: 1000 },
+            { label: '۱۵۰۰ $', val: 1500 },
+            { label: '۲۰۰۰ $', val: 2000 },
+            { label: '۲۵۰۰ $', val: 2500 },
+            { label: '۳۰۰۰ $', val: 3000 },
+            { label: '۴۰۰۰ $', val: 4000 }
+          ];
+    }
+    return txt.quickMonthlyRates;
+  }, [effectiveCurrency, language, txt.quickMonthlyRates]);
+
+  const rateSteps = useMemo(() => {
+    if (effectiveCurrency === 'IRT') {
+      return { daily: '10000', monthly: '500000', overtime: '5000' };
+    }
+    if (effectiveCurrency === 'USD') {
+      return { daily: '1', monthly: '50', overtime: '0.5' };
+    }
+    return { daily: '500', monthly: '10000', overtime: '250' };
+  }, [effectiveCurrency]);
 
   const workerCreds = getWorkerCredentialsMap();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    role: '',
-    groupId: '',
-    teamRole: 'Worker',
-    wageType: 'standard', // 'standard' | 'monthly' | 'contract'
-    dailyRate: '35000',
-    monthlySalary: '900000',
-    monthlyLeaveDays: '2',
-    leavePolicy: 'accumulate', // 'accumulate' | 'encash' | 'expire'
-    bonusLeaveDays: '0',
-    fridayRateMultiplier: '2.0', // '2.0' | '1.5' | '1.0' | '0'
-    overtimeHourlyRate: '5000',
-    defaultSectionId: '',
-    isActive: 1,
-    isTemporary: false,
-    username: '',
-    password: ''
+  const [formData, setFormData] = useState(() => {
+    const def = getDefaultRates(effectiveCurrency);
+    return {
+      name: '',
+      phone: '',
+      role: '',
+      groupId: '',
+      teamRole: 'Worker',
+      wageType: 'standard', // 'standard' | 'monthly' | 'contract'
+      dailyRate: def.daily,
+      monthlySalary: def.monthly,
+      monthlyLeaveDays: '2',
+      leavePolicy: 'accumulate', // 'accumulate' | 'encash' | 'expire'
+      bonusLeaveDays: '0',
+      fridayRateMultiplier: '2.0', // '2.0' | '1.5' | '1.0' | '0'
+      overtimeHourlyRate: def.overtime,
+      defaultSectionId: '',
+      isActive: 1,
+      isTemporary: false,
+      username: '',
+      password: ''
+    };
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -436,6 +579,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
   // Reset or populate form
   useEffect(() => {
     if (isOpen) {
+      const defRates = getDefaultRates(effectiveCurrency);
       if (workerToEdit) {
         const creds = workerCreds[workerToEdit.id] || {};
         setFormData({
@@ -445,13 +589,13 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           groupId: workerToEdit.groupId || '',
           teamRole: workerToEdit.teamRole || 'Worker',
           wageType: workerToEdit.wageType || 'standard',
-          dailyRate: String(workerToEdit.dailyRate ?? '35000'),
-          monthlySalary: String(workerToEdit.monthlySalary ?? '900000'),
+          dailyRate: String(workerToEdit.dailyRate ?? defRates.daily),
+          monthlySalary: String(workerToEdit.monthlySalary ?? defRates.monthly),
           monthlyLeaveDays: String(workerToEdit.monthlyLeaveDays ?? '2'),
           leavePolicy: workerToEdit.leavePolicy || 'accumulate',
           bonusLeaveDays: String(workerToEdit.bonusLeaveDays ?? '0'),
           fridayRateMultiplier: String(workerToEdit.fridayRateMultiplier ?? '2.0'),
-          overtimeHourlyRate: String(workerToEdit.overtimeHourlyRate ?? '5000'),
+          overtimeHourlyRate: String(workerToEdit.overtimeHourlyRate ?? defRates.overtime),
           defaultSectionId: workerToEdit.defaultSectionId || '',
           isActive: workerToEdit.isActive ?? 1,
           isGlobal: Boolean(workerToEdit.isGlobal),
@@ -466,13 +610,13 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
           groupId: '',
           teamRole: 'Worker',
           wageType: 'standard',
-          dailyRate: '35000',
-          monthlySalary: '900000',
+          dailyRate: defRates.daily,
+          monthlySalary: defRates.monthly,
           monthlyLeaveDays: '2',
           leavePolicy: 'accumulate',
           bonusLeaveDays: '0',
           fridayRateMultiplier: '2.0',
-          overtimeHourlyRate: '5000',
+          overtimeHourlyRate: defRates.overtime,
           defaultSectionId: '',
           isActive: 1,
           isGlobal: false,
@@ -940,7 +1084,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                             {txt.lblMonthlySalary} <span className="text-rose-500">*</span>
                           </label>
                           <span className="text-[11px] font-mono text-slate-400">
-                            {txt.unitPrefix} {currency}
+                            {txt.unitPrefix} {getCurrencySymbol(effectiveCurrency, language)}
                           </span>
                         </div>
 
@@ -948,7 +1092,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                           <input
                             type="number"
                             min="0"
-                            step="10000"
+                            step={rateSteps.monthly}
                             required
                             value={formData.monthlySalary}
                             onChange={(e) => setFormData({ ...formData, monthlySalary: e.target.value })}
@@ -960,7 +1104,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                         {/* چیپ‌های مبالغ حقوق ماهانه متداول */}
                         <div className="flex items-center gap-1.5 flex-wrap pt-1">
                           <span className="text-[11px] text-slate-400 font-medium me-1">{txt.commonAmounts}</span>
-                          {txt.quickMonthlyRates.map((chip) => (
+                          {QUICK_MONTHLY_RATES.map((chip) => (
                             <button
                               key={chip.val}
                               type="button"
@@ -1100,7 +1244,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                             {txt.lblDailyRate} <span className="text-rose-500">*</span>
                           </label>
                           <span className="text-[11px] font-mono text-slate-400">
-                            {txt.unitPrefix} {currency}
+                            {txt.unitPrefix} {getCurrencySymbol(effectiveCurrency, language)}
                           </span>
                         </div>
 
@@ -1108,7 +1252,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                           <input
                             type="number"
                             min="0"
-                            step="500"
+                            step={rateSteps.daily}
                             required
                             value={formData.dailyRate}
                             onChange={(e) => setFormData({ ...formData, dailyRate: e.target.value })}
@@ -1158,7 +1302,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                           <input
                             type="number"
                             min="0"
-                            step="250"
+                            step={rateSteps.overtime}
                             required
                             value={formData.overtimeHourlyRate}
                             onChange={(e) => setFormData({ ...formData, overtimeHourlyRate: e.target.value })}
@@ -1413,7 +1557,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                         <div className="flex items-center justify-between p-2.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/60 dark:border-sky-900/40">
                           <span className="text-sky-800 dark:text-sky-300 font-bold">{txt.lblPreviewMonthlySalary}</span>
                           <span className="font-mono font-black text-sky-700 dark:text-sky-300 text-sm" dir="ltr">
-                            {formatCurrency(numericMonthlySalary, currency, language)}
+                            {formatCurrency(numericMonthlySalary, effectiveCurrency, language)}
                           </span>
                         </div>
 
@@ -1428,7 +1572,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
                         <span className="text-slate-500 dark:text-slate-400">{txt.lblPreviewDailyRate}</span>
                         <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm" dir="ltr">
-                          {formData.wageType === 'contract' ? txt.valAgreed : formatCurrency(numericDailyRate, currency, language)}
+                          {formData.wageType === 'contract' ? txt.valAgreed : formatCurrency(numericDailyRate, effectiveCurrency, language)}
                         </span>
                       </div>
                     )}
@@ -1436,7 +1580,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                     <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
                       <span className="text-slate-500 dark:text-slate-400">{txt.lblPreviewOvertime}</span>
                       <span className="font-mono font-black text-sky-600 dark:text-sky-400 text-sm" dir="ltr">
-                        {formData.wageType === 'contract' ? '—' : `${formatCurrency(numericOvertimeRate, currency, language)} ${txt.perHour}`}
+                        {formData.wageType === 'contract' ? '—' : `${formatCurrency(numericOvertimeRate, effectiveCurrency, language)} ${txt.perHour}`}
                       </span>
                     </div>
 
@@ -1444,7 +1588,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
                       <div className="flex items-center justify-between p-2.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40">
                         <span className="text-amber-800 dark:text-amber-300 font-bold">{txt.lblEstimate30Days}</span>
                         <span className="font-mono font-black text-amber-700 dark:text-amber-300 text-sm" dir="ltr">
-                          {formatCurrency(estimatedMonthlySalary, currency, language)}
+                          {formatCurrency(estimatedMonthlySalary, effectiveCurrency, language)}
                         </span>
                       </div>
                     )}
@@ -1488,7 +1632,7 @@ export function AddWorkerModal({ isOpen, onClose, workerToEdit = null, onSuccess
             <div className="flex items-center gap-1.5 text-xs">
               <span className="text-slate-400 hidden md:inline">{txt.dockWage}</span>
               <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
-                {formatCurrency(numericDailyRate, currency, language)}
+                {formatCurrency(numericDailyRate, effectiveCurrency, language)}
               </span>
             </div>
           )}

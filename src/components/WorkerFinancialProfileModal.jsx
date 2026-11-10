@@ -36,7 +36,7 @@ export function WorkerFinancialProfileModal({ worker, logs, payments, currency, 
               <span>پروفایل مالی - {worker.name}</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              {worker.role} • {formatCurrency(worker.dailyRate, currency, language)} / روز
+              {worker.role} • {formatCurrency(worker.dailyRate, currency, language)} {language === 'ku' ? '/ ڕۆژ' : language === 'en' ? '/ day' : '/ روز'}
             </p>
           </div>
           <button

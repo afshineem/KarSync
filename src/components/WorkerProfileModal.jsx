@@ -370,7 +370,8 @@ const COPY = {
 export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   const { language, t, direction } = useLanguage();
   const c = COPY[language] || COPY.fa;
-  const { currentProject, currency = 'IQD' } = useProject();
+  const { currentProject, currency: projectCurrency } = useProject();
+  const currency = projectCurrency || currentProject?.currency || currentProject?.base_currency || 'IQD';
   const { user, setWorkerCredentials, getWorkerCredentialsMap } = useAuth();
 
   // UI element

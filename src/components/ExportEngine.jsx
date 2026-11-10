@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { getCurrencySymbol } from '../utils/formatters';
 
 /**
  * Generates and downloads an Excel (.xlsx) spreadsheet
@@ -8,10 +9,12 @@ export function exportAttendanceToExcel({
   logs = [],
   workers = [],
   reportType = 'summary',
-  language = 'ku'
+  language = 'ku',
+  currency = 'IQD'
 }) {
   const isEn = language === 'en';
   const isFa = language === 'fa';
+  const currSymbol = getCurrencySymbol(currency, language);
 
   const workerMap = {};
   workers.forEach((w) => {
@@ -26,12 +29,12 @@ export function exportAttendanceToExcel({
       workerName: isEn ? 'Worker Name' : isFa ? 'نام کارگر' : 'ناوی کرێکار',
       role: isEn ? 'Role / Title' : isFa ? 'سمت / عنوان شغلی' : 'پیشە / پلە',
       fullDays: isEn ? 'Full Days Count' : isFa ? 'تعداد روز کامل' : 'ژمارەی ڕۆژی تەواو',
-      fullDaysPay: isEn ? 'Full Days Pay (IQD)' : isFa ? 'دستمزد روز کامل (دینار)' : 'کرێی ڕۆژی تەواو (دینار)',
+      fullDaysPay: isEn ? `Full Days Pay (${currSymbol})` : isFa ? `دستمزد روز کامل (${currSymbol})` : `کرێی ڕۆژی تەواو (${currSymbol})`,
       halfDays: isEn ? 'Half Days Count' : isFa ? 'تعداد نیم‌روز' : 'ژمارەی نیوەڕۆژ',
-      halfDaysPay: isEn ? 'Half Days Pay (IQD)' : isFa ? 'دستمزد نیم‌روز (دینار)' : 'کرێی نیوەڕۆژ (دینار)',
+      halfDaysPay: isEn ? `Half Days Pay (${currSymbol})` : isFa ? `دستمزد نیم‌روز (${currSymbol})` : `کرێی نیوەڕۆژ (${currSymbol})`,
       otHours: isEn ? 'Overtime Hours' : isFa ? 'ساعات اضافه کاری' : 'کاتژمێری ئۆڤەرتایم',
-      otPay: isEn ? 'Overtime Pay (IQD)' : isFa ? 'دستمزد اضافه کاری (دینار)' : 'کرێی ئۆڤەرتایم (دینار)',
-      totalPay: isEn ? 'Total Net Pay (IQD)' : isFa ? 'مجموع کل دریافتی (دینار)' : 'کۆی گشتی شایستە (دینار)'
+      otPay: isEn ? `Overtime Pay (${currSymbol})` : isFa ? `دستمزد اضافه کاری (${currSymbol})` : `کرێی ئۆڤەرتایم (${currSymbol})`,
+      totalPay: isEn ? `Total Net Pay (${currSymbol})` : isFa ? `مجموع کل دریافتی (${currSymbol})` : `کۆی گشتی شایستە (${currSymbol})`
     };
 
     // Group logs by worker
@@ -130,9 +133,9 @@ export function exportAttendanceToExcel({
       type: isEn ? 'Type' : isFa ? 'نوع کارکرد' : 'جۆری دەوام',
       daysCount: isEn ? 'Days' : isFa ? 'تعداد روز' : 'ژمارەی ڕۆژ',
       overtimeHours: isEn ? 'Overtime (Hours)' : isFa ? 'اضافه کاری (ساعت)' : 'ئۆڤەرتایم (کاتژمێر)',
-      basePay: isEn ? 'Base Pay (IQD)' : isFa ? 'دستمزد پایه (دینار)' : 'کرێی ڕۆژانە (دینار)',
-      overtimePay: isEn ? 'Overtime Pay (IQD)' : isFa ? 'دستمزد اضافه کاری (دینار)' : 'کرێی ئۆڤەرتایم (دینار)',
-      totalPay: isEn ? 'Total Pay (IQD)' : isFa ? 'جمع کل پرداختی (دینار)' : 'کۆی گشتی شایستە (دینار)',
+      basePay: isEn ? `Base Pay (${currSymbol})` : isFa ? `دستمزد پایه (${currSymbol})` : `کرێی ڕۆژانە (${currSymbol})`,
+      overtimePay: isEn ? `Overtime Pay (${currSymbol})` : isFa ? `دستمزد اضافه کاری (${currSymbol})` : `کرێی ئۆڤەرتایم (${currSymbol})`,
+      totalPay: isEn ? `Total Pay (${currSymbol})` : isFa ? `جمع کل پرداختی (${currSymbol})` : `کۆی گشتی شایستە (${currSymbol})`,
       notes: isEn ? 'Work Notes' : isFa ? 'توضیحات و شرح کار' : 'تێبینی کارکردن'
     };
 

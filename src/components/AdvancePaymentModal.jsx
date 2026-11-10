@@ -343,7 +343,7 @@ export function AdvancePaymentModal({
   const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const { user } = useAuth();
-  const currency = currentProject?.currency || 'IQD';
+  const currency = currentProject?.currency || currentProject?.base_currency || 'IQD';
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
   const [paymentType, setPaymentType] = useState(initialPaymentType || "advance"); // "advance" | "bonus"
