@@ -127,6 +127,10 @@ db.version(21).stores({
   }
 });
 
+db.version(22).stores({
+  expenseCategories: 'id, projectId, userId, parentId, name, code, level, isSystem, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
@@ -551,73 +555,148 @@ export async function ensureDefaultProjectExists(userId = 'default_user') {
   }
 }
 
-// Default 3-Tier Expense Categories Structure
+// Default 3-Tier Expense Categories Structure with Hierarchical Coding
 export const DEFAULT_EXPENSE_CATEGORIES_TREE = [
   {
+    code: '10',
     name: 'مصالح و متریال ساختمانی',
     subcategories: [
       {
-        name: 'مصالح پایه‌ای',
-        items: ['سیمان تیپ ۲ و ۵', 'ماسه شسته و بادی', 'گچ و خاک ساختمانی', 'آجر فشاری و بلوک سیمانی']
+        code: '101',
+        name: 'مصالح پایه‌ای و سفت‌کاری',
+        items: [
+          { code: '1011', name: 'سیمان تیپ ۲ و ۵' },
+          { code: '1012', name: 'ماسه شسته، بادی و شن' },
+          { code: '1013', name: 'آجر فشاری، سفال و بلوک سیمانی/پوکه' },
+          { code: '1014', name: 'گچ و خاک ساختمانی' }
+        ]
       },
       {
+        code: '102',
         name: 'آهن‌آلات و سازه فلزی',
-        items: ['میلگرد و خاموت', 'تیرآهن و ناودانی', 'قوطی و پروفیل آهن', 'الکترود و سیم جوش']
+        items: [
+          { code: '1021', name: 'میلگرد و خاموت آماده' },
+          { code: '1022', name: 'تیرآهن، ناودانی و نبشی' },
+          { code: '1023', name: 'قوطی و پروفیل آهن' },
+          { code: '1024', name: 'سیم آرماتوربندی، رابیتس و الکترود جوشکاری' }
+        ]
       },
       {
-        name: 'عایق و شیمیایی ساختمان',
-        items: ['ایزوگام و قیر', 'چسب بتن و سنگ', 'ضدزنگ و رنگ روغنی', 'تینر و حلال‌ها']
+        code: '103',
+        name: 'تأسیسات مکانیکی و برقی',
+        items: [
+          { code: '1031', name: 'لوله و اتصالات پلیکا و پلی‌اتیلن' },
+          { code: '1032', name: 'کابل، سیم، لوله خرطومی و قوطی کلید' },
+          { code: '1033', name: 'شیرآلات، پمپ و مخزن آب موقت کارگاه' }
+        ]
+      },
+      {
+        code: '104',
+        name: 'عایق، چسب و شیمیایی ساختمان',
+        items: [
+          { code: '1041', name: 'ایزوگام، قیر و گونی' },
+          { code: '1042', name: 'چسب بتن، سنگ، روان‌کننده و ضدیخ' },
+          { code: '1043', name: 'ضدزنگ، رنگ روغنی و تینر' }
+        ]
       }
     ]
   },
   {
-    name: 'ماشین‌آلات و تجهیزات',
+    code: '20',
+    name: 'ماشین‌آلات، ابزار و ترابری',
     subcategories: [
       {
-        name: 'اجاره ماشین‌آلات سنگین',
-        items: ['اجاره جرثقیل و بالابر', 'لودر و بیل مکانیکی', 'بتونیر و میکسر', 'کمپرسور و چکش برقی']
+        code: '201',
+        name: 'اجاره ماشین‌آلات و تجهیزات سنگین',
+        items: [
+          { code: '2011', name: 'اجاره جرثقیل و بالابر' },
+          { code: '2012', name: 'لودر، بیل مکانیکی و بابکت' },
+          { code: '2013', name: 'بتونیر، میکسر و پمپ بتن' },
+          { code: '2014', name: 'کمپرسور و چکش برقی/هیدرولیکی' }
+        ]
       },
       {
-        name: 'سوخت و نگهداری دستگاه‌ها',
-        items: ['گازوئیل ژنراتور و موتور برق', 'بنزین و روغن هیدرولیک', 'سرویس دوره‌ای و تعویض قطعه']
+        code: '202',
+        name: 'سوخت، روانکار و تعمیرات دستگاه‌ها',
+        items: [
+          { code: '2021', name: 'گازوئیل ژنراتور و موتور برق' },
+          { code: '2022', name: 'بنزین، روغن موتور و روغن هیدرولیک' },
+          { code: '2023', name: 'سرویس دوره‌ای، فیلترها و تعویض قطعه' }
+        ]
       },
       {
-        name: 'ابزارآلات و تجهیزات کارگاه',
-        items: ['صفحه برش و سنگ فرز', 'مته، دریل و قلم بتن‌کن', 'کابل برق و پروژکتور کارگاهی', 'تجهیزات و عینک ایمنی']
-      }
-    ]
-  },
-  {
-    name: 'پیمانکاری و خدمات فنی',
-    subcategories: [
+        code: '203',
+        name: 'ابزارآلات و تجهیزات مصرفی کارگاه',
+        items: [
+          { code: '2031', name: 'صفحه برش سنگ، فرز و پروفیل‌بر' },
+          { code: '2032', name: 'مته، دریل، قلم بتن‌کن و پیکور' },
+          { code: '2033', name: 'کابل برق سیار و پروژکتور کارگاهی' }
+        ]
+      },
       {
+        code: '204',
         name: 'حمل و نقل و باربری',
-        items: ['کرایه نیسان و خاور', 'کرایه تریلی و کفی', 'دستمزد کارگر تخلیه بار']
-      },
-      {
-        name: 'تأسیسات مکانیکی و آب',
-        items: ['لوله و اتصالات پلیکا/پلی‌اتیلن', 'شیرآلات و اتصالات برنجی', 'پمپ و مخزن آب موقت']
-      },
-      {
-        name: 'تأسیسات الکتریکی و تابلو برق',
-        items: ['کابل‌کشی و جعبه فیوز', 'کلید و پریز صنعتی', 'انشعاب موقت برق']
+        items: [
+          { code: '2041', name: 'کرایه نیسان و خاور' },
+          { code: '2042', name: 'کرایه تریلی و کفی' },
+          { code: '2043', name: 'دستمزد کارگر متفرقه تخلیه و بارگیری' }
+        ]
       }
     ]
   },
   {
-    name: 'هزینه‌های جاری و تنخواه',
+    code: '30',
+    name: 'پیمانکاری جزئی و خدمات فنی',
     subcategories: [
       {
-        name: 'خوراک و پذیرایی پرسنل',
-        items: ['چای، قند و ملزومات', 'ناهار و وعده غذایی گروهی', 'آب آشامیدنی و یخ کارگاه']
+        code: '301',
+        name: 'اکیپ‌های دستمزدی متفرقه',
+        items: [
+          { code: '3011', name: 'دستمزد روزمزد کارگران نظافت و نخاله‌برداری' },
+          { code: '3012', name: 'اکیپ متفرقه تخریب و خاکبرداری دستی' }
+        ]
       },
       {
-        name: 'ایمنی و بهداشت (HSE)',
-        items: ['کفش و کلاه ایمنی', 'دستکش کار و عینک محافظ', 'شارژ کپسول آتش‌نشانی', 'جعبه کمک‌های اولیه']
+        code: '302',
+        name: 'آزمایشگاه و خدمات مهندسی کارگاه',
+        items: [
+          { code: '3021', name: 'آزمایشگاه بتن، میلگرد و جوش' },
+          { code: '3022', name: 'نقشه‌برداری و پیاده‌سازی نقشه' },
+          { code: '3023', name: 'چاپ نقشه و پلات مهندسی' }
+        ]
+      }
+    ]
+  },
+  {
+    code: '40',
+    name: 'سربار، ایمنی و هزینه‌های جاری کارگاه',
+    subcategories: [
+      {
+        code: '401',
+        name: 'تغذیه و پذیرایی پرسنل',
+        items: [
+          { code: '4011', name: 'چای، قند، شکر و ملزومات آبدارخانه' },
+          { code: '4012', name: 'ناهار و وعده غذایی گروهی پرسنل' },
+          { code: '4013', name: 'آب آشامیدنی معدنی و یخ کارگاه' }
+        ]
       },
       {
-        name: 'اداری و تنخواه عمومی کارگاه',
-        items: ['شارژ اینترنت و قبوض ارتباطی', 'دفتر، پوشه و اقلام اداری', 'هزینه ایاب و ذهاب اداری']
+        code: '402',
+        name: 'بهداشت، ایمنی و محیط زیست (HSE)',
+        items: [
+          { code: '4021', name: 'کفش و کلاه ایمنی' },
+          { code: '4022', name: 'دستکش کار، عینک محافظ و ماسک' },
+          { code: '4023', name: 'شارژ کپسول آتش‌نشانی و جعبه کمک‌های اولیه' }
+        ]
+      },
+      {
+        code: '403',
+        name: 'اداری، اقامت و ارتباطات',
+        items: [
+          { code: '4031', name: 'شارژ اینترنت، مودم و قبوض ارتباطی' },
+          { code: '4032', name: 'دفتر، زونکن، پوشه و اقلام اداری' },
+          { code: '4033', name: 'اسکان کارگران، کرایه کانکس و ملزومات خواب' }
+        ]
       }
     ]
   }
@@ -674,8 +753,19 @@ export async function deduplicateExpenseCategories(projectId = null) {
 export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_ID, userId = 'default_user') {
   try {
     await deduplicateExpenseCategories(projectId);
-    const existingCount = await db.expenseCategories.where('projectId').equals(projectId).count();
-    if (existingCount > 0) return;
+    const existing = await db.expenseCategories.where('projectId').equals(projectId).toArray();
+    
+    // If categories exist, check if they need codes or isSystem flag backfilled
+    if (existing && existing.length > 0) {
+      let needsUpdate = false;
+      for (const cat of existing) {
+        if (!cat.code || cat.isSystem === undefined) {
+          needsUpdate = true;
+          break;
+        }
+      }
+      if (!needsUpdate) return;
+    }
 
     const categoriesToAdd = [];
     const now = new Date().toISOString();
@@ -687,8 +777,10 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
         projectId,
         userId: userId || 'default_user',
         name: mainGroup.name,
+        code: mainGroup.code,
         parentId: null,
         level: 1,
+        isSystem: true,
         createdAt: now
       });
 
@@ -699,8 +791,10 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
           projectId,
           userId: userId || 'default_user',
           name: subGroup.name,
+          code: subGroup.code,
           parentId: mainId,
           level: 2,
+          isSystem: true,
           createdAt: now
         });
 
@@ -710,9 +804,11 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
             id: itemId,
             projectId,
             userId: userId || 'default_user',
-            name: item,
+            name: typeof item === 'object' ? item.name : item,
+            code: typeof item === 'object' ? item.code : `${subGroup.code}${itemIdx + 1}`,
             parentId: subId,
             level: 3,
+            isSystem: true,
             createdAt: now
           });
         });
@@ -721,7 +817,7 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
 
     if (categoriesToAdd.length > 0) {
       await db.expenseCategories.bulkPut(categoriesToAdd);
-      console.log(`✅ Seeded ${categoriesToAdd.length} 3-tier expense categories for project:`, projectId);
+      console.log(`✅ Seeded ${categoriesToAdd.length} 3-tier expense categories with codes for project:`, projectId);
     }
   } catch (err) {
     console.warn('seedDefaultExpenseCategories warning:', err);

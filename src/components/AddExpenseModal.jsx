@@ -35,6 +35,9 @@ import {
   Clock,
   ChevronDown,
   Sparkles,
+  Search,
+  Hash,
+  Check,
   Image as ImageIcon
 } from 'lucide-react';
 import { useAccounting } from '../hooks/useAccounting';
@@ -76,6 +79,12 @@ const COPY = {
     titlePlaceholder: 'مثال: خرید سیمان تیپ ۲، کرایه خاور، ابزار و پذیرایی...',
     amountLabel: 'مبلغ پرداختی فاکتور',
     categoryCascadeTitle: 'سرفصل هزینه (انتخاب ۳ مرحله‌ای آبشاری)',
+    categorySearchPlaceholder: 'جستجوی هوشمند با کد (مثلاً 1021) یا نام سرفصل... (کلید /)',
+    categorySearchHint: 'فشردن کلید / برای جستجوی سریع',
+    noCategoryMatches: 'سرفصلی با این کد یا نام یافت نشد.',
+    quickSelectedPath: 'سرفصل انتخاب‌شده:',
+    clearSelection: 'تغییر سرفصل',
+    allCategoriesHeader: 'سرفصل‌های پرکاربرد و پیشنهادی:',
     customCategoryBtn: '+ سرفصل سفارشی',
     newCategoryPlaceholder: 'نام سرفصل جدید...',
     addBtn: 'افزودن',
@@ -160,6 +169,12 @@ const COPY = {
     titlePlaceholder: 'نموونە: کڕینی چیمەنتۆ، کرێی سەیارە، کەرەستە و پێداویستی...',
     amountLabel: 'بڕی پارەی فاکتۆر',
     categoryCascadeTitle: 'پۆلێنکردنی خەرجی (٣ قۆناغی)',
+    categorySearchPlaceholder: 'گەڕانی زیرەک بە کۆد (وەک ١٠٢١) یان ناوی سەرفەسڵ... (دوگمەی /)',
+    categorySearchHint: 'داگرتنی دوگمەی / بۆ گەڕانی خێرا',
+    noCategoryMatches: 'هیچ سەرفەسڵێک بەم ناوە یان کۆدە نەدۆزرایەوە.',
+    quickSelectedPath: 'سەرفەسڵی دیاریکراو:',
+    clearSelection: 'گۆڕینی سەرفەسڵ',
+    allCategoriesHeader: 'سەرفەسڵە پێشنیارکراوەکان:',
     customCategoryBtn: '+ پۆلی نوێ',
     newCategoryPlaceholder: 'ناوی پۆلی نوێ...',
     addBtn: 'زیادکردن',
@@ -244,6 +259,12 @@ const COPY = {
     titlePlaceholder: 'e.g. Type 2 cement purchase, freight, tools, hospitality...',
     amountLabel: 'Invoice Paid Amount',
     categoryCascadeTitle: 'Expense Category (3-Level Cascade)',
+    categorySearchPlaceholder: 'Quick search by code (e.g. 1021) or name... (Press /)',
+    categorySearchHint: 'Press / for quick search',
+    noCategoryMatches: 'No matching category found.',
+    quickSelectedPath: 'Selected Category:',
+    clearSelection: 'Change Category',
+    allCategoriesHeader: 'Suggested & Frequently Used:',
     customCategoryBtn: '+ Custom Category',
     newCategoryPlaceholder: 'New category name...',
     addBtn: 'Add',
@@ -417,6 +438,164 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     if (!formData.subCategoryId) return [];
     return allCategories.filter((c) => c.parentId === formData.subCategoryId);
   }, [allCategories, formData.subCategoryId]);
+
+  // Omnibar Category Search State & Refs
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [isCategorySearchOpen, setIsCategorySearchOpen] = useState(false);
+  const categorySearchInputRef = useRef(null);
+  const categoryDropdownRef = useRef(null);
+
+  // Desktop '/' key shortcut to instantly focus Category search Omnibar
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleGlobalKeyDown = (e) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.tagName === 'SELECT' || 
+        activeEl.isContentEditable
+      );
+
+      // Shortcut: press '/' when not in an input
+      if (e.key === '/' && !isInput) {
+        e.preventDefault();
+        setIsCategorySearchOpen(true);
+        setTimeout(() => {
+          categorySearchInputRef.current?.focus();
+        }, 50);
+      }
+
+      if (e.key === 'Escape' && isCategorySearchOpen) {
+        setIsCategorySearchOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isOpen, isCategorySearchOpen]);
+
+  // Click outside to dismiss search dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target)) {
+        setIsCategorySearchOpen(false);
+      }
+    };
+    if (isCategorySearchOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isCategorySearchOpen]);
+
+  // Searchable categories index with full 3-tier breadcrumbs & codes
+  const searchableCategories = useMemo(() => {
+    if (!allCategories || allCategories.length === 0) return [];
+
+    const catMap = new Map();
+    allCategories.forEach(c => catMap.set(c.id, c));
+
+    const results = [];
+    allCategories.forEach(cat => {
+      if (cat.level === 3) {
+        const parentSub = catMap.get(cat.parentId);
+        const parentMain = parentSub ? catMap.get(parentSub.parentId) : null;
+        results.push({
+          id: cat.id,
+          name: cat.name,
+          code: cat.code || '',
+          level: 3,
+          mainCategoryId: parentMain?.id || '',
+          mainCategoryName: parentMain?.name || '',
+          mainCategoryCode: parentMain?.code || '',
+          subCategoryId: parentSub?.id || '',
+          subCategoryName: parentSub?.name || '',
+          subCategoryCode: parentSub?.code || '',
+          itemCategoryId: cat.id,
+          fullBreadcrumb: `${parentMain?.name || ''} ❯ ${parentSub?.name || ''} ❯ ${cat.name}`
+        });
+      } else if (cat.level === 2) {
+        const parentMain = catMap.get(cat.parentId);
+        results.push({
+          id: cat.id,
+          name: cat.name,
+          code: cat.code || '',
+          level: 2,
+          mainCategoryId: parentMain?.id || '',
+          mainCategoryName: parentMain?.name || '',
+          mainCategoryCode: parentMain?.code || '',
+          subCategoryId: cat.id,
+          subCategoryName: cat.name,
+          subCategoryCode: cat.code || '',
+          itemCategoryId: '',
+          fullBreadcrumb: `${parentMain?.name || ''} ❯ ${cat.name}`
+        });
+      }
+    });
+
+    return results;
+  }, [allCategories]);
+
+  // Filtered search results based on code or name
+  const filteredCategoryResults = useMemo(() => {
+    const q = categorySearchQuery.trim().toLowerCase();
+    if (!q) return searchableCategories.slice(0, 16);
+
+    return searchableCategories
+      .map(item => {
+        let score = 0;
+        const code = String(item.code || '').toLowerCase();
+        const name = String(item.name || '').toLowerCase();
+        const breadcrumb = String(item.fullBreadcrumb || '').toLowerCase();
+
+        if (code === q) score += 200;
+        else if (code.startsWith(q)) score += 150;
+        else if (code.includes(q)) score += 100;
+
+        if (name === q) score += 180;
+        else if (name.startsWith(q)) score += 120;
+        else if (name.includes(q)) score += 80;
+
+        if (breadcrumb.includes(q)) score += 40;
+
+        return { ...item, score };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
+  }, [searchableCategories, categorySearchQuery]);
+
+  // Select searched category and auto-populate all 3 tiers
+  const handleSelectSearchedCategory = (catItem) => {
+    setFormData(prev => ({
+      ...prev,
+      mainCategoryId: catItem.mainCategoryId,
+      subCategoryId: catItem.subCategoryId,
+      categoryId: catItem.itemCategoryId || (catItem.level === 3 ? catItem.id : ''),
+      title: (!prev.title || prev.title.trim() === '') ? catItem.name : prev.title
+    }));
+    setIsCategorySearchOpen(false);
+    setCategorySearchQuery('');
+  };
+
+  // Active category summary for visual liquid-glass indicator
+  const selectedCategorySummary = useMemo(() => {
+    if (!allCategories || allCategories.length === 0) return null;
+    const catMap = new Map();
+    allCategories.forEach(c => catMap.set(c.id, c));
+
+    const mainCat = catMap.get(formData.mainCategoryId);
+    const subCat = catMap.get(formData.subCategoryId);
+    const itemCat = catMap.get(formData.categoryId);
+
+    if (!mainCat && !subCat && !itemCat) return null;
+
+    return {
+      main: mainCat ? { name: mainCat.name, code: mainCat.code } : null,
+      sub: subCat ? { name: subCat.name, code: subCat.code } : null,
+      item: itemCat ? { name: itemCat.name, code: itemCat.code } : null
+    };
+  }, [allCategories, formData.mainCategoryId, formData.subCategoryId, formData.categoryId]);
 
   // Load existing expense if editing
   useEffect(() => {
@@ -858,7 +1037,7 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 </div>
               </div>
 
-              {/* Card 2: 3-Stage Cascading Category Selector */}
+              {/* Card 2: 3-Stage Cascading Category Selector & Quick Search Omnibar */}
               <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2">
@@ -876,6 +1055,155 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                     <span>{c.customCategoryBtn}</span>
                   </button>
                 </div>
+
+                {/* Omnibar Quick Search Box with '/' Shortcut */}
+                <div className="relative" ref={categoryDropdownRef}>
+                  <div className="relative flex items-center">
+                    <div className="absolute start-3 pointer-events-none text-slate-400 dark:text-slate-500">
+                      <Search className="w-4 h-4" />
+                    </div>
+                    <input
+                      ref={categorySearchInputRef}
+                      type="text"
+                      value={categorySearchQuery}
+                      onChange={(e) => {
+                        setCategorySearchQuery(e.target.value);
+                        if (!isCategorySearchOpen) setIsCategorySearchOpen(true);
+                      }}
+                      onFocus={() => setIsCategorySearchOpen(true)}
+                      placeholder={c.categorySearchPlaceholder}
+                      className="w-full ps-9 pe-16 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 hover:bg-slate-100/80 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 focus:outline-none transition-all shadow-inner"
+                    />
+                    <div className="absolute end-2.5 flex items-center gap-1.5">
+                      {categorySearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCategorySearchQuery('');
+                            categorySearchInputRef.current?.focus();
+                          }}
+                          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-md"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <kbd 
+                        title={c.categorySearchHint}
+                        className="hidden sm:inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-mono font-black text-slate-400 dark:text-slate-400 bg-white dark:bg-slate-800/90 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs select-none"
+                      >
+                        /
+                      </kbd>
+                    </div>
+                  </div>
+
+                  {/* Liquid Glass Dropdown Results */}
+                  {isCategorySearchOpen && (
+                    <div className="absolute z-40 start-0 end-0 top-full mt-2 p-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.18)] max-h-72 overflow-y-auto space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/80">
+                        {categorySearchQuery ? `${filteredCategoryResults.length} نتیجه یافته شد:` : c.allCategoriesHeader}
+                      </div>
+
+                      {filteredCategoryResults.length === 0 ? (
+                        <div className="py-6 text-center text-xs font-medium text-slate-400 dark:text-slate-500">
+                          {c.noCategoryMatches}
+                        </div>
+                      ) : (
+                        filteredCategoryResults.map((item) => {
+                          const isSelected = formData.categoryId === item.id || (item.level === 2 && formData.subCategoryId === item.id && !formData.categoryId);
+                          return (
+                            <button
+                              key={`${item.level}-${item.id}`}
+                              type="button"
+                              onClick={() => handleSelectSearchedCategory(item)}
+                              className={`w-full px-3 py-2 rounded-xl text-start flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                                isSelected 
+                                  ? 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50' 
+                                  : 'hover:bg-slate-100/80 dark:hover:bg-slate-800/70 border border-transparent'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {item.code ? (
+                                  <span className="shrink-0 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-mono text-[11px] font-black tracking-wide border border-rose-500/20">
+                                    {item.code}
+                                  </span>
+                                ) : (
+                                  <span className="shrink-0 w-6 text-center text-slate-300 font-mono text-xs">#</span>
+                                )}
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                                    {item.name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                                    {item.fullBreadcrumb}
+                                  </div>
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <Check className="w-4 h-4 text-rose-500 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Category Breadcrumb Banner */}
+                {selectedCategorySummary && (
+                  <div className="px-3 py-2 bg-rose-50/60 dark:bg-rose-950/20 rounded-2xl border border-rose-200/70 dark:border-rose-900/30 flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0 text-slate-700 dark:text-slate-300">
+                      <span className="text-[11px] font-black text-rose-600 dark:text-rose-400 shrink-0">
+                        {c.quickSelectedPath}
+                      </span>
+                      {selectedCategorySummary.main && (
+                        <span className="inline-flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
+                          {selectedCategorySummary.main.code && (
+                            <span className="px-1.5 py-0.5 bg-white dark:bg-slate-800 rounded font-mono text-[10px] text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-slate-700">
+                              {selectedCategorySummary.main.code}
+                            </span>
+                          )}
+                          {selectedCategorySummary.main.name}
+                        </span>
+                      )}
+                      {selectedCategorySummary.sub && (
+                        <>
+                          <span className="text-slate-400 text-[10px]">❯</span>
+                          <span className="inline-flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
+                            {selectedCategorySummary.sub.code && (
+                              <span className="px-1.5 py-0.5 bg-white dark:bg-slate-800 rounded font-mono text-[10px] text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-slate-700">
+                                {selectedCategorySummary.sub.code}
+                              </span>
+                            )}
+                            {selectedCategorySummary.sub.name}
+                          </span>
+                        </>
+                      )}
+                      {selectedCategorySummary.item && (
+                        <>
+                          <span className="text-slate-400 text-[10px]">❯</span>
+                          <span className="inline-flex items-center gap-1 font-black text-rose-600 dark:text-rose-400">
+                            {selectedCategorySummary.item.code && (
+                              <span className="px-1.5 py-0.5 bg-rose-500 text-white rounded font-mono text-[10px]">
+                                {selectedCategorySummary.item.code}
+                              </span>
+                            )}
+                            {selectedCategorySummary.item.name}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, mainCategoryId: '', subCategoryId: '', categoryId: '' }));
+                      }}
+                      className="text-[11px] font-bold text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 shrink-0 cursor-pointer"
+                    >
+                      {c.clearSelection}
+                    </button>
+                  </div>
+                )}
 
                 {/* Quick Category Adder */}
                 {isAddingNewCategory && (
@@ -917,7 +1245,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                     >
                       <option value="">{c.selectMainGroup}</option>
                       {mainCategories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.code ? `[${c.code}] ` : ''}{c.name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -943,7 +1273,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                         {formData.mainCategoryId ? c.selectSubGroup : "—"}
                       </option>
                       {subCategories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.code ? `[${c.code}] ` : ''}{c.name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -963,7 +1295,9 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                         {formData.subCategoryId ? c.selectMicroItem : "—"}
                       </option>
                       {microCategories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.code ? `[${c.code}] ` : ''}{c.name}
+                        </option>
                       ))}
                     </select>
                   </div>

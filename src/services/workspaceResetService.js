@@ -1,5 +1,5 @@
 import { supabase } from './realtimeSync';
-import { db, withImmutabilityBypass } from '../db/db';
+import { db, withImmutabilityBypass, ensureDefaultProjectExists, seedDefaultExpenseCategories, DEFAULT_PROJECT_ID } from '../db/db';
 
 /**
  * Checks whether the authenticated user signed in via Google OAuth (passwordless).
@@ -244,6 +244,15 @@ export async function performWorkspaceFactoryReset({ user }) {
       } catch (err) {
         console.warn(`[WorkspaceReset] Error clearing table ${table.name}:`, err);
       }
+    }
+
+    // Immediately restore essential foundational defaults (Default Project & Default Expense Categories)
+    // so user workspace is never left in an unconfigured state
+    try {
+      await ensureDefaultProjectExists(userId || 'default_user');
+      await seedDefaultExpenseCategories(DEFAULT_PROJECT_ID, userId || 'default_user');
+    } catch (reseedErr) {
+      console.warn('[WorkspaceReset] Reseed default categories warning:', reseedErr);
     }
   });
 
