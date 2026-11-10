@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
-import { db, DEFAULT_PROJECT_ID, generateSectionId } from '../db/db';
+import { db, DEFAULT_PROJECT_ID, generateSectionId, checkCategoryHasExpenses, resetExpenseCategoriesToDefault } from '../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   fullSyncBothDirections,
@@ -11,7 +11,8 @@ import {
   pushProjectSectionLive,
   deleteProjectSectionLive,
   pushExpenseCategoryLive,
-  deleteExpenseCategoryLive
+  deleteExpenseCategoryLive,
+  pushAllExpenseCategoriesToCloud
 } from '../services/realtimeSync';
 import { exportDatabaseToJSON, importDatabaseFromJSON, resetDatabaseWithSeed } from '../db/backup';
 import { TIMEZONE_OPTIONS, CALENDAR_OPTIONS, NUMBER_FORMAT_OPTIONS } from '../utils/formatters';
@@ -587,7 +588,20 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   };
 
   const handleDeleteCategory = async (catId) => {
+    // 1. Guard check: has this category or its children been used in any registered expense?
+    const expenseUsage = await checkCategoryHasExpenses(catId);
+    if (expenseUsage.hasExpenses) {
+      const msg = language === 'fa'
+        ? `امکان حذف این سرفصل وجود ندارد؛ زیرا در ${expenseUsage.count} فقره سند هزینه ثبت‌شده استفاده شده است.\n\nبه دلایل انضباط مالی و استانداردهای حسابداری، سرفصل‌های دارای تراکنش قابل حذف نیستند، اما در صورت نیاز می‌توانید نام آن را ویرایش نمایید.`
+        : language === 'ku'
+        ? `سڕینەوەی ئەم بابەتە ڕێگەپێنەدراوە؛ لە ${expenseUsage.count} فاکتۆری خەرجیدا بەکارهاتووە.\n\nبە هۆی پێوەرە داراییەکان بابەتە خاوەن خەرجییەکان ناسڕدرێنەوە، بەڵام دەتوانیت ناوەکەی دەستکاری بکەیت.`
+        : `Cannot delete this category; it is referenced in ${expenseUsage.count} registered expense invoice(s).\n\nFor accounting integrity, categories with transactions cannot be deleted. You may rename it instead.`;
+      window.alert(msg);
+      return;
+    }
+
     if (!window.confirm(language === 'fa' ? 'آیا از حذف این سرفصل و تمام زیرمجموعه‌های آن اطمینان دارید؟' : language === 'ku' ? 'ئایا لە سڕینەوەی ئەم بابەتە و هەموو ژێرگرووپەکانی دڵنیایت؟' : 'Are you sure you want to delete this category and all its subcategories?')) return;
+    
     // Find all children recursively
     const all = await db.expenseCategories.toArray();
     const idsToDelete = new Set([catId]);
@@ -606,6 +620,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
     for (const id of idsToDelete) {
       await deleteExpenseCategoryLive(id);
+    }
+  };
+
+  const handleResetCategories = async () => {
+    try {
+      const result = await resetExpenseCategoriesToDefault(targetProjectId || DEFAULT_PROJECT_ID, user?.id || 'default_user');
+      await pushAllExpenseCategoriesToCloud();
+      return result;
+    } catch (err) {
+      console.error('handleResetCategories error:', err);
+      throw err;
     }
   };
 
@@ -1850,6 +1875,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                 onAddCategory={handleAddCategory}
                 onUpdateCategory={handleUpdateCategory}
                 onDeleteCategory={handleDeleteCategory}
+                onResetCategories={handleResetCategories}
               />
             )}
 

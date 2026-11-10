@@ -13,8 +13,13 @@ import {
   Search,
   Check,
   X,
-  Layers
+  Layers,
+  RotateCcw,
+  AlertTriangle,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
+import { checkCategoryHasExpenses } from '../../db/db';
 
 // Scoped dictionary for ExpenseCategoriesTab
 const COPY = {
@@ -22,6 +27,18 @@ const COPY = {
     headerTitle: 'سرفصل‌های هزینه‌ها و مخارج',
     headerSubtitle: 'مدیریت درختواره ۳ لایه: گروه اصلی ⬅️ زیرگروه ⬅️ هزینه خرد برای دسته‌بندی فاکتورها',
     btnCreateL1: 'ایجاد گروه اصلی جدید',
+    btnResetToDefault: 'بازنشانی سرفصل‌های پیش‌فرض کارسینک',
+    btnResetTitle: 'بازگرداندن درخت استاندارد ۵۲ شاخه کارسینک و پاکسازی موارد بدون استفاده',
+    resetModalTitle: 'بازنشانی سرفصل‌های هزینه به پیش‌فرض',
+    resetModalDesc1: 'سرفصل‌های استاندارد کارسینک (۵۲ شاخه درختی با کدهای ۱۰ تا ۴۰۳۳) بازسازی و به‌روزرسانی خواهند شد.',
+    resetModalDesc2: 'سرفصل‌های سفارشی که قبلاً در هزینه‌ها استفاده شده‌اند، جهت حفظ سوابق و فاکتورها کاملاً حفظ می‌شوند.',
+    resetModalDesc3: 'تنها سرفصل‌های دستی که تا کنون هیچ هزینه‌ای برای آن‌ها ثبت نشده است پاک‌سازی خواهند شد.',
+    confirmResetBtn: 'بله، بازنشانی کن',
+    cancel: 'انصراف',
+    resetSuccess: (restored, preserved, deleted) => `سرفصل‌ها با موفقیت بازنشانی شدند (${restored} سرفصل استاندارد فعال شد، ${preserved} سرفصل دارای تراکنش حفظ شد).`,
+    deleteBlockedTitle: 'امکان حذف سرفصل وجود ندارد',
+    deleteBlockedMsg: (count) => `این سرفصل در ${count} فقره سند هزینه ثبت‌شده استفاده شده است. به دلایل انضباط مالی و استانداردهای حسابداری، سرفصل‌های دارای تراکنش قابل حذف نیستند؛ شما می‌توانید نام آن را ویرایش نمایید.`,
+    btnUnderstand: 'متوجه شدم',
     metricL1: 'گروه‌های اصلی:',
     metricL2: 'زیرگروه‌ها:',
     metricL3: 'هزینه‌های خرد:',
@@ -56,6 +73,18 @@ const COPY = {
     headerTitle: 'سەردێڕی خەرجییەکان',
     headerSubtitle: 'بەڕێوەبردنی داری سێ لایەنی خەرجییەکان: گرووپی سەرەکی ⬅️ ژێرگرووپ ⬅️ وردە خەرجی',
     btnCreateL1: 'زیادکردنی گرووپی سەرەکی',
+    btnResetToDefault: 'گەڕاندنەوەی پۆلە بنەڕەتییەکانی کارسینک',
+    btnResetTitle: 'گەڕاندنەوەی داری ستانداردی ٥٢ پۆلی کارسینک و پاککردنەوەی بەکارنەهاتووەکان',
+    resetModalTitle: 'گەڕاندنەوەی پۆلەکانی خەرجی بۆ دۆخی بنەڕەتی',
+    resetModalDesc1: '٥٢ پۆلی ستانداردی ٣ قۆناغیی کارسینک بە کۆدە فەرمییەکان دووبارە دادەمەزرێنەوە.',
+    resetModalDesc2: 'ئەو پۆلە دەستییانەی پێشتر خەرجیت بۆ تۆمار کردوون پارێزراو دەبن و هیچ فاکتۆرێک تێکناچێت.',
+    resetModalDesc3: 'تەنها ئەو پۆلە دەستییانەی کە تا ئێستا هیچ خەرجییەکیان بۆ تۆمار نەکراوە دەسڕدرێنەوە.',
+    confirmResetBtn: 'بەڵێ، بیگێڕەوە',
+    cancel: 'پەشیمانبوونەوە',
+    resetSuccess: (restored, preserved, deleted) => `پۆلەکان بە سەرکەوتوویی گەڕێندرانەوە (${restored} پۆلی بنەڕەتی کارا کران، ${preserved} پۆلی خاوەن خەرجی پارێزران).`,
+    deleteBlockedTitle: 'سڕینەوەی ئەم بابەتە ڕێگەپێنەدراوە',
+    deleteBlockedMsg: (count) => `ئەم بابەتە لە ${count} فاکتۆری خەرجیدا بەکارهاتووە. بە هۆی ڕێساکانی ژمێریاری ناتوانرێت بسڕدرێتەوە؛ دەتوانیت ناوەکەی دەستکاری بکەیت.`,
+    btnUnderstand: 'تێگەیشتم',
     metricL1: 'گرووپی سەرەکی:',
     metricL2: 'ژێرگرووپەکان:',
     metricL3: 'وردە خەرجییەکان:',
@@ -90,6 +119,18 @@ const COPY = {
     headerTitle: 'Expense & Cost Categories',
     headerSubtitle: 'Manage 3-tier hierarchy: Main Group ⬅️ Subgroup ⬅️ Petty Expense for invoice classification',
     btnCreateL1: 'Create New Main Group',
+    btnResetToDefault: 'Reset to KarSync Default Categories',
+    btnResetTitle: 'Restore 52-item standard KarSync category tree and clean unused items',
+    resetModalTitle: 'Reset Expense Categories to Default',
+    resetModalDesc1: 'KarSync’s 52 standard 3-tier categories will be restored and updated with codes.',
+    resetModalDesc2: 'Custom categories with recorded expenses will be fully preserved so historical invoices remain intact.',
+    resetModalDesc3: 'Only unreferenced manual categories with no recorded expenses will be cleaned up.',
+    confirmResetBtn: 'Yes, Reset Categories',
+    cancel: 'Cancel',
+    resetSuccess: (restored, preserved, deleted) => `Categories reset successfully (${restored} standard restored, ${preserved} with transactions preserved).`,
+    deleteBlockedTitle: 'Cannot Delete Category',
+    deleteBlockedMsg: (count) => `This category is referenced in ${count} registered expense invoices. For accounting integrity, categories with transactions cannot be deleted; you may rename it instead.`,
+    btnUnderstand: 'Understood',
     metricL1: 'Main Groups:',
     metricL2: 'Subgroups:',
     metricL3: 'Petty Expenses:',
@@ -130,7 +171,8 @@ export default function ExpenseCategoriesTab({
   isRtl = true,
   onAddCategory,
   onUpdateCategory,
-  onDeleteCategory
+  onDeleteCategory,
+  onResetCategories
 }) {
   const txt = COPY[language] || COPY.fa;
   // Search query
@@ -152,9 +194,48 @@ export default function ExpenseCategoriesTab({
   const [addingUnderL2Id, setAddingUnderL2Id] = useState(null);
   const [newL3Name, setNewL3Name] = useState('');
 
-  // Inline Edit states
-  const [editingId, setEditingId] = useState(null);
-  const [editingName, setEditingName] = useState('');
+  // Reset modal state
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetFeedback, setResetFeedback] = useState('');
+
+  // Delete guard state
+  const [deleteBlockedInfo, setDeleteBlockedInfo] = useState(null);
+  const [isCheckingDelete, setIsCheckingDelete] = useState(false);
+
+  // Guarded delete handler
+  const handleDeleteClick = async (catId, catName) => {
+    try {
+      setIsCheckingDelete(true);
+      const usage = await checkCategoryHasExpenses(catId);
+      if (usage.hasExpenses) {
+        setDeleteBlockedInfo({ name: catName, count: usage.count });
+        return;
+      }
+      await onDeleteCategory(catId);
+    } catch (err) {
+      console.warn('handleDeleteClick warning:', err);
+    } finally {
+      setIsCheckingDelete(false);
+    }
+  };
+
+  // Confirm reset handler
+  const handleConfirmReset = async () => {
+    if (!onResetCategories) return;
+    try {
+      setIsResetting(true);
+      const res = await onResetCategories();
+      setResetFeedback(txt.resetSuccess(res?.restoredCount || 52, res?.preservedManualCount || 0, res?.deletedCount || 0));
+      setTimeout(() => {
+        setIsResetModalOpen(false);
+        setResetFeedback('');
+      }, 1800);
+    } catch (err) {
+      console.error('handleConfirmReset error:', err);
+      setIsResetting(false);
+    }
+  };
 
   // Hierarchical groupings
   const level1List = useMemo(() => {
@@ -311,12 +392,25 @@ export default function ExpenseCategoriesTab({
           </p>
         </div>
 
-        {/* Global Action: New L1 Button (APP_THEME_BUTTON standalone) */}
+        {/* Global Action: Reset Button & New L1 Button */}
         <div className="flex items-center gap-2">
+          {onResetCategories && (
+            <button
+              type="button"
+              disabled={isResetting}
+              onClick={() => setIsResetModalOpen(true)}
+              className="px-3 h-10 rounded-xl bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-700 dark:text-slate-200 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center gap-2 text-xs font-bold transition-all duration-300 active:scale-95 flex-shrink-0 cursor-pointer"
+              title={txt.btnResetTitle}
+            >
+              <RotateCcw className={`w-4 h-4 text-rose-500 ${isResetting ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{txt.btnResetToDefault}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsAddingL1(true)}
-            className="w-10 h-10 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white shadow-md shadow-sky-500/25 flex items-center justify-center transition-all duration-300 active:scale-95 flex-shrink-0"
+            className="w-10 h-10 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white shadow-md shadow-sky-500/25 flex items-center justify-center transition-all duration-300 active:scale-95 flex-shrink-0 cursor-pointer"
             title={txt.btnCreateL1}
           >
             <Plus className="w-5 h-5 stroke-[2.5]" />
@@ -517,7 +611,12 @@ export default function ExpenseCategoriesTab({
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        {l1.code && (
+                          <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200/70 dark:border-rose-900/40">
+                            {l1.code}
+                          </span>
+                        )}
                         <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           {l1.name}
                         </span>
@@ -561,8 +660,9 @@ export default function ExpenseCategoriesTab({
                     {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={() => onDeleteCategory(l1.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                      disabled={isCheckingDelete}
+                      onClick={() => handleDeleteClick(l1.id, l1.name)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                       title={txt.tipDeleteGroup}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -697,7 +797,12 @@ export default function ExpenseCategoriesTab({
                                     </button>
                                   </div>
                                 ) : (
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                    {l2.code && (
+                                      <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-900/40">
+                                        {l2.code}
+                                      </span>
+                                    )}
                                     <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                                       {l2.name}
                                     </span>
@@ -721,7 +826,7 @@ export default function ExpenseCategoriesTab({
                                     setExpandedL2Ids((prev) => new Set(prev).add(l2.id));
                                     setNewL3Name('');
                                   }}
-                                  className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 dark:bg-blue-500/20 hover:bg-blue-500/20 dark:hover:bg-blue-500/30 text-blue-600 dark:text-blue-400 flex items-center gap-1 transition-colors"
+                                  className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 dark:bg-blue-500/20 hover:bg-blue-500/20 dark:hover:bg-blue-500/30 text-blue-600 dark:text-blue-400 flex items-center gap-1 transition-colors cursor-pointer"
                                   title={txt.btnAddL3}
                                 >
                                   <Plus className="w-3 h-3 stroke-[2.5]" />
@@ -739,8 +844,9 @@ export default function ExpenseCategoriesTab({
 
                                 <button
                                   type="button"
-                                  onClick={() => onDeleteCategory(l2.id)}
-                                  className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                  disabled={isCheckingDelete}
+                                  onClick={() => handleDeleteClick(l2.id, l2.name)}
+                                  className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                                   title={txt.tipDeleteL2}
                                 >
                                   <Trash2 className="w-3 h-3" />
@@ -842,8 +948,13 @@ export default function ExpenseCategoriesTab({
                                             </div>
                                           ) : (
                                             <>
-                                              <div className="flex items-center gap-1.5 min-w-0">
+                                              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                                                {l3.code && (
+                                                  <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-900/40">
+                                                    {l3.code}
+                                                  </span>
+                                                )}
                                                 <span className="text-xs text-slate-700 dark:text-slate-200 font-medium truncate">
                                                   {l3.name}
                                                 </span>
@@ -859,8 +970,9 @@ export default function ExpenseCategoriesTab({
                                                 </button>
                                                 <button
                                                   type="button"
-                                                  onClick={() => onDeleteCategory(l3.id)}
-                                                  className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                                  disabled={isCheckingDelete}
+                                                  onClick={() => handleDeleteClick(l3.id, l3.name)}
+                                                  className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                                                   title={txt.tipDeleteL3}
                                                 >
                                                   <Trash2 className="w-3 h-3" />
@@ -886,6 +998,107 @@ export default function ExpenseCategoriesTab({
           })
         )}
       </div>
+
+      {/* Delete Guard Modal (Transaction Protected) */}
+      {deleteBlockedInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-500">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                  {txt.deleteBlockedTitle}
+                </h4>
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                  «{deleteBlockedInfo.name}»
+                </span>
+              </div>
+            </div>
+            
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-amber-50/60 dark:bg-amber-950/20 p-3.5 rounded-2xl border border-amber-200/60 dark:border-amber-900/40">
+              {txt.deleteBlockedMsg(deleteBlockedInfo.count)}
+            </p>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteBlockedInfo(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 text-xs font-bold transition-colors cursor-pointer"
+              >
+                {txt.btnUnderstand}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Categories Confirmation Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center flex-shrink-0">
+                <RotateCcw className="w-6 h-6 text-rose-500" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                  {txt.resetModalTitle}
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {txt.btnResetTitle}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+              <div className="p-3 rounded-2xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/70 dark:border-sky-900/40 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-sky-500 mt-0.5 flex-shrink-0" />
+                <span>{txt.resetModalDesc1}</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 flex items-start gap-2.5">
+                <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                <span>{txt.resetModalDesc2}</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                <span>{txt.resetModalDesc3}</span>
+              </div>
+            </div>
+
+            {resetFeedback && (
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span>{resetFeedback}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => {
+                  setIsResetModalOpen(false);
+                  setResetFeedback('');
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                {txt.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={handleConfirmReset}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white text-xs font-black shadow-md shadow-rose-500/25 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isResetting && <RotateCcw className="w-4 h-4 animate-spin" />}
+                <span>{txt.confirmResetBtn}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

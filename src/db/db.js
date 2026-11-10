@@ -875,6 +875,184 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
   }
 }
 
+/**
+ * Check if a category (or any of its descendant subcategories) is used in any registered expense.
+ * Categories with existing transactions MUST NEVER be deleted.
+ * @param {string} categoryId 
+ * @returns {Promise<{ hasExpenses: boolean, count: number, sampleExpenseTitles: string[] }>}
+ */
+export async function checkCategoryHasExpenses(categoryId) {
+  try {
+    if (!categoryId) return { hasExpenses: false, count: 0, sampleExpenseTitles: [] };
+
+    const allCategories = await db.expenseCategories.toArray();
+    const targetIds = new Set([categoryId]);
+
+    // Recursively collect all descendant category IDs
+    let added = true;
+    while (added) {
+      added = false;
+      for (const cat of allCategories) {
+        if (cat.parentId && targetIds.has(cat.parentId) && !targetIds.has(cat.id)) {
+          targetIds.add(cat.id);
+          added = true;
+        }
+      }
+    }
+
+    // Query expenses for any usage of targetIds in categoryId, subCategoryId, or mainCategoryId
+    const allExpenses = await db.expenses.toArray();
+    const matchingExpenses = allExpenses.filter(e => {
+      return (
+        (e.categoryId && targetIds.has(e.categoryId)) ||
+        (e.subCategoryId && targetIds.has(e.subCategoryId)) ||
+        (e.mainCategoryId && targetIds.has(e.mainCategoryId))
+      );
+    });
+
+    return {
+      hasExpenses: matchingExpenses.length > 0,
+      count: matchingExpenses.length,
+      sampleExpenseTitles: matchingExpenses.slice(0, 3).map(e => e.title || 'هزینه بدون عنوان')
+    };
+  } catch (err) {
+    console.warn('checkCategoryHasExpenses error:', err);
+    return { hasExpenses: false, count: 0, sampleExpenseTitles: [] };
+  }
+}
+
+/**
+ * Reset expense categories to KarSync's standard 52-category hierarchical catalogue.
+ * Rule:
+ * 1. Standard 52 categories are restored/updated with exact codes and levels (isSystem: true).
+ * 2. Custom categories that HAVE transactions are 100% PRESERVED alongside defaults so historical vouchers remain intact.
+ * 3. Custom categories with NO transactions are removed to clean up the catalogue.
+ * @param {string} projectId
+ * @param {string} userId
+ * @returns {Promise<{ success: boolean, restoredCount: number, preservedManualCount: number, deletedCount: number }>}
+ */
+export async function resetExpenseCategoriesToDefault(projectId = DEFAULT_PROJECT_ID, userId = 'default_user') {
+  try {
+    const allCategories = await db.expenseCategories.toArray();
+    const allExpenses = await db.expenses.toArray();
+
+    // Set of all category IDs referenced in any registered expense
+    const referencedCatIds = new Set();
+    allExpenses.forEach(exp => {
+      if (exp.categoryId) referencedCatIds.add(exp.categoryId);
+      if (exp.subCategoryId) referencedCatIds.add(exp.subCategoryId);
+      if (exp.mainCategoryId) referencedCatIds.add(exp.mainCategoryId);
+    });
+
+    // Also include any ancestors of referenced categories so hierarchy remains intact
+    const catMap = new Map();
+    allCategories.forEach(c => catMap.set(c.id, c));
+
+    const preservedAncestorIds = new Set(referencedCatIds);
+    for (const refId of referencedCatIds) {
+      let curr = catMap.get(refId);
+      while (curr && curr.parentId) {
+        preservedAncestorIds.add(curr.parentId);
+        curr = catMap.get(curr.parentId);
+      }
+    }
+
+    // Build standard system categories mapping
+    const pidClean = String(projectId || DEFAULT_PROJECT_ID).replace(/[^a-zA-Z0-9]/g, '');
+    const pidSlice = pidClean.length >= 6 ? pidClean.slice(-6) : pidClean.padEnd(6, '0');
+    const now = new Date().toISOString();
+
+    const standardCategories = [];
+
+    DEFAULT_EXPENSE_CATEGORIES_TREE.forEach((mainGroup, mainIdx) => {
+      const mainId = `cat_l1_${pidSlice}_${mainIdx + 1}`;
+      const mainCat = {
+        id: mainId,
+        projectId,
+        userId: userId || 'default_user',
+        name: mainGroup.name,
+        code: mainGroup.code,
+        parentId: null,
+        level: 1,
+        isSystem: true,
+        createdAt: now
+      };
+      standardCategories.push(mainCat);
+
+      mainGroup.subcategories.forEach((subGroup, subIdx) => {
+        const subId = `cat_l2_${pidSlice}_${mainIdx + 1}_${subIdx + 1}`;
+        const subCat = {
+          id: subId,
+          projectId,
+          userId: userId || 'default_user',
+          name: subGroup.name,
+          code: subGroup.code,
+          parentId: mainId,
+          level: 2,
+          isSystem: true,
+          createdAt: now
+        };
+        standardCategories.push(subCat);
+
+        subGroup.items.forEach((item, itemIdx) => {
+          const itemId = `cat_l3_${pidSlice}_${mainIdx + 1}_${subIdx + 1}_${itemIdx + 1}`;
+          const itemName = typeof item === 'object' ? item.name : item;
+          const itemCode = typeof item === 'object' ? item.code : `${subGroup.code}${itemIdx + 1}`;
+          const itemCat = {
+            id: itemId,
+            projectId,
+            userId: userId || 'default_user',
+            name: itemName,
+            code: itemCode,
+            parentId: subId,
+            level: 3,
+            isSystem: true,
+            createdAt: now
+          };
+          standardCategories.push(itemCat);
+        });
+      });
+    });
+
+    const standardIdSet = new Set(standardCategories.map(c => c.id));
+
+    // Categories to delete: those NOT standard, and NOT referenced in expenses
+    const idsToDelete = [];
+    let preservedManualCount = 0;
+
+    for (const cat of allCategories) {
+      if (standardIdSet.has(cat.id)) continue;
+
+      if (preservedAncestorIds.has(cat.id)) {
+        // Referenced in expenses: MUST BE PRESERVED!
+        preservedManualCount++;
+      } else {
+        // Unreferenced manual category: clean it up
+        idsToDelete.push(cat.id);
+      }
+    }
+
+    if (idsToDelete.length > 0) {
+      for (const id of idsToDelete) {
+        await db.expenseCategories.delete(id);
+      }
+    }
+
+    // Put all standard categories into database
+    await db.expenseCategories.bulkPut(standardCategories);
+
+    return {
+      success: true,
+      restoredCount: standardCategories.length,
+      preservedManualCount,
+      deletedCount: idsToDelete.length
+    };
+  } catch (err) {
+    console.error('resetExpenseCategoriesToDefault error:', err);
+    throw err;
+  }
+}
+
 // Migrate legacy projectExpenses into modern expenses table
 export async function migrateLegacyProjectExpenses() {
   try {
