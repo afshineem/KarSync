@@ -7,6 +7,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import {
   calculateDelayDays,
   calculateContractSettlement,
+  getContractSettlementProgress,
   finalizeAndSubmitContractSettlement,
   getContractCrewAttendanceSummary,
   BACKCHARGE_CATEGORIES
@@ -34,7 +35,8 @@ import {
   Sparkles,
   Users,
   ChevronUp,
-  CalendarDays
+  CalendarDays,
+  Info
 } from 'lucide-react';
 
 export default function ContractSettlementModal({
@@ -48,7 +50,9 @@ export default function ContractSettlementModal({
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
 
+  const [settlementType, setSettlementType] = useState('interim'); // 'interim' | 'final'
   const [actualEndDate, setActualEndDate] = useState(getTodayDateString());
+  const [stageNotes, setStageNotes] = useState('');
   const [completedItems, setCompletedItems] = useState([]);
   const [selectedAdvanceIds, setSelectedAdvanceIds] = useState(new Set());
   const [selectedBackchargeIds, setSelectedBackchargeIds] = useState(new Set());
@@ -59,6 +63,13 @@ export default function ContractSettlementModal({
   // Mode for applying crew day-labor: 'man_day_item' | 'extra_gross_wage' | 'none'
   const [crewAttendanceMode, setCrewAttendanceMode] = useState('man_day_item');
   const [showCrewBreakdown, setShowCrewBreakdown] = useState(false);
+
+  // Settlement progress summary across all prior interim settlements
+  const contractProgress = useMemo(() => {
+    return getContractSettlementProgress(contract);
+  }, [contract]);
+
+  const stageNumber = (contract?.settlements?.length || 0) + 1;
 
   // Live query for crew daily attendance logs for this contract/counterparty
   const crewAttendance = useLiveQuery(
@@ -74,7 +85,7 @@ export default function ContractSettlementModal({
   );
 
   // 1. Fetch historical advances/payments for this counterparty
-  const previousPayments = useLiveQuery(
+  const rawPreviousPayments = useLiveQuery(
     async () => {
       if (!contract?.counterpartyId || !db.payments) return [];
       const list = await db.payments.toArray();
@@ -87,8 +98,14 @@ export default function ContractSettlementModal({
     [contract?.counterpartyId]
   ) || [];
 
+  // Filter out advances that were ALREADY deducted in prior settlements
+  const previousPayments = useMemo(() => {
+    const deductedIds = contractProgress?.previouslyDeductedAdvanceIds || new Set();
+    return rawPreviousPayments.filter(p => !deductedIds.has(String(p.id)));
+  }, [rawPreviousPayments, contractProgress]);
+
   // 2. Fetch site expenses tagged to this contractor or contract
-  const backchargeExpenses = useLiveQuery(
+  const rawBackchargeExpenses = useLiveQuery(
     async () => {
       if (!contract?.id || !db.expenses) return [];
       const list = await db.expenses.toArray();
@@ -102,32 +119,50 @@ export default function ContractSettlementModal({
     [contract?.id, contract?.counterpartyId]
   ) || [];
 
+  // Filter out backcharges that were ALREADY deducted in prior settlements
+  const backchargeExpenses = useMemo(() => {
+    const deductedIds = contractProgress?.previouslyDeductedBackchargeIds || new Set();
+    return rawBackchargeExpenses.filter(b => !deductedIds.has(String(b.id)));
+  }, [rawBackchargeExpenses, contractProgress]);
+
   // Initialize completed items & selections
   useEffect(() => {
     if (contract && isOpen) {
       setActualEndDate(getTodayDateString());
       setErrorMessage('');
+      setStageNotes('');
+      setSettlementType(contract.status === 'completed' ? 'final' : 'interim');
 
-      // Pre-fill items with estimated quantities as starting defaults
+      const itemSettledMap = contractProgress?.itemSettledMap || new Map();
+
+      // Pre-fill items with remaining quantity for this stage
       const items = Array.isArray(contract.items)
-        ? contract.items.map(it => ({
-            ...it,
-            finalQuantity: it.finalQuantity !== undefined ? String(it.finalQuantity) : String(it.estimatedQuantity || '')
-          }))
+        ? contract.items.map(it => {
+            const key = it.id || it.title;
+            const settledBefore = itemSettledMap.get(key) || 0;
+            const contracted = Number(it.estimatedQuantity) || 0;
+            const remaining = Math.max(0, contracted - settledBefore);
+            return {
+              ...it,
+              settledQuantityBefore: settledBefore,
+              incrementalQuantity: String(remaining),
+              finalQuantity: String(contracted)
+            };
+          })
         : [];
       setCompletedItems(items);
 
-      // By default, select all previous advances
+      // By default, select available advances for this stage
       const advIds = new Set(previousPayments.map(p => p.id));
       setSelectedAdvanceIds(advIds);
 
-      // By default, select all existing backcharge expenses
+      // By default, select available backcharge expenses
       const bkgIds = new Set(backchargeExpenses.map(b => b.id));
       setSelectedBackchargeIds(bkgIds);
 
       setCustomBackcharges([]);
     }
-  }, [contract, isOpen, previousPayments.length, backchargeExpenses.length]);
+  }, [contract, isOpen, previousPayments.length, backchargeExpenses.length, contractProgress]);
 
   // When crewAttendance changes, auto-populate man_day items according to their targetRole
   useEffect(() => {
@@ -144,9 +179,11 @@ export default function ContractSettlementModal({
             let targetDays = crewAttendance.totalDays;
             if (role === 'master') targetDays = crewAttendance.masterDays;
             else if (role === 'worker') targetDays = crewAttendance.workerDays;
+            const prevSettled = it.settledQuantityBefore || 0;
             return {
               ...it,
-              finalQuantity: String(targetDays)
+              incrementalQuantity: String(targetDays),
+              finalQuantity: String(prevSettled + targetDays)
             };
           });
         });
@@ -156,11 +193,18 @@ export default function ContractSettlementModal({
     }
   }, [crewAttendance?.totalDays, crewAttendance?.masterDays, crewAttendance?.workerDays, crewAttendance?.matchingManDayIndex]);
 
-  // Handle item quantity change
-  const handleItemQtyChange = (index, value) => {
+  // Handle item incremental quantity change
+  const handleItemIncrementalChange = (index, value) => {
     setCompletedItems(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], finalQuantity: value };
+      const it = updated[index];
+      const prevQty = Number(it.settledQuantityBefore) || 0;
+      const numVal = Number(value.replace(/,/g, '')) || 0;
+      updated[index] = {
+        ...it,
+        incrementalQuantity: value,
+        finalQuantity: String(prevQty + numVal)
+      };
       return updated;
     });
   };
@@ -232,12 +276,14 @@ export default function ContractSettlementModal({
       selectedBackcharges: selectedBackchargesList,
       extraDeductions: extraDeductionsList,
       crewAttendanceSummary: crewAttendance,
-      crewAttendanceMode
+      crewAttendanceMode,
+      settlementType,
+      applyDelayPenalty: settlementType === 'final'
     });
-  }, [contract, completedItems, actualEndDate, previousPayments, selectedAdvanceIds, backchargeExpenses, selectedBackchargeIds, customBackcharges, crewAttendance, crewAttendanceMode]);
+  }, [contract, completedItems, actualEndDate, previousPayments, selectedAdvanceIds, backchargeExpenses, selectedBackchargeIds, customBackcharges, crewAttendance, crewAttendanceMode, settlementType]);
 
-    // Close on Escape key
-  React.useEffect(() => {
+  // Close on Escape key
+  useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
@@ -260,6 +306,8 @@ export default function ContractSettlementModal({
         contractId: contract.id,
         actualEndDate,
         settlementCalculation: settlement,
+        settlementType,
+        stageNotes: stageNotes.trim(),
         userId: user?.id,
         currency
       });
@@ -291,27 +339,34 @@ export default function ContractSettlementModal({
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-20">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-600 dark:text-teal-400 flex items-center justify-center shadow-xs">
-              <FileCheck2 className="w-5 h-5" />
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-xs border ${
+              settlementType === 'interim'
+                ? 'bg-primary/15 border-primary/30 text-primary'
+                : 'bg-teal-500/15 border-teal-500/30 text-teal-600 dark:text-teal-400'
+            }`}>
+              {settlementType === 'interim' ? <FileText className="w-5 h-5" /> : <FileCheck2 className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  {language === 'ku' ? 'ژمێریاری کۆتایی و پەسەندکردنی کار' : language === 'en' ? 'Final Settlement & Measurement' : 'صورت‌وضعیت قطعی و تسویه پایان کار'}
+                  {settlementType === 'interim'
+                    ? (language === 'ku' ? `صورت‌وەزعییەتی قۆناغی (مەرحەلەی #${stageNumber})` : language === 'en' ? `Interim Settlement (Stage #${stageNumber})` : `صورت‌وضعیت موقت / مرحله‌ای (مرحله ${stageNumber})`)
+                    : (language === 'ku' ? 'ژمێریاری کۆتایی و پەسەندکردنی کار' : language === 'en' ? 'Final Settlement & Measurement' : 'صورت‌وضعیت قطعی و تسویه پایان کار')
+                  }
                 </h3>
                 <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   {contract.contractNumber}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                {contract.title} • {contract.counterpartyName || 'پیمانکار'}
+                {contract.title} • {contract.counterpartyName || (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'پیمانکار')}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -326,7 +381,60 @@ export default function ContractSettlementModal({
             </div>
           )}
 
-          {/* Timeline & Delay Assessment Banner */}
+          {/* Mode Selector Segmented Control */}
+          <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80">
+            <button
+              type="button"
+              onClick={() => setSettlementType('interim')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                settlementType === 'interim'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>{language === 'ku' ? `صورت‌وەزعییەتی قۆناغی (مەرحەلەی #${stageNumber})` : language === 'en' ? `Interim Stage Settlement (#${stageNumber})` : `صورت‌وضعیت موقت / مرحله‌ای (مرحله ${stageNumber})`}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettlementType('final')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                settlementType === 'final'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{language === 'ku' ? 'تەواوکردنی کار و پاکتاوی کۆتایی' : language === 'en' ? 'Final Settlement & Closing' : 'پایان کار و صورت‌وضعیت قطعی'}</span>
+            </button>
+          </div>
+
+          {/* Interim Notice Banner */}
+          {settlementType === 'interim' ? (
+            <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-800 dark:text-sky-300 text-xs flex items-center gap-2.5">
+              <Info className="w-4 h-4 shrink-0 text-sky-500" />
+              <span>
+                {language === 'ku'
+                  ? 'ئەم صورت‌وەزعییەتە بەبێ داخستنی گرێبەست تۆمار دەکرێت؛ بەهای کارکردی ئەم قۆناغە بەڵگەنامەی بۆ دەردەچێت و گرێبەستەکە بۆ قۆناغەکانی داهاتوو بە چالاکی دەمێنێتەوە.'
+                  : language === 'en'
+                  ? 'This interim settlement is issued without closing the contract. Incremental work is paid and the contract remains active for subsequent stages.'
+                  : 'این صورت‌وضعیت به صورت مرحله‌ای و بدون بستن قرارداد صادر می‌شود؛ مبلغ کارکرد این مرحله پرداخت شده و قرارداد برای مراحل بعدی در وضعیت «در حال اجرا» باقی می‌ماند.'}
+              </span>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-800 dark:text-teal-300 text-xs flex items-center gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-teal-600 dark:text-teal-400" />
+              <span>
+                {language === 'ku'
+                  ? 'بە پەسەندکردنی ئەم فۆڕمە، گرێبەستەکە بە تەواوەتی دادەخرێت و کۆتایی پێدێت.'
+                  : language === 'en'
+                  ? 'Finalizing this settlement will officially complete and close the contract.'
+                  : 'با تایید این صورت‌وضعیت، پرونده قرارداد با صدور سند قطعی پایان یافته و وضعیت آن به «تسویه‌شده» تغییر می‌یابد.'}
+              </span>
+            </div>
+          )}
+
+          {/* Timeline & Cutoff Date Card */}
           <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-3">
@@ -335,10 +443,13 @@ export default function ContractSettlementModal({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {language === 'ku' ? 'بەرواری تەواوبوونی کرداری کار' : language === 'en' ? 'Actual Completion Date' : 'تاریخ واقعی اتمام و تحویل کار'}
+                    {settlementType === 'interim'
+                      ? (language === 'ku' ? 'بەرواری کارکردی ئەم قۆناغە (تا بەرواری)' : language === 'en' ? 'Progress Cutoff Date' : 'تاریخ کارکرد / صورت‌وضعیت تا تاریخ:')
+                      : (language === 'ku' ? 'بەرواری تەواوبوونی کرداری کار' : language === 'en' ? 'Actual Completion Date' : 'تاریخ واقعی اتمام و تحویل کار')
+                    }
                   </span>
                   <div className="text-[11px] text-slate-400">
-                    {language === 'ku' ? 'مۆڵەتی سەرەتا:' : language === 'en' ? 'Agreed Deadline:' : 'مهلت اولیه در قرارداد:'} {contract.estimatedEndDate || (language === 'ku' ? 'دیاری نەکراو' : language === 'en' ? 'Not set' : 'ثبت نشده')}
+                    {language === 'ku' ? 'مۆڵەتی سەرەتا:' : language === 'en' ? 'Agreed Deadline:' : 'مهلت در قرارداد:'} {contract.estimatedEndDate || (language === 'ku' ? 'دیاری نەکراو' : language === 'en' ? 'Not set' : 'ثبت نشده')}
                   </div>
                 </div>
               </div>
@@ -351,22 +462,24 @@ export default function ContractSettlementModal({
                   className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
 
-                {settlement?.delayDays > 0 ? (
-                  <div className="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>{settlement.delayDays} {language === 'ku' ? 'ڕۆژ دواکەوتن' : language === 'en' ? 'Days Delayed' : 'روز تاخیر در تحویل'}</span>
-                  </div>
-                ) : (
-                  <div className="px-3 py-1.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 text-xs font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>{language === 'ku' ? 'بێ دواکەوتن (لە کاتی خۆیدا)' : language === 'en' ? 'On Time (No delay)' : 'تکمیل به موقع (بدون تاخیر)'}</span>
-                  </div>
+                {settlementType === 'final' && (
+                  settlement?.delayDays > 0 ? (
+                    <div className="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>{settlement.delayDays} {language === 'ku' ? 'ڕۆژ دواکەوتن' : language === 'en' ? 'Days Delayed' : 'روز تاخیر در تحویل'}</span>
+                    </div>
+                  ) : (
+                    <div className="px-3 py-1.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 text-xs font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{language === 'ku' ? 'بێ دواکەوتن (لە کاتی خۆیدا)' : language === 'en' ? 'On Time (No delay)' : 'تکمیل به موقع (بدون تاخیر)'}</span>
+                    </div>
+                  )
                 )}
               </div>
             </div>
 
-            {/* Delay Penalty Breakdown if applicable */}
-            {settlement?.totalDelayPenalty > 0 && (
+            {/* Delay Penalty Breakdown if final settlement */}
+            {settlementType === 'final' && settlement?.totalDelayPenalty > 0 && (
               <div className="p-3 rounded-2xl bg-rose-500/5 border border-rose-500/15 flex items-center justify-between text-xs">
                 <span className="text-slate-600 dark:text-slate-300 font-medium">
                   {language === 'ku'
@@ -390,7 +503,7 @@ export default function ContractSettlementModal({
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
                     <Layers className="w-4 h-4 text-primary" />
-                    <span>{language === 'ku' ? 'مەترەکردنی کرداری و ئەندازەگیری کار' : language === 'en' ? 'Actual Work Measurement (Takeoff)' : 'متره‌کشی احجام قطعی اجرا شده کارگاه'}</span>
+                    <span>{language === 'ku' ? 'مەترەکردنی کارکرد و قەبارەی ئەم قۆناغە' : language === 'en' ? 'Work Measurement & Incremental Progress' : 'متره‌کشی و ثبت کارکرد این مرحله'}</span>
                   </div>
                   <span className="text-[11px] text-slate-400">
                     {completedItems.length} {language === 'ku' ? 'بڕگە' : language === 'en' ? 'items' : 'ردیف کاری'}
@@ -399,9 +512,12 @@ export default function ContractSettlementModal({
 
                 <div className="space-y-3">
                   {completedItems.map((item, index) => {
-                    const finalQty = Number(String(item.finalQuantity).replace(/,/g, '')) || 0;
+                    const incrementalQty = Number(String(item.incrementalQuantity).replace(/,/g, '')) || 0;
+                    const prevSettled = Number(item.settledQuantityBefore) || 0;
+                    const cumulative = prevSettled + incrementalQty;
+                    const contracted = Number(item.estimatedQuantity) || 0;
                     const unitPrice = Number(item.unitPrice) || 0;
-                    const lineTotal = finalQty * unitPrice;
+                    const lineTotal = incrementalQty * unitPrice;
 
                     return (
                       <div
@@ -418,31 +534,48 @@ export default function ContractSettlementModal({
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-                          {/* Unit Price Display */}
-                          <div className="sm:col-span-4 text-xs font-mono text-slate-500 dark:text-slate-400">
-                            {language === 'ku' ? 'نرخ:' : language === 'en' ? 'Rate:' : 'نرخ واحد:'} <span className="font-bold text-slate-800 dark:text-slate-200">{formatAmount(unitPrice, currency)}</span>
-                          </div>
-
-                          {/* Final Quantity Input */}
-                          <div className="sm:col-span-4 space-y-1">
-                            <input
-                              type="text"
-                              value={item.finalQuantity}
-                              onChange={(e) => {
-                                const raw = e.target.value.replace(/,/g, '');
-                                if (/^\d*\.?\d*$/.test(raw)) handleItemQtyChange(index, raw);
-                              }}
-                              placeholder={language === 'ku' ? 'قەبارەی کرداری' : language === 'en' ? 'Actual quantity' : 'مقدار واقعی اجرا شده'}
-                              className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                            />
+                          {/* Unit Price & Previous Settled */}
+                          <div className="sm:col-span-4 text-xs font-mono space-y-0.5">
+                            <div className="text-slate-600 dark:text-slate-300 font-bold">
+                              {language === 'ku' ? 'نرخ:' : language === 'en' ? 'Rate:' : 'نرخ واحد:'} <span>{formatAmount(unitPrice, currency)}</span>
+                            </div>
                             <div className="text-[10px] text-slate-400">
-                              {language === 'ku' ? 'خەمڵاندنی سەرەتا:' : language === 'en' ? 'Est.:' : 'برآورد اولیه:'} {item.estimatedQuantity}
+                              {language === 'ku' ? 'پێشوو:' : language === 'en' ? 'Settled:' : 'تسویه‌شده قبلی:'} <span className="font-bold text-slate-700 dark:text-slate-300">{prevSettled}</span> / {contracted}
                             </div>
                           </div>
 
-                          {/* Line Total */}
-                          <div className="sm:col-span-4 flex items-center justify-end font-mono font-black text-xs text-primary" dir="ltr">
-                            {formatAmount(lineTotal, currency)} {currency}
+                          {/* Incremental Quantity Input */}
+                          <div className="sm:col-span-4 space-y-1">
+                            <span className="text-[10px] text-slate-500 font-bold block">
+                              {settlementType === 'interim'
+                                ? (language === 'ku' ? 'کارکردی ئەم قۆناغە:' : language === 'en' ? 'This Stage Qty:' : 'کارکرد این مرحله:')
+                                : (language === 'ku' ? 'کارکردی باقیمانده:' : language === 'en' ? 'Remaining Qty:' : 'کارکرد باقیمانده/نهایی:')
+                              }
+                            </span>
+                            <input
+                              type="text"
+                              value={item.incrementalQuantity !== undefined ? item.incrementalQuantity : ''}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/,/g, '');
+                                if (/^\d*\.?\d*$/.test(raw)) handleItemIncrementalChange(index, raw);
+                              }}
+                              placeholder="0"
+                              className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary text-center"
+                            />
+                            <div className="text-[10px] text-slate-400 font-mono text-center">
+                              {language === 'ku' ? 'کۆی گشتی:' : language === 'en' ? 'Cumulative:' : 'مجموع تجمعی:'}{' '}
+                              <span className="font-bold text-primary">{cumulative}</span>
+                            </div>
+                          </div>
+
+                          {/* Line Total for this stage */}
+                          <div className="sm:col-span-4 flex flex-col items-end justify-center font-mono" dir="ltr">
+                            <span className="text-[10px] text-slate-400">
+                              {language === 'ku' ? 'بەهای ئەم قۆناغە:' : language === 'en' ? 'Stage Value:' : 'ارزش این مرحله:'}
+                            </span>
+                            <span className="font-black text-xs text-primary">
+                              {formatAmount(lineTotal, currency)} {currency}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -451,7 +584,7 @@ export default function ContractSettlementModal({
                 </div>
               </div>
 
-              {/* Crew Daily Attendance Integration Card (Apple Liquid Glass) */}
+              {/* Crew Daily Attendance Integration Card */}
               <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
@@ -531,9 +664,11 @@ export default function ContractSettlementModal({
                                 let targetDays = crewAttendance.totalDays;
                                 if (role === 'master') targetDays = crewAttendance.masterDays;
                                 else if (role === 'worker') targetDays = crewAttendance.workerDays;
+                                const prevSettled = it.settledQuantityBefore || 0;
                                 return {
                                   ...it,
-                                  finalQuantity: String(targetDays)
+                                  incrementalQuantity: String(targetDays),
+                                  finalQuantity: String(prevSettled + targetDays)
                                 };
                               });
                             });
@@ -639,7 +774,7 @@ export default function ContractSettlementModal({
 
                 {previousPayments.length === 0 ? (
                   <p className="text-xs text-slate-400 italic">
-                    {language === 'ku' ? 'هیچ پێشەکییەک تۆمار نەکراوە بۆ ئەم لایەنە' : language === 'en' ? 'No prior advances recorded for this contractor' : 'هیچ پرداختی یا مساعده‌ای از قبل برای این طرف‌حساب ثبت نشده است.'}
+                    {language === 'ku' ? 'هیچ پێشەکییەکی تسویەنەکراو تۆمار نەکراوە بۆ ئەم لایەنە' : language === 'en' ? 'No unsettled advances recorded for this contractor' : 'هیچ پرداختی یا مساعده تسویه‌نشده‌ای برای این طرف‌حساب یافت نشد.'}
                   </p>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -659,7 +794,7 @@ export default function ContractSettlementModal({
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={() => {}} // Controlled by row click
+                              onChange={() => {}}
                               className="rounded text-amber-500 focus:ring-amber-500"
                             />
                             <div>
@@ -696,7 +831,7 @@ export default function ContractSettlementModal({
                   <button
                     type="button"
                     onClick={handleAddCustomBackcharge}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-1"
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
                     <span>{language === 'ku' ? 'زیادکردنی خەرجی' : language === 'en' ? 'Add Item' : 'افزودن کسور'}</span>
@@ -758,7 +893,7 @@ export default function ContractSettlementModal({
                         <button
                           type="button"
                           onClick={() => handleRemoveCustomBackcharge(index)}
-                          className="text-slate-400 hover:text-rose-500 p-1"
+                          className="text-slate-400 hover:text-rose-500 p-1 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -788,24 +923,43 @@ export default function ContractSettlementModal({
                 </div>
               </div>
 
-              {/* Transparent Final Settlement Summary Card */}
+              {/* Stage Notes / Justification Card */}
+              <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-2">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span>{language === 'ku' ? 'تێبینی و ڕوونکردنەوەی ئەم قۆناغە:' : language === 'en' ? 'Stage Notes & Justification:' : 'توضیحات و دستورکار این مرحله:'}</span>
+                </span>
+                <textarea
+                  rows={2}
+                  value={stageNotes}
+                  onChange={(e) => setStageNotes(e.target.value)}
+                  placeholder={language === 'ku' ? 'تێبینی یان مەرجی تایبەتی ئەم قۆناغە...' : language === 'en' ? 'Enter notes for this stage...' : 'توضیحات مربوط به متراژ، دستورکارهای انجام شده در این مرحله...'}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              {/* Live Statement Summary Card */}
               {settlement && (
                 <div className="p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/60 dark:border-slate-800 shadow-md space-y-3.5">
                   <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-xs font-black text-slate-900 dark:text-white">
                     <Sparkles className="w-4 h-4 text-primary" />
-                    <span>{language === 'ku' ? 'پوختەی ژمێریاری کۆتایی' : language === 'en' ? 'Final Statement Breakdown' : 'خلاصه تراز صورت‌وضعیت نهایی'}</span>
+                    <span>
+                      {settlementType === 'interim'
+                        ? (language === 'ku' ? `پوختەی صورت‌وەزعییەتی قۆناغی #${stageNumber}` : language === 'en' ? `Interim Stage #${stageNumber} Summary` : `تراز صورت‌وضعیت مرحله ${stageNumber}`)
+                        : (language === 'ku' ? 'پوختەی ژمێریاری کۆتایی' : language === 'en' ? 'Final Statement Breakdown' : 'خلاصه تراز صورت‌وضعیت قطعی')}
+                    </span>
                   </div>
 
                   <div className="space-y-2 text-xs">
                     {/* Gross Work */}
                     <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                      <span>{language === 'ku' ? 'کۆی گشتی کارکرد (مەترە):' : language === 'en' ? 'Gross Work (Measured):' : 'مجموع کارکرد ناخالص (متره):'}</span>
+                      <span>{language === 'ku' ? 'کارکردی ناخالصی ئەم قۆناغە:' : language === 'en' ? 'Stage Gross Work:' : 'مجموع کارکرد ناخالص این مرحله:'}</span>
                       <span className="font-mono font-bold text-slate-900 dark:text-white" dir="ltr">
                         + {formatAmount(settlement.grossWorkAmount, currency)}
                       </span>
                     </div>
 
-                    {/* Crew Daily Wage Addition (Mode B) */}
+                    {/* Crew Daily Wage Addition */}
                     {settlement.crewGrossWageAddition > 0 && (
                       <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
                         <span>{language === 'ku' ? 'کارکردی ڕۆژانەی تیمی اکیپ:' : language === 'en' ? 'Crew Daily Wages Added:' : 'کارکرد روزمزد اکیپ (تقویم):'}</span>
@@ -815,7 +969,7 @@ export default function ContractSettlementModal({
                       </div>
                     )}
 
-                    {/* Delay Penalty */}
+                    {/* Delay Penalty (only if applied) */}
                     {settlement.totalDelayPenalty > 0 && (
                       <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
                         <span>{language === 'ku' ? 'سزای دواکەوتن:' : language === 'en' ? 'Delay Penalty:' : 'جریمه دیرکرد تحویل:'}</span>
@@ -858,9 +1012,12 @@ export default function ContractSettlementModal({
                     {/* Net Payable Highlight */}
                     <div className="pt-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
                       <span className="font-black text-slate-900 dark:text-white">
-                        {language === 'ku' ? 'شایستەی کۆتایی (خاڵس):' : language === 'en' ? 'Net Final Payable:' : 'خالص قابل پرداخت نهایی:'}
+                        {settlementType === 'interim'
+                          ? (language === 'ku' ? 'شایستەی ئەم قۆناغە (خاڵس):' : language === 'en' ? 'Net Payable (This Stage):' : 'خالص قابل پرداخت این مرحله:')
+                          : (language === 'ku' ? 'شایستەی کۆتایی (خاڵس):' : language === 'en' ? 'Net Final Payable:' : 'خالص قابل پرداخت نهایی:')
+                        }
                       </span>
-                      <span className="text-base sm:text-lg font-black font-mono text-teal-600 dark:text-teal-400" dir="ltr">
+                      <span className={`text-base sm:text-lg font-black font-mono ${settlementType === 'interim' ? 'text-primary' : 'text-teal-600 dark:text-teal-400'}`} dir="ltr">
                         {formatAmount(settlement.netPayableAmount, currency)} {currency}
                       </span>
                     </div>
@@ -891,9 +1048,12 @@ export default function ContractSettlementModal({
           <div className="sticky bottom-0 z-20 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-500">
-                {language === 'ku' ? 'بڕی خاڵس:' : language === 'en' ? 'Net Payable:' : 'خالص تسویه:'}
+                {settlementType === 'interim'
+                  ? (language === 'ku' ? 'شایستەی ئەم قۆناغە:' : language === 'en' ? 'Stage Net:' : 'خالص این مرحله:')
+                  : (language === 'ku' ? 'بڕی خاڵس:' : language === 'en' ? 'Net Payable:' : 'خالص تسویه:')
+                }
               </span>
-              <span className="text-base font-black font-mono text-teal-600 dark:text-teal-400" dir="ltr">
+              <span className={`text-base font-black font-mono ${settlementType === 'interim' ? 'text-primary' : 'text-teal-600 dark:text-teal-400'}`} dir="ltr">
                 {formatAmount(settlement?.netPayableAmount || 0, currency)} {currency}
               </span>
             </div>
@@ -902,20 +1062,26 @@ export default function ContractSettlementModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 {language === 'ku' ? 'پەشیمانبوونەوە' : language === 'en' ? 'Cancel' : 'انصراف'}
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-5 py-2.5 rounded-2xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/25 disabled:opacity-50 transition-all flex items-center gap-2"
+                className={`px-5 py-2.5 rounded-2xl text-xs font-bold text-white shadow-lg disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer active:scale-95 ${
+                  settlementType === 'interim'
+                    ? 'bg-primary hover:bg-primary-hover shadow-primary/25'
+                    : 'bg-teal-600 hover:bg-teal-700 shadow-teal-600/25'
+                }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>
                   {isSubmitting
-                    ? (language === 'ku' ? 'تەواوکردن...' : language === 'en' ? 'Finalizing...' : 'در حال صدور سند...')
-                    : (language === 'ku' ? 'پەسەندکردنی کۆتایی و ناردن بۆ ژمێریاری' : language === 'en' ? 'Finalize & Send to Accounting' : 'تایید صورت‌وضعیت و صدور سند موقت')}
+                    ? (language === 'ku' ? 'تۆمارکردن...' : language === 'en' ? 'Submitting...' : 'در حال صدور سند...')
+                    : settlementType === 'interim'
+                    ? (language === 'ku' ? `پەسەندکردنی صورت‌وەزعییەتی قۆناغی #${stageNumber}` : language === 'en' ? `Issue Interim Stage #${stageNumber} Voucher` : `ثبت صورت‌وضعیت مرحله ${stageNumber} (موقت)`)
+                    : (language === 'ku' ? 'پەسەندکردنی کۆتایی و داخستنی گرێبەست' : language === 'en' ? 'Finalize & Close Contract' : 'ثبت پایان کار و صورت‌وضعیت قطعی')}
                 </span>
               </button>
             </div>

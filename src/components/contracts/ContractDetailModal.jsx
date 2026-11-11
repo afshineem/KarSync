@@ -1,9 +1,16 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useProject } from '../../context/ProjectContext';
 import { formatAmount, numberToWords, formatCurrency, getTodayDateString } from '../../utils/formatters';
-import { deleteContract, getContractCrewAttendanceSummary, getContractTimelineProgress } from '../../services/contractService';
+import {
+  deleteContract,
+  getContractCrewAttendanceSummary,
+  getContractTimelineProgress,
+  getContractSettlementProgress
+} from '../../services/contractService';
+import { db } from '../../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
+import AddContractAmendmentModal from './AddContractAmendmentModal';
 import {
   X,
   FileSignature,
@@ -24,13 +31,19 @@ import {
   ExternalLink,
   Users,
   CalendarDays,
-  ChevronDown
+  ChevronDown,
+  FilePlus2,
+  FileText,
+  TrendingUp,
+  Plus,
+  ArrowUpRight,
+  Info
 } from 'lucide-react';
 
 export default function ContractDetailModal({
   isOpen,
   onClose,
-  contract,
+  contract: initialContract,
   onEdit,
   onOpenSettlement
 }) {
@@ -39,17 +52,36 @@ export default function ContractDetailModal({
   const currency = currentProject?.currency || 'IQD';
   const printRef = useRef(null);
 
+  const [isAmendmentModalOpen, setIsAmendmentModalOpen] = useState(false);
+
+  // Live contract query so amendments and settlements update seamlessly
+  const liveContract = useLiveQuery(
+    async () => {
+      if (!initialContract?.id || !db.contracts) return initialContract;
+      const c = await db.contracts.get(initialContract.id);
+      return c || initialContract;
+    },
+    [initialContract?.id]
+  ) || initialContract;
+
+  const contract = liveContract || initialContract;
+
+  // Settlement progress summary across all prior interim settlements
+  const progress = useMemo(() => {
+    return getContractSettlementProgress(contract);
+  }, [contract]);
+
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isAmendmentModalOpen) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isAmendmentModalOpen]);
 
-  // Live query for crew day-labor attendance (strictly from contract.startDate, unsettled only, active workers)
+  // Live query for crew day-labor attendance
   const crewAttendance = useLiveQuery(
     async () => {
       if (!contract?.id) return null;
@@ -95,6 +127,9 @@ export default function ContractDetailModal({
     return unit;
   };
 
+  const settlementsList = Array.isArray(contract.settlements) ? contract.settlements : [];
+  const amendmentsList = Array.isArray(contract.amendments) ? contract.amendments : [];
+
   return (
     <div 
       dir={direction}
@@ -120,18 +155,46 @@ export default function ContractDetailModal({
               <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                 {contract.contractNumber}
               </span>
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
                 isCompleted
-                  ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30'
-                  : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
+                  ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20'
+                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
               }`}>
-                {isCompleted
-                  ? (language === 'ku' ? 'تەواوبوو / پەسەندکراو' : language === 'en' ? 'Completed' : 'پایان‌یافته و تسویه‌شده')
-                  : (language === 'ku' ? 'لە جێبەجێکردندایە' : language === 'en' ? 'In Progress' : 'در حال اجرا')}
+                {isCompleted ? (
+                  <>
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>{language === 'ku' ? 'تەواوبوو (تسویەکراو)' : language === 'en' ? 'Completed & Settled' : 'پایان یافته و تسویه‌شده'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3 h-3" />
+                    <span>{language === 'ku' ? 'لە جێبەجێکردن' : language === 'en' ? 'Active' : 'در حال اجرا'}</span>
+                  </>
+                )}
               </span>
+
+              {/* Settlements Count Pill */}
+              {settlementsList.length > 0 && (
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 font-mono">
+                  {settlementsList.length} {language === 'ku' ? 'قۆناغ' : language === 'en' ? 'stages' : 'صورت‌وضعیت'}
+                </span>
+              )}
+
+              {/* Amendments Count Pill */}
+              {amendmentsList.length > 0 && (
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 font-mono">
+                  {amendmentsList.length} {language === 'ku' ? 'پاشکۆ' : language === 'en' ? 'addenda' : 'الحاقیه'}
+                </span>
+              )}
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-              {contract.counterpartyName || (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'پیمانکار')} {contract.counterpartyPhone ? `• ${contract.counterpartyPhone}` : ''}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
+              <HardHat className="w-3.5 h-3.5 text-amber-500" />
+              <span>{contract.counterpartyName || (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'پیمانکار')}</span>
+              {contract.type && (
+                <span className="text-[10px] text-slate-400">
+                  • {contract.type === 'master_craftsman' ? (language === 'ku' ? 'وەستاکار' : language === 'en' ? 'Master Craftsman' : 'استادکار') : (language === 'ku' ? 'پەیمانکاری دەست دوو' : language === 'en' ? 'Subcontractor' : 'پیمانکار جز')}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -140,63 +203,76 @@ export default function ContractDetailModal({
           <button
             type="button"
             onClick={handlePrint}
-            className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
+            className="p-2.5 rounded-2xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             title={language === 'ku' ? 'چاپکردن' : language === 'en' ? 'Print' : 'چاپ قرارداد'}
-            aria-label={language === 'ku' ? 'چاپکردن' : language === 'en' ? 'Print' : 'چاپ قرارداد'}
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="w-5 h-5" />
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all cursor-pointer"
-            title={language === 'ku' ? 'داخستن (Esc)' : language === 'en' ? 'Close (Esc)' : 'بستن (Esc)'}
-            aria-label={language === 'ku' ? 'داخستن (Esc)' : language === 'en' ? 'Close (Esc)' : 'بستن (Esc)'}
+            className="p-2.5 rounded-2xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
       </header>
 
-      {/* Scrollable Content Body */}
-      <main ref={printRef} className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 lg:p-8">
-        <div className="max-w-6xl mx-auto w-full space-y-5 sm:space-y-6">
-          
-          {/* Key Specs Row */}
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6" ref={printRef}>
+        <div className="max-w-6xl mx-auto space-y-6">
+
+          {/* Quick Metrics Bar: 4 Hero Metric Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* 1. Total Estimated / Contract Value */}
             <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                {language === 'ku' ? 'بەرواری دەستپێکردن' : language === 'en' ? 'Start Date' : 'تاریخ شروع'}
+              <span className="text-[11px] font-bold text-slate-400 block">
+                {language === 'ku' ? 'بەهای گشتی گرێبەست:' : language === 'en' ? 'Total Contract Value:' : 'مبلغ کل برآورد پیمان:'}
               </span>
-              <div className="text-xs sm:text-sm font-mono font-bold text-slate-800 dark:text-slate-200">
-                {contract.startDate || '---'}
-              </div>
-            </div>
-
-            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                {language === 'ku' ? 'مۆڵەت / کۆتایی' : language === 'en' ? 'Agreed Deadline' : 'مهلت تحویل'}
-              </span>
-              <div className="text-xs sm:text-sm font-mono font-bold text-slate-800 dark:text-slate-200">
-                {contract.estimatedEndDate || '---'}
-              </div>
-            </div>
-
-            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                {language === 'ku' ? 'سزای دواکەوتن (ڕۆژانە)' : language === 'en' ? 'Daily Delay Penalty' : 'جریمه دیرکرد روزانه'}
-              </span>
-              <div className="text-xs sm:text-sm font-mono font-bold text-rose-600 dark:text-rose-400" dir="ltr">
-                {formatAmount(contract.delayPenaltyPerDay || 0, currency)}
-              </div>
-            </div>
-
-            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                {language === 'ku' ? 'کۆی گشتی برآورد' : language === 'en' ? 'Total Est. Value' : 'مبلغ کل برآوردی'}
-              </span>
-              <div className="text-xs sm:text-sm font-mono font-black text-primary" dir="ltr">
+              <div className="text-base sm:text-xl font-black font-mono text-slate-900 dark:text-white" dir="ltr">
                 {formatAmount(contract.totalEstimatedAmount, currency)} {currency}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                {contract.items?.length || 0} {language === 'ku' ? 'بڕگەی کاری' : language === 'en' ? 'work items' : 'ردیف کاری'}
+              </div>
+            </div>
+
+            {/* 2. Cumulative Settled Amount to date */}
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-400 block">
+                {language === 'ku' ? 'کۆی تسویەکراوی تجمعی:' : language === 'en' ? 'Cumulative Settled to Date:' : 'کارکرد تسویه‌شده تجمعی:'}
+              </span>
+              <div className="text-base sm:text-xl font-black font-mono text-primary" dir="ltr">
+                {formatAmount(progress?.totalSettledGross || 0, currency)} {currency}
+              </div>
+              <div className="text-[10px] text-primary font-bold">
+                {progress?.financialPercent || 0}% {language === 'ku' ? 'پێشکەوتنی دارایی' : language === 'en' ? 'financial progress' : 'پیشرفت مالی کل'}
+              </div>
+            </div>
+
+            {/* 3. Delay Penalty */}
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-400 block">
+                {language === 'ku' ? 'سزای دواکەوتن (ڕۆژانە):' : language === 'en' ? 'Daily Delay Penalty:' : 'جریمه تاخیر روزانه:'}
+              </span>
+              <div className="text-base sm:text-xl font-black font-mono text-rose-500" dir="ltr">
+                {formatAmount(contract.delayPenaltyPerDay || 0, currency)} {currency}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                {language === 'ku' ? 'بۆ هەر ڕۆژێکی زیادە' : language === 'en' ? 'per calendar day' : 'به ازای هر روز تاخیر'}
+              </div>
+            </div>
+
+            {/* 4. Live Day-Labor Crew Logs */}
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-400 block">
+                {language === 'ku' ? 'کارکردی ڕۆژانەی تیم (زیندوو):' : language === 'en' ? 'Live Crew Days (Calendar):' : 'کارکرد روزمزد تقویم (زنده):'}
+              </span>
+              <div className="text-base sm:text-xl font-black font-mono text-amber-600 dark:text-amber-400">
+                {crewAttendance?.totalDays || 0} {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'نفر-روز'}
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono" dir="ltr">
+                ≈ {formatAmount(crewAttendance?.totalGrossWage || 0, currency)} {currency}
               </div>
             </div>
           </div>
@@ -250,9 +326,21 @@ export default function ContractDetailModal({
 
           {/* Scope of Work & Measurement Table Card */}
           <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-200/80 dark:border-slate-800 text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-              <Layers className="w-4 h-4 text-sky-500" />
-              <span>{language === 'ku' ? 'خشتەی بڕگەکانی کار و ئەندازەگیری' : language === 'en' ? 'Scope of Work & Unit Rates' : 'جدول اقلام کاری و احجام متره‌کشی شده'}</span>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                <Layers className="w-4 h-4 text-sky-500" />
+                <span>{language === 'ku' ? 'خشتەی بڕگەکانی کار و ئەندازەگیری' : language === 'en' ? 'Scope of Work & Unit Rates' : 'جدول اقلام کاری و احجام متره‌کشی شده'}</span>
+              </div>
+              {isActive && (
+                <button
+                  type="button"
+                  onClick={() => setIsAmendmentModalOpen(true)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{language === 'ku' ? 'پاشکۆ و زیادکردنی کار' : language === 'en' ? 'Addendum / Increase Scope' : 'الحاقیه و افزایش حجم'}</span>
+                </button>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -263,11 +351,9 @@ export default function ContractDetailModal({
                     <th className="py-2.5 px-3 text-start">{language === 'ku' ? 'شرحی کار' : language === 'en' ? 'Item' : 'شرح ردیف'}</th>
                     <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'یەکە' : language === 'en' ? 'Unit' : 'واحد'}</th>
                     <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'کەرەستە' : language === 'en' ? 'Materials' : 'وضعیت مصالح'}</th>
-                    <th className="py-2.5 px-3 text-center">
-                      {isCompleted
-                        ? (language === 'ku' ? 'قەبارەی کرداری' : language === 'en' ? 'Final Qty' : 'مقدار قطعی')
-                        : (language === 'ku' ? 'کارکرد / قەبارە' : language === 'en' ? 'Quantity / Days' : 'مقدار / کارکرد')}
-                    </th>
+                    <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'قەبارەی پەیمان' : language === 'en' ? 'Contracted Qty' : 'حجم پیمان'}</th>
+                    <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'تسویەکراو تا ئێستا' : language === 'en' ? 'Settled to Date' : 'تسویه‌شده تا امروز'}</th>
+                    <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'باقیمانده' : language === 'en' ? 'Remaining' : 'باقیمانده'}</th>
                     <th className="py-2.5 px-3 text-center">{language === 'ku' ? 'نرخی یەکە' : language === 'en' ? 'Unit Price' : 'نرخ واحد'}</th>
                     <th className="py-2.5 px-3 text-end">{language === 'ku' ? 'کۆی گشتی' : language === 'en' ? 'Total' : 'مبلغ کل'}</th>
                   </tr>
@@ -277,8 +363,11 @@ export default function ContractDetailModal({
                     const isManDay = it.unit === 'man_day';
                     const estimatedQty = Number(it.estimatedQuantity) || 0;
                     const rate = Number(it.unitPrice) || 0;
+                    const key = it.id || it.title;
+                    const settledQty = progress?.itemSettledMap?.get(key) || 0;
+                    const remainingQty = Math.max(0, estimatedQty - settledQty);
+                    const percent = estimatedQty > 0 ? Math.min(100, Math.round((settledQty / estimatedQty) * 100)) : 0;
 
-                    // Role-specific day mapping:
                     const itemRole = it.targetRole || (
                       it.title?.includes('استادکار') || it.title?.includes('وەستا') ? 'master' :
                       it.title?.includes('کارگر') || it.title?.includes('کرێکار') ? 'worker' : 'all'
@@ -291,12 +380,10 @@ export default function ContractDetailModal({
                       else liveDays = crewAttendance.totalDays || 0;
                     }
 
-                    // Display quantity: for man_day, replace estimated with live days directly as requested
                     const displayQty = isCompleted
                       ? (Number(it.finalQuantity !== undefined ? it.finalQuantity : estimatedQty) || 0)
                       : (isManDay ? liveDays : estimatedQty);
 
-                    // Financial total: for man_day live, display live earned (liveDays * rate)
                     const displayTotal = isManDay && !isCompleted
                       ? (liveDays * rate)
                       : (displayQty * rate);
@@ -325,15 +412,17 @@ export default function ContractDetailModal({
                         <td className="py-3 px-3 text-center text-[11px] text-slate-500 dark:text-slate-400">
                           {it.materialProvision === 'contractor' ? (language === 'ku' ? 'پەیمانکار' : language === 'en' ? 'Contractor' : 'با مصالح پیمانکار') : (language === 'ku' ? 'کارگە' : language === 'en' ? 'Workshop' : 'با مصالح کارگاه')}
                         </td>
+                        <td className="py-3 px-3 text-center font-mono font-bold text-slate-900 dark:text-white">
+                          {estimatedQty}
+                        </td>
                         <td className="py-3 px-3 text-center font-mono">
-                          <div className="text-sm font-black text-slate-900 dark:text-white">
-                            {displayQty}
-                          </div>
-                          {isManDay && estimatedQty > 0 && (
-                            <div className="text-[10px] text-slate-400 font-normal">
-                              {language === 'ku' ? 'خەمڵێندراو:' : language === 'en' ? 'Est.:' : 'برآورد:'} {estimatedQty}
-                            </div>
+                          <span className="font-bold text-primary">{settledQty}</span>
+                          {estimatedQty > 0 && (
+                            <span className="text-[10px] text-slate-400 ms-1">({percent}%)</span>
                           )}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono font-bold text-slate-600 dark:text-slate-300">
+                          {remainingQty}
                         </td>
                         <td className="py-3 px-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300">
                           {formatAmount(rate, currency)}
@@ -342,11 +431,6 @@ export default function ContractDetailModal({
                           <div className="text-sm font-black text-slate-900 dark:text-white">
                             {formatAmount(displayTotal, currency)}
                           </div>
-                          {isManDay && !isCompleted && estimatedQty > 0 && (
-                            <div className="text-[10px] text-slate-400 font-normal">
-                              {language === 'ku' ? 'خەمڵێندراو:' : language === 'en' ? 'Est.:' : 'سقف برآورد:'} {formatAmount(estimatedQty * rate, currency)}
-                            </div>
-                          )}
                         </td>
                       </tr>
                     );
@@ -355,6 +439,164 @@ export default function ContractDetailModal({
               </table>
             </div>
           </div>
+
+          {/* Contract Addenda Card («الحاقیه‌ها و متمم‌های قرارداد») */}
+          {amendmentsList.length > 0 && (
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-black text-purple-600 dark:text-purple-400">
+                  <FilePlus2 className="w-4 h-4" />
+                  <span>{language === 'ku' ? 'پاشکۆکان و متممەکانی گرێبەست' : language === 'en' ? 'Contract Addenda & Amendments History' : 'الحاقیه‌ها و متمم‌های قرارداد (افزایش حجم کار)'}</span>
+                </div>
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                  {amendmentsList.length} {language === 'ku' ? 'پاشکۆ' : language === 'en' ? 'addenda' : 'الحاقیه'}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {amendmentsList.map((amd, i) => (
+                  <div
+                    key={amd.id || i}
+                    className="p-3.5 sm:p-4 rounded-2xl bg-purple-500/5 border border-purple-500/15 space-y-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md font-mono font-bold bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[10px]">
+                          #{amd.amendmentNumber || i + 1}
+                        </span>
+                        <span className="font-black text-slate-900 dark:text-white">
+                          {amd.title}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {amd.date}
+                      </span>
+                    </div>
+
+                    {amd.notes && (
+                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                        {amd.notes}
+                      </p>
+                    )}
+
+                    <div className="pt-2 border-t border-purple-500/10 flex items-center justify-between gap-3 flex-wrap text-[11px]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">{language === 'ku' ? 'مۆڵەتی نوێ:' : language === 'en' ? 'New deadline:' : 'مهلت جدید:'}</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">{amd.newEstimatedEndDate || contract.estimatedEndDate || '---'}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">{language === 'ku' ? 'جیاوازی بەها:' : language === 'en' ? 'Scope Delta:' : 'اختلاف ارزش:'}</span>
+                        <span className="font-mono font-bold text-purple-600 dark:text-purple-400" dir="ltr">
+                          {amd.differenceAmount >= 0 ? `+${formatAmount(amd.differenceAmount, currency)}` : formatAmount(amd.differenceAmount, currency)} {currency}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">{language === 'ku' ? 'بەهای نوێ:' : language === 'en' ? 'New Total:' : 'مبلغ کل پس از الحاقیه:'}</span>
+                        <span className="font-mono font-black text-slate-900 dark:text-white" dir="ltr">
+                          {formatAmount(amd.newTotalEstimatedAmount, currency)} {currency}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Settlements History Card («تاریخچه صورت‌وضعیت‌ها و تسویه‌های مرحله‌ای») */}
+          {settlementsList.length > 0 && (
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-black text-sky-600 dark:text-sky-400">
+                  <Receipt className="w-4 h-4" />
+                  <span>{language === 'ku' ? 'مێژووی صورت‌وەزعییەتە قۆناغییەکان و تسویە' : language === 'en' ? 'Interim Settlements & Progress Billings History' : 'تاریخچه صورت‌وضعیت‌های مرحله‌ای و اسناد تسویه'}</span>
+                </div>
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                  {settlementsList.length} {language === 'ku' ? 'صورت‌وەزعییەت' : language === 'en' ? 'vouchers' : 'سند'}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {settlementsList.map((stl, i) => {
+                  const isFinalStl = stl.settlementType === 'final';
+                  return (
+                    <div
+                      key={stl.id || i}
+                      className={`p-3.5 sm:p-4 rounded-2xl border space-y-2 text-xs ${
+                        isFinalStl
+                          ? 'bg-teal-500/5 border-teal-500/20'
+                          : 'bg-sky-500/5 border-sky-500/15'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] ${
+                            isFinalStl
+                              ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300'
+                              : 'bg-sky-500/20 text-sky-700 dark:text-sky-300'
+                          }`}>
+                            #{stl.settlementNumber || i + 1}
+                          </span>
+                          <span className="font-black text-slate-900 dark:text-white">
+                            {stl.title || (isFinalStl 
+                              ? (language === 'ku' ? 'صورت‌وەزعییەتی کۆتایی' : language === 'en' ? 'Final Settlement' : 'صورت‌وضعیت قطعی') 
+                              : (language === 'ku' ? `قۆناغی #${stl.settlementNumber || i + 1}` : language === 'en' ? `Stage #${stl.settlementNumber || i + 1}` : `صورت‌وضعیت مرحله ${stl.settlementNumber || i + 1}`)
+                            )}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isFinalStl
+                              ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300'
+                              : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                          }`}>
+                            {isFinalStl ? (language === 'ku' ? 'کۆتایی' : language === 'en' ? 'Final' : 'قطعی') : (language === 'ku' ? 'قۆناغی' : language === 'en' ? 'Interim' : 'موقت')}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {stl.date}
+                          </span>
+                          {stl.voucherNumber && (
+                            <span className="px-2 py-0.5 rounded-md font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] border border-slate-200 dark:border-slate-700">
+                              {stl.voucherNumber}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {stl.notes && (
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                          {stl.notes}
+                        </p>
+                      )}
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-[11px]">
+                        <div>
+                          <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'کارکردی ناخالص:' : language === 'en' ? 'Gross:' : 'کارکرد ناخالص:'}</span>
+                          <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{formatAmount(stl.grossWorkAmount, currency)}</div>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'پێشەکی و خەرجی:' : language === 'en' ? 'Advances/Backcharges:' : 'کسورات:'}</span>
+                          <div className="font-mono font-bold text-rose-500">-{formatAmount((stl.totalAdvances || 0) + (stl.totalBackcharges || 0) + (stl.totalExtraDeductions || 0) + (stl.totalDelayPenalty || 0), currency)}</div>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'شایستەی خاڵس:' : language === 'en' ? 'Net Paid:' : 'خالص پرداخت:'}</span>
+                          <div className="font-mono font-black text-teal-600 dark:text-teal-400">{formatAmount(stl.netPayableAmount, currency)} {currency}</div>
+                        </div>
+                        <div className="flex items-center justify-end">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+                            {language === 'ku' ? 'سەندی ژمێریاری دەرچوو' : language === 'en' ? 'Voucher Issued' : 'سند صادر شد'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Live Crew Day-Labor Attendance Card */}
           <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
@@ -375,17 +617,8 @@ export default function ContractDetailModal({
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              {language === 'ku'
-                ? 'کارکردی ڕۆژانە و شیفتە تۆمارکراوەکانی تیمی ئەم وەستاکارە لە ڕۆژژمێری ئامادەبووندا؛ ئەم زانیارییانە ڕاستەوخۆ لە ژمێریاری کۆتایی گرێبەستدا دێنە ئەژمار.'
-                : language === 'en'
-                ? 'Daily attendance and shifts logged for this contractor crew in the project calendar; automatically feeds into the contract settlement.'
-                : 'کارکرد روزانه و شیفت‌های ثبت‌شده اعضای اکیپ این استادکار در تقویم کارگاه؛ این ارقام مستقیماً در صورت‌وضعیت نهایی اعمال می‌گردند.'}
-            </p>
-
             {crewAttendance && (crewAttendance.totalDays > 0 || crewAttendance.crewWorkers?.length > 0) ? (
               <div className="space-y-4 pt-1">
-                {/* 4 Metric Pills: Total, Master Days, Worker Days, and Gross Value */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                   <div className="p-3 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-0.5">
                     <span className="block text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -418,45 +651,6 @@ export default function ContractDetailModal({
                     <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white font-mono" dir="ltr">
                       {formatAmount(crewAttendance.totalGrossWage, currency)} {currency}
                     </span>
-                  </div>
-                </div>
-
-                {/* Detailed Crew Workers List */}
-                <div className="space-y-2 pt-1">
-                  <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {language === 'ku' ? 'وردەکاری کارکردی ئەندامانی اکیپ:' : language === 'en' ? 'Crew Members Attendance Details:' : 'ریز کارکرد اعضای اکیپ در تقویم:'}
-                  </span>
-                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                    {crewAttendance.workerBreakdown?.map((b) => (
-                      <div
-                        key={b.worker.id}
-                        className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-xs"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs">
-                            {b.worker.teamRole === 'Master' ? '👑' : '👷'}
-                          </div>
-                          <div>
-                            <span className="font-bold text-slate-800 dark:text-slate-200">{b.worker.name}</span>
-                            <div className="text-[10px] text-slate-400">
-                              {b.worker.role || (language === 'ku' ? 'کرێکاری اکیپ' : language === 'en' ? 'Crew Worker' : 'کارگر اکیپ')}
-                              {b.worker.isTemporary ? (language === 'ku' ? ' • کاتی' : language === 'en' ? ' • Temp' : ' • موقت') : ''}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 font-mono text-end">
-                          <div>
-                            <div className="font-bold text-slate-700 dark:text-slate-300">{b.daysCount} {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}</div>
-                            {b.overtimeHours > 0 && (
-                              <div className="text-[10px] text-slate-400">+{b.overtimeHours} {language === 'ku' ? 'کاتژمێر' : language === 'en' ? 'hrs OT' : 'ساعت اضافه‌کار'}</div>
-                            )}
-                          </div>
-                          <div className="font-black text-amber-600 dark:text-amber-400 min-w-20" dir="ltr">
-                            {formatAmount(b.grossWage, currency)} {currency}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
@@ -504,45 +698,12 @@ export default function ContractDetailModal({
             </div>
           </div>
 
-          {/* Settlement Result if Completed */}
-          {isCompleted && contract.settlementDetails && (
-            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-teal-500/10 border border-teal-500/25 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-black text-teal-700 dark:text-teal-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{language === 'ku' ? 'ئەنجامی ژمێریاری کۆتایی' : language === 'en' ? 'Final Settlement Statement' : 'نتیجه تسویه و صورت‌وضعیت قطعی'}</span>
-                </span>
-                <span className="text-xs font-mono font-bold text-teal-600 dark:text-teal-400">
-                  {contract.actualEndDate}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-xs">
-                <div>
-                  <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'کۆی کارکرد:' : language === 'en' ? 'Gross:' : 'کارکرد ناخالص:'}</span>
-                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{formatAmount(contract.settlementDetails.grossWorkAmount, currency)}</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'سزای تاخیر:' : language === 'en' ? 'Delay:' : 'جریمه تاخیر:'}</span>
-                  <div className="font-mono font-bold text-rose-500">{formatAmount(contract.settlementDetails.totalDelayPenalty, currency)}</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'پێشەکی و خەرجی:' : language === 'en' ? 'Advances/Backcharges:' : 'کسورات:'}</span>
-                  <div className="font-mono font-bold text-rose-500">{formatAmount((contract.settlementDetails.totalAdvances || 0) + (contract.settlementDetails.totalBackcharges || 0), currency)}</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'خاڵس دراو:' : language === 'en' ? 'Net Paid:' : 'خالص پرداخت:'}</span>
-                  <div className="font-mono font-black text-teal-600 dark:text-teal-400">{formatAmount(contract.finalPayableAmount, currency)} {currency}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
         </div>
       </main>
 
       {/* Sticky Bottom Footer Actions Dock */}
       <footer className="px-4 sm:px-6 py-3.5 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-20 shadow-xs no-print">
-        <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
+        <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -567,23 +728,61 @@ export default function ContractDetailModal({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {isActive && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenSettlement(contract);
-                }}
-                className="px-5 py-2.5 rounded-2xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{language === 'ku' ? 'تەواوکردن و ژمێریاری کۆتایی' : language === 'en' ? 'Final Settlement' : 'پایان کار و صورت‌وضعیت قطعی'}</span>
-              </button>
+              <>
+                {/* 1. Add Addendum / Increase Scope Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsAmendmentModalOpen(true)}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 transition-all flex items-center gap-2 cursor-pointer active:scale-95 shadow-xs"
+                >
+                  <FilePlus2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span>{language === 'ku' ? 'تۆمارکردنی پاشکۆ / زیادکردنی کار' : language === 'en' ? 'Add Addendum / Scope' : 'ثبت الحاقیه / افزایش حجم'}</span>
+                </button>
+
+                {/* 2. Interim Progress Settlement Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenSettlement(contract);
+                  }}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold bg-primary hover:bg-primary-hover text-white shadow-md shadow-primary/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>{language === 'ku' ? 'صورت‌وەزعییەتی قۆناغی (موقت)' : language === 'en' ? 'Interim Settlement' : 'ثبت صورت‌وضعیت مرحله‌ای'}</span>
+                </button>
+
+                {/* 3. Final Settlement Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenSettlement(contract);
+                  }}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{language === 'ku' ? 'پایانی کار و تسویەی کۆتایی' : language === 'en' ? 'Final Settlement' : 'پایان کار و صورت‌وضعیت قطعی'}</span>
+                </button>
+              </>
             )}
           </div>
         </div>
       </footer>
+
+      {/* Add Contract Amendment Modal */}
+      {isAmendmentModalOpen && (
+        <AddContractAmendmentModal
+          isOpen={isAmendmentModalOpen}
+          onClose={() => setIsAmendmentModalOpen(false)}
+          contract={contract}
+          onSuccess={(result) => {
+            // Live Dexie query will automatically update contract details
+          }}
+        />
+      )}
     </div>
   );
 }

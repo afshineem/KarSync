@@ -636,25 +636,167 @@ export async function getContractCrewAttendanceSummary({
   };
 }
 
+/**
+ * Get detailed progress of all settlements (interim and final) recorded for a contract
+ */
+export function getContractSettlementProgress(contract) {
+  if (!contract) return null;
+  const settlements = Array.isArray(contract.settlements) ? contract.settlements : [];
+
+  const previouslyDeductedAdvanceIds = new Set();
+  const previouslyDeductedBackchargeIds = new Set();
+  const itemSettledMap = new Map();
+
+  let totalSettledGross = 0;
+  let totalSettledNet = 0;
+  let totalSettledDeductions = 0;
+
+  settlements.forEach(s => {
+    (s.selectedAdvanceIds || []).forEach(id => previouslyDeductedAdvanceIds.add(String(id)));
+    (s.selectedBackchargeIds || []).forEach(id => previouslyDeductedBackchargeIds.add(String(id)));
+
+    totalSettledGross += Number(s.grossWorkAmount) || 0;
+    totalSettledNet += Number(s.netPayableAmount) || 0;
+    totalSettledDeductions += Number(s.totalDeductions) || 0;
+
+    (s.finalizedItems || s.itemsBreakdown || []).forEach(it => {
+      const key = it.id || it.title;
+      const qty = Number(it.incrementalQuantity !== undefined ? it.incrementalQuantity : it.finalQuantity) || 0;
+      itemSettledMap.set(key, (itemSettledMap.get(key) || 0) + qty);
+    });
+  });
+
+  const itemsProgress = (contract.items || []).map(it => {
+    const key = it.id || it.title;
+    const contractedQty = Number(it.estimatedQuantity) || 0;
+    const settledQty = itemSettledMap.get(key) || 0;
+    const remainingQty = Math.max(0, contractedQty - settledQty);
+    const percent = contractedQty > 0 ? Math.min(100, Math.round((settledQty / contractedQty) * 100)) : 0;
+    return {
+      ...it,
+      contractedQty,
+      settledQty,
+      remainingQty,
+      percent
+    };
+  });
+
+  const totalEstimatedAmount = Number(contract.totalEstimatedAmount) || 0;
+  const financialPercent = totalEstimatedAmount > 0
+    ? Math.min(100, Math.round((totalSettledGross / totalEstimatedAmount) * 100))
+    : 0;
+
+  return {
+    settlements,
+    settlementsCount: settlements.length,
+    interimCount: settlements.filter(s => s.settlementType === 'interim').length,
+    previouslyDeductedAdvanceIds,
+    previouslyDeductedBackchargeIds,
+    itemSettledMap,
+    itemsProgress,
+    totalSettledGross,
+    totalSettledNet,
+    totalSettledDeductions,
+    financialPercent
+  };
+}
+
+/**
+ * Add an amendment (الحاقیه / متمم قرارداد) to increase scope, adjust rates or extend deadline
+ */
+export async function addContractAmendment({
+  contractId,
+  amendmentData,
+  userId = null
+}) {
+  if (!db.contracts) throw new Error('Contracts store not initialized');
+  const contract = await db.contracts.get(contractId);
+  if (!contract) throw new Error(`Contract ${contractId} not found`);
+
+  const now = new Date().toISOString();
+  const amendments = Array.isArray(contract.amendments) ? [...contract.amendments] : [];
+  const amendmentNumber = amendments.length + 1;
+
+  const updatedItems = Array.isArray(amendmentData.items) ? amendmentData.items : (contract.items || []);
+  const newTotalEstimatedAmount = updatedItems.reduce((sum, it) => {
+    const qty = Number(it.estimatedQuantity) || 0;
+    const rate = Number(it.unitPrice) || 0;
+    return sum + (qty * rate);
+  }, 0);
+
+  const previousTotalEstimatedAmount = Number(contract.totalEstimatedAmount) || 0;
+  const differenceAmount = newTotalEstimatedAmount - previousTotalEstimatedAmount;
+
+  const amendmentRecord = {
+    id: `amd_${Date.now()}`,
+    amendmentNumber,
+    date: amendmentData.date || now.slice(0, 10),
+    title: String(amendmentData.title || `الحاقیه شماره ${amendmentNumber}`).trim(),
+    notes: String(amendmentData.notes || '').trim(),
+    previousEstimatedEndDate: contract.estimatedEndDate || null,
+    newEstimatedEndDate: amendmentData.estimatedEndDate || contract.estimatedEndDate || null,
+    previousTotalEstimatedAmount,
+    newTotalEstimatedAmount,
+    differenceAmount,
+    itemsSnapshot: updatedItems,
+    createdAt: now,
+    created_by: userId || 'local_user'
+  };
+
+  amendments.push(amendmentRecord);
+
+  const updatedContract = {
+    ...contract,
+    items: updatedItems,
+    totalEstimatedAmount: newTotalEstimatedAmount,
+    estimatedEndDate: amendmentData.estimatedEndDate || contract.estimatedEndDate,
+    amendments,
+    updatedAt: now
+  };
+
+  await db.contracts.put(updatedContract);
+  pushContractLive(updatedContract).catch(console.warn);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { id: contractId, type: 'amendment' } }));
+  }
+
+  return {
+    contract: updatedContract,
+    amendment: amendmentRecord
+  };
+}
+
+/**
+ * Calculate contract settlement amounts (supports both Interim progressive and Final settlement)
+ */
 export function calculateContractSettlement({
   contract,
   completedItems = [],
   actualEndDate = '',
   selectedAdvances = [], // Array of payment objects
   selectedBackcharges = [], // Array of expense objects tagged to contractor
-  extraDeductions = [] // Array of { title, amount }
+  extraDeductions = [], // Array of { title, amount }
+  crewAttendanceSummary = null,
+  crewAttendanceMode = 'none', // 'man_day_item' | 'extra_gross_wage' | 'none'
+  settlementType = 'interim', // 'interim' | 'final'
+  applyDelayPenalty = false
 }) {
+  const isInterim = settlementType === 'interim';
+  const progress = getContractSettlementProgress(contract);
+  const previouslySettledMap = progress?.itemSettledMap || new Map();
+
   // 1. Gross Work Amount
   let grossWorkAmount = 0;
   let itemsToProcess = (completedItems.length > 0 ? completedItems : contract.items || []);
 
   // If crewAttendanceMode is man_day_item, ensure man_day item uses crew totalDays
-  if (crewAttendanceMode === man_day_item && crewAttendanceSummary?.totalDays !== undefined) {
-    const manDayIdx = itemsToProcess.findIndex(it => it.unit === man_day);
+  if (crewAttendanceMode === 'man_day_item' && crewAttendanceSummary?.totalDays !== undefined) {
+    const manDayIdx = itemsToProcess.findIndex(it => it.unit === 'man_day');
     if (manDayIdx !== -1) {
       itemsToProcess = itemsToProcess.map((it, idx) => {
         if (idx === manDayIdx) {
-          return { ...it, finalQuantity: crewAttendanceSummary.totalDays };
+          return { ...it, incrementalQuantity: crewAttendanceSummary.totalDays };
         }
         return it;
       });
@@ -662,28 +804,56 @@ export function calculateContractSettlement({
   }
 
   const finalizedItems = itemsToProcess.map((it) => {
-    const qty = Number(it.finalQuantity !== undefined ? it.finalQuantity : it.estimatedQuantity) || 0;
+    const key = it.id || it.title;
+    const settledBefore = previouslySettledMap.get(key) || 0;
+    const contractedQty = Number(it.estimatedQuantity) || 0;
     const rate = Number(it.unitPrice) || 0;
-    const itemTotal = qty * rate;
+
+    let incrementalQty = 0;
+    let cumulativeQty = 0;
+
+    if (it.incrementalQuantity !== undefined && it.incrementalQuantity !== '') {
+      incrementalQty = Number(it.incrementalQuantity) || 0;
+      cumulativeQty = settledBefore + incrementalQty;
+    } else if (it.finalQuantity !== undefined && it.finalQuantity !== '') {
+      cumulativeQty = Number(it.finalQuantity) || 0;
+      incrementalQty = Math.max(0, cumulativeQty - settledBefore);
+    } else {
+      const rem = Math.max(0, contractedQty - settledBefore);
+      incrementalQty = rem;
+      cumulativeQty = settledBefore + incrementalQty;
+    }
+
+    const itemTotal = incrementalQty * rate;
     grossWorkAmount += itemTotal;
+
     return {
       ...it,
-      finalQuantity: qty,
+      settledQuantityBefore: settledBefore,
+      incrementalQuantity: incrementalQty,
+      cumulativeQuantity: cumulativeQty,
+      finalQuantity: cumulativeQty,
       finalAmount: itemTotal
     };
   });
 
   // If crewAttendanceMode is extra_gross_wage, add crew wages directly to gross work
   let crewGrossWageAddition = 0;
-  if (crewAttendanceMode === extra_gross_wage && crewAttendanceSummary?.totalGrossWage) {
+  if (crewAttendanceMode === 'extra_gross_wage' && crewAttendanceSummary?.totalGrossWage) {
     crewGrossWageAddition = Number(crewAttendanceSummary.totalGrossWage) || 0;
     grossWorkAmount += crewGrossWageAddition;
   }
 
-  // 2. Delay Days & Penalty
-  const delayDays = calculateDelayDays(contract.estimatedEndDate, actualEndDate || new Date().toISOString().slice(0, 10));
-  const dailyPenalty = Number(contract.delayPenaltyPerDay) || 0;
-  const totalDelayPenalty = delayDays * dailyPenalty;
+  // 2. Delay Days & Penalty (usually 0 in interim progress billing unless explicitly enabled)
+  let delayDays = 0;
+  let dailyPenalty = 0;
+  let totalDelayPenalty = 0;
+
+  if (!isInterim || applyDelayPenalty) {
+    delayDays = calculateDelayDays(contract.estimatedEndDate, actualEndDate || new Date().toISOString().slice(0, 10));
+    dailyPenalty = Number(contract.delayPenaltyPerDay) || 0;
+    totalDelayPenalty = delayDays * dailyPenalty;
+  }
 
   // 3. Advances & Prepayments
   const totalAdvances = selectedAdvances.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -699,6 +869,8 @@ export function calculateContractSettlement({
   const netPayableAmount = Math.max(0, grossWorkAmount - totalDeductions);
 
   return {
+    settlementType,
+    isInterim,
     grossWorkAmount,
     crewGrossWageAddition,
     crewAttendanceSummary,
@@ -719,12 +891,15 @@ export function calculateContractSettlement({
 }
 
 /**
- * Finalize contract settlement, generate Draft Accounting Voucher, and complete contract
+ * Submit contract settlement (Interim progress billing or Final completion settlement)
+ * and generate corresponding Draft Accounting Voucher
  */
 export async function finalizeAndSubmitContractSettlement({
   contractId,
   actualEndDate,
   settlementCalculation,
+  settlementType = 'interim',
+  stageNotes = '',
   userId = null,
   currency = 'IQD'
 }) {
@@ -734,17 +909,22 @@ export async function finalizeAndSubmitContractSettlement({
 
   const projectId = contract.projectId || DEFAULT_PROJECT_ID;
   const now = new Date().toISOString();
+  const dateStr = actualEndDate || now.slice(0, 10);
+  const isInterim = settlementType === 'interim';
+
+  const priorSettlements = Array.isArray(contract.settlements) ? [...contract.settlements] : [];
+  const stageNumber = priorSettlements.length + 1;
 
   // 1. Generate unique Draft Voucher Number
   const voucherNumber = await generateNextVoucherNumber({
     projectId,
     type: 'contract_settlement',
-    date: actualEndDate || now.slice(0, 10)
+    date: dateStr
   });
 
   // 2. Construct detailed narrative for the accounting voucher
   const itemsSummary = settlementCalculation.finalizedItems
-    .map(it => `• ${it.title}: ${it.finalQuantity} ${it.unit} × ${it.unitPrice} = ${it.finalAmount}`)
+    .map(it => `• ${it.title}: ${it.incrementalQuantity} ${it.unit} (مجموع تا الان: ${it.cumulativeQuantity}) × ${it.unitPrice} = ${it.finalAmount}`)
     .join('\n');
 
   const deductionsSummary = [
@@ -754,33 +934,42 @@ export async function finalizeAndSubmitContractSettlement({
     settlementCalculation.totalExtraDeductions > 0 ? `• سایر کسورات و خسارات: ${settlementCalculation.totalExtraDeductions}` : null
   ].filter(Boolean).join('\n');
 
-  const voucherDescription = `صورت‌وضعیت قطعی پایان کار قرارداد: ${contract.title} (${contract.contractNumber})\n` +
+  const titlePrefix = isInterim
+    ? `صورت‌وضعیت موقت شماره ${stageNumber}`
+    : `صورت‌وضعیت قطعی پایان کار`;
+
+  const voucherDescription = `${titlePrefix} قرارداد: ${contract.title} (${contract.contractNumber})\n` +
     `طرف‌حساب: ${contract.counterpartyName || 'پیمانکار'}\n` +
-    `مجموع کارکرد ناخالص: ${settlementCalculation.grossWorkAmount}\n` +
-    (deductionsSummary ? `کسورات:\n${deductionsSummary}\n` : '') +
-    `خالص قابل پرداخت: ${settlementCalculation.netPayableAmount}\n` +
-    `ریز متره احجام اجرا شده:\n${itemsSummary}`;
+    (stageNotes ? `یادداشت و شرایط مرحله: ${stageNotes}\n` : '') +
+    `مجموع کارکرد ناخالص این مرحله: ${settlementCalculation.grossWorkAmount}\n` +
+    (deductionsSummary ? `کسورات این مرحله:\n${deductionsSummary}\n` : '') +
+    `خالص قابل پرداخت این مرحله: ${settlementCalculation.netPayableAmount}\n` +
+    `ریز متره احجام این مرحله:\n${itemsSummary}`;
 
   // 3. Create Draft Expense in Accounting
   const expenseId = generateExpenseId();
   const draftExpenseRecord = {
     id: expenseId,
     projectId,
-    title: `صورت‌وضعیت قطعی قرارداد: ${contract.title}`,
+    title: `${titlePrefix} قرارداد: ${contract.title}`,
     description: voucherDescription,
     amount: settlementCalculation.netPayableAmount,
     currency,
-    expenseDate: actualEndDate || now.slice(0, 10),
+    expenseDate: dateStr,
     personId: contract.counterpartyId || null,
     counterpartyId: contract.counterpartyId || null,
     contractId: contract.id,
     paymentStatus: 'unpaid',
-    status: 'draft', // DRAFT VOUCHER: Needs review/approval in Accounting
+    status: 'draft',
     approval_status: 'draft',
     voucherNumber,
     isContractSettlement: true,
+    isInterimSettlement: isInterim,
+    settlementNumber: stageNumber,
     settlementData: {
       contractId: contract.id,
+      stageNumber,
+      settlementType,
       grossWorkAmount: settlementCalculation.grossWorkAmount,
       totalDelayPenalty: settlementCalculation.totalDelayPenalty,
       totalAdvances: settlementCalculation.totalAdvances,
@@ -795,30 +984,73 @@ export async function finalizeAndSubmitContractSettlement({
 
   await db.expenses.put(draftExpenseRecord);
 
-  // 4. Update Contract status to 'completed'
-  const updatedContract = {
-    ...contract,
-    status: 'completed',
-    actualEndDate: actualEndDate || now.slice(0, 10),
-    finalPayableAmount: settlementCalculation.netPayableAmount,
+  // 4. Construct settlement record to append to contract.settlements
+  const settlementRecord = {
+    id: `stl_${Date.now()}`,
+    settlementNumber: stageNumber,
+    settlementType,
+    date: dateStr,
+    title: titlePrefix,
+    notes: stageNotes,
+    finalizedItems: settlementCalculation.finalizedItems,
+    grossWorkAmount: settlementCalculation.grossWorkAmount,
+    crewGrossWageAddition: settlementCalculation.crewGrossWageAddition || 0,
+    totalDelayPenalty: settlementCalculation.totalDelayPenalty,
+    delayDays: settlementCalculation.delayDays || 0,
+    totalAdvances: settlementCalculation.totalAdvances,
+    selectedAdvanceIds: (settlementCalculation.selectedAdvances || []).map(a => a.id),
+    totalBackcharges: settlementCalculation.totalBackcharges,
+    selectedBackchargeIds: (settlementCalculation.selectedBackcharges || []).map(b => b.id),
+    totalExtraDeductions: settlementCalculation.totalExtraDeductions,
+    extraDeductions: settlementCalculation.extraDeductions || [],
+    totalDeductions: settlementCalculation.totalDeductions,
+    netPayableAmount: settlementCalculation.netPayableAmount,
     voucherId: expenseId,
     voucherNumber,
-    settlementDetails: settlementCalculation,
-    items: settlementCalculation.finalizedItems,
-    updatedAt: now
+    createdAt: now
   };
+
+  priorSettlements.push(settlementRecord);
+
+  // 5. Update Contract record in database
+  let updatedContract;
+  if (isInterim) {
+    updatedContract = {
+      ...contract,
+      status: 'active', // remains active!
+      lastSettlementDate: dateStr,
+      lastSettlementNumber: stageNumber,
+      settlements: priorSettlements,
+      updatedAt: now
+    };
+  } else {
+    updatedContract = {
+      ...contract,
+      status: 'completed',
+      actualEndDate: dateStr,
+      finalPayableAmount: settlementCalculation.netPayableAmount,
+      voucherId: expenseId,
+      voucherNumber,
+      settlementDetails: settlementCalculation,
+      settlements: priorSettlements,
+      updatedAt: now
+    };
+  }
 
   await db.contracts.put(updatedContract);
   pushContractLive(updatedContract).catch(console.warn);
 
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { id: contractId, type: 'completed' } }));
+    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', {
+      detail: { id: contractId, type: isInterim ? 'interim_settlement' : 'completed' }
+    }));
     window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
     window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
   }
 
   return {
     contract: updatedContract,
-    draftExpense: draftExpenseRecord
+    draftExpense: draftExpenseRecord,
+    settlementRecord
   };
 }
