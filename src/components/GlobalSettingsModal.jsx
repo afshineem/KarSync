@@ -60,6 +60,7 @@ import {
   ShieldAlert,
   Landmark,
   RotateCcw,
+  CalendarDays,
   BellRing
 } from 'lucide-react';
 import { TwoFactorModal } from './TwoFactorModal';
@@ -68,6 +69,7 @@ import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import ExpenseCategoriesTab from './accounting/ExpenseCategoriesTab';
 import ChartOfAccountsTab from './accounting/ChartOfAccountsTab';
+import FinancialYearsModal from './accounting/FinancialYearsModal';
 import DataSyncSettingsTab from './accounting/DataSyncSettingsTab';
 import UsersSettingsTab from "./UsersSettingsTab";
 import NotificationsSettingsTab from './NotificationsSettingsTab';
@@ -144,7 +146,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
 
   const normalizeSettingsTab = useCallback((tab) => {
     if (tab === 'project_sections') return 'projects';
-    if ((tab === 'chart_of_accounts' || tab === 'accounting_accounts') && !canManageAccounting) return 'general';
+    if ((tab === 'chart_of_accounts' || tab === 'accounting_accounts' || tab === 'financial_years') && !canManageAccounting) return 'general';
     if (tab === 'categories' && !canManageExpenses) return 'general';
     return tab || 'general';
   }, [canManageAccounting, canManageExpenses]);
@@ -232,6 +234,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
         label: language === 'fa' ? 'کدینگ سرفصل‌های حسابداری' : language === 'ku' ? 'کۆدینگی حیسابات' : 'Chart of Accounts',
         icon: Layers,
         color: 'text-indigo-500',
+        visible: canManageAccounting
+      },
+      {
+        id: 'financial_years',
+        label: language === 'fa' ? 'دوره‌ها و سال‌های مالی' : language === 'ku' ? 'ساڵە داراییەکان' : 'Fiscal Years',
+        icon: CalendarDays,
+        color: 'text-amber-500',
         visible: canManageAccounting
       },
       {
@@ -1919,6 +1928,15 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {activeTab === 'chart_of_accounts' && canManageAccounting && (
               <div className="w-full animate-in fade-in duration-150">
                 <ChartOfAccountsTab />
+              </div>
+            )}
+
+            {/* ---------------------------------------------------- */}
+            {/* TAB: FINANCIAL YEARS (دوره‌ها و سال‌های مالی) */}
+            {/* ---------------------------------------------------- */}
+            {activeTab === 'financial_years' && canManageAccounting && (
+              <div className="w-full animate-in fade-in duration-150">
+                <FinancialYearsModal embedded={true} />
               </div>
             )}
 

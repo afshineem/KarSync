@@ -10,6 +10,7 @@ import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
 import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import ChartOfAccountsTab from './accounting/ChartOfAccountsTab';
+import FinancialYearsModal from './accounting/FinancialYearsModal';
 import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { DateRangeFilterModal } from './accounting/DateRangeFilterModal';
@@ -29,6 +30,7 @@ import {
   ArrowDownLeft,
   Users,
   CalendarRange,
+  CalendarDays,
   BarChart3,
   Layers,
   Info
@@ -65,6 +67,8 @@ const COPY = {
     reportsAria: 'گزارش و آمار',
     subsidiaryTitle: 'معین افراد/حساب‌ها (Shift+M)',
     subsidiaryAria: 'معین افراد و حساب‌ها',
+    financialYearsTitle: 'مدیریت دوره‌ها و سال‌های مالی (شمسی و میلادی)',
+    financialYearsAria: 'سال‌های مالی',
     transferTitle: 'انتقال حساب به حساب',
     transferAria: 'انتقال حساب به حساب',
     chargeTitle: 'شارژ موجودی (واریز نقدی یا بانکی به صندوق/حساب)',
@@ -103,6 +107,8 @@ const COPY = {
     reportsAria: 'ئامار و ڕاپۆرتەکان',
     subsidiaryTitle: 'دەفتەری حیسابی کەسەکان و حیسابەکان (Shift+M)',
     subsidiaryAria: 'دەفتەری حیسابی کەسەکان',
+    financialYearsTitle: 'بەڕێوەبردنی خول و ساڵە داراییەکان',
+    financialYearsAria: 'ساڵە داراییەکان',
     transferTitle: 'گواستنەوە لە نێوان حیسابەکان',
     transferAria: 'گواستنەوە لە نێوان حیسابەکان',
     chargeTitle: 'زیادکردنی باڵانس (داهات/تەنخوا)',
@@ -141,6 +147,8 @@ const COPY = {
     reportsAria: 'Reports & Analytics',
     subsidiaryTitle: 'Subsidiary Ledger (Shift+M)',
     subsidiaryAria: 'Subsidiary Ledger',
+    financialYearsTitle: 'Manage Fiscal Years & Accounting Periods',
+    financialYearsAria: 'Fiscal Years',
     transferTitle: 'Account to Account Transfer',
     transferAria: 'Transfer Between Accounts',
     chargeTitle: 'Recharge Balance (Deposit to Drawer/Account)',
@@ -192,6 +200,7 @@ export function AccountingView({
   const [isAccountsModalOpen, setIsAccountsModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
+  const [isFinancialYearsModalOpen, setIsFinancialYearsModalOpen] = useState(false);
   const [placeholderNotice, setPlaceholderNotice] = useState(null);
   const [initialTransferSourceId, setInitialTransferSourceId] = useState(null);
   const [quickDepositAccount, setQuickDepositAccount] = useState(null);
@@ -380,6 +389,19 @@ export function AccountingView({
                 )}
               </button>
 
+              {/* دکمه سال‌های مالی (شمسی و میلادی) */}
+              {canManageAccounting && (
+                <button
+                  type="button"
+                  onClick={() => setIsFinancialYearsModalOpen(true)}
+                  className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center focus:outline-hidden"
+                  title={txt.financialYearsTitle}
+                  aria-label={txt.financialYearsAria}
+                >
+                  <CalendarDays className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                </button>
+              )}
+
               {/* دکمه ۲: گزارش و آمار */}
               <button
                 type="button"
@@ -522,6 +544,24 @@ export function AccountingView({
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
                 </div>
               </div>
+
+              {/* دکمه دوره‌ها و سال‌های مالی */}
+              {canManageAccounting && (
+                <div className="relative group h-full">
+                  <button
+                    type="button"
+                    onClick={() => setIsFinancialYearsModalOpen(true)}
+                    className="h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 flex items-center justify-center focus:outline-hidden"
+                    aria-label={txt.financialYearsAria}
+                  >
+                    <CalendarDays className="w-5.5 h-5.5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                  </button>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[11px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
+                    {txt.financialYearsTitle}
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-solid border-b-slate-900/90 border-b-4 border-x-transparent border-x-4 border-t-0" />
+                  </div>
+                </div>
+              )}
 
               {/* دکمه انتقال وجه بین حساب‌ها */}
               <div className="relative group h-full">
@@ -914,6 +954,14 @@ export function AccountingView({
             }
           }}
           language={language}
+        />
+      )}
+
+      {/* مودال مدیریت سال‌ها و دوره‌های مالی */}
+      {isFinancialYearsModalOpen && (
+        <FinancialYearsModal
+          isOpen={isFinancialYearsModalOpen}
+          onClose={() => setIsFinancialYearsModalOpen(false)}
         />
       )}
     </div>

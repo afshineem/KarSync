@@ -806,7 +806,9 @@ export const translations = {
     chartOfAccountsTitle: 'دارودەستەی کۆدینگی حیسابات (COA)',
     chartOfAccountsSubtitle: 'پێکهاتەی ستانداردی ٤ ژمارەیی: گرووپ، گشتی، دیاریکراو و تەفسیلی سەرئاوکەوتوو',
     performanceGuaranteeRetention: 'سپاردەی چاک ئەنجامدانی کار (حسن انجام کار)',
-    insuranceRetentionArticle38: 'سپاردەی بیمەی کۆمەڵایەتی (مادەی ٣٨)'
+    insuranceRetentionArticle38: 'سپاردەی بیمەی کۆمەڵایەتی (مادەی ٣٨)',
+    financialYearsTitle: 'بەڕێوەبردنی ساڵە داراییەکان (Fiscal Years)',
+    financialYearsSubtitle: 'پێناسەکردنی ساڵی دارایی بە تەقویمی کۆچی یان زاینی و داخستنی خول'
   },
   fa: {
 
@@ -1620,7 +1622,9 @@ export const translations = {
     chartOfAccountsTitle: 'درختواره کدینگ سرفصل‌های حسابداری (COA)',
     chartOfAccountsSubtitle: 'ساختار استاندارد ۴ رقمی: گروه حساب‌ها، حساب کل، معین و تفصیلی‌های شناور',
     performanceGuaranteeRetention: 'سپرده حسن انجام کار',
-    insuranceRetentionArticle38: 'سپرده بیمه ماده ۳۸ تأمین اجتماعی'
+    insuranceRetentionArticle38: 'سپرده بیمه ماده ۳۸ تأمین اجتماعی',
+    financialYearsTitle: 'مدیریت دوره‌ها و سال‌های مالی (Fiscal Years)',
+    financialYearsSubtitle: 'تعریف سال مالی شمسی و میلادی، کنترل وضعیت بستن حساب‌ها و آغاز دوره جدید'
   },
   en: {
 
@@ -2424,6 +2428,8 @@ export const translations = {
     chartOfAccountsTitle: 'Chart of Accounts (COA)',
     chartOfAccountsSubtitle: 'Standard 4-digit hierarchy: Group, General Ledger, Subsidiary & floating details',
     performanceGuaranteeRetention: 'Performance Guarantee Retention',
-    insuranceRetentionArticle38: 'Social Security Insurance Retention (Article 38)'
+    insuranceRetentionArticle38: 'Social Security Insurance Retention (Article 38)',
+    financialYearsTitle: 'Fiscal Years & Accounting Periods',
+    financialYearsSubtitle: 'Define Solar Hijri & Gregorian fiscal years, close periods, and initialize new cycles'
   }
 };
