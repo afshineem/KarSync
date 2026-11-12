@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useProject } from '../../context/ProjectContext';
+import { usePermissions } from '../../context/AuthContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../../db/db';
 import {
@@ -23,6 +24,7 @@ import {
   RotateCcw,
   AlertTriangle,
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
   Landmark,
   CreditCard,
@@ -195,6 +197,8 @@ const COPY = {
 export default function ChartOfAccountsTab() {
   const { language, direction } = useLanguage();
   const { currentProject } = useProject();
+  const { hasPermission } = usePermissions();
+  const canManageAccounting = hasPermission('accounting.manage');
   const projectId = currentProject?.id || DEFAULT_PROJECT_ID;
   const t = COPY[language] || COPY.fa;
 
@@ -218,6 +222,7 @@ export default function ChartOfAccountsTab() {
 
   // Auto-initialize standard Chart of Accounts if empty on mount (safely outside useLiveQuery)
   useEffect(() => {
+    if (!canManageAccounting) return;
     let isMounted = true;
     async function ensureInitialized() {
       try {
@@ -465,6 +470,24 @@ export default function ChartOfAccountsTab() {
       default: return 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30';
     }
   };
+
+  if (!canManageAccounting) {
+    return (
+      <div className="p-8 text-center bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-3xl border border-rose-200/60 dark:border-rose-900/40">
+        <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
+          {language === 'fa' ? 'عدم دسترسی به سرفصل‌های حسابداری' : language === 'ku' ? 'دەستپێڕانەگەیشتن بە کۆدینگی حیسابات' : 'Access Restricted: Chart of Accounts'}
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          {language === 'fa'
+            ? 'برای مشاهده و ویرایش کدینگ سرفصل‌های حسابداری، مجوز «مدیریت حسابداری» (accounting.manage) الزامی است.'
+            : language === 'ku'
+            ? 'بۆ بینین و دەستکاریکردنی کۆدینگی حیسابات، مۆڵەتی بەڕێوەبردنی حیسابات پێویستە.'
+            : 'You need the "accounting.manage" permission to view or edit the Chart of Accounts.'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" dir={direction}>

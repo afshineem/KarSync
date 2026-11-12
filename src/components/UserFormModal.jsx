@@ -33,7 +33,7 @@ const USER_FORM_COPY = {
       'workers.manage': 'مدیریت پرسنل (افزودن/ویرایش کارگر و گروه‌ها)',
       'expenses.manage': 'ثبت و مدیریت هزینه‌ها و تنخواه',
       'settlement.manage': 'ثبت و مدیریت تسویه حساب و مساعده',
-      'accounting.manage': 'مدیریت حسابداری، صندوق‌ها و طرف‌حساب‌ها',
+      'accounting.manage': 'مدیریت حسابداری، سرفصل‌های کدینگ، صندوق‌ها و طرف‌حساب‌ها',
       'reports.view': 'مشاهده گزارش‌ها و آمارهای مالی',
       'tasks.manage': 'مشاهده و مدیریت تسک‌های روزانه',
       'users.manage': 'مدیریت کاربران، پروژه‌ها و تنظیمات کلان'
@@ -73,7 +73,7 @@ const USER_FORM_COPY = {
       'workers.manage': 'بەڕێوەبردنی کارمەندان (زیادکردن/دەستکاریکردن)',
       'expenses.manage': 'تۆمار و بەڕێوەبردنی خەرجییەکان',
       'settlement.manage': 'تۆمار و بەڕێوەبردنی یەکلاکردنەوەی حیساب و موساعەدە',
-      'accounting.manage': 'بەڕێوەبردنی حیسابداری، سندوقەکان و لایەنەکان',
+      'accounting.manage': 'بەڕێوەبردنی حیسابداری، کۆدینگی حیسابات، سندوقەکان و لایەنەکان',
       'reports.view': 'بینینی ڕاپۆرت و ئامارە داراییەکان',
       'tasks.manage': 'بینین و بەڕێوەبردنی ئەرکەکانی ڕۆژانە',
       'users.manage': 'بەڕێوەبردنی بەکارهێنەران، پڕۆژەکان و ڕێکخستنەکان'
@@ -113,7 +113,7 @@ const USER_FORM_COPY = {
       'workers.manage': 'Manage Personnel (Add/Edit Workers & Groups)',
       'expenses.manage': 'Log & Manage Expenses',
       'settlement.manage': 'Manage Settlements & Advances',
-      'accounting.manage': 'Manage Accounting, Accounts & Counterparties',
+      'accounting.manage': 'Manage Accounting, Chart of Accounts, Cashboxes & Counterparties',
       'reports.view': 'View Financial Reports & Analytics',
       'tasks.manage': 'View & Manage Daily Tasks',
       'users.manage': 'Manage Users, Projects & System Settings'

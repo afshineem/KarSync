@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
+import { usePermissions } from '../context/AuthContext';
 import { useAccounting } from '../hooks/useAccounting';
 import { FinancialBalanceCards } from './accounting/FinancialBalanceCards';
 import { CashFlowChart } from './accounting/CashFlowChart';
@@ -169,15 +170,24 @@ export function AccountingView({
   const { t, language, direction } = useLanguage();
   const txt = COPY[language] || COPY.fa;
   const { currentProject, openWorkerProfile } = useProject();
+  const { hasPermission } = usePermissions();
+  const canManageAccounting = hasPermission('accounting.manage');
 
-  const [activeViewTab, setActiveViewTab] = useState(initialSubTab); // 'overview' | 'ledger' | 'income' | 'accounts'
+  const [activeViewTab, setActiveViewTab] = useState(() => {
+    if (initialSubTab === 'chart_of_accounts' && !canManageAccounting) return 'overview';
+    return initialSubTab;
+  }); // 'overview' | 'ledger' | 'income' | 'accounts' | 'chart_of_accounts'
 
   // هماهنگی ساب‌تب در صورت تغییر توسط والد
   useEffect(() => {
     if (initialSubTab) {
-      setActiveViewTab(initialSubTab);
+      if (initialSubTab === 'chart_of_accounts' && !canManageAccounting) {
+        setActiveViewTab('overview');
+      } else {
+        setActiveViewTab(initialSubTab);
+      }
     }
-  }, [initialSubTab]);
+  }, [initialSubTab, canManageAccounting]);
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [isAccountsModalOpen, setIsAccountsModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -273,12 +283,12 @@ export function AccountingView({
       icon: CreditCard,
       count: financialAccounts.length
     },
-    {
+    ...(canManageAccounting ? [{
       id: 'chart_of_accounts',
       label: txt.tabChartOfAccounts,
       icon: Layers,
       count: null
-    }
+    }] : [])
   ];
 
   return (
@@ -790,7 +800,7 @@ export function AccountingView({
             language={language}
           />
         </section>
-      ) : activeViewTab === 'chart_of_accounts' ? (
+      ) : activeViewTab === 'chart_of_accounts' && canManageAccounting ? (
         /* تب ۵: درختواره کدینگ جامع سرفصل‌های حسابداری */
         <section aria-label="Chart of Accounts" className="animate-in fade-in duration-200">
           <ChartOfAccountsTab />

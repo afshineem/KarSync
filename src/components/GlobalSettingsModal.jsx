@@ -138,7 +138,17 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
     deleteAccount
   } = useAccounting();
 
-  const normalizeSettingsTab = (tab) => (tab === 'project_sections' ? 'projects' : (tab || 'general'));
+  const canManageUsers = hasPermission('users.manage');
+  const canManageExpenses = hasPermission('expenses.manage');
+  const canManageAccounting = hasPermission('accounting.manage');
+
+  const normalizeSettingsTab = useCallback((tab) => {
+    if (tab === 'project_sections') return 'projects';
+    if ((tab === 'chart_of_accounts' || tab === 'accounting_accounts') && !canManageAccounting) return 'general';
+    if (tab === 'categories' && !canManageExpenses) return 'general';
+    return tab || 'general';
+  }, [canManageAccounting, canManageExpenses]);
+
   const [activeTab, setActiveTab] = useState(() => normalizeSettingsTab(initialTab));
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -160,11 +170,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   // Sync initial tab when modal opens or initialTab prop changes
   useEffect(() => {
     if (initialTab) setActiveTab(normalizeSettingsTab(initialTab));
-  }, [initialTab, isOpen]);
-
-  const canManageUsers = hasPermission('users.manage');
-  const canManageExpenses = hasPermission('expenses.manage');
-  const canManageAccounting = hasPermission('accounting.manage');
+  }, [initialTab, isOpen, normalizeSettingsTab]);
 
   // Sidebar navigation tabs ordered logically by priority & scope:
   // 1. Core Profile & Appearance: General -> Account & Security -> Users & Access
@@ -1910,7 +1916,7 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
             {/* ---------------------------------------------------- */}
             {/* TAB: CHART OF ACCOUNTS (درختواره کدینگ حسابداری) */}
             {/* ---------------------------------------------------- */}
-            {activeTab === 'chart_of_accounts' && (
+            {activeTab === 'chart_of_accounts' && canManageAccounting && (
               <div className="w-full animate-in fade-in duration-150">
                 <ChartOfAccountsTab />
               </div>
