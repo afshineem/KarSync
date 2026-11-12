@@ -42,6 +42,7 @@ import {
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAutoBackup } from '../../hooks/useAutoBackup';
 import { useAuth } from '../../context/AuthContext';
+import { DEFAULT_GOOGLE_CLIENT_ID } from '../../services/googleDriveService';
 import WorkspaceResetModal from './WorkspaceResetModal';
 
 export default function DataSyncSettingsTab({
@@ -1294,9 +1295,18 @@ export default function DataSyncSettingsTab({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Google OAuth Client ID
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Google OAuth Client ID
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setClientIdInput(DEFAULT_GOOGLE_CLIENT_ID)}
+                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {lang === 'fa' ? 'شناسه پیش‌فرض کارسینک' : lang === 'ku' ? 'بنەڕەتی کارسینک' : 'KarSync Default'}
+                </button>
+              </div>
               <input
                 type="text"
                 value={clientIdInput}

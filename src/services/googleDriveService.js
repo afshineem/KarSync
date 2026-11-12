@@ -6,13 +6,16 @@ const SETTINGS_KEY = 'gdrive_auth_state';
 const DRIVE_FOLDER_NAME = 'KarSync Backups';
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
 
+// Default KarSync Production Google OAuth Client ID
+export const DEFAULT_GOOGLE_CLIENT_ID = '704157498635-vsloen2iueu0v02enkb5eedtaniuaq1o.apps.googleusercontent.com';
+
 // Default Client ID or from environment variable
 export function getGoogleClientId() {
   if (typeof localStorage !== 'undefined') {
     const customId = localStorage.getItem('karsync_gdrive_client_id');
     if (customId && customId.trim()) return customId.trim();
   }
-  return import.meta.env?.VITE_GOOGLE_CLIENT_ID || '';
+  return import.meta.env?.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
 }
 
 export function setCustomGoogleClientId(clientId) {
