@@ -23,6 +23,8 @@ import {
   Clock, 
   FileText, 
   User, 
+  UserCheck,
+  UserX,
   Calendar, 
   Coins, 
   ChevronUp, 
