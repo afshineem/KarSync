@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateProjectId, ensureDefaultProjectExists, seedDefaultExpenseCategories, DEFAULT_PROJECT_ID } from '../db/db';
 import { supabase, pullProjectsLive, pushProjectLive, deleteProjectLive, pushAllExpenseCategoriesToCloud } from '../services/realtimeSync';
+import { initializeChartOfAccounts } from '../services/chartOfAccountsService';
 import { useAuth, usePermissions } from './AuthContext';
 
 const ACTIVE_PROJECT_KEY = 'karsync_active_project_id';
@@ -75,6 +76,12 @@ export function ProjectProvider({ children }) {
           const updated = await seedDefaultExpenseCategories(activeProjectId, userId);
           if (updated) {
             pushAllExpenseCategoriesToCloud().catch(() => {});
+          }
+        }
+        if (db.chartOfAccounts) {
+          const coaCount = await db.chartOfAccounts.count();
+          if (coaCount === 0) {
+            await initializeChartOfAccounts(activeProjectId || DEFAULT_PROJECT_ID);
           }
         }
       } catch (err) {

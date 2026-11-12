@@ -316,10 +316,7 @@ export async function initializeChartOfAccounts(projectId = DEFAULT_PROJECT_ID) 
  */
 export async function getChartOfAccounts(projectId = DEFAULT_PROJECT_ID) {
   if (!db.chartOfAccounts) return [];
-  let accounts = await db.chartOfAccounts.toArray();
-  if (accounts.length === 0) {
-    accounts = await initializeChartOfAccounts(projectId);
-  }
+  const accounts = await db.chartOfAccounts.toArray();
   return accounts.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
 }
 

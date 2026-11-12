@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../../db/db';
 import {
   getChartOfAccounts,
+  initializeChartOfAccounts,
   addAccountNode,
   updateAccountNode,
   deleteAccountNode,
@@ -215,7 +216,27 @@ export default function ChartOfAccountsTab() {
   const [newSubNature, setNewSubNature] = useState('debtor');
   const [notification, setNotification] = useState(null);
 
-  // Live query for Chart of Accounts from Dexie
+  // Auto-initialize standard Chart of Accounts if empty on mount (safely outside useLiveQuery)
+  useEffect(() => {
+    let isMounted = true;
+    async function ensureInitialized() {
+      try {
+        if (!db.chartOfAccounts) return;
+        const count = await db.chartOfAccounts.count();
+        if (count === 0 && isMounted) {
+          await initializeChartOfAccounts(projectId);
+        }
+      } catch (err) {
+        console.warn('Failed to auto-initialize chart of accounts:', err);
+      }
+    }
+    ensureInitialized();
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId]);
+
+  // Live query for Chart of Accounts from Dexie (pure read-only transaction)
   const accounts = useLiveQuery(
     async () => {
       return await getChartOfAccounts(projectId);
