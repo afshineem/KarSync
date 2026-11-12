@@ -67,6 +67,7 @@ import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { evaluatePasswordStrength } from '../utils/passwordSecurity';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
 import ExpenseCategoriesTab from './accounting/ExpenseCategoriesTab';
+import ChartOfAccountsTab from './accounting/ChartOfAccountsTab';
 import DataSyncSettingsTab from './accounting/DataSyncSettingsTab';
 import UsersSettingsTab from "./UsersSettingsTab";
 import NotificationsSettingsTab from './NotificationsSettingsTab';
@@ -218,6 +219,13 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
         label: language === 'fa' ? 'حساب‌ها و کارت‌های بانکی' : language === 'ku' ? 'حیساب و کارتەکان' : 'Financial Accounts',
         icon: Landmark,
         color: 'text-sky-500',
+        visible: canManageAccounting
+      },
+      {
+        id: 'chart_of_accounts',
+        label: language === 'fa' ? 'کدینگ سرفصل‌های حسابداری' : language === 'ku' ? 'کۆدینگی حیسابات' : 'Chart of Accounts',
+        icon: Layers,
+        color: 'text-indigo-500',
         visible: canManageAccounting
       },
       {
@@ -1896,6 +1904,15 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
                   currency={currentProject?.currency || 'IQD'}
                   language={language}
                 />
+              </div>
+            )}
+
+            {/* ---------------------------------------------------- */}
+            {/* TAB: CHART OF ACCOUNTS (درختواره کدینگ حسابداری) */}
+            {/* ---------------------------------------------------- */}
+            {activeTab === 'chart_of_accounts' && (
+              <div className="w-full animate-in fade-in duration-150">
+                <ChartOfAccountsTab />
               </div>
             )}
 

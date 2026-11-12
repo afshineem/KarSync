@@ -131,9 +131,18 @@ db.version(22).stores({
   expenseCategories: 'id, projectId, userId, parentId, name, code, level, isSystem, createdAt'
 });
 
+db.version(23).stores({
+  chartOfAccounts: 'id, projectId, code, parentCode, level, type, nature, isSystem, createdAt'
+});
+
 // Helper to generate UUIDs
 export function generateId() {
   return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+}
+
+// Helper to generate Account Node IDs
+export function generateAccountNodeId() {
+  return 'coa_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
 // Helper to generate Counterparty IDs

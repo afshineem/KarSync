@@ -802,7 +802,11 @@ export const translations = {
     markAsClearedBtn: 'تۆمارکردنی وصول / پاکتاوکردن',
     markAsBouncedBtn: 'تۆمارکردنی گەڕانەوە',
     endorseChequeBtn: 'واگذارکردن / خەرجکردن بە کەسی تر',
-    voidChequeBtn: 'هەڵوەشاندنەوەی چەک'
+    voidChequeBtn: 'هەڵوەشاندنەوەی چەک',
+    chartOfAccountsTitle: 'دارودەستەی کۆدینگی حیسابات (COA)',
+    chartOfAccountsSubtitle: 'پێکهاتەی ستانداردی ٤ ژمارەیی: گرووپ، گشتی، دیاریکراو و تەفسیلی سەرئاوکەوتوو',
+    performanceGuaranteeRetention: 'سپاردەی چاک ئەنجامدانی کار (حسن انجام کار)',
+    insuranceRetentionArticle38: 'سپاردەی بیمەی کۆمەڵایەتی (مادەی ٣٨)'
   },
   fa: {
 
@@ -1612,7 +1616,11 @@ export const translations = {
     markAsClearedBtn: 'ثبت وصول قطعی در بانک',
     markAsBouncedBtn: 'ثبت برگشت چک',
     endorseChequeBtn: 'واگذاری و خرج به غیر',
-    voidChequeBtn: 'ابطال برگه چک'
+    voidChequeBtn: 'ابطال برگه چک',
+    chartOfAccountsTitle: 'درختواره کدینگ سرفصل‌های حسابداری (COA)',
+    chartOfAccountsSubtitle: 'ساختار استاندارد ۴ رقمی: گروه حساب‌ها، حساب کل، معین و تفصیلی‌های شناور',
+    performanceGuaranteeRetention: 'سپرده حسن انجام کار',
+    insuranceRetentionArticle38: 'سپرده بیمه ماده ۳۸ تأمین اجتماعی'
   },
   en: {
 
@@ -2412,6 +2420,10 @@ export const translations = {
     markAsClearedBtn: 'Confirm Clearance in Bank',
     markAsBouncedBtn: 'Record Cheque Bounce',
     endorseChequeBtn: 'Endorse Cheque to Third Party',
-    voidChequeBtn: 'Void / Cancel Cheque'
+    voidChequeBtn: 'Void / Cancel Cheque',
+    chartOfAccountsTitle: 'Chart of Accounts (COA)',
+    chartOfAccountsSubtitle: 'Standard 4-digit hierarchy: Group, General Ledger, Subsidiary & floating details',
+    performanceGuaranteeRetention: 'Performance Guarantee Retention',
+    insuranceRetentionArticle38: 'Social Security Insurance Retention (Article 38)'
   }
 };

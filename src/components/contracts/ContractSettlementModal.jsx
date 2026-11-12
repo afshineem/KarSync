@@ -979,6 +979,32 @@ export default function ContractSettlementModal({
                       </div>
                     )}
 
+                    {/* Performance Guarantee Retention (حسن انجام کار - معین ۳۴۰۱) */}
+                    {settlement.retentionAmount > 0 && (
+                      <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400">
+                        <span className="flex items-center gap-1">
+                          <span>{language === 'ku' ? `بارمتەی باشی ئەنجام (${settlement.retentionRate}٪):` : language === 'en' ? `Performance Retention (${settlement.retentionRate}%):` : `کسر سپرده حسن انجام کار (${settlement.retentionRate}٪):`}</span>
+                          <span className="text-[10px] opacity-75 font-mono">[۳۴۰۱]</span>
+                        </span>
+                        <span className="font-mono font-bold" dir="ltr">
+                          - {formatAmount(settlement.retentionAmount, currency)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Social Security Insurance Retention (بیمه ماده ۳۸ - معین ۳۴۰۲) */}
+                    {settlement.insuranceAmount > 0 && (
+                      <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400">
+                        <span className="flex items-center gap-1">
+                          <span>{language === 'ku' ? `بارمتەی بیمە (${settlement.insuranceRate}٪):` : language === 'en' ? `Insurance Retention (${settlement.insuranceRate}%):` : `کسر سپرده بیمه ماده ۳۸ (${settlement.insuranceRate}٪):`}</span>
+                          <span className="text-[10px] opacity-75 font-mono">[۳۴۰۲]</span>
+                        </span>
+                        <span className="font-mono font-bold" dir="ltr">
+                          - {formatAmount(settlement.insuranceAmount, currency)}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Advances */}
                     {settlement.totalAdvances > 0 && (
                       <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">

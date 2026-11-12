@@ -68,6 +68,13 @@ export async function createContract(contractData, userId = null) {
     actualEndDate: null,
     delayPenaltyPerDay: Number(contractData.delayPenaltyPerDay) || 0,
     items,
+    // Performance & Social Security Insurance Retentions (سپرده حسن انجام کار و بیمه)
+    retentionPolicy: contractData.retentionPolicy || {
+      deductRetention: false,
+      retentionRate: 5, // percentage e.g. 5% or 10%
+      deductInsurance: false,
+      insuranceRate: 5  // percentage e.g. 5%
+    },
     // Expenses commitments (e.g. food/lodging borne by contractor vs workshop)
     backchargeCommitments: contractData.backchargeCommitments || {
       food: 'contractor', // 'contractor' | 'workshop'
@@ -864,8 +871,21 @@ export function calculateContractSettlement({
   // 5. Extra manual deductions (damages, etc.)
   const totalExtraDeductions = extraDeductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
 
-  // 6. Net Payable
-  const totalDeductions = totalDelayPenalty + totalAdvances + totalBackcharges + totalExtraDeductions;
+  // 6. Contract Retention (سپرده حسن انجام کار) & Insurance Retention (سپرده بیمه ماده ۳۸)
+  const retentionPolicy = contract.retentionPolicy || {};
+  let retentionAmount = 0;
+  let insuranceAmount = 0;
+
+  if (retentionPolicy.deductRetention && Number(retentionPolicy.retentionRate) > 0) {
+    retentionAmount = Math.round((grossWorkAmount * (Number(retentionPolicy.retentionRate) / 100)) * 100) / 100;
+  }
+
+  if (retentionPolicy.deductInsurance && Number(retentionPolicy.insuranceRate) > 0) {
+    insuranceAmount = Math.round((grossWorkAmount * (Number(retentionPolicy.insuranceRate) / 100)) * 100) / 100;
+  }
+
+  // 7. Net Payable
+  const totalDeductions = totalDelayPenalty + totalAdvances + totalBackcharges + totalExtraDeductions + retentionAmount + insuranceAmount;
   const netPayableAmount = Math.max(0, grossWorkAmount - totalDeductions);
 
   return {
@@ -878,6 +898,10 @@ export function calculateContractSettlement({
     delayDays,
     dailyPenalty,
     totalDelayPenalty,
+    retentionAmount,
+    insuranceAmount,
+    retentionRate: Number(retentionPolicy.retentionRate) || 5,
+    insuranceRate: Number(retentionPolicy.insuranceRate) || 5,
     totalAdvances,
     selectedAdvances,
     totalBackcharges,
@@ -929,7 +953,9 @@ export async function finalizeAndSubmitContractSettlement({
 
   const deductionsSummary = [
     settlementCalculation.totalDelayPenalty > 0 ? `• جریمه ${settlementCalculation.delayDays} روز تاخیر: ${settlementCalculation.totalDelayPenalty}` : null,
-    settlementCalculation.totalAdvances > 0 ? `• کسر پیش‌پرداخت‌ها و علی‌الحساب: ${settlementCalculation.totalAdvances}` : null,
+    settlementCalculation.retentionAmount > 0 ? `• کسر سپرده حسن انجام کار (${settlementCalculation.retentionRate}%): ${settlementCalculation.retentionAmount} [معین ۳۴۰۱]` : null,
+    settlementCalculation.insuranceAmount > 0 ? `• کسر سپرده بیمه ماده ۳۸ (${settlementCalculation.insuranceRate}%): ${settlementCalculation.insuranceAmount} [معین ۳۴۰۲]` : null,
+    settlementCalculation.totalAdvances > 0 ? `• کسر پیش‌پرداخت‌ها و علی‌الحساب: ${settlementCalculation.totalAdvances} [معین ۱۵۰۱]` : null,
     settlementCalculation.totalBackcharges > 0 ? `• کسر هزینه‌های اسکان/غذا/ترابری پای پیمانکار: ${settlementCalculation.totalBackcharges}` : null,
     settlementCalculation.totalExtraDeductions > 0 ? `• سایر کسورات و خسارات: ${settlementCalculation.totalExtraDeductions}` : null
   ].filter(Boolean).join('\n');
@@ -972,6 +998,12 @@ export async function finalizeAndSubmitContractSettlement({
       settlementType,
       grossWorkAmount: settlementCalculation.grossWorkAmount,
       totalDelayPenalty: settlementCalculation.totalDelayPenalty,
+      retentionAmount: settlementCalculation.retentionAmount || 0,
+      insuranceAmount: settlementCalculation.insuranceAmount || 0,
+      retentionRate: settlementCalculation.retentionRate || 5,
+      insuranceRate: settlementCalculation.insuranceRate || 5,
+      retentionSubCode: '3401',
+      insuranceSubCode: '3402',
       totalAdvances: settlementCalculation.totalAdvances,
       totalBackcharges: settlementCalculation.totalBackcharges,
       totalExtraDeductions: settlementCalculation.totalExtraDeductions,
@@ -997,6 +1029,10 @@ export async function finalizeAndSubmitContractSettlement({
     crewGrossWageAddition: settlementCalculation.crewGrossWageAddition || 0,
     totalDelayPenalty: settlementCalculation.totalDelayPenalty,
     delayDays: settlementCalculation.delayDays || 0,
+    retentionAmount: settlementCalculation.retentionAmount || 0,
+    insuranceAmount: settlementCalculation.insuranceAmount || 0,
+    retentionRate: settlementCalculation.retentionRate || 5,
+    insuranceRate: settlementCalculation.insuranceRate || 5,
     totalAdvances: settlementCalculation.totalAdvances,
     selectedAdvanceIds: (settlementCalculation.selectedAdvances || []).map(a => a.id),
     totalBackcharges: settlementCalculation.totalBackcharges,

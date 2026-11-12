@@ -8,6 +8,7 @@ import { IncomeManagementSection } from './accounting/IncomeManagementSection';
 import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
 import { AddEditIncomeModal } from './accounting/AddEditIncomeModal';
 import { AccountsSettingsTab } from './accounting/AccountsSettingsTab';
+import ChartOfAccountsTab from './accounting/ChartOfAccountsTab';
 import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { DateRangeFilterModal } from './accounting/DateRangeFilterModal';
@@ -28,6 +29,7 @@ import {
   Users,
   CalendarRange,
   BarChart3,
+  Layers,
   Info
 } from 'lucide-react';
 
@@ -48,6 +50,7 @@ const COPY = {
     tabLedger: 'دفتر کل',
     tabIncome: 'ورودی‌ها و تنخواه',
     tabAccounts: 'کارت‌ها و صندوق‌ها',
+    tabChartOfAccounts: 'کدینگ حساب‌ها',
     mainTitle: 'حسابداری و خزانه‌داری',
     projectFallback: 'پروژه کارگاه',
     mainSubtitle: 'مدیریت یکپارچه تنخواه، تراز لحظه‌ای صندوق، کنترل هزینه‌ها و دفتر کل تراکنش‌ها',
@@ -70,6 +73,8 @@ const COPY = {
     headerLedgerTitle: 'دفتر کل اسناد و تراکنش‌های کارگاه',
     headerIncomeTitle: 'ورودی‌های نقدینگی و درآمدهای پروژه',
     headerAccountsDesc: 'کنترل سرفصل‌ها، تراز صندوق و کارت‌های بانکی فعال',
+    headerChartOfAccountsTitle: 'درختواره کدینگ سرفصل‌های حسابداری (COA)',
+    headerChartOfAccountsDesc: 'ساختار استاندارد ۴ رقمی: گروه، کل، معین و پیوند تفصیلی‌های شناور',
     headerLedgerDesc: 'ثبت و تایید اسناد دو مرحله‌ای، مغایرت‌گیری و گردش حساب',
     headerIncomeDesc: 'تزریق نقدینگی، شارژ تنخواه و واریزی‌های کارفرما',
     bannerDraftTitle: (cnt) => `تعداد ${cnt} سند مالی موقت (پیش‌نویس) در انتظار تایید نهایی هستند.`,
@@ -83,6 +88,7 @@ const COPY = {
     tabLedger: 'دەفتەری گشتی',
     tabIncome: 'داهات و تەنخوا',
     tabAccounts: 'کارت و سندووق',
+    tabChartOfAccounts: 'کۆدینگی حیسابات',
     mainTitle: 'ژمێریاری و خەزێنەداری',
     projectFallback: 'پڕۆژە',
     mainSubtitle: 'بەڕێوەبردنی تەنخوا، هاوسەنگی سندووق و دەفتەری گشتی مامەڵەکان',
@@ -105,6 +111,8 @@ const COPY = {
     headerLedgerTitle: 'دەفتەری گشتی مامەڵەکان',
     headerIncomeTitle: 'داهات و تەنخوا',
     headerAccountsDesc: 'کۆنترۆڵی سندووق و کارتە بانکییەکان',
+    headerChartOfAccountsTitle: 'دارودەستەی کۆدینگی حیساباتی ژمێریاری (COA)',
+    headerChartOfAccountsDesc: 'پێکهاتەی ستانداردی ٤ ژمارەیی: گرووپ، گشتی، دیاریکراو و تەفسیلی سەرئاوکەوتوو',
     headerLedgerDesc: 'تۆمارکردن و پەسەندکردنی بەڵگەنامەکان',
     headerIncomeDesc: 'تەنخوا و داهاتە نوێیەکان',
     bannerDraftTitle: (cnt) => `${cnt} بەڵگەنامەی ڕەشنووس چاوەڕوانی پەسەندکردنن.`,
@@ -118,6 +126,7 @@ const COPY = {
     tabLedger: 'General Ledger',
     tabIncome: 'Inflow & Petty Cash',
     tabAccounts: 'Cards & Drawers',
+    tabChartOfAccounts: 'Chart of Accounts',
     mainTitle: 'Accounting & Treasury',
     projectFallback: 'Workshop Project',
     mainSubtitle: 'Unified management of petty cash, live drawer balance, expense control, and ledger',
@@ -140,6 +149,8 @@ const COPY = {
     headerLedgerTitle: 'Workshop General Ledger & Transactions',
     headerIncomeTitle: 'Cash Inflows & Project Revenues',
     headerAccountsDesc: 'Control ledger accounts, drawer balances, and active bank cards',
+    headerChartOfAccountsTitle: 'Standard Chart of Accounts (COA)',
+    headerChartOfAccountsDesc: '4-digit hierarchy: Group, General Ledger, Subsidiary & floating details',
     headerLedgerDesc: 'Two-stage document approval, reconciliation, and turnover',
     headerIncomeDesc: 'Cash injection, petty cash recharge, and client deposits',
     bannerDraftTitle: (cnt) => `${cnt} draft documents are pending final approval.`,
@@ -261,6 +272,12 @@ export function AccountingView({
       label: txt.tabAccounts,
       icon: CreditCard,
       count: financialAccounts.length
+    },
+    {
+      id: 'chart_of_accounts',
+      label: txt.tabChartOfAccounts,
+      icon: Layers,
+      count: null
     }
   ];
 
@@ -418,18 +435,21 @@ export function AccountingView({
               {activeViewTab === 'accounts' && <CreditCard className="w-6 h-6 stroke-[2.2]" />}
               {activeViewTab === 'ledger' && <BookOpen className="w-6 h-6 stroke-[2.2]" />}
               {activeViewTab === 'income' && <ArrowDownLeft className="w-6 h-6 stroke-[2.2]" />}
-              {activeViewTab !== 'accounts' && activeViewTab !== 'ledger' && activeViewTab !== 'income' && <Landmark className="w-6 h-6 stroke-[2.2]" />}
+              {activeViewTab === 'chart_of_accounts' && <Layers className="w-6 h-6 stroke-[2.2]" />}
+              {activeViewTab !== 'accounts' && activeViewTab !== 'ledger' && activeViewTab !== 'income' && activeViewTab !== 'chart_of_accounts' && <Landmark className="w-6 h-6 stroke-[2.2]" />}
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
                 {activeViewTab === 'accounts' && txt.headerAccountsTitle}
                 {activeViewTab === 'ledger' && txt.headerLedgerTitle}
                 {activeViewTab === 'income' && txt.headerIncomeTitle}
+                {activeViewTab === 'chart_of_accounts' && txt.headerChartOfAccountsTitle}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {activeViewTab === 'accounts' && txt.headerAccountsDesc}
                 {activeViewTab === 'ledger' && txt.headerLedgerDesc}
                 {activeViewTab === 'income' && txt.headerIncomeDesc}
+                {activeViewTab === 'chart_of_accounts' && txt.headerChartOfAccountsDesc}
               </p>
             </div>
           </div>
@@ -769,6 +789,11 @@ export function AccountingView({
             currency={currency}
             language={language}
           />
+        </section>
+      ) : activeViewTab === 'chart_of_accounts' ? (
+        /* تب ۵: درختواره کدینگ جامع سرفصل‌های حسابداری */
+        <section aria-label="Chart of Accounts" className="animate-in fade-in duration-200">
+          <ChartOfAccountsTab />
         </section>
       ) : null}
 

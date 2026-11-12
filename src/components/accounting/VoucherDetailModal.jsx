@@ -8,6 +8,7 @@ import { db } from '../../db/db';
 import { formatAmount, formatCurrency, getCurrencySymbol, getTodayDateString } from '../../utils/formatters';
 import { numberToWords } from '../../utils/numberToWords';
 import { promoteVoucherToPermanent } from '../../services/voucherNumberService';
+import { resolveTransactionCoding } from '../../services/chartOfAccountsService';
 import { 
   pushPaymentsLive, 
   pushLoansLive, 
@@ -803,8 +804,17 @@ export function VoucherDetailModal({
     const isCloudSynced = typeof navigator !== 'undefined' ? navigator.onLine !== false : true;
 
     // Chart of accounts coding label
-    const accountCode = raw.accountCode || (accountType === 'bank' ? '۱۰۱۰۲' : '۱۰۱۰۱');
-    const categoryCode = raw.categoryCode || (type === 'inflow' ? '۴۰۱۰۱' : '۵۰۱۰۱');
+    const coding = resolveTransactionCoding({
+      ...raw,
+      accountType,
+      isContractSettlement: !!(activeItem?.contractId || raw?.contractId || activeItem?.isContractSettlement || raw?.isContractSettlement),
+      isInterimSettlement: !!(activeItem?.isInterimSettlement || raw?.isInterimSettlement),
+      paymentStatus: raw?.paymentStatus || 'paid',
+      type
+    });
+
+    const accountCode = raw.accountCode || coding.creditSubCode || (accountType === 'bank' ? '1020' : '1010');
+    const categoryCode = raw.categoryCode || coding.subCode || (type === 'inflow' ? '4010' : '7010');
 
     const bankTrackingCode = activeItem.bankTrackingCode || raw.bankTrackingCode || raw.trackingCode || raw.referenceNumber || '';
     const bankDocumentNumber = activeItem.bankDocumentNumber || raw.bankDocumentNumber || raw.documentNumber || '';

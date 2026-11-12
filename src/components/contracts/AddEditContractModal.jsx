@@ -19,7 +19,8 @@ import {
   Check,
   Layers,
   Sparkles,
-  Info
+  Info,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function AddEditContractModal({
@@ -94,6 +95,12 @@ export default function AddEditContractModal({
           transport: 'contractor',
           tools: 'workshop'
         },
+        retentionPolicy: editingContract.retentionPolicy || {
+          deductRetention: false,
+          retentionRate: 5,
+          deductInsurance: false,
+          insuranceRate: 5
+        },
         terms: editingContract.terms || '',
         notes: editingContract.notes || ''
       });
@@ -121,6 +128,12 @@ export default function AddEditContractModal({
           lodging: 'contractor',
           transport: 'contractor',
           tools: 'workshop'
+        },
+        retentionPolicy: {
+          deductRetention: false,
+          retentionRate: 5,
+          deductInsurance: false,
+          insuranceRate: 5
         },
         terms: '',
         notes: ''
@@ -697,7 +710,145 @@ export default function AddEditContractModal({
                 </div>
               </div>
 
-              {/* Notes & Terms */}
+              {/* Performance Guarantee & Insurance Retention Card (سپرده حسن انجام کار و بیمه) */}
+              <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-xs font-black text-slate-900 dark:text-white">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <span>{language === 'ku' ? 'بارمتە و بڕینە یاسایییەکانی گرێبەست (باشی ئەنجام و بیمە)' : language === 'en' ? 'Contract Retentions (Performance & Insurance)' : 'سپرده‌ها و کسورات قانونی پیمان (حسن انجام کار و بیمه)'}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {language === 'ku'
+                    ? 'لە کاتی هەڵبژاردندا، ئەم بڕینانە بە شێوەیەکی ئۆتۆماتیکی لە کاتی ژمێریاری و صورت‌وەزعییەتدا لە کارکردی ناخالص دەبڕدرێن:'
+                    : language === 'en'
+                    ? 'When enabled, these retentions will be automatically deducted during interim and final progress billings:'
+                    : 'در صورت فعال‌سازی، این مبالغ در تمامی صورت‌وضعیت‌های مرحله‌ای و قطعی به طور خودکار از کارکرد ناخالص کسر می‌گردند:'}
+                </p>
+
+                <div className="space-y-3">
+                  {/* 1. Performance Guarantee Retention (حسن انجام کار) */}
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="chk_retention"
+                          checked={Boolean(formData.retentionPolicy?.deductRetention)}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            retentionPolicy: {
+                              ...prev.retentionPolicy,
+                              deductRetention: e.target.checked
+                            }
+                          }))}
+                          className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                        />
+                        <label htmlFor="chk_retention" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                          {language === 'ku' ? 'بڕینی بارمتەی باشی ئەنجامدانی کار (تەزمین)' : language === 'en' ? 'Deduct Performance Guarantee Retention' : 'کسر سپرده حسن انجام کار (تضمین کیفیت)'}
+                        </label>
+                      </div>
+
+                      {formData.retentionPolicy?.deductRetention && (
+                        <div className="flex items-center gap-1.5 font-mono">
+                          {[5, 10].map((rate) => (
+                            <button
+                              key={rate}
+                              type="button"
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                retentionPolicy: { ...prev.retentionPolicy, retentionRate: rate }
+                              }))}
+                              className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                Number(formData.retentionPolicy?.retentionRate) === rate
+                                  ? 'bg-primary text-white shadow-xs'
+                                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                              }`}
+                            >
+                              %{rate}
+                            </button>
+                          ))}
+                          <div className="flex items-center gap-1 text-[11px] text-slate-500 ms-1">
+                            <span>%</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={formData.retentionPolicy?.retentionRate ?? 5}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                retentionPolicy: { ...prev.retentionPolicy, retentionRate: Number(e.target.value) || 0 }
+                              }))}
+                              className="w-12 px-1.5 py-0.5 text-center font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {formData.retentionPolicy?.deductRetention && (
+                      <p className="text-[10px] text-slate-400 ms-6 leading-relaxed">
+                        {language === 'ku'
+                          ? `لە هەر صورت‌وەزعییەتێک ${formData.retentionPolicy.retentionRate || 5}٪ دەبڕدرێت و دەچێتە سەر حیسابی معینی ٣٤٠١ تا دوای تەواوبوون و تەسلیمکردنی کۆتایی پڕۆژە.`
+                          : language === 'en'
+                          ? `${formData.retentionPolicy.retentionRate || 5}% will be deducted from gross billing and credited to Account 3401 until final project delivery.`
+                          : `در هر صورت‌وضعیت ${formData.retentionPolicy.retentionRate || 5}٪ از کارکرد ناخالص کسر و در حساب معین ۳۴۰۱ به عنوان بدهی سپرده کارگاه ثبت می‌گردد.`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 2. Social Security Insurance Retention (بیمه ماده ۳۸) */}
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="chk_insurance"
+                          checked={Boolean(formData.retentionPolicy?.deductInsurance)}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            retentionPolicy: {
+                              ...prev.retentionPolicy,
+                              deductInsurance: e.target.checked
+                            }
+                          }))}
+                          className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                        />
+                        <label htmlFor="chk_insurance" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                          {language === 'ku' ? 'بڕینی بارمتەی بیمەی دڵنیایی کۆمەڵایەتی (مادەی ٣٨)' : language === 'en' ? 'Deduct Social Security Insurance Retention' : 'کسر سپرده بیمه ماده ۳۸ تأمین اجتماعی'}
+                        </label>
+                      </div>
+
+                      {formData.retentionPolicy?.deductInsurance && (
+                        <div className="flex items-center gap-1.5 font-mono">
+                          <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                            <span>%</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={formData.retentionPolicy?.insuranceRate ?? 5}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                retentionPolicy: { ...prev.retentionPolicy, insuranceRate: Number(e.target.value) || 0 }
+                              }))}
+                              className="w-12 px-1.5 py-0.5 text-center font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {formData.retentionPolicy?.deductInsurance && (
+                      <p className="text-[10px] text-slate-400 ms-6 leading-relaxed">
+                        {language === 'ku'
+                          ? `لە هەر صورت‌وەزعییەتێک ${formData.retentionPolicy.insuranceRate || 5}٪ دەبڕدرێت و لە حیسابی معینی ٣٤٠٢ دەمێنێتەوە تا پێشکەشکردنی بەڵگەنامەی پاکتاوی بیمە.`
+                          : language === 'en'
+                          ? `${formData.retentionPolicy.insuranceRate || 5}% will be withheld in Account 3402 until official insurance clearance.`
+                          : `در هر صورت‌وضعیت ${formData.retentionPolicy.insuranceRate || 5}٪ از کارکرد ناخالص کسر و در حساب معین ۳۴۰۲ تا زمان ارائه مفاصاحساب تأمین اجتماعی نگهداری می‌شود.`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div className="p-4 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   {language === 'ku' ? 'مەرجە تایبەتەکان و تێبینی' : language === 'en' ? 'Special Terms & Notes' : 'شرایط و توضیحات تکمیلی قرارداد'}
