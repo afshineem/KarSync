@@ -19,6 +19,7 @@ import {
   Calendar,
   Clock,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   Receipt,
   Utensils,
