@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 
 export function EditRecordModal({ log, isOpen, onClose }) {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, calendarType, numberFormat } = useLanguage();
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
 
   const copy = {
@@ -473,7 +473,7 @@ export function EditRecordModal({ log, isOpen, onClose }) {
 
               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200/70 dark:border-slate-700/70 text-xs font-bold text-slate-700 dark:text-slate-300">
                 <Calendar className="w-4 h-4 text-sky-500" />
-                <span>{formatFullDateWithWeekday(log.date, language)}</span>
+                <span>{formatFullDateWithWeekday(log.date, language, numberFormat, calendarType)}</span>
               </div>
             </div>
           </div>

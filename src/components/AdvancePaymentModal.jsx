@@ -13,7 +13,9 @@ import {
   formatAmount, 
   roundCurrency, 
   getCurrencySymbol, 
-  formatCurrency 
+  formatCurrency,
+  formatDateDisplay,
+  formatFullDateWithWeekday 
 } from '../utils/formatters';
 import { 
   Banknote,
@@ -339,7 +341,7 @@ export function AdvancePaymentModal({
   targetMonth = null,
   initialPaymentType = "advance" // "advance" | "bonus"
 }) {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, calendarType, numberFormat } = useLanguage();
   const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const { user } = useAuth();
@@ -1026,10 +1028,17 @@ export function AdvancePaymentModal({
                     {/* Date Input */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                          <Calendar className={`w-3.5 h-3.5 ${paymentType === "bonus" ? "text-purple-500" : "text-amber-500"}`} />
-                          <span>{t("paymentDate")}</span> <span className="text-rose-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <Calendar className={`w-3.5 h-3.5 ${paymentType === "bonus" ? "text-purple-500" : "text-amber-500"}`} />
+                            <span>{t("paymentDate")}</span> <span className="text-rose-500">*</span>
+                          </label>
+                          {date && (
+                            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                              {formatFullDateWithWeekday(date, language, numberFormat, calendarType)}
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="date"
                           value={date}

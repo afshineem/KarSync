@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { db } from '../db/db';
 import { pushPaymentsLive, recordPendingPaymentDeletion, rollbackPaymentSettlement } from '../services/realtimeSync';
+import { formatDateDisplay, formatFullDateWithWeekday } from '../utils/formatters';
 
 const COPY = {
   fa: {
@@ -85,7 +86,7 @@ const COPY = {
 };
 
 export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
-  const { t, language } = useLanguage();
+  const { t, language, calendarType, numberFormat } = useLanguage();
   const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const [date, setDate] = useState('');
@@ -235,7 +236,14 @@ export function EditPaymentModal({ isOpen, onClose, payment, currency }) {
           
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-[11px] font-bold text-slate-500 mb-1">{c.date}</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-500">{c.date}</label>
+                {date && (
+                  <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 font-mono">
+                    {formatFullDateWithWeekday(date, language, numberFormat, calendarType)}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <Calendar className="w-4 h-4 absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
