@@ -48,7 +48,7 @@ export default function ContractSettlementModal({
   contract,
   onSettlementSuccess
 }) {
-  const { language, direction, calendarType, numberFormat } = useLanguage();
+  const { t, language, direction, calendarType, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
