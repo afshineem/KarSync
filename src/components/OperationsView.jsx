@@ -632,7 +632,7 @@ export default function OperationsView() {
                             className="px-3 py-2 rounded-xl text-xs font-bold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 flex items-center justify-center gap-1.5"
                           >
                             <FileCheck2 className="w-3.5 h-3.5" />
-                            <span>{language === 'ku' ? 'سەند' : language === 'en' ? 'Voucher' : 'سند موقت'}</span>
+                            <span>{language === 'ku' ? 'سەندی قطعی' : language === 'en' ? 'Final Voucher' : 'سند قطعی'}</span>
                           </button>
                         )}
                       </div>

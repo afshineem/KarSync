@@ -1189,6 +1189,8 @@ export async function recordContractSettlementPayment({
   const defaultTitle = `پرداخت مرحله‌ای (قسط ${installmentNumber}) بابت ${stageTitle} قرارداد: ${contract.title}`;
   const paymentNarrative = notes ? `${defaultTitle} - ${notes}` : defaultTitle;
 
+  const paymentVoucherNumber = await generateNextVoucherNumber({ date: paymentDate, isDraft: true });
+
   const paymentRecord = {
     id: paymentId,
     projectId,
@@ -1216,9 +1218,10 @@ export async function recordContractSettlementPayment({
     settlementId: stl.id,
     settlementNumber: stl.settlementNumber || stlIndex + 1,
     expenseId: stl.voucherId || null,
+    voucherNumber: paymentVoucherNumber,
     notes: paymentNarrative,
-    status: 'approved',
-    approval_status: 'approved',
+    status: 'draft', // موقت طبق سیستم تایید دومرحله‌ای کارسینک
+    approval_status: 'draft', // در انتظار تایید نهایی مدیر در کارتابل حسابداری
     isSettled: true,
     created_by: user?.name || user?.email || 'admin',
     createdAt: now,
