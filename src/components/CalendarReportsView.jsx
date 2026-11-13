@@ -1423,7 +1423,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               {/* Quick Export to Excel */}
               <button
                 type="button"
-                onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language, currency })}
+                onClick={() => exportAttendanceToExcel({ logs: filteredLogs, workers, reportType: reportFormat, language, currency, calendarType })}
                 className="h-full aspect-square text-slate-500 hover:text-emerald-600 hover:bg-white/80 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center cursor-pointer"
                 title={t('exportExcel')}
                 aria-label={t('exportExcel')}
@@ -1755,7 +1755,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             </div>
                           ) : (
                             <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
-                              {dayItem.dateStr}
+                              {formatDateDisplay(dayItem.dateStr, language, numberFormat, calendarType)}
                             </span>
                           )}
                         </div>
@@ -2964,8 +2964,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                         const logSettled = isLogSettled(log);
                         return (
                           <tr key={log.id} className="hover:bg-sky-50/40 dark:hover:bg-slate-800/50 transition-colors">
-                            <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white whitespace-nowrap text-xs">
-                              {log.date}
+                            <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white whitespace-nowrap text-xs font-mono">
+                              {formatDateDisplay(log.date, language, numberFormat, calendarType)}
                             </td>
                             <td className="px-4 py-3.5">
                               <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { getCurrencySymbol } from '../utils/formatters';
+import { getCurrencySymbol, formatDateDisplay } from '../utils/formatters';
 
 /**
  * Generates and downloads an Excel (.xlsx) spreadsheet
@@ -10,7 +10,8 @@ export function exportAttendanceToExcel({
   workers = [],
   reportType = 'summary',
   language = 'ku',
-  currency = 'IQD'
+  currency = 'IQD',
+  calendarType = null
 }) {
   const isEn = language === 'en';
   const isFa = language === 'fa';
@@ -149,7 +150,7 @@ export function exportAttendanceToExcel({
         : (isEn ? 'Full Day' : isFa ? 'روز کامل' : 'ڕۆژی تەواو');
 
       return {
-        [h.date]: log.date,
+        [h.date]: formatDateDisplay(log.date, language, null, calendarType),
         [h.workerName]: worker.name,
         [h.role]: worker.role || '',
         [h.type]: typeLabel,
