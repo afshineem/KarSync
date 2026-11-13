@@ -61,10 +61,11 @@ export function ProjectProvider({ children }) {
     try {
       const list = await db.projects.toArray();
       const isLegacy = userId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f';
-      if (!isLegacy && userId && userId !== 'default_user') {
-        return (list || []).filter(p => !p.userId || p.userId === userId);
-      }
-      return list || [];
+      const isMine = (recUserId) => {
+        if (!recUserId || recUserId === 'default_user') return isLegacy;
+        return recUserId === userId || (isLegacy && recUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f');
+      };
+      return (list || []).filter(p => isMine(p.userId));
     } catch (err) {
       console.warn('Error querying projects from Dexie:', err);
       return [];

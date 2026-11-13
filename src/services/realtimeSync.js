@@ -69,6 +69,19 @@ export function getActiveWorkspaceContext() {
   };
 }
 
+export function isForeignToActiveContext(recordUserId, ctx) {
+  if (!ctx) ctx = getActiveWorkspaceContext();
+  if (ctx.isLegacyOwner) {
+    if (!recordUserId || recordUserId === 'default_user' || recordUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f') {
+      return false;
+    }
+    return true;
+  } else {
+    if (!ctx.userId) return true;
+    return recordUserId !== ctx.userId;
+  }
+}
+
 export function getScopedSettingKey(baseKey) {
   const ctx = getActiveWorkspaceContext();
   if (ctx.isLegacyOwner) {
@@ -660,27 +673,26 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
   } catch (_) {}
 
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
-    if (!ctx.isLegacyOwner) {
-      const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
-      const localWorkers = await db.workers.toArray();
-      for (const lw of localWorkers) {
-        if (LEAKED_CROSS_TENANT_WORKER_IDS.has(lw.id) || (!cloudWorkerIds.has(lw.id) && (!lw.userId || lw.userId !== ctx.userId))) {
-          await db.workers.delete(lw.id).catch(() => {});
-          await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
-        }
+    // Strict tenant data hygiene on local IndexedDB (guarantees 0 cross-account bleed)
+    const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
+    const localWorkers = await db.workers.toArray();
+    for (const lw of localWorkers) {
+      if (isForeignToActiveContext(lw.userId, ctx) || (!ctx.isLegacyOwner && LEAKED_CROSS_TENANT_WORKER_IDS.has(lw.id)) || (!cloudWorkerIds.has(lw.id) && !ctx.isLegacyOwner && (!lw.userId || lw.userId !== ctx.userId))) {
+        await db.workers.delete(lw.id).catch(() => {});
+        await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
       }
-      const cloudLogIds = new Set(tenantLogs.map(l => l.id));
-      const localLogs = await db.attendanceLogs.toArray();
-      for (const ll of localLogs) {
-        if (LEAKED_CROSS_TENANT_WORKER_IDS.has(ll.workerId) || (!cloudLogIds.has(ll.id) && (!ll.userId || ll.userId !== ctx.userId))) {
-          await db.attendanceLogs.delete(ll.id).catch(() => {});
-        }
+    }
+    const cloudLogIds = new Set(tenantLogs.map(l => l.id));
+    const localLogs = await db.attendanceLogs.toArray();
+    for (const ll of localLogs) {
+      if (isForeignToActiveContext(ll.userId, ctx) || (!cloudLogIds.has(ll.id) && !ctx.isLegacyOwner && (!ll.userId || ll.userId !== ctx.userId))) {
+        await db.attendanceLogs.delete(ll.id).catch(() => {});
       }
     }
 
     // 1. Reconcile Workers
     for (const w of tenantWorkers) {
-      if (!ctx.isLegacyOwner && LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id)) {
+      if (isForeignToActiveContext(w.user_id, ctx) || (!ctx.isLegacyOwner && LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id))) {
         await db.workers.delete(w.id).catch(() => {});
         await db.attendanceLogs.where('workerId').equals(w.id).delete().catch(() => {});
         continue;
@@ -866,11 +878,16 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
     }
 
     // 3. Proactively push any local workers that don't exist in cloud yet (strictly scoped to active tenant)
-    const localWorkers = await db.workers.toArray();
+    const currentLocalWorkers = await db.workers.toArray();
     if (ctx.isLegacyOwner) {
       if (cloudWorkers.length > 0) {
         const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
-        for (const lw of localWorkers) {
+        for (const lw of currentLocalWorkers) {
+          if (isForeignToActiveContext(lw.userId, ctx)) {
+            await db.workers.delete(lw.id).catch(() => {});
+            await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
+            continue;
+          }
           if (!cloudWorkerIds.has(lw.id) && !pendingWorkers.has(lw.id)) {
             pushWorkerLive(lw).catch(console.warn);
           }
@@ -879,8 +896,8 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
     } else {
       // Non-legacy tenant: purge foreign/orphaned workers from local Dexie and only push legit un-synced workers owned by this tenant
       const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
-      for (const lw of localWorkers) {
-        if (LEAKED_CROSS_TENANT_WORKER_IDS.has(lw.id)) {
+      for (const lw of currentLocalWorkers) {
+        if (LEAKED_CROSS_TENANT_WORKER_IDS.has(lw.id) || isForeignToActiveContext(lw.userId, ctx)) {
           await db.workers.delete(lw.id).catch(() => {});
           await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
           if (db.payments) {
@@ -1028,7 +1045,7 @@ function subscribeToRealtime() {
       } else if (payload.new) {
         const w = payload.new;
         const ctx = getActiveWorkspaceContext();
-        if (!ctx.isLegacyOwner && (LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id) || (w.user_id && w.user_id !== ctx.userId))) {
+        if (isForeignToActiveContext(w.user_id, ctx) || (!ctx.isLegacyOwner && LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id))) {
           await db.workers.delete(w.id).catch(() => {});
           await db.attendanceLogs.where('workerId').equals(w.id).delete().catch(() => {});
           return; // Ignore worker change from other tenants or blacklisted IDs
@@ -1096,7 +1113,7 @@ function subscribeToRealtime() {
       } else if (payload.new) {
         const l = payload.new;
         const ctx = getActiveWorkspaceContext();
-        if (!ctx.isLegacyOwner && l.user_id && l.user_id !== ctx.userId) {
+        if (isForeignToActiveContext(l.user_id, ctx)) {
           return; // Ignore attendance log change from other tenants
         }
         const canonicalId = getAttendanceLogId(l.worker_id, l.date);
@@ -1920,9 +1937,11 @@ export async function removeWorkerProjectMapLive(workerId) {
 export async function syncAllWorkerProjectsToCloud() {
   if (!navigator.onLine) return;
   try {
+    const ctx = getActiveWorkspaceContext();
     const allWorkers = await db.workers.toArray();
+    const targetWorkers = allWorkers.filter(w => !isForeignToActiveContext(w.userId, ctx));
     const map = getWorkerProjectMap();
-    for (const w of allWorkers) {
+    for (const w of targetWorkers) {
       if (w.projectId) {
         map[w.id] = w.projectId;
       }
@@ -2462,9 +2481,7 @@ export async function syncAllWorkerMetadataToCloud() {
     const localWorkers = await db.workers.toArray();
     if (localWorkers.length === 0) return;
 
-    const targetWorkers = ctx.isLegacyOwner 
-      ? localWorkers 
-      : localWorkers.filter(w => !w.userId || w.userId === ctx.userId);
+    const targetWorkers = localWorkers.filter(w => !isForeignToActiveContext(w.userId, ctx));
     if (targetWorkers.length === 0) return;
 
     const { data } = await supabase
@@ -2656,8 +2673,8 @@ export async function pushWorkerLive(w) {
   clearPendingWorkerDeletion(w.id);
 
   const ctx = getActiveWorkspaceContext();
-  if (!ctx.isLegacyOwner && (LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id) || (ctx.userId && w.userId && w.userId !== ctx.userId))) {
-    console.warn(`[Sync] Blocked pushWorkerLive: worker ${w.id} is foreign or blacklisted for tenant ${ctx.userId}`);
+  if (isForeignToActiveContext(w.userId, ctx) || (!ctx.isLegacyOwner && LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id))) {
+    console.warn(`[Sync] Blocked pushWorkerLive: worker ${w.id} is foreign or blacklisted`);
     return;
   }
 
@@ -2748,9 +2765,7 @@ export async function pushWorkersLive(workers) {
   const ctx = getActiveWorkspaceContext();
   const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
 
-  const eligibleWorkers = ctx.isLegacyOwner
-    ? workers
-    : workers.filter(w => !LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id) && (!w.userId || w.userId === ctx.userId));
+  const eligibleWorkers = workers.filter(w => !isForeignToActiveContext(w.userId, ctx) && (ctx.isLegacyOwner || !LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id)));
   if (eligibleWorkers.length === 0) return;
 
   const payload = eligibleWorkers.map(w => ({

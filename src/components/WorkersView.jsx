@@ -441,7 +441,10 @@ export function WorkersView() {
       const currentUserId = user?.id || user?.userId;
       const isLegacy = currentUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f';
       return list.filter((w) => {
-        if (currentUserId && !isLegacy && w.userId && w.userId !== currentUserId) {
+        const isForeign = w.userId 
+          ? (w.userId !== currentUserId && (!isLegacy || (w.userId !== '867f5819-e911-45f2-9d4f-d4a7f955ef5f' && w.userId !== 'default_user')))
+          : !isLegacy;
+        if (isForeign) {
           return false;
         }
         return isWorkerInProject(w, targetProjectId);
@@ -473,19 +476,24 @@ export function WorkersView() {
         db.expenses.toArray()
       ]);
       const set = new Set();
+      const isMine = (recUserId) => {
+        if (!recUserId || recUserId === 'default_user') return isLegacy;
+        return recUserId === currentUserId || (isLegacy && recUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f');
+      };
+
       logs.forEach((l) => {
-        if (!l.userId || isLegacy || l.userId === currentUserId) {
-          if (l.workerId) set.add(String(l.workerId));
+        if (isMine(l.userId) && l.workerId) {
+          set.add(String(l.workerId));
         }
       });
       payments.forEach((p) => {
-        if (!p.userId || isLegacy || p.userId === currentUserId) {
-          if (p.workerId) set.add(String(p.workerId));
+        if (isMine(p.userId) && p.workerId) {
+          set.add(String(p.workerId));
         }
       });
       expenses.forEach((e) => {
-        if (!e.userId || isLegacy || e.userId === currentUserId) {
-          if (e.workerId) set.add(String(e.workerId));
+        if (isMine(e.userId) && e.workerId) {
+          set.add(String(e.workerId));
         }
       });
       return set;

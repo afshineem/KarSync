@@ -9,7 +9,22 @@ import { useProject } from '../context/ProjectContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { pushPaymentsLive, pushLogsLive, pushLoansLive } from '../services/realtimeSync';
 import { generateNextVoucherNumber } from '../services/voucherNumberService';
-import { getTodayDateString, getCurrentYearMonth, formatAmount, roundCurrency, getCurrencySymbol, formatHoursAndMinutes, formatCurrency, normalizeDigits, convertDigits } from '../utils/formatters';
+import { 
+  getTodayDateString, 
+  getCurrentYearMonth, 
+  formatAmount, 
+  roundCurrency, 
+  getCurrencySymbol, 
+  formatHoursAndMinutes, 
+  formatCurrency, 
+  normalizeDigits, 
+  convertDigits,
+  formatDateDisplay,
+  formatDayMonth,
+  formatFullDateWithWeekday,
+  shiftCalendarMonth,
+  getCalendarMonthDetails
+} from '../utils/formatters';
 import { 
   CheckCircle2, 
   X, 
@@ -627,7 +642,7 @@ export function SettlementModal({
   arrearsList = [],
   onSelectWorker
 }) {
-  const { t, language, numberFormat } = useLanguage();
+  const { t, language, numberFormat, calendarType } = useLanguage();
   const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const { user } = useAuth();
@@ -935,17 +950,13 @@ export function SettlementModal({
     };
   }, [selectedGroupId, groupMembers, effectiveAllLogs, effectiveAllPayments, currency]);
 
-  // Previous month end date helper (e.g. 2026-09-30 if today is in October 2026)
+  // Previous month end date helper (e.g. 1405-07-30 in Jalali or 2026-10-31 in Gregorian)
   const prevMonthEndDate = useMemo(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const d = new Date(y, m, 0);
-    const py = d.getFullYear();
-    const pm = d.getMonth() + 1;
-    const pday = d.getDate();
-    return `${py}-${String(pm).padStart(2, '0')}-${String(pday).padStart(2, '0')}`;
-  }, []);
+    const currentMonthKey = getCurrentYearMonth(calendarType, language);
+    const prevMonthKey = shiftCalendarMonth(currentMonthKey, -1, calendarType, language);
+    const details = getCalendarMonthDetails(prevMonthKey, calendarType, language);
+    return details?.days?.[details.days.length - 1]?.dateStr || '';
+  }, [calendarType, language]);
 
   // Active loans for the current worker
   const workerActiveLoans = useMemo(() => {
@@ -1317,39 +1328,40 @@ export function SettlementModal({
 
   // Quick Date Range Presets Handlers
   const handleDatePresetPrevMonth = () => {
-    const now = new Date();
-    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const y = prevMonth.getFullYear();
-    const m = prevMonth.getMonth() + 1;
-    const lastDay = new Date(y, m, 0).getDate();
-    setCustomStartDate(`${y}-${String(m).padStart(2, '0')}-01`);
-    setCustomEndDate(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`);
+    const currentMonthKey = getCurrentYearMonth(calendarType, language);
+    const prevMonthKey = shiftCalendarMonth(currentMonthKey, -1, calendarType, language);
+    const details = getCalendarMonthDetails(prevMonthKey, calendarType, language);
+    if (details?.days?.length > 0) {
+      setCustomStartDate(details.days[0].dateStr);
+      setCustomEndDate(details.days[details.days.length - 1].dateStr);
+    }
   };
 
   const handleDatePresetCurrentMonth = () => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth() + 1;
-    const lastDay = new Date(y, m, 0).getDate();
-    setCustomStartDate(`${y}-${String(m).padStart(2, '0')}-01`);
-    setCustomEndDate(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`);
+    const currentMonthKey = getCurrentYearMonth(calendarType, language);
+    const details = getCalendarMonthDetails(currentMonthKey, calendarType, language);
+    if (details?.days?.length > 0) {
+      setCustomStartDate(details.days[0].dateStr);
+      setCustomEndDate(details.days[details.days.length - 1].dateStr);
+    }
   };
 
   const handleDatePresetFirst15 = () => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth() + 1;
-    setCustomStartDate(`${y}-${String(m).padStart(2, '0')}-01`);
-    setCustomEndDate(`${y}-${String(m).padStart(2, '0')}-15`);
+    const currentMonthKey = getCurrentYearMonth(calendarType, language);
+    const details = getCalendarMonthDetails(currentMonthKey, calendarType, language);
+    if (details?.days?.length >= 15) {
+      setCustomStartDate(details.days[0].dateStr);
+      setCustomEndDate(details.days[14].dateStr);
+    }
   };
 
   const handleDatePresetSecond15 = () => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth() + 1;
-    const lastDay = new Date(y, m, 0).getDate();
-    setCustomStartDate(`${y}-${String(m).padStart(2, '0')}-16`);
-    setCustomEndDate(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`);
+    const currentMonthKey = getCurrentYearMonth(calendarType, language);
+    const details = getCalendarMonthDetails(currentMonthKey, calendarType, language);
+    if (details?.days?.length >= 16) {
+      setCustomStartDate(details.days[15].dateStr);
+      setCustomEndDate(details.days[details.days.length - 1].dateStr);
+    }
   };
 
   const handleDatePresetClear = () => {
@@ -2378,9 +2390,16 @@ export function SettlementModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                      {c.fromDateLabel}
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                        {c.fromDateLabel}
+                      </label>
+                      {customStartDate && (
+                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 font-mono">
+                          {formatDateDisplay(customStartDate, language, numberFormat, calendarType)}
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="date"
                       value={customStartDate}
@@ -2390,9 +2409,16 @@ export function SettlementModal({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                      {c.toDateLabel}
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                        {c.toDateLabel}
+                      </label>
+                      {customEndDate && (
+                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 font-mono">
+                          {formatDateDisplay(customEndDate, language, numberFormat, calendarType)}
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="date"
                       value={customEndDate}
@@ -2625,7 +2651,7 @@ export function SettlementModal({
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
-                                {convertDigits(l.date, numberFormat)}
+                                {formatDateDisplay(l.date, language, numberFormat, calendarType)}
                               </span>
                               {l.section && (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -2751,6 +2777,12 @@ export function SettlementModal({
                     }}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
                   />
+                  {autoCutoffDate && (
+                    <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{formatFullDateWithWeekday(autoCutoffDate, language, numberFormat, calendarType)}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {prevMonthEndDate && (
@@ -2766,7 +2798,7 @@ export function SettlementModal({
                           : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
                       }`}
                     >
-                      {c.upToPrevMonthEnd(prevMonthEndDate.slice(5))}
+                      {c.upToPrevMonthEnd(formatDayMonth(prevMonthEndDate, language, numberFormat, calendarType))}
                     </button>
                   )}
                   <button
@@ -3132,7 +3164,7 @@ export function SettlementModal({
                         </span>
                       </div>
                       <span className="text-[10px] text-emerald-100/90 block mt-1 font-medium">
-                        {autoCutoffDate ? c.claimsUpToDate(autoCutoffDate) : c.claimsUpToToday}
+                        {autoCutoffDate ? c.claimsUpToDate(formatDateDisplay(autoCutoffDate, language, numberFormat, calendarType)) : c.claimsUpToToday}
                       </span>
                     </div>
                   </div>
@@ -3313,7 +3345,7 @@ export function SettlementModal({
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <span className="font-bold text-slate-800 dark:text-slate-200">{convertDigits(l.date, numberFormat)}</span>
+                                  <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">{formatDateDisplay(l.date, language, numberFormat, calendarType)}</span>
                                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                                     l.type === 'hourly' 
                                       ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300' 
@@ -3422,9 +3454,16 @@ export function SettlementModal({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('settlementDate')}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {t('settlementDate')}
+                </label>
+                {settlementDate && (
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                    {formatFullDateWithWeekday(settlementDate, language, numberFormat, calendarType)}
+                  </span>
+                )}
+              </div>
               <input
                 type="date"
                 value={settlementDate}

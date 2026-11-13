@@ -8,7 +8,7 @@ import {
   recordContractSettlementPayment,
   getContractSettlementPaymentSummary
 } from '../../services/contractService';
-import { formatAmount, getTodayDateString, numberToWords } from '../../utils/formatters';
+import { formatAmount, getTodayDateString, numberToWords, formatDateDisplay, formatFullDateWithWeekday } from '../../utils/formatters';
 import {
   X,
   CreditCard,
@@ -171,7 +171,7 @@ export default function ContractSettlementPaymentModal({
   settlement,
   onPaymentSuccess
 }) {
-  const { language, direction } = useLanguage();
+  const { language, direction, calendarType, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const { user } = useAuth();
   const t = COPY[language] || COPY.fa;
@@ -574,10 +574,17 @@ export default function ContractSettlementPaymentModal({
 
                 {/* Payment Date */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-teal-500" />
-                    <span>{t.paymentDateLabel}</span>
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-teal-500" />
+                      <span>{t.paymentDateLabel}</span>
+                    </label>
+                    {paymentDate && (
+                      <span className="text-[11px] font-bold text-teal-600 dark:text-teal-400 font-mono">
+                        {formatFullDateWithWeekday(paymentDate, language, numberFormat, calendarType)}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="date"
                     required
@@ -635,7 +642,7 @@ export default function ContractSettlementPaymentModal({
                           {tx.accountName || 'حساب خزانه‌داری'} ({tx.paymentMethod === 'bank' ? 'بانک' : tx.paymentMethod === 'cheque' ? 'چک' : 'صندوق'})
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                          {tx.date} {tx.trackingCode ? `• رهگیری: ${tx.trackingCode}` : ''}
+                          {formatDateDisplay(tx.date, language, numberFormat, calendarType)} {tx.trackingCode ? `• رهگیری: ${tx.trackingCode}` : ''}
                         </div>
                       </div>
                     </div>

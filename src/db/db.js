@@ -361,7 +361,33 @@ export async function purgeDummySeedWorkers() {
     } catch (_) {}
 
     const isLegacy = currentAuthUser?.id === '867f5819-e911-45f2-9d4f-d4a7f955ef5f' || (currentAuthUser?.email && currentAuthUser.email.toLowerCase() === 'afshineem@gmail.com');
-    if (!isLegacy) {
+    if (isLegacy) {
+      // Purge any foreign tenant workers that leaked into legacy owner's local Dexie
+      const allWorkers = await db.workers.toArray();
+      for (const w of allWorkers) {
+        if (w.userId && w.userId !== '867f5819-e911-45f2-9d4f-d4a7f955ef5f' && w.userId !== 'default_user') {
+          await db.workers.delete(w.id).catch(() => {});
+          await db.attendanceLogs.where('workerId').equals(w.id).delete().catch(() => {});
+          if (db.payments) {
+            await db.payments.where('workerId').equals(w.id).delete().catch(() => {});
+          }
+        }
+      }
+      const allLogs = await db.attendanceLogs.toArray();
+      for (const l of allLogs) {
+        if (l.userId && l.userId !== '867f5819-e911-45f2-9d4f-d4a7f955ef5f' && l.userId !== 'default_user') {
+          await db.attendanceLogs.delete(l.id).catch(() => {});
+        }
+      }
+      if (db.payments) {
+        const allPayments = await db.payments.toArray();
+        for (const p of allPayments) {
+          if (p.userId && p.userId !== '867f5819-e911-45f2-9d4f-d4a7f955ef5f' && p.userId !== 'default_user') {
+            await db.payments.delete(p.id).catch(() => {});
+          }
+        }
+      }
+    } else {
       const leakedIds = ['id_muzvc13b_evoe0jd', 'id_muzvaj1c_50cuozg', 'id_muzvha1a_j707h0t', 'id_muzvb60z_a976gvh'];
       for (const id of leakedIds) {
         await db.workers.delete(id).catch(() => {});

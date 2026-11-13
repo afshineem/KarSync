@@ -12,7 +12,7 @@ import {
   getContractCrewAttendanceSummary,
   BACKCHARGE_CATEGORIES
 } from '../../services/contractService';
-import { formatAmount, numberToWords, getTodayDateString } from '../../utils/formatters';
+import { formatAmount, numberToWords, getTodayDateString, formatDateDisplay, formatFullDateWithWeekday } from '../../utils/formatters';
 import {
   X,
   FileCheck2,
@@ -48,7 +48,7 @@ export default function ContractSettlementModal({
   contract,
   onSettlementSuccess
 }) {
-  const { language, direction } = useLanguage();
+  const { language, direction, calendarType, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
@@ -517,11 +517,16 @@ export default function ContractSettlementModal({
                   </span>
                   <span className="text-[11px] text-slate-400">
                     {settlement?.selectedMilestone?.targetEndDate
-                      ? `${language === 'ku' ? 'وادەی قۆناغ:' : language === 'en' ? 'Stage Deadline:' : 'مهلت مصوب قسط:'} ${settlement.selectedMilestone.targetEndDate}`
+                      ? `${language === 'ku' ? 'وادەی قۆناغ:' : language === 'en' ? 'Stage Deadline:' : 'مهلت مصوب قسط:'} ${formatDateDisplay(settlement.selectedMilestone.targetEndDate, language, numberFormat, calendarType)}`
                       : contract.estimatedEndDate
-                      ? `${language === 'ku' ? 'مۆڵەتی گرێبەست:' : language === 'en' ? 'Contract Deadline:' : 'مهلت کل قرارداد:'} ${contract.estimatedEndDate}`
+                      ? `${language === 'ku' ? 'مۆڵەتی گرێبەست:' : language === 'en' ? 'Contract Deadline:' : 'مهلت کل قرارداد:'} ${formatDateDisplay(contract.estimatedEndDate, language, numberFormat, calendarType)}`
                       : ''}
                   </span>
+                  {actualEndDate && (
+                    <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 font-mono ms-2">
+                      ({formatFullDateWithWeekday(actualEndDate, language, numberFormat, calendarType)})
+                    </span>
+                  )}
                 </label>
                 <input
                   type="date"
@@ -940,7 +945,7 @@ export default function ContractSettlementModal({
                                 {p.description || p.type || (language === 'ku' ? 'پێشەکی' : language === 'en' ? 'Advance' : 'مساعده / پیش‌پرداخت')}
                               </div>
                               <div className="text-[10px] text-slate-400">
-                                {p.date || p.createdAt?.slice(0, 10)} {p.receiptNumber ? `• فیش: ${p.receiptNumber}` : ''}
+                                {formatDateDisplay(p.date || p.createdAt?.slice(0, 10), language, numberFormat, calendarType)} {p.receiptNumber ? `• فیش: ${p.receiptNumber}` : ''}
                               </div>
                             </div>
                           </div>
