@@ -1261,6 +1261,11 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 {/* Quick Category Adder */}
                 {isAddingNewCategory && (
                   <div className="p-3 bg-rose-50/50 dark:bg-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-900/40 flex items-center gap-2 animate-in fade-in duration-150">
+                    {predictedNextCategoryCode && (
+                      <span className="px-2 py-1 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-mono font-black text-xs border border-rose-300 dark:border-rose-800 shrink-0">
+                        #{predictedNextCategoryCode}
+                      </span>
+                    )}
                     <input
                       type="text"
                       value={newCategoryName}
