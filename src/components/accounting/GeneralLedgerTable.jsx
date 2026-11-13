@@ -1,5 +1,17 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { formatCurrency, formatAmount, formatNumber, normalizeDigits, formatMonthOnly, getCurrencySymbol } from '../../utils/formatters';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { 
+  formatCurrency, 
+  formatAmount, 
+  formatNumber, 
+  normalizeDigits, 
+  formatMonthOnly, 
+  formatMonthWithYear,
+  formatDateDisplay,
+  getCurrencySymbol, 
+  isJalaliCalendar, 
+  gregorianToJalali 
+} from '../../utils/formatters';
 import * as XLSX from 'xlsx';
 import { 
   Table as TableIcon, 
@@ -598,6 +610,7 @@ export function GeneralLedgerTable({
   onBatchDeleteDraftItems
 }) {
   const txt = COPY[language] || COPY.fa;
+  const { calendarType, numberFormat } = useLanguage();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBatchApproving, setIsBatchApproving] = useState(false);
@@ -637,13 +650,28 @@ export function GeneralLedgerTable({
 
   // گروه‌بندی تراکنش‌ها بر اساس ماه (با رعایت ترتیب صعودی یا نزولی)
   const monthlyGroups = useMemo(() => {
+    const isJalali = isJalaliCalendar(calendarType, language);
     const map = new Map();
     sortedLedgerItems.forEach((tx) => {
-      const mKey = (tx.rawDate || '').slice(0, 7) || 'unknown';
+      let mKey = 'unknown';
+      if (tx.rawDate) {
+        const parts = tx.rawDate.split(/[-/]/).map(Number);
+        if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          if (isJalali) {
+            const j = parts[0] < 1600 ? { jy: parts[0], jm: parts[1] } : gregorianToJalali(parts[0], parts[1], parts[2]);
+            mKey = `${j.jy}-${String(j.jm).padStart(2, '0')}`;
+          } else {
+            mKey = `${parts[0]}-${String(parts[1]).padStart(2, '0')}`;
+          }
+        } else {
+          mKey = tx.rawDate.slice(0, 7) || 'unknown';
+        }
+      }
+
       if (!map.has(mKey)) {
         map.set(mKey, {
           monthKey: mKey,
-          label: mKey !== 'unknown' ? (formatMonthOnly(mKey, language) || mKey) : mKey,
+          label: mKey !== 'unknown' ? (formatMonthWithYear(mKey, language, calendarType, numberFormat) || mKey) : mKey,
           items: [],
           inflowTotal: 0,
           outflowTotal: 0,
@@ -661,7 +689,7 @@ export function GeneralLedgerTable({
         ? b.monthKey.localeCompare(a.monthKey)
         : a.monthKey.localeCompare(b.monthKey)
     );
-  }, [sortedLedgerItems, language, sortOrder]);
+  }, [sortedLedgerItems, language, sortOrder, calendarType, numberFormat]);
 
   // تعیین وضعیت باز/بسته بودن هر ماه (به‌صورت پیش‌فرض فقط جدیدترین ماه و ماه‌های دارای پیش‌نویس باز هستند)
   const isMonthCollapsed = useCallback((mKey, index, draftCount) => {
@@ -996,7 +1024,7 @@ export function GeneralLedgerTable({
 
         {/* ۲. تاریخ */}
         <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-600 dark:text-slate-400 text-[11px]">
-          {tx.rawDate}
+          {formatDateDisplay(tx.rawDate, language, numberFormat, calendarType)}
         </td>
 
         {/* ۳. طرف‌حساب + تگ دسته‌بندی + شماره سند + حساب + توضیح کوتاه */}
@@ -1540,7 +1568,7 @@ export function GeneralLedgerTable({
                 className="w-full h-9 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
               >
                 <option value="all">{txt.optAllTime}</option>
-                <option value="month">{txt.optSelectedMonth(formatMonthOnly(selectedMonth, language) || selectedMonth)}</option>
+                <option value="month">{txt.optSelectedMonth(formatMonthWithYear(selectedMonth, language, calendarType, numberFormat) || selectedMonth)}</option>
                 <option value="this_month">{txt.optThisMonth}</option>
                 <option value="last_month">{txt.optLastMonth}</option>
                 <option value="custom">{txt.optCustomRange}</option>
@@ -1874,6 +1902,7 @@ export function GeneralLedgerTable({
  */
 function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
   const txt = COPY[language] || COPY.fa;
+  const { calendarType, numberFormat } = useLanguage();
   const [amount, setAmount] = useState(String(tx.amount || 0));
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState(tx.notes || '');
@@ -2041,6 +2070,7 @@ function IssueAmendmentModal({ tx, currency, language, onClose, onSave }) {
  */
 function AmendmentHistoryModal({ tx, currency, language, onClose }) {
   const txt = COPY[language] || COPY.fa;
+  const { calendarType, numberFormat } = useLanguage();
   const historyList = Array.isArray(tx.amendmentHistory) ? tx.amendmentHistory : [];
 
   return (
@@ -2145,6 +2175,7 @@ function AmendmentHistoryModal({ tx, currency, language, onClose }) {
  */
 function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, onConfirm }) {
   const txt = COPY[language] || COPY.fa;
+  const { calendarType, numberFormat } = useLanguage();
   if (!tx) return null;
   const isRtl = language === 'fa' || language === 'ku';
 
@@ -2276,6 +2307,7 @@ function DeleteDraftConfirmModal({ tx, currency, language, isDeleting, onClose, 
  */
 function BatchDeleteDraftConfirmModal({ count, language, isDeleting, onClose, onConfirm }) {
   const txt = COPY[language] || COPY.fa;
+  const { calendarType, numberFormat } = useLanguage();
   const isRtl = language === 'fa' || language === 'ku';
 
   return (

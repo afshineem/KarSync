@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { clearCheque, bounceCheque, endorseCheque, voidCheque, deleteCheque } from '../../services/chequeService';
-import { formatCurrency, formatAmount, numberToWords, getTodayDateString } from '../../utils/formatters';
+import { formatCurrency, formatAmount, numberToWords, getTodayDateString, formatDateDisplay } from '../../utils/formatters';
 import {
   X,
   Receipt,
@@ -37,7 +37,7 @@ export function ChequeDetailModal({
   language: propLanguage,
   onEdit = null
 }) {
-  const { t, language: ctxLang, direction } = useLanguage();
+  const { t, language: ctxLang, direction, calendarType, numberFormat } = useLanguage();
   const lang = propLanguage || ctxLang || 'fa';
   const { user } = useAuth();
   const isRtl = direction === 'rtl';
@@ -209,7 +209,7 @@ export function ChequeDetailModal({
                 )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
-                {isOutward ? 'OUTWARD PAYABLE' : 'INWARD RECEIVABLE'} • {cheque.issueDate}
+                {isOutward ? 'OUTWARD PAYABLE' : 'INWARD RECEIVABLE'} • {formatDateDisplay(cheque.issueDate, lang, numberFormat, calendarType)}
               </p>
             </div>
           </div>
@@ -290,7 +290,7 @@ export function ChequeDetailModal({
                   {lang === 'fa' ? 'تاریخ سررسید چک:' : lang === 'ku' ? 'بەرواری بەسەرچوون:' : 'Due Date:'}
                 </span>
                 <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-sm">
-                  {cheque.dueDate}
+                  {formatDateDisplay(cheque.dueDate, lang, numberFormat, calendarType)}
                 </span>
               </div>
 

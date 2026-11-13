@@ -15,6 +15,8 @@ import {
   formatHoursAndMinutes, 
   formatFullDateWithWeekday, 
   formatDateDisplay,
+  formatMonthWithYear,
+  getCalendarMonthDetails,
   roundCurrency,
   getCurrentYearMonth 
 } from '../utils/formatters';
@@ -368,7 +370,7 @@ const COPY = {
 };
 
 export function WorkerProfileModal({ workerId, isOpen, onClose }) {
-  const { language, t, direction } = useLanguage();
+  const { language, t, direction, calendarType, numberFormat } = useLanguage();
   const c = COPY[language] || COPY.fa;
   const { currentProject, currency: projectCurrency } = useProject();
   const currency = projectCurrency || currentProject?.currency || currentProject?.base_currency || 'IQD';
@@ -651,11 +653,15 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
   };
 
   // Detect unsettled logs from previous months (prior cycle before leave / reactivation)
-  const currentMonthPrefix = getCurrentYearMonth();
+  const currentMonthKey = getCurrentYearMonth(calendarType, language);
+  const currentMonthDetails = useMemo(() => {
+    return getCalendarMonthDetails(currentMonthKey, calendarType, language);
+  }, [currentMonthKey, calendarType, language]);
   const pastCycleUnsettledLogs = useMemo(() => {
     if (!fin?.unsettledLogs) return [];
-    return fin.unsettledLogs.filter((l) => (l.date || '').slice(0, 7) < currentMonthPrefix);
-  }, [fin?.unsettledLogs, currentMonthPrefix]);
+    const firstIso = currentMonthDetails?.days?.[0]?.dateStr || '';
+    return fin.unsettledLogs.filter((l) => (l.date || '') < firstIso);
+  }, [fin?.unsettledLogs, currentMonthDetails]);
 
   const [isSettlingPastCycle, setIsSettlingPastCycle] = useState(false);
   const handleSettlePastCycleLogs = async () => {
@@ -1008,7 +1014,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                 <div className="text-sky-900 dark:text-sky-200 leading-relaxed font-medium">
                   {c.pastCycleNotice(
                     pastCycleUnsettledLogs.length,
-                    `\u2066${pastCycleUnsettledLogs[0]?.date?.slice(0, 7) || 'دوره قبل'}\u2069`
+                    `\u2066${pastCycleUnsettledLogs[0]?.date ? formatDateDisplay(pastCycleUnsettledLogs[0].date, language, numberFormat, calendarType) : 'دوره قبل'}\u2069`
                   )}
                 </div>
               </div>
@@ -1205,7 +1211,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                   <div className="flex items-center justify-between py-1">
                     <span className="text-slate-500 dark:text-slate-400">{c.startDateLabel}</span>
                     <span className="font-mono text-slate-700 dark:text-slate-300">
-                      {worker?.startDate ? formatFullDateWithWeekday(worker.startDate, language) : c.notRecorded}
+                      {worker?.startDate ? formatFullDateWithWeekday(worker.startDate, language, numberFormat, calendarType) : c.notRecorded}
                     </span>
                   </div>
                 </div>
@@ -1484,7 +1490,7 @@ export function WorkerProfileModal({ workerId, isOpen, onClose }) {
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
-                                {formatFullDateWithWeekday(ev.date, language)}
+                                {formatFullDateWithWeekday(ev.date, language, numberFormat, calendarType)}
                               </span>
 
                               <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CalendarRange, X, Calendar, Check, RotateCcw } from 'lucide-react';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { getCurrentYearMonth } from '../../utils/formatters';
 
 /**
@@ -69,7 +70,9 @@ export function DateRangeFilterModal({
   onApply,
   language = 'fa'
 }) {
-  const txt = COPY[language] || COPY.fa;
+  const { language: ctxLang, calendarType } = useLanguage();
+  const effLang = language || ctxLang || 'fa';
+  const txt = COPY[effLang] || COPY.fa;
   const [startDate, setStartDate] = useState(customStartDate || '');
   const [endDate, setEndDate] = useState(customEndDate || '');
 
@@ -85,7 +88,7 @@ export function DateRangeFilterModal({
 
   const handleQuickPreset = (preset) => {
     if (preset === 'this_month') {
-      setSelectedMonth(getCurrentYearMonth());
+      setSelectedMonth(getCurrentYearMonth(calendarType, effLang));
       setDateFilterMode('month');
       setCustomStartDate('');
       setCustomEndDate('');

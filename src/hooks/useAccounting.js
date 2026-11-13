@@ -35,7 +35,15 @@ import {
 } from '../services/realtimeSync';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
-import { getCurrentYearMonth, getTodayDateString, roundCurrency } from '../utils/formatters';
+import { useLanguage } from '../i18n/LanguageContext';
+import { 
+  getCurrentYearMonth, 
+  getTodayDateString, 
+  roundCurrency,
+  shiftCalendarMonth,
+  isDateInMonth,
+  getCalendarMonthDetails
+} from '../utils/formatters';
 import { getDeterministicVoucher, generateNextVoucherNumber } from '../services/voucherNumberService';
 import { calculateProfitAndLoss } from '../services/profitAndLossService';
 
@@ -53,12 +61,17 @@ import { calculateProfitAndLoss } from '../services/profitAndLossService';
 export function useAccounting(options = {}) {
   const { currentProject } = useProject();
   const { user } = useAuth();
+  const { language, calendarType } = useLanguage();
 
   const projectId = currentProject?.id || DEFAULT_PROJECT_ID;
   const currency = currentProject?.base_currency || currentProject?.currency || 'IQD';
 
   // فیلترهای تب حسابداری
-  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentYearMonth());
+  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentYearMonth(calendarType, language));
+
+  useEffect(() => {
+    setSelectedMonth(getCurrentYearMonth(calendarType, language));
+  }, [calendarType, language]);
   const [dateFilterMode, setDateFilterMode] = useState('all'); // 'all' | 'month' | 'this_month' | 'last_month' | 'custom'
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -373,14 +386,13 @@ export function useAccounting(options = {}) {
   // ----------------------------------------------------
   // ۲. توابع کمکی تاریخ برای اعمال بازه‌های فیلتر
   // ----------------------------------------------------
-  const currentMonthPrefix = getCurrentYearMonth(); // مثلاً 2026-09
+  const currentMonthPrefix = useMemo(() => {
+    return getCurrentYearMonth(calendarType, language);
+  }, [calendarType, language]);
+
   const lastMonthPrefix = useMemo(() => {
-    const [y, m] = currentMonthPrefix.split('-').map(Number);
-    const prevDate = new Date(y, m - 2, 1);
-    const prevY = prevDate.getFullYear();
-    const prevM = String(prevDate.getMonth() + 1).padStart(2, '0');
-    return `${prevY}-${prevM}`;
-  }, [currentMonthPrefix]);
+    return shiftCalendarMonth(currentMonthPrefix, -1, calendarType, language);
+  }, [currentMonthPrefix, calendarType, language]);
 
   const checkDateMatch = useCallback((dateStr) => {
     if (!dateStr) return true;
@@ -388,10 +400,10 @@ export function useAccounting(options = {}) {
 
     if (dateFilterMode === 'month' || dateFilterMode === 'this_month') {
       const targetMonth = selectedMonth || currentMonthPrefix;
-      return cleanDate.startsWith(targetMonth);
+      return isDateInMonth(cleanDate, targetMonth, calendarType, language);
     }
     if (dateFilterMode === 'last_month') {
-      return cleanDate.startsWith(lastMonthPrefix);
+      return isDateInMonth(cleanDate, lastMonthPrefix, calendarType, language);
     }
     if (dateFilterMode === 'custom') {
       if (customStartDate && cleanDate < customStartDate) return false;
@@ -399,7 +411,7 @@ export function useAccounting(options = {}) {
       return true;
     }
     return true; // 'all'
-  }, [dateFilterMode, selectedMonth, currentMonthPrefix, lastMonthPrefix, customStartDate, customEndDate]);
+  }, [dateFilterMode, selectedMonth, currentMonthPrefix, lastMonthPrefix, customStartDate, customEndDate, calendarType, language]);
 
   // ----------------------------------------------------
   // ۲.۵ محاسبه زنده موجودی و دفتر معین تک‌تک حساب‌ها و صندوق‌ها
@@ -1148,29 +1160,23 @@ export function useAccounting(options = {}) {
   // ۵. تجمیع روزانه جریان نقدینگی (Cash Flow Chart Data)
   // ----------------------------------------------------
   const cashFlowChartData = useMemo(() => {
-    // ماه مبنا جهت ترسیم نمودار (مثلاً '2026-09')
-    const targetMonth = selectedMonth || getCurrentYearMonth();
-    const [yearStr, monthStr] = targetMonth.split('-');
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
-
-    // محاسبه تعداد روزهای این ماه میلادی
-    const daysInMonth = new Date(year, month, 0).getDate();
+    // ماه مبنا جهت ترسیم نمودار
+    const targetMonth = selectedMonth || getCurrentYearMonth(calendarType, language);
+    const monthDetails = getCalendarMonthDetails(targetMonth, calendarType, language);
 
     // ایجاد آرایه‌ای برای تک تک روزهای ماه
     const dailyMap = {};
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dayPad = String(d).padStart(2, '0');
-      const fullDate = `${targetMonth}-${dayPad}`;
+    monthDetails.days.forEach((dayInfo) => {
+      const fullDate = dayInfo.dateStr;
       dailyMap[fullDate] = {
-        day: d,
-        dayNumber: dayPad,
+        day: dayInfo.dayNumber,
+        dayNumber: String(dayInfo.dayNumber).padStart(2, '0'),
         date: fullDate,
         inflow: 0,
         outflow: 0,
         net: 0
       };
-    }
+    });
 
     // مجموع ورودی‌های این ماه
     treasuryIncomes.forEach((inc) => {
@@ -1221,7 +1227,7 @@ export function useAccounting(options = {}) {
       monthTotalOutflow: roundCurrency(monthTotalOutflow, currency),
       monthNetBalance: roundCurrency(monthTotalInflow - monthTotalOutflow, currency)
     };
-  }, [selectedMonth, treasuryIncomes, payments, expenses, currency]);
+  }, [selectedMonth, treasuryIncomes, payments, expenses, currency, calendarType, language]);
 
   // ----------------------------------------------------
   // ۶. متدهای CRUD برای مدیریت واریزی‌ها و شارژ تنخواه

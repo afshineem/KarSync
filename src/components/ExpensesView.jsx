@@ -21,7 +21,7 @@ import { AddExpenseModal } from './AddExpenseModal';
 import ExpenseRecycleBinModal from './ExpenseRecycleBinModal';
 import ExpenseAnalyticsModal from './ExpenseAnalyticsModal';
 import * as XLSX from 'xlsx';
-import { formatCurrency as appFormatCurrency, getCurrencySymbol } from '../utils/formatters';
+import { formatCurrency as appFormatCurrency, getCurrencySymbol, formatDateDisplay, getCurrentYearMonth, shiftCalendarMonth, isDateInMonth } from '../utils/formatters';
 import {
   Receipt,
   PlusCircle,
@@ -66,7 +66,7 @@ export { AddExpenseModal, ExpenseRecycleBinModal, ExpenseAnalyticsModal };
 
 export function ExpensesView() {
   const { currentProject } = useProject();
-  const { t, language, direction, numberFormat } = useLanguage();
+  const { t, language, direction, numberFormat, calendarType } = useLanguage();
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
 
   // Comprehensive Trilingual Dictionary for Expenses (Zero Cross-Language Leakage)
@@ -655,10 +655,8 @@ export function ExpensesView() {
 
   // Filtered Expenses
   const filteredExpenses = useMemo(() => {
-    const now = new Date();
-    const currentYearMonth = now.toISOString().slice(0, 7);
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthStr = lastMonthDate.toISOString().slice(0, 7);
+    const curMonthKey = getCurrentYearMonth(calendarType, language);
+    const lastMonthKey = shiftCalendarMonth(curMonthKey, -1, calendarType, language);
 
     return currentTabExpenses.filter((exp) => {
       // 1. Text Search
@@ -676,9 +674,9 @@ export function ExpensesView() {
 
       // 2. Date Range
       if (dateRangeFilter === 'this_month') {
-        if (!exp.expenseDate?.startsWith(currentYearMonth)) return false;
+        if (!isDateInMonth(exp.expenseDate, curMonthKey, calendarType, language)) return false;
       } else if (dateRangeFilter === 'last_month') {
-        if (!exp.expenseDate?.startsWith(lastMonthStr)) return false;
+        if (!isDateInMonth(exp.expenseDate, lastMonthKey, calendarType, language)) return false;
       }
 
       // 3. Section
@@ -745,13 +743,13 @@ export function ExpensesView() {
     let totalPending = 0;
     const sectionExpensesMap = {};
 
-    const currentYearMonth = new Date().toISOString().slice(0, 7);
+    const curMonthKey = getCurrentYearMonth(calendarType, language);
 
     activeExpenses.forEach((exp) => {
       const amt = Number(exp.amount) || 0;
       totalAll += amt;
 
-      if (exp.expenseDate?.startsWith(currentYearMonth)) {
+      if (isDateInMonth(exp.expenseDate, curMonthKey, calendarType, language)) {
         totalThisMonth += amt;
       }
 
@@ -1448,7 +1446,7 @@ export function ExpensesView() {
                       >
                         {/* Date */}
                         <td className="py-3.5 px-4 font-mono font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                          {exp.expenseDate}
+                          {formatDateDisplay(exp.expenseDate, language, numberFormat, calendarType)}
                         </td>
 
                         {/* Title & Notes */}
@@ -1680,7 +1678,7 @@ export function ExpensesView() {
                           {exp.title}
                         </h4>
                         <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1 flex-wrap">
-                          <span>{exp.expenseDate}</span>
+                          <span>{formatDateDisplay(exp.expenseDate, language, numberFormat, calendarType)}</span>
                           <span>•</span>
                           <span className="font-semibold text-slate-600 dark:text-slate-300">
                             {catInfo.item || catInfo.sub || catInfo.main}

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { formatCurrency, formatAmount } from '../../utils/formatters';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { formatCurrency, formatAmount, formatDateDisplay } from '../../utils/formatters';
 import { AddEditIncomeModal } from './AddEditIncomeModal';
 import { 
   ArrowDownLeft, 
@@ -121,7 +122,9 @@ export function IncomeManagementSection({
   currency = 'IQD',
   language = 'fa' 
 }) {
-  const txt = COPY[language] || COPY.fa;
+  const { language: ctxLang, calendarType, numberFormat } = useLanguage();
+  const effLang = language || ctxLang || 'fa';
+  const txt = COPY[effLang] || COPY.fa;
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState(null);
   const [incomeToDelete, setIncomeToDelete] = useState(null);
@@ -282,7 +285,7 @@ export function IncomeManagementSection({
                     </td>
 
                     <td className="py-3 px-3.5 whitespace-nowrap text-slate-700 dark:text-slate-300 font-mono text-[11px]">
-                      {inc.date || inc.createdAt?.slice(0, 10)}
+                      {formatDateDisplay(inc.date || inc.createdAt?.slice(0, 10), effLang, numberFormat, calendarType)}
                     </td>
 
                     <td className="py-3 px-3.5">

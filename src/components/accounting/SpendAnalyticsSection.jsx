@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { 
   formatCurrency, 
   formatAmount, 
-  getCurrencySymbol 
+  getCurrencySymbol,
+  formatMonthWithYear 
 } from '../../utils/formatters';
 import { 
   Users, 
@@ -162,7 +164,9 @@ export function SpendAnalyticsSection({
   onShiftMonth,
   onOpenDateRange
 }) {
-  const txt = COPY[language] || COPY.fa;
+  const { language: ctxLang, calendarType, numberFormat } = useLanguage();
+  const effLang = language || ctxLang || 'fa';
+  const txt = COPY[effLang] || COPY.fa;
 
   // Robust Destructuring with Dual-Naming Fallback
   const totalInflows = Number(spendData?.totalInflows ?? spendData?.totalInflow ?? 0);
@@ -247,7 +251,7 @@ export function SpendAnalyticsSection({
                 ? txt.periodAllTime 
                 : filterMode === 'custom' 
                 ? `${fromDate || ''} - ${toDate || ''}` 
-                : `${txt.periodMonthly}: ${selectedMonth || ''}`}
+                : `${txt.periodMonthly}: ${selectedMonth ? formatMonthWithYear(selectedMonth, effLang, calendarType, numberFormat) : ''}`}
             </p>
           </div>
         </div>
@@ -278,7 +282,7 @@ export function SpendAnalyticsSection({
               }`}
             >
               <span>{txt.periodMonthly}</span>
-              {selectedMonth && <span className="ms-1 font-mono text-[11px] opacity-90 dir-ltr inline-block">({selectedMonth})</span>}
+              {selectedMonth && <span className="ms-1 font-mono text-[11px] opacity-90 dir-ltr inline-block">({formatMonthWithYear(selectedMonth, effLang, calendarType, numberFormat)})</span>}
             </button>
 
             {onShiftMonth && (

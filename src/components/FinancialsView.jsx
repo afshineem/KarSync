@@ -14,7 +14,11 @@ import {
   getTodayDateString, 
   roundCurrency, 
   getCurrencySymbol, 
-  formatMonthOnly 
+  formatMonthOnly,
+  formatMonthWithYear,
+  shiftCalendarMonth,
+  isDateInMonth,
+  formatDateDisplay 
 } from '../utils/formatters';
 
 // Modals
@@ -475,7 +479,7 @@ const COPY = {
 };
 
 export function FinancialsView() {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, calendarType, numberFormat } = useLanguage();
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
   const c = COPY[langKey];
   const { currentProject, dateFilter, setDateFilter, openWorkerProfile } = useProject();
@@ -504,7 +508,7 @@ export function FinancialsView() {
   const [ledgerCategoryFilter, setLedgerCategoryFilter] = useState('all');
 
   // Month & Date filters
-  const selectedMonth = dateFilter.month || getCurrentYearMonth();
+  const selectedMonth = dateFilter.month || getCurrentYearMonth(calendarType, language);
   const setSelectedMonth = (m) => setDateFilter((prev) => ({ ...prev, month: m }));
   const [filterMode, setFilterMode] = useState('monthly'); // 'monthly' | 'custom'
   const [fromDate, setFromDate] = useState(() => `${getCurrentYearMonth()}-01`);
@@ -782,7 +786,7 @@ export function FinancialsView() {
       return true;
     }
     if (filterMode === 'monthly') {
-      return cleanDate.startsWith(selectedMonth);
+      return isDateInMonth(cleanDate, selectedMonth, calendarType, language);
     }
     if (filterMode === 'custom' && fromDate && toDate) {
       return cleanDate >= fromDate && cleanDate <= toDate;
@@ -953,11 +957,7 @@ export function FinancialsView() {
 
   // Month navigation helpers
   const handleShiftMonth = (delta) => {
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const d = new Date(year, month - 1 + delta, 1);
-    const newY = d.getFullYear();
-    const newM = String(d.getMonth() + 1).padStart(2, '0');
-    setSelectedMonth(`${newY}-${newM}`);
+    setSelectedMonth(shiftCalendarMonth(selectedMonth, delta, calendarType, language));
     setFilterMode('monthly');
   };
 
@@ -1349,9 +1349,9 @@ export function FinancialsView() {
                 >
                   {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>
-                <div className="relative flex items-center justify-center cursor-pointer min-w-[6.5rem]">
+                <div className="relative flex items-center justify-center cursor-pointer min-w-[7.5rem]">
                   <span className="text-xs font-bold text-white px-2 py-0.5">
-                    {formatMonthOnly(selectedMonth, language)}
+                    {formatMonthWithYear(selectedMonth, language, calendarType, numberFormat)}
                   </span>
                   <input
                     type="month"
@@ -2369,10 +2369,10 @@ export function FinancialsView() {
         <div className="border-b-2 border-black pb-4 text-center">
           <h1 className="text-xl font-bold">{c.printReportHeader}</h1>
           <p className="text-sm mt-1 text-gray-600">
-            {c.reportPeriod} {filterMode === 'monthly' ? formatMonthOnly(selectedMonth, language) : `${fromDate} - ${toDate}`}
+            {c.reportPeriod} {filterMode === 'monthly' ? formatMonthWithYear(selectedMonth, language, calendarType, numberFormat) : `${formatDateDisplay(fromDate, language, numberFormat, calendarType)} - ${formatDateDisplay(toDate, language, numberFormat, calendarType)}`}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            {c.printDate} {getTodayDateString()}
+            {c.printDate} {formatDateDisplay(getTodayDateString(), language, numberFormat, calendarType)}
           </p>
         </div>
 

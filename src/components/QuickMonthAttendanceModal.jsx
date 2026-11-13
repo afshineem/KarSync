@@ -14,7 +14,13 @@ import {
   formatHoursAndMinutes,
   formatTileHours,
   roundCurrency,
-  getCurrencySymbol
+  getCurrencySymbol,
+  formatMonthOnly,
+  formatMonthWithYear,
+  shiftCalendarMonth,
+  getCalendarMonthDetails,
+  isJalaliCalendar,
+  convertDigits
 } from '../utils/formatters';
 import { 
   Calendar, 
@@ -245,15 +251,19 @@ const COPY = {
 };
 
 export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
-  const { t, language, direction, convertDigits } = useLanguage();
+  const { t, language, direction, convertDigits, calendarType, numberFormat } = useLanguage();
   const copy = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
   const standardHours = currentProject?.standardWorkHours || 8;
 
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
+  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentYearMonth(calendarType, language)); // 'YYYY-MM'
   const [viewMode, setViewMode] = useState('list'); // 'grid' | 'list'
+
+  useEffect(() => {
+    setSelectedMonth(getCurrentYearMonth(calendarType, language));
+  }, [calendarType, language]);
   
   // dayConfigs map: dateStr ('YYYY-MM-DD') -> { type: 'full'|'half'|'hourly', overtimeHours: number, notes: string }
   const [dayConfigs, setDayConfigs] = useState({});
@@ -324,50 +334,44 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Month navigation: previous and next month
   const handlePrevMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const d = new Date(y, m - 2, 1);
-    const prevStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    setSelectedMonth(prevStr);
+    setSelectedMonth((prev) => shiftCalendarMonth(prev, -1, calendarType, language));
   };
 
   const handleNextMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const d = new Date(y, m, 1);
-    const nextStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    setSelectedMonth(nextStr);
+    setSelectedMonth((prev) => shiftCalendarMonth(prev, 1, calendarType, language));
   };
 
-  // Formatted display for current month (ONLY month name)
+  // Formatted display for current month
   const monthDisplayTitle = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const names = MONTH_NAMES[language] || MONTH_NAMES.fa;
-    return names[m - 1] || `${m}`;
-  }, [selectedMonth, language]);
+    return formatMonthWithYear(selectedMonth, language, calendarType, numberFormat);
+  }, [selectedMonth, language, calendarType, numberFormat]);
 
   // Calendar days array for the selected month
   const monthDays = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const firstDayIndex = new Date(y, m - 1, 1).getDay(); // 0 = Sunday
-    const daysInMonth = new Date(y, m, 0).getDate();
+    const monthDetails = getCalendarMonthDetails(selectedMonth, calendarType, language);
+    const isJalali = monthDetails.isJalali;
 
     const days = [];
+    const blankSlots = isJalali
+      ? (monthDetails.firstDayOfWeek + 1) % 7
+      : monthDetails.firstDayOfWeek;
+
     // Leading blanks
-    for (let i = 0; i < firstDayIndex; i++) {
+    for (let i = 0; i < blankSlots; i++) {
       days.push(null);
     }
-    // Days 1..daysInMonth
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
-      const dayOfWeek = new Date(dateStr).getDay();
+
+    monthDetails.days.forEach((dayInfo) => {
       days.push({
-        dayNumber: d,
-        dateStr,
-        dayOfWeek,
-        isFriday: dayOfWeek === 5
+        dayNumber: dayInfo.dayNumber,
+        dateStr: dayInfo.dateStr,
+        dayOfWeek: dayInfo.dayOfWeek,
+        isFriday: dayInfo.isFriday
       });
-    }
+    });
+
     return days;
-  }, [selectedMonth]);
+  }, [selectedMonth, calendarType, language]);
 
   // Direct 1-Click Day Tile Toggle:
   const handleDayTileClick = (dateStr) => {
@@ -470,22 +474,20 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Quick Action 1: Select all days of the month
   const handleSelectAllDays = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const daysCount = new Date(y, m, 0).getDate();
+    const monthDetails = getCalendarMonthDetails(selectedMonth, calendarType, language);
 
     setRemovedDates((prev) => {
       const next = new Set(prev);
-      for (let d = 1; d <= daysCount; d++) {
-        const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
-        next.delete(dateStr);
-      }
+      monthDetails.days.forEach((d) => {
+        next.delete(d.dateStr);
+      });
       return next;
     });
 
     setDayConfigs((prev) => {
       const updated = { ...prev };
-      for (let d = 1; d <= daysCount; d++) {
-        const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+      monthDetails.days.forEach((d) => {
+        const dateStr = d.dateStr;
         if (!updated[dateStr]) {
           updated[dateStr] = { 
             type: 'full', 
@@ -494,34 +496,30 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
             sectionId: defaultSectionId || null 
           };
         }
-      }
+      });
       return updated;
     });
   };
 
   // Quick Action 2: Select all workdays of the month (excluding Fridays)
   const handleSelectAllExceptFridays = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const daysInMonth = new Date(y, m, 0).getDate();
+    const monthDetails = getCalendarMonthDetails(selectedMonth, calendarType, language);
 
     setRemovedDates((prev) => {
       const next = new Set(prev);
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
-        const isFriday = new Date(dateStr).getDay() === 5;
-        if (!isFriday) {
-          next.delete(dateStr);
+      monthDetails.days.forEach((d) => {
+        if (!d.isFriday) {
+          next.delete(d.dateStr);
         }
-      }
+      });
       return next;
     });
 
     setDayConfigs((prev) => {
       const updated = { ...prev };
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
-        const isFriday = new Date(dateStr).getDay() === 5;
-        if (!isFriday) {
+      monthDetails.days.forEach((d) => {
+        if (!d.isFriday) {
+          const dateStr = d.dateStr;
           if (!updated[dateStr]) {
             updated[dateStr] = { 
               type: 'full', 
@@ -531,7 +529,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
             };
           }
         }
-      }
+      });
       return updated;
     });
   };
@@ -697,7 +695,19 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   };
 
   // Weekday column headers
-  const weekDayLabels = copy.weekDays;
+  const isJalali = isJalaliCalendar(calendarType, language);
+  const weekDayLabels = useMemo(() => {
+    if (isJalali) {
+      if (language === 'ku') {
+        return ['شەممە', 'یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'هەینی'];
+      }
+      if (language === 'en') {
+        return ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+      }
+      return ['شنبه', 'یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
+    }
+    return copy.weekDays;
+  }, [isJalali, language, copy.weekDays]);
 
   if (!isOpen || !worker) return null;
 
@@ -1079,7 +1089,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         </span>
                         <div>
                           <span className="text-xs font-bold text-slate-900 dark:text-white">
-                            {formatDateDisplay(selectedDayDate, language)}
+                            {formatDateDisplay(selectedDayDate, language, numberFormat, calendarType)}
                           </span>
                           <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
                             {isHourly
@@ -1358,7 +1368,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                       
                       <div>
                         <div className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                           {formatDateDisplay(day.dateStr, language)}
+                           {formatDateDisplay(day.dateStr, language, numberFormat, calendarType)}
                            {isActive && cfg.notes && (
                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 block" title={cfg.notes}></span>
                            )}

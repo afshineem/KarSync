@@ -11,7 +11,13 @@ import {
   getCurrentYearMonth,
   roundCurrency,
   getCurrencySymbol,
-  formatMonthOnly
+  formatMonthOnly,
+  formatMonthWithYear,
+  formatDateDisplay,
+  formatFullDateWithWeekday,
+  getDayDetails,
+  shiftCalendarMonth,
+  isDateInMonth
 } from '../utils/formatters';
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
 import {
@@ -55,34 +61,6 @@ function formatOvertimeClock(hoursVal) {
   const m = totalMinutes % 60;
   return `${h}:${String(m).padStart(2, '0')}`;
 }
-
-// Extract day of month number (e.g. "2026-10-16" -> "16")
-function getDayOfMonthNumber(dateStr) {
-  if (!dateStr) return '—';
-  const parts = String(dateStr).split('-');
-  if (parts.length === 3) {
-    const dayNum = parseInt(parts[2], 10);
-    if (!isNaN(dayNum)) return String(dayNum);
-  }
-  try {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) return String(d.getDate());
-  } catch {
-    // fallback
-  }
-  return dateStr;
-}
-
-// Format YYYY-MM or YYYY-MM-DD into localized "MonthName YYYY" (e.g. "اکتبر 2026")
-function formatMonthWithYear(dateOrMonthStr, lang = 'fa') {
-  if (!dateOrMonthStr) return '';
-  const parts = String(dateOrMonthStr).split('-');
-  if (parts.length < 2) return dateOrMonthStr;
-  const ym = `${parts[0]}-${parts[1]}`;
-  const mName = formatMonthOnly(ym, lang);
-  return mName ? `${mName} ${parts[0]}` : ym;
-}
-
 
 const PORTAL_COPY = {
   fa: {
@@ -601,7 +579,7 @@ const PORTAL_COPY = {
 
 export function WorkerViewPortal({ theme, toggleTheme }) {
   const { user, logout } = useAuth();
-  const { language, changeLanguage, direction } = useLanguage();
+  const { language, changeLanguage, direction, calendarType, numberFormat } = useLanguage();
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
   const pc = PORTAL_COPY[langKey] || PORTAL_COPY.fa;
   const { addToast } = useNotifications();
@@ -678,7 +656,11 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
   }, [workerPushEnabled, workerPushStorageKey, user?.workerId]);
 
   // Month navigation for historical settled records
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
+  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentYearMonth(calendarType, language));
+
+  useEffect(() => {
+    setSelectedMonth(getCurrentYearMonth(calendarType, language));
+  }, [calendarType, language]);
 
   // Timesheet search input
   const [searchQuery, setSearchQuery] = useState('');
@@ -1572,20 +1554,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
   // Shift month helper for historical records
   const handleShiftMonth = (delta) => {
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const d = new Date(year, month - 1 + delta, 1);
-    const newY = d.getFullYear();
-    const newM = String(d.getMonth() + 1).padStart(2, '0');
-    setSelectedMonth(`${newY}-${newM}`);
-  };
-
-  const getDayName = (dateStr) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString(language === 'en' ? 'en-US' : 'fa-IR', { weekday: 'long' });
-    } catch {
-      return '';
-    }
+    setSelectedMonth((prev) => shiftCalendarMonth(prev, delta, calendarType, language));
   };
 
   // Localized labels alias
@@ -2672,7 +2641,9 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       <Calendar className="w-3.5 h-3.5 shrink-0" />
                       {formatMonthWithYear(
                         periodTab === 'settled' ? selectedMonth : displayedLogs[0]?.date || selectedMonth,
-                        language
+                        language,
+                        calendarType,
+                        numberFormat
                       )}
                     </span>
                   )}
@@ -2743,7 +2714,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                     {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                   </button>
                   <span className="text-xs font-bold px-1.5 text-slate-700 dark:text-slate-200">
-                    {formatMonthWithYear(selectedMonth, language)}
+                    {formatMonthWithYear(selectedMonth, language, calendarType, numberFormat)}
                   </span>
                   <button
                     type="button"
@@ -2825,11 +2796,11 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                           <Calendar className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
                           <span className="text-xs font-extrabold text-sky-900 dark:text-sky-200">
                             {pc.monthLabel}{' '}
-                            {formatMonthWithYear(l.date, language)}
+                            {formatMonthWithYear(l.date, language, calendarType, numberFormat)}
                           </span>
                         </div>
                         <span className="text-[11px] font-mono font-bold text-sky-700/80 dark:text-sky-300/70 bg-white/70 dark:bg-slate-900/60 px-2.5 py-0.5 rounded-lg border border-sky-200/60 dark:border-sky-800/50">
-                          {currentMonthKey}
+                          {formatDateDisplay(l.date, language, numberFormat, calendarType).slice(0, 7)}
                         </span>
                       </div>
                     )}
@@ -2840,16 +2811,21 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                       {/* 1. Date: Day of Month in Large Bold Font + Weekday in Small Font Underneath */}
                       <div
                         className="md:col-span-1 flex items-center justify-between md:justify-center"
-                        title={l.date}
+                        title={formatFullDateWithWeekday(l.date, language, numberFormat, calendarType)}
                       >
-                        <div className="flex flex-col items-center justify-center min-w-[44px] py-1 px-2 rounded-2xl bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
-                        <span className="text-base sm:text-lg font-black font-mono leading-none text-slate-900 dark:text-white">
-                          {getDayOfMonthNumber(l.date)}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1 leading-none">
-                          {getDayName(l.date)}
-                        </span>
-                      </div>
+                        {(() => {
+                          const dayInfo = getDayDetails(l.date, language, numberFormat, calendarType);
+                          return (
+                            <div className="flex flex-col items-center justify-center min-w-[44px] py-1 px-2 rounded-2xl bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
+                              <span className="text-base sm:text-lg font-black font-mono leading-none text-slate-900 dark:text-white">
+                                {dayInfo.dayNumber}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1 leading-none">
+                                {dayInfo.dayName}
+                              </span>
+                            </div>
+                          );
+                        })()}
 
                       {/* Mobile Total Pay (Pure Amount without Currency Unit) */}
                       <div className="md:hidden text-end">
@@ -3003,7 +2979,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
                           </span>
                         </span>
                         <span className="text-xs font-bold font-mono text-slate-700 dark:text-slate-300">
-                          {p.date}
+                          {formatDateDisplay(p.date, language, numberFormat, calendarType)}
                         </span>
                       </div>
 

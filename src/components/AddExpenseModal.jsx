@@ -8,7 +8,7 @@ import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { pushExpenseLive, uploadExpenseReceipt, pushAllExpenseCategoriesToCloud, pushExpenseCategoryLive } from '../services/realtimeSync';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDateDisplay, formatFullDateWithWeekday } from '../utils/formatters';
 import { generateNextVoucherNumber } from '../services/voucherNumberService';
 import { 
   PlusCircle, 
@@ -325,7 +325,7 @@ const COPY = {
 
 export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, onSuccess }) {
   const { currentProject } = useProject();
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, calendarType, numberFormat } = useLanguage();
   const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
   const c = COPY[langKey];
   const { user } = useAuth();
@@ -1615,14 +1615,19 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
                 {/* Date & Reference */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {c.expenseDateLabel}
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {c.expenseDateLabel}
+                      </label>
+                      <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                        {formatFullDateWithWeekday(formData.expenseDate, language, numberFormat, calendarType)}
+                      </span>
+                    </div>
                     <input
                       type="date"
                       value={formData.expenseDate}
                       onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs cursor-pointer"
                     />
                   </div>
 

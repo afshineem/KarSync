@@ -4,7 +4,18 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import * as XLSX from 'xlsx';
 import { db, DEFAULT_PROJECT_ID } from '../../db/db';
 import { useProject } from '../../context/ProjectContext';
-import { formatCurrency, formatAmount, getCurrencySymbol, normalizeCurrency } from '../../utils/formatters';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { 
+  formatCurrency, 
+  formatAmount, 
+  getCurrencySymbol, 
+  normalizeCurrency, 
+  formatDateDisplay, 
+  formatFullDateWithWeekday, 
+  getCurrentYearMonth, 
+  shiftCalendarMonth, 
+  isDateInMonth 
+} from '../../utils/formatters';
 import { useAccounting } from '../../hooks/useAccounting';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -417,6 +428,7 @@ export function AccountSubsidiaryLedgerModal({
   onClose
 }) {
   const txt = COPY[language] || COPY.fa;
+  const { calendarType, numberFormat } = useLanguage();
   const { currentProject, currency: projectCurrency, openWorkerProfile } = useProject();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
@@ -862,15 +874,8 @@ export function AccountSubsidiaryLedgerModal({
 
   // اعمال فیلترهای زمانی، دسته‌بندی و متن جستجو
   const filteredTransactions = useMemo(() => {
-    const now = new Date();
-    const curYear = now.getFullYear();
-    const curMonth = String(now.getMonth() + 1).padStart(2, '0');
-    const thisMonthPrefix = `${curYear}-${curMonth}`;
-
-    const prevDate = new Date(curYear, now.getMonth() - 1, 1);
-    const prevYear = prevDate.getFullYear();
-    const prevMonth = String(prevDate.getMonth() + 1).padStart(2, '0');
-    const lastMonthPrefix = `${prevYear}-${prevMonth}`;
+    const thisMonthPrefix = getCurrentYearMonth(calendarType, language);
+    const lastMonthPrefix = shiftCalendarMonth(thisMonthPrefix, -1, calendarType, language);
 
     const q = searchQuery.trim().toLowerCase();
 
@@ -883,9 +888,9 @@ export function AccountSubsidiaryLedgerModal({
 
       // فیلتر تاریخ
       if (dateFilter === 'this_month') {
-        if (!tx.rawDate?.startsWith(thisMonthPrefix)) return false;
+        if (!isDateInMonth(tx.rawDate, thisMonthPrefix, calendarType, language)) return false;
       } else if (dateFilter === 'last_month') {
-        if (!tx.rawDate?.startsWith(lastMonthPrefix)) return false;
+        if (!isDateInMonth(tx.rawDate, lastMonthPrefix, calendarType, language)) return false;
       } else if (dateFilter === 'custom') {
         if (customStart && tx.rawDate < customStart) return false;
         if (customEnd && tx.rawDate > customEnd) return false;
@@ -909,7 +914,7 @@ export function AccountSubsidiaryLedgerModal({
 
       return true;
     });
-  }, [rawTransactions, dateFilter, customStart, customEnd, categoryFilter, searchQuery, getTransactionCounterparty, entityType, entityData, hasAllProjectsAccess, projectScopeFilter, targetProjectId]);
+  }, [rawTransactions, dateFilter, customStart, customEnd, categoryFilter, searchQuery, getTransactionCounterparty, entityType, entityData, hasAllProjectsAccess, projectScopeFilter, targetProjectId, calendarType, language]);
 
   // محاسبه سرجمع‌های ستونی (Column Totals)
   const columnTotals = useMemo(() => {
@@ -953,7 +958,7 @@ export function AccountSubsidiaryLedgerModal({
       }] : []),
       ...displayedTransactions.map((tx, idx) => ({
         [h.row]: idx + 1,
-        [h.date]: tx.rawDate || tx.date,
+        [h.date]: formatDateDisplay(tx.rawDate || tx.date, language, numberFormat, calendarType),
         [h.time]: tx.time || '-',
         [h.voucher]: tx.voucherNumber || '-',
         [h.category]: tx.categoryLabel || tx.category,
@@ -1526,7 +1531,7 @@ export function AccountSubsidiaryLedgerModal({
                         <div className="flex items-center justify-between gap-2 text-xs">
                           <div className="flex items-center gap-1.5 font-mono text-slate-500 dark:text-slate-400 text-[11px]">
                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{tx.rawDate}</span>
+                            <span>{formatDateDisplay(tx.rawDate, language, numberFormat, calendarType)}</span>
                             {tx.time && <span className="text-slate-400 ms-1">{tx.time}</span>}
                           </div>
 
@@ -1702,7 +1707,7 @@ export function AccountSubsidiaryLedgerModal({
 
                               {/* ۲. تاریخ و ساعت */}
                               <td className="py-3 px-3 whitespace-nowrap font-mono text-slate-700 dark:text-slate-300 text-[11px]">
-                                <div>{tx.rawDate}</div>
+                                <div>{formatDateDisplay(tx.rawDate, language, numberFormat, calendarType)}</div>
                                 {tx.time && <div className="text-[10px] text-slate-400 dark:text-slate-500">{tx.time}</div>}
                               </td>
 

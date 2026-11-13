@@ -22,7 +22,12 @@ import {
   formatHoursDigital,
   roundCurrency,
   getCurrencySymbol,
-  formatMonthOnly
+  formatMonthOnly,
+  formatMonthWithYear,
+  shiftCalendarMonth,
+  getCalendarMonthDetails,
+  isJalaliCalendar,
+  convertDigits
 } from '../utils/formatters';
 import { exportAttendanceToExcel, triggerPrintReport } from './ExportEngine';
 import { 
@@ -74,7 +79,7 @@ const TIMELINE_SORT_KEY = 'karsync_timeline_sort_ascending';
 const CALENDAR_VIEW_MODE_KEY = 'karsync_calendar_view_mode';
 
 export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsumed }) {
-  const { t, language, direction, numberFormat } = useLanguage();
+  const { t, language, direction, numberFormat, calendarType } = useLanguage();
   const { hasPermission } = usePermissions();
   const canWriteAttendance = hasPermission('attendance.write');
   const canManageWorkers = hasPermission('workers.manage');
@@ -498,7 +503,11 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
     } catch (_) {}
   };
 
-  const [calendarMonth, setCalendarMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
+  const [calendarMonth, setCalendarMonth] = useState(() => getCurrentYearMonth(calendarType, language)); // 'YYYY-MM'
+
+  useEffect(() => {
+    setCalendarMonth(getCurrentYearMonth(calendarType, language));
+  }, [calendarType, language]);
   const [editingLog, setEditingLog] = useState(null);
   const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
   const [isWorkersModalOpen, setIsWorkersModalOpen] = useState(false);
@@ -927,19 +936,20 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   // 1. MONTHLY TIMELINE DATA (Day-by-Day Detailed Breakdown)
   // ========================================================
   const monthTimelineData = useMemo(() => {
-    const [y, m] = calendarMonth.split('-').map(Number);
-    const totalDaysInMonth = new Date(y, m, 0).getDate();
+    const monthDetails = getCalendarMonthDetails(calendarMonth, calendarType, language);
     const list = [];
 
     let totalMonthDaysWorked = 0;
     let totalMonthOt = 0;
     let totalMonthSalary = 0;
+    let totalEntriesCount = 0;
 
-    for (let d = 1; d <= totalDaysInMonth; d++) {
-      const dateStr = `${calendarMonth}-${String(d).padStart(2, '0')}`;
+    monthDetails.days.forEach((dayInfo) => {
+      const dateStr = dayInfo.dateStr;
       const dayLogs = allLogs.filter((l) => l.date === dateStr);
 
       const totalWorkers = dayLogs.length;
+      totalEntriesCount += totalWorkers;
       const fullDaysCount = dayLogs.filter((l) => l.type === 'full').length;
       const halfDaysCount = dayLogs.filter((l) => l.type === 'half').length;
       const hourlyDaysCount = dayLogs.filter((l) => l.type === 'hourly').length;
@@ -967,17 +977,20 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       });
 
       list.push({
-        dayNumber: d,
+        dayNumber: dayInfo.dayNumber,
         dateStr,
+        dayOfWeek: dayInfo.dayOfWeek,
+        isFriday: dayInfo.isFriday,
         logs: dayLogs,
         totalWorkers,
         fullDaysCount,
         halfDaysCount,
+        hourlyDaysCount,
         totalOvertime,
         totalPay,
         notesList
       });
-    }
+    });
 
     return {
       days: list,
@@ -985,10 +998,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
         daysWorked: totalMonthDaysWorked,
         totalOvertime: Number(totalMonthOt.toFixed(4)),
         totalSalary: totalMonthSalary,
-        totalEntries: allLogs.filter((l) => l.date.startsWith(calendarMonth)).length
+        totalEntries: totalEntriesCount
       }
     };
-  }, [calendarMonth, allLogs, workerMap]);
+  }, [calendarMonth, calendarType, language, allLogs, currency, workerMap, copy.unknownWorker]);
 
   // Filter & Search on timeline days
   const displayedTimelineDays = useMemo(() => {
@@ -1023,41 +1036,47 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   // 2. CALENDAR GRID MATRIX
   // ========================================================
   const calendarData = useMemo(() => {
-    const [y, m] = calendarMonth.split('-').map(Number);
-    const firstDayIndex = new Date(y, m - 1, 1).getDay();
-    const daysInMonth = new Date(y, m, 0).getDate();
+    const monthDetails = getCalendarMonthDetails(calendarMonth, calendarType, language);
+    const isJalali = monthDetails.isJalali;
 
     const dayLogsMap = {};
     allLogs.forEach((l) => {
-      if (l.date.startsWith(calendarMonth)) {
+      if (l.date) {
         if (!dayLogsMap[l.date]) dayLogsMap[l.date] = [];
         dayLogsMap[l.date].push(l);
       }
     });
 
     const days = [];
-    for (let i = 0; i < firstDayIndex; i++) {
+    const blankSlots = isJalali
+      ? (monthDetails.firstDayOfWeek + 1) % 7
+      : monthDetails.firstDayOfWeek;
+
+    for (let i = 0; i < blankSlots; i++) {
       days.push(null);
     }
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${calendarMonth}-${String(d).padStart(2, '0')}`;
+
+    monthDetails.days.forEach((dayInfo) => {
+      const dateStr = dayInfo.dateStr;
       const dayLogs = dayLogsMap[dateStr] || [];
       const totalWorkers = dayLogs.length;
       const totalOvertime = dayLogs.reduce((acc, l) => acc + (Number(l.overtimeHours) || 0), 0);
       const totalPay = dayLogs.reduce((acc, l) => acc + (Number(l.totalDayPay) || 0), 0);
 
       days.push({
-        dayNumber: d,
+        dayNumber: dayInfo.dayNumber,
         dateStr,
+        dayOfWeek: dayInfo.dayOfWeek,
+        isFriday: dayInfo.isFriday,
         logs: dayLogs,
         totalWorkers,
         totalOvertime,
         totalPay
       });
-    }
+    });
 
     return days;
-  }, [calendarMonth, allLogs]);
+  }, [calendarMonth, calendarType, language, allLogs]);
 
   // Modal inspection logs
   const inspectedDateLogs = useMemo(() => {
@@ -1306,14 +1325,22 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
   // Month shifting helper
   const handleMonthShift = (delta) => {
-    const [year, month] = calendarMonth.split('-').map(Number);
-    const date = new Date(year, month - 1 + delta, 1);
-    const newY = date.getFullYear();
-    const newM = String(date.getMonth() + 1).padStart(2, '0');
-    setCalendarMonth(`${newY}-${newM}`);
+    setCalendarMonth((prev) => shiftCalendarMonth(prev, delta, calendarType, language));
   };
 
-  const weekDayLabels = copy.weekDays;
+  const isJalali = isJalaliCalendar(calendarType, language);
+  const weekDayLabels = useMemo(() => {
+    if (isJalali) {
+      if (langKey === 'ku') {
+        return ['شەممە', 'یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'هەینی'];
+      }
+      if (langKey === 'en') {
+        return ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+      }
+      return ['شنبه', 'یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
+    }
+    return copy.weekDays;
+  }, [isJalali, langKey, copy.weekDays]);
 
   return (
     <div className="space-y-6 pb-20">
@@ -1465,9 +1492,9 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                     >
                       {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                     </button>
-                    <div className="relative flex items-center justify-center cursor-pointer min-w-[6.5rem]">
+                    <div className="relative flex items-center justify-center cursor-pointer min-w-[7.5rem]">
                       <span className="text-xs font-bold text-white px-2 py-0.5">
-                        {formatMonthOnly(calendarMonth, language)}
+                        {formatMonthWithYear(calendarMonth, language, calendarType, numberFormat)}
                       </span>
                       <input
                         type="month"
@@ -1653,8 +1680,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
             <div className="space-y-3">
               {displayedTimelineDays.map((dayItem) => {
                 const hasLogs = dayItem.totalWorkers > 0;
-                const formattedDate = formatFullDateWithWeekday(dayItem.dateStr, language);
-                const isFriday = new Date(dayItem.dateStr).getDay() === 5;
+                const formattedDate = formatFullDateWithWeekday(dayItem.dateStr, language, numberFormat, calendarType);
+                const isFriday = dayItem.isFriday;
                 const isExpanded = expandedDayKeys.has(dayItem.dateStr);
 
                 // Compact summary worker avatars (take top 4 workers)
@@ -1693,7 +1720,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                             ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white border-amber-400/30 shadow-amber-500/20'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
                         }`}>
-                          <span>{dayItem.dayNumber}</span>
+                          <span>{convertDigits(dayItem.dayNumber, numberFormat)}</span>
                         </div>
 
                         <div>
@@ -1712,7 +1739,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           {hasLogs ? (
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-[11px] text-slate-400 font-mono">
-                                {dayItem.dateStr}
+                                {formatDateDisplay(dayItem.dateStr, language, numberFormat, calendarType)}
                               </span>
                               <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
                                 {fullCount > 0 && (
@@ -1965,10 +1992,10 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 >
                   {direction === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>
-                <div className="relative flex items-center justify-center cursor-pointer min-w-[6.5rem] sm:min-w-[7.5rem]">
+                <div className="relative flex items-center justify-center cursor-pointer min-w-[7.5rem] sm:min-w-[8.5rem]">
                   <div className="pointer-events-none text-xs sm:text-sm font-bold text-slate-800 dark:text-white px-2 sm:px-3 py-1 text-center w-full flex items-center justify-center gap-1.5">
                     <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-500" />
-                    <span>{formatMonthOnly(calendarMonth, language)}</span>
+                    <span>{formatMonthWithYear(calendarMonth, language, calendarType, numberFormat)}</span>
                   </div>
                   <input
                     type="month"
@@ -1988,7 +2015,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
 
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50">
-                  <span>{allLogs.filter(l => l.date.startsWith(calendarMonth)).length} {t('totalEntries')}</span>
+                  <span>{monthTimelineData.monthStats?.totalEntries || 0} {t('totalEntries')}</span>
                 </div>
                 {canWriteAttendance && (
                   <button
@@ -2027,7 +2054,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 }
 
                 const hasLogs = dayItem.totalWorkers > 0;
-                const isFriday = new Date(dayItem.dateStr).getDay() === 5;
+                const isFriday = dayItem.isFriday;
                 const isInspected = inspectedDateStr === dayItem.dateStr;
                 const isToday = dayItem.dateStr === getTodayDateString();
 
@@ -2058,7 +2085,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                           ? 'text-slate-800 dark:text-slate-100'
                           : 'text-slate-400 dark:text-slate-500'
                       }`}>
-                        {dayItem.dayNumber}
+                        {convertDigits(dayItem.dayNumber, numberFormat)}
                       </span>
 
                       {/* Mobile Compact Indicators (dots) */}
@@ -2132,8 +2159,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   </div>
                   <div>
                     <h3 className="text-xs sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <span>{formatFullDateWithWeekday(inspectedDateStr, language)}</span>
-                      <span className="font-mono text-[10px] sm:text-xs text-slate-400">({inspectedDateStr})</span>
+                      <span>{formatFullDateWithWeekday(inspectedDateStr, language, numberFormat, calendarType)}</span>
+                      <span className="font-mono text-[10px] sm:text-xs text-slate-400">({formatDateDisplay(inspectedDateStr, language, numberFormat, calendarType)})</span>
                     </h3>
                     <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                       {inspectedDateLogs.length} {t('workers')} • {formatCurrency(inspectedTotalPay, currency, language)}

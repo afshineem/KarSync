@@ -4,7 +4,7 @@ import { db } from '../../db/db';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useProject } from '../../context/ProjectContext';
 import { pushLoansLive, deleteLoanLive } from '../../services/realtimeSync';
-import { formatAmount, formatCurrency, getCurrencySymbol } from '../../utils/formatters';
+import { formatAmount, formatCurrency, getCurrencySymbol, formatDateDisplay, formatMonthWithYear } from '../../utils/formatters';
 import { 
   Calculator, 
   Coins, 
@@ -162,7 +162,7 @@ const COPY = {
 };
 
 export function StaffLoansSection({ onOpenNewLoanModal }) {
-  const { language, direction } = useLanguage();
+  const { language, direction, calendarType, numberFormat } = useLanguage();
   const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
@@ -413,10 +413,10 @@ export function StaffLoansSection({ onOpenNewLoanModal }) {
                         {loan.workerName || '—'}
                       </h4>
                       <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5 flex-wrap">
-                        <span>{loan.date || loan.createdAt?.slice(0, 10)}</span>
+                        <span>{formatDateDisplay(loan.date || loan.createdAt?.slice(0, 10), language, numberFormat, calendarType)}</span>
                         {loan.startMonth && (
                           <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                            {c.startMonth} {loan.startMonth}
+                            {c.startMonth} {formatMonthWithYear(loan.startMonth, language, calendarType, numberFormat)}
                           </span>
                         )}
                         {loan.voucherNumber && (

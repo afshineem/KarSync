@@ -13,6 +13,8 @@ import {
   formatCurrency, 
   formatAmount,
   getTodayDateString, 
+  formatDateDisplay,
+  formatFullDateWithWeekday,
   toDecimalHours, 
   fromDecimalHours, 
   formatHoursAndMinutes, 
@@ -53,7 +55,7 @@ import {
 } from 'lucide-react';
 
 export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
-  const { t, language } = useLanguage();
+  const { t, language, calendarType, numberFormat } = useLanguage();
   const { currentProject, openWorkerProfile } = useProject();
   const { user } = useAuth();
   const { currentUser } = usePermissions();
@@ -1132,13 +1134,22 @@ export function DailyLoggingModal({ isOpen, onClose, initialDate }) {
                 </button>
 
                 <div className="flex items-center gap-2 px-3 py-1">
-                  <Calendar className="w-4 h-4 text-sky-500" />
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="bg-transparent font-bold text-xs sm:text-sm text-slate-800 dark:text-white font-mono focus:outline-none cursor-pointer"
-                  />
+                  <Calendar className="w-4 h-4 text-sky-500 shrink-0" />
+                  <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white font-sans">
+                    {formatFullDateWithWeekday(selectedDate, language, numberFormat, calendarType)}
+                  </span>
+                  <div className="relative flex items-center">
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
+                      title={formatDateDisplay(selectedDate, language, numberFormat, calendarType)}
+                    />
+                    <span className="text-[10px] font-mono text-slate-400 bg-white/60 dark:bg-slate-700/60 px-1.5 py-0.5 rounded-md border border-slate-200/50 dark:border-slate-700/50">
+                      {formatDateDisplay(selectedDate, language, numberFormat, calendarType)}
+                    </span>
+                  </div>
                 </div>
 
                 <button

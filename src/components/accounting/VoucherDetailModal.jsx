@@ -5,7 +5,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useProject } from '../../context/ProjectContext';
 import { useAuth, usePermissions } from '../../context/AuthContext';
 import { db } from '../../db/db';
-import { formatAmount, formatCurrency, getCurrencySymbol, getTodayDateString } from '../../utils/formatters';
+import { formatAmount, formatCurrency, getCurrencySymbol, getTodayDateString, formatDateDisplay, formatFullDateWithWeekday } from '../../utils/formatters';
 import { numberToWords } from '../../utils/numberToWords';
 import { promoteVoucherToPermanent } from '../../services/voucherNumberService';
 import { resolveTransactionCoding } from '../../services/chartOfAccountsService';
@@ -400,7 +400,7 @@ export function VoucherDetailModal({
   voucher = null,
   voucherNumber = null
 }) {
-  const { language, direction } = useLanguage();
+  const { language, direction, calendarType, numberFormat } = useLanguage();
   const c = COPY[language] || COPY.fa;
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
@@ -870,7 +870,7 @@ export function VoucherDetailModal({
   const handleCopyVoucher = useCallback(() => {
     if (!itemData) return;
     const text = `📋 ${c.modalTitle} [${itemData.voucherNumber}]
-📅 ${c.dateLabel} ${itemData.date} ${itemData.time || ''}
+📅 ${c.dateLabel} ${formatDateDisplay(itemData.date, language, numberFormat, calendarType)} ${itemData.time || ''}
 💰 ${c.amountCardTitle}: ${formatAmount(itemData.amount, currency)} ${getCurrencySymbol(currency, language)} (${numberToWords(itemData.amount, currency, language)})
 👤 ${c.counterpartyTitle}: ${itemData.counterpartyName}
 🏦 ${c.sourceAccountTitle}: ${itemData.accountName}
@@ -880,7 +880,7 @@ export function VoucherDetailModal({
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [itemData, currency, language, currentProject, c]);
+  }, [itemData, currency, language, currentProject, c, calendarType, numberFormat]);
 
   // Handle final approval / promotion to permanent voucher
   const handleApproveVoucher = async () => {
@@ -1532,7 +1532,7 @@ export function VoucherDetailModal({
                   <div className="p-5 sm:p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-400">
                       <span>{c.txDetailsTitle}</span>
-                      <span className="font-mono text-slate-500">{itemData.date} {itemData.time && `• ${itemData.time}`}</span>
+                      <span className="font-mono text-slate-500">{formatDateDisplay(itemData.date, language, numberFormat, calendarType)} {itemData.time && `• ${itemData.time}`}</span>
                     </div>
                     
                     <div>
@@ -1804,7 +1804,7 @@ export function VoucherDetailModal({
                   </div>
                   <div className="text-left font-mono">
                     <p className="text-base font-black">شماره سند: {itemData.voucherNumber}</p>
-                    <p className="text-xs text-slate-600">تاریخ: {itemData.date} {itemData.time || ''}</p>
+                    <p className="text-xs text-slate-600">تاریخ: {formatDateDisplay(itemData.date, language, numberFormat, calendarType)} {itemData.time || ''}</p>
                   </div>
                 </div>
 

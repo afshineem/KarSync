@@ -7,7 +7,7 @@ import { AddEditChequeModal } from './AddEditChequeModal';
 import { ChequeDetailModal } from './ChequeDetailModal';
 import { AddEditChequebookModal } from './AddEditChequebookModal';
 import { deleteChequebook } from '../../services/chequeService';
-import { formatCurrency, formatAmount, getTodayDateString } from '../../utils/formatters';
+import { formatCurrency, formatAmount, getTodayDateString, formatDateDisplay } from '../../utils/formatters';
 import {
   Receipt,
   Plus,
@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export default function ChequesManagementSection({ language: propLanguage }) {
-  const { t, language: ctxLang, direction } = useLanguage();
+  const { t, language: ctxLang, direction, calendarType, numberFormat } = useLanguage();
   const lang = propLanguage || ctxLang || 'fa';
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
@@ -392,7 +392,7 @@ export default function ChequesManagementSection({ language: propLanguage }) {
                               ? 'text-amber-600 dark:text-amber-400 font-black'
                               : 'text-slate-700 dark:text-slate-300'
                           }`}>
-                            {chk.dueDate}
+                            {formatDateDisplay(chk.dueDate, lang, numberFormat, calendarType)}
                           </div>
                           {isOverdue && (
                             <span className="text-[9px] font-bold text-rose-500 block">

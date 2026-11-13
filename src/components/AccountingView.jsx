@@ -15,7 +15,7 @@ import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { DateRangeFilterModal } from './accounting/DateRangeFilterModal';
 import { ProfitLossSection } from './accounting/ProfitLossSection';
-import { formatMonthOnly, getCurrentYearMonth } from '../utils/formatters';
+import { formatMonthOnly, formatMonthWithYear, getCurrentYearMonth, shiftCalendarMonth, formatDateDisplay } from '../utils/formatters';
 import { 
   Landmark, 
   Plus, 
@@ -186,7 +186,7 @@ export function AccountingView({
   hideInternalSubNav = false,
   hideHeader = false 
 }) {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, calendarType, numberFormat } = useLanguage();
   const txt = COPY[language] || COPY.fa;
   const { currentProject, openWorkerProfile } = useProject();
   const { hasPermission } = usePermissions();
@@ -272,11 +272,7 @@ export function AccountingView({
 
   // جابه‌جایی ماه در ویجت ماه‌نما
   const handleShiftMonth = (delta) => {
-    const [year, month] = (selectedMonth || getCurrentYearMonth()).split('-').map(Number);
-    const d = new Date(year, month - 1 + delta, 1);
-    const newY = d.getFullYear();
-    const newM = String(d.getMonth() + 1).padStart(2, '0');
-    setSelectedMonth(`${newY}-${newM}`);
+    setSelectedMonth((prev) => shiftCalendarMonth(prev, delta, calendarType, language));
     setDateFilterMode('month');
   };
 
@@ -360,7 +356,7 @@ export function AccountingView({
 
               <div className="relative flex-1 h-full flex items-center justify-center cursor-pointer min-w-[6rem] sm:min-w-[8rem] px-2 sm:px-4">
                 <div className="pointer-events-none text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 text-center w-full truncate">
-                  {formatMonthOnly(selectedMonth, language) || selectedMonth}
+                  {formatMonthWithYear(selectedMonth, language, calendarType, numberFormat) || selectedMonth}
                 </div>
                 <input
                   type="month"
@@ -525,7 +521,7 @@ export function AccountingView({
 
               <div className="relative flex-1 h-full flex items-center justify-center cursor-pointer min-w-[6rem] sm:min-w-[7rem] px-2 sm:px-3">
                 <div className="pointer-events-none text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 text-center w-full truncate">
-                  {formatMonthOnly(selectedMonth, language) || selectedMonth}
+                  {formatMonthWithYear(selectedMonth, language, calendarType, numberFormat) || selectedMonth}
                 </div>
                 <input
                   type="month"
