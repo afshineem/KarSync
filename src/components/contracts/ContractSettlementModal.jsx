@@ -36,7 +36,10 @@ import {
   Users,
   ChevronUp,
   CalendarDays,
-  Info
+  Info,
+  Milestone,
+  CalendarClock,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function ContractSettlementModal({
@@ -57,6 +60,10 @@ export default function ContractSettlementModal({
   const [selectedAdvanceIds, setSelectedAdvanceIds] = useState(new Set());
   const [selectedBackchargeIds, setSelectedBackchargeIds] = useState(new Set());
   const [customBackcharges, setCustomBackcharges] = useState([]);
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState('');
+  const [authorizedDelayDays, setAuthorizedDelayDays] = useState('0');
+  const [waiveDelayPenalty, setWaiveDelayPenalty] = useState(false);
+  const [waiverReason, setWaiverReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -161,8 +168,41 @@ export default function ContractSettlementModal({
       setSelectedBackchargeIds(bkgIds);
 
       setCustomBackcharges([]);
+
+      // Initialize milestone and delay penalty defaults
+      if (Array.isArray(contract.milestones) && contract.milestones.length > 0) {
+        const pendingMs = contract.milestones.find(m => m.status !== 'settled');
+        const targetMs = pendingMs || contract.milestones[0];
+        if (targetMs) {
+          setSelectedMilestoneId(targetMs.id);
+          setAuthorizedDelayDays(targetMs.authorizedDelayDays !== undefined ? String(targetMs.authorizedDelayDays) : '0');
+          setWaiveDelayPenalty(Boolean(targetMs.waivePenalty));
+          setWaiverReason(targetMs.waiverReason || '');
+        }
+      } else {
+        setSelectedMilestoneId('');
+        setAuthorizedDelayDays(contract.authorizedDelayDays ? String(contract.authorizedDelayDays) : '0');
+        setWaiveDelayPenalty(false);
+        setWaiverReason('');
+      }
     }
   }, [contract, isOpen, previousPayments.length, backchargeExpenses.length, contractProgress]);
+
+  const handleMilestoneChange = (milestoneId) => {
+    setSelectedMilestoneId(milestoneId);
+    if (milestoneId && Array.isArray(contract?.milestones)) {
+      const ms = contract.milestones.find(m => m.id === milestoneId);
+      if (ms) {
+        setAuthorizedDelayDays(ms.authorizedDelayDays !== undefined ? String(ms.authorizedDelayDays) : '0');
+        setWaiveDelayPenalty(Boolean(ms.waivePenalty));
+        setWaiverReason(ms.waiverReason || '');
+      }
+    } else {
+      setAuthorizedDelayDays(contract?.authorizedDelayDays ? String(contract.authorizedDelayDays) : '0');
+      setWaiveDelayPenalty(false);
+      setWaiverReason('');
+    }
+  };
 
   // When crewAttendance changes, auto-populate man_day items according to their targetRole
   useEffect(() => {
@@ -278,9 +318,13 @@ export default function ContractSettlementModal({
       crewAttendanceSummary: crewAttendance,
       crewAttendanceMode,
       settlementType,
-      applyDelayPenalty: settlementType === 'final'
+      applyDelayPenalty: settlementType === 'final' || Boolean(selectedMilestoneId),
+      selectedMilestoneId: selectedMilestoneId || null,
+      authorizedDelayDays: authorizedDelayDays !== '' ? Number(authorizedDelayDays) : null,
+      waiveDelayPenalty,
+      waiverReason
     });
-  }, [contract, completedItems, actualEndDate, previousPayments, selectedAdvanceIds, backchargeExpenses, selectedBackchargeIds, customBackcharges, crewAttendance, crewAttendanceMode, settlementType]);
+  }, [contract, completedItems, actualEndDate, previousPayments, selectedAdvanceIds, backchargeExpenses, selectedBackchargeIds, customBackcharges, crewAttendance, crewAttendanceMode, settlementType, selectedMilestoneId, authorizedDelayDays, waiveDelayPenalty, waiverReason]);
 
   // Close on Escape key
   useEffect(() => {
@@ -434,65 +478,159 @@ export default function ContractSettlementModal({
             </div>
           )}
 
-          {/* Timeline & Cutoff Date Card */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-                  <Clock className="w-4 h-4" />
+          {/* Milestone Selection, Timeline & Delay Penalty Control Card */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-4">
+            
+            {/* Top row: Milestone Selector (if milestones exist) & Actual End Date */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 items-end">
+              {Array.isArray(contract.milestones) && contract.milestones.length > 0 && (
+                <div className="sm:col-span-7 space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Milestone className="w-4 h-4 text-emerald-500" />
+                    <span>{t('selectMilestoneForSettlement')}</span>
+                  </label>
+                  <select
+                    value={selectedMilestoneId}
+                    onChange={(e) => handleMilestoneChange(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  >
+                    <option value="">{t('allContractSettlementNoMilestone')}</option>
+                    {contract.milestones.map((m, idx) => (
+                      <option key={m.id || idx} value={m.id}>
+                        {m.title || `مرحله ${idx + 1}`} {m.targetEndDate ? `(موعد: ${m.targetEndDate})` : ''} {m.status === 'settled' ? '✓ تسویه‌شده' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {settlementType === 'interim'
-                      ? (language === 'ku' ? 'بەرواری کارکردی ئەم قۆناغە (تا بەرواری)' : language === 'en' ? 'Progress Cutoff Date' : 'تاریخ کارکرد / صورت‌وضعیت تا تاریخ:')
-                      : (language === 'ku' ? 'بەرواری تەواوبوونی کرداری کار' : language === 'en' ? 'Actual Completion Date' : 'تاریخ واقعی اتمام و تحویل کار')
-                    }
-                  </span>
-                  <div className="text-[11px] text-slate-400">
-                    {language === 'ku' ? 'مۆڵەتی سەرەتا:' : language === 'en' ? 'Agreed Deadline:' : 'مهلت در قرارداد:'} {contract.estimatedEndDate || (language === 'ku' ? 'دیاری نەکراو' : language === 'en' ? 'Not set' : 'ثبت نشده')}
-                  </div>
-                </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-2.5">
+              <div className={`${Array.isArray(contract.milestones) && contract.milestones.length > 0 ? 'sm:col-span-5' : 'sm:col-span-12'} space-y-1.5`}>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    <span>
+                      {settlementType === 'interim'
+                        ? (language === 'ku' ? 'بەرواری کارکردی ئەم قۆناغە' : language === 'en' ? 'Progress Cutoff Date' : 'تاریخ کارکرد / تحویل این مرحله')
+                        : (language === 'ku' ? 'بەرواری تەواوبوونی کرداری کار' : language === 'en' ? 'Actual Completion Date' : 'تاریخ واقعی اتمام و تحویل کار')
+                      }
+                    </span>
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {settlement?.selectedMilestone?.targetEndDate
+                      ? `${language === 'ku' ? 'وادەی قۆناغ:' : language === 'en' ? 'Stage Deadline:' : 'مهلت مصوب قسط:'} ${settlement.selectedMilestone.targetEndDate}`
+                      : contract.estimatedEndDate
+                      ? `${language === 'ku' ? 'مۆڵەتی گرێبەست:' : language === 'en' ? 'Contract Deadline:' : 'مهلت کل قرارداد:'} ${contract.estimatedEndDate}`
+                      : ''}
+                  </span>
+                </label>
                 <input
                   type="date"
                   value={actualEndDate}
                   onChange={(e) => setActualEndDate(e.target.value)}
-                  className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
-
-                {settlementType === 'final' && (
-                  settlement?.delayDays > 0 ? (
-                    <div className="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>{settlement.delayDays} {language === 'ku' ? 'ڕۆژ دواکەوتن' : language === 'en' ? 'Days Delayed' : 'روز تاخیر در تحویل'}</span>
-                    </div>
-                  ) : (
-                    <div className="px-3 py-1.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 text-xs font-bold flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{language === 'ku' ? 'بێ دواکەوتن (لە کاتی خۆیدا)' : language === 'en' ? 'On Time (No delay)' : 'تکمیل به موقع (بدون تاخیر)'}</span>
-                    </div>
-                  )
-                )}
               </div>
             </div>
 
-            {/* Delay Penalty Breakdown if final settlement */}
-            {settlementType === 'final' && settlement?.totalDelayPenalty > 0 && (
-              <div className="p-3 rounded-2xl bg-rose-500/5 border border-rose-500/15 flex items-center justify-between text-xs">
-                <span className="text-slate-600 dark:text-slate-300 font-medium">
-                  {language === 'ku'
-                    ? `سزای ${settlement.delayDays} ڕۆژ دواکەوتن (ڕۆژانە ${formatAmount(contract.delayPenaltyPerDay, currency)} ${currency}):`
-                    : language === 'en'
-                    ? `Penalty for ${settlement.delayDays} days delay (${formatAmount(contract.delayPenaltyPerDay, currency)}/day):`
-                    : `جریمه ${settlement.delayDays} روز تاخیر بر مبنای روزانه ${formatAmount(contract.delayPenaltyPerDay, currency)} ${currency}:`}
-                </span>
-                <span className="font-mono font-black text-rose-600 dark:text-rose-400" dir="ltr">
-                  - {formatAmount(settlement.totalDelayPenalty, currency)} {currency}
-                </span>
+            {/* Delay & Grace Period Controls Grid */}
+            <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/70 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                {/* Authorized / Grace Delay Days Input */}
+                <div className="sm:col-span-4 space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                    <CalendarClock className="w-3.5 h-3.5 text-blue-500" />
+                    <span>{t('authorizedDelayDaysLabel')}</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      value={authorizedDelayDays}
+                      onChange={(e) => setAuthorizedDelayDays(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
+                      {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* CEO Delay Penalty Waiver Toggle */}
+                <div className="sm:col-span-8 space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>{t('waivePenaltyToggle')}</span>
+                  </label>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={waiveDelayPenalty}
+                        onChange={(e) => setWaiveDelayPenalty(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                      <span className="ms-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+                        {waiveDelayPenalty
+                          ? (language === 'ku' ? 'سزا بەخشراوە (بێ لێبڕین)' : language === 'en' ? 'Waived (No Penalty)' : 'بخشوده شده (عدم کسر جریمه)')
+                          : (language === 'ku' ? 'ئاسایی (محاسبەی سزا)' : language === 'en' ? 'Standard (Calculate)' : 'عادی (محاسبه و کسر جریمه)')
+                        }
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Waiver reason input when waiver is toggled ON */}
+                {waiveDelayPenalty && (
+                  <div className="sm:col-span-12 space-y-1 pt-1 animate-in fade-in duration-150">
+                    <input
+                      type="text"
+                      value={waiverReason}
+                      onChange={(e) => setWaiverReason(e.target.value)}
+                      placeholder={language === 'ku' ? 'هۆکار یان ژمارەی بڕیاری بەخشین (بۆ تۆمار لە سەنەد)' : language === 'en' ? 'Waiver justification or resolution number (for accounting voucher)' : 'علت یا شماره مصوبه بخشودگی مدیرعامل (جهت ثبت در سند حسابداری)'}
+                      className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-emerald-500/40 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Live Delay Penalty Status Row */}
+              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-slate-500">
+                    {language === 'ku' ? 'دواکەوتنی گشتی:' : language === 'en' ? 'Gross Delay:' : 'کل تاخیر تقویمی:'} <strong className="font-mono text-slate-800 dark:text-slate-200">{settlement?.rawDelayDays || 0}</strong> {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-blue-600 dark:text-blue-400">
+                    {language === 'ku' ? 'مۆڵەتی زیادە:' : language === 'en' ? 'Grace Period:' : 'تاخیر موجه:'} <strong className="font-mono">{settlement?.authorizedDelayDays || 0}</strong> {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">
+                    {t('netBillableDelayDays')}: <strong className="font-mono text-rose-600 dark:text-rose-400">{settlement?.delayDays || 0}</strong> {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}
+                  </span>
+                </div>
+
+                <div>
+                  {settlement?.isWaived ? (
+                    <span className="px-2.5 py-1 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-300 font-bold text-[11px] flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+                      <span>{t('waivedByCEO')}</span>
+                    </span>
+                  ) : settlement?.totalDelayPenalty > 0 ? (
+                    <span className="px-2.5 py-1 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold font-mono text-[11px] flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                      <span>- {formatAmount(settlement.totalDelayPenalty, currency)} {currency} [معین ۶۱۰۳]</span>
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{language === 'ku' ? 'بێ سزای دارایی' : language === 'en' ? 'No Delay Penalty' : 'بدون جریمه دیرکرد'}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">

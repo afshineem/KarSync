@@ -45,7 +45,9 @@ import {
   CreditCard,
   Wallet,
   Scale,
-  ShieldCheck
+  ShieldCheck,
+  Milestone,
+  CalendarClock
 } from 'lucide-react';
 
 export default function ContractDetailModal({
@@ -139,6 +141,7 @@ export default function ContractDetailModal({
 
   const settlementsList = Array.isArray(contract.settlements) ? contract.settlements : [];
   const amendmentsList = Array.isArray(contract.amendments) ? contract.amendments : [];
+  const milestonesList = Array.isArray(contract.milestones) ? contract.milestones : [];
 
   return (
     <div 
@@ -333,6 +336,131 @@ export default function ContractDetailModal({
               </div>
             );
           })()}
+
+          {/* Milestones & Stage Delays Card */}
+          {milestonesList.length > 0 && (
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">
+                  <Milestone className="w-4 h-4" />
+                  <span>{language === 'ku' ? 'قۆناغە کاتییەکان، قیستەکان و کۆنتڕۆڵی دواکەوتن' : language === 'en' ? 'Contract Milestones & Stage Delays' : 'مراحل زمانی، اقساط و کنترل دیرکرد قسط‌ها'}</span>
+                </div>
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  {milestonesList.length} {language === 'ku' ? 'قۆناغ' : language === 'en' ? 'milestones' : 'مرحله'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {milestonesList.map((ms, idx) => {
+                  const isSettled = ms.status === 'settled';
+                  const isCurrent = !isSettled && (idx === 0 || milestonesList[idx - 1]?.status === 'settled');
+                  const rawDelay = ms.rawDelayDays || 0;
+                  const authDelay = ms.authorizedDelayDays || 0;
+                  const penalty = ms.delayPenaltyAmount || 0;
+                  const isWaived = Boolean(ms.waivePenalty);
+
+                  return (
+                    <div
+                      key={ms.id || idx}
+                      className={`p-3.5 sm:p-4 rounded-2xl border space-y-2.5 text-xs transition-all ${
+                        isSettled
+                          ? 'bg-emerald-500/5 border-emerald-500/20'
+                          : isCurrent
+                          ? 'bg-blue-500/5 border-blue-500/30 ring-1 ring-blue-500/20'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60 opacity-80'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] ${
+                            isSettled
+                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                              : isCurrent
+                              ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300'
+                              : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            #{ms.stageNumber || idx + 1}
+                          </span>
+                          <span className="font-black text-slate-900 dark:text-white">
+                            {ms.title}
+                          </span>
+                        </div>
+
+                        {isSettled ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>{language === 'ku' ? 'تسویەکراو' : language === 'en' ? 'Settled' : 'تسویه‌شده'}</span>
+                          </span>
+                        ) : isCurrent ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20 flex items-center gap-1">
+                            <Clock className="w-3 h-3 animate-pulse" />
+                            <span>{language === 'ku' ? 'لە جێبەجێکردندا' : language === 'en' ? 'In Progress' : 'در حال اجرا'}</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+                            {language === 'ku' ? 'چاوەڕوانکراو' : language === 'en' ? 'Upcoming' : 'مرحله آتی'}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Timeframe & Progress details */}
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200/50 dark:border-slate-700/50 font-mono">
+                        <div>
+                          <span className="text-slate-400 font-sans text-[10px]">{language === 'ku' ? 'وادەی پەسەندکراو:' : language === 'en' ? 'Target Deadline:' : 'موعد تحویل مصوب:'}</span>
+                          <div className="font-bold text-slate-700 dark:text-slate-300">{ms.targetEndDate || '---'}</div>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-sans text-[10px]">{language === 'ku' ? 'بڕی ئەم قۆناغە:' : language === 'en' ? 'Target Amount / %:' : 'مبلغ و درصد هدف:'}</span>
+                          <div className="font-bold text-slate-700 dark:text-slate-300">
+                            {ms.estimatedAmount > 0 ? `${formatAmount(ms.estimatedAmount, currency)} ${currency}` : ''}
+                            {ms.targetPercentage > 0 ? ` (${ms.targetPercentage}%)` : ''}
+                            {!ms.estimatedAmount && !ms.targetPercentage ? '---' : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Delivery & Delay Breakdown if settled or has delays */}
+                      {isSettled ? (
+                        <div className="p-2 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-[11px] space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">{language === 'ku' ? 'بەرواری تەواوبوون:' : language === 'en' ? 'Actual Date:' : 'تاریخ تحویل:'} <strong className="font-mono text-slate-800 dark:text-slate-200">{ms.actualCompletionDate || '---'}</strong></span>
+                            {rawDelay > 0 && (
+                              <span className="text-slate-500">
+                                {language === 'ku' ? 'دواکەوتنی گشتی:' : language === 'en' ? 'Gross Delay:' : 'کل تاخیر:'} <strong className="font-mono">{rawDelay}</strong> {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}
+                              </span>
+                            )}
+                          </div>
+
+                          {isWaived ? (
+                            <div className="text-teal-600 dark:text-teal-400 font-bold flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>{language === 'ku' ? 'بەخشراو بە فەرمانی بەڕێوەبەری گشتی' : language === 'en' ? 'Waived by CEO' : 'مشمول بخشودگی مصوب مدیرعامل'}</span>
+                            </div>
+                          ) : penalty > 0 ? (
+                            <div className="text-rose-600 dark:text-rose-400 font-bold flex items-center justify-between">
+                              <span>{language === 'ku' ? `سزای ${ms.netDelayDays || 0} ڕۆژ دواکەوتن:` : language === 'en' ? `Penalty for ${ms.netDelayDays || 0} days:` : `جریمه ${ms.netDelayDays || 0} روز تاخیر:`}</span>
+                              <span className="font-mono">- {formatAmount(penalty, currency)} {currency}</span>
+                            </div>
+                          ) : (
+                            <div className="text-emerald-600 dark:text-emerald-400 font-medium">
+                              {language === 'ku' ? 'بێ سزای دارایی' : language === 'en' ? 'On time / No penalty' : 'بدون جریمه دیرکرد (به‌موقع یا در سقف مجاز)'}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        authDelay > 0 && (
+                          <div className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                            <CalendarClock className="w-3 h-3" />
+                            <span>{language === 'ku' ? 'دواکەوتنی ڕێپێدراو:' : language === 'en' ? 'Grace Period:' : 'تاخیر مجاز:'} {authDelay} {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}</span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Scope of Work & Measurement Table Card */}
           <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
@@ -567,6 +695,12 @@ export default function ContractDetailModal({
                             {isFinalStl ? (language === 'ku' ? 'کۆتایی' : language === 'en' ? 'Final' : 'قطعی') : (language === 'ku' ? 'قۆناغی' : language === 'en' ? 'Interim' : 'موقت')}
                           </span>
 
+                          {stl.milestoneTitle && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                              {stl.milestoneTitle}
+                            </span>
+                          )}
+
                           {/* Payment status badge */}
                           {pSummary.status === 'paid' ? (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
@@ -631,15 +765,41 @@ export default function ContractDetailModal({
                         </div>
                       </div>
 
-                      {/* Delay Penalty Banner (درآمد حاصل از خسارت کارگاه) */}
+                      {/* Delay Penalty Banner (درآمد حاصل از خسارت کارگاه - معین ۶۱۰۳) */}
                       {stl.totalDelayPenalty > 0 && (
-                        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] flex items-center justify-between text-amber-800 dark:text-amber-200">
-                          <span className="flex items-center gap-1 font-bold">
+                        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] flex items-center justify-between text-amber-800 dark:text-amber-200">
+                          <span className="flex items-center gap-1.5 font-bold">
                             <Scale className="w-3.5 h-3.5 text-amber-600" />
-                            <span>{language === 'ku' ? `سزای ${stl.delayDays || 0} ڕۆژ دواکەوتن (داهاتی پڕۆژە):` : language === 'en' ? `Delay penalty for ${stl.delayDays || 0} days (Workshop damage revenue):` : `کسر جریمه ${stl.delayDays || 0} روز تاخیر (درآمد ناشی از خسارات کارگاه):`}</span>
+                            <span>
+                              {language === 'ku'
+                                ? `سزای ${stl.delayDays || 0} ڕۆژ دواکەوتن (داهاتی پڕۆژە - معین ۶۱۰۳):`
+                                : language === 'en'
+                                ? `Delay penalty for ${stl.delayDays || 0} days (Revenue GL 6103):`
+                                : `کسر جریمه ${stl.delayDays || 0} روز تاخیر (درآمد ناشی از خسارات کارگاه - معین ۶۱۰۳):`}
+                            </span>
                           </span>
-                          <span className="font-mono font-black">
+                          <span className="font-mono font-black" dir="ltr">
                             -{formatAmount(stl.totalDelayPenalty, currency)} {currency}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* CEO Waiver Notice if waived */}
+                      {stl.isWaived && (
+                        <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-[11px] flex items-center justify-between text-teal-800 dark:text-teal-200">
+                          <span className="flex items-center gap-1.5 font-bold">
+                            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+                            <span>
+                              {language === 'ku'
+                                ? 'سزای دواکەوتن بە فەرمانی بەڕێوەبەری گشتی بەخشراوە'
+                                : language === 'en'
+                                ? 'Delay penalty waived by CEO approval'
+                                : 'جریمه دیرکرد مشمول بخشودگی مصوب مدیرعامل'}
+                            </span>
+                            {stl.waiverReason && <span className="font-normal opacity-85">({stl.waiverReason})</span>}
+                          </span>
+                          <span className="font-mono font-bold text-teal-600 dark:text-teal-400">
+                            0 {currency}
                           </span>
                         </div>
                       )}

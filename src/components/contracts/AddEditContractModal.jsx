@@ -492,11 +492,11 @@ export default function AddEditContractModal({
                   </div>
 
                   {/* Delay Penalty per Day */}
-                  <div className="sm:col-span-2 space-y-1.5">
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                        <span>{language === 'ku' ? 'سزای دواکەوتن بۆ هەر ڕۆژێک' : language === 'en' ? 'Daily Delay Penalty' : 'جریمه دیرکرد به ازای هر روز تاخیر'}</span>
+                        <span>{language === 'ku' ? 'سزای دواکەوتن بۆ هەر ڕۆژێک' : language === 'en' ? 'Daily Delay Penalty' : 'جریمه دیرکرد روزانه'}</span>
                       </span>
                       <span className="text-[11px] font-mono text-slate-400">{currency}</span>
                     </label>
@@ -507,8 +507,27 @@ export default function AddEditContractModal({
                         const raw = e.target.value.replace(/,/g, '');
                         if (/^\d*$/.test(raw)) setFormData(prev => ({ ...prev, delayPenaltyPerDay: raw }));
                       }}
-                      placeholder={language === 'ku' ? 'بۆ نموونە: ٥٠،٠٠٠ بۆ هەر ڕۆژ' : language === 'en' ? 'e.g. 50,000 per day' : 'مثال: ۵۰,۰۰۰ به ازای هر روز دیرکرد'}
+                      placeholder={language === 'ku' ? 'بۆ نموونە: ٥٠،٠٠٠' : language === 'en' ? 'e.g. 50,000' : 'مثال: ۵۰,۰۰۰'}
                       className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+                    />
+                  </div>
+
+                  {/* Authorized / Grace Delay Days */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <CalendarClock className="w-3.5 h-3.5 text-blue-500" />
+                        <span>{t('authorizedDelayDaysLabel')}</span>
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">{language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.authorizedDelayDays}
+                      onChange={(e) => setFormData(prev => ({ ...prev, authorizedDelayDays: e.target.value }))}
+                      placeholder="0"
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     />
                   </div>
                 </div>
@@ -654,6 +673,186 @@ export default function AddEditContractModal({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Multi-Stage Milestones & Installments (قراردادهای چندمرحله‌ای / اقساطی) */}
+              <div className="p-4 sm:p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/60 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white">
+                    <Milestone className="w-4 h-4 text-emerald-500" />
+                    <span>{t('contractMilestonesTitle')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddMilestone}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{t('addMilestoneBtn')}</span>
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {t('milestonesSubtitle')}
+                </p>
+
+                {(!formData.milestones || formData.milestones.length === 0) ? (
+                  <div className="p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-1.5">
+                    <span className="text-xs text-slate-400">
+                      {language === 'ku'
+                        ? 'هیچ قۆناغێکی کاتی تۆمار نەکراوە. ئەم گرێبەستە بە شێوەی تاک‌قۆناغی ئەژمار دەکرێت.'
+                        : language === 'en'
+                        ? 'No milestones defined. This contract will be treated as single-stage.'
+                        : 'هیچ مرحله زمانی تعریف نشده است. این قرارداد به صورت تک‌مرحله‌ای محاسبه خواهد شد.'}
+                    </span>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleAddMilestone}
+                        className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>{t('addMilestoneBtn')}</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {formData.milestones.map((ms, index) => (
+                      <div
+                        key={ms.id || index}
+                        className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 space-y-3 relative group"
+                      >
+                        {/* Header row of milestone */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold text-[11px]">
+                              {language === 'ku' ? `قۆناغی #${index + 1}` : language === 'en' ? `Stage #${index + 1}` : `مرحله ${index + 1}`}
+                            </span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {ms.title || (language === 'ku' ? 'قۆناغی بێ ناونیشان' : language === 'en' ? 'Untitled Milestone' : 'مرحله بدون عنوان')}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMilestone(index)}
+                            className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                            title={language === 'ku' ? 'سڕینەوەی ئەم قۆناغە' : language === 'en' ? 'Remove milestone' : 'حذف این مرحله'}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                          {/* Title */}
+                          <div className="sm:col-span-6 space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              {t('milestoneTitleLabel')}
+                            </label>
+                            <input
+                              type="text"
+                              value={ms.title}
+                              onChange={(e) => handleUpdateMilestone(index, 'title', e.target.value)}
+                              placeholder={language === 'ku' ? 'نموونە: قۆناغی یەکەم - فونداسیۆن' : language === 'en' ? 'e.g. Stage 1: Foundation' : 'مثال: مرحله اول - فونداسیون و اسکلت'}
+                              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+
+                          {/* Target Percentage */}
+                          <div className="sm:col-span-3 space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              {t('targetProgressLabel')}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={ms.targetPercentage}
+                              onChange={(e) => handleUpdateMilestone(index, 'targetPercentage', e.target.value)}
+                              placeholder="25"
+                              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+
+                          {/* Estimated Installment Amount */}
+                          <div className="sm:col-span-3 space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              {t('estimatedInstallmentAmount')}
+                            </label>
+                            <input
+                              type="text"
+                              value={ms.estimatedAmount ? Number(ms.estimatedAmount).toLocaleString('en-US') : ''}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/,/g, '');
+                                if (/^\d*$/.test(raw)) handleUpdateMilestone(index, 'estimatedAmount', raw);
+                              }}
+                              placeholder="0"
+                              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+
+                          {/* Start Date */}
+                          <div className="sm:col-span-3 space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              {language === 'ku' ? 'بەرواری دەستپێکردن' : language === 'en' ? 'Start Date' : 'تاریخ شروع مرحله'}
+                            </label>
+                            <input
+                              type="date"
+                              value={ms.startDate}
+                              onChange={(e) => handleUpdateMilestone(index, 'startDate', e.target.value)}
+                              className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+
+                          {/* Target End Date (Deadline) */}
+                          <div className="sm:col-span-3 space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              {language === 'ku' ? 'مۆڵەت / وادەی کۆتایی' : language === 'en' ? 'Target End Date' : 'موعد تحویل (مهلت پایان)'}
+                            </label>
+                            <input
+                              type="date"
+                              value={ms.targetEndDate}
+                              onChange={(e) => handleUpdateMilestone(index, 'targetEndDate', e.target.value)}
+                              className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+
+                          {/* Authorized / Grace Delay Days */}
+                          <div className="sm:col-span-3 space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              {t('authorizedDelayDaysLabel')}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={ms.authorizedDelayDays}
+                              onChange={(e) => handleUpdateMilestone(index, 'authorizedDelayDays', e.target.value)}
+                              placeholder="0"
+                              className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+
+                          {/* Delay Penalty Override per Day */}
+                          <div className="sm:col-span-3 space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              {language === 'ku' ? 'سزای ڕۆژانەی ئەم قۆناغە' : language === 'en' ? 'Stage Delay Penalty / Day' : 'جریمه دیرکرد روزانه این قسط'}
+                            </label>
+                            <input
+                              type="text"
+                              value={ms.delayPenaltyPerDay ? Number(ms.delayPenaltyPerDay).toLocaleString('en-US') : ''}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/,/g, '');
+                                if (/^\d*$/.test(raw)) handleUpdateMilestone(index, 'delayPenaltyPerDay', raw);
+                              }}
+                              placeholder={formData.delayPenaltyPerDay ? `پیش‌فرض: ${Number(formData.delayPenaltyPerDay).toLocaleString('en-US')}` : '0'}
+                              className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
             </div>
