@@ -287,6 +287,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   const { user } = useAuth();
   const currency = currentProject?.currency || 'IQD';
   const standardHours = currentProject?.standardWorkHours || 8;
+  const isMonthly = worker?.wageType === 'monthly';
+  const monthlySalary = Number(worker?.monthlySalary) || 0;
 
   const [selectedMonth, setSelectedMonth] = useState(() => getCurrentYearMonth(calendarType, language)); // 'YYYY-MM'
   const [viewMode, setViewMode] = useState('list'); // 'grid' | 'list'
@@ -295,7 +297,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     setSelectedMonth(getCurrentYearMonth(calendarType, language));
   }, [calendarType, language]);
   
-  // dayConfigs map: dateStr ('YYYY-MM-DD') -> { type: 'full'|'half'|'hourly', overtimeHours: number, notes: string }
+  // dayConfigs map: dateStr ('YYYY-MM-DD') -> { type: 'full'|'half'|'hourly'|'present'|'leave'|'absent', overtimeHours: number, notes: string }
   const [dayConfigs, setDayConfigs] = useState({});
   const [removedDates, setRemovedDates] = useState(() => new Set());
   const [selectedDayDate, setSelectedDayDate] = useState(null);
@@ -352,15 +354,21 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     if (!isOpen || !worker) return;
     const initialConfigs = {};
     existingLogs.forEach((l) => {
+      let resolvedType = l.type;
+      if (isMonthly) {
+        if (!resolvedType || resolvedType === 'full') resolvedType = 'present';
+      } else {
+        if (!resolvedType) resolvedType = 'full';
+      }
       initialConfigs[l.date] = {
-        type: l.type || 'full',
+        type: resolvedType,
         overtimeHours: Number(l.overtimeHours) || 0,
         notes: l.notes || '',
         sectionId: l.sectionId || ''
       };
     });
     setDayConfigs(initialConfigs);
-  }, [existingLogs.length, selectedMonth, isOpen, worker?.id]);
+  }, [existingLogs.length, selectedMonth, isOpen, worker?.id, isMonthly]);
 
   // Month navigation: previous and next month
   const handlePrevMonth = () => {
@@ -410,6 +418,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       return;
     }
 
+    const defaultType = isMonthly ? 'present' : 'full';
     const current = dayConfigs[dateStr];
     if (!current) {
       setRemovedDates((prev) => {
@@ -421,7 +430,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       setDayConfigs((prev) => ({
         ...prev,
         [dateStr]: { 
-          type: 'full', 
+          type: defaultType, 
           overtimeHours: 0, 
           notes: '', 
           sectionId: defaultSectionId || null 
@@ -430,7 +439,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       return;
     }
 
-    if (current.type === 'full') {
+    if (current.type === defaultType || (isMonthly && current.type === 'full')) {
       // Toggle off to absent
       setDayConfigs((prev) => {
         const updated = { ...prev };
@@ -448,10 +457,10 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
       return;
     }
 
-    // If it was half or hourly, toggle to standard full day
+    // If it was half/hourly/leave/absent, toggle to standard defaultType
     setDayConfigs((prev) => ({
       ...prev,
-      [dateStr]: { ...prev[dateStr], type: 'full' }
+      [dateStr]: { ...prev[dateStr], type: defaultType }
     }));
   };
 
@@ -464,8 +473,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
     setSelectedDayDate(dateStr);
     setDayConfigs((prev) => {
+      const defaultType = isMonthly ? 'present' : 'full';
       const current = prev[dateStr] || { 
-        type: 'full', 
+        type: defaultType, 
         overtimeHours: 0, 
         notes: '', 
         sectionId: defaultSectionId || null 
@@ -483,8 +493,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
   const addMinutesToSelectedDay = (delta) => {
     if (!selectedDayDate || settledDatesSet.has(selectedDayDate)) return;
     setDayConfigs((prev) => {
+      const defaultType = isMonthly ? 'present' : 'full';
       const cur = prev[selectedDayDate] || { 
-        type: 'full', 
+        type: defaultType, 
         overtimeHours: 0, 
         notes: '', 
         sectionId: defaultSectionId || null 
@@ -504,6 +515,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Quick Action 1: Select all days of the month
   const handleSelectAllDays = () => {
+    const defaultType = isMonthly ? 'present' : 'full';
     const monthDetails = getCalendarMonthDetails(selectedMonth, calendarType, language);
 
     setRemovedDates((prev) => {
@@ -520,7 +532,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         const dateStr = d.dateStr;
         if (!updated[dateStr]) {
           updated[dateStr] = { 
-            type: 'full', 
+            type: defaultType, 
             overtimeHours: 0, 
             notes: '', 
             sectionId: defaultSectionId || null 
@@ -533,6 +545,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
   // Quick Action 2: Select all workdays of the month (excluding Fridays)
   const handleSelectAllExceptFridays = () => {
+    const defaultType = isMonthly ? 'present' : 'full';
     const monthDetails = getCalendarMonthDetails(selectedMonth, calendarType, language);
 
     setRemovedDates((prev) => {
@@ -552,7 +565,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
           const dateStr = d.dateStr;
           if (!updated[dateStr]) {
             updated[dateStr] = { 
-              type: 'full', 
+              type: defaultType, 
               overtimeHours: 0, 
               notes: '', 
               sectionId: defaultSectionId || null 
@@ -592,11 +605,93 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     let fullDays = 0;
     let halfDays = 0;
     let hourlyDays = 0;
+    let presentDays = 0;
+    let leaveDays = 0;
+    let absentDays = 0;
     let totalOt = 0;
     let totalHourlyHours = 0;
     let basePay = 0;
     let otPay = 0;
+    let fridayExtraPay = 0;
 
+    const monthDetails = getCalendarMonthDetails(selectedMonth, calendarType, language);
+    const totalMonthDays = monthDetails?.days?.length || 30;
+    const standardWorkdaysCount = monthDetails?.days ? monthDetails.days.filter((d) => !d.isFriday).length : 25;
+
+    if (isMonthly) {
+      const hourlyRate = worker?.overtimeHourlyRate > 0 
+        ? worker.overtimeHourlyRate 
+        : Math.round((monthlySalary / 30) / standardHours);
+
+      const dailyDeductRate = totalMonthDays > 0 ? (monthlySalary / totalMonthDays) : (monthlySalary / 30);
+
+      Object.entries(dayConfigs).forEach(([dateStr, cfg]) => {
+        const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
+        totalOt += otHours;
+        otPay += roundCurrency(otHours * hourlyRate, currency);
+
+        const type = cfg.type || 'present';
+        if (type === 'leave') {
+          leaveDays += 1;
+        } else if (type === 'absent') {
+          absentDays += 1;
+        } else {
+          // 'present' or 'full'
+          presentDays += 1;
+
+          // Check if it's a Friday for bonus multiplier
+          const dayObj = monthDetails?.days?.find((d) => d.dateStr === dateStr);
+          if (dayObj?.isFriday) {
+            const mult = Number(worker?.fridayRateMultiplier ?? 2.0);
+            if (mult > 1.0) {
+              fridayExtraPay += roundCurrency(dailyDeductRate * (mult - 1.0), currency);
+            }
+          }
+        }
+      });
+
+      const effectivePresent = presentDays + leaveDays;
+
+      if (effectivePresent > 0 || absentDays > 0) {
+        if (effectivePresent >= standardWorkdaysCount) {
+          // Worked all standard workdays (e.g. 25 of 25) -> Full monthly fixed salary!
+          basePay = monthlySalary;
+        } else {
+          if (absentDays > 0) {
+            basePay = Math.max(0, monthlySalary - (absentDays * dailyDeductRate));
+          } else {
+            basePay = roundCurrency(monthlySalary * (effectivePresent / Math.max(1, standardWorkdaysCount)), currency);
+          }
+        }
+      } else {
+        basePay = 0;
+      }
+
+      basePay = roundCurrency(basePay, currency);
+      fridayExtraPay = roundCurrency(fridayExtraPay, currency);
+      otPay = roundCurrency(otPay, currency);
+      const grandTotal = roundCurrency(basePay + otPay + fridayExtraPay, currency);
+
+      return {
+        isMonthly: true,
+        activeCount: Object.keys(dayConfigs).length,
+        fullDays: 0,
+        halfDays: 0,
+        hourlyDays: 0,
+        presentDays,
+        leaveDays,
+        absentDays,
+        effectiveDays: effectivePresent,
+        totalOt: Number(totalOt.toFixed(4)),
+        totalHourlyHours: 0,
+        basePay,
+        otPay,
+        fridayExtraPay,
+        grandTotal
+      };
+    }
+
+    // Daily wage workers:
     const effectiveHourlyRate = worker?.overtimeHourlyRate > 0 
       ? worker.overtimeHourlyRate 
       : Math.round((worker?.dailyRate || 0) / standardHours);
@@ -624,18 +719,23 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
     const grandTotal = roundCurrency(basePay + otPay, currency);
 
     return {
+      isMonthly: false,
       activeCount: Object.keys(dayConfigs).length,
       fullDays,
       halfDays,
       hourlyDays,
+      presentDays: fullDays,
+      leaveDays: 0,
+      absentDays: 0,
       effectiveDays: Number(effectiveDays.toFixed(1)),
       totalOt: Number(totalOt.toFixed(4)),
       totalHourlyHours: Number(totalHourlyHours.toFixed(4)),
       basePay: roundCurrency(basePay, currency),
       otPay: roundCurrency(otPay, currency),
+      fridayExtraPay: 0,
       grandTotal
     };
-  }, [dayConfigs, worker?.dailyRate, worker?.overtimeHourlyRate, currency, standardHours]);
+  }, [dayConfigs, worker, isMonthly, monthlySalary, currency, standardHours, selectedMonth, calendarType, language]);
 
   // Save changes to IndexedDB
   const handleSave = async () => {
@@ -664,21 +764,42 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
       // 2. Prepare logs to upsert for all configured days
       const newLogs = [];
+      const activePresentCount = Object.values(dayConfigs).filter(
+        (c) => c.type === 'present' || c.type === 'leave' || c.type === 'full'
+      ).length;
+      const monthlyDailyWage = (isMonthly && activePresentCount > 0)
+        ? roundCurrency(totals.basePay / activePresentCount, currency)
+        : 0;
+
       for (const [dateStr, cfg] of Object.entries(dayConfigs)) {
         const otHours = Math.max(0, Number(cfg.overtimeHours) || 0);
         let calculatedDailyWage = 0;
         let calculatedOvertimeWage = 0;
+        const logType = cfg.type || (isMonthly ? 'present' : 'full');
 
-        if (cfg.type === 'hourly') {
-          const effectiveHourlyRate = worker.overtimeHourlyRate > 0 
-            ? worker.overtimeHourlyRate 
-            : Math.round(worker.dailyRate / standardHours);
-          calculatedDailyWage = 0;
-          calculatedOvertimeWage = roundCurrency(otHours * effectiveHourlyRate, currency);
+        if (isMonthly) {
+          if (logType === 'absent') {
+            calculatedDailyWage = 0;
+            calculatedOvertimeWage = 0;
+          } else {
+            calculatedDailyWage = monthlyDailyWage;
+            const hourlyRate = worker.overtimeHourlyRate > 0 
+              ? worker.overtimeHourlyRate 
+              : Math.round(((worker.monthlySalary || 0) / 30) / standardHours);
+            calculatedOvertimeWage = roundCurrency(otHours * hourlyRate, currency);
+          }
         } else {
-          const factor = cfg.type === 'half' ? 0.5 : 1.0;
-          calculatedDailyWage = roundCurrency(worker.dailyRate * factor, currency);
-          calculatedOvertimeWage = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
+          if (cfg.type === 'hourly') {
+            const effectiveHourlyRate = worker.overtimeHourlyRate > 0 
+              ? worker.overtimeHourlyRate 
+              : Math.round(worker.dailyRate / standardHours);
+            calculatedDailyWage = 0;
+            calculatedOvertimeWage = roundCurrency(otHours * effectiveHourlyRate, currency);
+          } else {
+            const factor = cfg.type === 'half' ? 0.5 : 1.0;
+            calculatedDailyWage = roundCurrency(worker.dailyRate * factor, currency);
+            calculatedOvertimeWage = roundCurrency(otHours * (worker.overtimeHourlyRate || 0), currency);
+          }
         }
         const totalDayPay = roundCurrency(calculatedDailyWage + calculatedOvertimeWage, currency);
 
@@ -691,7 +812,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
           userId: existing?.userId || user?.id || null,
           workerId: worker.id,
           date: dateStr,
-          type: cfg.type,
+          type: logType,
           overtimeHours: otHours,
           calculatedDailyWage,
           calculatedOvertimeWage,
@@ -760,9 +881,14 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>{copy.quickMonthlyAttendance}</span>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
+                <span>{isMonthly ? copy.monthlyAttendanceTitle : copy.quickMonthlyAttendance}</span>
                 <span className="text-sky-600 dark:text-sky-400 font-semibold">• {worker.name}</span>
+                {isMonthly && (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-mono font-bold">
+                    {copy.monthlyFixedSalary}: {formatCurrency(worker.monthlySalary, currency, language)}
+                  </span>
+                )}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {copy.quickMonthSubtitle}
@@ -902,7 +1028,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         {/* Tip Banner */}
         <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 px-1">
           <Info className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
-          <span>{copy.clickToToggleTip}</span>
+          <span>{isMonthly ? copy.clickToToggleTipMonthly : copy.clickToToggleTip}</span>
         </div>
 
         {/* Calendar / List Body */}
@@ -932,11 +1058,14 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                   }
 
                   const cfg = dayConfigs[day.dateStr];
+                  const isPresent = cfg && (cfg.type === 'present' || cfg.type === 'full');
+                  const isLeave = cfg && cfg.type === 'leave';
+                  const isAbsent = cfg && cfg.type === 'absent';
                   const isFull = cfg && cfg.type === 'full';
                   const isHalf = cfg && cfg.type === 'half';
                   const isHourly = cfg && cfg.type === 'hourly';
                   const isDaySettled = settledDatesSet.has(day.dateStr);
-                  const isActive = !!cfg;
+                  const isActive = !!cfg && (!isMonthly || cfg.type !== 'absent');
                   const isSelected = selectedDayDate === day.dateStr;
 
                   return (
@@ -949,6 +1078,16 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                       } ${
                         isDaySettled
                           ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 shadow-xs'
+                          : isMonthly
+                          ? isPresent
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 shadow-xs'
+                            : isLeave
+                            ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400 dark:border-sky-600 shadow-xs'
+                            : isAbsent
+                            ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-700 shadow-xs'
+                            : day.isFriday
+                            ? 'bg-slate-50/60 dark:bg-slate-800/20 border-slate-200 dark:border-slate-800 text-slate-400'
+                            : 'bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-emerald-400 hover:bg-slate-50/60'
                           : isActive
                           ? 'bg-sky-50 dark:bg-sky-900/40 border-sky-400 dark:border-sky-500 shadow-xs'
                           : day.isFriday
@@ -963,6 +1102,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                       <span className={`text-sm font-extrabold ${
                         isDaySettled
                           ? 'text-emerald-700 dark:text-emerald-300'
+                          : isMonthly
+                          ? isPresent ? 'text-emerald-700 dark:text-emerald-300' : isLeave ? 'text-sky-700 dark:text-sky-300' : isAbsent ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'
                           : isActive ? 'text-sky-600 dark:text-sky-400' : 'text-slate-600 dark:text-slate-400'
                       }`}>
                         {day.dayNumber}
@@ -974,20 +1115,40 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                             <Lock className="w-3 h-3" />
                           </span>
                         )}
-                        {isFull && !isDaySettled && (
-                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">
-                            ✓
-                          </span>
-                        )}
-                        {isHalf && (
-                          <span className="px-1 py-0.2 rounded bg-amber-500 text-white text-[9px] font-bold">
-                            ½
-                          </span>
-                        )}
-                        {isHourly && (
-                          <span className="px-1 py-0.2 rounded bg-purple-600 text-white text-[8px] font-bold">
-                            ⏱
-                          </span>
+                        {!isDaySettled && (
+                          isMonthly ? (
+                            isPresent ? (
+                              <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">
+                                ✓
+                              </span>
+                            ) : isLeave ? (
+                              <span className="px-1 py-0.2 rounded bg-sky-500 text-white text-[8px] font-bold">
+                                🌴
+                              </span>
+                            ) : isAbsent ? (
+                              <span className="w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center text-[9px] font-bold">
+                                ✕
+                              </span>
+                            ) : null
+                          ) : (
+                            <>
+                              {isFull && (
+                                <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">
+                                  ✓
+                                </span>
+                              )}
+                              {isHalf && (
+                                <span className="px-1 py-0.2 rounded bg-amber-500 text-white text-[9px] font-bold">
+                                  ½
+                                </span>
+                              )}
+                              {isHourly && (
+                                <span className="px-1 py-0.2 rounded bg-purple-600 text-white text-[8px] font-bold">
+                                  ⏱
+                                </span>
+                              )}
+                            </>
+                          )
                         )}
                         {/* Subtle adjustment icon button to open Day Inspector without altering status */}
                         <button
@@ -1009,24 +1170,46 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     </div>
 
                     <div className="text-[10px] font-semibold mt-1">
-                      {isFull ? (
-                        <span className="text-emerald-700 dark:text-emerald-300">
-                          {copy.oneDay}
-                        </span>
-                      ) : isHalf ? (
-                        <span className="text-amber-700 dark:text-amber-300">
-                          {copy.halfDayBadge}
-                        </span>
-                      ) : isHourly ? (
-                        <span className="text-purple-700 dark:text-purple-300 truncate block">
-                          {copy.hourlyOnlyOption}
-                        </span>
-                      ) : day.isFriday ? (
-                        <span className="text-slate-400 text-[9px]">
-                          {copy.friday}
-                        </span>
+                      {isMonthly ? (
+                        isPresent ? (
+                          <span className="text-emerald-700 dark:text-emerald-300 font-bold">
+                            {copy.presentOption}
+                          </span>
+                        ) : isLeave ? (
+                          <span className="text-sky-700 dark:text-sky-300 font-bold">
+                            {copy.leaveOption}
+                          </span>
+                        ) : isAbsent ? (
+                          <span className="text-rose-600 dark:text-rose-400 font-bold">
+                            {copy.absentOption}
+                          </span>
+                        ) : day.isFriday ? (
+                          <span className="text-slate-400 text-[9px]">
+                            {copy.friday}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600 text-[9px]">-</span>
+                        )
                       ) : (
-                        <span className="text-slate-300 dark:text-slate-600 text-[9px]">-</span>
+                        isFull ? (
+                          <span className="text-emerald-700 dark:text-emerald-300">
+                            {copy.oneDay}
+                          </span>
+                        ) : isHalf ? (
+                          <span className="text-amber-700 dark:text-amber-300">
+                            {copy.halfDayBadge}
+                          </span>
+                        ) : isHourly ? (
+                          <span className="text-purple-700 dark:text-purple-300 truncate block">
+                            {copy.hourlyOnlyOption}
+                          </span>
+                        ) : day.isFriday ? (
+                          <span className="text-slate-400 text-[9px]">
+                            {copy.friday}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600 text-[9px]">-</span>
+                        )
                       )}
                     </div>
                   </div>
@@ -1081,8 +1264,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
               {/* Inline Day Inspector for Grid View */}
               {selectedDayDate && (() => {
+                const defaultType = isMonthly ? 'present' : 'full';
                 const activeCfg = dayConfigs[selectedDayDate] || {
-                  type: 'full',
+                  type: defaultType,
                   overtimeHours: 0,
                   notes: '',
                   sectionId: defaultSectionId || null
@@ -1091,6 +1275,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                 const isHourly = activeCfg.type === 'hourly';
                 const isHalf = activeCfg.type === 'half';
                 const isFull = activeCfg.type === 'full';
+                const isPresent = activeCfg.type === 'present' || activeCfg.type === 'full';
+                const isLeave = activeCfg.type === 'leave';
+                const isAbsent = activeCfg.type === 'absent';
                 const isInspectorSettled = settledDatesSet.has(selectedDayDate);
 
                 const updateActiveCfg = (updates) => {
@@ -1099,7 +1286,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     ...prev,
                     [selectedDayDate]: {
                       ...(prev[selectedDayDate] || { 
-                        type: 'full', 
+                        type: defaultType, 
                         overtimeHours: 0, 
                         notes: '', 
                         sectionId: defaultSectionId || null 
@@ -1122,13 +1309,15 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                             {formatDateDisplay(selectedDayDate, language, numberFormat, calendarType)}
                           </span>
                           <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
-                            {isHourly
-                              ? copy.hourlyOnlyOption
-                              : isHalf
-                              ? copy.halfDayOption
-                              : isFull
-                              ? copy.fullDayOption
-                              : copy.absentNotLogged}
+                            {isMonthly
+                              ? (isPresent ? copy.presentOption : isLeave ? copy.leaveOption : isAbsent ? copy.absentOption : copy.absentNotLogged)
+                              : (isHourly
+                                ? copy.hourlyOnlyOption
+                                : isHalf
+                                ? copy.halfDayOption
+                                : isFull
+                                ? copy.fullDayOption
+                                : copy.absentNotLogged)}
                           </span>
                         </div>
                       </div>
@@ -1155,45 +1344,85 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
                     <fieldset disabled={isInspectorSettled} className={`space-y-3 ${isInspectorSettled ? 'opacity-60 pointer-events-none select-none' : ''}`}>
 
-                    {/* Row 2: Status Tabs (Full, Half, Hourly, Remove) + Section Selector */}
+                    {/* Row 2: Status Tabs + Section Selector */}
                     <div className="flex-wrap items-center justify-between gap-2 pt-2 border-t border-sky-200/60 dark:border-sky-800/60">
                       <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium">
-                        <button
-                          type="button"
-                          onClick={() => updateActiveCfg({ type: 'full' })}
-                          className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
-                            isFull
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                          }`}
-                        >
-                          {copy.fullDayOption}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateActiveCfg({ type: 'half' })}
-                          className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
-                            isHalf
-                              ? 'bg-amber-600 text-white shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                          }`}
-                        >
-                          {copy.halfDayOption}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateActiveCfg({ 
-                            type: 'hourly', 
-                            overtimeHours: activeCfg.overtimeHours > 0 ? activeCfg.overtimeHours : 1 
-                          })}
-                          className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
-                            isHourly
-                              ? 'bg-purple-600 text-white shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                          }`}
-                        >
-                          {copy.hourlyOnlyOption}
-                        </button>
+                        {isMonthly ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => updateActiveCfg({ type: 'present' })}
+                              className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                isPresent
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                              }`}
+                            >
+                              {copy.presentOption}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateActiveCfg({ type: 'leave' })}
+                              className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                isLeave
+                                  ? 'bg-sky-600 text-white shadow-xs'
+                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                              }`}
+                            >
+                              {copy.leaveOption}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateActiveCfg({ type: 'absent' })}
+                              className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                isAbsent
+                                  ? 'bg-rose-600 text-white shadow-xs'
+                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                              }`}
+                            >
+                              {copy.absentOption}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => updateActiveCfg({ type: 'full' })}
+                              className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                isFull
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                              }`}
+                            >
+                              {copy.fullDayOption}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateActiveCfg({ type: 'half' })}
+                              className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                isHalf
+                                  ? 'bg-amber-600 text-white shadow-xs'
+                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                              }`}
+                            >
+                              {copy.halfDayOption}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateActiveCfg({ 
+                                type: 'hourly', 
+                                overtimeHours: activeCfg.overtimeHours > 0 ? activeCfg.overtimeHours : 1 
+                              })}
+                              className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                isHourly
+                                  ? 'bg-purple-600 text-white shadow-xs'
+                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                              }`}
+                            >
+                              {copy.hourlyOnlyOption}
+                            </button>
+                          </>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -1365,7 +1594,10 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
             <div className="flex flex-col gap-2">
               {monthDays.filter(Boolean).map((day) => {
                 const cfg = dayConfigs[day.dateStr];
-                const isActive = !!cfg;
+                const isActive = !!cfg && (!isMonthly || cfg.type !== 'absent');
+                const isPresent = cfg && (cfg.type === 'present' || cfg.type === 'full');
+                const isLeave = cfg && cfg.type === 'leave';
+                const isAbsent = cfg && cfg.type === 'absent';
                 const isFull = cfg && cfg.type === 'full';
                 const isHalf = cfg && cfg.type === 'half';
                 const isHourly = cfg && cfg.type === 'hourly';
@@ -1378,6 +1610,8 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                         ? selectedDayDate === day.dateStr
                           ? 'bg-sky-50 dark:bg-sky-900/40 border-sky-400 dark:border-sky-500 shadow-md shadow-sky-500/20 scale-[1.02] z-10'
                           : 'bg-white dark:bg-slate-900 border-sky-200 dark:border-sky-800 shadow-sm hover:border-sky-300 dark:hover:border-sky-700'
+                        : isMonthly && isAbsent
+                        ? 'bg-rose-50/50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-900/40 text-rose-500'
                         : day.isFriday
                         ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-sky-300 dark:hover:border-sky-700 hover:shadow-xs'
@@ -1387,7 +1621,13 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     <div className="flex items-center gap-3 mb-2 sm:mb-0">
                       <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold ${
                         isActive 
-                          ? 'bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/30' 
+                          ? isMonthly && isLeave
+                            ? 'bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/30'
+                            : isMonthly
+                            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
+                            : 'bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/30' 
+                          : isMonthly && isAbsent
+                          ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400'
                           : day.isFriday
                           ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400'
                           : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
@@ -1404,12 +1644,32 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                            )}
                         </div>
                         <div className="text-xs text-slate-500 font-medium mt-0.5">
-                          {isActive ? (
-                            <span className="text-sky-700 dark:text-sky-400">
-                              {isFull ? copy.fullDayOption : isHalf ? copy.halfDayOption : copy.hourlyOnlyOption}
-                            </span>
+                          {isMonthly ? (
+                            isPresent ? (
+                              <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+                                {copy.presentOption}
+                              </span>
+                            ) : isLeave ? (
+                              <span className="text-sky-700 dark:text-sky-400 font-bold">
+                                {copy.leaveOption}
+                              </span>
+                            ) : isAbsent ? (
+                              <span className="text-rose-600 dark:text-rose-400 font-bold">
+                                {copy.absentOption}
+                              </span>
+                            ) : day.isFriday ? (
+                              copy.fridayHoliday
+                            ) : (
+                              copy.absent
+                            )
                           ) : (
-                            day.isFriday ? copy.fridayHoliday : copy.absent
+                            isActive ? (
+                              <span className="text-sky-700 dark:text-sky-400">
+                                {isFull ? copy.fullDayOption : isHalf ? copy.halfDayOption : copy.hourlyOnlyOption}
+                              </span>
+                            ) : (
+                              day.isFriday ? copy.fridayHoliday : copy.absent
+                            )
                           )}
                         </div>
                       </div>
@@ -1419,25 +1679,52 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                       <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 ms-14 sm:ms-0 bg-white dark:bg-slate-950 p-1.5 rounded-xl border border-slate-100 dark:border-slate-800 flex-wrap" onClick={e => e.stopPropagation()}>
                          
                          {/* Quick Type Toggle */}
-                         {!isHourly && (
+                         {isMonthly ? (
                            <button 
                              onClick={() => {
-                               setDayConfigs(prev => ({
-                                 ...prev,
-                                 [day.dateStr]: {
-                                   ...prev[day.dateStr],
-                                   type: prev[day.dateStr].type === 'full' ? 'half' : 'full'
-                                 }
-                               }));
+                               setDayConfigs(prev => {
+                                 const curType = prev[day.dateStr]?.type || 'present';
+                                 const nextType = curType === 'present' ? 'leave' : curType === 'leave' ? 'absent' : 'present';
+                                 return {
+                                   ...prev,
+                                   [day.dateStr]: {
+                                     ...prev[day.dateStr],
+                                     type: nextType
+                                   }
+                                 };
+                               });
                              }}
                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs ${
-                               isHalf 
-                                 ? 'bg-amber-500 text-white' 
-                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                               isLeave 
+                                 ? 'bg-sky-500 text-white' 
+                                 : isAbsent
+                                 ? 'bg-rose-500 text-white'
+                                 : 'bg-emerald-600 text-white'
                              }`}
                            >
-                             {isHalf ? copy.halfDayOption : copy.fullDayOption}
+                             {isLeave ? copy.leaveOption : isAbsent ? copy.absentOption : copy.presentOption}
                            </button>
+                         ) : (
+                           !isHourly && (
+                             <button 
+                               onClick={() => {
+                                 setDayConfigs(prev => ({
+                                   ...prev,
+                                   [day.dateStr]: {
+                                     ...prev[day.dateStr],
+                                     type: prev[day.dateStr].type === 'full' ? 'half' : 'full'
+                                   }
+                                 }));
+                               }}
+                               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs ${
+                                 isHalf 
+                                   ? 'bg-amber-500 text-white' 
+                                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                               }`}
+                             >
+                               {isHalf ? copy.halfDayOption : copy.fullDayOption}
+                             </button>
+                           )
                          )}
 
                          {/* Overtime Controls */}
@@ -1467,8 +1754,9 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                   
                   {/* Inline Day Inspector for List View */}
                   {selectedDayDate === day.dateStr && (() => {
+                    const defaultType = isMonthly ? 'present' : 'full';
                     const activeCfg = dayConfigs[selectedDayDate] || {
-                      type: 'full',
+                      type: defaultType,
                       overtimeHours: 0,
                       notes: '',
                       sectionId: defaultSectionId || null
@@ -1477,13 +1765,16 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
                     const isHourly = activeCfg.type === 'hourly';
                     const isHalf = activeCfg.type === 'half';
                     const isFull = activeCfg.type === 'full';
+                    const isPresent = activeCfg.type === 'present' || activeCfg.type === 'full';
+                    const isLeave = activeCfg.type === 'leave';
+                    const isAbsent = activeCfg.type === 'absent';
 
                     const updateActiveCfg = (updates) => {
                       setDayConfigs((prev) => ({
                         ...prev,
                         [selectedDayDate]: {
                           ...(prev[selectedDayDate] || { 
-                            type: 'full', 
+                            type: defaultType, 
                             overtimeHours: 0, 
                             notes: '', 
                             sectionId: defaultSectionId || null 
@@ -1495,44 +1786,84 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
 
                     return (
                       <div className="ms-14 p-3 bg-sky-50/50 dark:bg-sky-900/10 rounded-xl border border-sky-100 dark:border-sky-900/40 animate-in fade-in duration-150 space-y-3">
-                        {/* Row 2: Status Tabs (Full, Half, Hourly, Remove) */}
+                        {/* Row 2: Status Tabs */}
                         <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => updateActiveCfg({ type: 'full' })}
-                            className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
-                              isFull
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                          >
-                            {copy.fullDayOption}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateActiveCfg({ type: 'half' })}
-                            className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
-                              isHalf
-                                ? 'bg-amber-600 text-white shadow-xs'
-                                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                          >
-                            {copy.halfDayOption}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateActiveCfg({ 
-                              type: 'hourly', 
-                              overtimeHours: activeCfg.overtimeHours > 0 ? activeCfg.overtimeHours : 1 
-                            })}
-                            className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
-                              isHourly
-                                ? 'bg-purple-600 text-white shadow-xs'
-                                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                          >
-                            {copy.hourlyOnlyOption}
-                          </button>
+                          {isMonthly ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => updateActiveCfg({ type: 'present' })}
+                                className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                  isPresent
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                              >
+                                {copy.presentOption}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateActiveCfg({ type: 'leave' })}
+                                className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                  isLeave
+                                    ? 'bg-sky-600 text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                              >
+                                {copy.leaveOption}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateActiveCfg({ type: 'absent' })}
+                                className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                  isAbsent
+                                    ? 'bg-rose-600 text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                              >
+                                {copy.absentOption}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => updateActiveCfg({ type: 'full' })}
+                                className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                  isFull
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                              >
+                                {copy.fullDayOption}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateActiveCfg({ type: 'half' })}
+                                className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                  isHalf
+                                    ? 'bg-amber-600 text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                              >
+                                {copy.halfDayOption}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateActiveCfg({ 
+                                  type: 'hourly', 
+                                  overtimeHours: activeCfg.overtimeHours > 0 ? activeCfg.overtimeHours : 1 
+                                })}
+                                className={`px-2.5 py-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                  isHourly
+                                    ? 'bg-purple-600 text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                              >
+                                {copy.hourlyOnlyOption}
+                              </button>
+                            </>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
@@ -1646,12 +1977,22 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
         {/* Live Calculation Summary Bar */}
         <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-2 text-center text-xs">
           <div>
-            <span className="text-slate-400 block text-[11px]">{copy.effectiveDaysTotal}</span>
+            <span className="text-slate-400 block text-[11px]">{isMonthly ? copy.presentDays : copy.effectiveDaysTotal}</span>
             <span className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400">
-              {convertDigits ? convertDigits(totals.effectiveDays, language) : totals.effectiveDays} {copy.normalDays}
-              {totals.hourlyDays > 0 && (
+              {convertDigits ? convertDigits(totals.effectiveDays, language) : totals.effectiveDays} {isMonthly ? copy.presentDays : copy.normalDays}
+              {!isMonthly && totals.hourlyDays > 0 && (
                 <span className="text-xs text-purple-600 dark:text-purple-400 block font-normal">
                   +{convertDigits ? convertDigits(totals.hourlyDays, language) : totals.hourlyDays} {copy.hourlyDaysUnit}
+                </span>
+              )}
+              {isMonthly && totals.leaveDays > 0 && (
+                <span className="text-xs text-sky-600 dark:text-sky-400 block font-normal">
+                  +{convertDigits ? convertDigits(totals.leaveDays, language) : totals.leaveDays} {copy.leaveDays}
+                </span>
+              )}
+              {isMonthly && totals.absentDays > 0 && (
+                <span className="text-xs text-rose-500 dark:text-rose-400 block font-normal">
+                  ({convertDigits ? convertDigits(totals.absentDays, language) : totals.absentDays} {copy.absentDays})
                 </span>
               )}
             </span>
@@ -1663,7 +2004,7 @@ export function QuickMonthAttendanceModal({ worker, isOpen, onClose }) {
             </span>
           </div>
           <div>
-            <span className="text-slate-400 block text-[11px]">{copy.netSalary}</span>
+            <span className="text-slate-400 block text-[11px]">{isMonthly ? copy.monthlyFixedSalary : copy.netSalary}</span>
             <span className="text-sm sm:text-base font-extrabold text-sky-600 dark:text-sky-400">
               {formatCurrency(totals.grandTotal, currency, language)}
             </span>
