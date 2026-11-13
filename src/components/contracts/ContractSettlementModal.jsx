@@ -92,17 +92,43 @@ export default function ContractSettlementModal({
   );
 
   // 1. Fetch historical advances/payments for this counterparty
+  // 1. Fetch un-settled advances / prepayments for THIS contract
   const rawPreviousPayments = useLiveQuery(
     async () => {
-      if (!contract?.counterpartyId || !db.payments) return [];
+      if (!contract?.id || !contract?.counterpartyId || !db.payments) return [];
       const list = await db.payments.toArray();
       return list.filter((p) => {
         if (p.deletedAt) return false;
+
+        // 1. Never treat a contract settlement payout as an advance payment!
+        if (p.type === 'contract_settlement_payment' || p.paymentType === 'contract_settlement_payment') {
+          return false;
+        }
+
+        // 2. If payment is explicitly linked to another contract, do NOT deduct from this contract!
+        if (p.contractId && String(p.contractId) !== String(contract.id)) {
+          return false;
+        }
+
+        // 3. Must match this counterparty
         const matchesCp = String(p.counterpartyId || p.workerId) === String(contract.counterpartyId);
-        return matchesCp;
+        if (!matchesCp) return false;
+
+        // 4. If explicitly linked to this contract, accept
+        if (p.contractId && String(p.contractId) === String(contract.id)) {
+          return true;
+        }
+
+        // 5. If payment has no contractId (unassigned general advance to counterparty):
+        // Only consider it an advance for this contract if it was made on/after contract.startDate
+        if (contract.startDate && p.date && p.date < contract.startDate) {
+          return false;
+        }
+
+        return true;
       });
     },
-    [contract?.counterpartyId]
+    [contract?.id, contract?.counterpartyId, contract?.startDate]
   ) || [];
 
   // Filter out advances that were ALREADY deducted in prior settlements
@@ -118,12 +144,27 @@ export default function ContractSettlementModal({
       const list = await db.expenses.toArray();
       return list.filter((e) => {
         if (e.deletedAt) return false;
+
+        // If expense is explicitly tagged to another contract, do NOT deduct from this contract!
+        if (e.contractId && String(e.contractId) !== String(contract.id)) {
+          return false;
+        }
+
         const matchesContract = String(e.contractId) === String(contract.id);
         const matchesBackcharge = e.isContractorBackcharge && String(e.personId) === String(contract.counterpartyId);
-        return matchesContract || matchesBackcharge;
+
+        if (!e.contractId && matchesBackcharge) {
+          // Unassigned backcharge: only consider if on or after contract startDate
+          if (contract.startDate && e.expenseDate && e.expenseDate < contract.startDate) {
+            return false;
+          }
+          return true;
+        }
+
+        return matchesContract;
       });
     },
-    [contract?.id, contract?.counterpartyId]
+    [contract?.id, contract?.counterpartyId, contract?.startDate]
   ) || [];
 
   // Filter out backcharges that were ALREADY deducted in prior settlements

@@ -118,7 +118,17 @@ const COPY = {
     saveError: (err) => `خطا در ذخیره‌سازی کارکرد ماهانه: ${err}`,
     weekDays: ['یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'],
     oneDay: '۱ روز',
-    halfDayBadge: 'نیم‌روز'
+    halfDayBadge: 'نیم‌روز',
+    presentOption: 'حاضر',
+    leaveOption: 'مرخصی باحقوق',
+    absentOption: 'غایب',
+    monthlyFixedSalary: 'حقوق ثابت ماهانه',
+    presentDays: 'روز حضور',
+    leaveDays: 'روز مرخصی',
+    absentDays: 'روز غیبت',
+    fullMonthPresence: 'حضور کامل ماهانه',
+    monthlyAttendanceTitle: 'ثبت حضور و غیاب ماهانه',
+    clickToToggleTipMonthly: 'راهنما: با کلیک روی هر روز وضعیت تغییر می‌کند: حاضر ⬅️ غایب. با آیکون تنظیمات می‌توانید وضعیت را به مرخصی، غایب یا اضافه کاری تغییر دهید.'
   },
   ku: {
     quickMonthlyAttendance: 'تۆماری خێرای مانگانە',
@@ -182,7 +192,17 @@ const COPY = {
     saveError: (err) => `هەڵە لە پاشەکەوتکردنی کارکردی مانگانە: ${err}`,
     weekDays: ['یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'هەینی', 'شەممە'],
     oneDay: '١ ڕۆژ',
-    halfDayBadge: 'نیوەڕۆژ'
+    halfDayBadge: 'نیوەڕۆژ',
+    presentOption: 'ئامادە',
+    leaveOption: 'مۆڵەت بە مووچە',
+    absentOption: 'ئامادەنەبوو',
+    monthlyFixedSalary: 'مووچەی جێگیری مانگانە',
+    presentDays: 'ڕۆژی ئامادەبوون',
+    leaveDays: 'ڕۆژی مۆڵەت',
+    absentDays: 'ڕۆژی غائیب',
+    fullMonthPresence: 'ئامادەبوونی تەواوی مانگ',
+    monthlyAttendanceTitle: 'تۆماری ئامادەبوون و نەبوونی مانگانە',
+    clickToToggleTipMonthly: 'ڕێنمایی: بە کرتەکردن لەسەر هەر ڕۆژێک دۆخ دەگۆڕێت: ئامادە ⬅️ ئامادەنەبوو. بە ئایکۆنی ڕێکخستن دەتوانیت مۆڵەت، غائیب یان ئۆڤەرتایم دیاری بکەیت.'
   },
   en: {
     quickMonthlyAttendance: 'Quick Monthly Attendance',
@@ -246,7 +266,17 @@ const COPY = {
     saveError: (err) => `Error saving quick monthly attendance: ${err}`,
     weekDays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     oneDay: '1.0 Day',
-    halfDayBadge: '0.5 Day'
+    halfDayBadge: '0.5 Day',
+    presentOption: 'Present',
+    leaveOption: 'Paid Leave',
+    absentOption: 'Absent',
+    monthlyFixedSalary: 'Fixed Monthly Salary',
+    presentDays: 'Present Days',
+    leaveDays: 'Leave Days',
+    absentDays: 'Absent Days',
+    fullMonthPresence: 'Full Month Presence',
+    monthlyAttendanceTitle: 'Monthly Attendance & Presence',
+    clickToToggleTipMonthly: 'Tip: Click any day to toggle status: Present ⬅️ Absent. Use settings icon to set leave, absent, or overtime.'
   }
 };
 
