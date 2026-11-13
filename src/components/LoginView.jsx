@@ -75,7 +75,7 @@ export function LoginView({ theme, toggleTheme }) {
   // Trilingual UI Dictionary for Login & Signup View (Zero Cross-Language Leakage)
   const copy = {
     fa: {
-      versionBadge: 'نسخه ۰.۹.۰',
+      versionBadge: 'نسخه ۰.۹.۵',
       brandSubtitle: 'سامانه هوشمند مدیریت کارگاه، حضور و غیاب و مهندسی مالی',
       heroBadge: 'نسل جدید مدیریت کارگاه و پروژه',
       heroTitle: 'مدیریت یکپارچه کارکرد، دستمزد و حسابداری کارگاه',
@@ -168,7 +168,7 @@ export function LoginView({ theme, toggleTheme }) {
       orDivider: 'یا با ایمیل و گذرواژه'
     },
     ku: {
-      versionBadge: 'وەشانی ٠.٩.٠',
+      versionBadge: 'وەشانی ٠.٩.٥',
       brandSubtitle: 'سیستەمی زیرەکی بەڕێوەبردنی کارگە، کارکرد و ژمێریاری دارایی',
       heroBadge: 'نەوەی نوێی بەڕێوەبردنی کارگە و پڕۆژە',
       heroTitle: 'بەڕێوەبردنی یەکگرتووی کارکرد، کرێ و ژمێریاری کارگە',
@@ -261,7 +261,7 @@ export function LoginView({ theme, toggleTheme }) {
       orDivider: 'یان بە ئیمەیڵ و تێپەڕەوشە'
     },
     en: {
-      versionBadge: 'v0.9.0',
+      versionBadge: 'v0.9.5',
       brandSubtitle: 'Smart Workshop Attendance, Payroll & Financial Engineering Suite',
       heroBadge: 'Next-Gen Workshop & Project ERP',
       heroTitle: 'Unified Attendance, Payroll & Financial Ledger',
