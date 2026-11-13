@@ -352,6 +352,25 @@ export async function purgeDummySeedWorkers() {
         await db.attendanceLogs.where('workerId').equals(w.id).delete();
       }
     }
+
+    // Purge leaked cross-account test workers from non-legacy workspaces (e.g. afshineem3 / TJ4JC8)
+    let currentAuthUser = null;
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('workshop_auth_session') : null;
+      if (raw) currentAuthUser = JSON.parse(raw);
+    } catch (_) {}
+
+    const isLegacy = currentAuthUser?.id === '867f5819-e911-45f2-9d4f-d4a7f955ef5f' || (currentAuthUser?.email && currentAuthUser.email.toLowerCase() === 'afshineem@gmail.com');
+    if (!isLegacy) {
+      const leakedIds = ['id_muzvc13b_evoe0jd', 'id_muzvaj1c_50cuozg', 'id_muzvha1a_j707h0t', 'id_muzvb60z_a976gvh'];
+      for (const id of leakedIds) {
+        await db.workers.delete(id).catch(() => {});
+        await db.attendanceLogs.where('workerId').equals(id).delete().catch(() => {});
+        if (db.payments) {
+          await db.payments.where('workerId').equals(id).delete().catch(() => {});
+        }
+      }
+    }
   } catch (err) {
     console.warn('purgeDummySeedWorkers warning:', err);
   }
