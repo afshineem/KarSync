@@ -637,7 +637,6 @@ export function SettlementModal({
   const [localWorker, setLocalWorker] = useState(null);
   const [workerSearchQuery, setWorkerSearchQuery] = useState('');
   const [workerStatusFilter, setWorkerStatusFilter] = useState('with_arrears'); // 'with_arrears' | 'all' | 'settled'
-  const worker = localWorker || propWorker || null;
 
   // Fallback Dexie live queries if caller did not pass all datasets
   const dbLogs = useLiveQuery(() => db.attendanceLogs.toArray(), []);
@@ -645,6 +644,22 @@ export function SettlementModal({
   const dbWorkers = useLiveQuery(() => db.workers.toArray(), []);
   const dbGroups = useLiveQuery(() => db.groups.toArray(), []);
   const dbLoans = useLiveQuery(async () => db.loans ? db.loans.toArray() : [], []) || [];
+
+  // Local-First: resolve worker from fresh DB records while safeguarding against momentary 0 wage flickering
+  const worker = useMemo(() => {
+    const base = localWorker || propWorker || null;
+    if (!base) return null;
+    const fresh = (dbWorkers || []).find(w => w.id === base.id);
+    if (fresh) {
+      return {
+        ...fresh,
+        monthlySalary: (Number(fresh.monthlySalary) > 0) ? fresh.monthlySalary : (base.monthlySalary || 0),
+        dailyRate: (Number(fresh.dailyRate) > 0) ? fresh.dailyRate : (base.dailyRate || 0),
+        wageType: fresh.wageType || base.wageType || 'standard'
+      };
+    }
+    return base;
+  }, [localWorker, propWorker, dbWorkers]);
 
   const effectiveAllLogs = (allLogs && allLogs.length > 0) ? allLogs : (dbLogs || []);
   const effectiveAllPayments = (allPayments && allPayments.length > 0) ? allPayments : (dbPayments || []);

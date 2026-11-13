@@ -709,6 +709,21 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           dailyRate: Number(w.daily_rate) || 0,
           overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
           isActive: Number(w.is_active) === 0 ? 0 : 1,
+          monthlySalary: (localIsNewer && localW?.monthlySalary !== undefined)
+            ? Number(localW.monthlySalary)
+            : (meta.monthlySalary !== undefined ? Number(meta.monthlySalary) : (Number(localW?.monthlySalary) || 0)),
+          monthlyLeaveDays: (localIsNewer && localW?.monthlyLeaveDays !== undefined)
+            ? Number(localW.monthlyLeaveDays)
+            : (meta.monthlyLeaveDays !== undefined ? Number(meta.monthlyLeaveDays) : (Number(localW?.monthlyLeaveDays) || 0)),
+          leavePolicy: (localIsNewer && localW?.leavePolicy)
+            ? localW.leavePolicy
+            : (meta.leavePolicy || localW?.leavePolicy || 'accumulate'),
+          bonusLeaveDays: (localIsNewer && localW?.bonusLeaveDays !== undefined)
+            ? Number(localW.bonusLeaveDays)
+            : (meta.bonusLeaveDays !== undefined ? Number(meta.bonusLeaveDays) : (Number(localW?.bonusLeaveDays) || 0)),
+          fridayRateMultiplier: (localIsNewer && localW?.fridayRateMultiplier !== undefined)
+            ? Number(localW.fridayRateMultiplier)
+            : (meta.fridayRateMultiplier !== undefined ? Number(meta.fridayRateMultiplier) : (Number(localW?.fridayRateMultiplier) || 2.0)),
           defaultSectionId: (localIsNewer && localW?.defaultSectionId !== undefined)
             ? localW.defaultSectionId
             : (meta.defaultSectionId !== undefined ? meta.defaultSectionId : (localW?.defaultSectionId || null)),
@@ -736,9 +751,9 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
           username: meta.username || localW?.username || '',
           password: meta.password || localW?.password || '',
           projectId: resolvedProjectId,
-          userId: w.user_id || w.userId || 'default_user',
-          createdAt: w.created_at,
-          updatedAt: (localIsNewer && localW?.updatedAt) ? localW.updatedAt : w.updated_at
+          userId: w.user_id || w.userId || localW?.userId || 'default_user',
+          createdAt: w.created_at || localW?.createdAt,
+          updatedAt: (localIsNewer && localW?.updatedAt) ? localW.updatedAt : (w.updated_at || localW?.updatedAt)
         });
       }
     }
@@ -1009,7 +1024,14 @@ function subscribeToRealtime() {
           const projectMap = getWorkerProjectMap();
           const resolvedProjectId = w.project_id || localW?.projectId || projectMap[w.id] || DEFAULT_PROJECT_ID;
 
+          if (localW && localW.updatedAt && w.updated_at) {
+            if (new Date(localW.updatedAt).getTime() >= new Date(w.updated_at).getTime()) {
+              return;
+            }
+          }
+
           await db.workers.put({
+            ...(localW || {}),
             id: w.id,
             name: w.name,
             phone: w.phone || '',
@@ -1017,14 +1039,23 @@ function subscribeToRealtime() {
             dailyRate: Number(w.daily_rate) || 0,
             overtimeHourlyRate: Number(w.overtime_hourly_rate) || 0,
             isActive: Number(w.is_active) === 0 ? 0 : 1,
+            monthlySalary: localW?.monthlySalary !== undefined ? Number(localW.monthlySalary) : (Number(w.monthlySalary) || 0),
+            monthlyLeaveDays: localW?.monthlyLeaveDays !== undefined ? Number(localW.monthlyLeaveDays) : (Number(w.monthlyLeaveDays) || 0),
+            leavePolicy: localW?.leavePolicy || w.leavePolicy || 'accumulate',
+            bonusLeaveDays: localW?.bonusLeaveDays !== undefined ? Number(localW.bonusLeaveDays) : (Number(w.bonusLeaveDays) || 0),
+            fridayRateMultiplier: localW?.fridayRateMultiplier !== undefined ? Number(localW.fridayRateMultiplier) : (Number(w.fridayRateMultiplier) || 2.0),
+            isGlobal: localW?.isGlobal !== undefined ? Boolean(localW.isGlobal) : Boolean(w.isGlobal),
+            projectRates: localW?.projectRates || w.projectRates || {},
+            isArchived: localW?.isArchived !== undefined ? Boolean(localW.isArchived) : Boolean(w.isArchived),
+            status: localW?.status || w.status || (localW?.isArchived ? 'archived' : 'active'),
             defaultSectionId: w.default_section_id || w.defaultSectionId || localW?.defaultSectionId || null,
             groupId: w.group_id || w.groupId || localW?.groupId || null,
             teamRole: w.team_role || w.teamRole || localW?.teamRole || 'Worker',
             wageType: w.wageType || localW?.wageType || 'standard',
             projectId: resolvedProjectId,
-            userId: w.user_id || w.userId || 'default_user',
-            createdAt: w.created_at,
-            updatedAt: w.updated_at
+            userId: w.user_id || w.userId || localW?.userId || 'default_user',
+            createdAt: w.created_at || localW?.createdAt,
+            updatedAt: w.updated_at || localW?.updatedAt
           });
         }
       }
@@ -2252,8 +2283,11 @@ export async function pullWorkerMetadataLive(force = false) {
             needsUpdate = true;
           }
           if (meta.monthlySalary !== undefined && w.monthlySalary !== meta.monthlySalary) {
-            updates.monthlySalary = meta.monthlySalary;
-            needsUpdate = true;
+            // Local-First: Never wipe local positive monthly salary with 0 or empty from cloud unless cloud explicitly has a newer timestamp
+            if (!(Number(w.monthlySalary) > 0 && Number(meta.monthlySalary) === 0 && localTime >= cloudTime)) {
+              updates.monthlySalary = meta.monthlySalary;
+              needsUpdate = true;
+            }
           }
           if (meta.monthlyLeaveDays !== undefined && w.monthlyLeaveDays !== meta.monthlyLeaveDays) {
             updates.monthlyLeaveDays = meta.monthlyLeaveDays;
@@ -2310,12 +2344,19 @@ export async function pullWorkerMetadataLive(force = false) {
               password: meta.password || w.password || ''
             };
           }
-        } else if (w.groupId || w.teamRole !== 'Worker' || w.defaultSectionId || w.username || w.password || w.isArchived) {
+        } else if (w.groupId || w.teamRole !== 'Worker' || w.defaultSectionId || w.username || w.password || w.isArchived || w.monthlySalary) {
           cloudMetadata[w.id] = {
             groupId: w.groupId || null,
             teamRole: w.teamRole || 'Worker',
             wageType: w.wageType || 'standard',
+            monthlySalary: Number(w.monthlySalary) || 0,
+            monthlyLeaveDays: Number(w.monthlyLeaveDays) || 0,
+            leavePolicy: w.leavePolicy || 'accumulate',
+            bonusLeaveDays: Number(w.bonusLeaveDays) || 0,
+            fridayRateMultiplier: Number(w.fridayRateMultiplier) || 2.0,
             defaultSectionId: w.defaultSectionId || null,
+            isGlobal: Boolean(w.isGlobal),
+            projectRates: w.projectRates || {},
             isArchived: !!(w.isArchived || w.status === 'archived'),
             status: w.status || (w.isArchived ? 'archived' : 'active'),
             username: w.username || '',
@@ -2342,7 +2383,7 @@ export async function pullWorkerMetadataLive(force = false) {
     }
 
     const ctx = getActiveWorkspaceContext();
-    if (hasLocalChanges && ctx.isLegacyOwner) {
+    if (hasLocalChanges && (ctx.isLegacyOwner || ctx.userId)) {
       await supabase.from('settings').upsert({
         setting_key: getScopedSettingKey('app_worker_metadata'),
         setting_value: JSON.stringify(cloudMetadata),
