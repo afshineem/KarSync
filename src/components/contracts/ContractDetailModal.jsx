@@ -4,6 +4,9 @@ import { useProject } from '../../context/ProjectContext';
 import { formatAmount, numberToWords, formatCurrency, getTodayDateString, formatDateDisplay } from '../../utils/formatters';
 import {
   deleteContract,
+  isContractLockedFromDeletion,
+  archiveContract,
+  unarchiveContract,
   getContractCrewAttendanceSummary,
   getContractTimelineProgress,
   getContractSettlementProgress,
@@ -47,7 +50,11 @@ import {
   Scale,
   ShieldCheck,
   Milestone,
-  CalendarClock
+  CalendarClock,
+  Archive,
+  RotateCcw,
+  Lock,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function ContractDetailModal({
@@ -109,21 +116,64 @@ export default function ContractDetailModal({
 
   const isCompleted = contract.status === 'completed';
   const isActive = contract.status === 'active';
+  const isFinancialLocked = isContractLockedFromDeletion(contract);
+  const isArchived = Boolean(contract.isArchived);
 
   const handlePrint = () => {
     window.print();
   };
 
+  const handleToggleArchive = async () => {
+    try {
+      if (isArchived) {
+        await unarchiveContract(contract.id);
+        alert(
+          language === 'ku'
+            ? 'گرێبەست لە ئەرشیف دەرهێندرا و گەڕایەوە بۆ لیستی چالاک.'
+            : language === 'en'
+            ? 'Contract removed from archive and returned to active list.'
+            : 'قرارداد از بایگانی خارج و به لیست فعال بازگشت.'
+        );
+      } else {
+        await archiveContract(contract.id);
+        alert(
+          language === 'ku'
+            ? 'گرێبەست بە سەرکەوتوویی ئەرشیف کرا.'
+            : language === 'en'
+            ? 'Contract archived successfully.'
+            : 'قرارداد با موفقیت بایگانی گردید.'
+        );
+      }
+      onClose();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleDelete = async () => {
+    if (isFinancialLocked) {
+      const lockedMsg = language === 'ku'
+        ? `ئەم گرێبەستە خاوەنی سەنەدی دارایی، صورت‌وەزعییەت یان پارەدانی قطعییە و بە پێی یاسای ژمێریاری ناسڕدرێتەوە.\nتکایە لە بری سڕینەوە، گرێبەستەکە «ئەرشیف» بکەن.`
+        : language === 'en'
+        ? `This contract contains posted accounting vouchers, interim settlements, or payments and cannot be deleted to preserve financial audit trail.\nPlease archive this contract instead.`
+        : `این قرارداد دارای صورت‌وضعیت مالی، اسناد حسابداری یا پرداخت‌های قطعی است و جهت حفظ سلامت دفاتر مالی امکان حذف آن وجود ندارد.\nلطفاً در صورت نیاز، قرارداد را «آرشیو» فرمایید.`;
+      alert(lockedMsg);
+      return;
+    }
+
     const confirmMsg = language === 'ku'
-      ? `ئایا دڵنیایت لە سڕینەوەی گرێبەستی "${contract.title}"؟`
+      ? `ئایا دڵنیایت لە سڕینەوە و گواستنەوەی گرێبەستی "${contract.title}" بۆ سەبەتەی سڕینەوە؟\n(دەتوانیت لە سەبەتەی سڕینەوە بیگەڕێنیتەوە)`
       : language === 'en'
-      ? `Are you sure you want to delete contract "${contract.title}"?`
-      : `آیا از حذف قرارداد "${contract.title}" اطمینان دارید؟`;
+      ? `Are you sure you want to move contract "${contract.title}" to Recycle Bin?\n(You can restore it later from the Recycle Bin)`
+      : `آیا از انتقال قرارداد "${contract.title}" به سطل بازیافت اطمینان دارید؟\n(این قرارداد از بخش سطل بازیافت قابل بازیابی خواهد بود)`;
 
     if (window.confirm(confirmMsg)) {
-      await deleteContract(contract.id);
-      onClose();
+      try {
+        await deleteContract(contract.id);
+        onClose();
+      } catch (err) {
+        alert(err.message);
+      }
     }
   };
 
@@ -987,15 +1037,41 @@ export default function ContractDetailModal({
       <footer className="px-4 sm:px-6 py-3.5 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-20 shadow-xs no-print">
         <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
+            {isFinancialLocked ? (
+              <div 
+                className="px-3 py-2 rounded-2xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 flex items-center gap-1.5 select-none"
+                title={language === 'ku' ? 'خاوەنی بەڵگەنامەی داراییە و ناسڕدرێتەوە' : language === 'en' ? 'Protected from deletion due to registered financial records' : 'قفل مالی: غیرقابل حذف به دلیل ثبت اسناد قطعی'}
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>{language === 'ku' ? 'قفڵی دارایی (ناسڕدرێتەوە)' : language === 'en' ? 'Financial Lock' : 'قفل مالی (غیرقابل حذف)'}</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="px-3.5 py-2.5 rounded-2xl text-xs font-bold text-rose-600 hover:bg-rose-500/10 transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{language === 'ku' ? 'سڕینەوە' : language === 'en' ? 'Delete' : 'حذف قرارداد'}</span>
+              </button>
+            )}
+
+            {/* Archive / Unarchive Button */}
             <button
               type="button"
-              onClick={handleDelete}
-              className="px-3.5 py-2.5 rounded-2xl text-xs font-bold text-rose-600 hover:bg-rose-500/10 transition-colors flex items-center gap-1.5 cursor-pointer"
+              onClick={handleToggleArchive}
+              className="px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              title={isArchived ? (language === 'ku' ? 'دەرهێنان لە ئەرشیف' : language === 'en' ? 'Unarchive' : 'خروج از بایگانی') : (language === 'ku' ? 'ئەرشیفکردنی گرێبەست' : language === 'en' ? 'Archive Contract' : 'آرشیو قرارداد')}
             >
-              <Trash2 className="w-4 h-4" />
-              <span>{language === 'ku' ? 'سڕینەوە' : language === 'en' ? 'Delete' : 'حذف قرارداد'}</span>
+              {isArchived ? <RotateCcw className="w-4 h-4 text-primary" /> : <Archive className="w-4 h-4 text-amber-500" />}
+              <span>
+                {isArchived
+                  ? (language === 'ku' ? 'خروج لە ئەرشیف' : language === 'en' ? 'Unarchive' : 'خروج از بایگانی')
+                  : (language === 'ku' ? 'ئەرشیفکردن' : language === 'en' ? 'Archive' : 'آرشیو قرارداد')}
+              </span>
             </button>
-            {isActive && (
+
+            {isActive && !isArchived && (
               <button
                 type="button"
                 onClick={() => {

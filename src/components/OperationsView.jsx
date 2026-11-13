@@ -7,6 +7,7 @@ import { calculateDelayDays, getContractTimelineProgress } from '../services/con
 import AddEditContractModal from './contracts/AddEditContractModal';
 import ContractDetailModal from './contracts/ContractDetailModal';
 import ContractSettlementModal from './contracts/ContractSettlementModal';
+import ContractRecycleBinModal from './contracts/ContractRecycleBinModal';
 import { AddCounterpartyModal } from './AddCounterpartyModal';
 import { CounterpartiesView } from './CounterpartiesView';
 import {
@@ -31,7 +32,9 @@ import {
   Building2,
   FileCheck2,
   TrendingUp,
-  Receipt
+  Receipt,
+  Archive,
+  Trash2
 } from 'lucide-react';
 
 export default function OperationsView() {
@@ -41,17 +44,20 @@ export default function OperationsView() {
 
   const {
     contracts = [],
+    archivedContracts = [],
+    trashContracts = [],
     counterparties = [],
     contractStats = {}
   } = useContracts();
 
-  // Active sub-tab: 'all' | 'active' | 'completed' | 'counterparties'
+  // Active sub-tab: 'all' | 'in_progress' | 'not_started' | 'overdue' | 'completed' | 'archived' | 'counterparties'
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 
   // Modals state
   const [isAddContractModalOpen, setIsAddContractModalOpen] = useState(false);
+  const [isRecycleBinModalOpen, setIsRecycleBinModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState(null);
   const [selectedContractForDetail, setSelectedContractForDetail] = useState(null);
   const [selectedContractForSettlement, setSelectedContractForSettlement] = useState(null);
@@ -59,7 +65,7 @@ export default function OperationsView() {
 
   // Filtered contracts
   const filteredContracts = useMemo(() => {
-    let list = [...contracts];
+    let list = activeTab === 'archived' ? [...archivedContracts] : [...contracts];
     const today = getTodayDateString();
 
     // Status tab filter
@@ -71,6 +77,8 @@ export default function OperationsView() {
       list = list.filter(c => c.status === 'active' && c.estimatedEndDate && c.estimatedEndDate < today);
     } else if (activeTab === 'completed') {
       list = list.filter(c => c.status === 'completed');
+    } else if (activeTab === 'archived') {
+      // already set to archivedContracts
     }
 
     // Type filter
@@ -127,9 +135,25 @@ export default function OperationsView() {
             </div>
           </div>
 
-          {/* Left side: The 3 Action Buttons in One Shared Box without text & with large icons */}
+          {/* Left side: The Action Buttons in One Shared Box without text & with large icons */}
           <div className="h-[52px] sm:h-[56px] flex items-center gap-1.5 p-1.5 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-inner self-start sm:self-center">
-            {/* 1. Counterparties View Toggle */}
+            {/* 1. Contracts Recycle Bin & Archive */}
+            <button
+              type="button"
+              onClick={() => setIsRecycleBinModalOpen(true)}
+              className="relative h-full aspect-square rounded-xl text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700/80 transition-all active:scale-95 group flex items-center justify-center cursor-pointer"
+              title={language === "ku" ? "سەبەتەی سڕینەوە و ئەرشیفی گرێبەستەکان" : language === "en" ? "Contracts Recycle Bin & Archive" : "سطل بازیافت و آرشیو قراردادها"}
+              aria-label="Contracts Recycle Bin & Archive"
+            >
+              <Archive className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-105 transition-transform" />
+              {(trashContracts.length > 0 || archivedContracts.length > 0) && (
+                <span className="absolute -top-1 -end-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-mono bg-rose-500 text-white font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900 leading-none shadow-xs">
+                  {trashContracts.length + archivedContracts.length}
+                </span>
+              )}
+            </button>
+
+            {/* 2. Counterparties View Toggle */}
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === "counterparties" ? "all" : "counterparties")}
@@ -149,7 +173,7 @@ export default function OperationsView() {
               )}
             </button>
 
-            {/* 2. New Counterparty Modal Trigger */}
+            {/* 3. New Counterparty Modal Trigger */}
             <button
               type="button"
               onClick={() => setIsAddCounterpartyModalOpen(true)}
@@ -160,7 +184,7 @@ export default function OperationsView() {
               <UserPlus className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
-            {/* 3. New Contract Modal Trigger */}
+            {/* 4. New Contract Modal Trigger */}
             <button
               type="button"
               onClick={() => {
@@ -372,6 +396,7 @@ export default function OperationsView() {
               { id: 'not_started', label: language === 'ku' ? 'دەست‌پێنەکراو' : language === 'en' ? 'Not Started' : 'شروع‌نشده', icon: Layers },
               { id: 'overdue', label: language === 'ku' ? 'دواکەوتوو' : language === 'en' ? 'Overdue' : 'دارای تاخیر', icon: AlertTriangle },
               { id: 'completed', label: language === 'ku' ? 'تەواوبوو' : language === 'en' ? 'Completed' : 'پایان‌یافته و تسویه', icon: CheckCircle2 },
+              { id: 'archived', label: language === 'ku' ? 'ئەرشیف' : language === 'en' ? 'Archived' : 'بایگانی و آرشیو', icon: Archive },
               { id: 'counterparties', label: language === 'ku' ? 'لایەنەکانی حیساب' : language === 'en' ? 'Counterparties' : 'طرف‌حساب‌ها و استادکاران', icon: Users }
             ].map((tab) => {
               const Icon = tab.icon;
@@ -686,6 +711,17 @@ export default function OperationsView() {
         <AddCounterpartyModal
           isOpen={isAddCounterpartyModalOpen}
           onClose={() => setIsAddCounterpartyModalOpen(false)}
+        />
+      )}
+
+      {/* Contracts Recycle Bin & Archive Modal */}
+      {isRecycleBinModalOpen && (
+        <ContractRecycleBinModal
+          isOpen={isRecycleBinModalOpen}
+          onClose={() => setIsRecycleBinModalOpen(false)}
+          trashContracts={trashContracts}
+          archivedContracts={archivedContracts}
+          onSelectContractForDetail={(c) => setSelectedContractForDetail(c)}
         />
       )}
 

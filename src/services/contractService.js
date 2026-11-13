@@ -141,15 +141,81 @@ export async function updateContract(id, updates) {
 }
 
 /**
- * Soft delete contract
+ * Checks whether a contract has settled status, recorded vouchers, payments,
+ * or completed stages that lock it from deletion.
+ */
+export function isContractLockedFromDeletion(contract) {
+  if (!contract) return false;
+  const hasSettlements = Array.isArray(contract.settlements) && contract.settlements.length > 0;
+  const isCompletedOrSettled = contract.status === 'completed' || contract.status === 'settled';
+  const hasVoucher = Boolean(contract.voucherId);
+  const hasFinalPayable = contract.finalPayableAmount !== null && contract.finalPayableAmount !== undefined;
+  const hasPayments = Array.isArray(contract.settlements) && contract.settlements.some(s => 
+    (Number(s.paidAmount) > 0) || (Array.isArray(s.paymentTransactions) && s.paymentTransactions.length > 0)
+  );
+  return hasSettlements || isCompletedOrSettled || hasVoucher || hasFinalPayable || hasPayments;
+}
+
+/**
+ * Performs deep inspection of local stores (vouchers, expenses) to verify if a contract
+ * is locked by financial records.
+ */
+export async function checkContractFinancialLock(contractId) {
+  if (!db.contracts || !contractId) return { isLocked: false };
+  const contract = await db.contracts.get(contractId);
+  if (!contract) return { isLocked: false };
+
+  if (isContractLockedFromDeletion(contract)) {
+    return {
+      isLocked: true,
+      reason: 'دارای صورت‌وضعیت مالی یا تسویه‌حساب قطعی'
+    };
+  }
+
+  try {
+    if (db.vouchers) {
+      const vouchers = await db.vouchers.where('contractId').equals(contractId).toArray();
+      if (vouchers.length > 0) {
+        return {
+          isLocked: true,
+          reason: 'دارای سند حسابداری ثبت‌شده در دفاتر مالی'
+        };
+      }
+    }
+
+    if (db.expenses) {
+      const expenses = await db.expenses.where('contractId').equals(contractId).toArray();
+      if (expenses.length > 0) {
+        return {
+          isLocked: true,
+          reason: 'دارای رکوردهای پرداختی و تراکنش مالی'
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('checkContractFinancialLock check error:', err);
+  }
+
+  return { isLocked: false };
+}
+
+/**
+ * Soft delete contract to Recycle Bin
+ * STRICT INVARIANT: Blocks deletion if contract has registered vouchers, settlements, or payments!
  */
 export async function deleteContract(id) {
-  if (!db.contracts) return;
+  if (!db.contracts || !id) return;
   const existing = await db.contracts.get(id);
   if (!existing) return;
 
+  const lock = await checkContractFinancialLock(id);
+  if (lock.isLocked) {
+    throw new Error(`حذف این قرارداد به علت «${lock.reason}» امکان‌پذیر نیست. قراردادهای دارای گردش مالی و سند قطعی باید در بخش آرشیو نگهداری شوند.`);
+  }
+
   const updated = {
     ...existing,
+    previousStatus: existing.status || 'active',
     status: 'deleted',
     deletedAt: new Date().toISOString()
   };
@@ -160,6 +226,159 @@ export async function deleteContract(id) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { id, deleted: true } }));
   }
+  return updated;
+}
+
+/**
+ * Restore soft-deleted contract from Recycle Bin
+ */
+export async function restoreContract(id) {
+  if (!db.contracts || !id) return;
+  const existing = await db.contracts.get(id);
+  if (!existing) return;
+
+  let restoredStatus = existing.previousStatus;
+  if (!restoredStatus || restoredStatus === 'deleted') {
+    if (existing.finalPayableAmount !== null || (Array.isArray(existing.settlements) && existing.settlements.some(s => s.settlementType === 'final'))) {
+      restoredStatus = 'completed';
+    } else {
+      restoredStatus = 'active';
+    }
+  }
+
+  const updated = {
+    ...existing,
+    status: restoredStatus,
+    deletedAt: null
+  };
+
+  await db.contracts.put(updated);
+  pushContractLive(updated).catch(console.warn);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { id, type: 'restore' } }));
+  }
+  return updated;
+}
+
+/**
+ * Move contract to Archive
+ */
+export async function archiveContract(id) {
+  if (!db.contracts || !id) return;
+  const existing = await db.contracts.get(id);
+  if (!existing) return;
+
+  const updated = {
+    ...existing,
+    isArchived: true,
+    archivedAt: new Date().toISOString()
+  };
+
+  await db.contracts.put(updated);
+  pushContractLive(updated).catch(console.warn);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { id, type: 'archive' } }));
+  }
+  return updated;
+}
+
+/**
+ * Restore contract from Archive back to active list
+ */
+export async function unarchiveContract(id) {
+  if (!db.contracts || !id) return;
+  const existing = await db.contracts.get(id);
+  if (!existing) return;
+
+  const updated = {
+    ...existing,
+    isArchived: false,
+    archivedAt: null
+  };
+
+  await db.contracts.put(updated);
+  pushContractLive(updated).catch(console.warn);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { id, type: 'unarchive' } }));
+  }
+  return updated;
+}
+
+/**
+ * Permanently delete contract from database
+ * STRICT INVARIANT: Permanent deletion is 100% blocked for any contract with financial documents!
+ */
+export async function permanentDeleteContract(id) {
+  if (!db.contracts || !id) return;
+  const existing = await db.contracts.get(id);
+  if (!existing) return;
+
+  const lock = await checkContractFinancialLock(id);
+  if (lock.isLocked) {
+    throw new Error(`حذف قطعی این قرارداد غیرمجاز است. این قرارداد دارای سوابق مالی و اسناد قطعی حسابداری است.`);
+  }
+
+  await db.contracts.delete(id);
+  deleteContractLive(id).catch(console.warn);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { id, permanent: true } }));
+  }
+}
+
+/**
+ * Restore all soft-deleted contracts for a project
+ */
+export async function restoreAllContracts(projectId = DEFAULT_PROJECT_ID) {
+  if (!db.contracts) return 0;
+  const allContracts = await db.contracts.toArray();
+  const deletedContracts = allContracts.filter(c => 
+    (c.deletedAt || c.status === 'deleted') && 
+    (!c.projectId || c.projectId === projectId || projectId === DEFAULT_PROJECT_ID)
+  );
+
+  let restoredCount = 0;
+  for (const c of deletedContracts) {
+    await restoreContract(c.id);
+    restoredCount++;
+  }
+  return restoredCount;
+}
+
+/**
+ * Empty contracts trash: permanently deletes unvouchered contracts only.
+ * Safely leaves vouchered/settled contracts in trash to protect financial records!
+ */
+export async function emptyContractsTrash(projectId = DEFAULT_PROJECT_ID) {
+  if (!db.contracts) return { deletedCount: 0, preservedCount: 0 };
+  const allContracts = await db.contracts.toArray();
+  const deletedContracts = allContracts.filter(c => 
+    (c.deletedAt || c.status === 'deleted') && 
+    (!c.projectId || c.projectId === projectId || projectId === DEFAULT_PROJECT_ID)
+  );
+
+  let deletedCount = 0;
+  let preservedCount = 0;
+
+  for (const c of deletedContracts) {
+    const lock = await checkContractFinancialLock(c.id);
+    if (lock.isLocked) {
+      preservedCount++;
+    } else {
+      await db.contracts.delete(c.id);
+      deleteContractLive(c.id).catch(console.warn);
+      deletedCount++;
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { type: 'empty_trash' } }));
+  }
+
+  return { deletedCount, preservedCount };
 }
 
 /**

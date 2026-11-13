@@ -42,21 +42,21 @@ export function useContracts() {
     return map;
   }, [counterparties]);
 
-  // Live Query: Contracts
-  const rawContracts = useLiveQuery(
+  // Live Query: All Contracts in Project (including archived & trash)
+  const allProjectContracts = useLiveQuery(
     async () => {
       if (!db.contracts) return [];
       const list = await db.contracts.toArray();
       return list
-        .filter((c) => !c.deletedAt && c.status !== 'deleted' && (!c.projectId || c.projectId === projectId || projectId === DEFAULT_PROJECT_ID))
+        .filter((c) => !c.projectId || c.projectId === projectId || projectId === DEFAULT_PROJECT_ID)
         .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     },
     [projectId, syncTick]
   ) || [];
 
   // Enriched contracts with counterparty metadata
-  const contracts = useMemo(() => {
-    return rawContracts.map((ctr) => {
+  const enrichedAllContracts = useMemo(() => {
+    return allProjectContracts.map((ctr) => {
       const cp = counterpartyMap.get(String(ctr.counterpartyId));
       return {
         ...ctr,
@@ -65,7 +65,24 @@ export function useContracts() {
         counterpartyType: cp?.type || ctr.type
       };
     });
-  }, [rawContracts, counterpartyMap]);
+  }, [allProjectContracts, counterpartyMap]);
+
+  // Split into active, archived, and trash
+  const trashContracts = useMemo(() => {
+    return enrichedAllContracts.filter((c) => Boolean(c.deletedAt) || c.status === 'deleted');
+  }, [enrichedAllContracts]);
+
+  const archivedContracts = useMemo(() => {
+    return enrichedAllContracts.filter(
+      (c) => !c.deletedAt && c.status !== 'deleted' && Boolean(c.isArchived)
+    );
+  }, [enrichedAllContracts]);
+
+  const contracts = useMemo(() => {
+    return enrichedAllContracts.filter(
+      (c) => !c.deletedAt && c.status !== 'deleted' && !c.isArchived
+    );
+  }, [enrichedAllContracts]);
 
   // Live Stats
   const contractStats = useMemo(() => {
@@ -116,6 +133,9 @@ export function useContracts() {
 
   return {
     contracts,
+    archivedContracts,
+    trashContracts,
+    allContracts: enrichedAllContracts,
     counterparties,
     counterpartyMap,
     contractStats,
