@@ -31,6 +31,7 @@ import { SpendAnalyticsSection } from './accounting/SpendAnalyticsSection';
 import { GeneralLedgerTable } from './accounting/GeneralLedgerTable';
 import { StaffLoansSection } from './accounting/StaffLoansSection';
 import ChequesManagementSection from './accounting/ChequesManagementSection';
+import { ProfitLossSection } from './accounting/ProfitLossSection';
 
 // Utilities & LiveSync
 import { calculateWorkerFinancials } from '../utils/settlementCalculations.js';
@@ -87,7 +88,8 @@ import {
   TrendingUp,
   TrendingDown,
   Calculator,
-  FileCheck2
+  FileCheck2,
+  Scale
 } from 'lucide-react';
 
 const SUMMARY_LAYOUT_KEY = 'karsync_financials_worker_layout';
@@ -136,6 +138,8 @@ const COPY = {
     accountsTabShort: 'حساب‌ها',
     ledgerTab: 'دفتر روزنامه تراکنش‌ها',
     ledgerTabShort: 'دفتر کل',
+    profitLossTab: 'صورت سود و زیان (P&L)',
+    profitLossTabShort: 'سود و زیان',
     customDateRange: 'فیلتر بازه زمانی دلخواه',
     dateRange: 'بازه زمانی',
     addAccount: 'تعریف حساب یا کارت بانکی جدید',
@@ -259,6 +263,8 @@ const COPY = {
     accountsTabShort: 'حیسابەکان',
     ledgerTab: 'دەفتەری گشتی',
     ledgerTabShort: 'دەفتەر',
+    profitLossTab: 'خشتەی سوود و زیان (P&L)',
+    profitLossTabShort: 'سوود و زیان',
     customDateRange: 'ماوەی بەرواری دڵخواز',
     dateRange: 'ماوەی بەروار',
     addAccount: 'پێناسەکردنی حیساب یان کارتی نوێ',
@@ -382,6 +388,8 @@ const COPY = {
     accountsTabShort: 'Accounts',
     ledgerTab: 'Financial Ledger',
     ledgerTabShort: 'Ledger',
+    profitLossTab: 'Profit & Loss (P&L)',
+    profitLossTabShort: 'P&L',
     customDateRange: 'Custom Date Range',
     dateRange: 'Date Range',
     addAccount: 'Add Account / Bank Card',
@@ -556,7 +564,10 @@ export function FinancialsView() {
     setSearchQuery: setLedgerSearchQuery,
     deleteDraftLedgerItem,
     batchDeleteDraftLedgerItems,
-    chequeStats = {}
+    chequeStats = {},
+    profitAndLossData,
+    profitAndLossBasis,
+    setProfitAndLossBasis
   } = useAccounting();
 
   const { hasPermission } = usePermissions();
@@ -1548,6 +1559,12 @@ export function FinancialsView() {
               icon: BarChart3
             },
             {
+              id: 'profit_loss',
+              label: c.profitLossTab,
+              shortLabel: c.profitLossTabShort,
+              icon: Scale
+            },
+            {
               id: 'workers',
               label: c.workerBalancesTab,
               shortLabel: c.workerBalancesTabShort,
@@ -1703,6 +1720,21 @@ export function FinancialsView() {
             setIsDateRangeModalOpen(true);
           }}
         />
+      )}
+
+      {/* ======================================================== */}
+      {/* SECTION: PROFIT & LOSS STATEMENT (صورت سود و زیان جامع)    */}
+      {/* ======================================================== */}
+      {activeSection === 'profit_loss' && (
+        <section id="profit-loss-section" aria-label="Profit and Loss Statement" className="animate-in fade-in duration-200">
+          <ProfitLossSection
+            profitAndLossData={profitAndLossData}
+            basis={profitAndLossBasis}
+            onBasisChange={setProfitAndLossBasis}
+            currency={currency}
+            language={language}
+          />
+        </section>
       )}
 
       {/* ======================================================== */}
