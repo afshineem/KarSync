@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Calendar, 
   ChevronRight, 
@@ -99,7 +100,25 @@ export function DualDatePicker({
   const copy = COPY[language] || COPY.fa;
 
   const [isOpen, setIsOpen] = useState(false);
+  const [popoverPos, setPopoverPos] = useState(null);
   const containerRef = useRef(null);
+  const popoverRef = useRef(null);
+
+  const updatePopoverPosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const popoverWidth = window.innerWidth >= 640 ? 320 : 288;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < 340 && rect.top > spaceBelow;
+    const rawLeft = direction === 'rtl' ? rect.left : rect.right - popoverWidth;
+    const left = Math.max(8, Math.min(rawLeft, window.innerWidth - popoverWidth - 8));
+
+    setPopoverPos(
+      openUp
+        ? { bottom: window.innerHeight - rect.top + 6, left }
+        : { top: rect.bottom + 6, left }
+    );
+  }, [direction]);
 
   // Derive initial view month from current value or today
   const initialViewMonth = useMemo(() => {
@@ -124,12 +143,19 @@ export function DualDatePicker({
     }
   }, [isOpen, initialViewMonth]);
 
-  // Click outside and Escape key handler
+  // Click outside, Escape key, and viewport position sync
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setPopoverPos(null);
+      return;
+    }
+
+    updatePopoverPosition();
 
     const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+      const clickedContainer = containerRef.current && containerRef.current.contains(e.target);
+      const clickedPopover = popoverRef.current && popoverRef.current.contains(e.target);
+      if (!clickedContainer && !clickedPopover) {
         setIsOpen(false);
       }
     };
@@ -142,11 +168,15 @@ export function DualDatePicker({
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('scroll', updatePopoverPosition, true);
+    window.addEventListener('resize', updatePopoverPosition);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', updatePopoverPosition, true);
+      window.removeEventListener('resize', updatePopoverPosition);
     };
-  }, [isOpen]);
+  }, [isOpen, updatePopoverPosition]);
 
   // Month breakdown details
   const monthDetails = useMemo(() => {
@@ -351,10 +381,14 @@ export function DualDatePicker({
         </div>
       )}
 
-      {/* Calendar Popover Dropdown */}
-      {isOpen && (
-        <div 
-          className="absolute z-50 mt-1.5 w-72 sm:w-80 p-3.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-700/90 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 end-0 select-none"
+      {/* Calendar Popover Dropdown (portaled to body to escape card stacking contexts) */}
+      {isOpen && popoverPos && createPortal(
+        <div
+          ref={popoverRef}
+          dir={direction}
+          style={{ position: 'fixed', zIndex: 9999, ...popoverPos }}
+          className="w-72 sm:w-80 p-3.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-700/90 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 select-none"
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header: Month Navigator */}
@@ -467,7 +501,8 @@ export function DualDatePicker({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
