@@ -37,6 +37,7 @@ import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { getCurrentYearMonth, getTodayDateString, roundCurrency } from '../utils/formatters';
 import { getDeterministicVoucher, generateNextVoucherNumber } from '../services/voucherNumberService';
+import { calculateProfitAndLoss } from '../services/profitAndLossService';
 
 /**
  * useAccounting
@@ -65,6 +66,7 @@ export function useAccounting(options = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [accountTypeFilter, setAccountTypeFilter] = useState('all'); // 'all' | 'cash' | 'bank'
   const [approvalStatusFilter, setApprovalStatusFilter] = useState('all'); // 'all' | 'draft' | 'approved' | 'amended'
+  const [profitAndLossBasis, setProfitAndLossBasis] = useState('realized'); // 'realized' | 'accrual'
 
   const [syncTick, setSyncTick] = useState(0);
 
@@ -80,6 +82,7 @@ export function useAccounting(options = {}) {
     window.addEventListener('workshop-expenses-sync', handleSync);
     window.addEventListener('workshop-cheques-sync', handleSync);
     window.addEventListener('workshop-chequebooks-sync', handleSync);
+    window.addEventListener('workshop-logs-sync', handleSync);
     window.addEventListener('karsync:accounting-sync', handleSync);
 
     pullFinancialAccountsLive().catch(console.warn);
@@ -96,8 +99,9 @@ export function useAccounting(options = {}) {
       window.removeEventListener('workshop-transfers-sync', handleSync);
       window.removeEventListener('workshop-payments-sync', handleSync);
       window.removeEventListener('workshop-expenses-sync', handleSync);
-    window.removeEventListener('workshop-cheques-sync', handleSync);
-    window.removeEventListener('workshop-chequebooks-sync', handleSync);
+      window.removeEventListener('workshop-cheques-sync', handleSync);
+      window.removeEventListener('workshop-chequebooks-sync', handleSync);
+      window.removeEventListener('workshop-logs-sync', handleSync);
       window.removeEventListener('karsync:accounting-sync', handleSync);
     };
   }, []);
@@ -122,6 +126,19 @@ export function useAccounting(options = {}) {
       return list.filter((cp) => !cp.deletedAt && (!cp.projectId || cp.projectId === projectId || projectId === DEFAULT_PROJECT_ID));
     },
     [projectId]
+  ) || [];
+
+  // لاگ‌های کارکرد روزانه جهت محاسبه تعهدی سود و زیان کارگاه
+  const attendanceLogs = useLiveQuery(
+    async () => {
+      if (!db.attendanceLogs) return [];
+      const list = await db.attendanceLogs.toArray();
+      const projectWorkerIds = new Set(workers.map((w) => String(w.id)));
+      return list.filter(
+        (l) => !l.deletedAt && (!l.projectId || l.projectId === projectId || projectId === DEFAULT_PROJECT_ID || projectWorkerIds.has(String(l.workerId)))
+      );
+    },
+    [projectId, workers, syncTick]
   ) || [];
 
   const workerMap = useMemo(() => {
@@ -758,6 +775,41 @@ export function useAccounting(options = {}) {
       expenseRatio
     };
   }, [financialAccounts, treasuryIncomes, payments, expenses, currency]);
+
+  // ----------------------------------------------------
+  // ۳.۵ محاسبه جامع و تفکیکی صورت سود و زیان (P&L) کارگاه
+  // ----------------------------------------------------
+  const profitAndLossData = useMemo(() => {
+    return calculateProfitAndLoss({
+      incomes: treasuryIncomes,
+      expenses,
+      payments,
+      attendanceLogs,
+      workers,
+      counterparties,
+      currency,
+      basis: profitAndLossBasis,
+      dateFilter: {
+        mode: dateFilterMode,
+        startDate: customStartDate,
+        endDate: customEndDate,
+        selectedMonth
+      }
+    });
+  }, [
+    treasuryIncomes,
+    expenses,
+    payments,
+    attendanceLogs,
+    workers,
+    counterparties,
+    currency,
+    profitAndLossBasis,
+    dateFilterMode,
+    customStartDate,
+    customEndDate,
+    selectedMonth
+  ]);
 
   // ----------------------------------------------------
   // ۴. ساخت دفتر کل تراکنش‌ها (General Ledger) با Running Balance
@@ -1581,6 +1633,10 @@ export function useAccounting(options = {}) {
     currency,
     // آمار داشبورد ۴گانه
     dashboardStats,
+    // موتور و داده‌های صورت سود و زیان (P&L)
+    profitAndLossData,
+    profitAndLossBasis,
+    setProfitAndLossBasis,
     // لیست‌های خام و تفکیک شده
     treasuryIncomes,
     payments,

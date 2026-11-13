@@ -14,6 +14,7 @@ import FinancialYearsModal from './accounting/FinancialYearsModal';
 import { AccountBalanceTiles } from './accounting/AccountBalanceTiles';
 import { AccountTransferModal } from './accounting/AccountTransferModal';
 import { DateRangeFilterModal } from './accounting/DateRangeFilterModal';
+import { ProfitLossSection } from './accounting/ProfitLossSection';
 import { formatMonthOnly, getCurrentYearMonth } from '../utils/formatters';
 import { 
   Landmark, 
@@ -33,6 +34,7 @@ import {
   CalendarDays,
   BarChart3,
   Layers,
+  Scale,
   Info
 } from 'lucide-react';
 
@@ -54,6 +56,7 @@ const COPY = {
     tabIncome: 'ورودی‌ها و تنخواه',
     tabAccounts: 'کارت‌ها و صندوق‌ها',
     tabChartOfAccounts: 'کدینگ حساب‌ها',
+    tabProfitLoss: 'سود و زیان (P&L)',
     mainTitle: 'حسابداری و خزانه‌داری',
     projectFallback: 'پروژه کارگاه',
     mainSubtitle: 'مدیریت یکپارچه تنخواه، تراز لحظه‌ای صندوق، کنترل هزینه‌ها و دفتر کل تراکنش‌ها',
@@ -82,6 +85,8 @@ const COPY = {
     headerChartOfAccountsDesc: 'ساختار استاندارد ۴ رقمی: گروه، کل، معین و پیوند تفصیلی‌های شناور',
     headerLedgerDesc: 'ثبت و تایید اسناد دو مرحله‌ای، مغایرت‌گیری و گردش حساب',
     headerIncomeDesc: 'تزریق نقدینگی، شارژ تنخواه و واریزی‌های کارفرما',
+    headerProfitLossTitle: 'صورت سود و زیان جامع کارگاه و پروژه',
+    headerProfitLossDesc: 'محاسبه درآمدهای کارفرما، بهای تمام‌شده مستقیم، سربار، بیمه، مالیات و سود خالص',
     bannerDraftTitle: (cnt) => `تعداد ${cnt} سند مالی موقت (پیش‌نویس) در انتظار تایید نهایی هستند.`,
     bannerDraftDesc: 'تسویه‌حساب‌ها و هزینه‌های ثبت شده تا زمان تایید نهایی مدیر، وضعیت پیش‌نویس دارند.',
     btnReviewApprove: 'مشاهده و تایید اسناد',
@@ -94,6 +99,7 @@ const COPY = {
     tabIncome: 'داهات و تەنخوا',
     tabAccounts: 'کارت و سندووق',
     tabChartOfAccounts: 'کۆدینگی حیسابات',
+    tabProfitLoss: 'سوود و زیان (P&L)',
     mainTitle: 'ژمێریاری و خەزێنەداری',
     projectFallback: 'پڕۆژە',
     mainSubtitle: 'بەڕێوەبردنی تەنخوا، هاوسەنگی سندووق و دەفتەری گشتی مامەڵەکان',
@@ -122,6 +128,8 @@ const COPY = {
     headerChartOfAccountsDesc: 'پێکهاتەی ستانداردی ٤ ژمارەیی: گرووپ، گشتی، دیاریکراو و تەفسیلی سەرئاوکەوتوو',
     headerLedgerDesc: 'تۆمارکردن و پەسەندکردنی بەڵگەنامەکان',
     headerIncomeDesc: 'تەنخوا و داهاتە نوێیەکان',
+    headerProfitLossTitle: 'خشتەی گشتگیری سوود و زیانی کارگە و پڕۆژە',
+    headerProfitLossDesc: 'داهاتی خاوەنکار، تێچووی تەواوبوو، خەرجییە گشتییەکان، بیمە، باج و سوودی پوخت',
     bannerDraftTitle: (cnt) => `${cnt} بەڵگەنامەی ڕەشنووس چاوەڕوانی پەسەندکردنن.`,
     bannerDraftDesc: 'بەڵگەنامەکان تا پەسەندکردنی کۆتایی ڕەشنووسن.',
     btnReviewApprove: 'بینین و پەسەندکردن',
@@ -134,6 +142,7 @@ const COPY = {
     tabIncome: 'Inflow & Petty Cash',
     tabAccounts: 'Cards & Drawers',
     tabChartOfAccounts: 'Chart of Accounts',
+    tabProfitLoss: 'Profit & Loss (P&L)',
     mainTitle: 'Accounting & Treasury',
     projectFallback: 'Workshop Project',
     mainSubtitle: 'Unified management of petty cash, live drawer balance, expense control, and ledger',
@@ -162,6 +171,8 @@ const COPY = {
     headerChartOfAccountsDesc: '4-digit hierarchy: Group, General Ledger, Subsidiary & floating details',
     headerLedgerDesc: 'Two-stage document approval, reconciliation, and turnover',
     headerIncomeDesc: 'Cash injection, petty cash recharge, and client deposits',
+    headerProfitLossTitle: 'Workshop Profit & Loss Statement (P&L)',
+    headerProfitLossDesc: 'Calculate operating revenue, direct COGS, site overhead, statutory deductions, and net margins',
     bannerDraftTitle: (cnt) => `${cnt} draft documents are pending final approval.`,
     bannerDraftDesc: 'Recorded settlements and expenses remain in draft status until final manager approval.',
     btnReviewApprove: 'View & Approve Documents',
@@ -217,6 +228,9 @@ export function AccountingView({
   const {
     currency,
     dashboardStats,
+    profitAndLossData,
+    profitAndLossBasis,
+    setProfitAndLossBasis,
     treasuryIncomes,
     financialAccounts,
     accountBalances,
@@ -291,6 +305,12 @@ export function AccountingView({
       label: txt.tabAccounts,
       icon: CreditCard,
       count: financialAccounts.length
+    },
+    {
+      id: 'profit_loss',
+      label: txt.tabProfitLoss,
+      icon: Scale,
+      count: null
     },
     ...(canManageAccounting ? [{
       id: 'chart_of_accounts',
@@ -468,7 +488,8 @@ export function AccountingView({
               {activeViewTab === 'ledger' && <BookOpen className="w-6 h-6 stroke-[2.2]" />}
               {activeViewTab === 'income' && <ArrowDownLeft className="w-6 h-6 stroke-[2.2]" />}
               {activeViewTab === 'chart_of_accounts' && <Layers className="w-6 h-6 stroke-[2.2]" />}
-              {activeViewTab !== 'accounts' && activeViewTab !== 'ledger' && activeViewTab !== 'income' && activeViewTab !== 'chart_of_accounts' && <Landmark className="w-6 h-6 stroke-[2.2]" />}
+              {activeViewTab === 'profit_loss' && <Scale className="w-6 h-6 stroke-[2.2]" />}
+              {activeViewTab !== 'accounts' && activeViewTab !== 'ledger' && activeViewTab !== 'income' && activeViewTab !== 'chart_of_accounts' && activeViewTab !== 'profit_loss' && <Landmark className="w-6 h-6 stroke-[2.2]" />}
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
@@ -476,12 +497,14 @@ export function AccountingView({
                 {activeViewTab === 'ledger' && txt.headerLedgerTitle}
                 {activeViewTab === 'income' && txt.headerIncomeTitle}
                 {activeViewTab === 'chart_of_accounts' && txt.headerChartOfAccountsTitle}
+                {activeViewTab === 'profit_loss' && txt.headerProfitLossTitle}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {activeViewTab === 'accounts' && txt.headerAccountsDesc}
                 {activeViewTab === 'ledger' && txt.headerLedgerDesc}
                 {activeViewTab === 'income' && txt.headerIncomeDesc}
                 {activeViewTab === 'chart_of_accounts' && txt.headerChartOfAccountsDesc}
+                {activeViewTab === 'profit_loss' && txt.headerProfitLossDesc}
               </p>
             </div>
           </div>
@@ -844,6 +867,17 @@ export function AccountingView({
         /* تب ۵: درختواره کدینگ جامع سرفصل‌های حسابداری */
         <section aria-label="Chart of Accounts" className="animate-in fade-in duration-200">
           <ChartOfAccountsTab />
+        </section>
+      ) : activeViewTab === 'profit_loss' ? (
+        /* تب ۶: صورت سود و زیان جامع کارگاه و پروژه */
+        <section aria-label="Profit and Loss" className="animate-in fade-in duration-200">
+          <ProfitLossSection
+            profitAndLossData={profitAndLossData}
+            basis={profitAndLossBasis}
+            onBasisChange={setProfitAndLossBasis}
+            currency={currency}
+            language={language}
+          />
         </section>
       ) : null}
 
