@@ -467,7 +467,22 @@ export function resolveTransactionCoding(transaction = {}, accountsMap = new Map
   const financialAccountSubCode = accountType === 'bank' ? '1020' : '1010';
   const financialAccountTitle = accountType === 'bank' ? 'حساب‌ها و کارت‌های بانکی' : 'صندوق‌های نقدی کارگاه';
 
-  // 2. Contractor & Master Craftsman Contract Settlement
+  // 2. Contractor Settlement Payment (پرداخت اقساط یا تسویه صورت‌وضعیت به پیمانکار)
+  if (type === 'contract_settlement_payment' || transaction.paymentType === 'contract_settlement_payment' || transaction.isContractPayment) {
+    return {
+      glCode: '31',
+      glTitle: 'حساب‌ها و اسناد پرداختنی تجاری',
+      subCode: '3101',
+      subTitle: 'بستانکاران - پیمانکاران جزء و استادکاران',
+      creditGlCode: '10',
+      creditSubCode: financialAccountSubCode,
+      creditSubTitle: financialAccountTitle,
+      detailType: 'contractor',
+      detailCode: transaction.counterpartyId || transaction.workerId || null
+    };
+  }
+
+  // 3. Contractor & Master Craftsman Contract Settlement (صدور صورت‌وضعیت موقت / تعهد کارگاه)
   if (transaction.isContractSettlement || transaction.isInterimSettlement || transaction.contractId) {
     return {
       glCode: '70',
@@ -480,6 +495,8 @@ export function resolveTransactionCoding(transaction = {}, accountsMap = new Map
       retentionSubCode: '3401', // حسن انجام کار
       insuranceSubCode: '3402', // بیمه ماده ۳۸
       advanceSubCode: '1501',   // پیش‌پرداخت پیمانکاران
+      delayPenaltySubCode: '6101', // درآمد حاصل از خسارات و جرایم پیمانکاران (جریمه دیرکرد)
+      delayPenaltySubTitle: 'سایر درآمدهای غیرعملیاتی (خسارت تاخیر پیمانکاران)',
       detailType: 'contractor',
       detailCode: transaction.counterpartyId || transaction.personId || null
     };

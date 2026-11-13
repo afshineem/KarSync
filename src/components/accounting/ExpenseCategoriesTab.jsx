@@ -302,14 +302,43 @@ export default function ExpenseCategoriesTab({
     setExpandedL2Ids(new Set());
   };
 
+  // محاسبه خودکار کد متوالی سرفصل هزینه
+  const getSequentialCategoryCode = (parent, siblings = [], level = 1, allL1 = []) => {
+    if (level === 1) {
+      const numericCodes = (allL1 || [])
+        .map((c) => parseInt(String(c.code).replace(/[^0-9]/g, ''), 10))
+        .filter((n) => !isNaN(n) && n >= 10);
+      const maxCode = numericCodes.length > 0 ? Math.max(...numericCodes) : 0;
+      return String(maxCode > 0 ? maxCode + 10 : 10);
+    }
+
+    const parentCode = parent?.code ? String(parent.code).trim() : (level === 2 ? '10' : '101');
+    const siblingSuffixes = [];
+    (siblings || []).forEach((s) => {
+      const sCode = String(s.code || '').trim();
+      if (sCode.startsWith(parentCode)) {
+        const suffixStr = sCode.slice(parentCode.length);
+        const suffixNum = parseInt(suffixStr, 10);
+        if (!isNaN(suffixNum)) {
+          siblingSuffixes.push(suffixNum);
+        }
+      }
+    });
+
+    const maxSuffix = siblingSuffixes.length > 0 ? Math.max(...siblingSuffixes) : 0;
+    return `${parentCode}${maxSuffix + 1}`;
+  };
+
   // Submit handlers
   const handleCreateL1 = async (e) => {
     if (e) e.preventDefault();
     if (!newL1Name.trim()) return;
+    const nextCode = getSequentialCategoryCode(null, [], 1, level1Categories);
     await onAddCategory({
       name: newL1Name.trim(),
       parentId: null,
-      level: 1
+      level: 1,
+      code: nextCode
     });
     setNewL1Name('');
     setIsAddingL1(false);
@@ -318,10 +347,14 @@ export default function ExpenseCategoriesTab({
   const handleCreateL2 = async (parentL1Id, e) => {
     if (e) e.preventDefault();
     if (!newL2Name.trim()) return;
+    const parentL1 = level1Categories.find((c) => c.id === parentL1Id);
+    const siblings = level2Map.get(parentL1Id) || [];
+    const nextCode = getSequentialCategoryCode(parentL1, siblings, 2);
     await onAddCategory({
       name: newL2Name.trim(),
       parentId: parentL1Id,
-      level: 2
+      level: 2,
+      code: nextCode
     });
     setNewL2Name('');
     setAddingUnderL1Id(null);
@@ -331,10 +364,14 @@ export default function ExpenseCategoriesTab({
   const handleCreateL3 = async (parentL2Id, e) => {
     if (e) e.preventDefault();
     if (!newL3Name.trim()) return;
+    const parentL2 = (categories || []).find((c) => c.id === parentL2Id);
+    const siblings = level3Map.get(parentL2Id) || [];
+    const nextCode = getSequentialCategoryCode(parentL2, siblings, 3);
     await onAddCategory({
       name: newL3Name.trim(),
       parentId: parentL2Id,
-      level: 3
+      level: 3,
+      code: nextCode
     });
     setNewL3Name('');
     setAddingUnderL2Id(null);
@@ -493,6 +530,9 @@ export default function ExpenseCategoriesTab({
           <div className="flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 flex-shrink-0">
             <FolderPlus className="w-4 h-4" />
             <span>{txt.lblNewL1}</span>
+            <span className="px-2 py-0.5 rounded-lg bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-mono font-black text-xs border border-sky-300 dark:border-sky-800">
+              #{getSequentialCategoryCode(null, [], 1, level1Categories)}
+            </span>
           </div>
           <input
             type="text"
@@ -685,7 +725,12 @@ export default function ExpenseCategoriesTab({
                           isRtl ? 'mr-4' : 'ml-4'
                         }`}
                       >
-                        <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <Layers className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                          <span className="px-2 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-mono font-black text-[11px] border border-blue-300 dark:border-blue-800">
+                            #{getSequentialCategoryCode(l1, l2List, 2)}
+                          </span>
+                        </div>
                         <input
                           type="text"
                           autoFocus
@@ -869,7 +914,12 @@ export default function ExpenseCategoriesTab({
                                       isRtl ? 'mr-4' : 'ml-4'
                                     }`}
                                   >
-                                    <Tag className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      <Tag className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                                      <span className="px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-mono font-black text-[11px] border border-emerald-300 dark:border-emerald-800">
+                                        #{getSequentialCategoryCode(l2, l3List, 3)}
+                                      </span>
+                                    </div>
                                     <input
                                       type="text"
                                       autoFocus

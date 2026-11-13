@@ -1054,15 +1054,18 @@ export default function ContractSettlementModal({
                   </div>
 
                   {/* Accounting Bridge Notice */}
-                  <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 text-[11px] leading-relaxed flex items-start gap-2">
-                    <Info className="w-4 h-4 shrink-0 mt-0.5 text-sky-500" />
-                    <span>
+                  <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-800 dark:text-sky-200 text-xs leading-relaxed space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-sky-700 dark:text-sky-300">
+                      <Info className="w-4 h-4 shrink-0 text-sky-500" />
+                      <span>{language === 'ku' ? 'تۆمارکردنی ئەرکی کاتی و ناردن بۆ ژمێریاری:' : language === 'en' ? 'Interim Obligation Registration & Finance Dispatch:' : 'ثبت تعهد موقت و ارجاع به امور مالی:'}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
                       {language === 'ku'
-                        ? 'بە پەسەندکردنی ئەم فۆڕمە، بەڵگەنامەیەکی ژمێریاری کاتی (Draft Voucher) دروست دەکرێت بۆ دەفتەری ڕۆژنامە و ژمێریاری گشتی تاکو بەڕێوەبەر پێداچوونەوەی بۆ بکات.'
+                        ? 'بە پەسەندکردنی ئەم فۆڕمە، صورت‌وەزعییەت وەک ئەرکی کاتی (سەندی T) تۆمار دەبێت. سزای دواکەوتن و بڕینە یاساییەکان بە دروستی کسر کراون و بڕی خاڵس دەڕوات بۆ دەفتەری دارایی تا دوای فەرمانی بەڕێوەبەر، ژمێریار پارەدان (کاش، حەواڵە یان چەک) جێبەجێ بکات.'
                         : language === 'en'
-                        ? 'Submitting this form creates a Draft Voucher in Accounting under Subcontractor Expenses for final approval and disbursement.'
-                        : 'با تایید این فرم، یک سند موقت (پیش‌نویس) در دفتر روزنامه و هزینه‌ها برای بررسی و تسویه مدیر مالی ثبت می‌شود.'}
-                    </span>
+                        ? 'Submitting this form registers the billing as an interim obligation (T-voucher). Delay penalties and statutory retentions have been deducted, and the net payable is forwarded to Accounting for executive payment order and disbursement (cash, bank transfer, or cheque).'
+                        : 'با تایید این فرم، صورت‌وضعیت به عنوان تعهد موقت کارگاه (سند پیش‌نویس T) ثبت می‌شود. جریمه‌های دیرکرد و کسورات قانونی تماماً کسر شده و خالص قابل پرداخت به کارتابل حسابداری ارسال می‌گردد تا پس از دستور پرداخت مدیرعامل، توسط حسابدار تسویه گردد.'}
+                    </p>
                   </div>
                 </div>
               )}

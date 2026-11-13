@@ -214,6 +214,104 @@ export function generateCategoryId() {
   return 'cat_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
 }
 
+/**
+ * Auto-Sequencing Category Code Engine (موتور تخصیص خودکار کد متوالی سرفصل‌های هزینه)
+ * طبق اساسنامه کارسینک:
+ * - سطح ۱: کدهای دو رقمی (10, 20, 30, 40, 50, ...)
+ * - سطح ۲: کد والد سطح ۱ + پسوند متوالی (مثلاً زیر 10 -> 101, 102, ..., 105)
+ * - سطح ۳: کد والد سطح ۲ + پسوند متوالی (مثلاً زیر 101 -> 1011, 1012, 1013, 1014 -> بعدی 1015)
+ */
+export async function generateNextCategoryCode(parentId = null, level = 1, projectId = DEFAULT_PROJECT_ID) {
+  try {
+    const cleanProjectId = projectId || DEFAULT_PROJECT_ID;
+    const all = await db.expenseCategories.toArray();
+    const projectCats = all.filter(
+      (c) => !c.deletedAt && (!c.projectId || c.projectId === cleanProjectId || cleanProjectId === DEFAULT_PROJECT_ID)
+    );
+
+    const numLevel = Number(level) || 1;
+
+    // ۱. سطح ۱: سرفصل کلان (دو رقمی)
+    if (numLevel === 1 || !parentId) {
+      const l1Cats = projectCats.filter((c) => (Number(c.level) === 1 || !c.parentId) && c.code);
+      const numericCodes = l1Cats
+        .map((c) => parseInt(String(c.code).replace(/[^0-9]/g, ''), 10))
+        .filter((n) => !isNaN(n) && n >= 10);
+
+      const maxCode = numericCodes.length > 0 ? Math.max(...numericCodes) : 0;
+      const nextL1Code = maxCode > 0 ? maxCode + 10 : 10;
+      return String(nextL1Code);
+    }
+
+    // ۲ و ۳. پیدا کردن والد
+    const parent = projectCats.find((c) => String(c.id) === String(parentId));
+    let parentCode = parent?.code ? String(parent.code).trim() : '';
+
+    // در صورتی که والد فاقد کد باشد، ابتدا بر اساس سطح کد والد را پیش‌فرض می‌گذاریم
+    if (!parentCode) {
+      if (numLevel === 2) parentCode = '10';
+      else if (numLevel === 3) parentCode = '101';
+      else parentCode = '10';
+    }
+
+    // استخراج فرزندان موجود زیر همین والد
+    const siblings = projectCats.filter((c) => String(c.parentId) === String(parentId) && c.code);
+
+    const siblingSuffixes = [];
+    siblings.forEach((s) => {
+      const sCode = String(s.code).trim();
+      if (sCode.startsWith(parentCode)) {
+        const suffixStr = sCode.slice(parentCode.length);
+        const suffixNum = parseInt(suffixStr, 10);
+        if (!isNaN(suffixNum)) {
+          siblingSuffixes.push(suffixNum);
+        }
+      }
+    });
+
+    const maxSuffix = siblingSuffixes.length > 0 ? Math.max(...siblingSuffixes) : 0;
+    const nextSuffix = maxSuffix + 1;
+    return `${parentCode}${nextSuffix}`;
+  } catch (err) {
+    console.warn('generateNextCategoryCode warning:', err);
+    return level === 1 ? '50' : level === 2 ? '105' : '1015';
+  }
+}
+
+/**
+ * ترمیم و اختصاص کد خودکار به سرفصل‌های فاقد کد (Backfill & Self-Healing)
+ */
+export async function backfillMissingCategoryCodes(projectId = DEFAULT_PROJECT_ID) {
+  try {
+    const all = await db.expenseCategories.toArray();
+    const projectCats = all.filter(
+      (c) => !c.deletedAt && (!c.projectId || c.projectId === projectId || projectId === DEFAULT_PROJECT_ID)
+    );
+
+    const missing = projectCats.filter((c) => !c.code);
+    if (missing.length === 0) return 0;
+
+    // مرتب‌سازی بر اساس سطح تا ابتدا سطح ۱ کد بگیرد، سپس سطح ۲ و در نهایت سطح ۳
+    missing.sort((a, b) => (Number(a.level) || 1) - (Number(b.level) || 1));
+
+    const updates = [];
+    for (const cat of missing) {
+      const code = await generateNextCategoryCode(cat.parentId, cat.level, projectId);
+      cat.code = code;
+      updates.push(cat);
+    }
+
+    if (updates.length > 0) {
+      await db.expenseCategories.bulkPut(updates);
+      console.log(`✅ Backfilled codes for ${updates.length} categories.`);
+    }
+    return updates.length;
+  } catch (err) {
+    console.warn('backfillMissingCategoryCodes warning:', err);
+    return 0;
+  }
+}
+
 // Helper to generate Treasury Income IDs
 export function generateTreasuryIncomeId() {
   return 'inc_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
@@ -825,10 +923,10 @@ export async function seedDefaultExpenseCategories(projectId = DEFAULT_PROJECT_I
       if (updates.length > 0) {
         await db.expenseCategories.bulkPut(updates);
         console.log(`✅ Updated ${updates.length} existing expense categories with codes/userId for project:`, projectId);
-        return true;
       }
 
-      if (!needsUpdate) return false;
+      await backfillMissingCategoryCodes(projectId);
+      return true;
     }
 
     const categoriesToAdd = [];

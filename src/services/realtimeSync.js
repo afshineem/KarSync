@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID, deduplicateExpenseCategories, wipeAllLocalData, withImmutabilityBypass } from '../db/db';
+import { db, getAttendanceLogId, cleanupDuplicateAttendanceLogs, purgeDummySeedWorkers, DEFAULT_PROJECT_ID, deduplicateExpenseCategories, wipeAllLocalData, withImmutabilityBypass, generateNextCategoryCode } from '../db/db';
 import { getSyncConfig, saveSyncConfig, setLastSyncTime, getLastSyncTime } from './syncService';
 import { roundCurrency } from '../utils/formatters';
 
@@ -3708,6 +3708,11 @@ export async function pushAllExpenseCategoriesToCloud() {
  */
 export async function pushExpenseCategoryLive(cat) {
   if (!cat) return;
+  if (!cat.code) {
+    try {
+      cat.code = await generateNextCategoryCode(cat.parentId, cat.level, cat.projectId);
+    } catch (_) {}
+  }
   await db.expenseCategories.put(cat);
   if (!navigator.onLine) return;
   try {
@@ -3723,6 +3728,7 @@ export async function pushExpenseCategoryLive(cat) {
         project_id: cat.projectId,
         user_id: cat.userId,
         name: cat.name,
+        code: cat.code || null,
         parent_id: cat.parentId || null,
         level: cat.level || 1,
         updated_at: new Date().toISOString()

@@ -980,6 +980,8 @@ export async function finalizeAndSubmitContractSettlement({
     title: `${titlePrefix} قرارداد: ${contract.title}`,
     description: voucherDescription,
     amount: settlementCalculation.netPayableAmount,
+    paidAmount: 0,
+    remainingAmount: settlementCalculation.netPayableAmount,
     currency,
     expenseDate: dateStr,
     personId: contract.counterpartyId || null,
@@ -1009,6 +1011,7 @@ export async function finalizeAndSubmitContractSettlement({
       totalExtraDeductions: settlementCalculation.totalExtraDeductions,
       netPayableAmount: settlementCalculation.netPayableAmount
     },
+    paymentTransactions: [],
     created_by: userId || 'local_user',
     createdAt: now,
     updatedAt: now
@@ -1041,6 +1044,10 @@ export async function finalizeAndSubmitContractSettlement({
     extraDeductions: settlementCalculation.extraDeductions || [],
     totalDeductions: settlementCalculation.totalDeductions,
     netPayableAmount: settlementCalculation.netPayableAmount,
+    paidAmount: 0,
+    remainingAmount: settlementCalculation.netPayableAmount,
+    paymentStatus: 'unpaid',
+    paymentTransactions: [],
     voucherId: expenseId,
     voucherNumber,
     createdAt: now
@@ -1088,5 +1095,208 @@ export async function finalizeAndSubmitContractSettlement({
     contract: updatedContract,
     draftExpense: draftExpenseRecord,
     settlementRecord
+  };
+}
+
+/**
+ * Calculates payment progress and remaining liability for a contract settlement
+ */
+export function getContractSettlementPaymentSummary(settlement) {
+  if (!settlement) {
+    return { netPayable: 0, paid: 0, remaining: 0, status: 'unpaid', percent: 0, transactions: [] };
+  }
+  const netPayable = Number(settlement.netPayableAmount) || 0;
+  const transactions = Array.isArray(settlement.paymentTransactions) ? settlement.paymentTransactions : [];
+  const paid = settlement.paidAmount !== undefined
+    ? Number(settlement.paidAmount) || 0
+    : transactions.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  const remaining = Math.max(0, netPayable - paid);
+  const percent = netPayable > 0 ? Math.min(100, Math.round((paid / netPayable) * 100)) : (paid > 0 ? 100 : 0);
+  const status = remaining === 0 && netPayable > 0 ? 'paid' : (paid > 0 ? 'partial' : 'unpaid');
+
+  return {
+    netPayable,
+    paid,
+    remaining,
+    status,
+    percent,
+    transactions
+  };
+}
+
+/**
+ * Records a full or partial/split payment for a contract settlement voucher.
+ * Automatically deducts funds from the selected bank/cashbox,
+ * creates an accounting payment record, and updates the settlement's paid & remaining balance.
+ */
+export async function recordContractSettlementPayment({
+  contractId,
+  settlementId,
+  amount,
+  paymentMethod = 'bank', // 'bank' | 'cash' | 'cheque'
+  accountId = null,
+  date = null,
+  trackingCode = '',
+  chequeNumber = '',
+  chequeDueDate = '',
+  chequeBank = '',
+  chequeId = null,
+  notes = '',
+  user = null
+}) {
+  if (!db.contracts || !db.payments || !db.expenses) {
+    throw new Error('Database stores not ready');
+  }
+
+  const contract = await db.contracts.get(contractId);
+  if (!contract) throw new Error(`Contract ${contractId} not found`);
+
+  const numAmount = Number(String(amount).replace(/,/g, '')) || 0;
+  if (numAmount <= 0) {
+    throw new Error('مبلغ پرداختی باید بزرگتر از صفر باشد.');
+  }
+
+  const settlements = Array.isArray(contract.settlements) ? [...contract.settlements] : [];
+  const stlIndex = settlements.findIndex(s => s.id === settlementId || String(s.settlementNumber) === String(settlementId));
+  if (stlIndex === -1) {
+    throw new Error(`صورت‌وضعیت ${settlementId} یافت نشد.`);
+  }
+
+  const stl = settlements[stlIndex];
+  const summary = getContractSettlementPaymentSummary(stl);
+  const currentRemaining = summary.remaining;
+
+  if (numAmount > currentRemaining + 0.01) {
+    throw new Error(`مبلغ وارد شده (${numAmount.toLocaleString()}) از مانده قابل پرداخت صورت‌وضعیت (${currentRemaining.toLocaleString()}) بیشتر است.`);
+  }
+
+  const projectId = contract.projectId || DEFAULT_PROJECT_ID;
+  const now = new Date().toISOString();
+  const paymentDate = date || now.slice(0, 10);
+
+  // 1. Account info
+  let chosenAccount = null;
+  if (accountId && db.financialAccounts) {
+    chosenAccount = await db.financialAccounts.get(accountId);
+  }
+
+  // 2. Generate Payment Voucher ID & Record in db.payments
+  const paymentId = `pmt_stl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const stageTitle = stl.title || `صورت‌وضعیت شماره ${stl.settlementNumber || stlIndex + 1}`;
+  const counterpartyName = contract.counterpartyName || 'پیمانکار';
+
+  const installmentNumber = (summary.transactions?.length || 0) + 1;
+  const defaultTitle = `پرداخت مرحله‌ای (قسط ${installmentNumber}) بابت ${stageTitle} قرارداد: ${contract.title}`;
+  const paymentNarrative = notes ? `${defaultTitle} - ${notes}` : defaultTitle;
+
+  const paymentRecord = {
+    id: paymentId,
+    projectId,
+    userId: user?.id || 'admin',
+    workerId: contract.counterpartyId || null,
+    counterpartyId: contract.counterpartyId || null,
+    workerName: counterpartyName,
+    amount: numAmount,
+    currency: contract.currency || 'IQD',
+    date: paymentDate,
+    month: paymentDate.slice(0, 7),
+    type: 'contract_settlement_payment',
+    paymentType: 'contract_settlement_payment',
+    paymentMethod,
+    accountId: chosenAccount?.id || accountId || null,
+    accountName: chosenAccount?.name || (paymentMethod === 'bank' ? 'کارت بانکی' : paymentMethod === 'cheque' ? 'چک بانکی' : 'صندوق نقدی'),
+    accountType: chosenAccount?.type || (paymentMethod === 'bank' ? 'bank' : paymentMethod === 'cheque' ? 'cheque' : 'cash'),
+    referenceNumber: trackingCode?.trim() || null,
+    bankTrackingCode: trackingCode?.trim() || null,
+    chequeNumber: chequeNumber?.trim() || null,
+    chequeDueDate: chequeDueDate || null,
+    chequeBank: chequeBank || null,
+    chequeId: chequeId || null,
+    contractId: contract.id,
+    settlementId: stl.id,
+    settlementNumber: stl.settlementNumber || stlIndex + 1,
+    expenseId: stl.voucherId || null,
+    notes: paymentNarrative,
+    status: 'approved',
+    approval_status: 'approved',
+    isSettled: true,
+    created_by: user?.name || user?.email || 'admin',
+    createdAt: now,
+    updatedAt: now
+  };
+
+  await db.payments.put(paymentRecord);
+
+  // 3. Update settlement object in contract
+  const newPaidAmount = summary.paid + numAmount;
+  const newRemaining = Math.max(0, summary.netPayable - newPaidAmount);
+  const newPaymentStatus = newRemaining === 0 ? 'paid' : (newPaidAmount > 0 ? 'partial' : 'unpaid');
+
+  const paymentTxItem = {
+    paymentId,
+    amount: numAmount,
+    date: paymentDate,
+    accountId: chosenAccount?.id || accountId || null,
+    accountName: chosenAccount?.name || (paymentMethod === 'bank' ? 'کارت بانکی' : paymentMethod === 'cheque' ? 'چک' : 'صندوق'),
+    paymentMethod,
+    trackingCode: trackingCode || '',
+    chequeNumber: chequeNumber || '',
+    notes: notes || '',
+    createdAt: now
+  };
+
+  const updatedSettlement = {
+    ...stl,
+    paidAmount: newPaidAmount,
+    remainingAmount: newRemaining,
+    paymentStatus: newPaymentStatus,
+    paymentTransactions: [...(stl.paymentTransactions || []), paymentTxItem],
+    lastPaymentDate: paymentDate,
+    updatedAt: now
+  };
+
+  settlements[stlIndex] = updatedSettlement;
+
+  // 4. Update contract
+  const updatedContract = {
+    ...contract,
+    settlements,
+    updatedAt: now
+  };
+  await db.contracts.put(updatedContract);
+
+  // 5. Update linked expense in db.expenses if present
+  if (stl.voucherId && db.expenses) {
+    const exp = await db.expenses.get(stl.voucherId);
+    if (exp) {
+      await db.expenses.update(stl.voucherId, {
+        paidAmount: newPaidAmount,
+        remainingAmount: newRemaining,
+        paymentStatus: newPaymentStatus,
+        paymentTransactions: [...(exp.paymentTransactions || []), paymentTxItem],
+        accountId: chosenAccount?.id || exp.accountId || null,
+        accountName: chosenAccount?.name || exp.accountName || null,
+        paymentMethod: paymentMethod || exp.paymentMethod || null,
+        updatedAt: now
+      });
+    }
+  }
+
+  // 6. Broadcast sync events
+  pushPaymentsLive().catch(() => {});
+  pushContractLive(updatedContract).catch(() => {});
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('workshop-contracts-sync', { detail: { id: contractId } }));
+    window.dispatchEvent(new CustomEvent('workshop-payments-sync'));
+    window.dispatchEvent(new CustomEvent('workshop-expenses-sync'));
+    window.dispatchEvent(new CustomEvent('workshop-accounts-sync'));
+    window.dispatchEvent(new CustomEvent('karsync:accounting-sync'));
+  }
+
+  return {
+    paymentRecord,
+    updatedSettlement,
+    updatedContract
   };
 }

@@ -948,6 +948,12 @@ export function GeneralLedgerTable({
     } else if (tx.category === 'workshop_expense') {
       categoryBadgeClass = 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80';
       shortCatLabel = txt.catShortExpense;
+    } else if (tx.category === 'contract_settlement') {
+      categoryBadgeClass = 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80';
+      shortCatLabel = language === 'ku' ? 'صورت‌وەزعییەت' : language === 'en' ? 'Contract Billing' : 'صورت‌وضعیت قرارداد';
+    } else if (tx.category === 'contract_payment') {
+      categoryBadgeClass = 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/80';
+      shortCatLabel = language === 'ku' ? 'پارەدانی عەقد' : language === 'en' ? 'Contract Pmt' : 'پرداخت قرارداد';
     } else if (tx.category === 'account_transfer') {
       categoryBadgeClass = 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/80';
       shortCatLabel = txt.catShortTransfer;

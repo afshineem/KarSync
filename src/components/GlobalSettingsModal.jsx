@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
-import { db, DEFAULT_PROJECT_ID, generateSectionId, checkCategoryHasExpenses, resetExpenseCategoriesToDefault } from '../db/db';
+import { db, DEFAULT_PROJECT_ID, generateSectionId, checkCategoryHasExpenses, resetExpenseCategoriesToDefault, generateNextCategoryCode } from '../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   fullSyncBothDirections,
@@ -586,13 +586,16 @@ export default function GlobalSettingsModal({ isOpen, onClose, initialTab = 'gen
   const handleAddCategory = async ({ name, parentId, level }) => {
     if (!name || !name.trim()) return;
     const cId = 'cat_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+    const nextCode = await generateNextCategoryCode(parentId, level, targetProjectId);
     const newCat = {
       id: cId,
       projectId: targetProjectId,
       userId: user?.id || 'admin',
       name: name.trim(),
+      code: nextCode,
       parentId: parentId || null,
       level: Number(level) || 1,
+      isSystem: false,
       createdAt: new Date().toISOString()
     };
     await pushExpenseCategoryLive(newCat);

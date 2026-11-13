@@ -2,12 +2,12 @@ import { logAuditAction, getSafeAuthContext } from "../services/auditLogger";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, generateExpenseId, generateCategoryId, DEFAULT_PROJECT_ID, seedDefaultExpenseCategories } from '../db/db';
+import { db, generateExpenseId, generateCategoryId, DEFAULT_PROJECT_ID, seedDefaultExpenseCategories, generateNextCategoryCode } from '../db/db';
 import { isWorkerInProject } from '../utils/workerScope';
 import { useProject } from '../context/ProjectContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth, usePermissions } from '../context/AuthContext';
-import { pushExpenseLive, uploadExpenseReceipt, pushAllExpenseCategoriesToCloud } from '../services/realtimeSync';
+import { pushExpenseLive, uploadExpenseReceipt, pushAllExpenseCategoriesToCloud, pushExpenseCategoryLive } from '../services/realtimeSync';
 import { formatCurrency } from '../utils/formatters';
 import { generateNextVoucherNumber } from '../services/voucherNumberService';
 import { 
@@ -453,6 +453,39 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
     return allCategories.filter((c) => c.parentId === formData.subCategoryId);
   }, [allCategories, formData.subCategoryId]);
 
+  const predictedNextCategoryCode = useMemo(() => {
+    if (!isAddingNewCategory) return '';
+    const parentId = formData.subCategoryId || formData.mainCategoryId || null;
+    let level = 1;
+    if (formData.subCategoryId) level = 3;
+    else if (formData.mainCategoryId) level = 2;
+
+    const parent = allCategories.find((c) => String(c.id) === String(parentId));
+    const parentCode = parent?.code ? String(parent.code).trim() : (level === 2 ? '10' : '101');
+
+    if (level === 1) {
+      const l1Codes = allCategories
+        .filter((c) => (Number(c.level) === 1 || !c.parentId) && c.code)
+        .map((c) => parseInt(String(c.code).replace(/[^0-9]/g, ''), 10))
+        .filter((n) => !isNaN(n) && n >= 10);
+      const maxCode = l1Codes.length > 0 ? Math.max(...l1Codes) : 0;
+      return String(maxCode > 0 ? maxCode + 10 : 10);
+    }
+
+    const siblings = allCategories.filter((c) => String(c.parentId) === String(parentId) && c.code);
+    const suffixes = [];
+    siblings.forEach((s) => {
+      const sCode = String(s.code || '').trim();
+      if (sCode.startsWith(parentCode)) {
+        const suf = parseInt(sCode.slice(parentCode.length), 10);
+        if (!isNaN(suf)) suffixes.push(suf);
+      }
+    });
+
+    const maxSuffix = suffixes.length > 0 ? Math.max(...suffixes) : 0;
+    return `${parentCode}${maxSuffix + 1}`;
+  }, [isAddingNewCategory, formData.subCategoryId, formData.mainCategoryId, allCategories]);
+
   // Omnibar Category Search State & Refs
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [isCategorySearchOpen, setIsCategorySearchOpen] = useState(false);
@@ -715,15 +748,21 @@ export function AddExpenseModal({ isOpen = true, onClose, expenseToEdit = null, 
       if (formData.subCategoryId) level = 3;
       else if (formData.mainCategoryId) level = 2;
 
-      await db.expenseCategories.add({
+      const nextCode = await generateNextCategoryCode(parentId, level, activeProjectId);
+
+      const newCategoryObj = {
         id: newId,
         projectId: activeProjectId,
-        userId: 'default_user',
+        userId: user?.id || 'default_user',
         name: newCategoryName.trim(),
+        code: nextCode,
         parentId: parentId,
         level: level,
+        isSystem: false,
         createdAt: new Date().toISOString()
-      });
+      };
+
+      await pushExpenseCategoryLive(newCategoryObj);
 
       if (level === 3) {
         setFormData((prev) => ({ ...prev, categoryId: newId }));

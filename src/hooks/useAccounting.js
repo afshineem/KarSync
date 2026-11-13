@@ -867,17 +867,18 @@ export function useAccounting(options = {}) {
       });
     });
 
-    // ۲. تراکنش‌های پرداختی پرسنل (مساعده، تسویه دستمزد، وام)
+    // ۲. تراکنش‌های پرداختی پرسنل و پیمانکاران (مساعده، تسویه دستمزد، وام، اقساط صورت‌وضعیت قرارداد)
     payments.forEach((p) => {
       const dateStr = (p.date || p.createdAt || '').slice(0, 10);
       const isAdvance = p.type === 'advance' || p.type === 'Advance_Payment';
       const isBonus = p.type === 'bonus' || p.type === 'eid';
       const isLoan = p.type === 'loan' || p.type === 'loan_disbursement';
-      const workerName = p.workerName || workerMap.get(String(p.workerId)) || 'پرسنل';
+      const isContractPayment = p.type === 'contract_settlement_payment';
+      const workerName = p.workerName || workerMap.get(String(p.workerId)) || (isContractPayment ? 'پیمانکار' : 'پرسنل');
       const acc = p.accountId ? accountMap.get(String(p.accountId)) : null;
-      const category = isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : isLoan ? 'staff_loan' : 'worker_settlement';
-      const categoryLabel = isBonus ? (p.bonusTitle || 'عیدی و پاداش پرسنل') : isAdvance ? 'مساعده پرسنل' : isLoan ? 'وام و تسهیلات پرسنلی' : 'تسویه دستمزد پرسنل';
-      const title = isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : isLoan ? `اعطای وام پرسنلی به ${workerName}` : `تسویه حساب نهایی ${workerName}`;
+      const category = isContractPayment ? 'contract_payment' : (isBonus ? 'worker_bonus' : isAdvance ? 'advance_payment' : isLoan ? 'staff_loan' : 'worker_settlement');
+      const categoryLabel = isContractPayment ? 'پرداخت صورت‌وضعیت قرارداد' : (isBonus ? (p.bonusTitle || 'عیدی و پاداش پرسنل') : isAdvance ? 'مساعده پرسنل' : isLoan ? 'وام و تسهیلات پرسنلی' : 'تسویه دستمزد پرسنل');
+      const title = isContractPayment ? (p.notes || `پرداخت صورت‌وضعیت قرارداد به ${workerName}`) : (isBonus ? `پرداخت عیدی/پاداش به ${workerName}` : isAdvance ? `پرداخت مساعده به ${workerName}` : isLoan ? `اعطای وام پرسنلی به ${workerName}` : `تسویه حساب نهایی ${workerName}`);
 
       rawTransactions.push({
         id: p.id,
@@ -886,6 +887,9 @@ export function useAccounting(options = {}) {
         type: 'outflow', // خروجی
         category,
         categoryLabel,
+        isContractPayment,
+        contractId: p.contractId || null,
+        settlementId: p.settlementId || null,
         amount: Number(p.amount) || 0,
         accountType: p.accountType || acc?.type || p.paymentMethod || 'cash',
         accountId: p.accountId || null,
@@ -914,23 +918,31 @@ export function useAccounting(options = {}) {
       });
     });
 
-    // ۳. تراکنش‌های هزینه کارگاه (فاکتورها و ماشین‌آلات)
+    // ۳. تراکنش‌های هزینه کارگاه و صورت‌وضعیت‌های تعهدی قرارداد
     allProjectExpenses.forEach((e) => {
       const dateStr = (e.expenseDate || e.createdAt || '').slice(0, 10);
       const acc = e.accountId ? accountMap.get(String(e.accountId)) : null;
+      const isContract = Boolean(e.isContractSettlement || e.contractId);
+      const category = isContract ? 'contract_settlement' : 'workshop_expense';
+      const categoryLabel = isContract ? 'صورت‌وضعیت قرارداد' : 'هزینه کارگاه (فاکتور)';
 
       rawTransactions.push({
         id: e.id,
         rawDate: dateStr,
         createdAt: e.createdAt || `${dateStr}T00:00:00Z`,
         type: 'outflow', // خروجی
-        category: 'workshop_expense',
-        categoryLabel: 'هزینه کارگاه (فاکتور)',
+        category,
+        categoryLabel,
+        isContractSettlement: isContract,
+        contractId: e.contractId || null,
+        paymentStatus: e.paymentStatus || 'unpaid',
+        paidAmount: Number(e.paidAmount) || 0,
+        remainingAmount: e.remainingAmount !== undefined ? Number(e.remainingAmount) : Number(e.amount) || 0,
         amount: Number(e.amount) || 0,
         accountType: e.accountType || acc?.type || e.paymentMethod || 'cash',
         accountId: e.accountId || null,
         accountName: acc?.name || (e.paymentMethod === 'bank' ? 'کارت بانکی' : 'صندوق نقدی'),
-        title: e.title || 'هزینه کارگاه',
+        title: e.title || (isContract ? 'صورت‌وضعیت قرارداد' : 'هزینه کارگاه'),
         description: e.personName ? `طرف‌حساب: ${e.personName}` : (e.description || ''),
         personName: e.personName || '',
         tableName: 'expenses',

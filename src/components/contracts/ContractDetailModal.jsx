@@ -6,11 +6,13 @@ import {
   deleteContract,
   getContractCrewAttendanceSummary,
   getContractTimelineProgress,
-  getContractSettlementProgress
+  getContractSettlementProgress,
+  getContractSettlementPaymentSummary
 } from '../../services/contractService';
 import { db } from '../../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import AddContractAmendmentModal from './AddContractAmendmentModal';
+import ContractSettlementPaymentModal from './ContractSettlementPaymentModal';
 import {
   X,
   FileSignature,
@@ -32,12 +34,17 @@ import {
   Users,
   CalendarDays,
   ChevronDown,
+  ChevronUp,
   FilePlus2,
   FileText,
   TrendingUp,
   Plus,
   ArrowUpRight,
-  Info
+  Info,
+  CreditCard,
+  Wallet,
+  Scale,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function ContractDetailModal({
@@ -53,6 +60,8 @@ export default function ContractDetailModal({
   const printRef = useRef(null);
 
   const [isAmendmentModalOpen, setIsAmendmentModalOpen] = useState(false);
+  const [payingSettlement, setPayingSettlement] = useState(null);
+  const [expandedHistorySettlementId, setExpandedHistorySettlementId] = useState(null);
 
   // Live contract query so amendments and settlements update seamlessly
   const liveContract = useLiveQuery(
@@ -521,15 +530,19 @@ export default function ContractDetailModal({
               <div className="space-y-3">
                 {settlementsList.map((stl, i) => {
                   const isFinalStl = stl.settlementType === 'final';
+                  const pSummary = getContractSettlementPaymentSummary(stl);
+                  const isHistoryExpanded = expandedHistorySettlementId === (stl.id || i);
+
                   return (
                     <div
                       key={stl.id || i}
-                      className={`p-3.5 sm:p-4 rounded-2xl border space-y-2 text-xs ${
+                      className={`p-3.5 sm:p-4 rounded-2xl border space-y-3 text-xs transition-all ${
                         isFinalStl
-                          ? 'bg-teal-500/5 border-teal-500/20'
-                          : 'bg-sky-500/5 border-sky-500/15'
+                          ? 'bg-teal-500/5 border-teal-500/25'
+                          : 'bg-sky-500/5 border-sky-500/20'
                       }`}
                     >
+                      {/* Top Header Row */}
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] ${
@@ -552,6 +565,24 @@ export default function ContractDetailModal({
                           }`}>
                             {isFinalStl ? (language === 'ku' ? 'کۆتایی' : language === 'en' ? 'Final' : 'قطعی') : (language === 'ku' ? 'قۆناغی' : language === 'en' ? 'Interim' : 'موقت')}
                           </span>
+
+                          {/* Payment status badge */}
+                          {pSummary.status === 'paid' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>{language === 'ku' ? 'تسویەی تەواو' : language === 'en' ? 'Fully Paid' : 'تسویه کامل'}</span>
+                            </span>
+                          ) : pSummary.status === 'partial' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{language === 'ku' ? `پارەدانی بەشەکی (${pSummary.percent}٪)` : language === 'en' ? `Partial (${pSummary.percent}%)` : `پرداخت مرحله‌ای (${pSummary.percent}٪)`}</span>
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/20 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              <span>{language === 'ku' ? 'چاوەڕوانی فەرمانی پارەدان' : language === 'en' ? 'Pending Payment Order' : 'در انتظار دستور پرداخت'}</span>
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -572,25 +603,113 @@ export default function ContractDetailModal({
                         </p>
                       )}
 
+                      {/* Financial figures grid */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-[11px]">
                         <div>
                           <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'کارکردی ناخالص:' : language === 'en' ? 'Gross:' : 'کارکرد ناخالص:'}</span>
                           <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{formatAmount(stl.grossWorkAmount, currency)}</div>
                         </div>
+
                         <div>
-                          <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'پێشەکی و خەرجی:' : language === 'en' ? 'Advances/Backcharges:' : 'کسورات:'}</span>
-                          <div className="font-mono font-bold text-rose-500">-{formatAmount((stl.totalAdvances || 0) + (stl.totalBackcharges || 0) + (stl.totalExtraDeductions || 0) + (stl.totalDelayPenalty || 0), currency)}</div>
+                          <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'کسورات:' : language === 'en' ? 'Deductions:' : 'کسورات مرحله:'}</span>
+                          <div className="font-mono font-bold text-rose-500">
+                            -{formatAmount((stl.totalAdvances || 0) + (stl.totalBackcharges || 0) + (stl.totalExtraDeductions || 0) + (stl.totalDelayPenalty || 0) + (stl.retentionAmount || 0) + (stl.insuranceAmount || 0), currency)}
+                          </div>
                         </div>
+
                         <div>
-                          <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'شایستەی خاڵس:' : language === 'en' ? 'Net Paid:' : 'خالص پرداخت:'}</span>
-                          <div className="font-mono font-black text-teal-600 dark:text-teal-400">{formatAmount(stl.netPayableAmount, currency)} {currency}</div>
+                          <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'خاڵسی پەسەندکراو:' : language === 'en' ? 'Approved Net:' : 'خالص تاییدشده:'}</span>
+                          <div className="font-mono font-bold text-sky-600 dark:text-sky-400">{formatAmount(pSummary.netPayable, currency)} {currency}</div>
                         </div>
-                        <div className="flex items-center justify-end">
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold">
-                            {language === 'ku' ? 'سەندی ژمێریاری دەرچوو' : language === 'en' ? 'Voucher Issued' : 'سند صادر شد'}
-                          </span>
+
+                        <div>
+                          <span className="text-slate-400 text-[10px]">{language === 'ku' ? 'باڵانسی ماوە:' : language === 'en' ? 'Remaining Balance:' : 'مانده قابل پرداخت:'}</span>
+                          <div className={`font-mono font-black ${pSummary.remaining > 0 ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'}`}>
+                            {formatAmount(pSummary.remaining, currency)} {currency}
+                          </div>
                         </div>
                       </div>
+
+                      {/* Delay Penalty Banner (درآمد حاصل از خسارت کارگاه) */}
+                      {stl.totalDelayPenalty > 0 && (
+                        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] flex items-center justify-between text-amber-800 dark:text-amber-200">
+                          <span className="flex items-center gap-1 font-bold">
+                            <Scale className="w-3.5 h-3.5 text-amber-600" />
+                            <span>{language === 'ku' ? `سزای ${stl.delayDays || 0} ڕۆژ دواکەوتن (داهاتی پڕۆژە):` : language === 'en' ? `Delay penalty for ${stl.delayDays || 0} days (Workshop damage revenue):` : `کسر جریمه ${stl.delayDays || 0} روز تاخیر (درآمد ناشی از خسارات کارگاه):`}</span>
+                          </span>
+                          <span className="font-mono font-black">
+                            -{formatAmount(stl.totalDelayPenalty, currency)} {currency}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Payment Action Bar & History Toggle */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          {pSummary.transactions.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedHistorySettlementId(isHistoryExpanded ? null : (stl.id || i))}
+                              className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
+                            >
+                              <span>{language === 'ku' ? `مێژووی پارەدانەکان (${pSummary.transactions.length})` : language === 'en' ? `Payment History (${pSummary.transactions.length})` : `ریز واریزی‌ها (${pSummary.transactions.length} قسط)`}</span>
+                              {isHistoryExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {pSummary.remaining > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => setPayingSettlement(stl)}
+                              className="px-3 py-1.5 rounded-xl font-bold text-xs bg-teal-600 hover:bg-teal-500 text-white shadow-sm flex items-center gap-1.5 active:scale-95 transition-all"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>{language === 'ku' ? 'تۆمارکردنی پارەدانی دارایی' : language === 'en' ? 'Disburse Payment' : 'ثبت پرداخت مالی'}</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 border border-emerald-500/20">
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>{language === 'ku' ? 'تەواوی پارە دراوە' : language === 'en' ? '100% Settled' : '۱۰۰٪ تسویه شده'}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Expandable Payment History Sub-Panel */}
+                      {isHistoryExpanded && pSummary.transactions.length > 0 && (
+                        <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/70 space-y-1.5 mt-2 animate-in fade-in duration-150">
+                          {pSummary.transactions.map((tx, txIdx) => (
+                            <div
+                              key={tx.paymentId || txIdx}
+                              className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-[11px]"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-md bg-teal-500/10 text-teal-600 font-mono font-bold text-[10px] flex items-center justify-center">
+                                  #{txIdx + 1}
+                                </span>
+                                <div>
+                                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    {tx.accountName || 'خزانه‌داری'} ({tx.paymentMethod === 'bank' ? 'بانک' : tx.paymentMethod === 'cheque' ? 'چک' : 'صندوق'})
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-mono ltr:ml-2 rtl:mr-2">
+                                    {tx.date}
+                                  </span>
+                                  {tx.trackingCode && (
+                                    <span className="text-[10px] text-slate-500 ltr:ml-2 rtl:mr-2">
+                                      کد پیگیری: {tx.trackingCode}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                {formatAmount(tx.amount, currency)} {currency}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -780,6 +899,19 @@ export default function ContractDetailModal({
           contract={contract}
           onSuccess={(result) => {
             // Live Dexie query will automatically update contract details
+          }}
+        />
+      )}
+
+      {/* Contract Settlement Payment Modal */}
+      {payingSettlement && (
+        <ContractSettlementPaymentModal
+          isOpen={Boolean(payingSettlement)}
+          onClose={() => setPayingSettlement(null)}
+          contract={contract}
+          settlement={payingSettlement}
+          onPaymentSuccess={() => {
+            setPayingSettlement(null);
           }}
         />
       )}
