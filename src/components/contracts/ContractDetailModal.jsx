@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useProject } from '../../context/ProjectContext';
-import { formatAmount, numberToWords, formatCurrency, getTodayDateString } from '../../utils/formatters';
+import { formatAmount, numberToWords, formatCurrency, getTodayDateString, formatDateDisplay } from '../../utils/formatters';
 import {
   deleteContract,
   getContractCrewAttendanceSummary,
@@ -57,7 +57,7 @@ export default function ContractDetailModal({
   onEdit,
   onOpenSettlement
 }) {
-  const { language, direction } = useLanguage();
+  const { language, direction, calendarType, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
   const printRef = useRef(null);
@@ -324,12 +324,12 @@ export default function ContractDetailModal({
                 <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
                   <div>
                     <span className="font-sans">{language === 'ku' ? 'دەستپێک:' : language === 'en' ? 'Start:' : 'شروع قرارداد:'}</span>{' '}
-                    <span className="font-bold text-slate-700 dark:text-slate-300">{contract.startDate || '---'}</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{contract.startDate ? formatDateDisplay(contract.startDate, language, numberFormat, calendarType) : '---'}</span>
                   </div>
                   <div>
                     <span className="font-sans">{language === 'ku' ? 'مۆڵەت:' : language === 'en' ? 'Deadline:' : 'مهلت تحویل:'}</span>{' '}
                     <span className={`font-bold ${timeline.isOverdue ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-700 dark:text-slate-300'}`}>
-                      {contract.estimatedEndDate || '---'}
+                      {contract.estimatedEndDate ? formatDateDisplay(contract.estimatedEndDate, language, numberFormat, calendarType) : '---'}
                     </span>
                   </div>
                 </div>
@@ -407,7 +407,7 @@ export default function ContractDetailModal({
                       <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200/50 dark:border-slate-700/50 font-mono">
                         <div>
                           <span className="text-slate-400 font-sans text-[10px]">{language === 'ku' ? 'وادەی پەسەندکراو:' : language === 'en' ? 'Target Deadline:' : 'موعد تحویل مصوب:'}</span>
-                          <div className="font-bold text-slate-700 dark:text-slate-300">{ms.targetEndDate || '---'}</div>
+                          <div className="font-bold text-slate-700 dark:text-slate-300">{ms.targetEndDate ? formatDateDisplay(ms.targetEndDate, language, numberFormat, calendarType) : '---'}</div>
                         </div>
                         <div>
                           <span className="text-slate-400 font-sans text-[10px]">{language === 'ku' ? 'بڕی ئەم قۆناغە:' : language === 'en' ? 'Target Amount / %:' : 'مبلغ و درصد هدف:'}</span>
@@ -423,7 +423,7 @@ export default function ContractDetailModal({
                       {isSettled ? (
                         <div className="p-2 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-[11px] space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-500">{language === 'ku' ? 'بەرواری تەواوبوون:' : language === 'en' ? 'Actual Date:' : 'تاریخ تحویل:'} <strong className="font-mono text-slate-800 dark:text-slate-200">{ms.actualCompletionDate || '---'}</strong></span>
+                            <span className="text-slate-500">{language === 'ku' ? 'بەرواری تەواوبوون:' : language === 'en' ? 'Actual Date:' : 'تاریخ تحویل:'} <strong className="font-mono text-slate-800 dark:text-slate-200">{ms.actualCompletionDate ? formatDateDisplay(ms.actualCompletionDate, language, numberFormat, calendarType) : '---'}</strong></span>
                             {rawDelay > 0 && (
                               <span className="text-slate-500">
                                 {language === 'ku' ? 'دواکەوتنی گشتی:' : language === 'en' ? 'Gross Delay:' : 'کل تاخیر:'} <strong className="font-mono">{rawDelay}</strong> {language === 'ku' ? 'ڕۆژ' : language === 'en' ? 'days' : 'روز'}
@@ -607,7 +607,7 @@ export default function ContractDetailModal({
                         </span>
                       </div>
                       <span className="text-[11px] font-mono text-slate-400">
-                        {amd.date}
+                        {amd.date ? formatDateDisplay(amd.date, language, numberFormat, calendarType) : '---'}
                       </span>
                     </div>
 
@@ -620,7 +620,9 @@ export default function ContractDetailModal({
                     <div className="pt-2 border-t border-purple-500/10 flex items-center justify-between gap-3 flex-wrap text-[11px]">
                       <div className="flex items-center gap-2">
                         <span className="text-slate-400">{language === 'ku' ? 'مۆڵەتی نوێ:' : language === 'en' ? 'New deadline:' : 'مهلت جدید:'}</span>
-                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">{amd.newEstimatedEndDate || contract.estimatedEndDate || '---'}</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">
+                          {(amd.newEstimatedEndDate || contract.estimatedEndDate) ? formatDateDisplay(amd.newEstimatedEndDate || contract.estimatedEndDate, language, numberFormat, calendarType) : '---'}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -722,7 +724,7 @@ export default function ContractDetailModal({
 
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-mono text-slate-400">
-                            {stl.date}
+                            {stl.date ? formatDateDisplay(stl.date, language, numberFormat, calendarType) : '---'}
                           </span>
                           {stl.voucherNumber && (
                             <span className="px-2 py-0.5 rounded-md font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] border border-slate-200 dark:border-slate-700">
@@ -855,7 +857,7 @@ export default function ContractDetailModal({
                                     {tx.accountName || 'خزانه‌داری'} ({tx.paymentMethod === 'bank' ? 'بانک' : tx.paymentMethod === 'cheque' ? 'چک' : 'صندوق'})
                                   </span>
                                   <span className="text-[10px] text-slate-400 font-mono ltr:ml-2 rtl:mr-2">
-                                    {tx.date}
+                                    {tx.date ? formatDateDisplay(tx.date, language, numberFormat, calendarType) : '---'}
                                   </span>
                                   {tx.trackingCode && (
                                     <span className="text-[10px] text-slate-500 ltr:ml-2 rtl:mr-2">

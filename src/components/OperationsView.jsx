@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useProject } from '../context/ProjectContext';
 import { useContracts } from '../hooks/useContracts';
-import { formatAmount, getTodayDateString } from '../utils/formatters';
+import { formatAmount, getTodayDateString, formatDateDisplay } from '../utils/formatters';
 import { calculateDelayDays, getContractTimelineProgress } from '../services/contractService';
 import AddEditContractModal from './contracts/AddEditContractModal';
 import ContractDetailModal from './contracts/ContractDetailModal';
@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 
 export default function OperationsView() {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, calendarType, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
 
@@ -582,12 +582,12 @@ export default function OperationsView() {
                           <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5 font-mono">
                             <div className="flex items-center gap-1">
                               <span className="font-sans">{language === 'ku' ? 'دەستپێک:' : language === 'en' ? 'Start:' : 'شروع:'}</span>
-                              <span className="font-bold text-slate-600 dark:text-slate-300">{contract.startDate || '---'}</span>
+                              <span className="font-bold text-slate-600 dark:text-slate-300">{contract.startDate ? formatDateDisplay(contract.startDate, language, numberFormat, calendarType) : '---'}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <span className="font-sans">{language === 'ku' ? 'مه‌ودا:' : language === 'en' ? 'Deadline:' : 'مهلت:'}</span>
                               <span className={`font-bold ${isOverdue ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-600 dark:text-slate-300'}`}>
-                                {contract.estimatedEndDate || '---'}
+                                {contract.estimatedEndDate ? formatDateDisplay(contract.estimatedEndDate, language, numberFormat, calendarType) : '---'}
                               </span>
                             </div>
                           </div>
