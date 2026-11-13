@@ -2358,6 +2358,7 @@ export function FinancialsView() {
         language={language}
         allAccounts={accounts}
         allWorkers={workers}
+        onSelectEntity={(newEntity) => setSelectedAccountForLedger(newEntity?.data || newEntity)}
         onClose={() => setSelectedAccountForLedger(null)}
       />
 

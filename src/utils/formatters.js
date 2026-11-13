@@ -13,19 +13,45 @@ export function roundIQD(amount) {
 }
 
 /**
+ * Normalizes any variation of currency string to standard codes ('IQD' | 'IRT' | 'USD' | 'EUR')
+ * Handles 'IRR', 'IRT', 'TOMAN', 'toman', 'تومان', 'تۆمەن' -> 'IRT'
+ * Handles 'USD', '$', 'DOLLAR', 'دلار', 'دۆلار' -> 'USD'
+ * Handles 'EUR', '€', 'EURO', 'یورو', 'یۆرۆ' -> 'EUR'
+ * Handles 'IQD', 'DINAR', 'دینار', 'د.ع' -> 'IQD'
+ */
+export function normalizeCurrency(currency) {
+  if (!currency) return 'IQD';
+  const c = String(currency).trim().toUpperCase();
+  if (c === 'IRT' || c === 'IRR' || c === 'TOMAN' || c === 'TOMANS' || c === 'تومان' || c === 'تۆمەن') {
+    return 'IRT';
+  }
+  if (c === 'USD' || c === 'DOLLAR' || c === 'DOLLARS' || c === '$' || c === 'دلار' || c === 'دۆلار') {
+    return 'USD';
+  }
+  if (c === 'EUR' || c === 'EURO' || c === 'EUROS' || c === '€' || c === 'یورو' || c === 'یۆرۆ') {
+    return 'EUR';
+  }
+  if (c === 'IQD' || c === 'DINAR' || c === 'DINARS' || c === 'دینار' || c === 'د.ع') {
+    return 'IQD';
+  }
+  return c;
+}
+
+/**
  * Round currency based on project currency rules:
  * - IQD: nearest multiple of 250 (000, 250, 500, 750)
  * - IRT (Toman): whole numbers rounded
- * - USD: standard rounded decimal
+ * - USD/EUR: standard rounded decimal
  */
 export function roundCurrency(amount, currency = 'IQD') {
   if (amount === undefined || amount === null || isNaN(amount)) return 0;
   const num = Number(amount);
-  if (currency === 'IQD') {
+  const norm = normalizeCurrency(currency);
+  if (norm === 'IQD') {
     return roundIQD(num);
-  } else if (currency === 'IRT') {
+  } else if (norm === 'IRT') {
     return Math.round(num);
-  } else if (currency === 'USD') {
+  } else if (norm === 'USD' || norm === 'EUR') {
     return Math.round(num * 100) / 100;
   }
   return Math.round(num);
@@ -35,14 +61,19 @@ export function roundCurrency(amount, currency = 'IQD') {
  * Get display currency symbol/name according to language and currency code
  */
 export function getCurrencySymbol(currency = 'IQD', lang = 'ku') {
-  if (currency === 'IRT') {
+  const norm = normalizeCurrency(currency);
+  if (norm === 'IRT') {
     if (lang === 'en') return 'IRT';
     if (lang === 'ku') return 'تۆمەن';
     return 'تومان';
-  } else if (currency === 'USD') {
+  } else if (norm === 'USD') {
     if (lang === 'en') return '$';
     if (lang === 'ku') return '$';
     return 'دلار';
+  } else if (norm === 'EUR') {
+    if (lang === 'en') return '€';
+    if (lang === 'ku') return 'یۆرۆ';
+    return 'یورو';
   } else {
     // Default IQD
     if (lang === 'en') return 'IQD';
@@ -68,16 +99,23 @@ export function formatCurrency(amount, currency = 'IQD', lang = 'ku', numFormat 
     amount = 0;
   }
   const format = numFormat || getStoredNumberFormat();
-  const rounded = roundCurrency(amount, currency);
-  const symbol = getCurrencySymbol(currency, lang);
+  const norm = normalizeCurrency(currency);
+  const rounded = roundCurrency(amount, norm);
+  const symbol = getCurrencySymbol(norm, lang);
 
   let result = '';
-  if (currency === 'USD') {
+  if (norm === 'USD') {
     const formatted = rounded.toLocaleString('en-US', {
       minimumFractionDigits: rounded % 1 === 0 ? 0 : 2,
       maximumFractionDigits: 2
     });
     result = lang === 'fa' ? `${formatted} دلار` : `$${formatted}`;
+  } else if (norm === 'EUR') {
+    const formatted = rounded.toLocaleString('en-US', {
+      minimumFractionDigits: rounded % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2
+    });
+    result = `${formatted} €`;
   } else {
     const formattedNumber = rounded.toLocaleString('en-US');
     result = `${formattedNumber} ${symbol}`;

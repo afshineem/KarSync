@@ -3,6 +3,7 @@
  * Utility to convert numbers into words for official financial vouchers in KarSync.
  * Supports Persian (fa), Kurdish (ku), and English (en).
  */
+import { normalizeCurrency } from './formatters';
 
 const FA_ONES = ['', 'یک', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'هفت', 'هشت', 'نه'];
 const FA_TEENS = ['ده', 'یازده', 'دوازده', 'سیزده', 'چهارده', 'پانزده', 'شانزده', 'هفده', 'هجده', 'نوزده'];
@@ -96,11 +97,13 @@ export function numberToWords(amount, currencyCode = 'IQD', lang = 'fa') {
     return 'صفر';
   }
 
+  const normCode = normalizeCurrency(currencyCode);
   const currencyUnit = {
     IQD: { fa: 'دینار عراقی', ku: 'دیناری عێراقی', en: 'Iraqi Dinars' },
     IRT: { fa: 'تومان', ku: 'تۆمەن', en: 'Tomans' },
-    USD: { fa: 'دلار آمریکا', ku: 'دۆلاری ئەمریکی', en: 'US Dollars' }
-  }[currencyCode] || { fa: currencyCode, ku: currencyCode, en: currencyCode };
+    USD: { fa: 'دلار آمریکا', ku: 'دۆلاری ئەمریکی', en: 'US Dollars' },
+    EUR: { fa: 'یورو', ku: 'یۆرۆ', en: 'Euros' }
+  }[normCode] || { fa: normCode, ku: normCode, en: normCode };
 
   const chunks = chunkNumber(num);
   const wordsParts = [];

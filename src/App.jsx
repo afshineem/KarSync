@@ -59,6 +59,7 @@ function AppContent() {
     : (currentUser?.plan_tier || user?.plan_tier || 'basic');
   const isPremium = planTier === 'premium';
   const { 
+    currentProject,
     profileWorkerId, 
     closeWorkerProfile,
     isGlobalSettingsOpen,
@@ -674,6 +675,7 @@ function AppContent() {
         <AccountSubsidiaryLedgerModal
           isOpen={Boolean(selectedLedgerEntity)}
           entity={selectedLedgerEntity}
+          currency={currentProject?.currency || currentProject?.base_currency}
           onSelectEntity={(newEntity) => setSelectedLedgerEntity(newEntity)}
           onClose={() => setSelectedLedgerEntity(null)}
           language={language}

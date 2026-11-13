@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import * as XLSX from 'xlsx';
 import { db, DEFAULT_PROJECT_ID } from '../../db/db';
 import { useProject } from '../../context/ProjectContext';
-import { formatCurrency, formatAmount, getCurrencySymbol } from '../../utils/formatters';
+import { formatCurrency, formatAmount, getCurrencySymbol, normalizeCurrency } from '../../utils/formatters';
 import { useAccounting } from '../../hooks/useAccounting';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -409,7 +409,7 @@ export function AccountSubsidiaryLedgerModal({
   isOpen,
   entity, // { type: 'account', data: account } | { type: 'worker', data: worker }
   accountData, // داده‌های مانده حساب (در صورت ارسال از بیرون)
-  currency = 'IQD',
+  currency = null,
   language = 'fa',
   allAccounts = [],
   allWorkers = [],
@@ -417,7 +417,7 @@ export function AccountSubsidiaryLedgerModal({
   onClose
 }) {
   const txt = COPY[language] || COPY.fa;
-  const { currentProject, openWorkerProfile } = useProject();
+  const { currentProject, currency: projectCurrency, openWorkerProfile } = useProject();
   const targetProjectId = currentProject?.id || DEFAULT_PROJECT_ID;
 
   // هوک دسترسی کاربری
@@ -426,13 +426,22 @@ export function AccountSubsidiaryLedgerModal({
 
   // هوک مالی حسابداری
   const accounting = useAccounting();
-  const effectiveCurrency = currency || accounting?.currency || 'IQD';
-  const effectiveAccounts = (allAccounts && allAccounts.length > 0) ? allAccounts : (accounting?.financialAccounts || []);
-  const effectiveWorkers = (allWorkers && allWorkers.length > 0) ? allWorkers : (accounting?.workers || []);
 
   const isRtl = language === 'fa' || language === 'ku';
   const entityType = entity?.type || 'account'; // 'account' | 'worker'
   const entityData = entity?.data || entity;
+
+  const effectiveCurrency = normalizeCurrency(
+    currency ||
+    entityData?.currency ||
+    projectCurrency ||
+    currentProject?.currency ||
+    currentProject?.base_currency ||
+    accounting?.currency ||
+    'IQD'
+  );
+  const effectiveAccounts = (allAccounts && allAccounts.length > 0) ? allAccounts : (accounting?.financialAccounts || []);
+  const effectiveWorkers = (allWorkers && allWorkers.length > 0) ? allWorkers : (accounting?.workers || []);
 
   const effectiveAccountData = accountData || (entityType === 'account' && entityData?.id ? accounting?.accountBalances?.get(String(entityData.id)) : null);
 
@@ -940,7 +949,7 @@ export function AccountSubsidiaryLedgerModal({
         [h.inflow]: initialBalance,
         [h.outflow]: 0,
         [h.balance]: initialBalance,
-        [h.currency]: effectiveCurrency
+        [h.currency]: getCurrencySymbol(effectiveCurrency, language)
       }] : []),
       ...displayedTransactions.map((tx, idx) => ({
         [h.row]: idx + 1,
@@ -953,7 +962,7 @@ export function AccountSubsidiaryLedgerModal({
         [h.inflow]: tx.type === 'inflow' ? tx.amount : 0,
         [h.outflow]: tx.type === 'outflow' ? tx.amount : 0,
         [h.balance]: tx.runningBalance,
-        [h.currency]: effectiveCurrency
+        [h.currency]: getCurrencySymbol(effectiveCurrency, language)
       })),
       ...((!isWorker && initialBalance > 0 && sortDirection === 'desc') ? [{
         [h.row]: txt.openingRow,
@@ -966,7 +975,7 @@ export function AccountSubsidiaryLedgerModal({
         [h.inflow]: initialBalance,
         [h.outflow]: 0,
         [h.balance]: initialBalance,
-        [h.currency]: effectiveCurrency
+        [h.currency]: getCurrencySymbol(effectiveCurrency, language)
       }] : [])
     ];
 
@@ -1194,7 +1203,7 @@ export function AccountSubsidiaryLedgerModal({
                           </span>
                         )}
                         <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-slate-300 border border-white/10">
-                          {txt.currencyBadge(effectiveCurrency)}
+                          {txt.currencyBadge(getCurrencySymbol(effectiveCurrency, language))}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-400 mt-1">
