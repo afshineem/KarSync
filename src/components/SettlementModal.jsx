@@ -69,6 +69,7 @@ import {
 import { useAccounting } from '../hooks/useAccounting';
 import { OverdraftConfirmModal } from './accounting/OverdraftConfirmModal';
 import { calculateWorkerFinancials, getReceiptPeriodEnd } from '../utils/settlementCalculations';
+import { DualDatePicker } from './DualDatePicker';
 
 const COPY = {
   fa: {
@@ -2389,43 +2390,21 @@ export function SettlementModal({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                        {c.fromDateLabel}
-                      </label>
-                      {customStartDate && (
-                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 font-mono">
-                          {formatDateDisplay(customStartDate, language, numberFormat, calendarType)}
-                        </span>
-                      )}
-                    </div>
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    />
-                  </div>
+                  <DualDatePicker
+                    value={customStartDate}
+                    onChange={setCustomStartDate}
+                    label={c.fromDateLabel}
+                    accentColor="sky"
+                    showWeekdayBadge={true}
+                  />
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                        {c.toDateLabel}
-                      </label>
-                      {customEndDate && (
-                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 font-mono">
-                          {formatDateDisplay(customEndDate, language, numberFormat, calendarType)}
-                        </span>
-                      )}
-                    </div>
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    />
-                  </div>
+                  <DualDatePicker
+                    value={customEndDate}
+                    onChange={setCustomEndDate}
+                    label={c.toDateLabel}
+                    accentColor="sky"
+                    showWeekdayBadge={true}
+                  />
                 </div>
 
                 {/* Quick Date Presets */}
@@ -2768,21 +2747,15 @@ export function SettlementModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center">
                 <div>
-                  <input
-                    type="date"
+                  <DualDatePicker
                     value={autoCutoffDate}
-                    onChange={(e) => {
-                      setAutoCutoffDate(e.target.value);
+                    onChange={(val) => {
+                      setAutoCutoffDate(val);
                       setIsAmountManuallyEdited(false);
                     }}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+                    accentColor="emerald"
+                    showWeekdayBadge={true}
                   />
-                  {autoCutoffDate && (
-                    <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>{formatFullDateWithWeekday(autoCutoffDate, language, numberFormat, calendarType)}</span>
-                    </div>
-                  )}
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {prevMonthEndDate && (
@@ -3454,22 +3427,13 @@ export function SettlementModal({
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  {t('settlementDate')}
-                </label>
-                {settlementDate && (
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                    {formatFullDateWithWeekday(settlementDate, language, numberFormat, calendarType)}
-                  </span>
-                )}
-              </div>
-              <input
-                type="date"
+              <DualDatePicker
                 value={settlementDate}
-                onChange={(e) => setSettlementDate(e.target.value)}
-                required
-                className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white font-mono"
+                onChange={setSettlementDate}
+                label={t('settlementDate')}
+                accentColor="emerald"
+                required={true}
+                showWeekdayBadge={true}
               />
             </div>
           </div>

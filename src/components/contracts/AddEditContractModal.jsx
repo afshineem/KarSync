@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useProject } from '../../context/ProjectContext';
 import { createContract, updateContract, WORK_ITEM_UNITS } from '../../services/contractService';
-import { formatAmount, numberToWords, getTodayDateString } from '../../utils/formatters';
+import { formatAmount, numberToWords, getTodayDateString, formatDateDisplay, formatFullDateWithWeekday } from '../../utils/formatters';
 import {
   X,
   FileSignature,
@@ -31,7 +31,7 @@ export default function AddEditContractModal({
   editingContract = null,
   counterparties = []
 }) {
-  const { t, language, direction } = useLanguage();
+  const { t, language, direction, calendarType, numberFormat } = useLanguage();
   const { currentProject } = useProject();
   const currency = currentProject?.currency || 'IQD';
 
@@ -465,9 +465,16 @@ export default function AddEditContractModal({
 
                   {/* Start Date */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                      <span>{language === 'ku' ? 'بەرواری دەستپێکردن' : language === 'en' ? 'Start Date' : 'تاریخ شروع به کار'}</span>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between gap-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                        <span>{language === 'ku' ? 'بەرواری دەستپێکردن' : language === 'en' ? 'Start Date' : 'تاریخ شروع به کار'}</span>
+                      </span>
+                      {formData.startDate && (
+                        <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                          {formatFullDateWithWeekday(formData.startDate, language, numberFormat, calendarType)}
+                        </span>
+                      )}
                     </label>
                     <input
                       type="date"
@@ -479,9 +486,16 @@ export default function AddEditContractModal({
 
                   {/* Estimated End Date */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{language === 'ku' ? 'مۆڵەت / بەرواری تەواوبوون' : language === 'en' ? 'Estimated Completion' : 'مهلت / موعد پایان کار'}</span>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between gap-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{language === 'ku' ? 'مۆڵەت / بەرواری تەواوبوون' : language === 'en' ? 'Estimated Completion' : 'مهلت / موعد پایان کار'}</span>
+                      </span>
+                      {formData.estimatedEndDate && (
+                        <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                          {formatFullDateWithWeekday(formData.estimatedEndDate, language, numberFormat, calendarType)}
+                        </span>
+                      )}
                     </label>
                     <input
                       type="date"
@@ -793,8 +807,13 @@ export default function AddEditContractModal({
 
                           {/* Start Date */}
                           <div className="sm:col-span-3 space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                              {language === 'ku' ? 'بەرواری دەستپێکردن' : language === 'en' ? 'Start Date' : 'تاریخ شروع مرحله'}
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
+                              <span>{language === 'ku' ? 'بەرواری دەستپێکردن' : language === 'en' ? 'Start Date' : 'تاریخ شروع مرحله'}</span>
+                              {ms.startDate && (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                  {formatDateDisplay(ms.startDate, language, numberFormat, calendarType)}
+                                </span>
+                              )}
                             </label>
                             <input
                               type="date"
@@ -806,8 +825,13 @@ export default function AddEditContractModal({
 
                           {/* Target End Date (Deadline) */}
                           <div className="sm:col-span-3 space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                              {language === 'ku' ? 'مۆڵەت / وادەی کۆتایی' : language === 'en' ? 'Target End Date' : 'موعد تحویل (مهلت پایان)'}
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1">
+                              <span>{language === 'ku' ? 'مۆڵەت / وادەی کۆتایی' : language === 'en' ? 'Target End Date' : 'موعد تحویل (مهلت پایان)'}</span>
+                              {ms.targetEndDate && (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                  {formatDateDisplay(ms.targetEndDate, language, numberFormat, calendarType)}
+                                </span>
+                              )}
                             </label>
                             <input
                               type="date"

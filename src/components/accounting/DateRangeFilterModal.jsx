@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CalendarRange, X, Calendar, Check, RotateCcw } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { getCurrentYearMonth } from '../../utils/formatters';
+import { DualDatePicker } from '../DualDatePicker';
 
 /**
  * DateRangeFilterModal
@@ -207,35 +208,21 @@ export function DateRangeFilterModal({
 
           {/* فیلدهای تاریخ شروع و پایان */}
           <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                {txt.startDate}
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full h-10 px-3 ps-9 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500/20"
-                />
-                <Calendar className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
+            <DualDatePicker
+              value={startDate}
+              onChange={setStartDate}
+              label={txt.startDate}
+              accentColor="sky"
+              showWeekdayBadge={true}
+            />
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                {txt.endDate}
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full h-10 px-3 ps-9 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500/20"
-                />
-                <Calendar className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
+            <DualDatePicker
+              value={endDate}
+              onChange={setEndDate}
+              label={txt.endDate}
+              accentColor="sky"
+              showWeekdayBadge={true}
+            />
           </div>
         </div>
 

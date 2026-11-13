@@ -450,7 +450,7 @@ export default function ContractSettlementPaymentModal({
 
                 {parsedAmount > 0 && (
                   <p className="text-[11px] text-teal-600 dark:text-teal-400 font-bold px-1">
-                    {numberToWords(parsedAmount)} {currency}
+                    {numberToWords(parsedAmount, currency, language)}
                   </p>
                 )}
               </div>
@@ -542,8 +542,13 @@ export default function ContractSettlementPaymentModal({
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {t.chequeDueDateLabel}
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between gap-2">
+                        <span>{t.chequeDueDateLabel}</span>
+                        {chequeDueDate && (
+                          <span className="text-[11px] font-medium text-teal-600 dark:text-teal-400">
+                            {formatFullDateWithWeekday(chequeDueDate, language, numberFormat, calendarType)}
+                          </span>
+                        )}
                       </label>
                       <input
                         type="date"
