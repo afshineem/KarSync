@@ -42,9 +42,7 @@ export function getActiveWorkspaceContext() {
       
       const isLegacyOwner = 
         userId === "867f5819-e911-45f2-9d4f-d4a7f955ef5f" ||
-        user.email === "afshineem@gmail.com" ||
-        workspaceId === "4a2980ba-f500-4689-9b13-e0c8df300f70" ||
-        workspaceId === "KAR101" ||
+        (user.email && user.email.toLowerCase() === "afshineem@gmail.com") ||
         userId === "admin_local";
       
       return {
@@ -839,13 +837,30 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
       });
     }
 
-    // 3. Proactively push any local workers that don't exist in cloud yet (safety check, never delete!)
-    if (cloudWorkers.length > 0) {
-      const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
-      const localWorkers = await db.workers.toArray();
+    // 3. Proactively push any local workers that don't exist in cloud yet (strictly scoped to active tenant)
+    const localWorkers = await db.workers.toArray();
+    if (ctx.isLegacyOwner) {
+      if (cloudWorkers.length > 0) {
+        const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
+        for (const lw of localWorkers) {
+          if (!cloudWorkerIds.has(lw.id) && !pendingWorkers.has(lw.id)) {
+            pushWorkerLive(lw).catch(console.warn);
+          }
+        }
+      }
+    } else {
+      // Non-legacy tenant: purge foreign/orphaned workers from local Dexie and only push legit un-synced workers owned by this tenant
+      const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
       for (const lw of localWorkers) {
-        if (!cloudWorkerIds.has(lw.id) && !pendingWorkers.has(lw.id)) {
-          pushWorkerLive(lw).catch(console.warn);
+        if (!cloudWorkerIds.has(lw.id)) {
+          if (lw.userId && lw.userId !== ctx.userId) {
+            // Orphaned worker from another tenant or previous session - delete immediately from local Dexie!
+            await db.workers.delete(lw.id).catch(() => {});
+            await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
+          } else if (lw.userId === ctx.userId && !pendingWorkers.has(lw.id)) {
+            // Legit offline-created worker belonging to active tenant
+            pushWorkerLive(lw).catch(console.warn);
+          }
         }
       }
     }
@@ -970,12 +985,9 @@ function subscribeToRealtime() {
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
         const idToDelete = payload.new?.id || payload.old?.id;
         if (idToDelete) {
-          const ctx = getActiveWorkspaceContext();
-          const pending = new Set(getPendingDeletedWorkers());
-          // Only delete locally if requested locally or if not legacy owner
-          if (pending.has(idToDelete) || !ctx.isLegacyOwner) {
-            await db.workers.delete(idToDelete);
-          }
+          await db.workers.delete(idToDelete);
+          await db.attendanceLogs.where('workerId').equals(idToDelete).delete().catch(() => {});
+          clearPendingWorkerDeletion(idToDelete);
         }
       } else if (payload.new) {
         const w = payload.new;
@@ -984,10 +996,9 @@ function subscribeToRealtime() {
           return; // Ignore worker change from other tenants
         }
         if (w.deleted_at) {
-          const pending = new Set(getPendingDeletedWorkers());
-          if (pending.has(w.id) || !ctx.isLegacyOwner) {
-            await db.workers.delete(w.id);
-          }
+          await db.workers.delete(w.id);
+          await db.attendanceLogs.where('workerId').equals(w.id).delete().catch(() => {});
+          clearPendingWorkerDeletion(w.id);
         } else {
           const pending = new Set(getPendingDeletedWorkers());
           if (pending.has(w.id)) {
@@ -2383,8 +2394,14 @@ export async function pushWorkerMetadataLive(workerId, metadata) {
 export async function syncAllWorkerMetadataToCloud() {
   if (!navigator.onLine) return;
   try {
+    const ctx = getActiveWorkspaceContext();
     const localWorkers = await db.workers.toArray();
     if (localWorkers.length === 0) return;
+
+    const targetWorkers = ctx.isLegacyOwner 
+      ? localWorkers 
+      : localWorkers.filter(w => !w.userId || w.userId === ctx.userId);
+    if (targetWorkers.length === 0) return;
 
     const { data } = await supabase
       .from('settings')
@@ -2399,7 +2416,7 @@ export async function syncAllWorkerMetadataToCloud() {
       } catch (_) {}
     }
 
-    for (const w of localWorkers) {
+    for (const w of targetWorkers) {
       const existingMeta = cloudMetadata[w.id] || {};
       const localTime = w.updatedAt ? new Date(w.updatedAt).getTime() : 0;
       const cloudTime = existingMeta.updatedAt ? new Date(existingMeta.updatedAt).getTime() : 0;
@@ -2522,7 +2539,12 @@ export async function pushLogsLive(logs) {
   const ctx = getActiveWorkspaceContext();
   const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
 
-  const payload = logs.map(l => {
+  const eligibleLogs = ctx.isLegacyOwner 
+    ? logs 
+    : logs.filter(l => !l.userId || l.userId === ctx.userId);
+  if (eligibleLogs.length === 0) return;
+
+  const payload = eligibleLogs.map(l => {
     let cleanNotes = (l.notes || '').trim();
     // Cleanly strip any old META block first
     let actualUserNotes = cleanNotes.replace(/__META__[\s\S]*?__META__\n?/, '').trim();
@@ -2569,6 +2591,12 @@ export async function pushWorkerLive(w) {
   if (!w) return;
   clearPendingWorkerDeletion(w.id);
 
+  const ctx = getActiveWorkspaceContext();
+  if (!ctx.isLegacyOwner && ctx.userId && w.userId && w.userId !== ctx.userId) {
+    console.warn(`[Sync] Blocked pushWorkerLive: worker ${w.id} belongs to ${w.userId}, not active ${ctx.userId}`);
+    return;
+  }
+
   if (w.projectId) {
     pushWorkerProjectMapLive(w.id, w.projectId).catch(console.warn);
   }
@@ -2602,7 +2630,6 @@ export async function pushWorkerLive(w) {
 
   if (!navigator.onLine) return;
 
-  const ctx = getActiveWorkspaceContext();
   const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
 
   const payload = {
@@ -2657,7 +2684,12 @@ export async function pushWorkersLive(workers) {
   const ctx = getActiveWorkspaceContext();
   const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
 
-  const payload = workers.map(w => ({
+  const eligibleWorkers = ctx.isLegacyOwner
+    ? workers
+    : workers.filter(w => !w.userId || w.userId === ctx.userId);
+  if (eligibleWorkers.length === 0) return;
+
+  const payload = eligibleWorkers.map(w => ({
     id: w.id,
     user_id: w.userId || effectiveUserId,
     name: w.name,
@@ -2742,9 +2774,14 @@ export async function deleteWorkerLive(workerId) {
 export async function pushPaymentsLive() {
   if (!navigator.onLine) return;
   try {
+    const ctx = getActiveWorkspaceContext();
     const localPayments = await db.payments.toArray();
     const pendingDeleted = new Set(getPendingDeletedPayments());
-    const filteredLocal = localPayments.filter(p => !pendingDeleted.has(p.id));
+    const filteredLocal = localPayments.filter(p => {
+      if (pendingDeleted.has(p.id)) return false;
+      if (!ctx.isLegacyOwner && ctx.userId && p.userId && p.userId !== ctx.userId) return false;
+      return true;
+    });
 
     // Fetch latest cloud payments to safely merge
     const { data } = await supabase

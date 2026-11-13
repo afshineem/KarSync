@@ -59,12 +59,16 @@ export function ProjectProvider({ children }) {
   const allProjects = useLiveQuery(async () => {
     try {
       const list = await db.projects.toArray();
+      const isLegacy = userId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f';
+      if (!isLegacy && userId && userId !== 'default_user') {
+        return (list || []).filter(p => !p.userId || p.userId === userId);
+      }
       return list || [];
     } catch (err) {
       console.warn('Error querying projects from Dexie:', err);
       return [];
     }
-  }, [], []);
+  }, [userId], []);
 
   // Ensure default project exists on startup or when user signs in
   useEffect(() => {

@@ -20,7 +20,9 @@ import {
   Layers,
   Sparkles,
   Info,
-  ShieldCheck
+  ShieldCheck,
+  Milestone,
+  CalendarClock
 } from 'lucide-react';
 
 export default function AddEditContractModal({
@@ -40,6 +42,8 @@ export default function AddEditContractModal({
     startDate: getTodayDateString(),
     estimatedEndDate: '',
     delayPenaltyPerDay: '',
+    authorizedDelayDays: '',
+    milestones: [],
     items: [
       {
         id: 'item_1',
@@ -55,6 +59,12 @@ export default function AddEditContractModal({
       lodging: 'contractor',
       transport: 'contractor',
       tools: 'workshop'
+    },
+    retentionPolicy: {
+      deductRetention: false,
+      retentionRate: 5,
+      deductInsurance: false,
+      insuranceRate: 5
     },
     terms: '',
     notes: ''
@@ -73,6 +83,14 @@ export default function AddEditContractModal({
         startDate: editingContract.startDate || getTodayDateString(),
         estimatedEndDate: editingContract.estimatedEndDate || '',
         delayPenaltyPerDay: editingContract.delayPenaltyPerDay ? String(editingContract.delayPenaltyPerDay) : '',
+        authorizedDelayDays: editingContract.authorizedDelayDays ? String(editingContract.authorizedDelayDays) : '',
+        milestones: Array.isArray(editingContract.milestones) ? editingContract.milestones.map(m => ({
+          ...m,
+          targetPercentage: m.targetPercentage !== undefined && m.targetPercentage !== null ? String(m.targetPercentage) : '',
+          estimatedAmount: m.estimatedAmount !== undefined && m.estimatedAmount !== null ? String(m.estimatedAmount) : '',
+          delayPenaltyPerDay: m.delayPenaltyPerDay !== undefined && m.delayPenaltyPerDay !== null ? String(m.delayPenaltyPerDay) : '',
+          authorizedDelayDays: m.authorizedDelayDays !== undefined && m.authorizedDelayDays !== null ? String(m.authorizedDelayDays) : ''
+        })) : [],
         items: Array.isArray(editingContract.items) && editingContract.items.length > 0
           ? editingContract.items.map(it => ({
               ...it,
@@ -112,6 +130,8 @@ export default function AddEditContractModal({
         startDate: getTodayDateString(),
         estimatedEndDate: '',
         delayPenaltyPerDay: '',
+        authorizedDelayDays: '',
+        milestones: [],
         items: [
           {
             id: 'item_1',
@@ -188,6 +208,45 @@ export default function AddEditContractModal({
     });
   };
 
+  // Handle adding new milestone row
+  const handleAddMilestone = () => {
+    setFormData(prev => ({
+      ...prev,
+      milestones: [
+        ...(prev.milestones || []),
+        {
+          id: `ms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          stageNumber: (prev.milestones?.length || 0) + 1,
+          title: '',
+          targetPercentage: '',
+          estimatedAmount: '',
+          startDate: prev.startDate || getTodayDateString(),
+          targetEndDate: '',
+          delayPenaltyPerDay: '',
+          authorizedDelayDays: '',
+          status: 'pending'
+        }
+      ]
+    }));
+  };
+
+  // Handle removing a milestone row
+  const handleRemoveMilestone = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      milestones: (prev.milestones || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  // Handle updating a milestone property
+  const handleUpdateMilestone = (index, field, value) => {
+    setFormData(prev => {
+      const updated = [...(prev.milestones || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, milestones: updated };
+    });
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
@@ -221,6 +280,24 @@ export default function AddEditContractModal({
       return;
     }
 
+    // Filter and format milestones
+    const validMilestones = (formData.milestones || [])
+      .filter(m => (m.title && m.title.trim()) || m.targetEndDate)
+      .map((m, idx) => ({
+        id: m.id || `ms_${idx + 1}`,
+        stageNumber: idx + 1,
+        title: String(m.title || '').trim() || (language === 'ku' ? `قۆناغی #${idx + 1}` : language === 'en' ? `Stage #${idx + 1}` : `مرحله ${idx + 1}`),
+        targetPercentage: Number(m.targetPercentage) || 0,
+        estimatedAmount: Number(String(m.estimatedAmount).replace(/,/g, '')) || 0,
+        startDate: m.startDate || formData.startDate,
+        targetEndDate: m.targetEndDate || '',
+        delayPenaltyPerDay: m.delayPenaltyPerDay ? Number(String(m.delayPenaltyPerDay).replace(/,/g, '')) : 0,
+        authorizedDelayDays: Number(m.authorizedDelayDays) || 0,
+        waivePenalty: Boolean(m.waivePenalty),
+        waiverReason: m.waiverReason || '',
+        status: m.status || 'pending'
+      }));
+
     setIsSubmitting(true);
     try {
       const selectedCp = counterparties.find(c => String(c.id) === String(formData.counterpartyId));
@@ -233,7 +310,10 @@ export default function AddEditContractModal({
         startDate: formData.startDate,
         estimatedEndDate: formData.estimatedEndDate,
         delayPenaltyPerDay: Number(String(formData.delayPenaltyPerDay).replace(/,/g, '')) || 0,
+        authorizedDelayDays: Number(String(formData.authorizedDelayDays).replace(/,/g, '')) || 0,
         items: validItems,
+        milestones: validMilestones,
+        retentionPolicy: formData.retentionPolicy,
         backchargeCommitments: formData.backchargeCommitments,
         terms: formData.terms.trim(),
         notes: formData.notes.trim()

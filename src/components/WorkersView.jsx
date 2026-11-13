@@ -438,9 +438,16 @@ export function WorkersView() {
   const workers = useLiveQuery(
     async () => {
       const list = await db.workers.toArray();
-      return list.filter((w) => isWorkerInProject(w, targetProjectId));
+      const currentUserId = user?.id || user?.userId;
+      const isLegacy = currentUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f';
+      return list.filter((w) => {
+        if (currentUserId && !isLegacy && w.userId && w.userId !== currentUserId) {
+          return false;
+        }
+        return isWorkerInProject(w, targetProjectId);
+      });
     },
-    [targetProjectId]
+    [targetProjectId, user?.id, user?.userId]
   ) || [];
 
   const groups = useLiveQuery(
@@ -458,22 +465,32 @@ export function WorkersView() {
   // پرسنلی که دارای سابقه کارکرد یا اسناد مالی هستند تحت هیچ شرایطی نباید حذف قطعی شوند
   const undeletableWorkerIds = useLiveQuery(
     async () => {
-      const logs = await db.attendanceLogs.toArray();
-      const payments = await db.payments.toArray();
-      const expenses = await db.expenses.toArray();
+      const currentUserId = user?.id || user?.userId;
+      const isLegacy = currentUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f';
+      const [logs, payments, expenses] = await Promise.all([
+        db.attendanceLogs.toArray(),
+        db.payments.toArray(),
+        db.expenses.toArray()
+      ]);
       const set = new Set();
       logs.forEach((l) => {
-        if (l.workerId) set.add(String(l.workerId));
+        if (!l.userId || isLegacy || l.userId === currentUserId) {
+          if (l.workerId) set.add(String(l.workerId));
+        }
       });
       payments.forEach((p) => {
-        if (p.workerId) set.add(String(p.workerId));
+        if (!p.userId || isLegacy || p.userId === currentUserId) {
+          if (p.workerId) set.add(String(p.workerId));
+        }
       });
       expenses.forEach((e) => {
-        if (e.workerId) set.add(String(e.workerId));
+        if (!e.userId || isLegacy || e.userId === currentUserId) {
+          if (e.workerId) set.add(String(e.workerId));
+        }
       });
       return set;
     },
-    []
+    [user?.id, user?.userId]
   ) || new Set();
 
   const allLogs = useLiveQuery(() => db.attendanceLogs.toArray(), []) || [];

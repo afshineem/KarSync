@@ -67,6 +67,8 @@ export async function createContract(contractData, userId = null) {
     estimatedEndDate: contractData.estimatedEndDate || '',
     actualEndDate: null,
     delayPenaltyPerDay: Number(contractData.delayPenaltyPerDay) || 0,
+    authorizedDelayDays: Number(contractData.authorizedDelayDays) || 0,
+    milestones: Array.isArray(contractData.milestones) ? contractData.milestones : [],
     items,
     // Performance & Social Security Insurance Retentions (سپرده حسن انجام کار و بیمه)
     retentionPolicy: contractData.retentionPolicy || {
@@ -172,6 +174,55 @@ export function calculateDelayDays(estimatedEndDate, actualEndDate) {
   const diffTime = act.getTime() - est.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return Math.max(0, diffDays);
+}
+
+/**
+ * Calculate delay, authorized grace days, and liquidated damages for a milestone or stage
+ */
+export function calculateMilestoneDelay({
+  milestone,
+  actualEndDate,
+  defaultDailyPenalty = 0,
+  authorizedDelayDays = null,
+  waiveDelayPenalty = null
+}) {
+  if (!milestone) {
+    return {
+      rawDelayDays: 0,
+      authorizedDelayDays: 0,
+      netDelayDays: 0,
+      dailyPenalty: 0,
+      totalPenalty: 0,
+      isWaived: false,
+      waiverReason: ''
+    };
+  }
+
+  const targetDate = milestone.targetEndDate;
+  const actualDate = actualEndDate || new Date().toISOString().slice(0, 10);
+  const rawDelayDays = calculateDelayDays(targetDate, actualDate);
+
+  const authDays = authorizedDelayDays !== null && authorizedDelayDays !== undefined
+    ? Math.max(0, Number(authorizedDelayDays) || 0)
+    : Math.max(0, Number(milestone.authorizedDelayDays) || 0);
+
+  const isWaived = waiveDelayPenalty !== null && waiveDelayPenalty !== undefined
+    ? Boolean(waiveDelayPenalty)
+    : Boolean(milestone.waivePenalty);
+
+  const netDelayDays = isWaived ? 0 : Math.max(0, rawDelayDays - authDays);
+  const dailyPenalty = Number(milestone.delayPenaltyPerDay) || Number(defaultDailyPenalty) || 0;
+  const totalPenalty = netDelayDays * dailyPenalty;
+
+  return {
+    rawDelayDays,
+    authorizedDelayDays: authDays,
+    netDelayDays,
+    dailyPenalty,
+    totalPenalty,
+    isWaived,
+    waiverReason: milestone.waiverReason || ''
+  };
 }
 
 /**
@@ -787,7 +838,11 @@ export function calculateContractSettlement({
   crewAttendanceSummary = null,
   crewAttendanceMode = 'none', // 'man_day_item' | 'extra_gross_wage' | 'none'
   settlementType = 'interim', // 'interim' | 'final'
-  applyDelayPenalty = false
+  applyDelayPenalty = false,
+  selectedMilestoneId = null,
+  authorizedDelayDays = null,
+  waiveDelayPenalty = null,
+  waiverReason = ''
 }) {
   const isInterim = settlementType === 'interim';
   const progress = getContractSettlementProgress(contract);
@@ -795,7 +850,7 @@ export function calculateContractSettlement({
 
   // 1. Gross Work Amount
   let grossWorkAmount = 0;
-  let itemsToProcess = (completedItems.length > 0 ? completedItems : contract.items || []);
+  let itemsToProcess = (completedItems.length > 0 ? completedItems : contract?.items || []);
 
   // If crewAttendanceMode is man_day_item, ensure man_day item uses crew totalDays
   if (crewAttendanceMode === 'man_day_item' && crewAttendanceSummary?.totalDays !== undefined) {
@@ -851,16 +906,55 @@ export function calculateContractSettlement({
     grossWorkAmount += crewGrossWageAddition;
   }
 
-  // 2. Delay Days & Penalty (usually 0 in interim progress billing unless explicitly enabled)
-  let delayDays = 0;
+  // 2. Delay Days & Penalty (supports per-milestone or overall contract delay)
+  let rawDelayDays = 0;
+  let authDelayDays = 0;
+  let netDelayDays = 0;
+  let isWaived = Boolean(waiveDelayPenalty);
   let dailyPenalty = 0;
   let totalDelayPenalty = 0;
+  let selectedMilestone = null;
 
-  if (!isInterim || applyDelayPenalty) {
-    delayDays = calculateDelayDays(contract.estimatedEndDate, actualEndDate || new Date().toISOString().slice(0, 10));
-    dailyPenalty = Number(contract.delayPenaltyPerDay) || 0;
-    totalDelayPenalty = delayDays * dailyPenalty;
+  if (selectedMilestoneId && Array.isArray(contract?.milestones)) {
+    selectedMilestone = contract.milestones.find(m => m.id === selectedMilestoneId) || null;
   }
+
+  const shouldCalculatePenalty = Boolean(
+    selectedMilestone ||
+    settlementType === 'final' ||
+    applyDelayPenalty
+  );
+
+  if (shouldCalculatePenalty) {
+    if (selectedMilestone) {
+      const res = calculateMilestoneDelay({
+        milestone: selectedMilestone,
+        actualEndDate,
+        defaultDailyPenalty: contract?.delayPenaltyPerDay || 0,
+        authorizedDelayDays,
+        waiveDelayPenalty
+      });
+      rawDelayDays = res.rawDelayDays;
+      authDelayDays = res.authorizedDelayDays;
+      netDelayDays = res.netDelayDays;
+      dailyPenalty = res.dailyPenalty;
+      totalDelayPenalty = res.totalPenalty;
+      isWaived = res.isWaived;
+    } else {
+      rawDelayDays = calculateDelayDays(contract?.estimatedEndDate, actualEndDate || new Date().toISOString().slice(0, 10));
+      authDelayDays = authorizedDelayDays !== null && authorizedDelayDays !== undefined
+        ? Math.max(0, Number(authorizedDelayDays) || 0)
+        : Math.max(0, Number(contract?.authorizedDelayDays) || 0);
+      isWaived = waiveDelayPenalty !== null && waiveDelayPenalty !== undefined
+        ? Boolean(waiveDelayPenalty)
+        : Boolean(contract?.waivePenalty);
+      netDelayDays = isWaived ? 0 : Math.max(0, rawDelayDays - authDelayDays);
+      dailyPenalty = Number(contract?.delayPenaltyPerDay) || 0;
+      totalDelayPenalty = netDelayDays * dailyPenalty;
+    }
+  }
+
+  let delayDays = netDelayDays;
 
   // 3. Advances & Prepayments
   const totalAdvances = selectedAdvances.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -872,7 +966,7 @@ export function calculateContractSettlement({
   const totalExtraDeductions = extraDeductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
 
   // 6. Contract Retention (سپرده حسن انجام کار) & Insurance Retention (سپرده بیمه ماده ۳۸)
-  const retentionPolicy = contract.retentionPolicy || {};
+  const retentionPolicy = contract?.retentionPolicy || {};
   let retentionAmount = 0;
   let insuranceAmount = 0;
 
@@ -896,6 +990,12 @@ export function calculateContractSettlement({
     crewAttendanceSummary,
     crewAttendanceMode,
     delayDays,
+    rawDelayDays,
+    authorizedDelayDays: authDelayDays,
+    isWaived,
+    waiverReason: waiverReason || selectedMilestone?.waiverReason || '',
+    selectedMilestoneId: selectedMilestone?.id || selectedMilestoneId || null,
+    selectedMilestone,
     dailyPenalty,
     totalDelayPenalty,
     retentionAmount,
@@ -947,12 +1047,26 @@ export async function finalizeAndSubmitContractSettlement({
   });
 
   // 2. Construct detailed narrative for the accounting voucher
+  const milestone = settlementCalculation.selectedMilestone;
+  const milestoneHeader = milestone
+    ? `مرحله زمانی / قسط: ${milestone.title} (مهلت مصوب: ${milestone.targetEndDate})\n`
+    : '';
+
+  let delayPenaltySummaryText = null;
+  if (settlementCalculation.isWaived) {
+    delayPenaltySummaryText = `• تاخیر ${settlementCalculation.rawDelayDays || 0} روزه مرحله: مشمول بخشودگی کامل جریمه با تایید مدیریت (دلیل: ${settlementCalculation.waiverReason || 'ملاحظات اجرایی'}) [۰ ${currency}]`;
+  } else if (settlementCalculation.totalDelayPenalty > 0) {
+    delayPenaltySummaryText = `• کسر جریمه دیرکرد مرحله (${settlementCalculation.delayDays} روز خالص مشمول پس از کسر ${settlementCalculation.authorizedDelayDays || 0} روز تاخیر مجاز): ${settlementCalculation.totalDelayPenalty} [بستانکار معین ۶۱۰۳ سایر درآمدهای پیمان]`;
+  } else if ((settlementCalculation.rawDelayDays || 0) > 0 && (settlementCalculation.authorizedDelayDays || 0) >= (settlementCalculation.rawDelayDays || 0)) {
+    delayPenaltySummaryText = `• تاخیر ${settlementCalculation.rawDelayDays} روزه در سقف تاخیرات مجاز و موجه قرار گرفت (بدون جریمه)`;
+  }
+
   const itemsSummary = settlementCalculation.finalizedItems
     .map(it => `• ${it.title}: ${it.incrementalQuantity} ${it.unit} (مجموع تا الان: ${it.cumulativeQuantity}) × ${it.unitPrice} = ${it.finalAmount}`)
     .join('\n');
 
   const deductionsSummary = [
-    settlementCalculation.totalDelayPenalty > 0 ? `• جریمه ${settlementCalculation.delayDays} روز تاخیر: ${settlementCalculation.totalDelayPenalty}` : null,
+    delayPenaltySummaryText,
     settlementCalculation.retentionAmount > 0 ? `• کسر سپرده حسن انجام کار (${settlementCalculation.retentionRate}%): ${settlementCalculation.retentionAmount} [معین ۳۴۰۱]` : null,
     settlementCalculation.insuranceAmount > 0 ? `• کسر سپرده بیمه ماده ۳۸ (${settlementCalculation.insuranceRate}%): ${settlementCalculation.insuranceAmount} [معین ۳۴۰۲]` : null,
     settlementCalculation.totalAdvances > 0 ? `• کسر پیش‌پرداخت‌ها و علی‌الحساب: ${settlementCalculation.totalAdvances} [معین ۱۵۰۱]` : null,
@@ -966,6 +1080,7 @@ export async function finalizeAndSubmitContractSettlement({
 
   const voucherDescription = `${titlePrefix} قرارداد: ${contract.title} (${contract.contractNumber})\n` +
     `طرف‌حساب: ${contract.counterpartyName || 'پیمانکار'}\n` +
+    milestoneHeader +
     (stageNotes ? `یادداشت و شرایط مرحله: ${stageNotes}\n` : '') +
     `مجموع کارکرد ناخالص این مرحله: ${settlementCalculation.grossWorkAmount}\n` +
     (deductionsSummary ? `کسورات این مرحله:\n${deductionsSummary}\n` : '') +
@@ -977,7 +1092,7 @@ export async function finalizeAndSubmitContractSettlement({
   const draftExpenseRecord = {
     id: expenseId,
     projectId,
-    title: `${titlePrefix} قرارداد: ${contract.title}`,
+    title: `${titlePrefix} قرارداد: ${contract.title}${milestone ? ` (${milestone.title})` : ''}`,
     description: voucherDescription,
     amount: settlementCalculation.netPayableAmount,
     paidAmount: 0,
@@ -998,6 +1113,14 @@ export async function finalizeAndSubmitContractSettlement({
       contractId: contract.id,
       stageNumber,
       settlementType,
+      selectedMilestoneId: settlementCalculation.selectedMilestoneId || null,
+      milestoneTitle: milestone?.title || null,
+      rawDelayDays: settlementCalculation.rawDelayDays || 0,
+      authorizedDelayDays: settlementCalculation.authorizedDelayDays || 0,
+      delayDays: settlementCalculation.delayDays || 0,
+      isWaived: Boolean(settlementCalculation.isWaived),
+      waiverReason: settlementCalculation.waiverReason || '',
+      delayPenaltySubCode: '6103',
       grossWorkAmount: settlementCalculation.grossWorkAmount,
       totalDelayPenalty: settlementCalculation.totalDelayPenalty,
       retentionAmount: settlementCalculation.retentionAmount || 0,
@@ -1026,6 +1149,13 @@ export async function finalizeAndSubmitContractSettlement({
     settlementType,
     date: dateStr,
     title: titlePrefix,
+    selectedMilestoneId: settlementCalculation.selectedMilestoneId || null,
+    milestoneTitle: milestone?.title || null,
+    rawDelayDays: settlementCalculation.rawDelayDays || 0,
+    authorizedDelayDays: settlementCalculation.authorizedDelayDays || 0,
+    isWaived: Boolean(settlementCalculation.isWaived),
+    waiverReason: settlementCalculation.waiverReason || '',
+    delayPenaltySubCode: '6103',
     notes: stageNotes,
     finalizedItems: settlementCalculation.finalizedItems,
     grossWorkAmount: settlementCalculation.grossWorkAmount,
@@ -1055,6 +1185,31 @@ export async function finalizeAndSubmitContractSettlement({
 
   priorSettlements.push(settlementRecord);
 
+  // Update milestone if settlement was linked to a specific milestone
+  let updatedMilestones = Array.isArray(contract.milestones) ? [...contract.milestones] : [];
+  if (settlementCalculation.selectedMilestoneId) {
+    updatedMilestones = updatedMilestones.map(m => {
+      if (m.id === settlementCalculation.selectedMilestoneId) {
+        return {
+          ...m,
+          status: 'settled',
+          actualCompletionDate: dateStr,
+          rawDelayDays: settlementCalculation.rawDelayDays || 0,
+          authorizedDelayDays: settlementCalculation.authorizedDelayDays || 0,
+          netDelayDays: settlementCalculation.delayDays || 0,
+          waivePenalty: Boolean(settlementCalculation.isWaived),
+          waiverReason: settlementCalculation.waiverReason || '',
+          delayPenaltyAmount: settlementCalculation.totalDelayPenalty || 0,
+          settledVoucherId: expenseId,
+          settledVoucherNumber: voucherNumber,
+          settlementId: settlementRecord.id,
+          updatedAt: now
+        };
+      }
+      return m;
+    });
+  }
+
   // 5. Update Contract record in database
   let updatedContract;
   if (isInterim) {
@@ -1064,6 +1219,7 @@ export async function finalizeAndSubmitContractSettlement({
       lastSettlementDate: dateStr,
       lastSettlementNumber: stageNumber,
       settlements: priorSettlements,
+      milestones: updatedMilestones,
       updatedAt: now
     };
   } else {
@@ -1076,6 +1232,7 @@ export async function finalizeAndSubmitContractSettlement({
       voucherNumber,
       settlementDetails: settlementCalculation,
       settlements: priorSettlements,
+      milestones: updatedMilestones,
       updatedAt: now
     };
   }

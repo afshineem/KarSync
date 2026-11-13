@@ -213,6 +213,8 @@ export const DEFAULT_CHART_OF_ACCOUNTS = [
     title: 'درآمد حاصل از فروش ضایعات و مصالح مازاد', title_ku: 'داهاتی فرۆشتنی پاشماوە و کەرەستەی زیادە', title_en: 'Scrap & Surplus Material Sales' },
   { code: '6102', level: 3, parentCode: '61', nature: 'creditor', isSystem: true,
     title: 'درآمد ارائه خدمات فنی و ماشین‌آلات به غیر', title_ku: 'داهاتی پێشکەشکردنی خزمەتگوزاری و ئامێر', title_en: 'Services & Equipment Rental Income' },
+  { code: '6103', level: 3, parentCode: '61', nature: 'creditor', isSystem: true,
+    title: 'درآمد حاصل از جرایم دیرکرد و خسارات پیمانکاران', title_ku: 'داهاتی سزای دواکەوتن و قەرەبووی بەڵێندەران', title_en: 'Contractor Delay Penalties & Liquidated Damages' },
 
   // ==========================================
   // گروه ۷: بهای تمام شده / کار در جریان پیمان (Project Direct Costs / WIP)
@@ -495,8 +497,8 @@ export function resolveTransactionCoding(transaction = {}, accountsMap = new Map
       retentionSubCode: '3401', // حسن انجام کار
       insuranceSubCode: '3402', // بیمه ماده ۳۸
       advanceSubCode: '1501',   // پیش‌پرداخت پیمانکاران
-      delayPenaltySubCode: '6101', // درآمد حاصل از خسارات و جرایم پیمانکاران (جریمه دیرکرد)
-      delayPenaltySubTitle: 'سایر درآمدهای غیرعملیاتی (خسارت تاخیر پیمانکاران)',
+      delayPenaltySubCode: '6103', // درآمد حاصل از خسارات و جرایم پیمانکاران (جریمه دیرکرد)
+      delayPenaltySubTitle: 'درآمد حاصل از جرایم دیرکرد و خسارات پیمانکاران',
       detailType: 'contractor',
       detailCode: transaction.counterpartyId || transaction.personId || null
     };
