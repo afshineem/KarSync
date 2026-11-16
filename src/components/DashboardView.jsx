@@ -14,7 +14,9 @@ import {
   getCurrentYearMonth,
   roundCurrency,
   getCurrencySymbol,
-  formatMonthOnly
+  formatMonthOnly,
+  isDateInMonth,
+  shiftCalendarMonth
 } from '../utils/formatters';
 import { calculateWorkerFinancials } from '../utils/settlementCalculations';
 import {
@@ -305,7 +307,10 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     return raw;
   };
 
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth()); // 'YYYY-MM'
+  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentYearMonth(calendarType, language)); // 'YYYY-MM'
+  useEffect(() => {
+    setSelectedMonth(getCurrentYearMonth(calendarType, language));
+  }, [calendarType, language]);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [selectedTaskForDetails, setSelectedTaskForDetails] = useState(null);
@@ -411,9 +416,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
             (l.projectId || DEFAULT_PROJECT_ID) === targetProjectId ||
             projectWorkerIds.has(String(l.workerId))
         );
-        return projLogs.filter((l) => l.date && l.date.startsWith(selectedMonth));
+        return projLogs.filter((l) => l.date && isDateInMonth(l.date, selectedMonth, calendarType, language));
       },
-      [targetProjectId, selectedMonth]
+      [targetProjectId, selectedMonth, calendarType, language]
     ) || [];
 
   const projectSections =
@@ -463,9 +468,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
   const monthlyExpenses = useMemo(() => {
     return projectExpenses.filter((e) => {
       const d = e.expenseDate || e.date || e.createdAt?.slice(0, 10) || '';
-      return d.startsWith(selectedMonth);
+      return d && isDateInMonth(d, selectedMonth, calendarType, language);
     });
-  }, [projectExpenses, selectedMonth]);
+  }, [projectExpenses, selectedMonth, calendarType, language]);
 
   const monthlyExpensesTotal = useMemo(() => {
     return monthlyExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
@@ -721,15 +726,11 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
 
   // Month navigation helpers
   const handlePrevMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const date = new Date(y, m - 2, 1);
-    setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+    setSelectedMonth((prev) => shiftCalendarMonth(prev, -1, calendarType, language));
   };
 
   const handleNextMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const date = new Date(y, m, 1);
-    setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+    setSelectedMonth((prev) => shiftCalendarMonth(prev, 1, calendarType, language));
   };
 
   // Settlement ratio for monthly payroll
