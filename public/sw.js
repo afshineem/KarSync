@@ -1,4 +1,4 @@
-const CACHE_NAME = 'karsync-cache-v37';
+const CACHE_NAME = 'karsync-cache-v38';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -6,6 +6,9 @@ const ASSETS_TO_CACHE = [
   '/karsync-icon.png',
   '/karsync-icon-192.png',
   '/karsync-logo.png',
+  '/karsync-icon.png?v=3',
+  '/karsync-icon-192.png?v=3',
+  '/karsync-logo.png?v=3',
   '/fonts/NotoSansArabic.woff2',
   '/fonts/Exo2-Regular.woff2'
 ];
