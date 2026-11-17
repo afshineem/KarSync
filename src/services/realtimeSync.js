@@ -45,7 +45,9 @@ export function getActiveWorkspaceContext() {
     if (raw) {
       const user = JSON.parse(raw);
       const workspaceId = user.workspace_id || user.workspaceId || user.workspaceCode;
-      const userId = user.id || user.userId;
+      const isSubAccount = user.via === 'worker' || user.via === 'app_user';
+      const ownerUserId = user.ownerUserId || user.owner_id || null;
+      const userId = (isSubAccount && ownerUserId) ? ownerUserId : (user.id || user.userId);
       
       const isLegacyOwner = 
         userId === "867f5819-e911-45f2-9d4f-d4a7f955ef5f" ||
@@ -55,6 +57,7 @@ export function getActiveWorkspaceContext() {
       return {
         workspaceId,
         userId,
+        ownerUserId,
         email: user.email,
         isLegacyOwner: Boolean(isLegacyOwner)
       };
@@ -64,9 +67,58 @@ export function getActiveWorkspaceContext() {
   return {
     workspaceId: null,
     userId: null,
+    ownerUserId: null,
     email: null,
     isLegacyOwner: false // unauthenticated sessions must never be treated as legacy owner
   };
+}
+
+/**
+ * Self-heal sub-account sessions (worker / app_user) that were saved before ownerUserId
+ * was recorded on workshop_auth_session, so sync & realtime queries use the workspace owner's user_id.
+ */
+export async function ensureSubAccountOwnerContext() {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("workshop_auth_session") : null;
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    const isSubAccount = user.via === 'worker' || user.via === 'app_user';
+    if (!isSubAccount || user.ownerUserId || user.owner_id) {
+      return user.ownerUserId || user.owner_id || null;
+    }
+
+    let resolvedOwnerId = null;
+    const wsId = user.workspace_id || user.workspaceId;
+
+    if (wsId && db.workspaces) {
+      const localWs = await db.workspaces.get(wsId).catch(() => null);
+      if (localWs?.owner_id) resolvedOwnerId = localWs.owner_id;
+    }
+    if (!resolvedOwnerId && user.workerId && db.workers) {
+      const localW = await db.workers.get(user.workerId).catch(() => null);
+      if (localW?.userId && localW.userId !== 'default_user' && localW.userId !== 'worker_portal') {
+        resolvedOwnerId = localW.userId;
+      }
+    }
+
+    if (!resolvedOwnerId && typeof navigator !== 'undefined' && navigator.onLine) {
+      if (wsId) {
+        const { data: wsRow } = await supabase.from('workspaces').select('owner_id').eq('id', wsId).maybeSingle();
+        if (wsRow?.owner_id) resolvedOwnerId = wsRow.owner_id;
+      }
+      if (!resolvedOwnerId && user.workerId) {
+        const { data: wRow } = await supabase.from('workers').select('user_id').eq('id', user.workerId).maybeSingle();
+        if (wRow?.user_id) resolvedOwnerId = wRow.user_id;
+      }
+    }
+
+    if (resolvedOwnerId) {
+      const updated = { ...user, ownerUserId: resolvedOwnerId, owner_id: resolvedOwnerId };
+      localStorage.setItem("workshop_auth_session", JSON.stringify(updated));
+      return resolvedOwnerId;
+    }
+  } catch (_) {}
+  return null;
 }
 
 export function isForeignToActiveContext(recordUserId, ctx) {
@@ -2550,6 +2602,7 @@ export async function pullRemoteChangesSilently(force = false) {
   isPullingRemote = true;
   lastRemotePullTime = now;
   try {
+    await ensureSubAccountOwnerContext();
     await pullWorkerProjectsLive();
     await pullGroupsLive();
     await pullWorkerMetadataLive();

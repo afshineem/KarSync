@@ -1361,6 +1361,7 @@ export function AuthProvider({ children }) {
               let workerName = cleanUser;
               let isActive = true;
 
+              let workerOwnerUserId = null;
               // Check worker status locally
               if (db.workers) {
                 try {
@@ -1368,17 +1369,19 @@ export function AuthProvider({ children }) {
                   if (w) {
                     workerName = w.name || cleanUser;
                     if (w.isActive === 0) isActive = false;
+                    if (w.userId && w.userId !== 'default_user') workerOwnerUserId = w.userId;
                   }
                 } catch (_) {}
               }
 
-              // Check worker status remotely if not found locally
-              if (workerName === cleanUser && navigator.onLine) {
+              // Check worker status remotely if not found locally or owner unknown
+              if ((workerName === cleanUser || !workerOwnerUserId) && navigator.onLine) {
                 try {
-                  const { data: remoteW } = await supabase.from('workers').select('name, is_active').eq('id', workerId).maybeSingle();
+                  const { data: remoteW } = await supabase.from('workers').select('name, is_active, user_id').eq('id', workerId).maybeSingle();
                   if (remoteW) {
                     workerName = remoteW.name || cleanUser;
                     if (remoteW.is_active === 0) isActive = false;
+                    if (remoteW.user_id) workerOwnerUserId = remoteW.user_id;
                   }
                 } catch (_) {}
               }
@@ -1390,6 +1393,7 @@ export function AuthProvider({ children }) {
               appUser = {
                 id: workerId,
                 workspace_id: workspace.id,
+                owner_id: workspace.owner_id || workspace.user_id || workerOwnerUserId || null,
                 username: cleanUser,
                 full_name: workerName,
                 role: 'worker',
@@ -1480,11 +1484,21 @@ export function AuthProvider({ children }) {
         await db.current_session.put(sessionData);
       }
 
+      let resolvedOwnerUserId = workspace.owner_id || workspace.user_id || appUser.owner_id || null;
+      if (!resolvedOwnerUserId && workspace.id && navigator.onLine) {
+        try {
+          const { data: wsOwnerRow } = await supabase.from('workspaces').select('owner_id').eq('id', workspace.id).maybeSingle();
+          if (wsOwnerRow?.owner_id) resolvedOwnerUserId = wsOwnerRow.owner_id;
+        } catch (_) {}
+      }
+
       const hydratedAppUser = hydrateUserFromRecord(appUser);
       const sessionUser = hydrateUserFromRecord({
         id: hydratedAppUser.id,
         userId: hydratedAppUser.id,
         workerId: hydratedAppUser.role === 'worker' ? hydratedAppUser.id : undefined,
+        ownerUserId: resolvedOwnerUserId,
+        owner_id: resolvedOwnerUserId,
         role: hydratedAppUser.role,
         name: hydratedAppUser.full_name,
         username: hydratedAppUser.username,
