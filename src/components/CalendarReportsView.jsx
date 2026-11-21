@@ -9,6 +9,7 @@ import { useProject } from '../context/ProjectContext';
 import { usePermissions } from '../context/AuthContext';
 import { EditRecordModal } from './EditRecordModal';
 import AttendanceRecycleBinModal from './AttendanceRecycleBinModal';
+import AttendanceAiAssistantModal from './AttendanceAiAssistantModal';
 import { WorkersModal } from './WorkersModal';
 import { 
   formatCurrency, 
@@ -95,6 +96,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       tabLogs: 'گزارش و بیلان جامع',
       personnelButton: 'پرسنل',
       personnelTooltip: 'مدیریت و بانک پرسنل (Shift + P)',
+      aiAssistantLabel: 'دستیار هوشمند (AI)',
+      aiAssistantTooltip: 'دستیار هوشمند کارکرد و تحلیل تسویه‌نشده‌ها (Gemini AI)',
       recycleBinLabel: 'سطل بازیافت کارکردهای حذف‌شده',
       recycleBinShort: 'سطل زباله',
       exportExcel: 'خروجی اکسل',
@@ -211,6 +214,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       tabLogs: 'ڕاپۆرت و بیلان',
       personnelButton: 'کارمەندان',
       personnelTooltip: 'بەڕێوەبردنی کارمەندان (Shift + P)',
+      aiAssistantLabel: 'یاریدەدەری زیرەک (AI)',
+      aiAssistantTooltip: 'یاریدەدەری زیرەکی دەوام و شیکاریی تەسویەنەکراوەکان (Gemini AI)',
       recycleBinLabel: 'سەبەتەی کارکردی سڕاوە',
       recycleBinShort: 'سڕاوەکان',
       exportExcel: 'دەرکردن بۆ ئەکسڵ',
@@ -327,6 +332,8 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
       tabLogs: 'Reports & Analytics',
       personnelButton: 'Workers',
       personnelTooltip: 'Personnel Management (Shift + P)',
+      aiAssistantLabel: 'AI Copilot',
+      aiAssistantTooltip: 'AI-Powered Attendance & Unsettled Audit (Gemini AI)',
       recycleBinLabel: 'Recycle Bin for Deleted Logs',
       recycleBinShort: 'Recycle',
       exportExcel: 'Export to Excel',
@@ -511,6 +518,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   const [editingLog, setEditingLog] = useState(null);
   const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
   const [isWorkersModalOpen, setIsWorkersModalOpen] = useState(false);
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
 
   // Timeline list controls with persistent sort order
   const [filterOnlyWithLogs, setFilterOnlyWithLogs] = useState(true);
@@ -1420,6 +1428,20 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                 </>
               )}
 
+              {/* KarSync Gemini AI Attendance Copilot Button */}
+              <button
+                type="button"
+                onClick={() => setIsAiAssistantOpen(true)}
+                className="h-full px-2.5 sm:px-3 text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-white hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 rounded-xl transition-all duration-300 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-purple-500/10 dark:bg-purple-500/10 border border-purple-500/25 group"
+                title={copy.aiAssistantTooltip}
+                aria-label={copy.aiAssistantLabel}
+              >
+                <Sparkles className="w-4.5 h-4.5 text-purple-500 group-hover:text-white animate-pulse flex-shrink-0" />
+                <span className="hidden md:inline font-bold">{copy.aiAssistantLabel}</span>
+              </button>
+
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+
               {/* Quick Export to Excel */}
               <button
                 type="button"
@@ -1557,6 +1579,16 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                       <span>{copy.logDailyAttendance}</span>
                     </button>
                   )}
+
+                  {/* AI Copilot Button for Mobile/Hero */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAiAssistantOpen(true)}
+                    className="col-span-2 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600/40 hover:to-indigo-600/40 text-white font-bold text-xs border border-purple-400/30 shadow-md shadow-purple-900/20 transition-all duration-300 cursor-pointer active:scale-95"
+                  >
+                    <Sparkles className="w-4 h-4 text-purple-300 animate-pulse" />
+                    <span>{copy.aiAssistantLabel}</span>
+                  </button>
 
                   {canManageWorkers && (
                     <button
@@ -3428,6 +3460,17 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
           onClose={() => setIsWorkersModalOpen(false)}
         />
       )}
+
+      {/* KarSync AI Attendance Copilot Modal */}
+      <AttendanceAiAssistantModal
+        isOpen={isAiAssistantOpen}
+        onClose={() => setIsAiAssistantOpen(false)}
+        workers={workers}
+        allLogs={allLogs}
+        allPayments={allPayments}
+        currency={currency}
+        initialWorkerId={selectedWorkerId !== 'all' ? selectedWorkerId : null}
+      />
 
     </div>
   );
