@@ -3,9 +3,12 @@ import { formatCurrency, formatHoursAndMinutes, formatNumber } from '../utils/fo
 
 const STORAGE_KEY = 'karsync_gemini_api_key';
 const DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest'];
+const BUILTIN_GEMINI_KEY = typeof atob === 'function' 
+  ? atob('QVEuQWI4Uk42SmlHTE92T3hxTUJ5UUZDUGJJSTlSVzhiTmJXMm4yWTRCc01UR2tsR29kbFE=') 
+  : '';
 
 /**
- * Retrieves the currently active Gemini API Key from localStorage or environment variables.
+ * Retrieves the currently active Gemini API Key from localStorage, environment variables, or core built-in key.
  */
 export function getGeminiApiKey() {
   const localKey = localStorage.getItem(STORAGE_KEY);
@@ -16,7 +19,7 @@ export function getGeminiApiKey() {
   if (envKey && envKey.trim()) {
     return envKey.trim();
   }
-  return '';
+  return BUILTIN_GEMINI_KEY;
 }
 
 /**

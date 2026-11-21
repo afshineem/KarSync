@@ -23,9 +23,6 @@ import {
 import { useLanguage } from '../i18n/LanguageContext';
 import { formatCurrency, formatHoursAndMinutes, formatNumber } from '../utils/formatters';
 import { 
-  getGeminiApiKey, 
-  saveGeminiApiKey, 
-  isGeminiConfigured, 
   analyzeWorkerAttendanceWithAi, 
   prepareWorkerAttendanceSummary 
 } from '../services/geminiService';
@@ -49,11 +46,6 @@ export default function AttendanceAiAssistantModal({
   const [aiReport, setAiReport] = useState(null);
   const [summaryData, setSummaryData] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
-  
-  // API Key config panel state
-  const [showKeyConfig, setShowKeyConfig] = useState(false);
-  const [inputApiKey, setInputApiKey] = useState(() => getGeminiApiKey());
-  const [keySavedToast, setKeySavedToast] = useState(false);
 
   // Sync selectedWorkerId if initialWorkerId changes
   useEffect(() => {
@@ -80,13 +72,21 @@ export default function AttendanceAiAssistantModal({
     return workers.find(w => String(w.id) === String(selectedWorkerId)) || null;
   }, [workers, selectedWorkerId]);
 
-  // Real-time precalculated summary for active worker
+  // Clear AI report and error ONLY when selected worker actually changes
+  const prevWorkerIdRef = useRef(selectedWorkerId);
+  useEffect(() => {
+    if (prevWorkerIdRef.current !== selectedWorkerId) {
+      prevWorkerIdRef.current = selectedWorkerId;
+      setAiReport(null);
+      setError(null);
+    }
+  }, [selectedWorkerId]);
+
+  // Real-time precalculated summary for active worker (keeps aiReport intact)
   useEffect(() => {
     if (activeWorker) {
       const summary = prepareWorkerAttendanceSummary(activeWorker, allLogs, allPayments, currency);
       setSummaryData(summary);
-      setAiReport(null);
-      setError(null);
     } else {
       setSummaryData(null);
     }
@@ -216,26 +216,10 @@ export default function AttendanceAiAssistantModal({
     }
   }[langKey];
 
-  // Save API Key handler
-  const handleSaveApiKey = () => {
-    saveGeminiApiKey(inputApiKey);
-    setKeySavedToast(true);
-    setTimeout(() => {
-      setKeySavedToast(false);
-      setShowKeyConfig(false);
-    }, 1500);
-  };
-
   // Run AI analysis
   const handleExecuteAi = async (overridePrompt = null) => {
     if (!activeWorker) {
       setError(copy.noWorkerSelected);
-      return;
-    }
-
-    if (!isGeminiConfigured()) {
-      setShowKeyConfig(true);
-      setError(copy.errorMissingKey);
       return;
     }
 
@@ -260,12 +244,7 @@ export default function AttendanceAiAssistantModal({
       }
     } catch (err) {
       console.error('[Gemini AI Attendance Error]', err);
-      if (err.message === 'MISSING_API_KEY') {
-        setShowKeyConfig(true);
-        setError(copy.errorMissingKey);
-      } else {
-        setError(err.message || copy.errorGeneral);
-      }
+      setError(err.message || copy.errorGeneral);
     } finally {
       setLoading(false);
     }
@@ -282,7 +261,6 @@ export default function AttendanceAiAssistantModal({
 
   if (!isOpen) return null;
 
-  const isConfigured = isGeminiConfigured();
   const p = summaryData?.unsettledPeriod;
   const s = summaryData?.settlementStatus;
 
@@ -318,22 +296,15 @@ export default function AttendanceAiAssistantModal({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* API Key Status / Config Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowKeyConfig(!showKeyConfig)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer ${
-                isConfigured 
-                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' 
-                  : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25 animate-pulse'
-              }`}
-              title={copy.configureKey}
+            {/* AI Active Indicator Badge */}
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
             >
-              <Key className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">
-                {isConfigured ? copy.apiKeyStatusActive : copy.apiKeyStatusMissing}
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="hidden sm:inline font-bold">
+                {copy.apiKeyStatusActive}
               </span>
-            </button>
+            </div>
 
             {/* Close Button */}
             <button
@@ -346,40 +317,6 @@ export default function AttendanceAiAssistantModal({
             </button>
           </div>
         </div>
-
-        {/* Inline API Key Config Drawer */}
-        {showKeyConfig && (
-          <div className="px-5 sm:px-6 py-4 bg-purple-500/10 dark:bg-purple-950/30 border-b border-purple-500/20 animate-fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-xs font-bold text-purple-700 dark:text-purple-300">
-                  <Key className="w-4 h-4" />
-                  <span>{copy.keyConfigTitle}</span>
-                </div>
-                <p className="text-[11px] text-purple-600/80 dark:text-purple-400/80">
-                  {copy.keyConfigDesc}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="password"
-                  value={inputApiKey}
-                  onChange={(e) => setInputApiKey(e.target.value)}
-                  placeholder={copy.keyPlaceholder}
-                  className="w-full sm:w-64 px-3 py-1.5 text-xs rounded-xl bg-white/80 dark:bg-slate-900/80 border border-purple-300 dark:border-purple-800 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-purple-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveApiKey}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-all duration-200 active:scale-95 whitespace-nowrap cursor-pointer"
-                >
-                  {keySavedToast ? copy.keySaved : copy.saveKey}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Scrollable Body Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
