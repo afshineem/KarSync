@@ -479,18 +479,9 @@ export function ExpensesView() {
     return appFormatCurrency(amount, curr, language);
   };
 
-  // Instant Realtime sync on mount, tab focus, or WebSocket broadcast event
+  // Lightweight non-forced expense sync on mount; live updates & focus recovery are handled centrally by realtimeSync.js + Dexie useLiveQuery
   useEffect(() => {
-    pullExpensesLive(true).catch(() => {});
-    const onSync = () => {
-      pullExpensesLive(true).catch(() => {});
-    };
-    window.addEventListener('workshop-expenses-sync', onSync);
-    window.addEventListener('focus', onSync);
-    return () => {
-      window.removeEventListener('workshop-expenses-sync', onSync);
-      window.removeEventListener('focus', onSync);
-    };
+    pullExpensesLive(false).catch(() => {});
   }, [projectId]);
 
   // Live Queries

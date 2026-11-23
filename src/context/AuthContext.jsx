@@ -665,6 +665,10 @@ export function AuthProvider({ children }) {
             }
             updatedSession.workspace_id = wsToUse.id;
             updatedSession.workspaceCode = wsToUse.workspace_code;
+            if (wsToUse.owner_id) {
+              updatedSession.ownerUserId = wsToUse.owner_id;
+              updatedSession.owner_id = wsToUse.owner_id;
+            }
             updatedSession.plan_tier = (wsToUse.plan_tier === 'premium') ? 'premium' : (wsToUse.plan_tier || 'basic');
             updatedSession.is_active = wsToUse.is_active !== false;
             updatedSession.is_suspended = wsToUse.is_active === false;

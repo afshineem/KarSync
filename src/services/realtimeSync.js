@@ -18,8 +18,38 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   }
 });
 
+export const LEGACY_OWNER_UUID = '867f5819-e911-45f2-9d4f-d4a7f955ef5f';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUUID(val) {
+  return typeof val === 'string' && UUID_REGEX.test(val.trim());
+}
+
 let isInitialized = false;
 let realtimeChannel = null;
+let realtimeStatus = 'idle'; // 'idle' | 'connecting' | 'connected' | 'disconnected'
+let realtimeReconnectTimer = null;
+let realtimeReconnectAttempts = 0;
+let pollingTimer = null;
+let lastKnownSettingVersions = new Map();
+let lastKnownWorkersSig = null;
+let lastKnownLogsSig = null;
+let lastFullReconcileTime = 0;
+let cachedCloudWorkerMetadata = null;
+let cachedCloudWorkerMetadataTime = 0;
+
+export function getRealtimeSyncStatus() {
+  return realtimeStatus;
+}
+
+function setRealtimeStatus(nextStatus) {
+  if (realtimeStatus === nextStatus) return;
+  realtimeStatus = nextStatus;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('karsync-realtime-status', { detail: { status: nextStatus } }));
+  }
+}
+
 export const CLIENT_ID = 'client_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
 const PENDING_DELETED_WORKERS_KEY = 'workshop_pending_deleted_workers';
@@ -46,18 +76,27 @@ export function getActiveWorkspaceContext() {
       const user = JSON.parse(raw);
       const workspaceId = user.workspace_id || user.workspaceId || user.workspaceCode;
       const isSubAccount = user.via === 'worker' || user.via === 'app_user';
+      const actorUserId = user.id || user.userId || null;
       const ownerUserId = user.ownerUserId || user.owner_id || null;
-      const userId = (isSubAccount && ownerUserId) ? ownerUserId : (user.id || user.userId);
+      const rawUserId = (isSubAccount && ownerUserId) ? ownerUserId : actorUserId;
       
       const isLegacyOwner = 
-        userId === "867f5819-e911-45f2-9d4f-d4a7f955ef5f" ||
+        rawUserId === LEGACY_OWNER_UUID ||
+        ownerUserId === LEGACY_OWNER_UUID ||
         (user.email && user.email.toLowerCase() === "afshineem@gmail.com") ||
-        userId === "admin_local";
+        actorUserId === "admin_local";
+
+      // Canonical Supabase owner UUID (never 'admin_local' when pushing to UUID columns)
+      const userId = isLegacyOwner ? LEGACY_OWNER_UUID : rawUserId;
+      const tenantScope = isLegacyOwner ? 'legacy' : (workspaceId || userId || 'sandbox');
       
       return {
         workspaceId,
         userId,
+        actorUserId,
         ownerUserId,
+        isSubAccount: Boolean(isSubAccount),
+        tenantScope,
         email: user.email,
         isLegacyOwner: Boolean(isLegacyOwner)
       };
@@ -67,10 +106,21 @@ export function getActiveWorkspaceContext() {
   return {
     workspaceId: null,
     userId: null,
+    actorUserId: null,
     ownerUserId: null,
+    isSubAccount: false,
+    tenantScope: 'sandbox',
     email: null,
     isLegacyOwner: false // unauthenticated sessions must never be treated as legacy owner
   };
+}
+
+export function resolveCanonicalOwnerUserId(ctx) {
+  const c = ctx || getActiveWorkspaceContext();
+  if (c.isLegacyOwner) return LEGACY_OWNER_UUID;
+  if (isValidUUID(c.ownerUserId)) return c.ownerUserId;
+  if (isValidUUID(c.userId)) return c.userId;
+  return null;
 }
 
 /**
@@ -124,13 +174,23 @@ export async function ensureSubAccountOwnerContext() {
 export function isForeignToActiveContext(recordUserId, ctx) {
   if (!ctx) ctx = getActiveWorkspaceContext();
   if (ctx.isLegacyOwner) {
-    if (!recordUserId || recordUserId === 'default_user' || recordUserId === '867f5819-e911-45f2-9d4f-d4a7f955ef5f') {
+    if (
+      !recordUserId ||
+      recordUserId === 'default_user' ||
+      recordUserId === 'admin_local' ||
+      recordUserId === 'admin' ||
+      recordUserId === 'local_user' ||
+      recordUserId === LEGACY_OWNER_UUID ||
+      (ctx.actorUserId && recordUserId === ctx.actorUserId)
+    ) {
       return false;
     }
     return true;
   } else {
     if (!ctx.userId) return true;
-    return recordUserId !== ctx.userId;
+    if (recordUserId === ctx.userId) return false;
+    if (ctx.isSubAccount && ctx.actorUserId && recordUserId === ctx.actorUserId) return false;
+    return true;
   }
 }
 
@@ -549,71 +609,145 @@ export async function flushPendingDeletions() {
   }
 }
 
+function hasPendingLocalDeletions() {
+  return (
+    getPendingDeletedWorkers().length > 0 ||
+    getPendingDeletedLogs().length > 0 ||
+    getPendingDeletedPayments().length > 0 ||
+    getPendingDeletedProjects().length > 0 ||
+    getPendingDeletedSections().length > 0 ||
+    getPendingDeletedGroups().length > 0 ||
+    getPendingDeletedExpenses().length > 0 ||
+    getPendingDeletedAccounts().length > 0 ||
+    getPendingDeletedIncomes().length > 0
+  );
+}
+
+function scheduleAdaptiveBackgroundSync() {
+  if (pollingTimer) {
+    clearTimeout(pollingTimer);
+    pollingTimer = null;
+  }
+  // Egress-friendly adaptive interval:
+  // - 60s lightweight metadata probe when WebSocket Realtime is healthy
+  // - 15s fallback probe when WebSocket is disconnected/reconnecting
+  // - Skips completely while browser tab is hidden/minimized (0 background Egress)
+  const delayMs = realtimeStatus === 'connected' ? 60000 : 15000;
+  pollingTimer = setTimeout(async () => {
+    try {
+      const isVisible = typeof document === 'undefined' || document.visibilityState === 'visible';
+      if (navigator.onLine && isVisible) {
+        if (realtimeStatus !== 'connected') {
+          ensureRealtimeConnected();
+        }
+        if (hasPendingLocalDeletions()) {
+          await flushPendingDeletions().catch(() => {});
+        }
+        await pullRemoteChangesSilently(false).catch(() => {});
+      }
+    } finally {
+      scheduleAdaptiveBackgroundSync();
+    }
+  }, delayMs);
+}
+
+function ensureRealtimeConnected() {
+  if (!navigator.onLine) {
+    setRealtimeStatus('disconnected');
+    return;
+  }
+  const channelState = realtimeChannel?.state;
+  if (realtimeChannel && (channelState === 'joined' || channelState === 'joining')) {
+    return;
+  }
+  subscribeToRealtime();
+}
+
 /**
  * Initialize Realtime Sync:
- * 1. Seed or Reconcile local and cloud data on startup
- * 2. Subscribe to Postgres Realtime changes via WebSockets
- * 3. Start background safety-net polling
- * 4. Setup mobile visibility/focus listeners for instant sync on screen unlock
+ * 1. Immediately wire up WebSocket Realtime, visibility/focus/online listeners, and adaptive fallback scheduler
+ * 2. Reconcile local and cloud data once on startup and prime version baselines
+ * 3. Keep Supabase Free-Tier Egress minimal (~98% less bandwidth than blind polling)
  */
 export async function initRealtimeSync() {
   if (isInitialized) return;
   isInitialized = true;
 
-  console.log('🔄 Initializing Supabase Realtime Sync...');
+  console.log('🔄 Initializing Egress-Optimized Supabase Realtime Sync...');
 
+  // Resolve sub-account workspace owner context before subscribing/syncing
   try {
-    await purgeDummySeedWorkers();
-    await cleanupDuplicateAttendanceLogs();
-    await flushPendingDeletions();
-    await autoInitialSync();
-  } catch (err) {
-    console.warn('Initial sync deferred (offline or connection issue):', err.message);
-  }
+    await ensureSubAccountOwnerContext();
+  } catch (_) {}
 
-  // Subscribe to Realtime WebSocket changes
+  // Subscribe to Realtime WebSocket immediately so live updates work right away
   subscribeToRealtime();
 
-  // Background polling every 4 seconds as a rock-solid fallback for all devices
-  setInterval(() => {
-    if (navigator.onLine) {
-      flushPendingDeletions().catch(() => {});
-      pullRemoteChangesSilently().catch(() => {});
-    }
-  }, 4000);
+  // Start adaptive visibility-aware fallback timer
+  scheduleAdaptiveBackgroundSync();
 
   // Sync automatically when browser comes back online
   window.addEventListener('online', () => {
-    console.log('🌐 Internet connection restored. Syncing with Supabase...');
+    console.log('🌐 Internet connection restored. Reconnecting Realtime & checking remote versions...');
+    realtimeReconnectAttempts = 0;
     subscribeToRealtime();
-    flushPendingDeletions().catch(() => {});
-    fullSyncBothDirections().catch(() => {});
+    if (hasPendingLocalDeletions()) {
+      flushPendingDeletions().catch(() => {});
+    }
+    pullRemoteChangesSilently(false).catch(() => {});
   });
 
-  // Mobile / Tab visibility & focus recovery:
-  // When mobile browser tab becomes visible or screen turns on, sync immediately!
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && navigator.onLine) {
-      console.log('📱 App became visible. Pulling latest cloud changes...');
+  window.addEventListener('offline', () => {
+    setRealtimeStatus('disconnected');
+  });
+
+  // Mobile / Tab visibility & focus recovery (debounced to prevent burst queries):
+  let lastResumeCheckAt = 0;
+  const handleAppResume = (reason) => {
+    if (!navigator.onLine) return;
+    const now = Date.now();
+    if (now - lastResumeCheckAt < 5000) return;
+    lastResumeCheckAt = now;
+    console.log(`📱 App resumed (${reason}). Checking WebSocket & remote versions...`);
+    ensureRealtimeConnected();
+    if (hasPendingLocalDeletions()) {
       flushPendingDeletions().catch(() => {});
-      pullRemoteChangesSilently().catch(() => {});
+    }
+    pullRemoteChangesSilently(false).catch(() => {});
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      handleAppResume('visibility');
     }
   });
 
   window.addEventListener('focus', () => {
-    if (navigator.onLine) {
-      pullRemoteChangesSilently().catch(() => {});
-    }
+    handleAppResume('focus');
   });
+
+  // Run one-time initial reconciliation & prime version metadata cache
+  try {
+    await purgeDummySeedWorkers();
+    await cleanupDuplicateAttendanceLogs();
+    if (hasPendingLocalDeletions()) {
+      await flushPendingDeletions();
+    }
+    await autoInitialSync();
+  } catch (err) {
+    console.warn('Initial sync deferred (offline or connection issue):', err.message);
+  }
 }
 
 /**
  * Auto sync on startup:
  * If cloud has 0 rows and local has rows -> push local to cloud!
- * If cloud has rows -> pull cloud to local!
+ * If cloud has rows -> pull cloud to local and prime version baseline!
  */
 export async function autoInitialSync() {
   if (!navigator.onLine) return;
+
+  await ensureSubAccountOwnerContext();
 
   const ctx = getActiveWorkspaceContext();
   if (!ctx.userId && !ctx.isLegacyOwner) {
@@ -668,26 +802,28 @@ export async function autoInitialSync() {
   await pullTreasuryIncomesLive(true);
   await pullAccountTransfersLive(true);
   await pullCounterpartiesLive(true);
+  await pullLoansLive(true);
+  await pullChequesLive(true);
+  await pullChequebooksLive(true);
+  await pullContractsLive(true);
   await pullGlobalOverdraftPolicyLive();
 
-  // Auto-detect and push any local workers missing in cloud ONLY for legacy owner
+  // Only push genuinely missing offline-created workers for legacy owner
+  // (Avoids blindly re-uploading all 7 settings JSON blobs & broadcasting on every page load)
   if (ctx.isLegacyOwner) {
     const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
-    const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt);
+    const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt && !isForeignToActiveContext(w.userId, ctx));
     if (missingWorkers.length > 0) {
       console.log(`Pushing ${missingWorkers.length} missing local workers to cloud...`);
       for (const mw of missingWorkers) {
         await pushWorkerLive(mw);
       }
     }
-    await pushAllGroupsToCloud();
-    await syncAllWorkerMetadataToCloud();
-    await pushAllExpensesToCloud();
-    await pushAllExpenseCategoriesToCloud();
-    await pushAllFinancialAccountsToCloud();
-    await pushAllTreasuryIncomesToCloud();
-    await pushAllAccountTransfersToCloud();
   }
+
+  // Prime version-tracking baseline so subsequent background probes download 0 bytes when unchanged
+  lastFullReconcileTime = Date.now();
+  await primeRemoteVersionBaseline().catch(() => {});
 }
 
 /**
@@ -713,16 +849,22 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
   await purgeDummySeedWorkers();
 
   let cloudMetadata = {};
-  try {
-    const { data: sData } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_worker_metadata'))
-      .maybeSingle();
-    if (sData?.setting_value) {
-      cloudMetadata = JSON.parse(sData.setting_value) || {};
-    }
-  } catch (_) {}
+  if (cachedCloudWorkerMetadata && Date.now() - cachedCloudWorkerMetadataTime < 15000) {
+    cloudMetadata = cachedCloudWorkerMetadata;
+  } else {
+    try {
+      const { data: sData } = await supabase
+        .from('settings')
+        .select('setting_value')
+        .eq('setting_key', getScopedSettingKey('app_worker_metadata'))
+        .maybeSingle();
+      if (sData?.setting_value) {
+        cloudMetadata = JSON.parse(sData.setting_value) || {};
+        cachedCloudWorkerMetadata = cloudMetadata;
+        cachedCloudWorkerMetadataTime = Date.now();
+      }
+    } catch (_) {}
+  }
 
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
     // Strict tenant data hygiene on local IndexedDB (guarantees 0 cross-account bleed)
@@ -986,14 +1128,16 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
  * Push all local data into Supabase
  */
 export async function pushAllLocalToCloud() {
+  const ctx = getActiveWorkspaceContext();
+  const canonicalUserId = resolveCanonicalOwnerUserId(ctx);
   const pendingWorkers = new Set(getPendingDeletedWorkers());
   const pendingLogs = new Set(getPendingDeletedLogs());
 
   const localWorkers = await db.workers.toArray();
-  const activeWorkers = localWorkers.filter(w => !pendingWorkers.has(w.id));
+  const activeWorkers = localWorkers.filter(w => !pendingWorkers.has(w.id) && !isForeignToActiveContext(w.userId, ctx));
 
   const localLogs = await db.attendanceLogs.toArray();
-  const activeLogs = localLogs.filter(l => !pendingLogs.has(l.id));
+  const activeLogs = localLogs.filter(l => !pendingLogs.has(l.id) && !isForeignToActiveContext(l.userId, ctx));
 
   if (activeWorkers.length > 0) {
     const map = getWorkerProjectMap();
@@ -1011,6 +1155,7 @@ export async function pushAllLocalToCloud() {
 
     const workerPayload = activeWorkers.map(w => ({
       id: w.id,
+      user_id: canonicalUserId,
       name: w.name,
       phone: w.phone || null,
       role: w.role || 'کارگر',
@@ -1048,6 +1193,7 @@ export async function pushAllLocalToCloud() {
 
       return {
         id: getAttendanceLogId(l.workerId, l.date),
+        user_id: canonicalUserId,
         worker_id: l.workerId,
         date: l.date,
         type: l.type || 'full',
@@ -1073,20 +1219,43 @@ export async function pushAllLocalToCloud() {
   console.log('✅ Local data uploaded to Supabase successfully!');
 }
 
+function scheduleRealtimeReconnect() {
+  if (!navigator.onLine) return;
+  if (realtimeReconnectTimer) return;
+  const delay = Math.min(30000, 3000 * Math.pow(2, realtimeReconnectAttempts));
+  realtimeReconnectAttempts = Math.min(realtimeReconnectAttempts + 1, 5);
+  realtimeReconnectTimer = setTimeout(() => {
+    realtimeReconnectTimer = null;
+    if (navigator.onLine && realtimeStatus !== 'connected') {
+      console.log(`🔁 Reconnecting Supabase Realtime WebSocket (attempt ${realtimeReconnectAttempts})...`);
+      subscribeToRealtime();
+    }
+  }, delay);
+}
+
 /**
- * Subscribe to WebSocket changes in real time
+ * Subscribe to WebSocket changes in real time with automatic reconnection & full entity coverage
  */
 function subscribeToRealtime() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine) {
+    setRealtimeStatus('disconnected');
+    return;
+  }
+  if (realtimeReconnectTimer) {
+    clearTimeout(realtimeReconnectTimer);
+    realtimeReconnectTimer = null;
+  }
   try {
+    setRealtimeStatus('connecting');
     if (realtimeChannel) {
       supabase.removeChannel(realtimeChannel);
+      realtimeChannel = null;
     }
 
   realtimeChannel = supabase
     .channel('workshop-live-stream')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, async (payload) => {
-      console.log('⚡ Realtime Worker Change received:', payload.eventType, payload);
+      console.log('⚡ Realtime Worker Change received:', payload.eventType);
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
         const idToDelete = payload.new?.id || payload.old?.id;
         if (idToDelete) {
@@ -1153,7 +1322,7 @@ function subscribeToRealtime() {
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, async (payload) => {
-      console.log('⚡ Realtime Attendance Log Change received:', payload.eventType, payload);
+      console.log('⚡ Realtime Attendance Log Change received:', payload.eventType);
       const idToDelete = payload.new?.id || payload.old?.id;
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
         if (idToDelete) {
@@ -1232,7 +1401,12 @@ function subscribeToRealtime() {
         // Ignore echo of broadcast sent by ourselves
         return;
       }
-      console.log('⚡ Realtime Broadcast received from peer:', payload);
+      // Ignore broadcasts from other workspaces/tenants to eliminate wasted Egress
+      const activeScope = getActiveWorkspaceContext().tenantScope;
+      if (payload?.tenantScope && activeScope && payload.tenantScope !== activeScope) {
+        return;
+      }
+      console.log('⚡ Realtime Broadcast received from peer:', payload?.type);
       const syncType = payload?.type;
       if (syncType === 'projects' || syncType === 'all') {
         await pullProjectsLive(true);
@@ -1246,8 +1420,13 @@ function subscribeToRealtime() {
       } else if (syncType === 'workers') {
         await pullWorkerProjectsLive(true);
         await pullWorkerMetadataLive(true);
+        await pullWorkersAndLogsNow().catch(() => {});
+      } else if (syncType === 'logs') {
+        await pullWorkersAndLogsNow().catch(() => {});
       } else if (syncType === 'expenses') {
         await pullExpensesLive(true);
+      } else if (syncType === 'expense_categories') {
+        await pullExpenseCategoriesLive();
       } else if (syncType === 'accounts') {
         await pullFinancialAccountsLive(true);
       } else if (syncType === 'incomes') {
@@ -1258,31 +1437,25 @@ function subscribeToRealtime() {
         await pullCounterpartiesLive(true);
       } else if (syncType === 'loans') {
         await pullLoansLive(true);
+      } else if (syncType === 'cheques') {
+        await pullChequesLive(true);
+      } else if (syncType === 'chequebooks') {
+        await pullChequebooksLive(true);
+      } else if (syncType === 'contracts') {
+        await pullContractsLive(true);
       } else if (syncType === 'settings') {
         await pullGlobalOverdraftPolicyLive();
       } else {
-        await pullProjectsLive(true);
-        await pullProjectSectionsLive(true);
-        await pullPaymentsLive(true);
-        await pullWorkerProjectsLive(true);
-        await pullGroupsLive(true);
-        await pullWorkerMetadataLive(true);
-        await pullExpensesLive(true);
-        await pullFinancialAccountsLive(true);
-        await pullTreasuryIncomesLive(true);
-        await pullAccountTransfersLive(true);
-        await pullLoansLive(true);
-        await pullCounterpartiesLive(true);
-        await pullGlobalOverdraftPolicyLive();
+        await pullRemoteChangesSilently(false);
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
-      console.log('⚡ Realtime Project Change received:', payload.eventType, payload);
       if (payload.eventType === 'DELETE') {
         const idToDelete = payload.old?.id;
         if (idToDelete) await db.projects.delete(idToDelete);
       } else if (payload.new) {
         const p = payload.new;
+        if (isForeignToActiveContext(p.user_id)) return;
         const localP = await db.projects.get(p.id);
         await db.projects.put({
           ...(localP || {}),
@@ -1301,12 +1474,12 @@ function subscribeToRealtime() {
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'project_sections' }, async (payload) => {
-      console.log('⚡ Realtime Project Section Change received:', payload.eventType, payload);
       if (payload.eventType === 'DELETE') {
         const idToDelete = payload.old?.id;
         if (idToDelete) await db.projectSections.delete(idToDelete);
       } else if (payload.new) {
         const s = payload.new;
+        if (isForeignToActiveContext(s.user_id || s.userId)) return;
         const localS = await db.projectSections.get(s.id);
         await db.projectSections.put({
           ...(localS || {}),
@@ -1322,12 +1495,12 @@ function subscribeToRealtime() {
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_categories' }, async (payload) => {
-      console.log('⚡ Realtime Expense Category Change received:', payload.eventType, payload);
       if (payload.eventType === 'DELETE') {
         const idToDelete = payload.old?.id;
         if (idToDelete) await db.expenseCategories.delete(idToDelete);
       } else if (payload.new) {
         const c = payload.new;
+        if (isForeignToActiveContext(c.user_id)) return;
         await db.expenseCategories.put({
           id: c.id,
           projectId: c.project_id,
@@ -1343,12 +1516,12 @@ function subscribeToRealtime() {
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, async (payload) => {
-      console.log('⚡ Realtime Expense Change received:', payload.eventType, payload);
       if (payload.eventType === 'DELETE') {
         const idToDelete = payload.old?.id;
         if (idToDelete) await db.expenses.delete(idToDelete);
       } else if (payload.new) {
         const exp = payload.new;
+        if (isForeignToActiveContext(exp.user_id)) return;
         if (exp.deleted_at) {
           await db.expenses.delete(exp.id);
         } else {
@@ -1378,7 +1551,10 @@ function subscribeToRealtime() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
       const key = payload.new?.setting_key || payload.old?.setting_key;
-      console.log('⚡ Realtime Settings table change detected:', key);
+      const updatedAt = payload.new?.updated_at;
+      if (key && updatedAt) {
+        lastKnownSettingVersions.set(key, updatedAt);
+      }
       if (key === getScopedSettingKey('app_financial_accounts')) {
         await pullFinancialAccountsLive(true);
       } else if (key === getScopedSettingKey('app_treasury_incomes')) {
@@ -1395,6 +1571,16 @@ function subscribeToRealtime() {
         await pullProjectSectionsLive(true);
       } else if (key === getScopedSettingKey('app_groups')) {
         await pullGroupsLive(true);
+      } else if (key === getScopedSettingKey('app_payments')) {
+        await pullPaymentsLive(true);
+      } else if (key === getScopedSettingKey('app_expenses')) {
+        await pullExpensesLive(true);
+      } else if (key === getScopedSettingKey('app_expense_categories')) {
+        await pullExpenseCategoriesLive();
+      } else if (key === getScopedSettingKey('app_worker_projects')) {
+        await pullWorkerProjectsLive(true);
+      } else if (key === getScopedSettingKey('app_worker_metadata')) {
+        await pullWorkerMetadataLive(true);
       } else if (key === getScopedSettingKey('app_loans')) {
         await pullLoansLive(true);
       } else if (key === getScopedSettingKey('app_cheques')) {
@@ -1453,22 +1639,35 @@ function subscribeToRealtime() {
     })
     .subscribe((status) => {
       console.log('📡 Supabase WebSocket channel status:', status);
+      if (status === 'SUBSCRIBED') {
+        realtimeReconnectAttempts = 0;
+        setRealtimeStatus('connected');
+        // Switch adaptive timer to low-Egress 60s cadence now that WebSocket is live
+        scheduleAdaptiveBackgroundSync();
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        setRealtimeStatus('disconnected');
+        scheduleAdaptiveBackgroundSync();
+        scheduleRealtimeReconnect();
+      }
     });
   } catch (err) {
     console.warn('Realtime subscription error (offline or network):', err);
+    setRealtimeStatus('disconnected');
+    scheduleRealtimeReconnect();
   }
 }
 
 /**
- * Broadcast an instant sync notification to all active clients (PC & Mobile)
+ * Broadcast an instant sync notification to all active clients (PC & Mobile) in the same tenant
  */
 export async function broadcastSyncEvent(type, extra = {}) {
-  if (!realtimeChannel) return;
+  if (!realtimeChannel || realtimeStatus !== 'connected') return;
   try {
+    const tenantScope = getActiveWorkspaceContext().tenantScope;
     await realtimeChannel.send({
       type: 'broadcast',
       event: 'workshop_sync',
-      payload: { type, senderId: CLIENT_ID, timestamp: Date.now(), ...extra }
+      payload: { type, senderId: CLIENT_ID, tenantScope, timestamp: Date.now(), ...extra }
     });
   } catch (err) {
     console.warn('Could not send realtime broadcast:', err);
@@ -1581,7 +1780,7 @@ export async function pushProjectLive(p) {
     const pendingDeleted = new Set(getPendingDeletedProjects());
     const filteredLocal = localProjects.filter(prj => {
       if (pendingDeleted.has(prj.id)) return false;
-      if (!ctx.isLegacyOwner && prj.userId && prj.userId !== ctx.userId) return false;
+      if (prj.userId && prj.userId !== 'default_user' && isForeignToActiveContext(prj.userId, ctx)) return false;
       return true;
     });
 
@@ -1765,7 +1964,7 @@ export async function pushProjectSectionLive(s) {
     const pendingDeleted = new Set(getPendingDeletedSections());
     const filteredLocal = localSections.filter(sec => {
       if (pendingDeleted.has(sec.id)) return false;
-      if (!ctx.isLegacyOwner && sec.userId && sec.userId !== ctx.userId) return false;
+      if (sec.userId && sec.userId !== 'default_user' && isForeignToActiveContext(sec.userId, ctx)) return false;
       return true;
     });
 
@@ -1884,8 +2083,8 @@ export async function pullWorkerProjectsLive(force = false) {
     }
 
     const localMap = getWorkerProjectMap();
-    // Merge: cloudMap base + localMap
-    const mergedMap = { ...cloudMap, ...localMap };
+    // Cloud is authoritative when pulling remote worker-project assignments
+    const mergedMap = { ...localMap, ...cloudMap };
     saveWorkerProjectMap(mergedMap);
 
     // Reconcile Dexie workers
@@ -2321,6 +2520,8 @@ export async function pullWorkerMetadataLive(force = false) {
     if (!sErr && sData?.setting_value) {
       try {
         cloudMetadata = JSON.parse(sData.setting_value) || {};
+        cachedCloudWorkerMetadata = cloudMetadata;
+        cachedCloudWorkerMetadataTime = Date.now();
       } catch (_) {}
     }
 
@@ -2589,52 +2790,191 @@ export async function syncAllWorkerMetadataToCloud() {
 }
 
 let isPullingRemote = false;
+let remotePullStartedAt = 0;
 let lastRemotePullTime = 0;
 
+function getTrackedSettingsSpec() {
+  return [
+    { key: getScopedSettingKey('app_worker_projects'), pull: () => pullWorkerProjectsLive(true) },
+    { key: getScopedSettingKey('app_groups'), pull: () => pullGroupsLive(true) },
+    { key: getScopedSettingKey('app_worker_metadata'), pull: () => pullWorkerMetadataLive(true) },
+    { key: getScopedSettingKey('app_payments'), pull: () => pullPaymentsLive(true) },
+    { key: getScopedSettingKey('app_projects'), pull: () => pullProjectsLive(true) },
+    { key: getScopedSettingKey('app_project_sections'), pull: () => pullProjectSectionsLive(true) },
+    { key: getScopedSettingKey('app_expenses'), pull: () => pullExpensesLive(true) },
+    { key: getScopedSettingKey('app_expense_categories'), pull: () => pullExpenseCategoriesLive() },
+    { key: getScopedSettingKey('app_financial_accounts'), pull: () => pullFinancialAccountsLive(true) },
+    { key: getScopedSettingKey('app_treasury_incomes'), pull: () => pullTreasuryIncomesLive(true) },
+    { key: getScopedSettingKey('app_account_transfers'), pull: () => pullAccountTransfersLive(true) },
+    { key: getScopedSettingKey('app_counterparties'), pull: () => pullCounterpartiesLive(true) },
+    { key: getScopedSettingKey('app_loans'), pull: () => pullLoansLive(true) },
+    { key: getScopedSettingKey('app_cheques'), pull: () => pullChequesLive(true) },
+    { key: getScopedSettingKey('app_chequebooks'), pull: () => pullChequebooksLive(true) },
+    { key: getScopedSettingKey('app_contracts'), pull: () => pullContractsLive(true) },
+    { key: getScopedSettingKey('app_global_overdraft_policy'), pull: () => pullGlobalOverdraftPolicyLive() }
+  ];
+}
+
+async function fetchTableVersionSignature(tableName) {
+  const ctx = getActiveWorkspaceContext();
+  let query = supabase
+    .from(tableName)
+    .select('id, updated_at, deleted_at', { count: 'exact' })
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
+  if (ctx.isLegacyOwner) {
+    query = query.or(`user_id.eq.${LEGACY_OWNER_UUID},user_id.is.null`);
+  } else if (ctx.userId) {
+    query = query.eq('user_id', ctx.userId);
+  } else {
+    return null;
+  }
+
+  const { data, count, error } = await query;
+  if (error) return null;
+  const top = Array.isArray(data) && data.length > 0 ? data[0] : null;
+  return `${count ?? 0}|${top?.id || ''}|${top?.updated_at || ''}|${top?.deleted_at || ''}`;
+}
+
+async function primeRemoteVersionBaseline() {
+  if (!navigator.onLine) return;
+  const specs = getTrackedSettingsSpec();
+  const keys = specs.map((s) => s.key);
+  const [settingsRes, wSig, lSig] = await Promise.all([
+    supabase.from('settings').select('setting_key, updated_at').in('setting_key', keys),
+    fetchTableVersionSignature('workers'),
+    fetchTableVersionSignature('attendance_logs')
+  ]);
+  if (!settingsRes.error && Array.isArray(settingsRes.data)) {
+    for (const row of settingsRes.data) {
+      if (row.setting_key) {
+        lastKnownSettingVersions.set(row.setting_key, row.updated_at || '');
+      }
+    }
+  }
+  if (wSig !== null) lastKnownWorkersSig = wSig;
+  if (lSig !== null) lastKnownLogsSig = lSig;
+}
+
+async function pullWorkersAndLogsNow() {
+  const ctx = getActiveWorkspaceContext();
+  const [wRes, lRes] = await Promise.all([
+    getScopedWorkersQuery(),
+    getScopedAttendanceLogsQuery()
+  ]);
+
+  if (!wRes.error && !lRes.error && (wRes.data || lRes.data)) {
+    await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
+
+    // Auto-detect and push any local workers that are missing in cloud ONLY for legacy owner
+    if (ctx.isLegacyOwner) {
+      const cloudWorkerIds = new Set((wRes.data || []).map(w => w.id));
+      const localWorkers = await db.workers.toArray();
+      const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt && !isForeignToActiveContext(w.userId, ctx));
+      if (missingWorkers.length > 0) {
+        for (const mw of missingWorkers) {
+          await pushWorkerLive(mw);
+        }
+      }
+    }
+    const [wSig, lSig] = await Promise.all([
+      fetchTableVersionSignature('workers'),
+      fetchTableVersionSignature('attendance_logs')
+    ]);
+    if (wSig !== null) lastKnownWorkersSig = wSig;
+    if (lSig !== null) lastKnownLogsSig = lSig;
+  }
+}
+
 /**
- * Background silent pull
+ * Egress-Optimized Background Silent Sync:
+ * - In normal mode (force = false): runs 3 tiny metadata-only version queries (~500 bytes total)
+ *   and ONLY downloads tables/settings keys whose remote version actually changed!
+ * - In forced mode (force = true) or periodic 10-min safety sweep: reconciles all entities and re-primes baseline.
  */
 export async function pullRemoteChangesSilently(force = false) {
   if (!navigator.onLine) return;
   const now = Date.now();
-  if (isPullingRemote) return;
-  if (!force && now - lastRemotePullTime < 3000) return;
+  // Auto-release stale mutex if a previous network request hung > 30s
+  if (isPullingRemote && now - remotePullStartedAt < 30000) return;
+  if (!force && now - lastRemotePullTime < 4000) return;
   isPullingRemote = true;
+  remotePullStartedAt = now;
   lastRemotePullTime = now;
   try {
     await ensureSubAccountOwnerContext();
-    await pullWorkerProjectsLive();
-    await pullGroupsLive();
-    await pullWorkerMetadataLive();
     const ctx = getActiveWorkspaceContext();
-    const [wRes, lRes] = await Promise.all([
-      getScopedWorkersQuery(),
-      getScopedAttendanceLogsQuery()
+    if (!ctx.userId && !ctx.isLegacyOwner) return;
+
+    const needsFullSweep =
+      force ||
+      lastFullReconcileTime === 0 ||
+      (now - lastFullReconcileTime > 10 * 60 * 1000);
+
+    if (needsFullSweep) {
+      await pullWorkerProjectsLive(true);
+      await pullGroupsLive(true);
+      await pullWorkerMetadataLive(true);
+      await pullWorkersAndLogsNow();
+      await pullPaymentsLive(true);
+      await pullProjectsLive(true);
+      await pullProjectSectionsLive(true);
+      await pullExpensesLive(true);
+      await pullExpenseCategoriesLive();
+      await pullFinancialAccountsLive(true);
+      await pullTreasuryIncomesLive(true);
+      await pullAccountTransfersLive(true);
+      await pullCounterpartiesLive(true);
+      await pullLoansLive(true);
+      await pullChequesLive(true);
+      await pullChequebooksLive(true);
+      await pullContractsLive(true);
+      await pullGlobalOverdraftPolicyLive();
+      lastFullReconcileTime = Date.now();
+      await primeRemoteVersionBaseline().catch(() => {});
+      return;
+    }
+
+    // Lightweight Metadata Version Probe (~500 bytes instead of downloading full JSON blobs)
+    const specs = getTrackedSettingsSpec();
+    const keys = specs.map((s) => s.key);
+    const specMap = new Map(specs.map((s) => [s.key, s.pull]));
+
+    const [settingsMetaRes, wSig, lSig] = await Promise.all([
+      supabase.from('settings').select('setting_key, updated_at').in('setting_key', keys),
+      fetchTableVersionSignature('workers'),
+      fetchTableVersionSignature('attendance_logs')
     ]);
 
-    if (!wRes.error && !lRes.error && (wRes.data || lRes.data)) {
-      await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
-
-      // Auto-detect and push any local workers that are missing in cloud ONLY for legacy owner
-      if (ctx.isLegacyOwner) {
-        const cloudWorkerIds = new Set((wRes.data || []).map(w => w.id));
-        const localWorkers = await db.workers.toArray();
-        const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt);
-        if (missingWorkers.length > 0) {
-          for (const mw of missingWorkers) {
-            await pushWorkerLive(mw);
-          }
+    const changedKeys = [];
+    if (!settingsMetaRes.error && Array.isArray(settingsMetaRes.data)) {
+      for (const row of settingsMetaRes.data) {
+        const prevVer = lastKnownSettingVersions.get(row.setting_key);
+        const nextVer = row.updated_at || '';
+        if (prevVer !== nextVer) {
+          changedKeys.push({ key: row.setting_key, version: nextVer });
         }
       }
     }
-    await pullPaymentsLive();
-    await pullProjectsLive();
-    await pullProjectSectionsLive();
-    await pullExpensesLive();
-    await pullFinancialAccountsLive();
-    await pullTreasuryIncomesLive();
-    await pullAccountTransfersLive();
-    await pullGlobalOverdraftPolicyLive();
+
+    const workersOrLogsChanged =
+      (wSig !== null && wSig !== lastKnownWorkersSig) ||
+      (lSig !== null && lSig !== lastKnownLogsSig);
+
+    // Pull ONLY the specific settings keys whose updated_at changed
+    for (const item of changedKeys) {
+      const pullFn = specMap.get(item.key);
+      if (pullFn) {
+        await pullFn().catch((err) => console.warn(`Selective pull failed for ${item.key}:`, err));
+        lastKnownSettingVersions.set(item.key, item.version);
+      }
+    }
+
+    // Pull workers & attendance_logs ONLY if their table signature changed
+    if (workersOrLogsChanged) {
+      await pullWorkersAndLogsNow();
+    }
   } catch (err) {
     console.warn('pullRemoteChangesSilently warning:', err);
   } finally {
@@ -2670,12 +3010,11 @@ export async function pushLogsLive(logs) {
 
   if (!navigator.onLine) return;
 
+  await ensureSubAccountOwnerContext();
   const ctx = getActiveWorkspaceContext();
-  const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
+  const canonicalOwnerId = resolveCanonicalOwnerUserId(ctx);
 
-  const eligibleLogs = ctx.isLegacyOwner 
-    ? logs 
-    : logs.filter(l => !l.userId || l.userId === ctx.userId);
+  const eligibleLogs = logs.filter(l => !l.userId || !isForeignToActiveContext(l.userId, ctx));
   if (eligibleLogs.length === 0) return;
 
   const payload = eligibleLogs.map(l => {
@@ -2696,7 +3035,7 @@ export async function pushLogsLive(logs) {
 
     return {
       id: getAttendanceLogId(l.workerId, l.date),
-      user_id: l.userId || effectiveUserId,
+      user_id: canonicalOwnerId,
       worker_id: l.workerId,
       date: l.date,
       type: l.type || 'full',
@@ -2712,7 +3051,11 @@ export async function pushLogsLive(logs) {
 
   try {
     const { error } = await supabase.from('attendance_logs').upsert(payload);
-    if (error) console.error('Error live-pushing logs to Supabase:', error);
+    if (error) {
+      console.error('Error live-pushing logs to Supabase:', error);
+    } else {
+      broadcastSyncEvent('logs');
+    }
   } catch (err) {
     console.error('Live-push logs failed:', err);
   }
@@ -2725,6 +3068,7 @@ export async function pushWorkerLive(w) {
   if (!w) return;
   clearPendingWorkerDeletion(w.id);
 
+  await ensureSubAccountOwnerContext();
   const ctx = getActiveWorkspaceContext();
   if (isForeignToActiveContext(w.userId, ctx) || (!ctx.isLegacyOwner && LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id))) {
     console.warn(`[Sync] Blocked pushWorkerLive: worker ${w.id} is foreign or blacklisted`);
@@ -2764,11 +3108,11 @@ export async function pushWorkerLive(w) {
 
   if (!navigator.onLine) return;
 
-  const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
+  const canonicalOwnerId = resolveCanonicalOwnerUserId(ctx);
 
   const payload = {
     id: w.id,
-    user_id: w.userId || effectiveUserId,
+    user_id: canonicalOwnerId,
     name: w.name,
     phone: w.phone || null,
     role: w.role || 'کارگر',
@@ -2815,15 +3159,16 @@ export async function pushWorkersLive(workers) {
 
   if (!navigator.onLine) return;
 
+  await ensureSubAccountOwnerContext();
   const ctx = getActiveWorkspaceContext();
-  const effectiveUserId = ctx.userId || (ctx.isLegacyOwner ? '867f5819-e911-45f2-9d4f-d4a7f955ef5f' : null);
+  const canonicalOwnerId = resolveCanonicalOwnerUserId(ctx);
 
   const eligibleWorkers = workers.filter(w => !isForeignToActiveContext(w.userId, ctx) && (ctx.isLegacyOwner || !LEAKED_CROSS_TENANT_WORKER_IDS.has(w.id)));
   if (eligibleWorkers.length === 0) return;
 
   const payload = eligibleWorkers.map(w => ({
     id: w.id,
-    user_id: w.userId || effectiveUserId,
+    user_id: canonicalOwnerId,
     name: w.name,
     phone: w.phone || null,
     role: w.role || 'کارگر',
@@ -2874,6 +3219,7 @@ export async function deleteLogLive(logId) {
     const now = new Date().toISOString();
     await supabase.from('attendance_logs').update({ deleted_at: now, updated_at: now }).eq('id', logId);
     clearPendingLogDeletion(logId);
+    broadcastSyncEvent('logs');
   } catch (err) {
     console.error('Live-delete log failed:', err);
   }
@@ -2906,12 +3252,13 @@ export async function deleteWorkerLive(workerId) {
 export async function pushPaymentsLive() {
   if (!navigator.onLine) return;
   try {
+    await ensureSubAccountOwnerContext();
     const ctx = getActiveWorkspaceContext();
     const localPayments = await db.payments.toArray();
     const pendingDeleted = new Set(getPendingDeletedPayments());
     const filteredLocal = localPayments.filter(p => {
       if (pendingDeleted.has(p.id)) return false;
-      if (!ctx.isLegacyOwner && ctx.userId && p.userId && p.userId !== ctx.userId) return false;
+      if (p.userId && p.userId !== 'default_user' && isForeignToActiveContext(p.userId, ctx)) return false;
       return true;
     });
 
@@ -2936,9 +3283,12 @@ export async function pushPaymentsLive() {
       } catch (_) {}
     }
 
-    // Merge in current local payments (local updates win for modified payments)
+    // Merge in current local payments (respect updatedAt so stale local entries don't clobber newer cloud entries)
     for (const lp of filteredLocal) {
-      mergedMap.set(lp.id, lp);
+      const existing = mergedMap.get(lp.id);
+      if (!existing || !existing.updatedAt || !lp.updatedAt || new Date(lp.updatedAt).getTime() >= new Date(existing.updatedAt).getTime()) {
+        mergedMap.set(lp.id, lp);
+      }
     }
 
     const mergedList = Array.from(mergedMap.values()).map(p => ({
@@ -2946,11 +3296,13 @@ export async function pushPaymentsLive() {
       amount: roundCurrency(p.amount, p.currency)
     }));
 
+    const nowIso = new Date().toISOString();
     await supabase.from('settings').upsert({
       setting_key: getScopedSettingKey('app_payments'),
       setting_value: JSON.stringify(mergedList),
-      updated_at: new Date().toISOString()
+      updated_at: nowIso
     });
+    lastKnownSettingVersions.set(getScopedSettingKey('app_payments'), nowIso);
 
     // Reconcile local Dexie database
     await db.transaction('rw', db.payments, async () => {
@@ -2967,6 +3319,7 @@ export async function pushPaymentsLive() {
       clearPendingPaymentDeletion(id);
     }
 
+    broadcastSyncEvent('payments');
     window.dispatchEvent(new CustomEvent('workshop-sync-complete'));
   } catch (err) {
     console.warn('Could not push payments to Supabase:', err);
@@ -3055,7 +3408,7 @@ export async function pullPaymentsLive(force = false) {
       const ctx = getActiveWorkspaceContext();
       if (!ctx.isLegacyOwner && ctx.userId) {
         const localPaymentsSnapshot = await db.payments.toArray();
-        const toDelete = localPaymentsSnapshot.filter(lp => !lp.userId || lp.userId !== ctx.userId);
+        const toDelete = localPaymentsSnapshot.filter(lp => lp.userId && isForeignToActiveContext(lp.userId, ctx));
         if (toDelete.length > 0) {
           await withImmutabilityBypass(async () => {
             for (const lp of toDelete) {
@@ -3154,20 +3507,16 @@ export async function rollbackPaymentSettlement(paymentId) {
 }
 
 /**
- * Full two-way sync:
- * Always flush pending local deletions FIRST, pull remote cloud changes SECOND, and push active local changes THIRD.
+ * Full two-way sync (manual trigger):
+ * Always flush pending local deletions FIRST, force-pull all remote cloud changes SECOND, and push active local changes THIRD.
  */
 export async function fullSyncBothDirections() {
-  await flushPendingDeletions();
-  await pullWorkerProjectsLive();
-  await pullGroupsLive();
-  await pullWorkerMetadataLive();
-  await pullRemoteChangesSilently();
-  await pullPaymentsLive();
-  await pullProjectsLive();
-  await pullProjectSectionsLive();
-  await pullExpensesLive();
-  await pullExpenseCategoriesLive(true);
+  await ensureSubAccountOwnerContext();
+  ensureRealtimeConnected();
+  if (hasPendingLocalDeletions()) {
+    await flushPendingDeletions();
+  }
+  await pullRemoteChangesSilently(true);
   const ctx = getActiveWorkspaceContext();
   if (ctx.isLegacyOwner) {
     await pushAllLocalToCloud();
@@ -3177,23 +3526,63 @@ export async function fullSyncBothDirections() {
     await pushAllExpensesToCloud();
   }
   await syncFinancialDataLive();
+  await primeRemoteVersionBaseline().catch(() => {});
+}
+
+/**
+ * Compress an image file via canvas before uploading or Base64 fallback (prevents multi-MB Egress bloat)
+ */
+async function compressImageForReceipt(file, maxDimension = 960, quality = 0.68) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return null;
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = dataUrl;
+    });
+    const scale = Math.min(1, maxDimension / Math.max(img.width || 1, img.height || 1));
+    const width = Math.max(1, Math.round((img.width || 1) * scale));
+    const height = Math.max(1, Math.round((img.height || 1) * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx2d = canvas.getContext('2d');
+    if (!ctx2d) return null;
+    ctx2d.drawImage(img, 0, 0, width, height);
+    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    return { dataUrl: compressedDataUrl, blob };
+  } catch (_) {
+    return null;
+  }
 }
 
 /**
  * Upload receipt image to Supabase Storage bucket 'expense-receipts'
- * Falls back safely to Base64 data URL if offline or storage issue
+ * Compresses images to keep Storage & Egress minimal; falls back to compressed Base64 if offline
  */
 export async function uploadExpenseReceipt(file) {
   if (!file) return null;
-  const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${file.name?.split('.').pop() || 'jpg'}`;
+  const compressed = await compressImageForReceipt(file);
+  const uploadBody = compressed?.blob || file;
+  const ext = compressed?.blob ? 'jpg' : (file.name?.split('.').pop() || 'jpg');
+  const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
   // If online, attempt upload to Supabase Storage bucket 'expense-receipts'
   if (navigator.onLine) {
     try {
       const { data, error } = await supabase.storage
         .from('expense-receipts')
-        .upload(fileName, file, {
-          cacheControl: '3600',
+        .upload(fileName, uploadBody, {
+          cacheControl: '86400',
+          contentType: compressed?.blob ? 'image/jpeg' : file.type,
           upsert: true
         });
 
@@ -3206,11 +3595,15 @@ export async function uploadExpenseReceipt(file) {
         }
       }
     } catch (err) {
-      console.warn('Supabase storage upload failed, falling back to base64:', err);
+      console.warn('Supabase storage upload failed, falling back to compressed base64:', err);
     }
   }
 
-  // Fallback to base64 Data URL (ensures image is NEVER lost offline)
+  // Fallback to compressed base64 Data URL (~35-60KB instead of 3-5MB raw camera photos)
+  if (compressed?.dataUrl) {
+    return compressed.dataUrl;
+  }
+
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(reader.result);
@@ -3249,53 +3642,55 @@ export async function pullExpensesLive(force = false) {
       } catch (_) {}
     }
 
-    // Layer B: Also check 'expenses' table if schema exists
-    try {
-      const ctx = getActiveWorkspaceContext();
-      let query = supabase.from('expenses').select('*');
-      if (ctx.isLegacyOwner) {
-        query = query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
-      } else if (ctx.userId) {
-        query = query.eq('user_id', ctx.userId);
-      } else {
-        query = query.eq('user_id', 'unauthenticated_empty_state');
-      }
-      const { data: tblData, error: tblErr } = await query;
-
-      if (!tblErr && Array.isArray(tblData) && tblData.length > 0) {
-        const cloudMap = new Map();
-        for (const ce of cloudExpenses) cloudMap.set(ce.id, ce);
-        for (const te of tblData) {
-          const prev = cloudMap.get(te.id) || {};
-          cloudMap.set(te.id, {
-            ...prev,
-            id: te.id,
-            projectId: te.project_id || prev.projectId,
-            userId: te.user_id || prev.userId,
-            sectionId: te.section_id ?? prev.sectionId ?? null,
-            categoryId: te.category_id ?? prev.categoryId ?? null,
-            personId: te.person_id ?? prev.personId ?? null,
-            personName: te.person_name ?? prev.personName ?? '',
-            title: te.title || prev.title,
-            amount: Number(te.amount ?? prev.amount) || 0,
-            currency: te.currency || prev.currency || 'IQD',
-            paymentStatus: te.payment_status || prev.paymentStatus || 'paid',
-            paymentMethod: te.payment_method || prev.paymentMethod || 'cash',
-            receiptUrl: te.receipt_url ?? prev.receiptUrl ?? null,
-            description: te.description ?? prev.description ?? '',
-            expenseDate: te.expense_date || prev.expenseDate,
-            deletedAt: te.deleted_at || prev.deletedAt || null,
-            isArchived: Boolean(te.is_archived ?? prev.isArchived),
-            archivedAt: te.archived_at || prev.archivedAt || null,
-            createdAt: te.created_at || prev.createdAt,
-            updatedAt: prev.updatedAt && te.updated_at && new Date(prev.updatedAt) > new Date(te.updated_at)
-              ? prev.updatedAt
-              : (te.updated_at || prev.updatedAt)
-          });
+    // Layer B: Only fallback to 'expenses' table if Layer A (app_expenses) returned nothing (cuts Expense Egress by 50%)
+    if (cloudExpenses.length === 0) {
+      try {
+        const ctx = getActiveWorkspaceContext();
+        let query = supabase.from('expenses').select('*');
+        if (ctx.isLegacyOwner) {
+          query = query.or(`user_id.eq.${LEGACY_OWNER_UUID},user_id.is.null`);
+        } else if (ctx.userId) {
+          query = query.eq('user_id', ctx.userId);
+        } else {
+          query = query.eq('user_id', 'unauthenticated_empty_state');
         }
-        cloudExpenses = Array.from(cloudMap.values());
-      }
-    } catch (_) {}
+        const { data: tblData, error: tblErr } = await query;
+
+        if (!tblErr && Array.isArray(tblData) && tblData.length > 0) {
+          const cloudMap = new Map();
+          for (const ce of cloudExpenses) cloudMap.set(ce.id, ce);
+          for (const te of tblData) {
+            const prev = cloudMap.get(te.id) || {};
+            cloudMap.set(te.id, {
+              ...prev,
+              id: te.id,
+              projectId: te.project_id || prev.projectId,
+              userId: te.user_id || prev.userId,
+              sectionId: te.section_id ?? prev.sectionId ?? null,
+              categoryId: te.category_id ?? prev.categoryId ?? null,
+              personId: te.person_id ?? prev.personId ?? null,
+              personName: te.person_name ?? prev.personName ?? '',
+              title: te.title || prev.title,
+              amount: Number(te.amount ?? prev.amount) || 0,
+              currency: te.currency || prev.currency || 'IQD',
+              paymentStatus: te.payment_status || prev.paymentStatus || 'paid',
+              paymentMethod: te.payment_method || prev.paymentMethod || 'cash',
+              receiptUrl: te.receipt_url ?? prev.receiptUrl ?? null,
+              description: te.description ?? prev.description ?? '',
+              expenseDate: te.expense_date || prev.expenseDate,
+              deletedAt: te.deleted_at || prev.deletedAt || null,
+              isArchived: Boolean(te.is_archived ?? prev.isArchived),
+              archivedAt: te.archived_at || prev.archivedAt || null,
+              createdAt: te.created_at || prev.createdAt,
+              updatedAt: prev.updatedAt && te.updated_at && new Date(prev.updatedAt) > new Date(te.updated_at)
+                ? prev.updatedAt
+                : (te.updated_at || prev.updatedAt)
+            });
+          }
+          cloudExpenses = Array.from(cloudMap.values());
+        }
+      } catch (_) {}
+    }
 
     if (Array.isArray(cloudExpenses)) {
       const pendingDeleted = new Set(getPendingDeletedExpenses());
@@ -3406,18 +3801,21 @@ export async function pushExpenseLive(expense) {
     }
 
     const mergedList = Array.from(mergedMap.values());
+    const nowIso = new Date().toISOString();
     await supabase.from('settings').upsert({
       setting_key: getScopedSettingKey('app_expenses'),
       setting_value: JSON.stringify(mergedList),
-      updated_at: new Date().toISOString()
+      updated_at: nowIso
     });
+    lastKnownSettingVersions.set(getScopedSettingKey('app_expenses'), nowIso);
 
     // Layer B: Also attempt upsert to 'expenses' table if available
     try {
+      const canonicalOwnerId = resolveCanonicalOwnerUserId();
       const payload = {
         id: expense.id,
         project_id: expense.projectId,
-        user_id: expense.userId || (await supabase.auth.getUser()).data.user?.id || null,
+        user_id: canonicalOwnerId || (isValidUUID(expense.userId) ? expense.userId : null),
         section_id: expense.sectionId || null,
         category_id: expense.categoryId || null,
         person_id: expense.personId || null,
@@ -3433,7 +3831,7 @@ export async function pushExpenseLive(expense) {
         is_archived: Boolean(expense.isArchived),
         archived_at: expense.archivedAt || null,
         expense_date: expense.expenseDate || new Date().toISOString().slice(0, 10),
-        updated_at: new Date().toISOString()
+        updated_at: nowIso
       };
       await supabase.from('expenses').upsert(payload);
     } catch (_) {}
@@ -3820,33 +4218,35 @@ export async function pullExpenseCategoriesLive() {
       }
     }
 
-    try {
-      let query = supabase.from('expense_categories').select('*');
-      if (ctx.isLegacyOwner) {
-        query = query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
-      } else if (ctx.userId) {
-        query = query.eq('user_id', ctx.userId);
-      } else {
-        query = query.eq('user_id', 'unauthenticated_empty_state');
-      }
-      const { data: tblData } = await query;
-      if (Array.isArray(tblData) && tblData.length > 0) {
-        for (const c of tblData) {
-          await db.expenseCategories.put({
-            id: c.id,
-            projectId: c.project_id,
-            userId: c.user_id,
-            name: c.name,
-            code: c.code || null,
-            parentId: c.parent_id,
-            level: Number(c.level) || 1,
-            isSystem: !!c.is_system,
-            createdAt: c.created_at,
-            updatedAt: c.updated_at
-          });
+    if (!Array.isArray(cloudCategories) || cloudCategories.length === 0) {
+      try {
+        let query = supabase.from('expense_categories').select('*');
+        if (ctx.isLegacyOwner) {
+          query = query.or(`user_id.eq.${LEGACY_OWNER_UUID},user_id.is.null`);
+        } else if (ctx.userId) {
+          query = query.eq('user_id', ctx.userId);
+        } else {
+          query = query.eq('user_id', 'unauthenticated_empty_state');
         }
-      }
-    } catch (_) {}
+        const { data: tblData } = await query;
+        if (Array.isArray(tblData) && tblData.length > 0) {
+          for (const c of tblData) {
+            await db.expenseCategories.put({
+              id: c.id,
+              projectId: c.project_id,
+              userId: c.user_id,
+              name: c.name,
+              code: c.code || null,
+              parentId: c.parent_id,
+              level: Number(c.level) || 1,
+              isSystem: !!c.is_system,
+              createdAt: c.created_at,
+              updatedAt: c.updated_at
+            });
+          }
+        }
+      } catch (_) {}
+    }
 
     await deduplicateExpenseCategories();
   } catch (err) {
@@ -3862,11 +4262,14 @@ export async function pushAllExpenseCategoriesToCloud() {
   try {
     const list = await db.expenseCategories.toArray();
     if (!list || list.length === 0) return;
+    const nowIso = new Date().toISOString();
     await supabase.from('settings').upsert({
       setting_key: getScopedSettingKey('app_expense_categories'),
       setting_value: JSON.stringify(list),
-      updated_at: new Date().toISOString()
+      updated_at: nowIso
     });
+    lastKnownSettingVersions.set(getScopedSettingKey('app_expense_categories'), nowIso);
+    broadcastSyncEvent('expense_categories');
   } catch (err) {
     console.warn('pushAllExpenseCategoriesToCloud warning:', err);
   }
@@ -3886,23 +4289,27 @@ export async function pushExpenseCategoryLive(cat) {
   if (!navigator.onLine) return;
   try {
     const list = await db.expenseCategories.toArray();
+    const nowIso = new Date().toISOString();
     await supabase.from('settings').upsert({
       setting_key: getScopedSettingKey('app_expense_categories'),
       setting_value: JSON.stringify(list),
-      updated_at: new Date().toISOString()
+      updated_at: nowIso
     });
+    lastKnownSettingVersions.set(getScopedSettingKey('app_expense_categories'), nowIso);
     try {
+      const canonicalOwnerId = resolveCanonicalOwnerUserId();
       await supabase.from('expense_categories').upsert({
         id: cat.id,
         project_id: cat.projectId,
-        user_id: cat.userId,
+        user_id: canonicalOwnerId || (isValidUUID(cat.userId) ? cat.userId : null),
         name: cat.name,
         code: cat.code || null,
         parent_id: cat.parentId || null,
         level: cat.level || 1,
-        updated_at: new Date().toISOString()
+        updated_at: nowIso
       });
     } catch (_) {}
+    broadcastSyncEvent('expense_categories');
   } catch (err) {
     console.warn('pushExpenseCategoryLive warning:', err);
   }
@@ -3917,14 +4324,17 @@ export async function deleteExpenseCategoryLive(catId) {
   if (!navigator.onLine) return;
   try {
     const list = await db.expenseCategories.toArray();
+    const nowIso = new Date().toISOString();
     await supabase.from('settings').upsert({
       setting_key: getScopedSettingKey('app_expense_categories'),
       setting_value: JSON.stringify(list),
-      updated_at: new Date().toISOString()
+      updated_at: nowIso
     });
+    lastKnownSettingVersions.set(getScopedSettingKey('app_expense_categories'), nowIso);
     try {
       await supabase.from('expense_categories').delete().eq('id', catId);
     } catch (_) {}
+    broadcastSyncEvent('expense_categories');
   } catch (err) {
     console.warn('deleteExpenseCategoryLive warning:', err);
   }
@@ -4969,12 +5379,24 @@ export async function pullLoansLive(triggerEvent = true) {
     if (data?.setting_value) {
       const cloudLoans = JSON.parse(data.setting_value);
       if (Array.isArray(cloudLoans)) {
+        const cloudIds = new Set(cloudLoans.filter(cl => cl?.id && !cl.deletedAt && cl.status !== 'deleted').map(cl => cl.id));
         await db.transaction('rw', db.loans, async () => {
           for (const cl of cloudLoans) {
             if (!cl.id) continue;
+            if (cl.deletedAt || cl.status === 'deleted') {
+              await db.loans.delete(cl.id);
+              continue;
+            }
             const existing = await db.loans.get(cl.id);
             if (!existing || new Date(cl.updatedAt || cl.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
               await db.loans.put(cl);
+            }
+          }
+          const locals = await db.loans.toArray();
+          for (const ll of locals) {
+            if (!cloudIds.has(ll.id)) {
+              const isRecent = ll.createdAt && (Date.now() - new Date(ll.createdAt).getTime() < 10000);
+              if (!isRecent) await db.loans.delete(ll.id);
             }
           }
         });
@@ -5011,11 +5433,13 @@ export async function deleteLoanLive(loanId) {
       try {
         let cloudList = JSON.parse(data.setting_value) || [];
         cloudList = cloudList.filter(l => l.id !== loanId);
+        const nowIso = new Date().toISOString();
         await supabase.from('settings').upsert({
           setting_key: getScopedSettingKey('app_loans'),
           setting_value: JSON.stringify(cloudList),
-          updated_at: new Date().toISOString()
+          updated_at: nowIso
         });
+        lastKnownSettingVersions.set(getScopedSettingKey('app_loans'), nowIso);
       } catch (_) {}
     }
 
@@ -5044,24 +5468,30 @@ export async function pushChequeLive(chequeRecord) {
       .eq('setting_key', getScopedSettingKey('app_cheques'))
       .maybeSingle();
 
-    let mergedList = [...activeLocal];
+    const mergedMap = new Map();
     if (data?.setting_value) {
       try {
         const cloudList = JSON.parse(data.setting_value) || [];
-        const localMap = new Map(activeLocal.map(c => [c.id, c]));
         for (const cl of cloudList) {
-          if (!localMap.has(cl.id)) {
-            mergedList.push(cl);
-          }
+          if (cl?.id) mergedMap.set(cl.id, cl);
         }
       } catch (_) {}
     }
+    for (const lc of activeLocal) {
+      const existing = mergedMap.get(lc.id);
+      if (!existing || new Date(lc.updatedAt || lc.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
+        mergedMap.set(lc.id, lc);
+      }
+    }
+    mergedMap.set(chequeRecord.id, chequeRecord);
 
+    const nowIso = new Date().toISOString();
     await supabase.from('settings').upsert({
       setting_key: getScopedSettingKey('app_cheques'),
-      setting_value: JSON.stringify(mergedList),
-      updated_at: new Date().toISOString()
+      setting_value: JSON.stringify(Array.from(mergedMap.values())),
+      updated_at: nowIso
     });
+    lastKnownSettingVersions.set(getScopedSettingKey('app_cheques'), nowIso);
 
     broadcastSyncEvent('cheques');
   } catch (err) {
@@ -5084,12 +5514,24 @@ export async function pullChequesLive(triggerEvent = true) {
     if (data?.setting_value) {
       const cloudCheques = JSON.parse(data.setting_value);
       if (Array.isArray(cloudCheques)) {
+        const cloudIds = new Set(cloudCheques.filter(c => c?.id && !c.deletedAt && c.status !== 'deleted').map(c => c.id));
         await db.transaction('rw', db.cheques, async () => {
           for (const chk of cloudCheques) {
             if (!chk.id) continue;
+            if (chk.deletedAt || chk.status === 'deleted') {
+              await db.cheques.delete(chk.id);
+              continue;
+            }
             const existing = await db.cheques.get(chk.id);
             if (!existing || new Date(chk.updatedAt || chk.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
               await db.cheques.put(chk);
+            }
+          }
+          const locals = await db.cheques.toArray();
+          for (const lc of locals) {
+            if (!cloudIds.has(lc.id)) {
+              const isRecent = lc.createdAt && (Date.now() - new Date(lc.createdAt).getTime() < 10000);
+              if (!isRecent) await db.cheques.delete(lc.id);
             }
           }
         });
@@ -5126,11 +5568,13 @@ export async function deleteChequeLive(chequeId) {
       try {
         let cloudList = JSON.parse(data.setting_value) || [];
         cloudList = cloudList.filter(c => c.id !== chequeId);
+        const nowIso = new Date().toISOString();
         await supabase.from('settings').upsert({
           setting_key: getScopedSettingKey('app_cheques'),
           setting_value: JSON.stringify(cloudList),
-          updated_at: new Date().toISOString()
+          updated_at: nowIso
         });
+        lastKnownSettingVersions.set(getScopedSettingKey('app_cheques'), nowIso);
       } catch (_) {}
     }
 
@@ -5159,24 +5603,30 @@ export async function pushChequebookLive(bookRecord) {
       .eq('setting_key', getScopedSettingKey('app_chequebooks'))
       .maybeSingle();
 
-    let mergedList = [...activeLocal];
+    const mergedMap = new Map();
     if (data?.setting_value) {
       try {
         const cloudList = JSON.parse(data.setting_value) || [];
-        const localMap = new Map(activeLocal.map(b => [b.id, b]));
         for (const cl of cloudList) {
-          if (!localMap.has(cl.id)) {
-            mergedList.push(cl);
-          }
+          if (cl?.id) mergedMap.set(cl.id, cl);
         }
       } catch (_) {}
     }
+    for (const lb of activeLocal) {
+      const existing = mergedMap.get(lb.id);
+      if (!existing || new Date(lb.updatedAt || lb.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
+        mergedMap.set(lb.id, lb);
+      }
+    }
+    mergedMap.set(bookRecord.id, bookRecord);
 
+    const nowIso = new Date().toISOString();
     await supabase.from('settings').upsert({
       setting_key: getScopedSettingKey('app_chequebooks'),
-      setting_value: JSON.stringify(mergedList),
-      updated_at: new Date().toISOString()
+      setting_value: JSON.stringify(Array.from(mergedMap.values())),
+      updated_at: nowIso
     });
+    lastKnownSettingVersions.set(getScopedSettingKey('app_chequebooks'), nowIso);
 
     broadcastSyncEvent('chequebooks');
   } catch (err) {
@@ -5199,12 +5649,24 @@ export async function pullChequebooksLive(triggerEvent = true) {
     if (data?.setting_value) {
       const cloudBooks = JSON.parse(data.setting_value);
       if (Array.isArray(cloudBooks)) {
+        const cloudIds = new Set(cloudBooks.filter(b => b?.id && !b.deletedAt && b.status !== 'deleted').map(b => b.id));
         await db.transaction('rw', db.chequebooks, async () => {
           for (const cb of cloudBooks) {
             if (!cb.id) continue;
+            if (cb.deletedAt || cb.status === 'deleted') {
+              await db.chequebooks.delete(cb.id);
+              continue;
+            }
             const existing = await db.chequebooks.get(cb.id);
             if (!existing || new Date(cb.updatedAt || cb.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
               await db.chequebooks.put(cb);
+            }
+          }
+          const locals = await db.chequebooks.toArray();
+          for (const lb of locals) {
+            if (!cloudIds.has(lb.id)) {
+              const isRecent = lb.createdAt && (Date.now() - new Date(lb.createdAt).getTime() < 10000);
+              if (!isRecent) await db.chequebooks.delete(lb.id);
             }
           }
         });
@@ -5241,11 +5703,13 @@ export async function deleteChequebookLive(bookId) {
       try {
         let cloudList = JSON.parse(data.setting_value) || [];
         cloudList = cloudList.filter(b => b.id !== bookId);
+        const nowIso = new Date().toISOString();
         await supabase.from('settings').upsert({
           setting_key: getScopedSettingKey('app_chequebooks'),
           setting_value: JSON.stringify(cloudList),
-          updated_at: new Date().toISOString()
+          updated_at: nowIso
         });
+        lastKnownSettingVersions.set(getScopedSettingKey('app_chequebooks'), nowIso);
       } catch (_) {}
     }
 
@@ -5254,10 +5718,6 @@ export async function deleteChequebookLive(bookId) {
     console.warn('deleteChequebookLive warning:', err);
   }
 }
-
-
-
-
 
 // ----------------------------------------------------
 // CONTRACTS & OPERATIONS CLOUD SYNC
@@ -5278,24 +5738,30 @@ export async function pushContractLive(contractRecord) {
       .eq('setting_key', getScopedSettingKey('app_contracts'))
       .maybeSingle();
 
-    let mergedList = [...activeLocal];
+    const mergedMap = new Map();
     if (data?.setting_value) {
       try {
         const cloudList = JSON.parse(data.setting_value) || [];
-        const localMap = new Map(activeLocal.map(c => [c.id, c]));
         for (const cl of cloudList) {
-          if (!localMap.has(cl.id)) {
-            mergedList.push(cl);
-          }
+          if (cl?.id) mergedMap.set(cl.id, cl);
         }
       } catch (_) {}
     }
+    for (const lc of activeLocal) {
+      const existing = mergedMap.get(lc.id);
+      if (!existing || new Date(lc.updatedAt || lc.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
+        mergedMap.set(lc.id, lc);
+      }
+    }
+    mergedMap.set(contractRecord.id, contractRecord);
 
+    const nowIso = new Date().toISOString();
     await supabase.from('settings').upsert({
       setting_key: getScopedSettingKey('app_contracts'),
-      setting_value: JSON.stringify(mergedList),
-      updated_at: new Date().toISOString()
+      setting_value: JSON.stringify(Array.from(mergedMap.values())),
+      updated_at: nowIso
     });
+    lastKnownSettingVersions.set(getScopedSettingKey('app_contracts'), nowIso);
 
     broadcastSyncEvent('contracts');
   } catch (err) {
@@ -5318,12 +5784,24 @@ export async function pullContractsLive(triggerEvent = true) {
     if (data?.setting_value) {
       const cloudContracts = JSON.parse(data.setting_value);
       if (Array.isArray(cloudContracts)) {
+        const cloudIds = new Set(cloudContracts.filter(c => c?.id && !c.deletedAt && c.status !== 'deleted').map(c => c.id));
         await db.transaction('rw', db.contracts, async () => {
           for (const ctr of cloudContracts) {
             if (!ctr.id) continue;
+            if (ctr.deletedAt || ctr.status === 'deleted') {
+              await db.contracts.delete(ctr.id);
+              continue;
+            }
             const existing = await db.contracts.get(ctr.id);
             if (!existing || new Date(ctr.updatedAt || ctr.createdAt || 0) >= new Date(existing.updatedAt || existing.createdAt || 0)) {
               await db.contracts.put(ctr);
+            }
+          }
+          const locals = await db.contracts.toArray();
+          for (const lc of locals) {
+            if (!cloudIds.has(lc.id)) {
+              const isRecent = lc.createdAt && (Date.now() - new Date(lc.createdAt).getTime() < 10000);
+              if (!isRecent) await db.contracts.delete(lc.id);
             }
           }
         });

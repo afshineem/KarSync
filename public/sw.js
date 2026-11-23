@@ -1,4 +1,4 @@
-const CACHE_NAME = 'karsync-cache-v39';
+const CACHE_NAME = 'karsync-cache-v40';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -94,7 +94,7 @@ function buildLogSignature(l) {
  */
 async function checkWorkerPortalUpdatesInSW(force = false) {
   const now = Date.now();
-  if (!force && now - lastSwCheckAt < 25000) return;
+  if (!force && now - lastSwCheckAt < 300000) return;
   lastSwCheckAt = now;
 
   try {

@@ -849,7 +849,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
 
       try {
         if (!isLinkSession) {
-          await pullRemoteChangesSilently(true);
+          await pullRemoteChangesSilently(Boolean(showFeedback));
         } else {
           const res = await refreshWorkerPortalData();
           if (!res.success && (res.error === 'invalid_token' || res.error === 'account_blocked')) {
@@ -874,7 +874,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     [user?.via, logout, addToast, language]
   );
 
-  // Continuous background polling (every 25s) + visibilitychange + online + Realtime subscription
+  // Visibility-aware background polling (every 90s when visible) + visibilitychange + online + Realtime subscription
   useEffect(() => {
     let lastRun = 0;
     const refresh = () => {
@@ -887,8 +887,10 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     refresh();
 
     const intervalId = setInterval(() => {
-      refresh();
-    }, 25000);
+      if (document.visibilityState === 'visible') {
+        refresh();
+      }
+    }, 90000);
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh();

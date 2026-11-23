@@ -476,16 +476,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     return monthlyExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [monthlyExpenses]);
 
-  // Pull latest cloud expenses
+  // Lightweight non-forced expense sync on mount; live updates & focus recovery are handled centrally by realtimeSync.js + Dexie useLiveQuery
   useEffect(() => {
-    pullExpensesLive().catch(() => {});
-    const onSync = () => pullExpensesLive().catch(() => {});
-    window.addEventListener('workshop-expenses-sync', onSync);
-    window.addEventListener('focus', onSync);
-    return () => {
-      window.removeEventListener('workshop-expenses-sync', onSync);
-      window.removeEventListener('focus', onSync);
-    };
+    pullExpensesLive(false).catch(() => {});
   }, [targetProjectId]);
 
   // Live ticking Clock & Date
