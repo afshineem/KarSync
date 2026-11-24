@@ -28,6 +28,14 @@ export function setCustomGoogleClientId(clientId) {
   }
 }
 
+function getActiveLanguage() {
+  try {
+    const lang = localStorage.getItem('workshop_lang');
+    if (lang === 'ku' || lang === 'en') return lang;
+  } catch (_) {}
+  return 'fa';
+}
+
 /**
  * Loads the Google Identity Services (GIS) client library dynamically
  */
@@ -38,12 +46,18 @@ export function loadGoogleGisScript() {
 
   if (gisLoadingPromise) return gisLoadingPromise;
 
+  const lang = getActiveLanguage();
+  const loadErrorMessages = {
+    fa: 'بارگذاری سرویس ورود گوگل ناموفق بود. لطفاً اتصال اینترنت (یا فیلترشکن / مسدودکننده تبلیغات) را بررسی کرده و دوباره تلاش کنید.',
+    ku: 'بارکردنی خزمەتگوزاری چوونەژوورەوەی گووگڵ سەرکەوتوو نەبوو. تکایە هێڵی ئینتەرنێت (یان VPN) بپشکنە و دووبارە هەوڵ بدەوە.',
+    en: 'Failed to load Google Sign-In SDK. Please check your internet connection (or VPN / ad-blocker) and try again.'
+  };
+
   gisLoadingPromise = new Promise((resolve, reject) => {
+    // Remove any stale failed script element before inserting a fresh one
     const existing = document.getElementById('google-gis-sdk');
     if (existing) {
-      existing.addEventListener('load', () => resolve(window.google));
-      existing.addEventListener('error', (err) => reject(err));
-      return;
+      existing.remove();
     }
 
     const script = document.createElement('script');
@@ -51,8 +65,42 @@ export function loadGoogleGisScript() {
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
-    script.onload = () => resolve(window.google);
-    script.onerror = (err) => reject(new Error('Failed to load Google Identity Services SDK'));
+
+    let settled = false;
+    const cleanupOnFailure = () => {
+      gisLoadingPromise = null;
+      if (script.parentNode) {
+        script.remove();
+      }
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanupOnFailure();
+      reject(new Error(loadErrorMessages[lang] || loadErrorMessages.fa));
+    }, 15000);
+
+    script.onload = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      if (window.google?.accounts?.oauth2) {
+        resolve(window.google);
+      } else {
+        cleanupOnFailure();
+        reject(new Error(loadErrorMessages[lang] || loadErrorMessages.fa));
+      }
+    };
+
+    script.onerror = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      cleanupOnFailure();
+      reject(new Error(loadErrorMessages[lang] || loadErrorMessages.fa));
+    };
+
     document.head.appendChild(script);
   });
 
@@ -128,14 +176,6 @@ export async function disconnectGoogleDrive() {
       localStorage.removeItem('karsync_gdrive_folder_id');
       localStorage.removeItem('karsync_gdrive_expires_at');
       localStorage.removeItem('karsync_gdrive_connected');
-    }
-
-    function getActiveLanguage() {
-      try {
-        const lang = localStorage.getItem('workshop_lang');
-        if (lang === 'ku' || lang === 'en') return lang;
-      } catch (_) {}
-      return 'fa';
     }
 
     const lang = getActiveLanguage();
@@ -265,14 +305,6 @@ export async function connectGoogleDrive(clientIdOverride = null) {
 
           await saveGdriveAuth(authData);
 
-          function getActiveLanguage() {
-            try {
-              const lang = localStorage.getItem('workshop_lang');
-              if (lang === 'ku' || lang === 'en') return lang;
-            } catch (_) {}
-            return 'fa';
-          }
-
           const lang = getActiveLanguage();
           const googleUserLabel = {
             fa: 'گوگل',
@@ -305,6 +337,23 @@ export async function connectGoogleDrive(clientIdOverride = null) {
             email,
             folderId
           });
+        },
+        error_callback: (err) => {
+          if (err?.type === 'popup_closed') {
+            resolve({ success: false, cancelled: true });
+            return;
+          }
+          const lang = getActiveLanguage();
+          if (err?.type === 'popup_failed_to_open') {
+            const blockedMsg = {
+              fa: 'پنجره ورود گوگل توسط مرورگر مسدود شد. لطفاً اجازه باز شدن پنجره بازشو (Popup) را فعال کنید.',
+              ku: 'پەنجەرەی چوونەژوورەوەی گووگڵ لەلایەن وێبگەڕەوە بەربەست کرا. تکایە ڕێگە بە Popup بدە.',
+              en: 'Google sign-in popup was blocked by your browser. Please allow popups and try again.'
+            };
+            reject(new Error(blockedMsg[lang] || blockedMsg.fa));
+            return;
+          }
+          reject(new Error(err?.message || err?.type || 'Google OAuth error'));
         }
       });
 

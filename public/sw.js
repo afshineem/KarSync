@@ -1,4 +1,4 @@
-const CACHE_NAME = 'karsync-cache-v40';
+const CACHE_NAME = 'karsync-cache-v41';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -360,7 +360,13 @@ self.addEventListener('fetch', (event) => {
   // Opportunistically check for background worker notifications when SW wakes up
   checkWorkerPortalUpdatesInSW(false).catch(() => {});
 
-  if (event.request.url.includes('supabase.co')) {
+  if (
+    event.request.url.includes('supabase.co') ||
+    event.request.url.includes('accounts.google.com') ||
+    event.request.url.includes('apis.google.com') ||
+    event.request.url.includes('googleapis.com') ||
+    event.request.url.includes('gstatic.com')
+  ) {
     return;
   }
 

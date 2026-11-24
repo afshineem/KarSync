@@ -2,7 +2,7 @@
 <html lang="ku" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src *;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com data:; connect-src *;" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -47,9 +47,14 @@
 
         var msg = '';
         if (fileUrl) {
-          // Ignore external font or preconnect failures if app works with bundled fonts
-          if (fileUrl.indexOf('fonts.googleapis.com') !== -1 || fileUrl.indexOf('fonts.gstatic.com') !== -1) {
-            console.warn('External font request skipped:', fileUrl);
+          // Ignore optional external font or third-party SDK failures (handled by dedicated service UI)
+          if (
+            fileUrl.indexOf('fonts.googleapis.com') !== -1 ||
+            fileUrl.indexOf('fonts.gstatic.com') !== -1 ||
+            fileUrl.indexOf('accounts.google.com') !== -1 ||
+            fileUrl.indexOf('apis.google.com') !== -1
+          ) {
+            console.warn('Optional external resource skipped:', fileUrl);
             return;
           }
           msg = 'بارگذاری ناموفق فایل: ' + fileUrl;
