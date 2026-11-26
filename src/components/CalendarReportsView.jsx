@@ -9,7 +9,6 @@ import { useProject } from '../context/ProjectContext';
 import { usePermissions } from '../context/AuthContext';
 import { EditRecordModal } from './EditRecordModal';
 import AttendanceRecycleBinModal from './AttendanceRecycleBinModal';
-import AttendanceAiAssistantModal from './AttendanceAiAssistantModal';
 import { WorkersModal } from './WorkersModal';
 import { 
   formatCurrency, 
@@ -518,7 +517,6 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
   const [editingLog, setEditingLog] = useState(null);
   const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
   const [isWorkersModalOpen, setIsWorkersModalOpen] = useState(false);
-  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
 
   // Timeline list controls with persistent sort order
   const [filterOnlyWithLogs, setFilterOnlyWithLogs] = useState(true);
@@ -1431,7 +1429,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
               {/* KarSync Gemini AI Attendance Copilot Button */}
               <button
                 type="button"
-                onClick={() => setIsAiAssistantOpen(true)}
+                onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-ai-assistant'))}
                 className="h-full px-2.5 sm:px-3 text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-white hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 rounded-xl transition-all duration-300 active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs bg-purple-500/10 dark:bg-purple-500/10 border border-purple-500/25 group"
                 title={copy.aiAssistantTooltip}
                 aria-label={copy.aiAssistantLabel}
@@ -1583,7 +1581,7 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
                   {/* AI Copilot Button for Mobile/Hero */}
                   <button
                     type="button"
-                    onClick={() => setIsAiAssistantOpen(true)}
+                    onClick={() => window.dispatchEvent(new CustomEvent('karsync-open-ai-assistant'))}
                     className="col-span-2 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600/40 hover:to-indigo-600/40 text-white font-bold text-xs border border-purple-400/30 shadow-md shadow-purple-900/20 transition-all duration-300 cursor-pointer active:scale-95"
                   >
                     <Sparkles className="w-4 h-4 text-purple-300 animate-pulse" />
@@ -3460,17 +3458,6 @@ export function CalendarReportsView({ onOpenLoggingModal, navTarget, onNavConsum
           onClose={() => setIsWorkersModalOpen(false)}
         />
       )}
-
-      {/* KarSync AI Attendance Copilot Modal */}
-      <AttendanceAiAssistantModal
-        isOpen={isAiAssistantOpen}
-        onClose={() => setIsAiAssistantOpen(false)}
-        workers={workers}
-        allLogs={allLogs}
-        allPayments={allPayments}
-        currency={currency}
-        initialWorkerId={selectedWorkerId !== 'all' ? selectedWorkerId : null}
-      />
 
     </div>
   );

@@ -42,6 +42,7 @@ import OperationsView from './components/OperationsView';
 import { SubsidiarySearchModal } from './components/accounting/SubsidiarySearchModal';
 import { AccountSubsidiaryLedgerModal } from './components/accounting/AccountSubsidiaryLedgerModal';
 import { VoucherDetailModal } from './components/accounting/VoucherDetailModal';
+import AttendanceAiAssistantModal from './components/AttendanceAiAssistantModal';
 import { autoBackfillAllVouchers } from './services/voucherNumberService';
 import { NotificationProvider } from './context/NotificationContext';
 import { ToastContainer } from './components/ToastContainer';
@@ -144,8 +145,9 @@ function AppContent() {
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [selectedVoucherForModal, setSelectedVoucherForModal] = useState(null);
   const [selectedVoucherNumberForModal, setSelectedVoucherNumberForModal] = useState(null);
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
 
-  // Global listeners for Workers, Counterparties & Daily Logging modals
+  // Global listeners for Workers, Counterparties, Daily Logging & AI Assistant modals
   useEffect(() => {
     const handleOpenWorkers = () => {
       if (hasPermission('workers.manage')) setIsWorkersModalOpen(true);
@@ -161,15 +163,20 @@ function AppContent() {
       setLoggingModalDate(e.detail?.date || null);
       setIsLoggingModalOpen(true);
     };
+    const handleOpenAiAssistant = () => {
+      setIsAiAssistantOpen(true);
+    };
     window.addEventListener('karsync-open-workers-modal', handleOpenWorkers);
     window.addEventListener('karsync-open-new-worker', handleOpenAddWorker);
     window.addEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
     window.addEventListener('karsync-open-daily-logging', handleOpenDailyLoggingEvent);
+    window.addEventListener('karsync-open-ai-assistant', handleOpenAiAssistant);
     return () => {
       window.removeEventListener('karsync-open-workers-modal', handleOpenWorkers);
       window.removeEventListener('karsync-open-new-worker', handleOpenAddWorker);
       window.removeEventListener('karsync-open-counterparties-modal', handleOpenCounterparties);
       window.removeEventListener('karsync-open-daily-logging', handleOpenDailyLoggingEvent);
+      window.removeEventListener('karsync-open-ai-assistant', handleOpenAiAssistant);
     };
   }, [hasPermission]);
 
@@ -710,6 +717,12 @@ function AppContent() {
         }}
         voucher={selectedVoucherForModal}
         voucherNumber={selectedVoucherNumberForModal}
+      />
+
+      {/* Global KarSync AI Chatbot Assistant */}
+      <AttendanceAiAssistantModal
+        isOpen={isAiAssistantOpen}
+        onClose={() => setIsAiAssistantOpen(false)}
       />
 
       {/* Floating Setup Checklist Widget */}

@@ -18,7 +18,8 @@ import {
   Briefcase,
   Bell,
   Crown,
-  Hammer
+  Hammer,
+  Sparkles
 } from 'lucide-react';
 
 const NAVBAR_COPY = {
@@ -29,6 +30,7 @@ const NAVBAR_COPY = {
     expenses: 'هزینه‌ها',
     accounting: 'حسابداری و مالی',
     appSubtitle: 'سامانه جامع مدیریت کارگاه و پرسنل',
+    aiAssistant: 'دستیار هوشمند کارسینک',
     notifications: 'مرکز اعلان‌ها و هشدارها',
     settings: 'تنظیمات',
     userFallback: 'کاربر'
@@ -40,6 +42,7 @@ const NAVBAR_COPY = {
     expenses: 'خەرجییەکان',
     accounting: 'حیسابداری و دارایی',
     appSubtitle: 'سیستەمی گشتگیری بەڕێوەبردنی کارگە و کارمەندان',
+    aiAssistant: 'یاریدەدەری زیرەکی کارسینک',
     notifications: 'ناوەندی ئاگادارکردنەوەکان',
     settings: 'ڕێکخستنەکان',
     userFallback: 'بەکارهێنەر'
@@ -51,6 +54,7 @@ const NAVBAR_COPY = {
     expenses: 'Expenses',
     accounting: 'Finance & Accounting',
     appSubtitle: 'Comprehensive Workshop & Workforce Management',
+    aiAssistant: 'KarSync AI Assistant',
     notifications: 'Notification Center',
     settings: 'Settings',
     userFallback: 'User'
@@ -230,11 +234,26 @@ export function Navbar({
               </nav>
             </div>
 
-            {/* Right Controls: Compact ProjectSwitcher + Notification Bell + Settings Dropdown Trigger */}
+            {/* Right Controls: Compact ProjectSwitcher + AI Assistant + Notification Bell + Settings Dropdown Trigger */}
             <div className="flex items-center gap-2 flex-shrink-0 relative">
               <div data-tour="project-switcher" className="inline-flex">
                 <ProjectSwitcher />
               </div>
+
+              {/* Global KarSync AI Assistant Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNotificationDropdownOpen(false);
+                  setIsSettingsDropdownOpen(false);
+                  window.dispatchEvent(new CustomEvent('karsync-open-ai-assistant'));
+                }}
+                title={c.aiAssistant}
+                aria-label={c.aiAssistant}
+                className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border border-indigo-400/40 dark:border-indigo-400/25 bg-gradient-to-tr from-indigo-500/15 via-purple-500/15 to-sky-500/15 hover:from-indigo-600 hover:via-purple-600 hover:to-sky-500 text-indigo-600 dark:text-indigo-300 hover:text-white backdrop-blur-md shadow-xs hover:shadow-md hover:shadow-indigo-500/25 transition-all duration-200 flex items-center justify-center group hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <Sparkles className="w-4.5 h-4.5 sm:w-5 sm:h-5 transition-transform group-hover:rotate-12" />
+              </button>
 
               {/* Notification Center Bell Button */}
               <div className="relative">

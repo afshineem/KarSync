@@ -1,65 +1,350 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  Sparkles, 
-  X, 
-  User, 
-  Calendar, 
-  Clock, 
-  Coins, 
-  AlertCircle, 
-  CheckCircle2, 
-  Send, 
-  Key, 
-  RefreshCw, 
-  Copy, 
-  Check, 
-  Bot, 
-  Zap, 
-  HelpCircle,
-  FileText,
-  ChevronDown,
-  Info
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  Sparkles,
+  X,
+  Send,
+  Copy,
+  Check,
+  Bot,
+  AlertCircle,
+  RotateCcw,
+  Loader2,
+  Database
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
-import { formatCurrency, formatHoursAndMinutes, formatNumber } from '../utils/formatters';
-import { 
-  analyzeWorkerAttendanceWithAi, 
-  prepareWorkerAttendanceSummary 
-} from '../services/geminiService';
+import { useProject } from '../context/ProjectContext';
+import { useAuth, usePermissions } from '../context/AuthContext';
+import { DEFAULT_PROJECT_ID } from '../db/db';
+import { runKarSyncAiChatTurn } from '../services/geminiService';
 
-export default function AttendanceAiAssistantModal({
-  isOpen,
-  onClose,
-  workers = [],
-  allLogs = [],
-  allPayments = [],
-  currency = 'IQD',
-  initialWorkerId = null
-}) {
-  const { language, direction } = useLanguage();
-  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+const SESSION_CHAT_KEY_PREFIX = 'karsync_ai_chat_session_v1_';
 
-  const [selectedWorkerId, setSelectedWorkerId] = useState(initialWorkerId || (workers[0]?.id ? String(workers[0].id) : ''));
-  const [customQuestion, setCustomQuestion] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [aiReport, setAiReport] = useState(null);
-  const [summaryData, setSummaryData] = useState(null);
-  const [isCopied, setIsCopied] = useState(false);
+const AI_CHAT_COPY = {
+  fa: {
+    title: 'دستیار هوشمند کارسینک',
+    welcomeTitle: 'چطور می‌توانم کمکتان کنم؟',
+    welcomeSubtitle: 'درباره کارکرد پرسنل، حقوق و مساعده، هزینه‌ها، موجودی حساب‌ها، چک‌ها یا قراردادها بپرسید.',
+    inputPlaceholder: 'سوال خود را بنویسید... (مثلاً: گزارش کارکرد افشین رو بهم بده)',
+    newChat: 'گفتگوی جدید',
+    copyAnswer: 'کپی',
+    copied: 'کپی شد',
+    closeLabel: 'بستن',
+    sendLabel: 'ارسال',
+    offlineError: 'دستگاه آفلاین است. برای استفاده از دستیار هوشمند به اینترنت متصل شوید.',
+    missingKeyError: 'کلید Google Gemini API تنظیم نشده است.',
+    generalError: 'خطا در برقراری ارتباط با دستیار هوشمند. لطفاً دوباره تلاش کنید.',
+    thinkingDefault: 'در حال بررسی داده‌های کارگاه...'
+  },
+  ku: {
+    title: 'یاریدەدەری زیرەکی کارسینک',
+    welcomeTitle: 'چۆن دەتوانم یارمەتیت بدەم؟',
+    welcomeSubtitle: 'هەر پرسیارێک دەربارەی کارکردنی کارمەندان، مووچە و پێشەکی، خەرجی، هەژمار، چەک یان گرێبەستەکان بپرسە.',
+    inputPlaceholder: 'پرسیارەکەت بنووسە... (بۆ نموونە: ڕاپۆرتی کارکردنی ئەفشینم پێ بدە)',
+    newChat: 'گفتوگۆی نوێ',
+    copyAnswer: 'کۆپی',
+    copied: 'کۆپی کرا',
+    closeLabel: 'داخستن',
+    sendLabel: 'ناردن',
+    offlineError: 'ئامێرەکە ئۆفلاینە. بۆ بەکارهێنانی یاریدەدەری زیرەک پێویستە پەیوەندی بە ئینتەرنێتەوە هەبێت.',
+    missingKeyError: 'کلیلی Google Gemini API ڕێکنەخراوە.',
+    generalError: 'هەڵەیەک لە پەیوەندی بە یاریدەدەری زیرەک ڕوویدا. تکایە دووبارە هەوڵ بدەرەوە.',
+    thinkingDefault: 'پشکنینی داتاکانی کارگە...'
+  },
+  en: {
+    title: 'KarSync AI Assistant',
+    welcomeTitle: 'How can I help you today?',
+    welcomeSubtitle: 'Ask anything about personnel attendance, wages, advances, expenses, accounts, cheques, or contracts.',
+    inputPlaceholder: 'Ask anything... (e.g. Give me Afshin’s attendance report)',
+    newChat: 'New Chat',
+    copyAnswer: 'Copy',
+    copied: 'Copied',
+    closeLabel: 'Close',
+    sendLabel: 'Send',
+    offlineError: 'You are offline. Please connect to the internet to use KarSync AI.',
+    missingKeyError: 'Google Gemini API key is not configured.',
+    generalError: 'Failed to reach KarSync AI. Please try again.',
+    thinkingDefault: 'Querying workshop database...'
+  }
+};
 
-  // Sync selectedWorkerId if initialWorkerId changes
-  useEffect(() => {
-    if (initialWorkerId) {
-      setSelectedWorkerId(String(initialWorkerId));
-    } else if (!selectedWorkerId && workers.length > 0) {
-      setSelectedWorkerId(String(workers[0].id));
+/**
+ * Lightweight, safe inline Markdown renderer (bold, inline code) with zero external dependencies.
+ */
+function renderInlineMarkdown(text) {
+  const str = String(text || '');
+  const parts = [];
+  const tokenRe = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  let lastIndex = 0;
+  let match;
+  let keyIdx = 0;
+
+  while ((match = tokenRe.exec(str)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(str.slice(lastIndex, match.index));
     }
-  }, [initialWorkerId, workers]);
+    const token = match[0];
+    if (token.startsWith('**') && token.endsWith('**')) {
+      parts.push(
+        <strong key={`b_${keyIdx++}`} className="font-bold text-slate-900 dark:text-white">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if (token.startsWith('`') && token.endsWith('`')) {
+      parts.push(
+        <code
+          key={`c_${keyIdx++}`}
+          className="px-1.5 py-0.5 rounded-md bg-slate-200/70 dark:bg-slate-800 text-[11px] font-mono text-indigo-700 dark:text-indigo-300"
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
+    }
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < str.length) {
+    parts.push(str.slice(lastIndex));
+  }
+  return parts;
+}
+
+/**
+ * Clean block-level Markdown renderer (headings, bullet/ordered lists, compact tables, paragraphs).
+ */
+function ChatMarkdown({ content }) {
+  const lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
+  const blocks = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      blocks.push(<hr key={`hr_${i}`} className="my-2.5 border-slate-200/80 dark:border-slate-700/70" />);
+      i++;
+      continue;
+    }
+
+    // Markdown Table
+    if (
+      trimmed.includes('|') &&
+      i + 1 < lines.length &&
+      /^\s*\|?[\s:-]+\|[\s|:-]*$/.test(lines[i + 1])
+    ) {
+      const parseCells = (rowStr) =>
+        rowStr
+          .trim()
+          .replace(/^\|/, '')
+          .replace(/\|$/, '')
+          .split('|')
+          .map((c) => c.trim());
+
+      const headers = parseCells(lines[i]);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].trim().includes('|')) {
+        rows.push(parseCells(lines[i]));
+        i++;
+      }
+
+      blocks.push(
+        <div
+          key={`tbl_${i}`}
+          className="my-2.5 overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white/60 dark:bg-slate-950/40"
+        >
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-700/80">
+                {headers.map((h, hi) => (
+                  <th
+                    key={hi}
+                    className="px-2.5 py-2 text-start font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                  >
+                    {renderInlineMarkdown(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/70">
+              {rows.map((row, ri) => (
+                <tr key={ri} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                  {row.map((cell, ci) => (
+                    <td
+                      key={ci}
+                      className="px-2.5 py-1.5 text-slate-700 dark:text-slate-300 whitespace-nowrap"
+                    >
+                      {renderInlineMarkdown(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    // Headings
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const cls =
+        level === 1
+          ? 'text-sm sm:text-base font-black text-slate-900 dark:text-white mt-2 mb-1'
+          : level === 2
+          ? 'text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white mt-2 mb-1'
+          : 'text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 mt-1.5 mb-0.5';
+      blocks.push(
+        <div key={`h_${i}`} className={cls}>
+          {renderInlineMarkdown(headingMatch[2])}
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    // Unordered list
+    if (/^[-*•]\s+/.test(trimmed)) {
+      const items = [];
+      const startIdx = i;
+      while (i < lines.length && /^\s*[-*•]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s*[-*•]\s+/, '').trim());
+        i++;
+      }
+      blocks.push(
+        <ul key={`ul_${startIdx}`} className="my-1.5 space-y-1 list-disc ps-5">
+          {items.map((item, idx) => (
+            <li key={idx} className="leading-relaxed">
+              {renderInlineMarkdown(item)}
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+[.)]\s+/.test(trimmed)) {
+      const items = [];
+      const startIdx = i;
+      while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s*\d+[.)]\s+/, '').trim());
+        i++;
+      }
+      blocks.push(
+        <ol key={`ol_${startIdx}`} className="my-1.5 space-y-1 list-decimal ps-5">
+          {items.map((item, idx) => (
+            <li key={idx} className="leading-relaxed">
+              {renderInlineMarkdown(item)}
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    // Regular paragraph (group consecutive plain lines)
+    const paraLines = [];
+    const startIdx = i;
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !/^[-*•]\s+/.test(lines[i].trim()) &&
+      !/^\d+[.)]\s+/.test(lines[i].trim()) &&
+      !/^#{1,3}\s+/.test(lines[i].trim()) &&
+      !/^[-*_]{3,}$/.test(lines[i].trim()) &&
+      !(
+        lines[i].trim().includes('|') &&
+        i + 1 < lines.length &&
+        /^\s*\|?[\s:-]+\|[\s|:-]*$/.test(lines[i + 1])
+      )
+    ) {
+      paraLines.push(lines[i].trim());
+      i++;
+    }
+    blocks.push(
+      <p key={`p_${startIdx}`} className="my-1 leading-relaxed">
+        {paraLines.map((pl, pi) => (
+          <React.Fragment key={pi}>
+            {pi > 0 && <br />}
+            {renderInlineMarkdown(pl)}
+          </React.Fragment>
+        ))}
+      </p>
+    );
+  }
+
+  return <div className="text-xs sm:text-[13.5px] text-slate-700 dark:text-slate-200">{blocks}</div>;
+}
+
+export default function AttendanceAiAssistantModal({ isOpen, onClose }) {
+  const { language, direction, calendarType } = useLanguage();
+  const { currentProject } = useProject();
+  const { user } = useAuth();
+  const { hasPermission, canAccessProject } = usePermissions();
+
+  const langKey = language === 'fa' ? 'fa' : language === 'ku' ? 'ku' : 'en';
+  const copy = AI_CHAT_COPY[langKey];
+
+  const sessionStorageKey = useMemo(() => {
+    const scope = user?.workspace_id || user?.id || 'default';
+    return `${SESSION_CHAT_KEY_PREFIX}${scope}`;
+  }, [user?.workspace_id, user?.id]);
+
+  const [messages, setMessages] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(`${SESSION_CHAT_KEY_PREFIX}${user?.workspace_id || user?.id || 'default'}`);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [inputValue, setInputValue] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [statusText, setStatusText] = useState('');
+  const [error, setError] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
+
+  const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Persist messages for current browser session only
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(sessionStorageKey, JSON.stringify(messages.slice(-40)));
+    } catch (_) {}
+  }, [messages, sessionStorageKey]);
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    if (isOpen && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, loading, statusText, isOpen]);
+
+  // Focus input when opened
+  useEffect(() => {
+    if (isOpen) {
+      const t = setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 80);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
 
   // Close on Escape key
   useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape') {
         onClose();
       }
     };
@@ -67,476 +352,284 @@ export default function AttendanceAiAssistantModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Active selected worker
-  const activeWorker = useMemo(() => {
-    return workers.find(w => String(w.id) === String(selectedWorkerId)) || null;
-  }, [workers, selectedWorkerId]);
-
-  // Clear AI report and error ONLY when selected worker actually changes
-  const prevWorkerIdRef = useRef(selectedWorkerId);
+  // Auto-resize textarea height
   useEffect(() => {
-    if (prevWorkerIdRef.current !== selectedWorkerId) {
-      prevWorkerIdRef.current = selectedWorkerId;
-      setAiReport(null);
-      setError(null);
-    }
-  }, [selectedWorkerId]);
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [inputValue]);
 
-  // Real-time precalculated summary for active worker (keeps aiReport intact)
-  useEffect(() => {
-    if (activeWorker) {
-      const summary = prepareWorkerAttendanceSummary(activeWorker, allLogs, allPayments, currency);
-      setSummaryData(summary);
-    } else {
-      setSummaryData(null);
-    }
-  }, [activeWorker, allLogs, allPayments, currency]);
+  const permissions = useMemo(() => ({
+    canAttendance: hasPermission('attendance.read') || hasPermission('attendance.write') || hasPermission('workers.manage'),
+    canFinancials: hasPermission('settlement.manage') || hasPermission('accounting.manage') || hasPermission('reports.view'),
+    canExpenses: hasPermission('expenses.manage') || hasPermission('accounting.manage') || hasPermission('reports.view'),
+    canAccounting: hasPermission('accounting.manage') || hasPermission('settlement.manage') || hasPermission('reports.view')
+  }), [hasPermission]);
 
-  // Trilingual Copy Dictionary (Zero-Leakage)
-  const copy = {
-    fa: {
-      modalTitle: 'دستیار هوشمند کارکرد کارسینک',
-      modalSubtitle: 'تحلیل دقیق شیفت‌ها، اضافه‌کاری‌ها و کارکرد تسویه‌نشده با Google Gemini AI',
-      selectWorker: 'انتخاب پرسنل:',
-      allWorkers: 'لیست پرسنل',
-      apiKeyStatusActive: 'متصل به Gemini',
-      apiKeyStatusMissing: 'نیاز به تنظیم API Key',
-      configureKey: 'تنظیم کلید API',
-      keyConfigTitle: 'تنظیمات کلید Google Gemini API',
-      keyConfigDesc: 'کلید دریافتی از Google AI Studio را اینجا وارد کنید. این کلید به‌صورت امن در مرورگر شما ذخیره می‌شود.',
-      keyPlaceholder: 'مثال: AIzaSy... یا AQ.Ab8...',
-      saveKey: 'ذخیره کلید',
-      keySaved: 'کلید با موفقیت ذخیره شد',
-      quickPromptsTitle: 'پرسش‌های متداول و سریع:',
-      prompt1: '⚡ کارکرد جاری و تسویه‌نشده',
-      prompt2: '⏱️ تحلیل ساعات اضافه‌کاری',
-      prompt3: '📋 بیلان کامل و مانده طلب',
-      customQuestionPlaceholder: 'سوالی درباره کارکرد، شیفت‌ها یا طلب این پرسنل دارید بنویسید...',
-      btnSend: 'تحلیل هوشمند',
-      btnAnalyzing: 'در حال تحلیل با هوش مصنوعی...',
-      unsettledPeriod: 'بازه تسویه‌نشده:',
-      from: 'از',
-      to: 'تا',
-      beginning: 'آغاز همکاری',
-      today: 'امروز',
-      workingDays: 'روزهای کاری باز:',
-      fullDays: 'کامل',
-      halfDays: 'نیمه',
-      hourlyDays: 'ساعتی',
-      totalOt: 'کل اضافه‌کاری باز:',
-      grossPay: 'دستمزد ناخالص باز:',
-      advances: 'مساعده‌های کسر شده:',
-      netDue: 'مانده خالص طلب:',
-      aiAnalysisTitle: 'گزارش و تحلیل کارشناسی هوش مصنوعی',
-      copyReport: 'کپی متن گزارش',
-      copied: 'کپی شد!',
-      noWorkerSelected: 'لطفاً ابتدا یک پرسنل را انتخاب کنید.',
-      errorMissingKey: 'کلید Google Gemini API یافت نشد. لطفاً روی دکمه «تنظیم کلید API» کلیک کنید.',
-      errorGeneral: 'خطا در برقراری ارتباط با هوش مصنوعی. لطفاً دوباره تلاش کنید.'
-    },
-    ku: {
-      modalTitle: 'یاریدەدەری زیرەکی کارکردی کارسینک',
-      modalSubtitle: 'شیکاریی وردی دەوام، ئۆڤەرتایم و کارکردی تەسویەنەکراو بە Google Gemini AI',
-      selectWorker: 'هەڵبژاردنی کارمەند:',
-      allWorkers: 'لیستی کارمەندان',
-      apiKeyStatusActive: 'بەستراوەتەوە بە Gemini',
-      apiKeyStatusMissing: 'پێویستی بە کلیل هەیە',
-      configureKey: 'ڕێکخستنی کلیل',
-      keyConfigTitle: 'ڕێکخستنی کلیلی Google Gemini API',
-      keyConfigDesc: 'کلیلی وەرگیراو لە Google AI Studio لێرە بنووسە. بە شێوەیەکی پارێزراو لە وێبگەڕەکەت پاشەکەوت دەبێت.',
-      keyPlaceholder: 'نموونە: AIzaSy... یان AQ.Ab8...',
-      saveKey: 'پاشەکەوتکردنی کلیل',
-      keySaved: 'کلیلەکە بە سەرکەوتوویی پاشەکەوت کرا',
-      quickPromptsTitle: 'پرسیارە باوەکان:',
-      prompt1: '⚡ دەوامی ئێستا و تەسویەنەکراو',
-      prompt2: '⏱️ شیکاریی کاتژمێرەکانی ئۆڤەرتایم',
-      prompt3: '📋 بیلان و کۆی شایستەی ماوە',
-      customQuestionPlaceholder: 'پرسیارێک دەربارەی دەوام، کاتژمێری زیادە یان پارەی ئەم کارمەندە بنووسە...',
-      btnSend: 'شیکاریی زیرەک',
-      btnAnalyzing: 'هۆشی دەستکرد سەرقاڵی شیکارییە...',
-      unsettledPeriod: 'ماوەی تەسویەنەکراو:',
-      from: 'لە',
-      to: 'تا',
-      beginning: 'سەرەتای دەستپێکردن',
-      today: 'ئەمڕۆ',
-      workingDays: 'ڕۆژانی کاری کراوە:',
-      fullDays: 'تەواو',
-      halfDays: 'نیوە',
-      hourlyDays: 'کاتژمێری',
-      totalOt: 'کۆی ئۆڤەرتایمی کراوە:',
-      grossPay: 'کرێی ناپوختەی کراوە:',
-      advances: 'پێشەکی لێبڕاو:',
-      netDue: 'شایستەی کۆتایی ماوە:',
-      aiAnalysisTitle: 'ڕاپۆرت و شیکاریی پسپۆڕانەی هۆشی دەستکرد',
-      copyReport: 'کۆپیکردنی ڕاپۆرت',
-      copied: 'کۆپی کرا!',
-      noWorkerSelected: 'تکایە سەرەتا کارمەندێک هەڵبژێرە.',
-      errorMissingKey: 'کلیلی Google Gemini API نەدۆزرایەوە. تکایە کلیلی API دیاری بکە.',
-      errorGeneral: 'هەڵەیەک لە پەیوەندی بە هۆشی دەستکرد ڕوویدا. دووبارە تاقی بکەرەوە.'
-    },
-    en: {
-      modalTitle: 'KarSync Attendance AI Copilot',
-      modalSubtitle: 'AI-powered attendance audit, overtime analytics & unsettled wage tracking via Google Gemini',
-      selectWorker: 'Select Personnel:',
-      allWorkers: 'Personnel Directory',
-      apiKeyStatusActive: 'Gemini Connected',
-      apiKeyStatusMissing: 'API Key Required',
-      configureKey: 'API Settings',
-      keyConfigTitle: 'Google Gemini API Key Configuration',
-      keyConfigDesc: 'Enter your Google AI Studio API key. It is securely saved in your local browser storage.',
-      keyPlaceholder: 'e.g. AIzaSy... or AQ.Ab8...',
-      saveKey: 'Save Key',
-      keySaved: 'API Key saved successfully',
-      quickPromptsTitle: 'Quick Audit Prompts:',
-      prompt1: '⚡ Current Unsettled Work & Balance',
-      prompt2: '⏱️ Overtime Hours & Peak Analysis',
-      prompt3: '📋 Comprehensive Wage & Shift Audit',
-      customQuestionPlaceholder: 'Ask any question about this worker’s shifts, overtime or payable wages...',
-      btnSend: 'Run AI Audit',
-      btnAnalyzing: 'Analyzing with Gemini AI...',
-      unsettledPeriod: 'Unsettled Period:',
-      from: 'From',
-      to: 'To',
-      beginning: 'Start of work',
-      today: 'Today',
-      workingDays: 'Open Working Days:',
-      fullDays: 'Full',
-      halfDays: 'Half',
-      hourlyDays: 'Hourly',
-      totalOt: 'Open Overtime:',
-      grossPay: 'Open Gross Wages:',
-      advances: 'Deducted Advances:',
-      netDue: 'Net Balance Due:',
-      aiAnalysisTitle: 'AI Executive Audit Report',
-      copyReport: 'Copy Report',
-      copied: 'Copied!',
-      noWorkerSelected: 'Please select a worker first.',
-      errorMissingKey: 'Google Gemini API key not found. Please click "API Settings" to configure.',
-      errorGeneral: 'Failed to communicate with Gemini AI. Please try again.'
-    }
-  }[langKey];
+  const handleSend = async () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed || loading) return;
 
-  // Run AI analysis
-  const handleExecuteAi = async (overridePrompt = null) => {
-    if (!activeWorker) {
-      setError(copy.noWorkerSelected);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setError(copy.offlineError);
       return;
     }
 
-    setLoading(true);
+    const userMsg = {
+      id: `u_${Date.now()}`,
+      role: 'user',
+      text: trimmed,
+      createdAt: Date.now()
+    };
+
+    const nextHistory = [...messages, userMsg];
+    setMessages(nextHistory);
+    setInputValue('');
     setError(null);
-    const questionToAsk = overridePrompt !== null ? overridePrompt : customQuestion;
+    setLoading(true);
+    setStatusText(copy.thinkingDefault);
 
     try {
-      const result = await analyzeWorkerAttendanceWithAi({
-        worker: activeWorker,
-        allLogs,
-        allPayments,
-        userQuestion: questionToAsk,
-        currency,
-        language
+      const result = await runKarSyncAiChatTurn({
+        history: messages,
+        userMessage: trimmed,
+        context: {
+          activeProjectId: currentProject?.id || DEFAULT_PROJECT_ID,
+          activeProjectName: currentProject?.name || '',
+          currency: currentProject?.currency || currentProject?.base_currency || 'IQD',
+          language: langKey,
+          calendarType,
+          canAccessProject,
+          permissions
+        },
+        onStatusChange: (label) => {
+          if (label) setStatusText(label);
+        }
       });
 
-      setAiReport(result.aiText);
-      setSummaryData(result.summary);
-      if (overridePrompt === null) {
-        setCustomQuestion('');
-      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a_${Date.now()}`,
+          role: 'assistant',
+          text: result.text,
+          createdAt: Date.now()
+        }
+      ]);
     } catch (err) {
-      console.error('[Gemini AI Attendance Error]', err);
-      setError(err.message || copy.errorGeneral);
+      console.error('[KarSync AI Chat Error]', err);
+      const errMsg =
+        err?.message === 'MISSING_API_KEY'
+          ? copy.missingKeyError
+          : err?.message || copy.generalError;
+      setError(errMsg);
     } finally {
       setLoading(false);
+      setStatusText('');
+      setTimeout(() => textareaRef.current?.focus(), 60);
     }
   };
 
-  // Copy AI report to clipboard
-  const handleCopy = () => {
-    if (!aiReport) return;
-    navigator.clipboard.writeText(aiReport).then(() => {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
+  const handleNewChat = () => {
+    setMessages([]);
+    setError(null);
+    setStatusText('');
+    try {
+      sessionStorage.removeItem(sessionStorageKey);
+    } catch (_) {}
+    setTimeout(() => textareaRef.current?.focus(), 60);
+  };
+
+  const handleCopyMessage = (msg) => {
+    if (!msg?.text) return;
+    navigator.clipboard.writeText(msg.text).then(() => {
+      setCopiedId(msg.id);
+      setTimeout(() => setCopiedId((prev) => (prev === msg.id ? null : prev)), 2000);
     });
   };
 
   if (!isOpen) return null;
 
-  const p = summaryData?.unsettledPeriod;
-  const s = summaryData?.settlementStatus;
-
   return (
-    <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-5 bg-slate-900/60 animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Liquid Glass Root Container */}
-      <div 
+      {/* Apple Liquid Glass Root Container */}
+      <div
         dir={direction}
-        className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-white/45 dark:bg-slate-950/50 backdrop-blur-3xl backdrop-saturate-200 border border-white/70 dark:border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.18),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.1)] rounded-3xl overflow-hidden transition-all duration-300"
+        className="w-full max-w-3xl h-[86vh] sm:h-[82vh] flex flex-col bg-white/45 dark:bg-slate-950/50 backdrop-blur-3xl backdrop-saturate-200 border border-white/70 dark:border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.18),inset_0_1px_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.1)] rounded-3xl overflow-hidden transition-all duration-300"
       >
-        {/* Header Bar */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-white/60 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-sky-500 flex items-center justify-center text-white shadow-md shadow-purple-500/25 flex-shrink-0 animate-pulse">
-              <Sparkles className="w-5 h-5" />
+        {/* Minimal Header */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-white/60 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-sky-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 flex-shrink-0">
+              <Sparkles className="w-4.5 h-4.5" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <span>{copy.modalTitle}</span>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20 font-bold">
-                  Gemini 3.5
-                </span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-                {copy.modalSubtitle}
-              </p>
-            </div>
+            <h2 className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">
+              {copy.title}
+            </h2>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* AI Active Indicator Badge */}
-            <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="hidden sm:inline font-bold">
-                {copy.apiKeyStatusActive}
-              </span>
-            </div>
+          <div className="flex items-center gap-1.5">
+            {messages.length > 0 && (
+              <button
+                type="button"
+                onClick={handleNewChat}
+                disabled={loading}
+                title={copy.newChat}
+                aria-label={copy.newChat}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-slate-800/60 hover:bg-white/90 dark:hover:bg-slate-800 border border-white/70 dark:border-white/10 transition-all cursor-pointer active:scale-95 disabled:opacity-40"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{copy.newChat}</span>
+              </button>
+            )}
 
-            {/* Close Button */}
             <button
               type="button"
               onClick={onClose}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all duration-200 cursor-pointer active:scale-95"
-              aria-label="Close"
+              aria-label={copy.closeLabel}
+              title={copy.closeLabel}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all cursor-pointer active:scale-95"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Scrollable Body Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
-          {/* Top Controls Card: Worker Selection */}
-          <div className="bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5" />
+        {/* Chat Stream Body */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4">
+          {messages.length === 0 && !loading ? (
+            <div className="h-full flex flex-col items-center justify-center text-center px-4 select-none">
+              <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-600/15 via-purple-500/15 to-sky-500/15 border border-white/80 dark:border-white/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm mb-4">
+                <Bot className="w-8 h-8" />
               </div>
-              <div className="flex-1 min-w-0">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {copy.selectWorker}
-                </label>
-                <select
-                  value={selectedWorkerId}
-                  onChange={(e) => setSelectedWorkerId(e.target.value)}
-                  className="w-full sm:w-72 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-sky-500 cursor-pointer"
-                >
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} {w.role ? `(${w.role})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <h3 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 mb-1.5">
+                {copy.welcomeTitle}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md leading-relaxed">
+                {copy.welcomeSubtitle}
+              </p>
             </div>
+          ) : (
+            <>
+              {messages.map((msg) => {
+                const isUser = msg.role === 'user';
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex items-end gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {!isUser && (
+                      <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-500 flex items-center justify-center text-white shadow-sm flex-shrink-0 mb-0.5">
+                        <Bot className="w-4 h-4" />
+                      </div>
+                    )}
 
-            {/* Quick Unsettled Badge */}
-            {activeWorker && summaryData && (
-              <div className="flex items-center gap-2 text-xs">
-                <div className="px-3 py-1.5 rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-medium flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>
-                    {copy.unsettledPeriod}{' '}
-                    <strong>
-                      {s?.hasPreviousSettlement ? `${copy.from} ${s.lastSettlementDate}` : copy.beginning}
-                    </strong>{' '}
-                    {copy.to} <strong>{p?.lastDate || copy.today}</strong>
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
+                    <div
+                      className={`group relative max-w-[88%] sm:max-w-[80%] rounded-2xl px-4 py-3 transition-all ${
+                        isUser
+                          ? 'bg-gradient-to-r from-indigo-600 to-sky-600 text-white shadow-md shadow-indigo-500/20 rounded-be-sm'
+                          : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm rounded-bs-sm'
+                      }`}
+                    >
+                      {isUser ? (
+                        <p className="text-xs sm:text-[13.5px] leading-relaxed whitespace-pre-wrap break-words">
+                          {msg.text}
+                        </p>
+                      ) : (
+                        <>
+                          <ChatMarkdown content={msg.text} />
+                          <div className="mt-2 pt-1.5 border-t border-slate-200/50 dark:border-slate-800/70 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyMessage(msg)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer"
+                              title={copy.copyAnswer}
+                            >
+                              {copiedId === msg.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                  <span className="text-emerald-600 dark:text-emerald-400">{copy.copied}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>{copy.copyAnswer}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
 
-          {/* Double-Barrier Pre-Calculated Fast Metric Cards */}
-          {activeWorker && p && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-              {/* Working Days */}
-              <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/70 dark:border-slate-800/80 rounded-2xl p-3 shadow-xs">
-                <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                  <span>{copy.workingDays}</span>
+              {/* Live Thinking & DB Query Indicator */}
+              {loading && (
+                <div className="flex items-end gap-2.5 justify-start animate-fade-in">
+                  <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-500 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  </div>
+                  <div className="px-4 py-3 rounded-2xl rounded-bs-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-sm flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                    <Database className="w-3.5 h-3.5 animate-pulse flex-shrink-0" />
+                    <span>{statusText || copy.thinkingDefault}</span>
+                  </div>
                 </div>
-                <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100">
-                  {formatNumber(p.totalLogsCount)} <span className="text-xs font-normal text-slate-500">روز</span>
-                </div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                  {p.fullDays} {copy.fullDays} | {p.halfDays} {copy.halfDays} | {p.hourlyDays} {copy.hourlyDays}
-                </div>
-              </div>
-
-              {/* Overtime */}
-              <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/70 dark:border-slate-800/80 rounded-2xl p-3 shadow-xs">
-                <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{copy.totalOt}</span>
-                </div>
-                <div className="text-sm sm:text-base font-bold text-amber-600 dark:text-amber-400">
-                  {formatHoursAndMinutes(p.totalOtHours)}
-                </div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                  نرخ: {formatNumber(activeWorker.overtimeHourlyRate || 0)} {currency}
-                </div>
-              </div>
-
-              {/* Gross Pay */}
-              <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/70 dark:border-slate-800/80 rounded-2xl p-3 shadow-xs">
-                <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                  <Coins className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{copy.grossPay}</span>
-                </div>
-                <div className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400">
-                  {formatCurrency(p.totalGrossPay, currency)}
-                </div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                  مساعده: {formatCurrency(p.totalAdvances, currency)}
-                </div>
-              </div>
-
-              {/* Net Balance Due */}
-              <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/70 dark:border-slate-800/80 rounded-2xl p-3 shadow-xs bg-gradient-to-br from-purple-500/5 to-indigo-500/5 dark:from-purple-950/20 dark:to-indigo-950/20">
-                <div className="text-[11px] font-medium text-purple-700 dark:text-purple-300 mb-1 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                  <span>{copy.netDue}</span>
-                </div>
-                <div className="text-sm sm:text-base font-black text-purple-700 dark:text-purple-300">
-                  {formatCurrency(p.netDue, currency)}
-                </div>
-                <div className="text-[10px] text-purple-500/80 mt-0.5 font-medium">
-                  قابل پرداخت در تسویه
-                </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
-
-          {/* Quick Action Prompts Bar */}
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>{copy.quickPromptsTitle}</span>
-            </span>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleExecuteAi(copy.prompt1)}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/80 dark:bg-slate-800/80 hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400 border border-slate-200 dark:border-slate-700 shadow-xs transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
-              >
-                {copy.prompt1}
-              </button>
-
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleExecuteAi(copy.prompt2)}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/80 dark:bg-slate-800/80 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 border border-slate-200 dark:border-slate-700 shadow-xs transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
-              >
-                {copy.prompt2}
-              </button>
-
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleExecuteAi(copy.prompt3)}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/80 dark:bg-slate-800/80 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 shadow-xs transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
-              >
-                {copy.prompt3}
-              </button>
-            </div>
-          </div>
 
           {/* Error Banner */}
           {error && (
-            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2 animate-fade-in">
+            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* AI Response Card */}
-          {(loading || aiReport) && (
-            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-md rounded-2xl p-5 space-y-3 animate-fade-in">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
-                    {copy.aiAnalysisTitle}
-                  </h3>
-                </div>
-
-                {aiReport && !loading && (
-                  <button
-                    type="button"
-                    onClick={handleCopy}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-500/10 transition-all cursor-pointer"
-                    title={copy.copyReport}
-                  >
-                    {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{isCopied ? copy.copied : copy.copyReport}</span>
-                  </button>
-                )}
-              </div>
-
-              {loading ? (
-                <div className="py-8 flex flex-col items-center justify-center gap-3 text-purple-600 dark:text-purple-400">
-                  <div className="w-10 h-10 rounded-full border-3 border-purple-500/30 border-t-purple-600 animate-spin" />
-                  <span className="text-xs font-bold animate-pulse">{copy.btnAnalyzing}</span>
-                </div>
-              ) : (
-                <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line text-xs sm:text-sm">
-                  {aiReport}
-                </div>
-              )}
-            </div>
-          )}
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* Sticky Glass Bottom Dock: Interactive Question Input */}
-        <div className="px-4 sm:px-6 py-3.5 border-t border-white/60 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl flex items-center gap-2">
-          <input
-            type="text"
-            value={customQuestion}
-            onChange={(e) => setCustomQuestion(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !loading && customQuestion.trim()) {
-                e.preventDefault();
-                handleExecuteAi();
-              }
-            }}
-            placeholder={copy.customQuestionPlaceholder}
-            disabled={loading}
-            className="flex-1 px-4 py-2.5 text-xs sm:text-sm rounded-xl bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500 transition-all"
-          />
-
-          <button
-            type="button"
-            disabled={loading || (!customQuestion.trim() && !aiReport)}
-            onClick={() => handleExecuteAi()}
-            className="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-purple-500/25 flex items-center gap-2 transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer whitespace-nowrap"
-          >
-            {loading ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className={`w-4 h-4 ${direction === 'rtl' ? 'rotate-180' : ''}`} />
-            )}
-            <span className="hidden sm:inline">{copy.btnSend}</span>
-          </button>
+        {/* Sticky Glass Bottom Input Bar */}
+        <div className="px-3.5 sm:px-5 py-3.5 border-t border-white/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl flex-shrink-0">
+          <div className="flex items-end gap-2 bg-white/85 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/60 focus-within:border-indigo-400 transition-all">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={copy.inputPlaceholder}
+              disabled={loading}
+              className="flex-1 resize-none bg-transparent px-3 py-2 text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden max-h-[120px] leading-relaxed"
+            />
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={loading || !inputValue.trim()}
+              aria-label={copy.sendLabel}
+              title={copy.sendLabel}
+              className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-sky-500 hover:brightness-110 text-white flex items-center justify-center shadow-md shadow-indigo-500/25 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex-shrink-0"
+            >
+              {loading ? (
+                <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              ) : (
+                <Send className={`w-4.5 h-4.5 ${direction === 'rtl' ? 'rotate-180' : ''}`} />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
