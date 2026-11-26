@@ -47,7 +47,7 @@ export const useTasks = (projectId = null) => {
       .channel(channelName)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks' },
+        { event: '*', schema: 'public', table: 'tasks', filter: `project_id=eq.${scopedTargetPid}` },
         (payload) => {
           console.log('⚡ Realtime Task Change received:', payload.eventType, payload);
           

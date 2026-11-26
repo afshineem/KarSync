@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, generateProjectId, ensureDefaultProjectExists, seedDefaultExpenseCategories, DEFAULT_PROJECT_ID } from '../db/db';
-import { supabase, pullProjectsLive, pushProjectLive, deleteProjectLive, pushAllExpenseCategoriesToCloud } from '../services/realtimeSync';
+import { supabase, pushProjectLive, deleteProjectLive, pushAllExpenseCategoriesToCloud } from '../services/realtimeSync';
 import { initializeChartOfAccounts } from '../services/chartOfAccountsService';
 import { normalizeCurrency } from '../utils/formatters';
 import { useAuth, usePermissions } from './AuthContext';
@@ -98,15 +98,7 @@ export function ProjectProvider({ children }) {
     return () => { isMounted = false; };
   }, [userId, activeProjectId]);
 
-  // Pull initial projects on startup once
-  useEffect(() => {
-    let isMounted = true;
-    // Workers opened through a personal link get their data from the portal RPC only
-    if (navigator.onLine && user?.role !== 'worker') {
-      pullProjectsLive().catch(() => {});
-    }
-    return () => { isMounted = false; };
-  }, []);
+  // Initial projects & live updates are handled centrally by initRealtimeSync() + Dexie useLiveQuery
 
   // Filter active, archived, and trash projects according to user's project access permissions
   const activeProjects = useMemo(() => {

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, DEFAULT_PROJECT_ID } from '../db/db';
 import { useProject } from '../context/ProjectContext';
-import { pullContractsLive } from '../services/realtimeSync';
+import { pullRemoteChangesSilently } from '../services/realtimeSync';
 
 /**
  * useContracts hook
@@ -15,11 +15,11 @@ export function useContracts() {
 
   const [syncTick, setSyncTick] = useState(0);
 
-  // Sync listener & initial fetch
+  // Sync listener & lightweight version-probed check (0 payload bytes when unchanged)
   useEffect(() => {
     const handleSync = () => setSyncTick((t) => t + 1);
     window.addEventListener('workshop-contracts-sync', handleSync);
-    pullContractsLive().catch(console.warn);
+    pullRemoteChangesSilently(false).catch(console.warn);
 
     return () => {
       window.removeEventListener('workshop-contracts-sync', handleSync);

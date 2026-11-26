@@ -14,7 +14,7 @@ import {
   emptyExpensesTrashLive, 
   restoreAllExpensesLive, 
   deleteExpenseLive, 
-  pullExpensesLive,
+  pullRemoteChangesSilently,
   pushAllExpenseCategoriesToCloud
 } from '../services/realtimeSync';
 import { AddExpenseModal } from './AddExpenseModal';
@@ -479,9 +479,9 @@ export function ExpensesView() {
     return appFormatCurrency(amount, curr, language);
   };
 
-  // Lightweight non-forced expense sync on mount; live updates & focus recovery are handled centrally by realtimeSync.js + Dexie useLiveQuery
+  // Lightweight version-probed sync check (downloads 0 bytes when unchanged; throttled to 15s)
   useEffect(() => {
-    pullExpensesLive(false).catch(() => {});
+    pullRemoteChangesSilently(false).catch(() => {});
   }, [projectId]);
 
   // Live Queries
@@ -1525,6 +1525,8 @@ export function ExpensesView() {
                               <img
                                 src={exp.receiptUrl}
                                 alt="Receipt"
+                                loading="lazy"
+                                decoding="async"
                                 className="w-8 h-8 object-cover rounded-md border border-slate-200 dark:border-slate-700 shadow-xs"
                               />
                               <div className="absolute inset-0 bg-slate-900/40 rounded-md opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">

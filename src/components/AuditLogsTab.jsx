@@ -109,13 +109,20 @@ export default function AuditLogsTab({ workspaceId }) {
         setLogs(localLogs);
       }
 
-      // 2. Sync from Supabase
+      // 2. Delta Sync from Supabase (fetch only newer audit logs if local cache already exists)
       if (navigator.onLine) {
-        const { data, error } = await supabase.from('audit_logs')
+        const latestLocalCreatedAt = localLogs.length > 0
+          ? (localLogs[0].created_at || localLogs[0].createdAt || null)
+          : null;
+        let query = supabase.from('audit_logs')
           .select('*')
           .eq('workspace_id', effectiveWorkspaceId)
           .order('created_at', { ascending: false })
-          .limit(500);
+          .limit(100);
+        if (latestLocalCreatedAt) {
+          query = query.gt('created_at', latestLocalCreatedAt);
+        }
+        const { data, error } = await query;
 
         if (error) console.error('Failed to fetch audit logs from Supabase:', error);
 

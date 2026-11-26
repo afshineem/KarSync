@@ -874,12 +874,12 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
     [user?.via, logout, addToast, language]
   );
 
-  // Visibility-aware background polling (every 90s when visible) + visibilitychange + online + Realtime subscription
+  // Visibility-aware background polling (every 5 min when visible) + visibilitychange + online + Realtime subscription
   useEffect(() => {
     let lastRun = 0;
     const refresh = () => {
       const now = Date.now();
-      if (now - lastRun < 15000) return;
+      if (now - lastRun < 30000) return;
       lastRun = now;
       triggerRefresh(false);
     };
@@ -890,7 +890,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       if (document.visibilityState === 'visible') {
         refresh();
       }
-    }, 90000);
+    }, 300000);
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh();
@@ -909,7 +909,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
       navigator.serviceWorker.addEventListener('message', onSwMessage);
     }
 
-    // Also subscribe to Supabase Realtime changes for this worker's attendance_logs and payments
+    // Subscribe to Supabase Realtime changes strictly filtered to this worker's attendance_logs
     let channel = null;
     if (user?.workerId && supabase) {
       try {
@@ -918,12 +918,7 @@ export function WorkerViewPortal({ theme, toggleTheme }) {
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'attendance_logs', filter: `worker_id=eq.${user.workerId}` },
-            () => triggerRefresh(false)
-          )
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'payments', filter: `worker_id=eq.${user.workerId}` },
-            () => triggerRefresh(false)
+            () => refresh()
           )
           .subscribe();
       } catch {

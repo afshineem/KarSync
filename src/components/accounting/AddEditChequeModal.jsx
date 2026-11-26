@@ -3,6 +3,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useProject } from '../../context/ProjectContext';
 import { createCheque, updateCheque } from '../../services/chequeService';
+import { uploadAttachmentImage } from '../../services/realtimeSync';
 import { formatCurrency, formatAmount, numberToWords, getTodayDateString } from '../../utils/formatters';
 import {
   X,
@@ -226,14 +227,17 @@ export function AddEditChequeModal({
     }
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      setAttachmentUrl(uploadEvent.target?.result || '');
-    };
-    reader.readAsDataURL(file);
+    try {
+      const uploadedUrl = await uploadAttachmentImage(file, 'expense-receipts', 'cheque');
+      if (uploadedUrl) {
+        setAttachmentUrl(uploadedUrl);
+      }
+    } catch (err) {
+      console.warn('Cheque attachment compression/upload failed:', err);
+    }
   };
 
   const handleSubmit = async (e) => {

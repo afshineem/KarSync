@@ -530,7 +530,7 @@ export default function ExpenseRecycleBinModal({ isOpen, onClose }) {
                         className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 flex-shrink-0 relative group/pic"
                         title={c.viewReceiptTitle}
                       >
-                        <img src={exp.receiptUrl} alt="Receipt" className="w-full h-full object-cover group-hover/pic:scale-110 transition-transform" />
+                        <img src={exp.receiptUrl} alt="Receipt" loading="lazy" decoding="async" className="w-full h-full object-cover group-hover/pic:scale-110 transition-transform" />
                         <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/pic:opacity-100 transition-opacity flex items-center justify-center text-white">
                           <Eye className="w-4 h-4" />
                         </div>

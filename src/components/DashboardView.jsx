@@ -8,7 +8,7 @@ import { TasksModal } from './TasksModal';
 import { TaskFormModal } from './TaskFormModal';
 import { useProject } from '../context/ProjectContext';
 import { useTasks } from '../hooks/useTasks';
-import { pullExpensesLive } from '../services/realtimeSync';
+import { pullRemoteChangesSilently } from '../services/realtimeSync';
 import {
   formatAmount,
   getCurrentYearMonth,
@@ -476,9 +476,9 @@ export function DashboardView({ onOpenLoggingModal, setActiveTab }) {
     return monthlyExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [monthlyExpenses]);
 
-  // Lightweight non-forced expense sync on mount; live updates & focus recovery are handled centrally by realtimeSync.js + Dexie useLiveQuery
+  // Lightweight version-probed sync check (downloads 0 bytes when unchanged; throttled to 15s)
   useEffect(() => {
-    pullExpensesLive(false).catch(() => {});
+    pullRemoteChangesSilently(false).catch(() => {});
   }, [targetProjectId]);
 
   // Live ticking Clock & Date

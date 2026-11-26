@@ -224,27 +224,7 @@ export async function logAuditAction(payload) {
     }
 
     
-    console.log('☁️ ATTEMPTING SUPABASE WRITE...');
-    
-    // --- DEBUGGING BLOCK ---
-    if (supabase) {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        console.log('🔍 SUPABASE SESSION DEBUG:', sessionData?.session ? 'User has active Supabase session' : 'NO ACTIVE SUPABASE SESSION (auth.uid() is null)');
-        if (sessionData?.session?.user) {
-          console.log('👤 SUPABASE AUTH UID:', sessionData.session.user.id);
-          const { data: remoteUser } = await supabase.from('app_users').select('workspace_id').eq('id', sessionData.session.user.id).single();
-          console.log('🏢 REMOTE WORKSPACE_ID IN SUPABASE:', remoteUser?.workspace_id);
-          console.log('💻 LOCAL WORKSPACE_ID IN PAYLOAD:', workspace_id);
-          if (remoteUser?.workspace_id !== workspace_id) {
-             console.error('🚨 MISMATCH DETECTED! RLS WILL BLOCK THIS!');
-          }
-        }
-      } catch(e) {
-        console.error('Error debugging auth:', e);
-      }
-    }
-    // -----------------------
+    // Push audit log to Supabase without redundant debug pre-queries
 
     // Emit instant visual Toast feedback for user actions (unless suppressed by batch operations)
     if (!payload.silentToast && details?.description && action_type !== 'SYSTEM_INIT') {

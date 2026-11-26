@@ -20,12 +20,7 @@ import {
   pushAccountTransferLive,
   deleteAccountTransferLive,
   pushGlobalOverdraftPolicyLive, 
-  pullFinancialAccountsLive, 
-  pullTreasuryIncomesLive, 
-  pullAccountTransfersLive,
-  pullChequesLive,
-  pullChequebooksLive,
-  pullGlobalOverdraftPolicyLive,
+  pullRemoteChangesSilently,
   syncFinancialDataLive,
   softDeleteExpenseLive,
   recordPendingPaymentDeletion,
@@ -98,13 +93,8 @@ export function useAccounting(options = {}) {
     window.addEventListener('workshop-logs-sync', handleSync);
     window.addEventListener('karsync:accounting-sync', handleSync);
 
-    pullFinancialAccountsLive().catch(console.warn);
-    pullTreasuryIncomesLive().catch(console.warn);
-    pullAccountTransfersLive().catch(console.warn);
-    pullGlobalOverdraftPolicyLive().catch(console.warn);
     purgeBankToBankTransfers().catch(console.warn);
-    pullChequesLive().catch(console.warn);
-    pullChequebooksLive().catch(console.warn);
+    pullRemoteChangesSilently(false).catch(console.warn);
 
     return () => {
       window.removeEventListener('workshop-accounts-sync', handleSync);

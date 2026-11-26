@@ -26,17 +26,55 @@ export function isValidUUID(val) {
 }
 
 let isInitialized = false;
+let isInitialSyncInProgress = false;
 let realtimeChannel = null;
 let realtimeStatus = 'idle'; // 'idle' | 'connecting' | 'connected' | 'disconnected'
 let realtimeReconnectTimer = null;
 let realtimeReconnectAttempts = 0;
 let pollingTimer = null;
 let lastKnownSettingVersions = new Map();
+let ownRecentSettingWrites = new Map(); // setting_key -> timestamp ms (suppresses self-echo REST downloads)
+let realtimePreloadedSettings = new Map(); // setting_key -> { value: string, expiresAt: number }
 let lastKnownWorkersSig = null;
 let lastKnownLogsSig = null;
+let lastKnownWorkersInfo = null; // { sig, count, maxUpdatedAt }
+let lastKnownLogsInfo = null; // { sig, count, maxUpdatedAt }
 let lastFullReconcileTime = 0;
 let cachedCloudWorkerMetadata = null;
 let cachedCloudWorkerMetadataTime = 0;
+
+function upsertTrackedSetting(row) {
+  const key = row?.setting_key;
+  const updatedAt = row?.updated_at || new Date().toISOString();
+  if (key) {
+    lastKnownSettingVersions.set(key, updatedAt);
+    ownRecentSettingWrites.set(key, Date.now());
+  }
+  return supabase.from('settings').upsert({
+    ...row,
+    updated_at: updatedAt
+  });
+}
+
+function consumePreloadedSetting(settingKey) {
+  const entry = realtimePreloadedSettings.get(settingKey);
+  if (!entry) return null;
+  realtimePreloadedSettings.delete(settingKey);
+  if (Date.now() > entry.expiresAt) return null;
+  return entry.value;
+}
+
+async function fetchTrackedSettingValue(settingKey) {
+  const preloaded = consumePreloadedSetting(settingKey);
+  if (preloaded !== null) {
+    return { data: { setting_value: preloaded }, error: null };
+  }
+  return await supabase
+    .from('settings')
+    .select('setting_value')
+    .eq('setting_key', settingKey)
+    .maybeSingle();
+}
 
 export function getRealtimeSyncStatus() {
   return realtimeStatus;
@@ -227,28 +265,36 @@ export function unscopeTaskProjectId(scopedProjectId) {
   return scopedProjectId.split('__ws_')[0];
 }
 
-export function getScopedWorkersQuery() {
+export function getScopedWorkersQuery(sinceIso = null) {
   const ctx = getActiveWorkspaceContext();
   let query = supabase.from('workers').select('*');
   if (ctx.isLegacyOwner) {
-    return query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
+    query = query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
+  } else if (ctx.userId) {
+    query = query.eq('user_id', ctx.userId);
+  } else {
+    return query.eq('user_id', 'unauthenticated_empty_state');
   }
-  if (ctx.userId) {
-    return query.eq('user_id', ctx.userId);
+  if (sinceIso) {
+    query = query.gte('updated_at', sinceIso);
   }
-  return query.eq('user_id', 'unauthenticated_empty_state');
+  return query;
 }
 
-export function getScopedAttendanceLogsQuery() {
+export function getScopedAttendanceLogsQuery(sinceIso = null) {
   const ctx = getActiveWorkspaceContext();
   let query = supabase.from('attendance_logs').select('*');
   if (ctx.isLegacyOwner) {
-    return query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
+    query = query.or('user_id.eq.867f5819-e911-45f2-9d4f-d4a7f955ef5f,user_id.is.null');
+  } else if (ctx.userId) {
+    query = query.eq('user_id', ctx.userId);
+  } else {
+    return query.eq('user_id', 'unauthenticated_empty_state');
   }
-  if (ctx.userId) {
-    return query.eq('user_id', ctx.userId);
+  if (sinceIso) {
+    query = query.gte('updated_at', sinceIso);
   }
-  return query.eq('user_id', 'unauthenticated_empty_state');
+  return query;
 }
 
 
@@ -629,14 +675,14 @@ function scheduleAdaptiveBackgroundSync() {
     pollingTimer = null;
   }
   // Egress-friendly adaptive interval:
-  // - 60s lightweight metadata probe when WebSocket Realtime is healthy
-  // - 15s fallback probe when WebSocket is disconnected/reconnecting
+  // - 180s (3 min) lightweight metadata probe when WebSocket Realtime is healthy
+  // - 30s fallback probe when WebSocket is disconnected/reconnecting
   // - Skips completely while browser tab is hidden/minimized (0 background Egress)
-  const delayMs = realtimeStatus === 'connected' ? 60000 : 15000;
+  const delayMs = realtimeStatus === 'connected' ? 180000 : 30000;
   pollingTimer = setTimeout(async () => {
     try {
       const isVisible = typeof document === 'undefined' || document.visibilityState === 'visible';
-      if (navigator.onLine && isVisible) {
+      if (navigator.onLine && isVisible && !isInitialSyncInProgress) {
         if (realtimeStatus !== 'connected') {
           ensureRealtimeConnected();
         }
@@ -667,7 +713,7 @@ function ensureRealtimeConnected() {
  * Initialize Realtime Sync:
  * 1. Immediately wire up WebSocket Realtime, visibility/focus/online listeners, and adaptive fallback scheduler
  * 2. Reconcile local and cloud data once on startup and prime version baselines
- * 3. Keep Supabase Free-Tier Egress minimal (~98% less bandwidth than blind polling)
+ * 3. Keep Supabase Free-Tier Egress minimal (~99% less bandwidth than blind polling)
  */
 export async function initRealtimeSync() {
   if (isInitialized) return;
@@ -694,7 +740,9 @@ export async function initRealtimeSync() {
     if (hasPendingLocalDeletions()) {
       flushPendingDeletions().catch(() => {});
     }
-    pullRemoteChangesSilently(false).catch(() => {});
+    if (!isInitialSyncInProgress) {
+      pullRemoteChangesSilently(false).catch(() => {});
+    }
   });
 
   window.addEventListener('offline', () => {
@@ -704,9 +752,9 @@ export async function initRealtimeSync() {
   // Mobile / Tab visibility & focus recovery (debounced to prevent burst queries):
   let lastResumeCheckAt = 0;
   const handleAppResume = (reason) => {
-    if (!navigator.onLine) return;
+    if (!navigator.onLine || isInitialSyncInProgress) return;
     const now = Date.now();
-    if (now - lastResumeCheckAt < 5000) return;
+    if (now - lastResumeCheckAt < 15000) return;
     lastResumeCheckAt = now;
     console.log(`📱 App resumed (${reason}). Checking WebSocket & remote versions...`);
     ensureRealtimeConnected();
@@ -727,6 +775,7 @@ export async function initRealtimeSync() {
   });
 
   // Run one-time initial reconciliation & prime version metadata cache
+  isInitialSyncInProgress = true;
   try {
     await purgeDummySeedWorkers();
     await cleanupDuplicateAttendanceLogs();
@@ -736,6 +785,8 @@ export async function initRealtimeSync() {
     await autoInitialSync();
   } catch (err) {
     console.warn('Initial sync deferred (offline or connection issue):', err.message);
+  } finally {
+    isInitialSyncInProgress = false;
   }
 }
 
@@ -785,6 +836,8 @@ export async function autoInitialSync() {
       await db.workers.clear();
       await db.attendanceLogs.clear();
     }
+    lastFullReconcileTime = Date.now();
+    await primeRemoteVersionBaseline().catch(() => {});
     return;
   }
 
@@ -792,7 +845,7 @@ export async function autoInitialSync() {
   await pullWorkerProjectsLive(true);
   await pullGroupsLive(true);
   await pullWorkerMetadataLive(true);
-  await reconcileCloudIntoLocal(cloudWorkers, cloudLogs);
+  await reconcileCloudIntoLocal(cloudWorkers, cloudLogs, { isDelta: false, syncWorkers: true, syncLogs: true });
   await pullPaymentsLive(true);
   await pullProjectsLive(true);
   await pullProjectSectionsLive(true);
@@ -827,60 +880,69 @@ export async function autoInitialSync() {
 }
 
 /**
- * Reconcile Supabase cloud rows into Dexie local database with automatic deduplication
+ * Reconcile Supabase cloud rows into Dexie local database with automatic deduplication.
+ * Supports incremental delta batches (isDelta: true) so we never wipe un-fetched records.
  */
-export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
+export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs, options = {}) {
+  const { isDelta = false, syncWorkers = true, syncLogs = true } = options || {};
   const ctx = getActiveWorkspaceContext();
   const duplicateIdsToDeleteFromCloud = [];
   const pendingWorkers = new Set(getPendingDeletedWorkers());
   const pendingLogs = new Set(getPendingDeletedLogs());
 
   // Filter rows strictly to active tenant
-  const tenantWorkers = (cloudWorkers || []).filter(w => {
-    if (ctx.isLegacyOwner) return true;
-    return w.user_id === ctx.userId;
-  });
-  const tenantLogs = (cloudLogs || []).filter(l => {
-    if (ctx.isLegacyOwner) return true;
-    return l.user_id === ctx.userId;
-  });
+  const tenantWorkers = syncWorkers
+    ? (cloudWorkers || []).filter(w => {
+        if (ctx.isLegacyOwner) return true;
+        return w.user_id === ctx.userId;
+      })
+    : [];
+  const tenantLogs = syncLogs
+    ? (cloudLogs || []).filter(l => {
+        if (ctx.isLegacyOwner) return true;
+        return l.user_id === ctx.userId;
+      })
+    : [];
 
-
-  await purgeDummySeedWorkers();
+  if (!isDelta) {
+    await purgeDummySeedWorkers();
+  }
 
   let cloudMetadata = {};
-  if (cachedCloudWorkerMetadata && Date.now() - cachedCloudWorkerMetadataTime < 15000) {
-    cloudMetadata = cachedCloudWorkerMetadata;
-  } else {
-    try {
-      const { data: sData } = await supabase
-        .from('settings')
-        .select('setting_value')
-        .eq('setting_key', getScopedSettingKey('app_worker_metadata'))
-        .maybeSingle();
-      if (sData?.setting_value) {
-        cloudMetadata = JSON.parse(sData.setting_value) || {};
-        cachedCloudWorkerMetadata = cloudMetadata;
-        cachedCloudWorkerMetadataTime = Date.now();
-      }
-    } catch (_) {}
+  if (syncWorkers && tenantWorkers.length > 0) {
+    if (cachedCloudWorkerMetadata && Date.now() - cachedCloudWorkerMetadataTime < 120000) {
+      cloudMetadata = cachedCloudWorkerMetadata;
+    } else {
+      try {
+        const { data: sData } = await fetchTrackedSettingValue(getScopedSettingKey('app_worker_metadata'));
+        if (sData?.setting_value) {
+          cloudMetadata = JSON.parse(sData.setting_value) || {};
+          cachedCloudWorkerMetadata = cloudMetadata;
+          cachedCloudWorkerMetadataTime = Date.now();
+        }
+      } catch (_) {}
+    }
   }
 
   await db.transaction('rw', [db.workers, db.attendanceLogs], async () => {
-    // Strict tenant data hygiene on local IndexedDB (guarantees 0 cross-account bleed)
-    const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
-    const localWorkers = await db.workers.toArray();
-    for (const lw of localWorkers) {
-      if (isForeignToActiveContext(lw.userId, ctx) || (!ctx.isLegacyOwner && LEAKED_CROSS_TENANT_WORKER_IDS.has(lw.id)) || (!cloudWorkerIds.has(lw.id) && !ctx.isLegacyOwner && (!lw.userId || lw.userId !== ctx.userId))) {
-        await db.workers.delete(lw.id).catch(() => {});
-        await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
+    // Strict tenant data hygiene on local IndexedDB (only on full reconciliation, never on partial delta)
+    if (!isDelta && syncWorkers) {
+      const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
+      const localWorkers = await db.workers.toArray();
+      for (const lw of localWorkers) {
+        if (isForeignToActiveContext(lw.userId, ctx) || (!ctx.isLegacyOwner && LEAKED_CROSS_TENANT_WORKER_IDS.has(lw.id)) || (!cloudWorkerIds.has(lw.id) && !ctx.isLegacyOwner && (!lw.userId || lw.userId !== ctx.userId))) {
+          await db.workers.delete(lw.id).catch(() => {});
+          await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
+        }
       }
     }
-    const cloudLogIds = new Set(tenantLogs.map(l => l.id));
-    const localLogs = await db.attendanceLogs.toArray();
-    for (const ll of localLogs) {
-      if (isForeignToActiveContext(ll.userId, ctx) || (!cloudLogIds.has(ll.id) && !ctx.isLegacyOwner && (!ll.userId || ll.userId !== ctx.userId))) {
-        await db.attendanceLogs.delete(ll.id).catch(() => {});
+    if (!isDelta && syncLogs) {
+      const cloudLogIds = new Set(tenantLogs.map(l => l.id));
+      const localLogs = await db.attendanceLogs.toArray();
+      for (const ll of localLogs) {
+        if (isForeignToActiveContext(ll.userId, ctx) || (!cloudLogIds.has(ll.id) && !ctx.isLegacyOwner && (!ll.userId || ll.userId !== ctx.userId))) {
+          await db.attendanceLogs.delete(ll.id).catch(() => {});
+        }
       }
     }
 
@@ -1071,42 +1133,44 @@ export async function reconcileCloudIntoLocal(cloudWorkers, cloudLogs) {
       });
     }
 
-    // 3. Proactively push any local workers that don't exist in cloud yet (strictly scoped to active tenant)
-    const currentLocalWorkers = await db.workers.toArray();
-    if (ctx.isLegacyOwner) {
-      if (cloudWorkers.length > 0) {
-        const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
+    // 3. Proactively push any local workers that don't exist in cloud yet (full reconciliation only, never delta)
+    if (!isDelta && syncWorkers) {
+      const currentLocalWorkers = await db.workers.toArray();
+      if (ctx.isLegacyOwner) {
+        if (cloudWorkers.length > 0) {
+          const cloudWorkerIds = new Set(cloudWorkers.map(w => w.id));
+          for (const lw of currentLocalWorkers) {
+            if (isForeignToActiveContext(lw.userId, ctx)) {
+              await db.workers.delete(lw.id).catch(() => {});
+              await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
+              continue;
+            }
+            if (!cloudWorkerIds.has(lw.id) && !pendingWorkers.has(lw.id)) {
+              pushWorkerLive(lw).catch(console.warn);
+            }
+          }
+        }
+      } else {
+        // Non-legacy tenant: purge foreign/orphaned workers from local Dexie and only push legit un-synced workers owned by this tenant
+        const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
         for (const lw of currentLocalWorkers) {
-          if (isForeignToActiveContext(lw.userId, ctx)) {
+          if (LEAKED_CROSS_TENANT_WORKER_IDS.has(lw.id) || isForeignToActiveContext(lw.userId, ctx)) {
             await db.workers.delete(lw.id).catch(() => {});
             await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
+            if (db.payments) {
+              await db.payments.where('workerId').equals(lw.id).delete().catch(() => {});
+            }
             continue;
           }
-          if (!cloudWorkerIds.has(lw.id) && !pendingWorkers.has(lw.id)) {
-            pushWorkerLive(lw).catch(console.warn);
-          }
-        }
-      }
-    } else {
-      // Non-legacy tenant: purge foreign/orphaned workers from local Dexie and only push legit un-synced workers owned by this tenant
-      const cloudWorkerIds = new Set(tenantWorkers.map(w => w.id));
-      for (const lw of currentLocalWorkers) {
-        if (LEAKED_CROSS_TENANT_WORKER_IDS.has(lw.id) || isForeignToActiveContext(lw.userId, ctx)) {
-          await db.workers.delete(lw.id).catch(() => {});
-          await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
-          if (db.payments) {
-            await db.payments.where('workerId').equals(lw.id).delete().catch(() => {});
-          }
-          continue;
-        }
-        if (!cloudWorkerIds.has(lw.id)) {
-          if (!lw.userId || lw.userId !== ctx.userId) {
-            // Orphaned worker from another tenant or previous session - delete immediately from local Dexie!
-            await db.workers.delete(lw.id).catch(() => {});
-            await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
-          } else if (lw.userId === ctx.userId && !pendingWorkers.has(lw.id)) {
-            // Legit offline-created worker belonging to active tenant
-            pushWorkerLive(lw).catch(console.warn);
+          if (!cloudWorkerIds.has(lw.id)) {
+            if (!lw.userId || lw.userId !== ctx.userId) {
+              // Orphaned worker from another tenant or previous session - delete immediately from local Dexie!
+              await db.workers.delete(lw.id).catch(() => {});
+              await db.attendanceLogs.where('workerId').equals(lw.id).delete().catch(() => {});
+            } else if (lw.userId === ctx.userId && !pendingWorkers.has(lw.id)) {
+              // Legit offline-created worker belonging to active tenant
+              pushWorkerLive(lw).catch(console.warn);
+            }
           }
         }
       }
@@ -1252,9 +1316,31 @@ function subscribeToRealtime() {
       realtimeChannel = null;
     }
 
+  const subCtx = getActiveWorkspaceContext();
+  const channelTopic = `workshop-live-${subCtx.tenantScope || 'sandbox'}`;
+  const userFilter = (!subCtx.isLegacyOwner && isValidUUID(subCtx.userId))
+    ? `user_id=eq.${subCtx.userId}`
+    : undefined;
+  const wsFilter = isValidUUID(subCtx.workspaceId)
+    ? `id=eq.${subCtx.workspaceId}`
+    : undefined;
+  const trackedSettingsKeys = [
+    ...getTrackedSettingsSpec().map((s) => s.key),
+    'app_workspaces_registry'
+  ].filter((k) => /^[a-zA-Z0-9_-]+$/.test(k));
+  const settingsFilter = trackedSettingsKeys.length > 0
+    ? `setting_key=in.(${trackedSettingsKeys.join(',')})`
+    : undefined;
+
+  const pgOpts = (table, filter) => (
+    filter
+      ? { event: '*', schema: 'public', table, filter }
+      : { event: '*', schema: 'public', table }
+  );
+
   realtimeChannel = supabase
-    .channel('workshop-live-stream')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, async (payload) => {
+    .channel(channelTopic)
+    .on('postgres_changes', pgOpts('workers', userFilter), async (payload) => {
       console.log('⚡ Realtime Worker Change received:', payload.eventType);
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
         const idToDelete = payload.new?.id || payload.old?.id;
@@ -1321,7 +1407,7 @@ function subscribeToRealtime() {
         }
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, async (payload) => {
+    .on('postgres_changes', pgOpts('attendance_logs', userFilter), async (payload) => {
       console.log('⚡ Realtime Attendance Log Change received:', payload.eventType);
       const idToDelete = payload.new?.id || payload.old?.id;
       if (payload.eventType === 'DELETE' || payload.new?.deleted_at) {
@@ -1345,10 +1431,10 @@ function subscribeToRealtime() {
           clearPendingLogDeletion(l.id);
           clearPendingLogDeletion(canonicalId);
 
-          // If local log is newer, don't overwrite
+          // If local log is newer or equal, don't overwrite
           const localLog = await db.attendanceLogs.get(canonicalId);
           if (localLog && localLog.updatedAt && l.updated_at) {
-            if (new Date(localLog.updatedAt).getTime() > new Date(l.updated_at).getTime()) {
+            if (new Date(localLog.updatedAt).getTime() >= new Date(l.updated_at).getTime()) {
               return;
             }
           }
@@ -1408,48 +1494,49 @@ function subscribeToRealtime() {
       }
       console.log('⚡ Realtime Broadcast received from peer:', payload?.type);
       const syncType = payload?.type;
+      // Non-forced pulls respect the 2.5s cooldown so postgres_changes + broadcast never double-download
       if (syncType === 'projects' || syncType === 'all') {
-        await pullProjectsLive(true);
-        await pullProjectSectionsLive(true);
+        await pullProjectsLive(false);
+        await pullProjectSectionsLive(false);
       } else if (syncType === 'sections') {
-        await pullProjectSectionsLive(true);
+        await pullProjectSectionsLive(false);
       } else if (syncType === 'payments') {
-        await pullPaymentsLive(true);
+        await pullPaymentsLive(false);
       } else if (syncType === 'groups') {
-        await pullGroupsLive(true);
+        await pullGroupsLive(false);
       } else if (syncType === 'workers') {
-        await pullWorkerProjectsLive(true);
-        await pullWorkerMetadataLive(true);
-        await pullWorkersAndLogsNow().catch(() => {});
+        await pullWorkerProjectsLive(false);
+        await pullWorkerMetadataLive(false);
+        await pullWorkersAndLogsNow({ workers: true, logs: false }).catch(() => {});
       } else if (syncType === 'logs') {
-        await pullWorkersAndLogsNow().catch(() => {});
+        await pullWorkersAndLogsNow({ workers: false, logs: true }).catch(() => {});
       } else if (syncType === 'expenses') {
-        await pullExpensesLive(true);
+        await pullExpensesLive(false);
       } else if (syncType === 'expense_categories') {
-        await pullExpenseCategoriesLive();
+        await pullExpenseCategoriesLive(false);
       } else if (syncType === 'accounts') {
-        await pullFinancialAccountsLive(true);
+        await pullFinancialAccountsLive(false);
       } else if (syncType === 'incomes') {
-        await pullTreasuryIncomesLive(true);
+        await pullTreasuryIncomesLive(false);
       } else if (syncType === 'transfers') {
-        await pullAccountTransfersLive(true);
+        await pullAccountTransfersLive(false);
       } else if (syncType === 'counterparties') {
-        await pullCounterpartiesLive(true);
+        await pullCounterpartiesLive(false);
       } else if (syncType === 'loans') {
-        await pullLoansLive(true);
+        await pullLoansLive(true, false);
       } else if (syncType === 'cheques') {
-        await pullChequesLive(true);
+        await pullChequesLive(true, false);
       } else if (syncType === 'chequebooks') {
-        await pullChequebooksLive(true);
+        await pullChequebooksLive(true, false);
       } else if (syncType === 'contracts') {
-        await pullContractsLive(true);
+        await pullContractsLive(true, false);
       } else if (syncType === 'settings') {
         await pullGlobalOverdraftPolicyLive();
       } else {
         await pullRemoteChangesSilently(false);
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload) => {
+    .on('postgres_changes', pgOpts('projects', userFilter), async (payload) => {
       if (payload.eventType === 'DELETE') {
         const idToDelete = payload.old?.id;
         if (idToDelete) await db.projects.delete(idToDelete);
@@ -1473,7 +1560,7 @@ function subscribeToRealtime() {
         });
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'project_sections' }, async (payload) => {
+    .on('postgres_changes', pgOpts('project_sections', userFilter), async (payload) => {
       if (payload.eventType === 'DELETE') {
         const idToDelete = payload.old?.id;
         if (idToDelete) await db.projectSections.delete(idToDelete);
@@ -1494,7 +1581,7 @@ function subscribeToRealtime() {
         });
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_categories' }, async (payload) => {
+    .on('postgres_changes', pgOpts('expense_categories', userFilter), async (payload) => {
       if (payload.eventType === 'DELETE') {
         const idToDelete = payload.old?.id;
         if (idToDelete) await db.expenseCategories.delete(idToDelete);
@@ -1515,7 +1602,7 @@ function subscribeToRealtime() {
         });
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, async (payload) => {
+    .on('postgres_changes', pgOpts('expenses', userFilter), async (payload) => {
       if (payload.eventType === 'DELETE') {
         const idToDelete = payload.old?.id;
         if (idToDelete) await db.expenses.delete(idToDelete);
@@ -1526,6 +1613,11 @@ function subscribeToRealtime() {
           await db.expenses.delete(exp.id);
         } else {
           const localE = await db.expenses.get(exp.id);
+          if (localE && localE.updatedAt && exp.updated_at) {
+            if (new Date(localE.updatedAt).getTime() >= new Date(exp.updated_at).getTime()) {
+              return;
+            }
+          }
           await db.expenses.put({
             ...(localE || {}),
             id: exp.id,
@@ -1549,46 +1641,64 @@ function subscribeToRealtime() {
         }
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
+    .on('postgres_changes', pgOpts('settings', settingsFilter), async (payload) => {
       const key = payload.new?.setting_key || payload.old?.setting_key;
       const updatedAt = payload.new?.updated_at;
-      if (key && updatedAt) {
+      if (!key) return;
+
+      // Suppress self-write echoes (saves 100% of redundant REST re-downloads after local saves)
+      const prevVer = lastKnownSettingVersions.get(key);
+      const recentOwnAt = ownRecentSettingWrites.get(key) || 0;
+      if ((updatedAt && prevVer === updatedAt) || (Date.now() - recentOwnAt < 5000)) {
+        if (updatedAt) lastKnownSettingVersions.set(key, updatedAt);
+        return;
+      }
+      if (updatedAt) {
         lastKnownSettingVersions.set(key, updatedAt);
       }
+
+      // Reuse payload.new.setting_value directly in memory so pull*Live makes ZERO REST API requests
+      if (typeof payload.new?.setting_value === 'string' && payload.new.setting_value.length > 0) {
+        realtimePreloadedSettings.set(key, {
+          value: payload.new.setting_value,
+          expiresAt: Date.now() + 3000
+        });
+      }
+
       if (key === getScopedSettingKey('app_financial_accounts')) {
-        await pullFinancialAccountsLive(true);
+        await pullFinancialAccountsLive(false);
       } else if (key === getScopedSettingKey('app_treasury_incomes')) {
-        await pullTreasuryIncomesLive(true);
+        await pullTreasuryIncomesLive(false);
       } else if (key === getScopedSettingKey('app_account_transfers')) {
-        await pullAccountTransfersLive(true);
+        await pullAccountTransfersLive(false);
       } else if (key === getScopedSettingKey('app_counterparties')) {
-        await pullCounterpartiesLive(true);
+        await pullCounterpartiesLive(false);
       } else if (key === getScopedSettingKey('app_global_overdraft_policy')) {
         await pullGlobalOverdraftPolicyLive();
       } else if (key === getScopedSettingKey('app_projects')) {
-        await pullProjectsLive(true);
+        await pullProjectsLive(false);
       } else if (key === getScopedSettingKey('app_project_sections')) {
-        await pullProjectSectionsLive(true);
+        await pullProjectSectionsLive(false);
       } else if (key === getScopedSettingKey('app_groups')) {
-        await pullGroupsLive(true);
+        await pullGroupsLive(false);
       } else if (key === getScopedSettingKey('app_payments')) {
-        await pullPaymentsLive(true);
+        await pullPaymentsLive(false);
       } else if (key === getScopedSettingKey('app_expenses')) {
-        await pullExpensesLive(true);
+        await pullExpensesLive(false);
       } else if (key === getScopedSettingKey('app_expense_categories')) {
-        await pullExpenseCategoriesLive();
+        await pullExpenseCategoriesLive(false);
       } else if (key === getScopedSettingKey('app_worker_projects')) {
-        await pullWorkerProjectsLive(true);
+        await pullWorkerProjectsLive(false);
       } else if (key === getScopedSettingKey('app_worker_metadata')) {
-        await pullWorkerMetadataLive(true);
+        await pullWorkerMetadataLive(false);
       } else if (key === getScopedSettingKey('app_loans')) {
-        await pullLoansLive(true);
+        await pullLoansLive(true, false);
       } else if (key === getScopedSettingKey('app_cheques')) {
-        await pullChequesLive(true);
+        await pullChequesLive(true, false);
       } else if (key === getScopedSettingKey('app_chequebooks')) {
-        await pullChequebooksLive(true);
+        await pullChequebooksLive(true, false);
       } else if (key === getScopedSettingKey('app_contracts')) {
-        await pullContractsLive(true);
+        await pullContractsLive(true, false);
       } else if (key === 'app_workspaces_registry') {
         try {
           const rawVal = payload.new?.setting_value;
@@ -1616,7 +1726,7 @@ function subscribeToRealtime() {
         } catch (_) {}
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'workspaces' }, async (payload) => {
+    .on('postgres_changes', pgOpts('workspaces', wsFilter), async (payload) => {
       const updatedWs = payload.new;
       if (updatedWs && updatedWs.id) {
         if (db.workspaces) {
@@ -1642,7 +1752,7 @@ function subscribeToRealtime() {
       if (status === 'SUBSCRIBED') {
         realtimeReconnectAttempts = 0;
         setRealtimeStatus('connected');
-        // Switch adaptive timer to low-Egress 60s cadence now that WebSocket is live
+        // Switch adaptive timer to low-Egress 180s cadence now that WebSocket is live
         scheduleAdaptiveBackgroundSync();
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         setRealtimeStatus('disconnected');
@@ -1689,11 +1799,7 @@ export async function pullProjectsLive(force = false) {
   lastProjectsPullTime = now;
   try {
     let projectsData = [];
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_projects'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_projects'));
 
     if (!sErr && sData?.setting_value) {
       try {
@@ -1820,7 +1926,7 @@ export async function pushProjectLive(p) {
 
     const mergedList = Array.from(mergedMap.values());
 
-    const { error } = await supabase.from('settings').upsert({
+    const { error } = await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_projects'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
@@ -1865,7 +1971,7 @@ export async function deleteProjectLive(projectId) {
     }
 
     const filtered = projects.filter(p => p.id !== projectId);
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_projects'),
       setting_value: JSON.stringify(filtered),
       updated_at: new Date().toISOString()
@@ -1894,11 +2000,7 @@ export async function pullProjectSectionsLive(force = false) {
   lastSectionsPullTime = now;
   try {
     let sectionsData = [];
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_project_sections'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_project_sections'));
 
     if (!sErr && sData?.setting_value) {
       try {
@@ -1998,7 +2100,7 @@ export async function pushProjectSectionLive(s) {
     }
 
     const mergedList = Array.from(mergedMap.values());
-    const { error } = await supabase.from('settings').upsert({
+    const { error } = await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_project_sections'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
@@ -2040,7 +2142,7 @@ export async function deleteProjectSectionLive(sectionId) {
     }
 
     const filtered = sections.filter(sec => sec.id !== sectionId);
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_project_sections'),
       setting_value: JSON.stringify(filtered),
       updated_at: new Date().toISOString()
@@ -2069,11 +2171,7 @@ export async function pullWorkerProjectsLive(force = false) {
   lastWorkerProjectsPullTime = now;
 
   try {
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_worker_projects'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_worker_projects'));
 
     let cloudMap = {};
     if (!sErr && sData?.setting_value) {
@@ -2135,7 +2233,7 @@ export async function pushWorkerProjectMapLive(workerId, projectId) {
 
     cloudMap[workerId] = projectId;
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_worker_projects'),
       setting_value: JSON.stringify(cloudMap),
       updated_at: new Date().toISOString()
@@ -2172,7 +2270,7 @@ export async function removeWorkerProjectMapLive(workerId) {
 
     delete cloudMap[workerId];
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_worker_projects'),
       setting_value: JSON.stringify(cloudMap),
       updated_at: new Date().toISOString()
@@ -2214,7 +2312,7 @@ export async function syncAllWorkerProjectsToCloud() {
 
     const merged = { ...cloudMap, ...map };
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_worker_projects'),
       setting_value: JSON.stringify(merged),
       updated_at: new Date().toISOString()
@@ -2239,13 +2337,10 @@ export async function pullGroupsLive(force = false) {
   lastGroupsPullTime = now;
 
   try {
+    const ctx = getActiveWorkspaceContext();
     const pendingDeleted = new Set(getPendingDeletedGroups());
     let cloudGroups = [];
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_groups'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_groups'));
 
     if (!sErr && sData?.setting_value) {
       try {
@@ -2356,7 +2451,7 @@ export async function pushGroupLive(group) {
 
     const mergedList = Array.from(mergedMap.values());
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_groups'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
@@ -2413,7 +2508,7 @@ export async function deleteGroupLive(groupId) {
       });
     }
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_groups'),
       setting_value: JSON.stringify(updatedList),
       updated_at: now
@@ -2485,7 +2580,7 @@ export async function pushAllGroupsToCloud() {
     }
     const mergedList = Array.from(mergedMap.values());
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_groups'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
@@ -2510,11 +2605,7 @@ export async function pullWorkerMetadataLive(force = false) {
   lastWorkerMetadataPullTime = now;
 
   try {
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_worker_metadata'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_worker_metadata'));
 
     let cloudMetadata = {};
     if (!sErr && sData?.setting_value) {
@@ -2679,7 +2770,7 @@ export async function pullWorkerMetadataLive(force = false) {
 
     const ctx = getActiveWorkspaceContext();
     if (hasLocalChanges && (ctx.isLegacyOwner || ctx.userId)) {
-      await supabase.from('settings').upsert({
+      await upsertTrackedSetting({
         setting_key: getScopedSettingKey('app_worker_metadata'),
         setting_value: JSON.stringify(cloudMetadata),
         updated_at: new Date().toISOString()
@@ -2717,7 +2808,7 @@ export async function pushWorkerMetadataLive(workerId, metadata) {
       updatedAt: metadata.updatedAt || now
     };
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_worker_metadata'),
       setting_value: JSON.stringify(cloudMetadata),
       updated_at: now
@@ -2779,7 +2870,7 @@ export async function syncAllWorkerMetadataToCloud() {
       }
     }
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_worker_metadata'),
       setting_value: JSON.stringify(cloudMetadata),
       updated_at: new Date().toISOString()
@@ -2815,7 +2906,7 @@ function getTrackedSettingsSpec() {
   ];
 }
 
-async function fetchTableVersionSignature(tableName) {
+async function fetchTableVersionInfo(tableName) {
   const ctx = getActiveWorkspaceContext();
   let query = supabase
     .from(tableName)
@@ -2834,17 +2925,23 @@ async function fetchTableVersionSignature(tableName) {
   const { data, count, error } = await query;
   if (error) return null;
   const top = Array.isArray(data) && data.length > 0 ? data[0] : null;
-  return `${count ?? 0}|${top?.id || ''}|${top?.updated_at || ''}|${top?.deleted_at || ''}`;
+  const safeCount = count ?? 0;
+  const maxUpdatedAt = top?.updated_at || null;
+  return {
+    sig: `${safeCount}|${top?.id || ''}|${maxUpdatedAt || ''}|${top?.deleted_at || ''}`,
+    count: safeCount,
+    maxUpdatedAt
+  };
 }
 
 async function primeRemoteVersionBaseline() {
   if (!navigator.onLine) return;
   const specs = getTrackedSettingsSpec();
   const keys = specs.map((s) => s.key);
-  const [settingsRes, wSig, lSig] = await Promise.all([
+  const [settingsRes, wInfo, lInfo] = await Promise.all([
     supabase.from('settings').select('setting_key, updated_at').in('setting_key', keys),
-    fetchTableVersionSignature('workers'),
-    fetchTableVersionSignature('attendance_logs')
+    fetchTableVersionInfo('workers'),
+    fetchTableVersionInfo('attendance_logs')
   ]);
   if (!settingsRes.error && Array.isArray(settingsRes.data)) {
     for (const row of settingsRes.data) {
@@ -2853,22 +2950,62 @@ async function primeRemoteVersionBaseline() {
       }
     }
   }
-  if (wSig !== null) lastKnownWorkersSig = wSig;
-  if (lSig !== null) lastKnownLogsSig = lSig;
+  if (wInfo) {
+    lastKnownWorkersInfo = wInfo;
+    lastKnownWorkersSig = wInfo.sig;
+  }
+  if (lInfo) {
+    lastKnownLogsInfo = lInfo;
+    lastKnownLogsSig = lInfo.sig;
+  }
 }
 
-async function pullWorkersAndLogsNow() {
+async function pullWorkersAndLogsNow(opts = {}) {
+  const {
+    workers = true,
+    logs = true,
+    forceFull = false,
+    nextWorkersInfo = null,
+    nextLogsInfo = null
+  } = opts || {};
+
+  if (!workers && !logs) return;
+
   const ctx = getActiveWorkspaceContext();
+  const wInfo = workers ? (nextWorkersInfo || await fetchTableVersionInfo('workers')) : null;
+  const lInfo = logs ? (nextLogsInfo || await fetchTableVersionInfo('attendance_logs')) : null;
+
+  // Use incremental delta sync (updated_at >= watermark) whenever no hard-deletes shrank row count
+  const canDeltaWorkers =
+    !forceFull &&
+    Boolean(lastKnownWorkersInfo?.maxUpdatedAt) &&
+    Boolean(wInfo) &&
+    wInfo.count >= lastKnownWorkersInfo.count;
+
+  const canDeltaLogs =
+    !forceFull &&
+    Boolean(lastKnownLogsInfo?.maxUpdatedAt) &&
+    Boolean(lInfo) &&
+    lInfo.count >= lastKnownLogsInfo.count;
+
+  const workersSince = canDeltaWorkers ? lastKnownWorkersInfo.maxUpdatedAt : null;
+  const logsSince = canDeltaLogs ? lastKnownLogsInfo.maxUpdatedAt : null;
+
   const [wRes, lRes] = await Promise.all([
-    getScopedWorkersQuery(),
-    getScopedAttendanceLogsQuery()
+    workers ? getScopedWorkersQuery(workersSince) : Promise.resolve({ data: [], error: null }),
+    logs ? getScopedAttendanceLogsQuery(logsSince) : Promise.resolve({ data: [], error: null })
   ]);
 
-  if (!wRes.error && !lRes.error && (wRes.data || lRes.data)) {
-    await reconcileCloudIntoLocal(wRes.data || [], lRes.data || []);
+  if (!wRes.error && !lRes.error) {
+    const isDelta = (!workers || canDeltaWorkers) && (!logs || canDeltaLogs);
+    await reconcileCloudIntoLocal(
+      workers ? (wRes.data || []) : [],
+      logs ? (lRes.data || []) : [],
+      { isDelta, syncWorkers: workers, syncLogs: logs }
+    );
 
-    // Auto-detect and push any local workers that are missing in cloud ONLY for legacy owner
-    if (ctx.isLegacyOwner) {
+    // Auto-detect and push any local workers missing in cloud ONLY on full worker sync for legacy owner
+    if (workers && !canDeltaWorkers && ctx.isLegacyOwner) {
       const cloudWorkerIds = new Set((wRes.data || []).map(w => w.id));
       const localWorkers = await db.workers.toArray();
       const missingWorkers = localWorkers.filter(w => !cloudWorkerIds.has(w.id) && !w.deletedAt && !isForeignToActiveContext(w.userId, ctx));
@@ -2878,27 +3015,32 @@ async function pullWorkersAndLogsNow() {
         }
       }
     }
-    const [wSig, lSig] = await Promise.all([
-      fetchTableVersionSignature('workers'),
-      fetchTableVersionSignature('attendance_logs')
-    ]);
-    if (wSig !== null) lastKnownWorkersSig = wSig;
-    if (lSig !== null) lastKnownLogsSig = lSig;
+
+    if (wInfo) {
+      lastKnownWorkersInfo = wInfo;
+      lastKnownWorkersSig = wInfo.sig;
+    }
+    if (lInfo) {
+      lastKnownLogsInfo = lInfo;
+      lastKnownLogsSig = lInfo.sig;
+    }
   }
 }
 
 /**
  * Egress-Optimized Background Silent Sync:
  * - In normal mode (force = false): runs 3 tiny metadata-only version queries (~500 bytes total)
- *   and ONLY downloads tables/settings keys whose remote version actually changed!
- * - In forced mode (force = true) or periodic 10-min safety sweep: reconciles all entities and re-primes baseline.
+ *   and ONLY downloads tables/settings keys whose remote version actually changed (using delta sync for workers/logs)!
+ * - NEVER performs blind periodic full-database sweeps.
+ * - In forced mode (force = true, manual Sync button) or cold boot (lastFullReconcileTime === 0): reconciles all entities and re-primes baseline.
  */
 export async function pullRemoteChangesSilently(force = false) {
   if (!navigator.onLine) return;
+  if (!force && isInitialSyncInProgress) return;
   const now = Date.now();
   // Auto-release stale mutex if a previous network request hung > 30s
   if (isPullingRemote && now - remotePullStartedAt < 30000) return;
-  if (!force && now - lastRemotePullTime < 4000) return;
+  if (!force && now - lastRemotePullTime < 15000) return;
   isPullingRemote = true;
   remotePullStartedAt = now;
   lastRemotePullTime = now;
@@ -2907,29 +3049,26 @@ export async function pullRemoteChangesSilently(force = false) {
     const ctx = getActiveWorkspaceContext();
     if (!ctx.userId && !ctx.isLegacyOwner) return;
 
-    const needsFullSweep =
-      force ||
-      lastFullReconcileTime === 0 ||
-      (now - lastFullReconcileTime > 10 * 60 * 1000);
+    const needsFullSweep = force || lastFullReconcileTime === 0;
 
     if (needsFullSweep) {
       await pullWorkerProjectsLive(true);
       await pullGroupsLive(true);
       await pullWorkerMetadataLive(true);
-      await pullWorkersAndLogsNow();
+      await pullWorkersAndLogsNow({ workers: true, logs: true, forceFull: true });
       await pullPaymentsLive(true);
       await pullProjectsLive(true);
       await pullProjectSectionsLive(true);
       await pullExpensesLive(true);
-      await pullExpenseCategoriesLive();
+      await pullExpenseCategoriesLive(true);
       await pullFinancialAccountsLive(true);
       await pullTreasuryIncomesLive(true);
       await pullAccountTransfersLive(true);
       await pullCounterpartiesLive(true);
-      await pullLoansLive(true);
-      await pullChequesLive(true);
-      await pullChequebooksLive(true);
-      await pullContractsLive(true);
+      await pullLoansLive(true, true);
+      await pullChequesLive(true, true);
+      await pullChequebooksLive(true, true);
+      await pullContractsLive(true, true);
       await pullGlobalOverdraftPolicyLive();
       lastFullReconcileTime = Date.now();
       await primeRemoteVersionBaseline().catch(() => {});
@@ -2941,10 +3080,10 @@ export async function pullRemoteChangesSilently(force = false) {
     const keys = specs.map((s) => s.key);
     const specMap = new Map(specs.map((s) => [s.key, s.pull]));
 
-    const [settingsMetaRes, wSig, lSig] = await Promise.all([
+    const [settingsMetaRes, wInfo, lInfo] = await Promise.all([
       supabase.from('settings').select('setting_key, updated_at').in('setting_key', keys),
-      fetchTableVersionSignature('workers'),
-      fetchTableVersionSignature('attendance_logs')
+      fetchTableVersionInfo('workers'),
+      fetchTableVersionInfo('attendance_logs')
     ]);
 
     const changedKeys = [];
@@ -2958,9 +3097,8 @@ export async function pullRemoteChangesSilently(force = false) {
       }
     }
 
-    const workersOrLogsChanged =
-      (wSig !== null && wSig !== lastKnownWorkersSig) ||
-      (lSig !== null && lSig !== lastKnownLogsSig);
+    const workersChanged = Boolean(wInfo && wInfo.sig !== lastKnownWorkersSig);
+    const logsChanged = Boolean(lInfo && lInfo.sig !== lastKnownLogsSig);
 
     // Pull ONLY the specific settings keys whose updated_at changed
     for (const item of changedKeys) {
@@ -2971,9 +3109,15 @@ export async function pullRemoteChangesSilently(force = false) {
       }
     }
 
-    // Pull workers & attendance_logs ONLY if their table signature changed
-    if (workersOrLogsChanged) {
-      await pullWorkersAndLogsNow();
+    // Pull ONLY changed table(s) using incremental delta sync
+    if (workersChanged || logsChanged) {
+      await pullWorkersAndLogsNow({
+        workers: workersChanged,
+        logs: logsChanged,
+        forceFull: false,
+        nextWorkersInfo: wInfo,
+        nextLogsInfo: lInfo
+      });
     }
   } catch (err) {
     console.warn('pullRemoteChangesSilently warning:', err);
@@ -3297,7 +3441,7 @@ export async function pushPaymentsLive() {
     }));
 
     const nowIso = new Date().toISOString();
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_payments'),
       setting_value: JSON.stringify(mergedList),
       updated_at: nowIso
@@ -3340,11 +3484,7 @@ export async function pullPaymentsLive(force = false) {
   isPullingPayments = true;
   lastPaymentsPullTime = now;
   try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_payments'))
-      .maybeSingle();
+    const { data, error } = await fetchTrackedSettingValue(getScopedSettingKey('app_payments'));
 
     if (!error && data && data.setting_value) {
       let cloudPayments = [];
@@ -3532,7 +3672,7 @@ export async function fullSyncBothDirections() {
 /**
  * Compress an image file via canvas before uploading or Base64 fallback (prevents multi-MB Egress bloat)
  */
-async function compressImageForReceipt(file, maxDimension = 960, quality = 0.68) {
+async function compressImageForReceipt(file, maxDimension = 960, quality = 0.65) {
   if (!file || !file.type || !file.type.startsWith('image/')) return null;
   try {
     const dataUrl = await new Promise((resolve, reject) => {
@@ -3565,30 +3705,30 @@ async function compressImageForReceipt(file, maxDimension = 960, quality = 0.68)
 }
 
 /**
- * Upload receipt image to Supabase Storage bucket 'expense-receipts'
- * Compresses images to keep Storage & Egress minimal; falls back to compressed Base64 if offline
+ * Shared Egress-safe image uploader (used for expense receipts, cheque scans, etc.).
+ * Always compresses images via canvas first (~25-55KB instead of 3-5MB phone photos),
+ * uploads to Supabase Storage with 1-year immutable Cache-Control, and falls back to compressed Base64 if offline.
  */
-export async function uploadExpenseReceipt(file) {
+export async function uploadAttachmentImage(file, bucket = 'expense-receipts', prefix = 'receipt') {
   if (!file) return null;
   const compressed = await compressImageForReceipt(file);
   const uploadBody = compressed?.blob || file;
   const ext = compressed?.blob ? 'jpg' : (file.name?.split('.').pop() || 'jpg');
-  const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+  const fileName = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
-  // If online, attempt upload to Supabase Storage bucket 'expense-receipts'
   if (navigator.onLine) {
     try {
       const { data, error } = await supabase.storage
-        .from('expense-receipts')
+        .from(bucket)
         .upload(fileName, uploadBody, {
-          cacheControl: '86400',
+          cacheControl: '31536000',
           contentType: compressed?.blob ? 'image/jpeg' : file.type,
           upsert: true
         });
 
       if (!error && data?.path) {
         const { data: publicUrlData } = supabase.storage
-          .from('expense-receipts')
+          .from(bucket)
           .getPublicUrl(data.path);
         if (publicUrlData?.publicUrl) {
           return publicUrlData.publicUrl;
@@ -3599,7 +3739,7 @@ export async function uploadExpenseReceipt(file) {
     }
   }
 
-  // Fallback to compressed base64 Data URL (~35-60KB instead of 3-5MB raw camera photos)
+  // Fallback to compressed base64 Data URL (~25-55KB instead of 3-5MB raw camera photos)
   if (compressed?.dataUrl) {
     return compressed.dataUrl;
   }
@@ -3610,6 +3750,14 @@ export async function uploadExpenseReceipt(file) {
     reader.onerror = () => resolve(null);
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Upload receipt image to Supabase Storage bucket 'expense-receipts'
+ * Compresses images to keep Storage & Egress minimal; falls back to compressed Base64 if offline
+ */
+export async function uploadExpenseReceipt(file) {
+  return uploadAttachmentImage(file, 'expense-receipts', 'receipt');
 }
 
 let isPullingExpenses = false;
@@ -3630,11 +3778,7 @@ export async function pullExpensesLive(force = false) {
     let cloudExpenses = [];
 
     // Layer A: Universal sync via Supabase 'settings' key 'app_expenses'
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_expenses'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_expenses'));
 
     if (!sErr && sData?.setting_value) {
       try {
@@ -3802,7 +3946,7 @@ export async function pushExpenseLive(expense) {
 
     const mergedList = Array.from(mergedMap.values());
     const nowIso = new Date().toISOString();
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_expenses'),
       setting_value: JSON.stringify(mergedList),
       updated_at: nowIso
@@ -3875,7 +4019,7 @@ export async function softDeleteExpenseLive(expenseId) {
       try {
         const expenses = JSON.parse(data.setting_value) || [];
         const updated = expenses.map(e => e.id === expenseId ? { ...e, deletedAt: now, updatedAt: now } : e);
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_expenses'),
           setting_value: JSON.stringify(updated),
           updated_at: now
@@ -3924,7 +4068,7 @@ export async function restoreExpenseLive(expenseId) {
       try {
         const expenses = JSON.parse(data.setting_value) || [];
         const updated = expenses.map(e => e.id === expenseId ? { ...e, deletedAt: null, updatedAt: now } : e);
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_expenses'),
           setting_value: JSON.stringify(updated),
           updated_at: now
@@ -3986,7 +4130,7 @@ export async function archiveExpenseLive(expenseId, isArchived = true) {
           archivedAt: isArchived ? now : null,
           updatedAt: now
         } : e);
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_expenses'),
           setting_value: JSON.stringify(updated),
           updated_at: now
@@ -4043,7 +4187,7 @@ export async function permanentDeleteExpenseLive(expenseId) {
       try {
         const expenses = JSON.parse(data.setting_value) || [];
         const filtered = expenses.filter(e => e.id !== expenseId);
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_expenses'),
           setting_value: JSON.stringify(filtered),
           updated_at: new Date().toISOString()
@@ -4143,7 +4287,7 @@ export async function pushAllExpensesToCloud() {
     }
 
     const mergedList = Array.from(mergedMap.values());
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_expenses'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
@@ -4156,15 +4300,15 @@ export async function pushAllExpensesToCloud() {
 /**
  * Pull expense categories from Supabase with resilient fallback seeding
  */
-export async function pullExpenseCategoriesLive() {
+let lastExpenseCategoriesPullTime = 0;
+export async function pullExpenseCategoriesLive(force = false) {
   if (!navigator.onLine) return;
+  const now = Date.now();
+  if (!force && now - lastExpenseCategoriesPullTime < 2500) return;
+  lastExpenseCategoriesPullTime = now;
   try {
     let cloudCategories = null;
-    const { data: sData } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_expense_categories'))
-      .maybeSingle();
+    const { data: sData } = await fetchTrackedSettingValue(getScopedSettingKey('app_expense_categories'));
 
     if (sData?.setting_value) {
       try {
@@ -4263,7 +4407,7 @@ export async function pushAllExpenseCategoriesToCloud() {
     const list = await db.expenseCategories.toArray();
     if (!list || list.length === 0) return;
     const nowIso = new Date().toISOString();
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_expense_categories'),
       setting_value: JSON.stringify(list),
       updated_at: nowIso
@@ -4290,7 +4434,7 @@ export async function pushExpenseCategoryLive(cat) {
   try {
     const list = await db.expenseCategories.toArray();
     const nowIso = new Date().toISOString();
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_expense_categories'),
       setting_value: JSON.stringify(list),
       updated_at: nowIso
@@ -4325,7 +4469,7 @@ export async function deleteExpenseCategoryLive(catId) {
   try {
     const list = await db.expenseCategories.toArray();
     const nowIso = new Date().toISOString();
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_expense_categories'),
       setting_value: JSON.stringify(list),
       updated_at: nowIso
@@ -4363,11 +4507,7 @@ export async function pullFinancialAccountsLive(force = false) {
     pendingDeleted.add('acc_mull5f7l_itlwl');
     await db.financialAccounts.delete('acc_mull5f7l_itlwl').catch(() => {});
     let cloudAccounts = null;
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_financial_accounts'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_financial_accounts'));
 
     if (!sErr && sData?.setting_value) {
       try {
@@ -4518,7 +4658,7 @@ export async function pushFinancialAccountLive(account) {
       });
     }
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_financial_accounts'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
@@ -4566,7 +4706,7 @@ export async function deleteFinancialAccountLive(accountId) {
         if (!found) {
           cloudAccounts.push({ id: accountId, deletedAt: new Date().toISOString(), status: 'deleted' });
         }
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_financial_accounts'),
           setting_value: JSON.stringify(cloudAccounts),
           updated_at: new Date().toISOString()
@@ -4626,7 +4766,7 @@ export async function pushAllFinancialAccountsToCloud() {
       }
     }
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_financial_accounts'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
@@ -4654,11 +4794,7 @@ export async function pullTreasuryIncomesLive(force = false) {
   try {
     const pendingDeleted = new Set(getPendingDeletedIncomes());
     let cloudIncomes = null;
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_treasury_incomes'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_treasury_incomes'));
 
     if (!sErr && sData?.setting_value) {
       try {
@@ -4763,7 +4899,7 @@ export async function pushTreasuryIncomeLive(income) {
       });
     }
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_treasury_incomes'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
@@ -4803,7 +4939,7 @@ export async function deleteTreasuryIncomeLive(incomeId) {
           }
           return ci;
         });
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_treasury_incomes'),
           setting_value: JSON.stringify(cloudIncomes),
           updated_at: new Date().toISOString()
@@ -4829,7 +4965,7 @@ export async function pushAllTreasuryIncomesToCloud() {
     const list = await db.treasuryIncomes.toArray();
     const pendingDeleted = new Set(getPendingDeletedIncomes());
     const active = list.filter(i => !pendingDeleted.has(i.id) && !i.deletedAt);
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_treasury_incomes'),
       setting_value: JSON.stringify(active),
       updated_at: new Date().toISOString()
@@ -4851,7 +4987,7 @@ export async function pushGlobalOverdraftPolicyLive(policy) {
 
   if (!navigator.onLine) return;
   try {
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_global_overdraft_policy'),
       setting_value: JSON.stringify({ policy, updatedAt: new Date().toISOString() }),
       updated_at: new Date().toISOString()
@@ -4868,11 +5004,7 @@ export async function pushGlobalOverdraftPolicyLive(policy) {
 export async function pullGlobalOverdraftPolicyLive() {
   if (!navigator.onLine) return;
   try {
-    const { data } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_global_overdraft_policy'))
-      .maybeSingle();
+    const { data } = await fetchTrackedSettingValue(getScopedSettingKey('app_global_overdraft_policy'));
 
     if (data?.setting_value) {
       const parsed = JSON.parse(data.setting_value);
@@ -4901,11 +5033,7 @@ export async function pullAccountTransfersLive(force = false) {
 
   try {
     let cloudTransfers = null;
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_account_transfers'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_account_transfers'));
 
     if (!sErr && sData?.setting_value) {
       try {
@@ -5012,7 +5140,7 @@ export async function pushAccountTransferLive(transfer) {
       });
     }
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_account_transfers'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
@@ -5053,7 +5181,7 @@ export async function deleteAccountTransferLive(transferId) {
           }
           return ct;
         });
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_account_transfers'),
           setting_value: JSON.stringify(cloudTransfers),
           updated_at: new Date().toISOString()
@@ -5078,7 +5206,7 @@ export async function pushAllAccountTransfersToCloud() {
   try {
     const list = await db.accountTransfers.toArray();
     const active = list.filter((t) => !t.deletedAt && t.status !== 'deleted');
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_account_transfers'),
       setting_value: JSON.stringify(active),
       updated_at: new Date().toISOString()
@@ -5139,11 +5267,7 @@ export async function pullCounterpartiesLive(force = false) {
   try {
     const pendingDeleted = new Set(getPendingDeletedCounterparties());
     let cloudCounterparties = null;
-    const { data: sData, error: sErr } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_counterparties'))
-      .maybeSingle();
+    const { data: sData, error: sErr } = await fetchTrackedSettingValue(getScopedSettingKey('app_counterparties'));
 
     if (!sErr && sData?.setting_value) {
       try {
@@ -5236,7 +5360,7 @@ export async function pushCounterpartyLive(counterparty) {
       updatedAt: new Date().toISOString()
     });
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_counterparties'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: new Date().toISOString()
@@ -5273,7 +5397,7 @@ export async function deleteCounterpartyLive(counterpartyId) {
           }
           return cp;
         });
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_counterparties'),
           setting_value: JSON.stringify(cloudList),
           updated_at: new Date().toISOString()
@@ -5296,7 +5420,7 @@ export async function pushAllCounterpartiesToCloud() {
     const list = await db.counterparties.toArray();
     const pendingDeleted = new Set(getPendingDeletedCounterparties());
     const active = list.filter((cp) => !pendingDeleted.has(cp.id) && !cp.deletedAt && cp.status !== 'deleted');
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_counterparties'),
       setting_value: JSON.stringify(active),
       updated_at: new Date().toISOString()
@@ -5352,7 +5476,7 @@ export async function pushLoansLive() {
       monthlyInstallment: roundCurrency(l.monthlyInstallment, l.currency)
     }));
 
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_loans'),
       setting_value: JSON.stringify(mergedList),
       updated_at: new Date().toISOString()
@@ -5364,17 +5488,17 @@ export async function pushLoansLive() {
   }
 }
 
-export async function pullLoansLive(triggerEvent = true) {
+let lastLoansPullTime = 0;
+export async function pullLoansLive(triggerEvent = true, force = true) {
   if (!navigator.onLine || !db.loans) return [];
+  const now = Date.now();
+  if (!force && now - lastLoansPullTime < 2500) return [];
+  lastLoansPullTime = now;
   const ctx = getActiveWorkspaceContext();
   if (!ctx.userId && !ctx.isLegacyOwner) return [];
 
   try {
-    const { data } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_loans'))
-      .maybeSingle();
+    const { data } = await fetchTrackedSettingValue(getScopedSettingKey('app_loans'));
 
     if (data?.setting_value) {
       const cloudLoans = JSON.parse(data.setting_value);
@@ -5434,7 +5558,7 @@ export async function deleteLoanLive(loanId) {
         let cloudList = JSON.parse(data.setting_value) || [];
         cloudList = cloudList.filter(l => l.id !== loanId);
         const nowIso = new Date().toISOString();
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_loans'),
           setting_value: JSON.stringify(cloudList),
           updated_at: nowIso
@@ -5486,7 +5610,7 @@ export async function pushChequeLive(chequeRecord) {
     mergedMap.set(chequeRecord.id, chequeRecord);
 
     const nowIso = new Date().toISOString();
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_cheques'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: nowIso
@@ -5499,17 +5623,17 @@ export async function pushChequeLive(chequeRecord) {
   }
 }
 
-export async function pullChequesLive(triggerEvent = true) {
+let lastChequesPullTime = 0;
+export async function pullChequesLive(triggerEvent = true, force = true) {
   if (!navigator.onLine || !db.cheques) return [];
+  const now = Date.now();
+  if (!force && now - lastChequesPullTime < 2500) return [];
+  lastChequesPullTime = now;
   const ctx = getActiveWorkspaceContext();
   if (!ctx.userId && !ctx.isLegacyOwner) return [];
 
   try {
-    const { data } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_cheques'))
-      .maybeSingle();
+    const { data } = await fetchTrackedSettingValue(getScopedSettingKey('app_cheques'));
 
     if (data?.setting_value) {
       const cloudCheques = JSON.parse(data.setting_value);
@@ -5569,7 +5693,7 @@ export async function deleteChequeLive(chequeId) {
         let cloudList = JSON.parse(data.setting_value) || [];
         cloudList = cloudList.filter(c => c.id !== chequeId);
         const nowIso = new Date().toISOString();
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_cheques'),
           setting_value: JSON.stringify(cloudList),
           updated_at: nowIso
@@ -5621,7 +5745,7 @@ export async function pushChequebookLive(bookRecord) {
     mergedMap.set(bookRecord.id, bookRecord);
 
     const nowIso = new Date().toISOString();
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_chequebooks'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: nowIso
@@ -5634,17 +5758,17 @@ export async function pushChequebookLive(bookRecord) {
   }
 }
 
-export async function pullChequebooksLive(triggerEvent = true) {
+let lastChequebooksPullTime = 0;
+export async function pullChequebooksLive(triggerEvent = true, force = true) {
   if (!navigator.onLine || !db.chequebooks) return [];
+  const now = Date.now();
+  if (!force && now - lastChequebooksPullTime < 2500) return [];
+  lastChequebooksPullTime = now;
   const ctx = getActiveWorkspaceContext();
   if (!ctx.userId && !ctx.isLegacyOwner) return [];
 
   try {
-    const { data } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_chequebooks'))
-      .maybeSingle();
+    const { data } = await fetchTrackedSettingValue(getScopedSettingKey('app_chequebooks'));
 
     if (data?.setting_value) {
       const cloudBooks = JSON.parse(data.setting_value);
@@ -5704,7 +5828,7 @@ export async function deleteChequebookLive(bookId) {
         let cloudList = JSON.parse(data.setting_value) || [];
         cloudList = cloudList.filter(b => b.id !== bookId);
         const nowIso = new Date().toISOString();
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_chequebooks'),
           setting_value: JSON.stringify(cloudList),
           updated_at: nowIso
@@ -5756,7 +5880,7 @@ export async function pushContractLive(contractRecord) {
     mergedMap.set(contractRecord.id, contractRecord);
 
     const nowIso = new Date().toISOString();
-    await supabase.from('settings').upsert({
+    await upsertTrackedSetting({
       setting_key: getScopedSettingKey('app_contracts'),
       setting_value: JSON.stringify(Array.from(mergedMap.values())),
       updated_at: nowIso
@@ -5769,17 +5893,17 @@ export async function pushContractLive(contractRecord) {
   }
 }
 
-export async function pullContractsLive(triggerEvent = true) {
+let lastContractsPullTime = 0;
+export async function pullContractsLive(triggerEvent = true, force = true) {
   if (!navigator.onLine || !db.contracts) return [];
+  const now = Date.now();
+  if (!force && now - lastContractsPullTime < 2500) return [];
+  lastContractsPullTime = now;
   const ctx = getActiveWorkspaceContext();
   if (!ctx.userId && !ctx.isLegacyOwner) return [];
 
   try {
-    const { data } = await supabase
-      .from('settings')
-      .select('setting_value')
-      .eq('setting_key', getScopedSettingKey('app_contracts'))
-      .maybeSingle();
+    const { data } = await fetchTrackedSettingValue(getScopedSettingKey('app_contracts'));
 
     if (data?.setting_value) {
       const cloudContracts = JSON.parse(data.setting_value);
@@ -5838,7 +5962,7 @@ export async function deleteContractLive(contractId) {
       try {
         let cloudList = JSON.parse(data.setting_value) || [];
         cloudList = cloudList.filter(c => c.id !== contractId);
-        await supabase.from('settings').upsert({
+        await upsertTrackedSetting({
           setting_key: getScopedSettingKey('app_contracts'),
           setting_value: JSON.stringify(cloudList),
           updated_at: new Date().toISOString()
