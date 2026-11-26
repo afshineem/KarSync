@@ -8,10 +8,18 @@ import {
 import { getGeminiToolDeclarations, executeAiDatabaseTool } from './aiDatabaseTools';
 
 const STORAGE_KEY = 'karsync_gemini_api_key';
-const DEFAULT_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
+const DEFAULT_MODELS = [
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-flash-latest'
+];
 const BUILTIN_GEMINI_KEY = typeof atob === 'function'
   ? atob('QVEuQWI4Uk42SmlHTE92T3hxTUJ5UUZDUGJJSTlSVzhiTmJXMm4yWTRCc01UR2tsR29kbFE=')
   : '';
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const JALALI_MONTH_NAMES_FA = [
   'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
@@ -51,10 +59,27 @@ export function isGeminiConfigured() {
   return Boolean(getGeminiApiKey());
 }
 
+function isTransientDemandError(status, msg = '') {
+  const lower = String(msg || '').toLowerCase();
+  return (
+    status === 429 ||
+    status === 500 ||
+    status === 503 ||
+    status === 504 ||
+    lower.includes('high demand') ||
+    lower.includes('overloaded') ||
+    lower.includes('temporarily') ||
+    lower.includes('rate limit') ||
+    lower.includes('resource_exhausted') ||
+    lower.includes('unavailable')
+  );
+}
+
 /**
- * Low-level call to Gemini REST API with native Function Calling support and automatic model fallback.
+ * Low-level call to Gemini REST API with native Function Calling support,
+ * multi-family model fallback, and brief exponential backoff on demand spikes.
  */
-async function callGeminiRaw({ contents, systemInstruction = '', tools = null, modelIndex = 0 }) {
+async function callGeminiRaw({ contents, systemInstruction = '', tools = null, modelIndex = 0, retryRound = 0 }) {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     throw new Error('MISSING_API_KEY');
@@ -81,37 +106,54 @@ async function callGeminiRaw({ contents, systemInstruction = '', tools = null, m
     requestBody.tools = [{ functionDeclarations: tools }];
   }
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      const errMsg = errData.error?.message || `HTTP ${res.status}`;
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const errMsg = errData.error?.message || `HTTP ${res.status}`;
+    const isTransient = isTransientDemandError(res.status, errMsg);
+    const shouldFallback = res.status === 404 || res.status === 400 || isTransient;
 
-      // Fallback on unavailable/overloaded/not-found model
-      if ((res.status === 404 || res.status === 503 || res.status === 429) && modelIndex + 1 < DEFAULT_MODELS.length) {
-        return await callGeminiRaw({ contents, systemInstruction, tools, modelIndex: modelIndex + 1 });
-      }
-
-      throw new Error(errMsg);
+    // Try next model family in the fallback pool
+    if (shouldFallback && modelIndex + 1 < DEFAULT_MODELS.length) {
+      if (isTransient) await sleep(350);
+      return await callGeminiRaw({
+        contents,
+        systemInstruction,
+        tools,
+        modelIndex: modelIndex + 1,
+        retryRound
+      });
     }
 
-    return await res.json();
-  } catch (error) {
-    if (
-      modelIndex + 1 < DEFAULT_MODELS.length &&
-      (error.message?.includes('404') || error.message?.includes('503') || error.message?.includes('429'))
-    ) {
-      return await callGeminiRaw({ contents, systemInstruction, tools, modelIndex: modelIndex + 1 });
+    // All models busy: wait briefly and retry once from the top of the pool
+    if (isTransient && retryRound < 1) {
+      await sleep(1200);
+      return await callGeminiRaw({
+        contents,
+        systemInstruction,
+        tools,
+        modelIndex: 0,
+        retryRound: retryRound + 1
+      });
     }
-    throw error;
+
+    if (isTransient) {
+      const busyErr = new Error('MODEL_OVERLOADED');
+      busyErr.detail = errMsg;
+      throw busyErr;
+    }
+
+    throw new Error(errMsg);
   }
+
+  return await res.json();
 }
 
 /**

@@ -32,7 +32,9 @@ const AI_CHAT_COPY = {
     sendLabel: 'ارسال',
     offlineError: 'دستگاه آفلاین است. برای استفاده از دستیار هوشمند به اینترنت متصل شوید.',
     missingKeyError: 'کلید Google Gemini API تنظیم نشده است.',
+    overloadedError: 'سرورهای هوش مصنوعی گوگل در این لحظه شلوغ هستند. لطفاً چند ثانیه صبر کنید و دوباره امتحان کنید.',
     generalError: 'خطا در برقراری ارتباط با دستیار هوشمند. لطفاً دوباره تلاش کنید.',
+    retryLabel: 'تلاش مجدد',
     thinkingDefault: 'در حال بررسی داده‌های کارگاه...'
   },
   ku: {
@@ -47,7 +49,9 @@ const AI_CHAT_COPY = {
     sendLabel: 'ناردن',
     offlineError: 'ئامێرەکە ئۆفلاینە. بۆ بەکارهێنانی یاریدەدەری زیرەک پێویستە پەیوەندی بە ئینتەرنێتەوە هەبێت.',
     missingKeyError: 'کلیلی Google Gemini API ڕێکنەخراوە.',
+    overloadedError: 'سێرڤەرەکانی هۆشی دەستکردی گووگڵ لەم کاتەدا قەرەباڵغن. تکایە چەند چرکەیەک چاوەڕێ بکە و دووبارە هەوڵ بدەرەوە.',
     generalError: 'هەڵەیەک لە پەیوەندی بە یاریدەدەری زیرەک ڕوویدا. تکایە دووبارە هەوڵ بدەرەوە.',
+    retryLabel: 'هەوڵدانەوە',
     thinkingDefault: 'پشکنینی داتاکانی کارگە...'
   },
   en: {
@@ -62,7 +66,9 @@ const AI_CHAT_COPY = {
     sendLabel: 'Send',
     offlineError: 'You are offline. Please connect to the internet to use KarSync AI.',
     missingKeyError: 'Google Gemini API key is not configured.',
+    overloadedError: 'Google AI servers are temporarily experiencing high demand. Please wait a few seconds and try again.',
     generalError: 'Failed to reach KarSync AI. Please try again.',
+    retryLabel: 'Retry',
     thinkingDefault: 'Querying workshop database...'
   }
 };
@@ -367,33 +373,15 @@ export default function AttendanceAiAssistantModal({ isOpen, onClose }) {
     canAccounting: hasPermission('accounting.manage') || hasPermission('settlement.manage') || hasPermission('reports.view')
   }), [hasPermission]);
 
-  const handleSend = async () => {
-    const trimmed = inputValue.trim();
-    if (!trimmed || loading) return;
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setError(copy.offlineError);
-      return;
-    }
-
-    const userMsg = {
-      id: `u_${Date.now()}`,
-      role: 'user',
-      text: trimmed,
-      createdAt: Date.now()
-    };
-
-    const nextHistory = [...messages, userMsg];
-    setMessages(nextHistory);
-    setInputValue('');
+  const executePrompt = async (promptText, baseHistory) => {
     setError(null);
     setLoading(true);
     setStatusText(copy.thinkingDefault);
 
     try {
       const result = await runKarSyncAiChatTurn({
-        history: messages,
-        userMessage: trimmed,
+        history: baseHistory,
+        userMessage: promptText,
         context: {
           activeProjectId: currentProject?.id || DEFAULT_PROJECT_ID,
           activeProjectName: currentProject?.name || '',
@@ -422,6 +410,8 @@ export default function AttendanceAiAssistantModal({ isOpen, onClose }) {
       const errMsg =
         err?.message === 'MISSING_API_KEY'
           ? copy.missingKeyError
+          : err?.message === 'MODEL_OVERLOADED'
+          ? copy.overloadedError
           : err?.message || copy.generalError;
       setError(errMsg);
     } finally {
@@ -429,6 +419,39 @@ export default function AttendanceAiAssistantModal({ isOpen, onClose }) {
       setStatusText('');
       setTimeout(() => textareaRef.current?.focus(), 60);
     }
+  };
+
+  const handleSend = async () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed || loading) return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setError(copy.offlineError);
+      return;
+    }
+
+    const userMsg = {
+      id: `u_${Date.now()}`,
+      role: 'user',
+      text: trimmed,
+      createdAt: Date.now()
+    };
+
+    const prevHistory = messages;
+    setMessages([...prevHistory, userMsg]);
+    setInputValue('');
+    await executePrompt(trimmed, prevHistory);
+  };
+
+  const handleRetryLast = async () => {
+    if (loading || messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role !== 'user' || !lastMsg.text) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setError(copy.offlineError);
+      return;
+    }
+    await executePrompt(lastMsg.text, messages.slice(0, -1));
   };
 
   const handleNewChat = () => {
@@ -588,9 +611,21 @@ export default function AttendanceAiAssistantModal({ isOpen, onClose }) {
 
           {/* Error Banner */}
           {error && (
-            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 text-xs flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span className="leading-relaxed">{error}</span>
+              </div>
+              {messages.length > 0 && messages[messages.length - 1]?.role === 'user' && !loading && (
+                <button
+                  type="button"
+                  onClick={handleRetryLast}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 font-bold text-[11px] flex items-center gap-1 flex-shrink-0 transition-all cursor-pointer active:scale-95"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>{copy.retryLabel}</span>
+                </button>
+              )}
             </div>
           )}
 
