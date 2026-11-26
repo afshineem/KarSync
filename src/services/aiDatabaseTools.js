@@ -42,7 +42,7 @@ export function normalizeToGregorianDate(rawDate) {
   let mo = parseInt(m[2], 10);
   let d = parseInt(m[3], 10);
   if (y >= 1300 && y <= 1550) {
-    const [gy, gm, gd] = jalaliToGregorian(y, mo, d);
+    const { gy, gm, gd } = jalaliToGregorian(y, mo, d);
     y = gy;
     mo = gm;
     d = gd;
@@ -64,11 +64,11 @@ export function resolveMonthKeyToRange(rawMonthKey) {
 
   if (y >= 1300 && y <= 1550) {
     const days = getJalaliMonthDays(y, mo);
-    const [sy, sm, sd] = jalaliToGregorian(y, mo, 1);
-    const [ey, em, ed] = jalaliToGregorian(y, mo, days);
+    const startG = jalaliToGregorian(y, mo, 1);
+    const endG = jalaliToGregorian(y, mo, days);
     return {
-      startDate: `${String(sy).padStart(4, '0')}-${String(sm).padStart(2, '0')}-${String(sd).padStart(2, '0')}`,
-      endDate: `${String(ey).padStart(4, '0')}-${String(em).padStart(2, '0')}-${String(ed).padStart(2, '0')}`,
+      startDate: startG.dateString,
+      endDate: endG.dateString,
       isJalali: true,
       monthKey: `${y}-${String(mo).padStart(2, '0')}`
     };
@@ -614,7 +614,7 @@ export async function executeAiDatabaseTool(toolName, args = {}, context = {}) {
       let scopedPayments = [];
       if (scope === 'unsettled') {
         scopedLogs = (fin?.unsettledLogs || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-        scopedPayments = fin?.unsettledAdvances || [];
+        scopedPayments = Array.isArray(fin?.unsettledPayments) ? fin.unsettledPayments : [];
       } else if (scope === 'all') {
         scopedLogs = workerAllLogs;
         scopedPayments = workerAllPayments;
@@ -708,9 +708,9 @@ export async function executeAiDatabaseTool(toolName, args = {}, context = {}) {
         },
         authoritativeUnsettledBalance: fin ? {
           unsettledLogsCount: (fin.unsettledLogs || []).length,
-          unsettledGrossPay: roundCurrency(fin.unsettledGrossPay ?? fin.totalUnsettledEarned ?? 0, workerCurrency),
-          unsettledAdvances: roundCurrency(fin.unsettledAdvancesTotal ?? fin.totalUnsettledAdvances ?? 0, workerCurrency),
-          unsettledNetDue: roundCurrency(fin.unsettledNetDue ?? 0, workerCurrency)
+          unsettledGrossPay: roundCurrency(fin.unsettledGross ?? 0, workerCurrency),
+          unsettledAdvances: roundCurrency(fin.unsettledAdvances ?? 0, workerCurrency),
+          unsettledNetDue: roundCurrency(fin.netBalanceDue ?? 0, workerCurrency)
         } : null,
         periodSummary: {
           firstDate: fmtDate(scopedLogs[0]?.date, language, calendarType),
@@ -726,7 +726,7 @@ export async function executeAiDatabaseTool(toolName, args = {}, context = {}) {
           totalAdvances: roundCurrency(totalAdvancesInScope, workerCurrency),
           totalSettlementsPaidInScope: roundCurrency(totalSettledPaidInScope, workerCurrency),
           netForScope: scope === 'unsettled' && fin
-            ? roundCurrency(fin.unsettledNetDue, workerCurrency)
+            ? roundCurrency(fin.netBalanceDue ?? 0, workerCurrency)
             : roundCurrency(totalGrossPay - totalAdvancesInScope - totalSettledPaidInScope, workerCurrency),
           sectionBreakdown
         },
@@ -822,7 +822,7 @@ export async function executeAiDatabaseTool(toolName, args = {}, context = {}) {
       for (const w of teamWorkers) {
         const wCurr = getCurrencyForProject(w.projectId || targetPid);
         const fin = calculateWorkerFinancials(w, allLogs, allPayments, wCurr, allLoans);
-        const unsettledNet = Number(fin?.unsettledNetDue) || 0;
+        const unsettledNet = Number(fin?.netBalanceDue) || 0;
         totalUnsettledNetDue += unsettledNet;
 
         let scopedLogs = [];

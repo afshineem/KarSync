@@ -192,7 +192,7 @@ export async function runKarSyncAiChatTurn({
   const currency = context.currency || 'IQD';
   const todayIso = getTodayDateString();
   const [gy, gm, gd] = todayIso.split('-').map((n) => parseInt(n, 10));
-  const [jy, jm, jd] = gregorianToJalali(gy, gm, gd);
+  const { jy, jm, jd } = gregorianToJalali(gy, gm, gd);
   const jalaliToday = `${jy}/${String(jm).padStart(2, '0')}/${String(jd).padStart(2, '0')}`;
   const jalaliMonthName = JALALI_MONTH_NAMES_FA[(jm || 1) - 1] || '';
   const prefersJalali = isJalaliCalendar(calendarType, language);
@@ -362,13 +362,14 @@ export function prepareWorkerAttendanceSummary(worker, allLogs = [], allPayments
     return { date: l.date, type: l.type || 'full', overtimeHours: otH, dayPay, note: l.note || '' };
   });
 
-  const unsettledAdvances = (fin.unsettledAdvances || []).map((p) => ({
+  const openAdvancesArr = Array.isArray(fin.unsettledPayments) ? fin.unsettledPayments : [];
+  const unsettledAdvances = openAdvancesArr.map((p) => ({
     date: p.date || p.createdAt?.slice(0, 10),
     amount: Number(p.amount) || 0,
     note: p.note || p.description || ''
   }));
-  const totalAdvances = unsettledAdvances.reduce((sum, p) => sum + p.amount, 0);
-  const netDue = fin.unsettledNetDue !== undefined ? fin.unsettledNetDue : (totalGrossPay - totalAdvances);
+  const totalAdvances = Number(fin.unsettledAdvances) || unsettledAdvances.reduce((sum, p) => sum + p.amount, 0);
+  const netDue = fin.netBalanceDue !== undefined ? fin.netBalanceDue : (totalGrossPay - totalAdvances);
 
   return {
     worker: { id: worker.id, name: worker.name, role: worker.role || '', dailyRate: worker.dailyRate, overtimeHourlyRate: worker.overtimeHourlyRate, currency },
