@@ -43,12 +43,68 @@ let lastFullReconcileTime = 0;
 let cachedCloudWorkerMetadata = null;
 let cachedCloudWorkerMetadataTime = 0;
 
+const SYNC_WATERMARK_PREFIX = 'karsync_sync_watermark_v1_';
+
+function getSyncWatermarkStorageKey(tenantScope = null) {
+  const scope = tenantScope || getActiveWorkspaceContext().tenantScope || 'sandbox';
+  return `${SYNC_WATERMARK_PREFIX}${scope}`;
+}
+
+function savePersistedSyncWatermark(tenantScope = null) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const scope = tenantScope || getActiveWorkspaceContext().tenantScope;
+    if (!scope || scope === 'sandbox') return;
+    const payload = {
+      tenantScope: scope,
+      lastFullReconcileTime: lastFullReconcileTime || Date.now(),
+      settings: Object.fromEntries(lastKnownSettingVersions.entries()),
+      workers: lastKnownWorkersInfo || null,
+      logs: lastKnownLogsInfo || null
+    };
+    localStorage.setItem(getSyncWatermarkStorageKey(scope), JSON.stringify(payload));
+  } catch (_) {}
+}
+
+function loadPersistedSyncWatermark(tenantScope = null) {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const scope = tenantScope || getActiveWorkspaceContext().tenantScope;
+    if (!scope || scope === 'sandbox') return null;
+    const raw = localStorage.getItem(getSyncWatermarkStorageKey(scope));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.tenantScope !== scope) return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+export function clearPersistedSyncWatermark(tenantScope = null) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const scope = tenantScope || getActiveWorkspaceContext().tenantScope;
+      if (scope) {
+        localStorage.removeItem(getSyncWatermarkStorageKey(scope));
+      }
+    }
+  } catch (_) {}
+  lastKnownSettingVersions = new Map();
+  lastKnownWorkersInfo = null;
+  lastKnownWorkersSig = null;
+  lastKnownLogsInfo = null;
+  lastKnownLogsSig = null;
+  lastFullReconcileTime = 0;
+}
+
 function upsertTrackedSetting(row) {
   const key = row?.setting_key;
   const updatedAt = row?.updated_at || new Date().toISOString();
   if (key) {
     lastKnownSettingVersions.set(key, updatedAt);
     ownRecentSettingWrites.set(key, Date.now());
+    savePersistedSyncWatermark();
   }
   return supabase.from('settings').upsert({
     ...row,
@@ -792,8 +848,10 @@ export async function initRealtimeSync() {
 
 /**
  * Auto sync on startup:
- * If cloud has 0 rows and local has rows -> push local to cloud!
- * If cloud has rows -> pull cloud to local and prime version baseline!
+ * - Local-First Fast Path: if this device already synced this workspace and local Dexie is intact,
+ *   hydrate persisted version watermarks from localStorage and run ONLY the ~500B metadata probe
+ *   so unchanged startups download 0 bytes and changed startups pull ONLY deltas!
+ * - Cold Start / Fresh Device / Cleared Cache: runs full reconciliation once and persists baseline.
  */
 export async function autoInitialSync() {
   if (!navigator.onLine) return;
@@ -804,6 +862,50 @@ export async function autoInitialSync() {
   if (!ctx.userId && !ctx.isLegacyOwner) {
     console.warn('[Sync] Unauthenticated session - skipping autoInitialSync.');
     return;
+  }
+
+  // Local-First Fast Startup Path: skip full database download if we have a valid baseline & intact Dexie
+  const savedWatermark = loadPersistedSyncWatermark(ctx.tenantScope);
+  if (
+    savedWatermark &&
+    savedWatermark.lastFullReconcileTime > 0 &&
+    savedWatermark.settings &&
+    typeof savedWatermark.settings === 'object'
+  ) {
+    try {
+      const [localWorkerCount, localLogCount, localProjectCount] = await Promise.all([
+        db.workers.count(),
+        db.attendanceLogs.count(),
+        db.projects.count()
+      ]);
+      const expectedWorkers = savedWatermark.workers?.count || 0;
+      const expectedLogs = savedWatermark.logs?.count || 0;
+      const localDbIntact =
+        localProjectCount > 0 &&
+        (expectedWorkers === 0 || localWorkerCount > 0) &&
+        (expectedLogs === 0 || localLogCount > 0);
+
+      if (localDbIntact) {
+        lastKnownSettingVersions = new Map(Object.entries(savedWatermark.settings));
+        lastKnownWorkersInfo = savedWatermark.workers || null;
+        lastKnownWorkersSig = savedWatermark.workers?.sig || null;
+        lastKnownLogsInfo = savedWatermark.logs || null;
+        lastKnownLogsSig = savedWatermark.logs?.sig || null;
+        lastFullReconcileTime = savedWatermark.lastFullReconcileTime;
+
+        console.log('⚡ Local-First Fast Startup: probing remote versions (~500B)...');
+        await pullRemoteChangesSilently(false, { bypassInitialGuard: true, bypassCooldown: true });
+        const nowIso = new Date().toISOString();
+        setLastSyncTime(nowIso);
+        window.dispatchEvent(new CustomEvent('workshop-sync-complete', { detail: { time: nowIso } }));
+        return;
+      } else {
+        console.log('🔄 Local Dexie appears empty/cleared compared to saved watermark — running full reconciliation.');
+        clearPersistedSyncWatermark(ctx.tenantScope);
+      }
+    } catch (_) {
+      // Fall through to full initial sync if Dexie count check fails
+    }
   }
 
   const [wRes, lRes] = await Promise.all([
@@ -1650,11 +1752,15 @@ function subscribeToRealtime() {
       const prevVer = lastKnownSettingVersions.get(key);
       const recentOwnAt = ownRecentSettingWrites.get(key) || 0;
       if ((updatedAt && prevVer === updatedAt) || (Date.now() - recentOwnAt < 5000)) {
-        if (updatedAt) lastKnownSettingVersions.set(key, updatedAt);
+        if (updatedAt) {
+          lastKnownSettingVersions.set(key, updatedAt);
+          savePersistedSyncWatermark();
+        }
         return;
       }
       if (updatedAt) {
         lastKnownSettingVersions.set(key, updatedAt);
+        savePersistedSyncWatermark();
       }
 
       // Reuse payload.new.setting_value directly in memory so pull*Live makes ZERO REST API requests
@@ -2958,6 +3064,7 @@ async function primeRemoteVersionBaseline() {
     lastKnownLogsInfo = lInfo;
     lastKnownLogsSig = lInfo.sig;
   }
+  savePersistedSyncWatermark();
 }
 
 async function pullWorkersAndLogsNow(opts = {}) {
@@ -3024,6 +3131,7 @@ async function pullWorkersAndLogsNow(opts = {}) {
       lastKnownLogsInfo = lInfo;
       lastKnownLogsSig = lInfo.sig;
     }
+    savePersistedSyncWatermark();
   }
 }
 
@@ -3034,13 +3142,14 @@ async function pullWorkersAndLogsNow(opts = {}) {
  * - NEVER performs blind periodic full-database sweeps.
  * - In forced mode (force = true, manual Sync button) or cold boot (lastFullReconcileTime === 0): reconciles all entities and re-primes baseline.
  */
-export async function pullRemoteChangesSilently(force = false) {
+export async function pullRemoteChangesSilently(force = false, opts = {}) {
+  const { bypassInitialGuard = false, bypassCooldown = false } = opts || {};
   if (!navigator.onLine) return;
-  if (!force && isInitialSyncInProgress) return;
+  if (!force && !bypassInitialGuard && isInitialSyncInProgress) return;
   const now = Date.now();
   // Auto-release stale mutex if a previous network request hung > 30s
   if (isPullingRemote && now - remotePullStartedAt < 30000) return;
-  if (!force && now - lastRemotePullTime < 15000) return;
+  if (!force && !bypassCooldown && now - lastRemotePullTime < 15000) return;
   isPullingRemote = true;
   remotePullStartedAt = now;
   lastRemotePullTime = now;
@@ -3101,12 +3210,17 @@ export async function pullRemoteChangesSilently(force = false) {
     const logsChanged = Boolean(lInfo && lInfo.sig !== lastKnownLogsSig);
 
     // Pull ONLY the specific settings keys whose updated_at changed
+    let watermarkDirty = false;
     for (const item of changedKeys) {
       const pullFn = specMap.get(item.key);
       if (pullFn) {
         await pullFn().catch((err) => console.warn(`Selective pull failed for ${item.key}:`, err));
         lastKnownSettingVersions.set(item.key, item.version);
+        watermarkDirty = true;
       }
+    }
+    if (watermarkDirty) {
+      savePersistedSyncWatermark();
     }
 
     // Pull ONLY changed table(s) using incremental delta sync
